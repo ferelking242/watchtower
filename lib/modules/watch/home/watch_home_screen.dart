@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/manga.dart';
@@ -48,13 +49,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   Source get source => _source;
   bool get isLocal => source.name == 'local' && source.lang == '';
 
-  // ── Catalogue state ──────────────────────────────────────────────────────
+  // ── Catalogue state ───────────────────────────────────────────────────────
   final List<MManga> _catalogueItems  = [];
   int  _cataloguePage    = 1;
   bool _catalogueHasNext = true;
   bool _catalogueLoading = false;
 
-  // ── List-view state (search / filter / popular / latest) ─────────────────
+  // ── List-view state (search / filter / popular / latest) ──────────────────
   bool   _isSearching  = false;
   bool   _isFiltering  = false;
   String _query        = '';
@@ -72,13 +73,18 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   Timer? _suggestionTimer;
   List<String> _suggestions = [];
 
-  // ── Scroll offset (drives app bar opacity) ───────────────────────────────
+  // ── Voice search ──────────────────────────────────────────────────────────
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
+  bool _isListening     = false;
+
+  // ── Scroll offset (drives app bar opacity) ────────────────────────────────
   double _scrollOffset = 0.0;
 
-  // ── Extension data ───────────────────────────────────────────────────────
+  // ── Extension data ────────────────────────────────────────────────────────
   late final List<Map<String, dynamic>> _customLists =
       isLocal ? [] : getCustomLists(source: source);
-  // ── App-bar height (filled in build, used for padding) ───────────────────
+  // ── App-bar height (filled in build, used for padding) ────────────────────
   double _appBarH = kToolbarHeight;
 
   @override
@@ -91,15 +97,64 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       statusBarBrightness:      Brightness.dark,
     ));
     _scrollCtrl.addListener(_onScroll);
+    _initSpeech();
   }
 
   @override
   void dispose() {
     _suggestionTimer?.cancel();
+    _speech.stop();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Voice search helpers ──────────────────────────────────────────────────
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onError: (_) {
+          if (mounted) setState(() => _isListening = false);
+        },
+        onStatus: (status) {
+          if (status == stt.SpeechToText.notListeningStatus) {
+            if (mounted) setState(() => _isListening = false);
+          }
+        },
+      );
+    } catch (_) {
+      _speechAvailable = false;
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _startVoiceSearch() async {
+    if (!_speechAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reconnaissance vocale indisponible')),
+      );
+      return;
+    }
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
+      return;
+    }
+    setState(() => _isListening = true);
+    await _speech.listen(
+      onResult: (result) {
+        final words = result.recognizedWords;
+        if (words.isNotEmpty) {
+          _searchCtrl.text = words;
+          _onQueryChanged(words);
+        }
+      },
+      listenFor:         const Duration(seconds: 10),
+      pauseFor:          const Duration(seconds: 3),
+      localeId:          'fr_FR',
+    );
   }
 
   void _onScroll() {
@@ -116,6 +171,27 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         !_catalogueLoading) {
       _loadCatalogue();
     }
+  }
+
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
+
+  Future<void> _onRefresh() async {
+    ref.invalidate(getPopularProvider(source: source, page: 1));
+    ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
+    for (final cl in _customLists) {
+      ref.invalidate(getCustomListProvider(
+          source: source, listId: cl['id'] as String, page: 1));
+    }
+    if (mounted) {
+      setState(() {
+        _catalogueItems.clear();
+        _cataloguePage    = 1;
+        _catalogueHasNext = true;
+        _catalogueLoading = false;
+      });
+    }
+    // Allow providers to start rebuilding
+    await Future<void>.delayed(const Duration(milliseconds: 400));
   }
 
   // ── Catalogue pagination ──────────────────────────────────────────────────
@@ -148,7 +224,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     if (mounted) setState(() => _catalogueLoading = false);
   }
 
-  // ── List-view (search / filter / popular) pagination ─────────────────────
+  // ── List-view (search / filter / popular) pagination ──────────────────────
 
   Future<void> _loadMore() async {
     if (_isLoadingMore || !_hasNextPage) return;
@@ -179,21 +255,47 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 
   void _onQueryChanged(String q) {
     _suggestionTimer?.cancel();
-    setState(() => _query = q);
-    if (q.isEmpty) {
-      setState(() { _suggestions = []; _mangaList.clear(); });
-      return;
-    }
-    _suggestionTimer = Timer(const Duration(milliseconds: 600), () async {
+    setState(() {
+      _query = q;
+      if (q.isEmpty) {
+        _suggestions = [];
+        _mangaList.clear();
+      }
+    });
+    if (q.isEmpty) return;
+
+    _suggestionTimer = Timer(const Duration(milliseconds: 350), () async {
       if (!mounted) return;
       setState(() { _mangaList.clear(); _page = 1; _hasNextPage = true; });
-      _getManga = ref.read(
-          searchProvider(source: source, query: q, page: 1,
-              filterList: const []));
+
+      // Populate autocomplete suggestions
+      try {
+        final snap = await ref.read(searchProvider(
+          source: source, query: q, page: 1, filterList: const [],
+        ).future);
+        if (!mounted) return;
+        final titles = (snap?.list ?? [])
+            .map((m) => m.name ?? '')
+            .where((n) => n.isNotEmpty)
+            .toSet()
+            .take(6)
+            .toList();
+        setState(() => _suggestions = titles);
+      } catch (_) {}
     });
   }
 
-  // ── Filter ────────────────────────────────────────────────────────────────
+  void _onSuggestionTap(String title) {
+    _searchCtrl.text = title;
+    _suggestionTimer?.cancel();
+    setState(() {
+      _query       = title;
+      _suggestions = [];
+      _mangaList.clear();
+      _page        = 1;
+      _hasNextPage = true;
+    });
+  }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -205,11 +307,30 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     return Scaffold(
       backgroundColor: nfBackgroundColor,
       extendBody:      true,
-      body: _isSearching ? _buildSearchView(context) : _buildNetflixHome(context),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        transitionBuilder: (child, anim) {
+          final slide = Tween<Offset>(
+            begin: const Offset(0, -0.06),
+            end:   Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+          return FadeTransition(
+            opacity: anim,
+            child:   SlideTransition(position: slide, child: child),
+          );
+        },
+        child: _isSearching
+            ? KeyedSubtree(
+                key: const ValueKey('search'),
+                child: _buildSearchView(context))
+            : KeyedSubtree(
+                key: const ValueKey('home'),
+                child: _buildNetflixHome(context)),
+      ),
     );
   }
 
-  // ── Netflix home view ─────────────────────────────────────────────────────
+  // ── Netflix home view ──────────────────────────────────────────────────────
 
   Widget _buildNetflixHome(BuildContext ctx) {
     // Partition custom lists
@@ -226,93 +347,161 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     final newHotLists = regularLists
         .where((cl) => (cl['layout'] as String? ?? '') == 'new_hot')
         .toList();
+
+    // De-duplicate content rows by display title
+    final seenTitles = <String>{};
     final contentLists = regularLists
         .where((cl) => (cl['layout'] as String? ?? '') != 'new_hot')
+        .where((cl) {
+          final title = (cl['name'] as String? ?? cl['id'] as String).trim();
+          return seenTitles.add(title);
+        })
         .toList();
+
     final catalogueList =
         _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
 
     return Stack(
       children: [
-        // ── Scrollable content ────────────────────────────────────────────
-        NotificationListener<ScrollNotification>(
-          onNotification: (n) {
-            if (n is ScrollUpdateNotification ||
-                n is ScrollEndNotification) {
-              final px = n.metrics.pixels;
-              if ((px - _scrollOffset).abs() > 0.5) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _scrollOffset = px);
-                });
+        // ── Scrollable content ─────────────────────────────────────────────
+        RefreshIndicator(
+          onRefresh: _onRefresh,
+          color:     Colors.white,
+          backgroundColor: const Color(0xFF1A1A1A),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n is ScrollUpdateNotification ||
+                  n is ScrollEndNotification) {
+                final px = n.metrics.pixels;
+                if ((px - _scrollOffset).abs() > 0.5) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _scrollOffset = px);
+                  });
+                }
+                if (px >= n.metrics.maxScrollExtent - 400 &&
+                    _catalogueHasNext &&
+                    !_catalogueLoading) {
+                  _loadCatalogue();
+                }
               }
-              if (px >= n.metrics.maxScrollExtent - 400 &&
-                  _catalogueHasNext &&
-                  !_catalogueLoading) {
-                _loadCatalogue();
-              }
-            }
-            return false;
-          },
-          child: CustomScrollView(
-            controller: _scrollCtrl,
-            physics:    const BouncingScrollPhysics(),
-            slivers: [
-              // ── Hero banner ─────────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: _HeroBannerSection(
-                  source:     source,
-                  customLists: _customLists,
-                  appBarH:    _appBarH,
-                  onTap: (manga) {
-                    if (_tryOpenReel(ctx, manga, source)) return;
-                    pushToMangaReaderDetail(
-                      ref:      ref, context: ctx, getManga: manga,
-                      lang:     source.lang!, source: source.name!,
-                      itemType: source.itemType, sourceId: source.id,
-                    );
-                  },
-                ),
-              ),
-
-              // ── Category chips ───────────────────────────────────────────
-              if (categoryLists.isNotEmpty)
+              return false;
+            },
+            child: CustomScrollView(
+              controller: _scrollCtrl,
+              physics:    const AlwaysScrollableScrollPhysics(
+                              parent: ClampingScrollPhysics()),
+              slivers: [
+                // ── Hero banner ──────────────────────────────────────────
                 SliverToBoxAdapter(
-                  child: _buildCategoryChips(ctx, categoryLists),
+                  child: _HeroBannerSection(
+                    source:     source,
+                    customLists: _customLists,
+                    appBarH:    _appBarH,
+                    onTap: (manga) {
+                      if (_tryOpenReel(ctx, manga, source)) return;
+                      pushToMangaReaderDetail(
+                        ref:      ref, context: ctx, getManga: manga,
+                        lang:     source.lang!, source: source.name!,
+                        itemType: source.itemType, sourceId: source.id,
+                      );
+                    },
+                  ),
                 ),
 
-              // ── Content rows (spotlight / ranked / compact) ──────────────
-              ...contentLists.map((cl) => SliverToBoxAdapter(
-                child: _NfContentRow(
-                  source:  source,
-                  listId:  cl['id'] as String,
-                  title:   cl['name'] as String? ?? cl['id'] as String,
-                  onSeeAll: () => Navigator.of(ctx).push(MaterialPageRoute(
-                    builder: (_) => _WatchSectionPage(
-                      source:       source,
-                      title:        cl['name'] as String? ?? '',
-                      type:         _SectionKind.custom,
-                      customListId: cl['id'] as String,
+                // ── Category chips ────────────────────────────────────────
+                if (categoryLists.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: _buildCategoryChips(ctx, categoryLists),
+                  ),
+
+                // ── Content rows (spotlight / ranked / compact) ───────────
+                ...contentLists.map((cl) => SliverToBoxAdapter(
+                  child: _NfContentRow(
+                    source:  source,
+                    listId:  cl['id'] as String,
+                    title:   cl['name'] as String? ?? cl['id'] as String,
+                    onSeeAll: () => Navigator.of(ctx).push(MaterialPageRoute(
+                      builder: (_) => _WatchSectionPage(
+                        source:       source,
+                        title:        cl['name'] as String? ?? '',
+                        type:         _SectionKind.custom,
+                        customListId: cl['id'] as String,
+                      ),
+                    )),
+                    onTapManga: (manga) {
+                      if (_tryOpenReel(ctx, manga, source)) return;
+                      pushToMangaReaderDetail(
+                        ref: ref, context: ctx, getManga: manga,
+                        lang: source.lang!, source: source.name!,
+                        itemType: source.itemType, sourceId: source.id,
+                      );
+                    },
+                  ),
+                )),
+
+                // ── New & Hot section ─────────────────────────────────────
+                if (newHotLists.isNotEmpty) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                      child: Row(
+                        children: [
+                          const Text('Nouveau & Populaire',
+                              style: TextStyle(
+                                  color:      Colors.white,
+                                  fontSize:   18,
+                                  fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).push(
+                              MaterialPageRoute(
+                                builder: (_) => _WatchSectionPage(
+                                  source:       source,
+                                  title:        'Nouveau & Populaire',
+                                  type:         _SectionKind.custom,
+                                  customListId: newHotLists.first['id'] as String,
+                                ),
+                              ),
+                            ),
+                            child: const Text('Voir tout',
+                                style: TextStyle(color: Colors.white70)),
+                          ),
+                        ],
+                      ),
                     ),
-                  )),
-                  onTapManga: (manga) {
-                    if (_tryOpenReel(ctx, manga, source)) return;
-                    pushToMangaReaderDetail(
-                      ref: ref, context: ctx, getManga: manga,
-                      lang: source.lang!, source: source.name!,
-                      itemType: source.itemType, sourceId: source.id,
-                    );
-                  },
-                ),
-              )),
+                  ),
+                  ...newHotLists.expand((cl) => [
+                    SliverToBoxAdapter(
+                      child: Consumer(builder: (c, r, _) {
+                        final data = r.watch(getCustomListProvider(
+                            source: source,
+                            listId: cl['id'] as String,
+                            page:   1));
+                        return data.when(
+                          data: (d) {
+                            final items = d?.list ?? [];
+                            if (items.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              children: items.take(5).map((m) =>
+                                NfNewAndHotTile(manga: m, source: source),
+                              ).toList(),
+                            );
+                          },
+                          loading: () => _NfShimmerNewHot(),
+                          error:   (_, __) => const SizedBox.shrink(),
+                        );
+                      }),
+                    ),
+                  ]),
+                ],
 
-              // ── New & Hot section ────────────────────────────────────────
-              if (newHotLists.isNotEmpty) ...[
+                // ── Catalogue header ──────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
                     child: Row(
                       children: [
-                        const Text('Nouveau & Populaire',
+                        const Text('Catalogue',
                             style: TextStyle(
                                 color:      Colors.white,
                                 fontSize:   18,
@@ -323,9 +512,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                             MaterialPageRoute(
                               builder: (_) => _WatchSectionPage(
                                 source:       source,
-                                title:        'Nouveau & Populaire',
-                                type:         _SectionKind.custom,
-                                customListId: newHotLists.first['id'] as String,
+                                title:        'Catalogue',
+                                type:         catalogueList != null
+                                    ? _SectionKind.custom
+                                    : _SectionKind.popular,
+                                customListId: catalogueList?['id'] as String?,
                               ),
                             ),
                           ),
@@ -336,88 +527,32 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                     ),
                   ),
                 ),
-                ...newHotLists.expand((cl) => [
-                  SliverToBoxAdapter(
-                    child: Consumer(builder: (c, r, _) {
-                      final data = r.watch(getCustomListProvider(
-                          source: source,
-                          listId: cl['id'] as String,
-                          page:   1));
-                      return data.when(
-                        data: (d) {
-                          final items = d?.list ?? [];
-                          if (items.isEmpty) return const SizedBox.shrink();
-                          return Column(
-                            children: items.take(5).map((m) =>
-                              NfNewAndHotTile(manga: m, source: source),
-                            ).toList(),
-                          );
-                        },
-                        loading: () => _NfShimmerNewHot(),
-                        error:   (_, __) => const SizedBox.shrink(),
-                      );
-                    }),
-                  ),
-                ]),
-              ],
 
-              // ── Catalogue header ─────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                  child: Row(
-                    children: [
-                      const Text('Catalogue',
-                          style: TextStyle(
-                              color:      Colors.white,
-                              fontSize:   18,
-                              fontWeight: FontWeight.bold)),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).push(
-                          MaterialPageRoute(
-                            builder: (_) => _WatchSectionPage(
-                              source:       source,
-                              title:        'Catalogue',
-                              type:         catalogueList != null
-                                  ? _SectionKind.custom
-                                  : _SectionKind.popular,
-                              customListId: catalogueList?['id'] as String?,
-                            ),
-                          ),
-                        ),
-                        child: const Text('Voir tout',
-                            style: TextStyle(color: Colors.white70)),
-                      ),
-                    ],
-                  ),
+                // ── Catalogue grid ────────────────────────────────────────
+                _CatalogueSection(
+                  source:         source,
+                  items:          _catalogueItems,
+                  loading:        _catalogueLoading,
+                  hasNext:        _catalogueHasNext,
+                  catalogueList:  catalogueList,
+                  onFirstLoad: (items, hasNext) {
+                    if (mounted && _catalogueItems.isEmpty) {
+                      setState(() {
+                        _catalogueItems.addAll(items);
+                        _cataloguePage    = 2;
+                        _catalogueHasNext = hasNext;
+                      });
+                    }
+                  },
                 ),
-              ),
 
-              // ── Catalogue grid ───────────────────────────────────────────
-              _CatalogueSection(
-                source:         source,
-                items:          _catalogueItems,
-                loading:        _catalogueLoading,
-                hasNext:        _catalogueHasNext,
-                catalogueList:  catalogueList,
-                onFirstLoad: (items, hasNext) {
-                  if (mounted && _catalogueItems.isEmpty) {
-                    setState(() {
-                      _catalogueItems.addAll(items);
-                      _cataloguePage    = 2;
-                      _catalogueHasNext = hasNext;
-                    });
-                  }
-                },
-              ),
-
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            ),
           ),
         ),
 
-        // ── Floating app bar overlay ──────────────────────────────────────
+        // ── Floating app bar overlay ────────────────────────────────────
         Positioned(
           top:   0,
           left:  0,
@@ -434,7 +569,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Category chips ────────────────────────────────────────────────────────
+  // ── Category chips ─────────────────────────────────────────────────────────
 
   Widget _buildCategoryChips(
       BuildContext ctx, List<Map<String, dynamic>> cats) {
@@ -514,9 +649,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                               child: Text(
                                 listName,
                                 style: const TextStyle(
-                                  color:      Colors.white,
-                                  fontSize:   13,
-                                  fontWeight: FontWeight.w800,
+                                  color:         Colors.white,
+                                  fontSize:      13,
+                                  fontWeight:    FontWeight.w800,
                                   letterSpacing: 0.2,
                                 ),
                                 textAlign: TextAlign.center,
@@ -538,37 +673,44 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  // ── Search view ───────────────────────────────────────────────────────────
+  // ── Search view ────────────────────────────────────────────────────────────
 
   Widget _buildSearchView(BuildContext ctx) {
     final topPad = MediaQuery.paddingOf(ctx).top;
 
     return Column(
       children: [
-        // ── Search bar ─────────────────────────────────────────────────────
+        // ── Search bar ───────────────────────────────────────────────────
         Container(
           color:   Colors.black,
           padding: EdgeInsets.only(top: topPad + 4, left: 8, right: 8, bottom: 8),
           child: Row(
             children: [
-              IconButton(
-                onPressed: () => setState(() {
+              // Back button — circular translucent backdrop
+              NfCircleIconButton(
+                icon:  Icons.arrow_back_rounded,
+                onTap: () => setState(() {
                   _isSearching = false;
                   _query       = '';
                   _searchCtrl.clear();
                   _suggestions = [];
                   _mangaList.clear();
                 }),
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
               ),
+              const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   controller:  _searchCtrl,
                   autofocus:   true,
                   style:       const TextStyle(color: Colors.white),
                   decoration:  InputDecoration(
-                    hintText:  'Rechercher…',
-                    hintStyle: const TextStyle(color: Colors.white54),
+                    hintText:  _isListening
+                        ? 'Je vous écoute…'
+                        : 'Rechercher…',
+                    hintStyle: TextStyle(
+                        color: _isListening
+                            ? Colors.redAccent.shade100
+                            : Colors.white54),
                     border:    OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide:   BorderSide.none,
@@ -581,11 +723,51 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                   onChanged: _onQueryChanged,
                 ),
               ),
+              const SizedBox(width: 8),
+              // Voice search mic
+              NfCircleIconButton(
+                icon: _isListening
+                    ? Icons.mic_rounded
+                    : Icons.mic_none_rounded,
+                onTap: _startVoiceSearch,
+                size: 20,
+              ),
             ],
           ),
         ),
 
-        // ── Results ────────────────────────────────────────────────────────
+        // ── Autocomplete suggestions ──────────────────────────────────────
+        if (_suggestions.isNotEmpty)
+          Container(
+            color: const Color(0xFF0D0D0D),
+            child: Column(
+              children: _suggestions.map((title) => InkWell(
+                onTap: () => _onSuggestionTap(title),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search_rounded,
+                          size: 16, color: Colors.white38),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )).toList(),
+            ),
+          ),
+
+        // ── Results ──────────────────────────────────────────────────────
         Expanded(
           child: _query.isEmpty
               ? _buildPopularGrid(ctx)
@@ -657,7 +839,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   }
 }
 
-// ── Hero banner section ───────────────────────────────────────────────────────
+// ── Hero banner section ────────────────────────────────────────────────────────
 // Picks first item from 'banner' list, falls back to first popular item.
 
 class _HeroBannerSection extends ConsumerWidget {
@@ -731,7 +913,7 @@ class _HeroBannerSection extends ConsumerWidget {
   }
 }
 
-// ── Horizontal content row ────────────────────────────────────────────────────
+// ── Horizontal content row ─────────────────────────────────────────────────────
 // One section: title + "Voir tout" + horizontal ListView of NfMovieBox.
 
 class _NfContentRow extends ConsumerWidget {
@@ -841,7 +1023,7 @@ class _NfContentRow extends ConsumerWidget {
   }
 }
 
-// ── Shimmer loading row ───────────────────────────────────────────────────────
+// ── Shimmer loading row ────────────────────────────────────────────────────────
 
 class _NfShimmerRow extends StatelessWidget {
   @override
@@ -871,7 +1053,7 @@ class _NfShimmerRow extends StatelessWidget {
   }
 }
 
-// ── Shimmer new & hot placeholder ─────────────────────────────────────────────
+// ── Shimmer new & hot placeholder ──────────────────────────────────────────────
 
 class _NfShimmerNewHot extends StatelessWidget {
   @override
@@ -908,7 +1090,24 @@ class _NfShimmerNewHot extends StatelessWidget {
   }
 }
 
-// ── Catalogue sliver section ──────────────────────────────────────────────────
+// ── Shimmer poster tile (catalogue & section-page loading cells) ───────────────
+
+class _NfShimmerPosterTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer(
+      gradient: nfShimmerGradient,
+      child: Container(
+        decoration: BoxDecoration(
+          color:        Colors.black,
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Catalogue sliver section ───────────────────────────────────────────────────
 
 class _CatalogueSection extends ConsumerWidget {
   final Source               source;
@@ -959,15 +1158,7 @@ class _CatalogueSection extends ConsumerWidget {
           crossAxisSpacing:   8,
         ),
         delegate: SliverChildBuilderDelegate(
-          (_, __) => Shimmer(
-            gradient: nfShimmerGradient,
-            child: Container(
-              decoration: BoxDecoration(
-                color:        Colors.black,
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
+          (_, __) => _NfShimmerPosterTile(),
           childCount: 12,
         ),
       ),
@@ -986,14 +1177,7 @@ class _CatalogueSection extends ConsumerWidget {
       ),
       delegate: SliverChildBuilderDelegate(
         (c2, i) {
-          if (i >= all.length) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          }
+          if (i >= all.length) return _NfShimmerPosterTile();
           return MangaImageCardWidget(
             getMangaDetail:    all[i],
             source:            source,
@@ -1007,7 +1191,7 @@ class _CatalogueSection extends ConsumerWidget {
   }
 }
 
-// ── Reel helper ───────────────────────────────────────────────────────────────
+// ── Reel helper ────────────────────────────────────────────────────────────────
 // Returns true if reel navigation was handled (skip pushToMangaReaderDetail).
 
 bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
@@ -1027,11 +1211,11 @@ bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
   }
 }
 
-// ── Section kind ──────────────────────────────────────────────────────────────
+// ── Section kind ───────────────────────────────────────────────────────────────
 
 enum _SectionKind { popular, latest, custom }
 
-// ── Full-page section drill-down ("Voir tout") ────────────────────────────────
+// ── Full-page section drill-down ("Voir tout") ─────────────────────────────────
 
 class _WatchSectionPage extends ConsumerStatefulWidget {
   final Source        source;
@@ -1113,17 +1297,63 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).viewPadding.top;
     return Scaffold(
       backgroundColor: nfBackgroundColor,
-      appBar: AppBar(
-        title:           Text(widget.title,
-            style: const TextStyle(color: Colors.white)),
-        backgroundColor: Colors.transparent,
-        elevation:       0,
-        iconTheme:       const IconThemeData(color: Colors.white),
+      // ── Redesigned header: pill title + filter icon ──────────────────
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                NfCircleIconButton(
+                  icon:  Icons.arrow_back_ios_new_rounded,
+                  onTap: () => Navigator.of(context).pop(),
+                  size:  20,
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 7),
+                  decoration: BoxDecoration(
+                    color:        Colors.white.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color:      Colors.white,
+                      fontSize:   14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                NfCircleIconButton(
+                  icon:  Icons.tune_rounded,
+                  onTap: () {},
+                  size:  20,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       body: _items.isEmpty && _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? GridView.builder(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 140,
+                childAspectRatio:   0.65,
+                mainAxisSpacing:    8,
+                crossAxisSpacing:   8,
+              ),
+              itemCount: 12,
+              itemBuilder: (_, __) => _NfShimmerPosterTile(),
+            )
           : _items.isEmpty && _error != null
               ? Center(
                   child: Column(
@@ -1150,14 +1380,7 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
                   ),
                   itemCount: _items.length + (_loading ? 3 : 0),
                   itemBuilder: (c, i) {
-                    if (i >= _items.length) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    }
+                    if (i >= _items.length) return _NfShimmerPosterTile();
                     return MangaImageCardWidget(
                       getMangaDetail:    _items[i],
                       source:            widget.source,
@@ -1170,7 +1393,7 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
   }
 }
 
-// ── View-toggle button (filter sheet) ────────────────────────────────────────
+// ── View-toggle button (filter sheet) ─────────────────────────────────────────
 
 class _ViewToggleBtn extends StatelessWidget {
   final IconData  icon;

@@ -38,6 +38,8 @@ class CoverViewWidget extends StatelessWidget {
                 onTap: onTap,
                 onLongPress: onLongPress,
                 onSecondaryTap: onSecondaryTap,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
                 child: Container(
                   color: isLongPressed != null && isLongPressed!
                       ? context.primaryColor.withValues(alpha: 0.4)

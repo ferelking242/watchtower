@@ -244,6 +244,8 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
             color: Colors.transparent,
             clipBehavior: Clip.antiAliasWithSaveLayer,
             child: InkWell(
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
               onTap: () {
                 pushToMangaReaderDetail(
                   ref: ref,
