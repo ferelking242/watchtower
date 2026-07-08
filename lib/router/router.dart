@@ -68,6 +68,7 @@ import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/novel/home/novel_home_screen.dart';
 import 'package:watchtower/modules/watch/home/watch_home_screen.dart';
 import 'package:watchtower/modules/watch/reel/reel_screen.dart';
+import 'package:watchtower/modules/watch/reel/creator_profile_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
 import 'package:watchtower/modules/more/about/about_screen.dart';
 import 'package:watchtower/modules/more/about/log_viewer_screen.dart';
@@ -233,6 +234,17 @@ class RouterNotifier extends ChangeNotifier {
         source: data['source'] as Source,
         listId: data['listId'] as String,
         startGifId: data['startGifId'] as String?,
+      ),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "creatorProfile",
+      builder: (data) => CreatorProfileScreen(
+        source:        data['source']        as Source,
+        creator:       data['creator']       as String,
+        creatorAvatar: (data['creatorAvatar'] ?? '') as String,
+        verified:      (data['verified']     ?? false) as bool,
+        followers:     (data['followers']    ?? 0) as int,
+        bio:           (data['bio']          ?? '') as String,
       ),
     ),
     _genericRoute<(Source?, bool)>(
