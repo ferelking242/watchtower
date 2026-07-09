@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
@@ -151,6 +153,48 @@ class AppLogger {
     if (!_liveCtrl.isClosed) {
       _liveCtrl.add(entry);
     }
+  }
+
+  /// Throttle guard for [_pushToNtfy] — avoids flooding the phone with a
+  /// notification storm when the same error repeats every frame (e.g. a
+  /// build-method exception firing on every rebuild).
+  static DateTime? _lastNtfyPush;
+  static const _ntfyThrottle = Duration(seconds: 8);
+
+  /// Fire-and-forget: sends ERROR-level log entries to the same ntfy topic
+  /// used for CI build notifications, so a crash on-device reaches the
+  /// phone as a push notification with the full message + stack — no PC,
+  /// no adb, no DevTools required to see what broke.
+  static void _pushToNtfy(String formatted) {
+    final now = DateTime.now();
+    if (_lastNtfyPush != null &&
+        now.difference(_lastNtfyPush!) < _ntfyThrottle) {
+      return;
+    }
+    _lastNtfyPush = now;
+    // Never let a notification failure crash the app or block the caller.
+    Future(() async {
+      try {
+        await http
+            .post(
+              Uri.parse('https://ntfy.sh/watchtower'),
+              headers: const {
+                'Title': 'Watchtower crash',
+                'Priority': 'high',
+                'Tags': 'boom',
+              },
+              body: utf8.encode(
+                formatted.length > 3800
+                    ? formatted.substring(0, 3800)
+                    : formatted,
+              ),
+            )
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // Offline or ntfy unreachable — the error is still in the in-app
+        // log viewer/overlay, nothing more to do here.
+      }
+    });
   }
 
   /// Absolute path of today's log file (`<storage>/Watchtower/.dev/YYYY-MM-DD.log`).
@@ -302,6 +346,14 @@ class AppLogger {
     }
 
     final formatted = entry.toString();
+
+    // Remote crash reporting — pushes ERROR-level entries to ntfy so they
+    // reach the phone as a notification without needing a PC/adb/DevTools
+    // to read logcat. Fire-and-forget, throttled, never blocks/crashes on
+    // its own failure (no network, ntfy down, etc.).
+    if (logLevel == LogLevel.error) {
+      _pushToNtfy(formatted);
+    }
 
     // ALWAYS push to the in-memory ring + live broadcast so the floating
     // overlay and log viewer's in-memory fallback always work, even when
