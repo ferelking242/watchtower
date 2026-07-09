@@ -249,6 +249,21 @@ dev_dependencies:
   protoc_plugin: ^23.0.0
 
 dependency_overrides:
+  media_kit:
+    git:
+      url: https://github.com/kodjodevf/media-kit.git
+      path: media_kit
+      ref: f5796d287b642548e7e703bbc592f01dd7b1befe
+  media_kit_video:
+    git:
+      url: https://github.com/kodjodevf/media-kit.git
+      path: media_kit_video
+      ref: f5796d287b642548e7e703bbc592f01dd7b1befe
+  media_kit_libs_video:
+    git:
+      url: https://github.com/kodjodevf/media-kit.git
+      path: libs/universal/media_kit_libs_video
+      ref: f5796d287b642548e7e703bbc592f01dd7b1befe
   analyzer: ^9.0.0
   ffi: ^2.1.3
   html: ^0.15.4
