@@ -426,7 +426,7 @@ class _MyAppState extends ConsumerState<MyApp>
           }
         }
         if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
-          child = _MouseBackButtonHandler(router: router, child: child);
+          child = _MouseBackButtonHandler(router: router, child: child ?? const SizedBox.shrink());
         }
         // Apply UI scale from Advanced Settings
           if (Hive.isBoxOpen('advanced_settings')) {
@@ -441,7 +441,7 @@ class _MyAppState extends ConsumerState<MyApp>
               );
             }
           }
-          return child;
+          return child ?? const SizedBox.shrink();
         },
       routeInformationParser: router.routeInformationParser,
       routerDelegate: router.routerDelegate,

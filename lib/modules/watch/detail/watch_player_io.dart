@@ -20,6 +20,7 @@ import 'package:volume_controller/volume_controller.dart';
 import 'package:munchtoast/munchtoast.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/chapter.dart';
   import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/services/get_video_list.dart';
