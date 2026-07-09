@@ -49,10 +49,18 @@
         config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
       end
 
-      # Force wakelock_plus to static library — TrollStore ldid CoreTrust bypass
-      # fails on this framework when compiled as a dynamic .framework.
-      # Static linkage merges it into the main Runner binary — no separate signing needed.
-      if target.name == 'wakelock_plus'
+      # Force wakelock_plus and bonsoir_darwin to static libraries — TrollStore
+      # ldid CoreTrust bypass fails on these frameworks when compiled as
+      # dynamic .framework bundles. On jailbroken/TrollStore installs (custom
+      # dyld under /private/preboot/.../dopamine-*/procursus/basebin), the
+      # Swift type metadata for a dynamic framework's plugin class can't be
+      # resolved at first use, crashing with SIGSEGV in swift_getObjectType
+      # right when the plugin's register(with:) tries to instantiate — this
+      # is exactly what happened with bonsoir_darwin's SwiftBonsoirPlugin.
+      # Static linkage merges the framework into the main Runner binary, so
+      # there is no separate framework to sign/load and no metadata lookup
+      # across a dynamic image boundary.
+      if ['wakelock_plus', 'bonsoir_darwin'].include?(target.name)
         target.build_configurations.each do |config|
           config.build_settings['MACH_O_TYPE'] = 'staticlib'
         end
