@@ -384,7 +384,7 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) => MigrationScreen(manga: data.$1, trackSearch: data.$2),
     ),
     _genericRoute<(String, ItemType, AlgorithmWeights)>(
-      name: "recommendations",
+      name: "recommendationDetail",
       builder: (data) => RecommendationScreen(
         name: data.$1,
         itemType: data.$2,

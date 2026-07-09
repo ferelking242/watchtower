@@ -922,7 +922,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                   onOpen: () {
                                     final w = ref.read(algorithmWeightsStateProvider);
                                     context.push(
-                                      '/recommendations',
+                                      '/recommendationDetail',
                                       extra: (
                                         widget.manga!.name,
                                         widget.manga!.itemType,
