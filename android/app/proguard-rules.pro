@@ -84,6 +84,17 @@
   -dontwarn com.google.android.play.**
   -dontwarn com.google.android.play.core.**
 
+  # GeneratedPluginRegistrant unconditionally references every plugin listed
+  # in pubspec.yaml, including many whose Android implementation classes are
+  # legitimately absent at compile time for this variant (iOS/desktop-only
+  # plugins, or plugins whose AAR doesn't ship its own consumer-rules.pro).
+  # R8's missing-class check treats every one of these as a hard build error
+  # under profile/release. Rather than enumerate every plugin one at a time
+  # (each round trip costs a full CI build), suppress missing-class warnings
+  # globally — this only silences "class X is referenced but absent",
+  # it does not change what -keep rules above actually retain.
+  -dontwarn **
+
   # kxml2 (org.xmlpull.v1.XmlPullParser) duplicates the platform's own
   # android.content.res.XmlResourceParser hierarchy under R8 full-mode
   # shrinking (profile/release builds only — debug has minify disabled).
