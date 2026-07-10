@@ -395,15 +395,6 @@ class DartExtensionService implements ExtensionService {
     }
   }
 
-  @override
-  List<Map<String, dynamic>> getCustomLists() {
-    try {
-      final result = _interpreter!.invoke('getCustomLists', []) as List;
-      return result.cast<Map<String, dynamic>>();
-    } catch (_) {
-      return [];
-    }
-  }
 
   @override
   Future<List<String>> getSuggestions(String query) async => [];

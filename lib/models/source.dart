@@ -96,6 +96,14 @@ class Source {
   List<String>? videoQualities;
   List<String>? contentSubtype;
 
+  /// Path to the ui-layout JSON in the extensions repo.
+  /// Example: "ui-layouts/redgifs.json"
+  /// Null = no custom layout (standard Popular/Latest/Search only).
+  String? uiLayout;
+
+  /// Version of the downloaded layout file, compared against catalogue.
+  String? uiLayoutVersion;
+
   Source({
     this.id = 0,
     this.name = '',
@@ -192,6 +200,8 @@ class Source {
     upstream = json['upstream'] as String?;
     videoQualities = (json['videoQualities'] as List<dynamic>?)?.cast<String>();
     contentSubtype = (json['contentSubtype'] as List<dynamic>?)?.cast<String>();
+    uiLayout = json['uiLayout'] as String?;
+    uiLayoutVersion = json['uiLayoutVersion'] as String?;
   }
 
   Map<String, dynamic> toJson() => {
@@ -239,6 +249,8 @@ class Source {
     'upstream': upstream,
     'videoQualities': videoQualities,
     'contentSubtype': contentSubtype,
+    'uiLayout': uiLayout,
+    'uiLayoutVersion': uiLayoutVersion,
   };
 
   bool get isTorrent => (typeSource?.toLowerCase() ?? "") == "torrent";

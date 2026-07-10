@@ -266,7 +266,6 @@ class MihonExtensionService implements ExtensionService {
   }
 
   @override
-  List<Map<String, dynamic>> getCustomLists() => [];
 
   @override
   Future<MPages> getCustomList(String id, int page) =>

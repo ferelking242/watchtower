@@ -16,7 +16,6 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
-import 'package:watchtower/services/get_custom_lists.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/search.dart';
@@ -27,6 +26,8 @@ import 'nf_widgets/nf_highlight_banner.dart';
 import 'nf_widgets/nf_movie_box.dart';
 import 'nf_widgets/nf_new_and_hot_tile.dart';
 import 'nf_widgets/nf_utils.dart';
+import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/services/layout_registry.dart';
 
 // ── WatchHomeScreen ───────────────────────────────────────────────────────────
 
@@ -82,8 +83,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   double _scrollOffset = 0.0;
 
   // ── Extension data ────────────────────────────────────────────────────────
-  late final List<Map<String, dynamic>> _customLists =
-      isLocal ? [] : getCustomLists(source: source);
+  List<Map<String, dynamic>> _customLists = const [];
   // ── App-bar height (filled in build, used for padding) ────────────────────
   double _appBarH = kToolbarHeight;
 
@@ -97,10 +97,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       statusBarBrightness:      Brightness.dark,
     ));
     _scrollCtrl.addListener(_onScroll);
+    _loadLayout();
     _initSpeech();
   }
 
   @override
+
   void dispose() {
     _suggestionTimer?.cancel();
     _speech.stop();
@@ -109,6 +111,21 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     _searchCtrl.dispose();
     super.dispose();
   }
+
+  Future<void> _loadLayout() async {
+    if (isLocal) return;
+    await LayoutRegistry.instance.load(source);
+    if (!mounted) return;
+    setState(() {
+      _customLists = LayoutRegistry.instance
+          .get(source)
+          .home
+          .sections
+          .map((s) => s.toLegacyMap())
+          .toList();
+    });
+  }
+
 
   // ── Voice search helpers ──────────────────────────────────────────────────
 

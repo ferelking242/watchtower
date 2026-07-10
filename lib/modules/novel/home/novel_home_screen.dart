@@ -12,7 +12,6 @@ import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_detail.dart';
-import 'package:watchtower/services/get_custom_lists.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
@@ -26,6 +25,8 @@ import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
+import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/services/layout_registry.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Accent colours for the novel module
@@ -68,8 +69,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   bool _catalogueHasNext = true;
   bool _catalogueLoading = false;
 
-  late final List<Map<String, dynamic>> _customLists =
-      isLocal ? [] : getCustomLists(source: source);
+  List<Map<String, dynamic>> _customLists = const [];
   late final List<dynamic> filterList =
       isLocal ? [] : getFilterList(source: source);
   late List<dynamic> filters = List.from(filterList);
@@ -88,6 +88,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
     _homeScrollCtrl.addListener(_onHomeScroll);
+    _loadLayout();
   }
 
   @override
@@ -96,6 +97,20 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     _searchCtrl.dispose();
     _homeScrollCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLayout() async {
+    if (isLocal) return;
+    await LayoutRegistry.instance.load(source);
+    if (!mounted) return;
+    setState(() {
+      _customLists = LayoutRegistry.instance
+          .get(source)
+          .home
+          .sections
+          .map((s) => s.toLegacyMap())
+          .toList();
+    });
   }
 
   bool get supportsLatest =>

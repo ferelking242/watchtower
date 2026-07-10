@@ -20,7 +20,6 @@ import 'package:watchtower/modules/widgets/listview_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_detail.dart';
-import 'package:watchtower/services/get_custom_lists.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
@@ -43,6 +42,8 @@ import 'package:flutter_popup/flutter_popup.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/services/layout_registry.dart';
 
 enum _HomeMenuAction { openBrowser, settings, diagnostic }
 
@@ -114,8 +115,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
   int _page = 1;
   bool _hasNextPage = true;
 
-  late final List<Map<String, dynamic>> _customLists =
-      isLocal ? [] : getCustomLists(source: source);
+  List<Map<String, dynamic>> _customLists = const [];
 
   // _tabs is built lazily on first access in build() so supportsLatest is available
   List<_TabEntry>? _tabsCache;
@@ -124,7 +124,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
   List<_TabEntry> _buildTabList() {
     final tabs = <_TabEntry>[];
 
-    // Accueil — only if the extension explicitly declares id='home' in getCustomLists()
+    // Accueil — only if the layout JSON declares id='home' in home.sections
     if (!isLocal) {
       final homeCl = _customLists.where((cl) => cl['id'] == 'home').firstOrNull;
       if (homeCl != null) {
@@ -237,6 +237,21 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _loadLayout();
+  }
+
+  Future<void> _loadLayout() async {
+    if (isLocal) return;
+    await LayoutRegistry.instance.load(source);
+    if (!mounted) return;
+    setState(() {
+      _customLists = LayoutRegistry.instance
+          .get(source)
+          .home
+          .sections
+          .map((s) => s.toLegacyMap())
+          .toList();
+    });
   }
 
   void _onScroll() {

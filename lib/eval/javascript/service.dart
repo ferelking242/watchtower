@@ -111,9 +111,6 @@ class MProvider {
     getSourcePreferences() {
         throw new Error("getSourcePreferences not implemented");
     }
-    getCustomLists() {
-        return [];
-    }
     async getCustomList(id, page) {
         throw new Error("getCustomList not implemented for id: " + id);
     }
@@ -546,19 +543,6 @@ function extLog(level, msg) {
     }
   }
 
-  @override
-  List<Map<String, dynamic>> getCustomLists() {
-    try {
-      final result = _extensionCall<List>('getCustomLists()', []);
-      return result
-          .whereType<Map>()
-          .map((e) => e.cast<String, dynamic>())
-          .toList();
-    } catch (e) {
-      _extWarn('$_id · getCustomLists FAILED ← $e');
-      return [];
-    }
-  }
 
   @override
   Future<MPages> getCustomList(String id, int page) async {
