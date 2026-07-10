@@ -58,7 +58,7 @@ final _kDefaultItems = <_SpeedItem>[
     id: 'settings',
     label: 'Settings',
     icon: Icons.settings_outlined,
-    action: (ctx, ref) => ctx.go('/more'),
+    action: (ctx, ref) => ctx.go('/settings'),
   ),
   _SpeedItem(
     id: 'offline',
@@ -81,7 +81,7 @@ final _kDefaultItems = <_SpeedItem>[
     id: 'torrent',
     label: 'Torrent list',
     icon: Icons.cloud_download_outlined,
-    action: (ctx, ref) => ctx.go('/more'),
+    action: (ctx, ref) => ctx.go('/settings'),
   ),
   _SpeedItem(
     id: 'manga',
