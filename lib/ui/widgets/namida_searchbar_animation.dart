@@ -1,0 +1,477 @@
+// Source: github.com/namidaco/namida — lib/packages/searchbar_animation.dart (GPL-3.0)
+// Watchtower adaptation: replaced TapDetector/CustomAnimatedSwitcher (namida
+// internal helpers) with GestureDetector/AnimatedSwitcher equivalents.
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+class SearchBarAnimation extends StatefulWidget {
+  final double? searchBoxWidth;
+  final double buttonElevation;
+  final TextEditingController textEditingController;
+  final Widget trailingWidget;
+  final Widget? buttonWidgetSmall;
+  final double buttonWidgetSmallPadding;
+  final Widget buttonWidget;
+  final Widget secondaryButtonWidget;
+  final TextStyle? Function(double height)? hintTextStyle;
+  final Color? searchBoxColour;
+  final Color? buttonColour;
+  final Color? cursorColour;
+  final Color? searchBoxBorderColour;
+  final Color? buttonShadowColour;
+  final Color? buttonBorderColour;
+  final String hintText;
+  final int durationInMilliSeconds;
+  final bool isSearchBoxOnRightSide;
+  final bool enableKeyboardFocus;
+  final bool enableButtonShadow;
+  final bool enableBoxShadow;
+  final bool textAlignToRight;
+  final bool enableBoxBorder;
+  final bool enableButtonBorder;
+  final bool isOriginalAnimation;
+  final TextStyle? enteredTextStyle;
+  final Function(String? value)? onSaved;
+  final void Function(String value)? onChanged;
+  final void Function(String value)? onFieldSubmitted;
+  final void Function()? onEditingComplete;
+  final void Function()? onExpansionComplete;
+  final void Function()? onCollapseComplete;
+  final Function(bool isOpen)? onPressButton;
+  final TextInputType textInputType;
+  final List<TextInputFormatter>? inputFormatters;
+  final void Function()? onTap;
+  final void Function(PointerDownEvent event)? onTapOutside;
+  final double? cursorHeight;
+  final Radius? cursorRadius;
+  final bool initiallyAlwaysExpanded;
+
+  const SearchBarAnimation({
+    super.key,
+    required this.textEditingController,
+    required this.isOriginalAnimation,
+    required this.trailingWidget,
+    this.buttonWidgetSmall,
+    this.buttonWidgetSmallPadding = 0.0,
+    required this.secondaryButtonWidget,
+    required this.buttonWidget,
+    this.searchBoxWidth,
+    this.hintText = "Search Here",
+    this.searchBoxColour = _SBColor.white,
+    this.buttonColour = _SBColor.white,
+    this.cursorColour = _SBColor.black,
+    this.hintTextStyle,
+    this.searchBoxBorderColour = _SBColor.black12,
+    this.buttonShadowColour = _SBColor.black45,
+    this.buttonBorderColour = _SBColor.black26,
+    this.durationInMilliSeconds = _SBDimensions.t1000,
+    this.textInputType = TextInputType.text,
+    this.isSearchBoxOnRightSide = false,
+    this.enableKeyboardFocus = false,
+    this.enableBoxBorder = false,
+    this.enableButtonBorder = false,
+    this.enableButtonShadow = true,
+    this.enableBoxShadow = true,
+    this.textAlignToRight = false,
+    this.onSaved,
+    this.onChanged,
+    this.onFieldSubmitted,
+    this.onExpansionComplete,
+    this.onCollapseComplete,
+    this.onPressButton,
+    this.onEditingComplete,
+    this.enteredTextStyle,
+    this.buttonElevation = _SBDimensions.d0,
+    this.inputFormatters,
+    this.onTap,
+    this.onTapOutside,
+    this.cursorHeight,
+    this.cursorRadius,
+    this.initiallyAlwaysExpanded = false,
+  });
+
+  @override
+  SearchBarAnimationState createState() => SearchBarAnimationState();
+}
+
+class SearchBarAnimationState extends State<SearchBarAnimation> with SingleTickerProviderStateMixin {
+  bool _alwaysExpanded = false;
+  void setAlwaysExpanded(bool val) {
+    _alwaysExpanded = val;
+  }
+
+  late AnimationController _animationController;
+  final FocusNode focusNode = FocusNode();
+  bool get showBgColor => _switcher;
+  bool _switcher = false;
+  set switcher(bool val) {
+    if (_alwaysExpanded) return;
+    _switcher = val;
+  }
+
+  bool get isOpen => _switcher;
+
+  final DecorationTween decorationTween = DecorationTween(
+    begin: BoxDecoration(
+      color: _SBColor.transparent,
+      borderRadius: BorderRadius.circular(_SBDimensions.d60),
+    ),
+    end: BoxDecoration(
+      color: _SBColor.transparent,
+      borderRadius: BorderRadius.circular(_SBDimensions.d60),
+      boxShadow: const <BoxShadow>[
+        BoxShadow(
+          blurRadius: _SBDimensions.d5,
+          spreadRadius: _SBDimensions.d0,
+          color: _SBColor.black45,
+        ),
+      ],
+    ),
+  );
+
+  @override
+  void initState() {
+    _alwaysExpanded = widget.initiallyAlwaysExpanded;
+    _switcher = _alwaysExpanded;
+    _animationController = AnimationController(
+      vsync: this,
+      value: _switcher ? 1.0 : 0.0,
+      duration: Duration(milliseconds: widget.durationInMilliSeconds),
+    );
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final smallButtonTotalPadding = _SBDimensions.d5 * 2 + widget.buttonWidgetSmallPadding;
+    final smallButtonTotalPaddingPart = smallButtonTotalPadding * 0.6;
+    return Container(
+      height: _SBDimensions.d60,
+      alignment: widget.isSearchBoxOnRightSide ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        decoration: BoxDecoration(
+          color: showBgColor ? widget.searchBoxColour : _SBColor.transparent,
+          border: Border.all(
+            color: !widget.enableBoxBorder
+                ? _SBColor.transparent
+                : showBgColor
+                ? widget.searchBoxBorderColour!
+                : _SBColor.transparent,
+          ),
+          borderRadius: BorderRadius.circular(_SBDimensions.d30),
+          boxShadow: (!showBgColor)
+              ? null
+              : ((widget.enableBoxShadow)
+                    ? [
+                        const BoxShadow(
+                          color: _SBColor.black26,
+                          spreadRadius: -_SBDimensions.d10,
+                          blurRadius: _SBDimensions.d10,
+                          offset: Offset(_SBDimensions.d0, _SBDimensions.d7),
+                        ),
+                      ]
+                    : null),
+        ),
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: widget.durationInMilliSeconds),
+          height: _SBDimensions.d48,
+          width: (!_switcher) ? _SBDimensions.d48 : (widget.searchBoxWidth ?? MediaQuery.sizeOf(context).width),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_SBDimensions.d30),
+          ),
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: Duration(milliseconds: widget.durationInMilliSeconds),
+                top: _SBDimensions.d5,
+                left: widget.isSearchBoxOnRightSide ? _SBDimensions.d4 : null,
+                right: !widget.isSearchBoxOnRightSide ? _SBDimensions.d4 : null,
+                curve: Curves.easeOut,
+                child: AnimatedOpacity(
+                  opacity: (!_switcher) ? _SBDimensions.d0 : _SBDimensions.d1,
+                  duration: const Duration(milliseconds: _SBDimensions.t700),
+                  child: widget.trailingWidget,
+                ),
+              ),
+              AnimatedPositioned(
+                duration: Duration(milliseconds: widget.durationInMilliSeconds),
+                left: (!_switcher)
+                    ? _SBDimensions.d20
+                    : (!widget.textAlignToRight)
+                    ? _SBDimensions.d26
+                    : _SBDimensions.d80,
+                right: (!_switcher)
+                    ? _SBDimensions.d20
+                    : (!widget.textAlignToRight)
+                    ? _SBDimensions.d10
+                    : _SBDimensions.d80,
+                curve: Curves.easeOut,
+                top: 6.0,
+                bottom: 6.0,
+                child: AnimatedOpacity(
+                  opacity: (!_switcher) ? _SBDimensions.d0 : _SBDimensions.d1,
+                  duration: const Duration(milliseconds: _SBDimensions.t200),
+                  child: Container(
+                    padding: const EdgeInsets.only(left: _SBDimensions.d11),
+                    alignment: Alignment.center,
+                    width: smallButtonTotalPaddingPart + (widget.searchBoxWidth ?? MediaQuery.sizeOf(context).width),
+                    child: _textFormField(context, smallButtonTotalPaddingPart),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                bottom: 0,
+                right: smallButtonTotalPadding,
+                child: Align(
+                  alignment: widget.isSearchBoxOnRightSide ? Alignment.centerRight : Alignment.centerLeft,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: _SBDimensions.t200),
+                    child: AnimatedOpacity(
+                      opacity: (!_switcher) ? _SBDimensions.d0 : _SBDimensions.d1,
+                      duration: const Duration(milliseconds: _SBDimensions.t200),
+                      child: widget.buttonWidgetSmall != null ? widget.buttonWidgetSmall! : const SizedBox(),
+                    ),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: widget.isSearchBoxOnRightSide ? Alignment.centerRight : Alignment.centerLeft,
+                child: (widget.isOriginalAnimation)
+                    ? Padding(
+                        padding: const EdgeInsets.all(_SBDimensions.d5),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: showBgColor ? null : Border.all(color: widget.buttonBorderColour!),
+                          ),
+                          child: DecoratedBoxTransition(
+                            decoration: decorationTween.animate(_animationController),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                widget.onPressButton?.call(!_switcher);
+                                _onTapFunctionOriginalAnim();
+                              },
+                              child: CircleAvatar(
+                                backgroundColor: widget.buttonColour,
+                                child: _switcher ? widget.secondaryButtonWidget : widget.buttonWidget,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(_SBDimensions.d5),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: widget.enableButtonBorder ? Border.all(color: widget.buttonBorderColour!) : null,
+                            boxShadow: widget.enableButtonShadow
+                                ? [
+                                    BoxShadow(
+                                      blurRadius: _SBDimensions.d5,
+                                      color: widget.buttonShadowColour!,
+                                      spreadRadius: widget.buttonElevation,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              widget.onPressButton?.call(!_switcher);
+                              _onTapFunction();
+                            },
+                            child: CircleAvatar(
+                              backgroundColor: widget.buttonColour,
+                              child: _switcher ? widget.secondaryButtonWidget : widget.buttonWidget,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void openCloseSearchBar({bool forceOpen = false}) {
+    if (widget.isOriginalAnimation) {
+      _onTapFunctionOriginalAnim(forceOpen: forceOpen);
+    } else {
+      _onTapFunction(forceOpen: forceOpen);
+    }
+  }
+
+  void _onTapFunction({bool forceOpen = false}) {
+    setState(
+      () {
+        if (forceOpen || !_switcher) {
+          switcher = true;
+          if (widget.enableKeyboardFocus) {
+            FocusScope.of(context).requestFocus(focusNode);
+          }
+
+          _animationController.forward().then((value) {
+            widget.onExpansionComplete?.call();
+          });
+        } else {
+          switcher = false;
+
+          if (widget.enableKeyboardFocus) {
+            unFocusKeyboard();
+          }
+
+          _animationController.reverse().then((value) {
+            widget.onCollapseComplete?.call();
+          });
+        }
+      },
+    );
+  }
+
+  void _onTapFunctionOriginalAnim({bool forceOpen = false}) {
+    setState(
+      () {
+        if (forceOpen || !_switcher) {
+          switcher = true;
+          if (widget.enableKeyboardFocus) {
+            FocusScope.of(context).requestFocus(focusNode);
+          }
+
+          _animationController.forward().then((value) {
+            widget.onExpansionComplete?.call();
+          });
+        } else {
+          switcher = false;
+          if (widget.enableKeyboardFocus) {
+            unFocusKeyboard();
+          }
+
+          _animationController.reverse().then((value) {
+            widget.onCollapseComplete?.call();
+          });
+        }
+      },
+    );
+    unFocusKeyboard();
+  }
+
+  Widget _textFormField(BuildContext context, double rightPadding) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Padding(
+            padding: EdgeInsets.only(right: rightPadding),
+            child: TextFormField(
+              textAlignVertical: TextAlignVertical.center,
+              maxLength: null,
+              maxLines: null,
+              expands: true,
+              controller: widget.textEditingController,
+              inputFormatters: widget.inputFormatters,
+              focusNode: focusNode,
+              cursorWidth: _SBDimensions.d2,
+              textInputAction: TextInputAction.search,
+              onTap: widget.onTap,
+              onTapOutside: widget.onTapOutside,
+              cursorHeight: widget.cursorHeight,
+              cursorRadius: widget.cursorRadius,
+              onFieldSubmitted: (String value) {
+                setState(() {
+                  switcher = true;
+                });
+                widget.onFieldSubmitted?.call(value);
+              },
+              onEditingComplete: () {
+                unFocusKeyboard();
+                setState(() {
+                  switcher = false;
+                });
+                widget.onEditingComplete?.call();
+              },
+              keyboardType: widget.textInputType,
+              onChanged: widget.onChanged,
+              onSaved: widget.onSaved,
+              style: widget.enteredTextStyle ?? const TextStyle(color: _SBColor.black),
+              cursorColor: widget.cursorColour,
+              textAlign: widget.textAlignToRight ? TextAlign.right : TextAlign.left,
+              decoration: InputDecoration(
+                contentPadding: EdgeInsets.zero,
+                isDense: true,
+                floatingLabelBehavior: FloatingLabelBehavior.never,
+                hintText: widget.hintText,
+                hintStyle:
+                    widget.hintTextStyle?.call(kIsWeb ? _SBDimensions.d1_5 : _SBDimensions.d1_2) ??
+                    const TextStyle(
+                      color: _SBColor.grey,
+                      fontSize: _SBDimensions.d15,
+                      fontWeight: FontWeight.w400,
+                      height: kIsWeb ? _SBDimensions.d1_5 : _SBDimensions.d1_2,
+                    ),
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_SBDimensions.d20),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void unFocusKeyboard() {
+    final FocusScopeNode currentFocusScope = FocusScope.of(context);
+    if (!currentFocusScope.hasPrimaryFocus && currentFocusScope.hasFocus) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
+  }
+}
+
+class _SBColor {
+  static const Color transparent = Colors.transparent;
+  static const Color white = Colors.white;
+  static const Color grey = Colors.grey;
+  static const Color black12 = Colors.black12;
+  static const Color black26 = Colors.black26;
+  static const Color black45 = Colors.black45;
+  static const Color black = Colors.black;
+}
+
+class _SBDimensions {
+  static const double d0 = 0.0;
+  static const double d1 = 1.0;
+  static const double d1_2 = 1.2;
+  static const double d1_5 = 1.5;
+  static const double d2 = 2.0;
+  static const double d4 = 4.0;
+  static const double d5 = 5.0;
+  static const double d7 = 7.0;
+  static const double d10 = 10.0;
+  static const double d11 = 11.0;
+  static const double d15 = 15.0;
+  static const double d20 = 20.0;
+  static const double d26 = 26.0;
+  static const double d30 = 30.0;
+  static const double d48 = 48.0;
+  static const double d60 = 60.0;
+  static const double d80 = 80.0;
+
+  static const int t200 = 200;
+  static const int t700 = 700;
+  static const int t1000 = 1000;
+}
