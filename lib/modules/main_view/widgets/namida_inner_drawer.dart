@@ -131,7 +131,7 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
                   ignoring: animationValue == controller.lowerBound,
                   child: ColoredBox(
                     color: Colors.black
-                        .withOpacity((animationValue * 1.2).clamp(0.0, 1.0)),
+                        .withOpacity((animationValue * 0.35).clamp(0.0, 0.7)),
                   ),
                 ),
               ),
@@ -186,8 +186,8 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
                     valueListenable: _upperBoundRx,
                     builder: (context, upperBound, _) => ColoredBox(
                       color: Colors.black.withOpacity(
-                          ((upperBound - animationValue) * 1.8)
-                              .clamp(0.0, 1.0)),
+                          ((upperBound - animationValue) * 0.4)
+                              .clamp(0.0, 0.6)),
                     ),
                   ),
                 ),
