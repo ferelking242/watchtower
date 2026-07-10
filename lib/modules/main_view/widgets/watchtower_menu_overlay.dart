@@ -33,7 +33,6 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/history':         ('History',    Icons.history_rounded),
   '/updates':         ('Updates',    Icons.new_releases_rounded),
   '/trackerLibrary':  ('Tracking',   Icons.account_tree),
-  '/more':            ('More',       Icons.settings_rounded),
   '/schedule':        ('Schedule',   Icons.calendar_month_rounded),
   '/marketplace':     ('Market',     Icons.storefront_rounded),
   '/plugins':         ('Plugins',    Icons.extension_rounded),
@@ -44,20 +43,22 @@ const kWtDefaultNavOrder = [
   '/discover',       '/AnimeLibrary',  '/MangaLibrary',  '/browse',
   '/NovelLibrary',   '/MusicLibrary',  '/GameLibrary',   '/Library',
   '/marketplace',    '/history',       '/updates',
-  '/trackerLibrary', '/more',          '/WatchtowerHome',
+  '/trackerLibrary', '/WatchtowerHome',
 ];
 
-const kWtDefaultHideItems = ['/trackerLibrary', '/updates', '/history', '/WatchtowerHome'];
+const kWtDefaultHideItems = [
+  '/trackerLibrary', '/updates', '/history', '/WatchtowerHome',
+  '/discover', '/plugins',
+];
 
 const kWtStaticRoutes = [
-  '/discover', '/browse', '/marketplace', '/plugins', '/schedule', '/updates', '/history', '/more',
+  '/browse', '/marketplace', '/plugins', '/schedule', '/updates', '/history',
 ];
 
 // French label overrides — used when device/app locale is 'fr'.
 const _kFrLabels = <String, String>{
   '/discover':    'Recherche',
   '/browse':      'Explorer',
-  '/more':        'Plus',
   '/schedule':    'Planning',
   '/updates':     'Nouveautés',
   '/history':     'Historique',
