@@ -113,7 +113,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 if (context.canPop()) {
                   context.pop();
                 } else {
-                  context.go('/more');
+                  context.go('/settings');
                 }
               },
             ),
