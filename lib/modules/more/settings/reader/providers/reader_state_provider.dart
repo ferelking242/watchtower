@@ -200,7 +200,7 @@ class NavigationOrderState extends _$NavigationOrderState {
     '/history',
     '/updates',
     '/trackerLibrary',
-    '/more',
+    '/settings',
   ];
 
   @override
