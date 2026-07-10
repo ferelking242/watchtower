@@ -187,7 +187,7 @@ class _AccountSheet extends StatelessWidget {
                     label: 'Paramètres',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/more');
+                      context.push('/settings');
                     },
                   ),
                   _SheetTile(
@@ -211,7 +211,7 @@ class _AccountSheet extends StatelessWidget {
                     label: 'Téléchargements',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/more');
+                      context.push('/settings');
                     },
                   ),
                   _SheetTile(
@@ -219,7 +219,7 @@ class _AccountSheet extends StatelessWidget {
                     label: 'À propos',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/more');
+                      context.push('/settings');
                     },
                   ),
                 ],
