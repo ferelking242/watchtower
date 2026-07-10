@@ -21,6 +21,7 @@ import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:watchtower/services/layout_downloader.dart';
 
 class ExtensionDetail extends ConsumerStatefulWidget {
   final Source source;
@@ -566,6 +567,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       isar.sourcePreferences.deleteAllSync(sourcePrefsIds);
       isar.sourcePreferenceStringValues.deleteAllSync(sourcePrefsStringIds);
     });
+    unawaited(LayoutDownloader.instance.remove(source));
 
     if (mounted) Navigator.pop(context, source);
   }

@@ -17,6 +17,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/more/settings/general/extension_cookie_manager_screen.dart'
     show autoRegisterExtensionCookieSlot;
+import 'package:watchtower/services/layout_downloader.dart';
 
 // ── Web proxy helper ─────────────────────────────────────────────────────────
 // Sur Flutter web, toutes les requêtes cross-origin sont bloquées par CORS.
@@ -523,6 +524,7 @@ Future<void> _updateSource(
 
   await isar.writeTxn(() async => isar.sources.put(updatedSource));
   unawaited(autoRegisterExtensionCookieSlot(updatedSource));
+  unawaited(LayoutDownloader.instance.download(source)); // Download layout file on install/update
 }
 
 Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
@@ -557,6 +559,7 @@ Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
     ..updatedAt = DateTime.now().millisecondsSinceEpoch;
   await isar.writeTxn(() async => isar.sources.put(newSource));
   unawaited(autoRegisterExtensionCookieSlot(newSource));
+  unawaited(LayoutDownloader.instance.download(source)); // Download layout file for new source
 }
 
 Future<void> checkIfSourceIsObsolete(

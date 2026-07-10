@@ -245,6 +245,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
     await LayoutRegistry.instance.load(source);
     if (!mounted) return;
     setState(() {
+      _tabsCache = null; // Reset so _buildTabList() uses updated _customLists
       _customLists = LayoutRegistry.instance
           .get(source)
           .home
