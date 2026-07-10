@@ -44,6 +44,40 @@ class StorageProvider {
     return false;
   }
 
+  // Resolves the app's base "Watchtower" folder on Android.
+  //
+  // Previously this always hardcoded /storage/emulated/0/Watchtower/, even
+  // when MANAGE_EXTERNAL_STORAGE was not granted (denied by the user, or
+  // blocked entirely by OEMs/Play Protect on some devices/ROMs). In that
+  // case every Directory.create() call against that path fails silently
+  // (caught in createDirectorySafely, only logged) and every feature that
+  // depends on the folder existing — downloads, extension install, local
+  // library scan, torrent/tmp dirs — just hangs or silently no-ops, which is
+  // what showed up as "the app sits there for minutes, nothing happens".
+  //
+  // Fix: if the permission isn't granted, fall back to the app's own
+  // external-files directory, which Android always grants without any
+  // permission prompt. The folder still gets created immediately instead of
+  // failing forever, and once the user grants MANAGE_EXTERNAL_STORAGE (or
+  // grants it during onboarding) this switches back to the shared location.
+  Future<Directory> _androidBaseDirectory() async {
+    final hasPermission = await requestPermission(requestIfNeeded: false);
+    if (hasPermission) {
+      return Directory("/storage/emulated/0/Watchtower/");
+    }
+    final fallback = await getExternalStorageDirectory();
+    if (fallback != null) {
+      debugPrint(
+        '[StorageProvider] MANAGE_EXTERNAL_STORAGE not granted — '
+        'using app-scoped fallback: ${fallback.path}',
+      );
+      return fallback;
+    }
+    // Last resort: internal app storage always exists without any permission.
+    final internal = await getApplicationDocumentsDirectory();
+    return Directory(path.join(internal.path, 'Watchtower'));
+  }
+
   Future<void> deleteBtDirectory() async {
     final btDir = Directory(await _btDirectoryPath());
     if (await btDir.exists()) await btDir.delete(recursive: true);
@@ -57,7 +91,7 @@ class StorageProvider {
   Future<Directory?> getDefaultDirectory() async {
     Directory? directory;
     if (!kIsWeb && Platform.isAndroid) {
-      directory = Directory("/storage/emulated/0/Watchtower/");
+      directory = await _androidBaseDirectory();
     } else {
       final dir = await getApplicationDocumentsDirectory();
       // The documents dir in iOS is already named "Watchtower".
@@ -136,9 +170,9 @@ class StorageProvider {
       debugPrint("Could not get downloadLocation from Isar settings: $e");
     }
     if (!kIsWeb && Platform.isAndroid) {
-      directory = Directory(
-        dPath.isEmpty ? "/storage/emulated/0/Watchtower/" : "$dPath/",
-      );
+      directory = dPath.isEmpty
+          ? await _androidBaseDirectory()
+          : Directory("$dPath/");
     } else {
       final dir = await getApplicationDocumentsDirectory();
       final p = dPath.isEmpty ? dir.path : dPath;

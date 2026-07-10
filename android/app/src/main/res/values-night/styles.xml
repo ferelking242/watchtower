@@ -5,10 +5,13 @@
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowBackground">@drawable/launch_background</item>
     </style>
-    <!-- NormalTheme: background shown behind Flutter while it initializes.
-         Must NOT be pure black — use the same launch_background drawable
-         which resolves to #1B1B1E in night mode via drawable-night/ -->
+    <!-- NormalTheme is the Activity's background for its entire lifetime, not just
+         at launch — Android reuses android:windowBackground every time the window is
+         redrawn (including resume-from-background / app-switcher transitions). Using
+         @drawable/launch_background here made the launch splash flash back every
+         single time the app returned to foreground in dark mode. Use the theme's own
+         background color instead, exactly like the light theme below. -->
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
-        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowBackground">?android:colorBackground</item>
     </style>
 </resources>

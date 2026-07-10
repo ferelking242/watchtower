@@ -295,11 +295,18 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
         }
       }
     }
-    // Ensure Watchtower/local folder exists for local media source
+    // Ensure Watchtower/local folder exists for local media source.
+    // Goes through storage.getDirectory() (not a hardcoded /storage/emulated/0/...
+    // path) so it correctly falls back to the app-scoped folder when
+    // MANAGE_EXTERNAL_STORAGE hasn't been granted, instead of silently
+    // failing and leaving the local source permanently empty.
     try {
-      final localDir = Directory('/storage/emulated/0/Watchtower/local');
-      if (!await localDir.exists()) {
-        await localDir.create(recursive: true);
+      final baseDir = await storage.getDirectory();
+      if (baseDir != null) {
+        final localDir = Directory(p.join(baseDir.path, 'local'));
+        if (!await localDir.exists()) {
+          await localDir.create(recursive: true);
+        }
       }
     } catch (_) {}
     await cfResolutionWebviewServer();

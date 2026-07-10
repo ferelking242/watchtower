@@ -41,6 +41,13 @@
   -keep class com.lyokone.** { *; }
   -keep class com.transistorsoft.** { *; }
   -keep class io.crossbell.** { *; }
+  # app_links: keep the plugin class itself explicitly (name AND members),
+  # not just relying on the generic com.llfbandit.** keep below — this plugin
+  # is only ever referenced reflectively from GeneratedPluginRegistrant, so a
+  # broad "-keep class X { *; }" without -keepnames can still let R8/shrinkResources
+  # drop it if reachability analysis doesn't see the reflective call site.
+  -keep class com.llfbandit.app_links.** { *; }
+  -keepnames class com.llfbandit.app_links.** { *; }
   -keep class com.llfbandit.** { *; }
   -keep class vn.hunghd.flutterdownloader.** { *; }
   -keep class io.reactivex.rxjava3.** { *; }
