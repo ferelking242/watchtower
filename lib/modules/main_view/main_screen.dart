@@ -17,6 +17,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/providers/downloaded_only_state_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/widgets/loading_icon.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/modules/main_view/providers/migration.dart';
@@ -599,8 +600,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("/MangaLibrary")) {
       destinations[dest.indexOf("/MangaLibrary")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.collections_bookmark),
-        icon: const Icon(Icons.collections_bookmark_outlined),
+        selectedIcon: const Icon(Broken.book_square),
+        icon: const Icon(Broken.book_1),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(l10n.manga),
@@ -609,8 +610,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("/AnimeLibrary")) {
       destinations[dest.indexOf("/AnimeLibrary")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.video_collection),
-        icon: const Icon(Icons.video_collection_outlined),
+        selectedIcon: const Icon(Broken.video_square),
+        icon: const Icon(Broken.video_octagon),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(l10n.watch),
@@ -619,8 +620,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("/NovelLibrary")) {
       destinations[dest.indexOf("/NovelLibrary")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.local_library),
-        icon: const Icon(Icons.local_library_outlined),
+        selectedIcon: const Icon(Broken.note_text),
+        icon: const Icon(Broken.text),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(l10n.novel),
@@ -629,8 +630,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("/MusicLibrary")) {
       destinations[dest.indexOf("/MusicLibrary")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.music_note),
-        icon: const Icon(Icons.music_note_outlined),
+        selectedIcon: const Icon(Broken.music_circle),
+        icon: const Icon(Broken.music_playlist),
         label: const Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Music'),
@@ -639,8 +640,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("/GameLibrary")) {
       destinations[dest.indexOf("/GameLibrary")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.sports_esports),
-        icon: const Icon(Icons.sports_esports_outlined),
+        selectedIcon: const Icon(Broken.gameboy),
+        icon: const Icon(Broken.gameboy),
         label: const Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Games'),
@@ -650,8 +651,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (dest.contains("/WatchtowerHome")) {
       destinations[dest.indexOf("/WatchtowerHome")] =
           NavigationRailDestination(
-        selectedIcon: const Icon(Icons.home_rounded),
-        icon: const Icon(Icons.home_outlined),
+        selectedIcon: const Icon(Broken.home_2),
+        icon: const Icon(Broken.home_1),
         label: const Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Accueil'),
@@ -661,11 +662,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (dest.contains("/updates")) {
       destinations[dest.indexOf("/updates")] = NavigationRailDestination(
         selectedIcon: _UpdatesBadgeWidget(
-          icon: const Icon(Icons.new_releases),
+          icon: const Icon(Broken.notification_bing),
           ref: ref,
         ),
         icon: _UpdatesBadgeWidget(
-          icon: const Icon(Icons.new_releases_outlined),
+          icon: const Icon(Broken.notification),
           ref: ref,
         ),
         label: Padding(
@@ -682,8 +683,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("/history")) {
       destinations[dest.indexOf("/history")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.history),
-        icon: const Icon(Icons.history_outlined),
+        selectedIcon: const Icon(Broken.clock),
+        icon: const Icon(Broken.clock_1),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(l10n.history),
@@ -693,11 +694,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (dest.contains("/browse")) {
       destinations[dest.indexOf("/browse")] = NavigationRailDestination(
         selectedIcon: _ExtensionBadgeWidget(
-          icon: const Icon(Icons.explore),
+          icon: const Icon(Broken.global),
           ref: ref,
         ),
         icon: _ExtensionBadgeWidget(
-          icon: const Icon(Icons.explore_outlined),
+          icon: const Icon(Broken.global_search),
           ref: ref,
         ),
         label: Padding(
@@ -708,8 +709,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("/settings")) {
       destinations[dest.indexOf("/settings")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.more_horiz),
-        icon: const Icon(Icons.more_horiz_outlined),
+        selectedIcon: const Icon(Broken.setting),
+        icon: const Icon(Broken.setting_2),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(l10n.more),
@@ -718,8 +719,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains("/trackerLibrary")) {
       destinations[dest.indexOf("/trackerLibrary")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.account_tree),
-        icon: const Icon(Icons.account_tree_outlined),
+        selectedIcon: const Icon(Broken.chart_21),
+        icon: const Icon(Broken.presention_chart),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(l10n.tracking),
@@ -749,149 +750,149 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     if (dest.contains('_disableLibSwitch')) {
       destMap['_disableLibSwitch'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.arrow_back),
-        icon: const Icon(Icons.arrow_back),
+        selectedIcon: const Icon(Broken.arrow_left_2),
+        icon: const Icon(Broken.arrow_left_2),
         label: l10n.go_back,
       );
     }
     if (dest.contains('_enableLibSwitch')) {
       destMap['_enableLibSwitch'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.grid_view_rounded),
-        icon: Icon(Icons.grid_view_outlined),
+        selectedIcon: Icon(Broken.category),
+        icon: Icon(Broken.category_2),
         label: 'HUB',
       );
     }
     if (dest.contains('/Library')) {
       destMap['/Library'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.collections_bookmark),
-        icon: const Icon(Icons.collections_bookmark_outlined),
+        selectedIcon: const Icon(Broken.book_square),
+        icon: const Icon(Broken.book_1),
         label: l10n.library,
       );
     }
     if (dest.contains('/MangaLibrary')) {
       destMap['/MangaLibrary'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.collections_bookmark),
-        icon: const Icon(Icons.collections_bookmark_outlined),
+        selectedIcon: const Icon(Broken.book_square),
+        icon: const Icon(Broken.book_1),
         label: l10n.manga,
       );
     }
     if (dest.contains('/AnimeLibrary')) {
       destMap['/AnimeLibrary'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.video_collection),
-        icon: const Icon(Icons.video_collection_outlined),
+        selectedIcon: const Icon(Broken.video_square),
+        icon: const Icon(Broken.video_octagon),
         label: l10n.watch,
       );
     }
     if (dest.contains('/NovelLibrary')) {
       destMap['/NovelLibrary'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.local_library),
-        icon: const Icon(Icons.local_library_outlined),
+        selectedIcon: const Icon(Broken.note_text),
+        icon: const Icon(Broken.text),
         label: l10n.novel,
       );
     }
     if (dest.contains('/MusicLibrary')) {
       destMap['/MusicLibrary'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.music_note),
-        icon: Icon(Icons.music_note_outlined),
+        selectedIcon: Icon(Broken.music_circle),
+        icon: Icon(Broken.music_playlist),
         label: 'Music',
       );
     }
     if (dest.contains('/GameLibrary')) {
       destMap['/GameLibrary'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.sports_esports),
-        icon: Icon(Icons.sports_esports_outlined),
+        selectedIcon: Icon(Broken.gameboy),
+        icon: Icon(Broken.gameboy),
         label: 'Games',
       );
     }
     if (dest.contains('/WatchtowerHome')) {
       destMap['/WatchtowerHome'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.home_rounded),
-        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Broken.home_2),
+        icon: Icon(Broken.home_1),
         label: 'Accueil',
       );
     }
     if (dest.contains('/updates')) {
       destMap['/updates'] = NavigationDestination(
-        selectedIcon: _UpdatesBadgeWidget(icon: const Icon(Icons.new_releases), ref: ref),
-        icon: _UpdatesBadgeWidget(icon: const Icon(Icons.new_releases_outlined), ref: ref),
+        selectedIcon: _UpdatesBadgeWidget(icon: const Icon(Broken.notification_bing), ref: ref),
+        icon: _UpdatesBadgeWidget(icon: const Icon(Broken.notification), ref: ref),
         label: l10n.updates,
       );
     }
     if (dest.contains('/history')) {
       destMap['/history'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.history),
-        icon: const Icon(Icons.history_outlined),
+        selectedIcon: const Icon(Broken.clock),
+        icon: const Icon(Broken.clock_1),
         label: l10n.history,
       );
     }
     if (dest.contains('/browse')) {
       destMap['/browse'] = NavigationDestination(
-        selectedIcon: _ExtensionBadgeWidget(icon: const Icon(Icons.explore), ref: ref),
-        icon: _ExtensionBadgeWidget(icon: const Icon(Icons.explore_outlined), ref: ref),
+        selectedIcon: _ExtensionBadgeWidget(icon: const Icon(Broken.global), ref: ref),
+        icon: _ExtensionBadgeWidget(icon: const Icon(Broken.global_search), ref: ref),
         label: l10n.browse,
       );
     }
     if (dest.contains('/settings')) {
       destMap['/settings'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.more_horiz),
-        icon: const Icon(Icons.more_horiz_outlined),
+        selectedIcon: const Icon(Broken.setting),
+        icon: const Icon(Broken.setting_2),
         label: l10n.more,
       );
     }
     if (dest.contains('/trackerLibrary')) {
       destMap['/trackerLibrary'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.account_tree),
-        icon: const Icon(Icons.account_tree_outlined),
+        selectedIcon: const Icon(Broken.chart_21),
+        icon: const Icon(Broken.presention_chart),
         label: l10n.tracking,
       );
     }
     if (dest.contains('/marketplace')) {
       destMap['/marketplace'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.storefront),
-        icon: Icon(Icons.storefront_outlined),
+        selectedIcon: Icon(Broken.shop),
+        icon: Icon(Broken.shopping_cart),
         label: 'Market',
       );
     }
     if (dest.contains('/schedule')) {
       destMap['/schedule'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.calendar_month),
-        icon: Icon(Icons.calendar_month_outlined),
+        selectedIcon: Icon(Broken.clock),
+        icon: Icon(Broken.clock_1),
         label: 'Schedule',
       );
     }
     if (dest.contains('/plugins')) {
       destMap['/plugins'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.extension_rounded),
-        icon: Icon(Icons.extension_outlined),
+        selectedIcon: Icon(Broken.element_4),
+        icon: Icon(Broken.element_3),
         label: 'Plugins',
       );
     }
     // ── Routes absents du destMap → dock classique n'affichait que 2 éléments ─
     if (dest.contains('/discover')) {
       destMap['/discover'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.travel_explore),
-        icon: Icon(Icons.travel_explore_outlined),
+        selectedIcon: Icon(Broken.global_search),
+        icon: Icon(Broken.global_search),
         label: 'Discover',
       );
     }
     if (dest.contains('_enableLibrarySwitch')) {
       destMap['_enableLibrarySwitch'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.collections_bookmark),
-        icon: const Icon(Icons.collections_bookmark_outlined),
+        selectedIcon: const Icon(Broken.book_square),
+        icon: const Icon(Broken.book_1),
         label: l10n.library,
       );
     }
     if (dest.contains('_disableLibrarySwitch')) {
       destMap['_disableLibrarySwitch'] = NavigationDestination(
-        selectedIcon: const Icon(Icons.arrow_back),
-        icon: const Icon(Icons.arrow_back),
+        selectedIcon: const Icon(Broken.arrow_left_2),
+        icon: const Icon(Broken.arrow_left_2),
         label: l10n.go_back,
       );
     }
     if (dest.contains('/MusicLibraryPage')) {
       destMap['/MusicLibraryPage'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.library_music),
-        icon: Icon(Icons.library_music_outlined),
+        selectedIcon: Icon(Broken.music_library_2),
+        icon: Icon(Broken.music_library_2),
         label: 'Music Lib',
       );
     }
@@ -906,8 +907,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return [
       ...result,
       const NavigationDestination(
-        selectedIcon: Icon(Icons.close_rounded),
-        icon: Icon(Icons.segment_rounded),
+        selectedIcon: Icon(Broken.close_circle),
+        icon: Icon(Broken.menu_1),
         label: 'Menu',
       ),
     ];
@@ -1053,22 +1054,22 @@ class _TabletLayoutState extends State<_TabletLayout> {
   };
 
   static const _mainItems = [
-    (route: '/discover',       icon: Icons.travel_explore_outlined,     activeIcon: Icons.travel_explore,             tooltip: 'Discover'),
-    (route: '/WatchtowerHome', icon: Icons.home_outlined,               activeIcon: Icons.home_rounded,               tooltip: 'Accueil'),
-    (route: '/AnimeLibrary',   icon: Icons.live_tv_outlined,            activeIcon: Icons.live_tv,                    tooltip: 'Watch'),
-    (route: '/MangaLibrary',   icon: Icons.auto_stories_outlined,       activeIcon: Icons.auto_stories,               tooltip: 'Manga'),
-    (route: '/NovelLibrary',   icon: Icons.local_library_outlined,      activeIcon: Icons.local_library,              tooltip: 'Novel'),
-    (route: '/MusicLibrary',   icon: Icons.music_note_outlined,         activeIcon: Icons.music_note,                 tooltip: 'Music'),
-    (route: '/GameLibrary',    icon: Icons.sports_esports_outlined,     activeIcon: Icons.sports_esports,             tooltip: 'Games'),
-    (route: '/Library',        icon: Icons.collections_bookmark_outlined, activeIcon: Icons.collections_bookmark,     tooltip: 'Bibliothèque'),
-    (route: '/globalSearch',   icon: Icons.search_outlined,             activeIcon: Icons.search,                     tooltip: 'Recherche'),
-    (route: '/browse',         icon: Icons.explore_outlined,            activeIcon: Icons.explore,                    tooltip: 'Browse'),
-    (route: '/marketplace',    icon: Icons.storefront_outlined,         activeIcon: Icons.storefront_rounded,         tooltip: 'Marketplace'),
-    (route: '/plugins',        icon: Icons.extension_outlined,             activeIcon: Icons.extension_rounded,          tooltip: 'Plugins'),
+    (route: '/discover',       icon: Broken.global_search,    activeIcon: Broken.global_search,   tooltip: 'Discover'),
+    (route: '/WatchtowerHome', icon: Broken.home_1,           activeIcon: Broken.home_2,          tooltip: 'Accueil'),
+    (route: '/AnimeLibrary',   icon: Broken.video_octagon,    activeIcon: Broken.video_square,    tooltip: 'Watch'),
+    (route: '/MangaLibrary',   icon: Broken.book_1,           activeIcon: Broken.book_square,     tooltip: 'Manga'),
+    (route: '/NovelLibrary',   icon: Broken.text,             activeIcon: Broken.note_text,       tooltip: 'Novel'),
+    (route: '/MusicLibrary',   icon: Broken.music_playlist,   activeIcon: Broken.music_circle,    tooltip: 'Music'),
+    (route: '/GameLibrary',    icon: Broken.gameboy,          activeIcon: Broken.gameboy,         tooltip: 'Games'),
+    (route: '/Library',        icon: Broken.book_1,           activeIcon: Broken.book_square,     tooltip: 'Bibliothèque'),
+    (route: '/globalSearch',   icon: Broken.search_normal_1,  activeIcon: Broken.search_normal,   tooltip: 'Recherche'),
+    (route: '/browse',         icon: Broken.global_search,    activeIcon: Broken.global,          tooltip: 'Browse'),
+    (route: '/marketplace',    icon: Broken.shopping_cart,    activeIcon: Broken.shop,            tooltip: 'Marketplace'),
+    (route: '/plugins',        icon: Broken.element_3,        activeIcon: Broken.element_4,       tooltip: 'Plugins'),
   ];
 
   static const _footerItems = [
-    (route: '/settings', icon: Icons.settings_outlined,    activeIcon: Icons.settings,    tooltip: 'Paramètres'),
+    (route: '/settings', icon: Broken.setting_2, activeIcon: Broken.setting, tooltip: 'Paramètres'),
   ];
 
   double _railWidth() {
@@ -1703,141 +1704,141 @@ class _FloatingDockState extends State<_FloatingDock> {
           items.add(const _DockItemData(
             route: '/WatchtowerHome',
             label: 'Accueil',
-            icon: Icons.home_outlined,
-            activeIcon: Icons.home_rounded,
+            icon: Broken.home_1,
+            activeIcon: Broken.home_2,
           ));
         case '/AnimeLibrary':
           items.add(_DockItemData(
             route: '/AnimeLibrary',
             label: l10n.watch,
-            icon: Icons.live_tv_outlined,
-            activeIcon: Icons.live_tv,
+            icon: Broken.video_octagon,
+            activeIcon: Broken.video_square,
           ));
         case '/MangaLibrary':
           items.add(_DockItemData(
             route: '/MangaLibrary',
             label: l10n.manga,
-            icon: Icons.auto_stories_outlined,
-            activeIcon: Icons.auto_stories,
+            icon: Broken.book_1,
+            activeIcon: Broken.book_square,
           ));
         case '/NovelLibrary':
           items.add(_DockItemData(
             route: '/NovelLibrary',
             label: l10n.novel,
-            icon: Icons.local_library_outlined,
-            activeIcon: Icons.local_library,
+            icon: Broken.text,
+            activeIcon: Broken.note_text,
           ));
         case '/MusicLibrary':
           items.add(const _DockItemData(
             route: '/MusicLibrary',
             label: 'Music',
-            icon: Icons.music_note_outlined,
-            activeIcon: Icons.music_note,
+            icon: Broken.music_playlist,
+            activeIcon: Broken.music_circle,
           ));
         case '/GameLibrary':
           items.add(const _DockItemData(
             route: '/GameLibrary',
             label: 'Games',
-            icon: Icons.sports_esports_outlined,
-            activeIcon: Icons.sports_esports,
+            icon: Broken.gameboy,
+            activeIcon: Broken.gameboy,
           ));
         case '/Library':
           items.add(_DockItemData(
             route: '/Library',
             label: l10n.library,
-            icon: Icons.collections_bookmark_outlined,
-            activeIcon: Icons.collections_bookmark,
+            icon: Broken.book_1,
+            activeIcon: Broken.book_square,
           ));
         case '/browse':
           items.add(_DockItemData(
             route: '/browse',
             label: l10n.browse,
-            icon: Icons.explore_outlined,
-            activeIcon: Icons.explore,
+            icon: Broken.global_search,
+            activeIcon: Broken.global,
           ));
         case '/history':
           items.add(_DockItemData(
             route: '/history',
             label: l10n.history,
-            icon: Icons.history_outlined,
-            activeIcon: Icons.history,
+            icon: Broken.clock_1,
+            activeIcon: Broken.clock,
           ));
         case '/settings':
           items.add(_DockItemData(
             route: '/settings',
             label: l10n.more,
-            icon: Icons.apps_outlined,
-            activeIcon: Icons.apps,
+            icon: Broken.setting_2,
+            activeIcon: Broken.setting,
           ));
         case '/updates':
           items.add(_DockItemData(
             route: '/updates',
             label: l10n.updates,
-            icon: Icons.new_releases_outlined,
-            activeIcon: Icons.new_releases,
+            icon: Broken.notification,
+            activeIcon: Broken.notification_bing,
           ));
         case '/trackerLibrary':
           items.add(_DockItemData(
             route: '/trackerLibrary',
             label: l10n.tracking,
-            icon: Icons.account_tree_outlined,
-            activeIcon: Icons.account_tree,
+            icon: Broken.presention_chart,
+            activeIcon: Broken.chart_21,
           ));
         case '/discover':
           items.add(const _DockItemData(
             route: '/discover',
             label: 'Discover',
-            icon: Icons.travel_explore_outlined,
-            activeIcon: Icons.travel_explore,
+            icon: Broken.global_search,
+            activeIcon: Broken.global_search,
           ));
         case '/marketplace':
           items.add(const _DockItemData(
             route: '/marketplace',
             label: 'Market',
-            icon: Icons.storefront_outlined,
-            activeIcon: Icons.storefront_rounded,
+            icon: Broken.shopping_cart,
+            activeIcon: Broken.shop,
           ));
         case '_enableLibSwitch':
           items.add(const _DockItemData(
             route: '_enableLibSwitch',
             label: 'Hub',
-            icon: Icons.grid_view_outlined,
-            activeIcon: Icons.grid_view_rounded,
+            icon: Broken.category_2,
+            activeIcon: Broken.category,
           ));
         case '_disableLibSwitch':
           items.add(_DockItemData(
             route: '_disableLibSwitch',
             label: l10n.go_back,
-            icon: Icons.arrow_back,
-            activeIcon: Icons.arrow_back,
+            icon: Broken.arrow_left_2,
+            activeIcon: Broken.arrow_left_2,
           ));
         case '_enableLibrarySwitch':
           items.add(const _DockItemData(
             route: '_enableLibrarySwitch',
             label: 'Library',
-            icon: Icons.collections_bookmark_outlined,
-            activeIcon: Icons.collections_bookmark,
+            icon: Broken.book_1,
+            activeIcon: Broken.book_square,
           ));
         case '_disableLibrarySwitch':
           items.add(_DockItemData(
             route: '_disableLibrarySwitch',
             label: l10n.go_back,
-            icon: Icons.arrow_back,
-            activeIcon: Icons.arrow_back,
+            icon: Broken.arrow_left_2,
+            activeIcon: Broken.arrow_left_2,
           ));
         case '/MusicLibraryPage':
           items.add(const _DockItemData(
             route: '/MusicLibraryPage',
             label: 'Music Lib',
-            icon: Icons.library_music_outlined,
-            activeIcon: Icons.library_music,
+            icon: Broken.music_library_2,
+            activeIcon: Broken.music_library_2,
           ));
         case '/MusicSearch':
           items.add(const _DockItemData(
             route: '/MusicSearch',
             label: 'Music',
-            icon: Icons.music_note_outlined,
-            activeIcon: Icons.music_note,
+            icon: Broken.music_playlist,
+            activeIcon: Broken.music_circle,
           ));
       }
     }
@@ -1853,8 +1854,8 @@ class _FloatingDockState extends State<_FloatingDock> {
     items.add(const _DockItemData(
       route: '_watchtower_menu',
       label: 'Menu',
-      icon: Icons.segment_rounded,
-      activeIcon: Icons.close_rounded,
+      icon: Broken.menu_1,
+      activeIcon: Broken.close_circle,
     ));
 
     return items;
