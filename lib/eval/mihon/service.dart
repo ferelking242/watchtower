@@ -352,6 +352,13 @@ class MihonExtensionService implements ExtensionService {
 
   @override
   Future<List<String>> getSuggestions(String query) async => [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getRecommendations(String url) async =>
+      [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getComments(String url) async => [];
 }
 
 void hasError(Response response) {

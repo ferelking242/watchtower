@@ -52,4 +52,8 @@ abstract interface class ExtensionService {
   Future<List<Map<String, dynamic>>> getRecommendations(String url) async => [];
 
   Future<List<Map<String, dynamic>>> getComments(String url) async => [];
+
+  /// Autocomplete suggestions for a partial search [query].
+  /// Default: empty list (extensions that don't implement it return []).
+  Future<List<String>> getSuggestions(String query) async => [];
 }

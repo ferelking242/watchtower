@@ -427,4 +427,11 @@ class DartExtensionService implements ExtensionService {
       rethrow;
     }
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRecommendations(String url) async =>
+      [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getComments(String url) async => [];
 }
