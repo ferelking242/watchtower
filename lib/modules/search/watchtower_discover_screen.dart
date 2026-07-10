@@ -807,7 +807,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     return NamidaInnerDrawer(
       key: _drawerKey,
       borderRadius: 28.0,
-      maxPercentage: 0.78,
+      maxPercentage: 0.472,
       initiallySwipeable: true,
       drawerChild: WatchDiscoverDrawer(
         onClose: () => _drawerKey.currentState?.close(),
@@ -1633,7 +1633,7 @@ class _FilterIconButton extends StatelessWidget {
               ),
             ),
             child: Icon(
-              active ? Icons.filter_alt_rounded : Icons.filter_alt_outlined,
+              active ? Broken.filter : Broken.filter_search,
               size: 18,
               color: active ? cs.primary : cs.onSurfaceVariant,
             ),
