@@ -46,12 +46,12 @@ class _ThemeSelectorState extends ConsumerState<ThemeSelector> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? cs.primaryContainer.withValues(alpha: 0.55)
-                    : cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                    : (isLight ? cs.surfaceContainerHigh : cs.surfaceContainerHighest.withValues(alpha: 0.4)),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected
                       ? cs.primary
-                      : cs.outline.withValues(alpha: 0.22),
+                      : cs.outline.withValues(alpha: isLight ? 0.45 : 0.22),
                   width: isSelected ? 2.5 : 1,
                 ),
                 boxShadow: isSelected
