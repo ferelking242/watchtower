@@ -102,6 +102,38 @@
   # it does not change what -keep rules above actually retain.
   -dontwarn **
 
+  # Shizuku (direct API calls from MainActivity, but the AIDL-generated
+  # rikka.shizuku.* stubs are invoked through the binder/Parcelable machinery
+  # reflectively — R8 has previously mis-shrunk exactly this pattern for other
+  # plugins in this project, causing a crash the instant MainActivity's class
+  # initializer runs, before the first Flutter frame — i.e. stuck on the
+  # native splash screen forever with no logs/crash report reaching Flutter.
+  -keep class rikka.shizuku.** { *; }
+  -keepnames class rikka.shizuku.** { *; }
+  -dontwarn rikka.shizuku.**
+
+  # libmtorrentserver: native/AAR bridge (Libmtorrentserver.start is called
+  # directly from Kotlin, but the AAR's own JNI bindings resolve classes by
+  # name from native code, which R8 cannot see as a reachable reference).
+  -keep class libmtorrentserver.** { *; }
+  -dontwarn libmtorrentserver.**
+
+  # DalvikBridge calls Kotlin coroutines suspend functions and hands OkHttp
+  # instances to extension APKs entirely via reflection (see build.gradle
+  # comments) — R8 cannot trace those call sites, so both libraries need an
+  # explicit keep or they can be stripped/renamed even though they still work
+  # when this app's own code calls them directly.
+  -keep class kotlinx.coroutines.** { *; }
+  -dontwarn kotlinx.coroutines.**
+  -keep class okhttp3.** { *; }
+  -dontwarn okhttp3.**
+
+  # This app's own MainActivity/DalvikBridge/glance widget code is loaded via
+  # manifest components and reflection from extension APKs (DexClassLoader) —
+  # keep it verbatim so extension APKs can resolve it by name at runtime.
+  -keep class com.watchtower.app.** { *; }
+  -keep class com.kodjodevf.watchtower.** { *; }
+
   # kxml2 (org.xmlpull.v1.XmlPullParser) duplicates the platform's own
   # android.content.res.XmlResourceParser hierarchy under R8 full-mode
   # shrinking (profile/release builds only — debug has minify disabled).

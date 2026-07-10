@@ -7,6 +7,10 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Watchtower uses speech recognition for voice search.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Watchtower needs microphone access for voice search.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
   	<string>Watchtower needs access to save downloaded media to your Photos library.</string>
   	<key>NSPhotoLibraryUsageDescription</key>
