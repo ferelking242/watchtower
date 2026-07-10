@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab definitions — must stay in sync with _HomeTab in watchtower_home_screen
@@ -183,7 +184,7 @@ class _AccountSheet extends StatelessWidget {
                       height: 1),
                   const SizedBox(height: 8),
                   _SheetTile(
-                    icon: Icons.settings_outlined,
+                    icon: Broken.setting,
                     label: 'Paramètres',
                     onTap: () {
                       Navigator.pop(context);
@@ -191,7 +192,7 @@ class _AccountSheet extends StatelessWidget {
                     },
                   ),
                   _SheetTile(
-                    icon: Icons.track_changes_outlined,
+                    icon: Broken.chart_21,
                     label: 'Tracking',
                     onTap: () {
                       Navigator.pop(context);
@@ -199,7 +200,7 @@ class _AccountSheet extends StatelessWidget {
                     },
                   ),
                   _SheetTile(
-                    icon: Icons.history_outlined,
+                    icon: Broken.clock_1,
                     label: 'Historique',
                     onTap: () {
                       Navigator.pop(context);
@@ -207,19 +208,19 @@ class _AccountSheet extends StatelessWidget {
                     },
                   ),
                   _SheetTile(
-                    icon: Icons.download_outlined,
+                    icon: Broken.driver,
                     label: 'Téléchargements',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/settings');
+                      context.push('/downloadQueue');
                     },
                   ),
                   _SheetTile(
-                    icon: Icons.info_outline_rounded,
+                    icon: Broken.info_circle,
                     label: 'À propos',
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/settings');
+                      context.push('/about');
                     },
                   ),
                 ],
@@ -255,7 +256,7 @@ class _SheetTile extends StatelessWidget {
       ),
       title: Text(label,
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      trailing: Icon(Icons.chevron_right_rounded,
+      trailing: Icon(Broken.arrow_right_3,
           size: 18, color: cs.onSurface.withValues(alpha: 0.28)),
       onTap: onTap,
     );
