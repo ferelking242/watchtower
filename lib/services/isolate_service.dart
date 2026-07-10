@@ -176,6 +176,10 @@ class GetIsolateService {
                         return await service.getPageList(url!);
                       case 'getHeaders':
                         return Future.value(service.getHeaders());
+                      case 'getRecommendations':
+                        return await service.getRecommendations(url!);
+                      case 'getComments':
+                        return await service.getComments(url!);
                       case 'getSuggestions':
                         return await service.getSuggestions(query!);
                       default:
@@ -257,6 +261,10 @@ class GetIsolateService {
         return MManga() as T;
       case 'getHeaders':
         return <String, String>{} as T;
+      case 'getRecommendations':
+        return <Map<String, dynamic>>[] as T;
+      case 'getComments':
+        return <Map<String, dynamic>>[] as T;
       case 'getSuggestions':
         return <String>[] as T;
       default:
@@ -294,6 +302,10 @@ class GetIsolateService {
             return await service.getPageList(url!) as T;
           case 'getHeaders':
             return service.getHeaders() as T;
+          case 'getRecommendations':
+            return await service.getRecommendations(url!) as T;
+          case 'getComments':
+            return await service.getComments(url!) as T;
           case 'getSuggestions':
             return await service.getSuggestions(query!) as T;
           default:

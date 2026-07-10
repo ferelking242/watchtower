@@ -31,4 +31,10 @@ abstract class MProvider {
   List<dynamic> getFilterList();
 
   List<dynamic> getSourcePreferences();
+
+  @override
+  Future<List<Map<String, dynamic>>> getRecommendations(String url) async => [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getComments(String url) async => [];
 }

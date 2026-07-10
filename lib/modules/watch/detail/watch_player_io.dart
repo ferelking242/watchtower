@@ -1930,9 +1930,22 @@ class _FullscreenControlsOverlayState
             if (_locked) return;
             _seek(-15);
           },
-          child: const Padding(
-            padding: EdgeInsets.all(16),
-            child: Icon(Icons.replay_rounded, color: Colors.white, size: 34),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Icon(Icons.replay_rounded, color: Colors.white, size: 34),
+                Positioned(
+                  bottom: 7,
+                  child: Text("15",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 30),
@@ -1957,9 +1970,22 @@ class _FullscreenControlsOverlayState
             if (_locked) return;
             _seek(15);
           },
-          child: const Padding(
-            padding: EdgeInsets.all(16),
-            child: Icon(Icons.forward_rounded, color: Colors.white, size: 34),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Icon(Icons.forward_rounded, color: Colors.white, size: 34),
+                Positioned(
+                  bottom: 7,
+                  child: Text("15",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
           ),
         ),
       ],

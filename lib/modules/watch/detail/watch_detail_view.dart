@@ -13,6 +13,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
@@ -30,6 +31,7 @@ import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/services/recommendation.dart';
 import 'package:watchtower/modules/watch/detail/language_display.dart';
+import 'package:watchtower/services/isolate_service.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
@@ -548,7 +550,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final typeGenre = (widget.manga.genre ?? [])
         .where((g) {
           final l = g.toLowerCase().trim();
-          return l != 'film' && l != 'movie' && l != 'série' && l != 'serie';
+          return l != 'film' && l != 'movie' && l != 'série' && l != 'serie'
+              && !g.startsWith('·');
         })
         .take(1)
         .firstOrNull;
@@ -581,13 +584,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         vbar(),
         const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 13),
         const SizedBox(width: 4),
-        Text(
-          (widget.manga.author?.trim().isNotEmpty == true &&
-                  RegExp(r'^\d{4}$').hasMatch(widget.manga.author!.trim()))
-              ? widget.manga.author!.trim()
-              : 'N/A',
-          style: TextStyle(color: _grey, fontSize: 12),
-        ),
+        Builder(builder: (_) {
+          final rawDesc = widget.manga.description ?? '';
+          final imdbM = RegExp(r'IMDb\s+([\d.]+)').firstMatch(rawDesc);
+          return Text(imdbM != null ? imdbM.group(1)! : 'N/A',
+              style: TextStyle(color: _grey, fontSize: 12));
+        }),
         if (parts.isNotEmpty) ...[
           vbar(),
           Expanded(
@@ -621,9 +623,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           final maxH    = screen - 230 - statusH;
 
           final desc = (manga.description ?? '').trim();
-          final genres = (manga.genre ?? []);
-          final author = (manga.author ?? '').trim();
-          final artist = (manga.artist ?? '').trim();
+          final genres = (manga.genre ?? []).where((g) => !g.startsWith('·')).toList();
+          final countrySheet = (manga.genre ?? []).where((g) => g.startsWith('·'))
+              .map((g) => g.substring(1)).firstOrNull;
+          final year   = (manga.author ?? '').trim();
+          final _aS = (manga.artist ?? '').split(',').map((s) => s.trim())
+              .where((s) => s.isNotEmpty).toList();
+          final dirSheet  = _aS.isNotEmpty ? _aS.first : null;
+          final castSheet = _aS.length > 1 ? _aS.sublist(1).join(', ') : null;
           final lang   = (manga.lang ?? '').toUpperCase();
 
           return Container(
@@ -795,16 +802,19 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       ],
 
                       // ── Cast / Crew ───────────────────────────────────────
-                      if (author.isNotEmpty || artist.isNotEmpty) ...[
-                        _sheetSectionLabel('Equipe'),
+                      if (dirSheet != null || castSheet != null || countrySheet != null) ...[
+                        _sheetSectionLabel('Équipe & Infos'),
                         const SizedBox(height: 12),
-                        if (author.isNotEmpty)
-                          _castRow(Icons.movie_creation_outlined,
-                              'Realisateur', author),
-                        if (author.isNotEmpty && artist.isNotEmpty)
+                        if (countrySheet != null) ...[
+                          _castRow(Icons.public_outlined, 'Pays', countrySheet),
                           const SizedBox(height: 10),
-                        if (artist.isNotEmpty)
-                          _castRow(Icons.brush_outlined, 'Artiste', artist),
+                        ],
+                        if (dirSheet != null) ...[
+                          _castRow(Icons.movie_creation_outlined, 'Réalisateur', dirSheet),
+                          const SizedBox(height: 10),
+                        ],
+                        if (castSheet != null)
+                          _castRow(Icons.people_outlined, 'Distribution', castSheet),
                         const SizedBox(height: 22),
                       ],
 
@@ -1814,15 +1824,22 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             .toList()
         : <String>[];
 
-    // ── Cast names from artist field ───────────────────────────────────────
-    final castNames = (manga.artist ?? '')
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    // ── Cast / director from artist (extension: "Director, Actor1, Actor2, …") ──
+    final _artistParts = (manga.artist ?? '').split(',')
+        .map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final director  = _artistParts.isNotEmpty ? _artistParts.first : null;
+    final castNames = _artistParts.length > 1 ? _artistParts.sublist(1) : <String>[];
 
-    // ── Year / director ────────────────────────────────────────────────────
+    // ── Year from author (extension sets author = releaseYear) ───────────────
     final year = (manga.author ?? '').trim();
+
+    // ── Country from genre list (·-prefixed by extension) ────────────────────
+    final country = (manga.genre ?? []).where((g) => g.startsWith('·'))
+        .map((g) => g.substring(1)).firstOrNull;
+
+    // ── IMDb rating from description ("IMDb X.X") ────────────────────────────
+    final _imdbM = RegExp(r'IMDb\s+([\d.]+)').firstMatch(description);
+    final imdbRating = _imdbM?.group(1);
 
     // ── Status label + colour ──────────────────────────────────────────────
     String statusLabel = '';
@@ -1856,7 +1873,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         .firstOrNull;
     final genres = (manga.genre ?? [])
         .where((g) =>
-            !typeKws.any((k) => g.toLowerCase() == k.toLowerCase()))
+            !typeKws.any((k) => g.toLowerCase() == k.toLowerCase()) &&
+            !g.startsWith('·'))
         .toList();
 
     final isMovie = _isMovie(chapters);
@@ -1866,6 +1884,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     // Année (uniquement si c'est vraiment une année numérique)
     if (year.isNotEmpty && RegExp(r'^\d{4}$').hasMatch(year)) {
       infoRows.add(_DetailInfoRow(label: 'Année', value: year));
+    }
+    if (country != null && country.isNotEmpty) {
+      infoRows.add(_DetailInfoRow(label: 'Pays', value: country));
+    }
+    if (imdbRating != null) {
+      infoRows.add(_DetailInfoRow(label: 'IMDb', value: '★ ' + imdbRating));
+    }
+    if (director != null && director.isNotEmpty) {
+      infoRows.add(_DetailInfoRow(label: 'Réalisateur', value: director));
     }
     // Nb épisodes / type
     if (chapters.isNotEmpty) {
@@ -1897,10 +1924,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     if (manga.source?.isNotEmpty ?? false) {
       infoRows.add(_DetailInfoRow(label: 'Source', value: manga.source!));
     }
-    // Réalisateur (si contient des lettres, pas juste une année numérique)
-    if (year.isNotEmpty && RegExp(r'[a-zA-ZÀ-ÿ]').hasMatch(year)) {
-      infoRows.add(_DetailInfoRow(label: 'Réalisateur', value: year));
-    }
+
 
     // ── Check if truly empty ───────────────────────────────────────────────
     final hasAnyContent = description.isNotEmpty ||
@@ -2295,18 +2319,53 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       );
 
   Widget _buildRecommendationsTab() {
-    // Pour vous : utilise le service anibrain.ai pour les recommandations
-    // basées sur le titre courant. L'extension peut aussi fournir getForYou().
-    return FutureBuilder<List<RecommendationResult>?>(
-      future: getRecommendations(
-        widget.manga.name ?? '',
-        widget.manga.itemType,
-        // Poids par défaut : genres 30%, synopsis 40%, setting 15%, thème 20%
-        AlgorithmWeights(),
-      ),
+    // Pour vous : appel via l'extension getRecommendations (API native MovieBox).
+    final _recSrc = getSource(
+      widget.manga.lang ?? '',
+      widget.manga.source ?? '',
+      widget.manga.sourceId,
+    );
+
+    Widget _empty() => Center(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    color: _card, shape: BoxShape.circle,
+                    border: Border.all(color: _faint, width: 1.5),
+                  ),
+                  child: Icon(Icons.movie_filter_outlined, color: _grey, size: 26),
+                ),
+                const SizedBox(height: 14),
+                Text('Aucune recommandation',
+                    style: TextStyle(color: _onSurface.withValues(alpha: 0.7),
+                        fontSize: 14, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 6),
+                Text('Les suggestions apparaîtront ici.',
+                    style: TextStyle(color: _grey, fontSize: 12),
+                    textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        );
+
+    if (_recSrc == null) return _empty();
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: getIsolateService
+          .get<List<dynamic>>(
+            url: widget.manga.link ?? '',
+            source: _recSrc,
+            serviceType: 'getRecommendations',
+            proxyServer: '',
+          )
+          .then((raw) => raw.map((e) => Map<String, dynamic>.from(e as Map)).toList()),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          // Skeleton shimmer grid — visible dès le début, pas de pop
           return GridView.builder(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -2320,44 +2379,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           );
         }
         final recs = snap.data;
-        if (recs == null || recs.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: _card,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _faint, width: 1.5),
-                    ),
-                    child: Icon(Icons.movie_filter_outlined,
-                        color: _grey, size: 26),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Aucune recommandation trouvée',
-                    style: TextStyle(
-                        color: _onSurface.withValues(alpha: 0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Ajoute ce titre à ta bibliothèque\npour de meilleures suggestions.',
-                    style: TextStyle(color: _grey, fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        // Grille de recommandations : poster + titre
+        if (recs == null || recs.isEmpty) return _empty();
+
         return GridView.builder(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -2368,13 +2391,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
           itemCount: recs.length,
           itemBuilder: (_, i) {
-            final rec = recs[i];
-            final imgUrl =
-                rec.imgURLs.isNotEmpty ? rec.imgURLs.first : null;
-            final title = rec.titleRomaji ??
-                rec.titleEnglish ??
-                rec.titleNative ??
-                '';
+            final rec    = recs[i];
+            final imgUrl = rec['imageUrl'] as String?;
+            final title  = (rec['name'] as String?) ?? '';
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2419,60 +2438,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       widget.manga.source ?? '',
       widget.manga.sourceId,
     );
-    final supportsComments =
-        (source?.additionalParams?.contains('"supportsComments":true') ?? false) ||
-        (source?.notes?.contains('supportsComments') ?? false);
-
-    if (!supportsComments) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: _card,
-                shape: BoxShape.circle,
-                border: Border.all(color: _faint, width: 1.5),
-              ),
-              child: Icon(Icons.chat_bubble_outline, color: _grey, size: 32),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Commentaires non disponibles',
-              style: TextStyle(
-                  color: _onSurface.withValues(alpha: 0.7),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Cette extension ne supporte pas les commentaires.',
-              style: TextStyle(color: _grey, fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            if ((source?.name ?? '').isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _card,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Source : ${source!.name}',
-                  style: TextStyle(color: _grey, fontSize: 11),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
     return _CommentsSection(
-      mangaUrl: widget.manga.link ?? '',
-      mangaName: widget.manga.name ?? '',
+      url: widget.manga.link ?? '',
+      title: widget.manga.name ?? '',
+      source: source,
       accent: _accent,
       bg: _bg,
       card: _card,
@@ -2482,7 +2451,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       textPrimary: _textPrimary,
     );
   }
-
   // ─── DOWNLOAD SHEET ─────────────────────────────────────────────────────────
 
   void _showDownloadSheet(BuildContext ctx, List<Chapter> chapters) {
@@ -3697,8 +3665,9 @@ class _Comment {
 // ─── COMMENTS SECTION ────────────────────────────────────────────────────────
 
 class _CommentsSection extends StatefulWidget {
-  final String mangaUrl;
-  final String mangaName;
+  final String url;
+  final String title;
+  final Source? source;
   final Color accent;
   final Color bg;
   final Color card;
@@ -3708,8 +3677,9 @@ class _CommentsSection extends StatefulWidget {
   final Color textPrimary;
 
   const _CommentsSection({
-    required this.mangaUrl,
-    required this.mangaName,
+    required this.url,
+    required this.title,
+    this.source,
     required this.accent,
     required this.bg,
     required this.card,
@@ -3745,12 +3715,36 @@ class _CommentsSectionState extends State<_CommentsSection> {
   }
 
   Future<void> _loadComments() async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() {
-      _comments = _mockComments();
-      _loading = false;
-    });
+    setState(() { _loading = true; });
+    final src = widget.source;
+    if (src == null) {
+      if (!mounted) return;
+      setState(() { _comments = []; _loading = false; });
+      return;
+    }
+    try {
+      final raw = await getIsolateService.get<List<dynamic>>(
+        url: widget.url, source: src,
+        serviceType: 'getComments', proxyServer: '',
+      );
+      if (!mounted) return;
+      final mapped = raw.map((e) {
+        final m = Map<String, dynamic>.from(e as Map);
+        final sv = m['score']; final sc = sv is num ? sv.toDouble() : -1.0;
+        final dt = (m['date'] as String?) ?? '';
+        return _Comment(
+          id: ((m['author'] ?? 'anon') as String) + dt,
+          author: (m['author'] as String?) ?? 'Anonyme',
+          timeAgo: dt,
+          body: ((m['content'] as String?) ?? '').trim() +
+              (sc > 0 ? '  ★' + sc.toStringAsFixed(1) : ''),
+        );
+      }).toList();
+      setState(() { _comments = mapped; _loading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() { _comments = []; _loading = false; });
+    }
   }
 
   List<_Comment> _mockComments() => [

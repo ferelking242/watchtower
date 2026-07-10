@@ -117,6 +117,8 @@ class MProvider {
     async getCustomList(id, page) {
         throw new Error("getCustomList not implemented for id: " + id);
     }
+    async getRecommendations(url) { return []; }
+    async getComments(url) { return []; }
     // ── Generic search/filter fallback helpers ──────────────────────────────
     // Available on every extension via `this.fallbackSearch(...)` and
     // `this.safeApplyFilters(...)` so extensions that have no native search
@@ -517,6 +519,29 @@ function extLog(level, msg) {
       final result = await _extensionCallAsync<List>('getSuggestions(' + jsonEncode(query) + ')');
       return result.map((e) => e.toString()).toList();
     } catch (_) {
+      return [];
+    }
+  }
+  @override
+  Future<List<Map<String, dynamic>>> getRecommendations(String url) async {
+    _extInfo('\$_id \u00b7 getRecommendations url=${_t(url)}');
+    try {
+      final raw = await _extensionCallAsync<List>('getRecommendations(' + jsonEncode(url) + ')');
+      return raw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+    } catch (e) {
+      _extWarn('\$_id \u00b7 getRecommendations FAILED <- \$e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getComments(String url) async {
+    _extInfo('\$_id \u00b7 getComments url=${_t(url)}');
+    try {
+      final raw = await _extensionCallAsync<List>('getComments(' + jsonEncode(url) + ')');
+      return raw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+    } catch (e) {
+      _extWarn('\$_id \u00b7 getComments FAILED <- \$e');
       return [];
     }
   }
