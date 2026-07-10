@@ -117,6 +117,10 @@ GoRouter router(Ref ref) {
     ],
     navigatorKey: navigatorKey,
     onException: (context, state, router) => router.go(mainLocation),
+    redirect: (context, state) {
+      if (state.matchedLocation == '/more') return '/settings';
+      return null;
+    },
   );
 }
 
@@ -214,7 +218,6 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(name: "updates", child: const UpdatesScreen()),
         _genericRoute(name: "browse", child: const BrowseScreen()),
         _genericRoute(name: "marketplace", child: const MarketplaceScreen()),
-        _genericRoute(name: "more", child: const MoreScreen()),
         _genericRoute(name: "downloadQueue", child: const DownloadQueueScreen()),
         _genericRoute(name: "discover", child: const WatchtowerDiscoverScreen()),
       ],
