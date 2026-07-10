@@ -87,6 +87,11 @@ android {
            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
        }
        profile {
+           // Plugin AARs generally only publish debug/release variants; without
+           // this, Gradle resolves "profile" inconsistently across dependencies
+           // and R8 sees plugin classes as missing (cascading "Missing class"
+           // errors one plugin at a time as each gets processed).
+           matchingFallbacks = ['release']
            signingConfig signingConfigs.watchtower
            minifyEnabled true
            shrinkResources true
