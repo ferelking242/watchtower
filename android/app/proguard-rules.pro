@@ -32,6 +32,7 @@
   -keep class com.pichillilorenzo.** { *; }
   -keep class com.getkeepsafe.** { *; }
   -keep class com.crazecoder.** { *; }
+  -keep class com.ajinasokan.** { *; }
 
   -dontwarn com.aaassseee.**
   -dontwarn com.alexmercerind.**
@@ -49,6 +50,7 @@
   -dontwarn vn.hunghd.**
   -dontwarn com.mr.flutter.**
   -dontwarn com.bluechilli.**
+  -dontwarn com.ajinasokan.**
 
   # Rhino JS engine (flutter_new_pipe_extractor) - java.beans absent on Android
   -dontwarn java.beans.**
