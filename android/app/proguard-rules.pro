@@ -58,4 +58,12 @@
   # Google Play Core (split APK / deferred components) - not present in sideload APK builds
   -dontwarn com.google.android.play.**
   -dontwarn com.google.android.play.core.**
+
+  # kxml2 (org.xmlpull.v1.XmlPullParser) duplicates the platform's own
+  # android.content.res.XmlResourceParser hierarchy under R8 full-mode
+  # shrinking (profile/release builds only — debug has minify disabled).
+  # It's a transitive dep pulled in for a legacy XML pull-parser API path
+  # never exercised on Android; silence the redefinition instead of failing.
+  -dontwarn org.xmlpull.v1.**
+  -dontwarn org.kxml2.**
   
