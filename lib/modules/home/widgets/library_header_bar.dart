@@ -240,7 +240,7 @@ class _AccountSheet extends StatelessWidget {
                       label: 'Settings',
                       onTap: () {
                         Navigator.pop(context);
-                        context.push('/more');
+                        context.push('/settings');
                       }),
                   _SheetTile(
                       icon: Icons.track_changes_outlined,
@@ -261,7 +261,7 @@ class _AccountSheet extends StatelessWidget {
                       label: 'About',
                       onTap: () {
                         Navigator.pop(context);
-                        context.push('/more');
+                        context.push('/settings');
                       }),
                 ],
               ),
