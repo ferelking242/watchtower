@@ -19,6 +19,27 @@ subprojects {
         compileSdkVersion 36
         buildToolsVersion "34.0.0"
       }
+      // The app module builds a "profile" buildType with matchingFallbacks=['release'].
+      // matchingFallbacks only kicks in when Gradle's variant-aware dependency resolution
+      // can't find an exact "profile" match — but with this many plugin subprojects the
+      // fallback resolves inconsistently: some plugins (app_links observed in practice)
+      // end up compiled against the wrong/no variant, so GeneratedPluginRegistrant calls
+      // "new AppLinksPlugin()" against a class that was never actually packaged — R8 sees
+      // it as reachable and "keeps" it, but there is nothing to keep (NoClassDefFoundError
+      // at runtime, not a build error, because missing-class warnings are suppressed).
+      // Giving every plugin library module a REAL "profile" buildType (identical to
+      // release) removes the ambiguity entirely instead of depending on fallback matching.
+      if (project.plugins.hasPlugin("com.android.library") && !project.name.equals("app")) {
+        project.android {
+          buildTypes {
+            if (buildTypes.findByName("profile") == null) {
+              profile {
+                initWith(buildTypes.release)
+              }
+            }
+          }
+        }
+      }
     }
     if (project.hasProperty("android")) {
       project.android {
