@@ -117,7 +117,7 @@ class WatchDiscoverDrawer extends ConsumerWidget {
                       icon: Broken.brush_1,
                       onTap: () {
                         onClose();
-                        context.go('/more');
+                        context.go('/appearance');
                       },
                     ),
                   ),
@@ -131,7 +131,7 @@ class WatchDiscoverDrawer extends ConsumerWidget {
                       icon: Broken.setting,
                       onTap: () {
                         onClose();
-                        context.go('/more');
+                        context.go('/settings');
                       },
                     ),
                   ),
