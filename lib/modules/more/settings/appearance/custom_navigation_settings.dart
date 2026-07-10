@@ -132,7 +132,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   final label = navigationItems[navigation] ?? navigation;
                   final isVisible = !hideItems.contains(navigation);
                   final isFixed =
-                      navigation == '/more' || navigation == '/browse';
+                      navigation == '/settings' || navigation == '/browse';
                   return GestureDetector(
                     onTap: isFixed
                         ? null
