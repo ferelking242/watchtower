@@ -119,7 +119,7 @@ Future<void> customDraggableTabBar({
                         != '/AnimeLibrary' &&
                         != '/history' &&
                         != '/browse' &&
-                        != '/more' =>
+                        != '/settings' =>
                       0,
                     _ => 100,
                   }
