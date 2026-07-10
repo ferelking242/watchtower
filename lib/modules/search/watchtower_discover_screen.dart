@@ -20,8 +20,10 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/search.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/main_view/widgets/namida_inner_drawer.dart';
-import 'package:watchtower/modules/search/widgets/discover_drawer.dart';
+import 'package:watchtower/modules/search/widgets/watch_discover_drawer.dart';
+import 'package:watchtower/ui/widgets/namida_app_bar.dart';
 
 // ── Display mode ───────────────────────────────────────────────────────────────
 
@@ -807,7 +809,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
       borderRadius: 28.0,
       maxPercentage: 0.78,
       initiallySwipeable: true,
-      drawerChild: WatchtowerDiscoverDrawer(
+      drawerChild: WatchDiscoverDrawer(
         onClose: () => _drawerKey.currentState?.close(),
       ),
       child: Scaffold(
@@ -1524,11 +1526,10 @@ class _DiscoveryHeader extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ── Hamburger (3 lines, opens Namida-style drawer) ──────────
-              _HamburgerBtn(
-                cs: cs,
-                isDark: isDark,
-                onTap: onDrawerTap,
+              // ── Hamburger — Namida Broken.menu_1 ────────────────────────
+              NamidaAppBarIcon(
+                icon: Broken.menu_1,
+                onPressed: onDrawerTap,
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -1543,20 +1544,16 @@ class _DiscoveryHeader extends StatelessWidget {
               ),
               // Search icon (when bar is collapsed)
               if (searchCollapsed) ...[
-                _SmallHeaderBtn(
-                  icon: Icons.search_rounded,
-                  cs: cs,
-                  isDark: isDark,
-                  onTap: onSearchTap,
+                NamidaAppBarIcon(
+                  icon: Broken.search_normal_1,
+                  onPressed: onSearchTap,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 2),
               ],
               // More button
-              _SmallHeaderBtn(
-                icon: Icons.more_horiz_rounded,
-                cs: cs,
-                isDark: isDark,
-                onTap: onMoreTap,
+              NamidaAppBarIcon(
+                icon: Broken.more_square,
+                onPressed: onMoreTap,
               ),
             ],
           ),
@@ -1587,105 +1584,6 @@ class _DiscoveryHeader extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ── Hamburger button (3 lines — opens Namida-style side drawer) ──────────────
-
-class _HamburgerBtn extends StatelessWidget {
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  const _HamburgerBtn({
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final lineColor = isDark
-        ? Colors.white.withValues(alpha: 0.78)
-        : Colors.black.withValues(alpha: 0.70);
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top line — full width
-            Container(
-              width: 22,
-              height: 2,
-              decoration: BoxDecoration(
-                color: lineColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 4.5),
-            // Middle line — slightly shorter (gives the "hamburger" feel)
-            Container(
-              width: 16,
-              height: 2,
-              decoration: BoxDecoration(
-                color: lineColor.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 4.5),
-            // Bottom line — full width
-            Container(
-              width: 22,
-              height: 2,
-              decoration: BoxDecoration(
-                color: lineColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Small header button ────────────────────────────────────────────────────────
-
-class _SmallHeaderBtn extends StatelessWidget {
-  final IconData icon;
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  const _SmallHeaderBtn({
-    required this.icon,
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : cs.onSurface.withValues(alpha: 0.07),
-          shape: BoxShape.circle,
-        ),
-        child:
-            Icon(icon, size: 16, color: cs.onSurface.withValues(alpha: 0.65)),
-      ),
     );
   }
 }

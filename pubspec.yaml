@@ -334,6 +334,12 @@ flutter:
         - asset: assets/fonts/Cookie-Regular.ttf
           style: normal
           weight: 500
+    - family: broken
+      fonts:
+        - asset: assets/fonts/broken.ttf
+    - family: broken_filled
+      fonts:
+        - asset: assets/fonts/broken_filled.ttf
     - family: Ubuntu Mono
       fonts:
         - asset: assets/fonts/Ubuntu_Mono/UbuntuMono-Regular.ttf

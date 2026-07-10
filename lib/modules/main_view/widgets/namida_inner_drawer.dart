@@ -1,10 +1,13 @@
-// Adapted from Namida — github.com/namidaco/namida (GPL-3.0)
-// Original: lib/ui/widgets/inner_drawer.dart
-// Adaptations: Namida-specific deps removed, Rx → ValueNotifier,
-// custom gesture detectors → GestureDetector, extensions inlined.
-import 'dart:math' as math;
-import 'dart:ui' show clampDouble;
-
+// Source: github.com/namidaco/namida — lib/ui/widgets/inner_drawer.dart (GPL-3.0)
+// Watchtower adaptation: Namida-only deps replaced with Flutter equivalents.
+//   Rx           → ValueNotifier
+//   ObxO         → ValueListenableBuilder
+//   context.width / .height  → MediaQuery
+//   withOpacityExt / clampDouble / withMinimum → inlined
+//   AnimatedColor → AnimatedContainer
+//   ArtworkWidget.isMovingDrawer  → removed (no-op)
+//   HorizontalDragDetector / TapDetector → GestureDetector
+//   DecorationClipper → _DecorationClipper (inlined)
 import 'package:flutter/material.dart';
 
 class NamidaInnerDrawer extends StatefulWidget {
@@ -37,7 +40,7 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
     with SingleTickerProviderStateMixin {
   Animation<double> get animationView => controller.view;
   double get drawerPercentage =>
-      clampDouble(controller.value / _upperBound.value, 0.0, 1.0);
+      (controller.value / _upperBoundRx.value).clamp(0.0, 1.0);
   bool get isOpened => _isOpened;
   void toggle() => isOpened ? _closeDrawer() : _openDrawer();
   void open() => _openDrawer();
@@ -48,7 +51,7 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
   }
 
   late final AnimationController controller;
-  final _upperBound = ValueNotifier<double>(0.0);
+  final _upperBoundRx = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
@@ -57,23 +60,25 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
       upperBound: 2.0,
       duration: Duration.zero,
     );
-    _upperBound.value = widget.maxPercentage;
+    controller.addStatusListener(_statusListener);
+    _upperBoundRx.value = widget.maxPercentage;
     super.initState();
   }
 
   @override
   void dispose() {
     controller.dispose();
-    _upperBound.dispose();
+    _upperBoundRx.dispose();
     super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant NamidaInnerDrawer oldWidget) {
     if (widget.maxPercentage != oldWidget.maxPercentage) {
-      _upperBound.value = widget.maxPercentage;
+      _upperBoundRx.value = widget.maxPercentage;
       if (_isOpened) {
-        controller.animateTo(_upperBound.value, duration: Duration.zero);
+        controller.animateTo(_upperBoundRx.value,
+            duration: Duration.zero); // just reanimate
       }
     }
     super.didUpdateWidget(oldWidget);
@@ -88,40 +93,33 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
         controller.value * MediaQuery.of(context).size.width;
   }
 
+  void _statusListener(AnimationStatus status) {
+    // ArtworkWidget.isMovingDrawer removed — not needed in Watchtower
+  }
+
   void _openDrawer() {
     _isOpened = true;
-    controller.animateTo(
-      _upperBound.value,
-      duration: widget.duration,
-      curve: widget.curve,
-    );
+    controller.animateTo(_upperBoundRx.value,
+        duration: widget.duration, curve: widget.curve);
   }
 
   void _closeDrawer() {
     _isOpened = false;
-    controller.animateTo(
-      controller.lowerBound,
-      duration: widget.duration,
-      curve: widget.curve,
-    );
+    controller.animateTo(controller.lowerBound,
+        duration: widget.duration, curve: widget.curve);
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
     final drawerChild = RepaintBoundary(child: widget.drawerChild);
     final scaffoldBody = RepaintBoundary(child: widget.child);
-
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
         double animationValue = controller.value;
-
-        // Main content stack (with dim overlay + edge absorber)
-        final content = Stack(
+        final child = Stack(
           children: [
             scaffoldBody,
             Positioned.fill(
@@ -132,35 +130,24 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
                 child: IgnorePointer(
                   ignoring: animationValue == controller.lowerBound,
                   child: ColoredBox(
-                    color: Colors.black.withValues(
-                      alpha: clampDouble(animationValue * 1.2, 0.0, 1.0),
-                    ),
+                    color: Colors.black
+                        .withOpacity((animationValue * 1.2).clamp(0.0, 1.0)),
                   ),
                 ),
               ),
             ),
-            // Edge absorber so swipe-from-left opens the drawer
-            if (_canSwipe)
-              ColoredBox(
-                color: Colors.transparent,
-                child: SizedBox(
-                  height: screenHeight,
-                  width:
-                      math.max(20.0, MediaQuery.paddingOf(context).left),
-                ),
-              ),
           ],
         );
-
         final finalBuilder = Stack(
           children: [
+            // -- bg
             if (animationValue > 0) ...[
-              // Solid background so drawer reveals it nicely
               Positioned.fill(
-                child:
-                    ColoredBox(color: theme.scaffoldBackgroundColor),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  color: theme.scaffoldBackgroundColor,
+                ),
               ),
-              // Shadow on the right edge of the drawer
               Positioned.fill(
                 child: Transform.translate(
                   offset: Offset(screenWidth * animationValue * 0.6, 0),
@@ -168,9 +155,8 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
                     decoration: BoxDecoration(
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: isDark ? 0.02 : 0.10,
-                          ),
+                          color: theme.colorScheme.primary.withAlpha(
+                              theme.brightness == Brightness.dark ? 5 : 25),
                           blurRadius: 58.0,
                           spreadRadius: 12.0,
                           offset: const Offset(-2.0, 0),
@@ -180,41 +166,35 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
                   ),
                 ),
               ),
-              // Drawer panel
+              // -- drawer
               ValueListenableBuilder<double>(
-                valueListenable: _upperBound,
+                valueListenable: _upperBoundRx,
                 builder: (context, upperBound, _) => Padding(
-                  padding: EdgeInsets.only(
-                      right: screenWidth * (1 - upperBound)),
+                  padding: EdgeInsets.only(right: screenWidth * (1 - upperBound)),
                   child: Transform.translate(
                     offset: Offset(
-                      -((upperBound - animationValue) * screenWidth * 0.5),
-                      0,
-                    ),
+                        -((upperBound - animationValue) * screenWidth * 0.5),
+                        0),
                     child: drawerChild,
                   ),
                 ),
               ),
-              // Dim overlay on the drawer itself (lightens as drawer opens)
+              // -- drawer dim
               Positioned.fill(
                 child: IgnorePointer(
                   child: ValueListenableBuilder<double>(
-                    valueListenable: _upperBound,
+                    valueListenable: _upperBoundRx,
                     builder: (context, upperBound, _) => ColoredBox(
-                      color: Colors.black.withValues(
-                        alpha: clampDouble(
-                          (upperBound - animationValue) * 1.8,
-                          0.0,
-                          1.0,
-                        ),
-                      ),
+                      color: Colors.black.withOpacity(
+                          ((upperBound - animationValue) * 1.8)
+                              .clamp(0.0, 1.0)),
                     ),
                   ),
                 ),
               ),
             ],
 
-            // Main content — slides right as drawer opens
+            // -- child
             Transform.translate(
               offset: Offset(screenWidth * animationValue, 0),
               child: widget.borderRadius > 0
@@ -222,64 +202,71 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
                       clipper: _DecorationClipper(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(
-                            widget.borderRadius * animationValue,
-                          ),
+                              widget.borderRadius * animationValue),
                         ),
                       ),
-                      child: content,
+                      child: child,
                     )
-                  : content,
+                  : child,
             ),
           ],
         );
-
-        if (!_canSwipe) return finalBuilder;
-
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onHorizontalDragDown: (_) {
-            controller.stop();
-            _recalculateDistanceTraveled();
-          },
-          onHorizontalDragUpdate: (details) {
-            double toAdd = details.delta.dx;
-            if (controller.value > widget.maxPercentage) {
-              toAdd -= toAdd * (0.15 + controller.value);
-            }
-            _distanceTraveled =
-                math.max(0.0, _distanceTraveled + toAdd);
-            controller
-                .animateTo(_distanceTraveled / screenWidth);
-          },
-          onHorizontalDragEnd: (details) {
-            final velocity = details.velocity.pixelsPerSecond.dx;
-            if (velocity > 300) {
-              _openDrawer();
-            } else if (velocity < -300) {
-              _closeDrawer();
-            } else if (animationValue > (_upperBound.value * 0.4)) {
-              _openDrawer();
-            } else {
-              _closeDrawer();
-            }
-          },
-          child: finalBuilder,
-        );
+        return _canSwipe
+            // -- touch absorber
+            ? GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragDown: (_) {
+                  controller.stop();
+                  _recalculateDistanceTraveled();
+                },
+                onHorizontalDragUpdate: (details) {
+                  double toAdd = details.delta.dx;
+                  if (controller.value > widget.maxPercentage) {
+                    double toSubtract = (toAdd * (0.15 + controller.value));
+                    toAdd -= toSubtract;
+                  }
+                  _distanceTraveled =
+                      (_distanceTraveled + toAdd).clamp(0.0, double.infinity);
+                  controller.animateTo(_distanceTraveled / screenWidth);
+                },
+                onHorizontalDragEnd: (details) {
+                  final velocity = details.velocity.pixelsPerSecond.dx;
+                  if (velocity > 300) {
+                    _openDrawer();
+                  } else if (velocity < -300) {
+                    _closeDrawer();
+                  } else if (animationValue > (_upperBoundRx.value * 0.4)) {
+                    _openDrawer();
+                  } else {
+                    _closeDrawer();
+                  }
+                },
+                child: finalBuilder,
+              )
+            : finalBuilder;
       },
     );
   }
 }
 
-/// Clips a widget using [BoxDecoration.getClipPath] — used for border-radius
-/// during the drawer open/close transition.
+// -- DecorationClipper (from Namida custom_widgets.dart — inlined)
 class _DecorationClipper extends CustomClipper<Path> {
-  final BoxDecoration decoration;
-  const _DecorationClipper({required this.decoration});
+  const _DecorationClipper({
+    this.textDirection = TextDirection.ltr,
+    required this.decoration,
+  });
+
+  final TextDirection textDirection;
+  final Decoration decoration;
 
   @override
-  Path getClip(Size size) =>
-      decoration.getClipPath(Offset.zero & size, TextDirection.ltr);
+  Path getClip(Size size) {
+    return decoration.getClipPath(Offset.zero & size, textDirection);
+  }
 
   @override
-  bool shouldReclip(_DecorationClipper old) => decoration != old.decoration;
+  bool shouldReclip(_DecorationClipper oldClipper) {
+    return oldClipper.decoration != decoration ||
+        oldClipper.textDirection != textDirection;
+  }
 }

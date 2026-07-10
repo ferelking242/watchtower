@@ -1,12 +1,12 @@
-// Adapted from flutter_netflix — netflix_app_bar.dart
-// Removed: BLoC, AnimationStatusCubit, lucide_icons, profile icon, go_router sub-tabs.
-// Exposed as a regular StatelessWidget (used as Positioned overlay in WatchHomeScreen).
-// Added: NfCircleIconButton — circular translucent-black backdrop for icon visibility.
+// Source visuelle: github.com/namidaco/namida — NamidaAppBarIcon + _CustomAppBar (GPL-3.0)
+// Adapted for Watchtower watch home screen.
+// NfCircleIconButton → NamidaAppBarIcon (Broken icons, transparent backdrop on dark BG)
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/ui/widgets/namida_app_bar.dart';
 
-// ── NfCircleIconButton ─────────────────────────────────────────────────────────
-/// A circular icon button with a translucent-black backdrop so it stays
-/// readable over both light and dark poster backgrounds.
+// ── NfCircleIconButton — kept for transparent-poster contexts ─────────────────
+// (Namida-style: Broken icon, circular translucent backdrop)
 class NfCircleIconButton extends StatelessWidget {
   const NfCircleIconButton({
     super.key,
@@ -24,7 +24,7 @@ class NfCircleIconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width:  40,
+        width: 40,
         height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -38,9 +38,9 @@ class NfCircleIconButton extends StatelessWidget {
 }
 
 // ── NfWatchAppBarWidget ────────────────────────────────────────────────────────
+// Netflix-style transparent→black opacity as you scroll.
+// Uses Broken icon font via NamidaAppBarIcon.
 
-/// Floating app bar with netflix-style transparent→black opacity as you scroll.
-/// Used as a Positioned overlay on top of the CustomScrollView.
 class NfWatchAppBarWidget extends StatelessWidget {
   const NfWatchAppBarWidget({
     super.key,
@@ -59,25 +59,25 @@ class NfWatchAppBarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.of(context).viewPadding.top;
-    // Mirror the netflix_app_bar opacity: scrollOffset / 100 clamped to 0.85
+    final topPad   = MediaQuery.of(context).viewPadding.top;
     final bgOpacity = (scrollOffset / 100).clamp(0.0, 0.85).toDouble();
+    final cs        = Theme.of(context).colorScheme;
 
     return Container(
       color:   Colors.black.withValues(alpha: bgOpacity),
-      padding: EdgeInsets.only(top: topPad, left: 8, right: 8),
+      padding: EdgeInsets.only(top: topPad, left: 4, right: 4),
       child: SizedBox(
         height: kToolbarHeight,
         child: Row(
           children: [
             if (canPop)
               NfCircleIconButton(
-                icon:  Icons.arrow_back_ios_new_rounded,
+                icon:  Broken.arrow_left_2,
                 onTap: onBackTap ?? () => Navigator.of(context).pop(),
               )
             else
               Padding(
-                padding: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.only(left: 8),
                 child: Text(
                   sourceName,
                   style: const TextStyle(
@@ -89,9 +89,18 @@ class NfWatchAppBarWidget extends StatelessWidget {
                 ),
               ),
             const Spacer(),
-            NfCircleIconButton(
-              icon:  Icons.search_rounded,
-              onTap: onSearchTap ?? () {},
+            // Search — NamidaAppBarIcon style
+            NamidaAppBarIcon(
+              icon:      Broken.search_normal_1,
+              onPressed: onSearchTap ?? () {},
+              // wrap in white colour so it's visible over dark poster bg
+              child: Icon(
+                Broken.search_normal_1,
+                color: bgOpacity > 0.3
+                    ? cs.onSurface
+                    : Colors.white,
+                size: 22,
+              ),
             ),
           ],
         ),
