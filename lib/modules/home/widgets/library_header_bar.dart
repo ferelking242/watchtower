@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 
@@ -136,7 +137,7 @@ class _SearchButton extends StatelessWidget {
                 ),
               ),
               child: Icon(
-                Icons.search_rounded,
+                Broken.search_normal_1,
                 color: cs.onSurface,
                 size: 22,
               ),
@@ -236,32 +237,32 @@ class _AccountSheet extends StatelessWidget {
                   Divider(color: cs.outlineVariant.withValues(alpha: 0.40)),
                   const SizedBox(height: 4),
                   _SheetTile(
-                      icon: Icons.settings_outlined,
+                      icon: Broken.setting,
                       label: 'Settings',
                       onTap: () {
                         Navigator.pop(context);
                         context.push('/settings');
                       }),
                   _SheetTile(
-                      icon: Icons.track_changes_outlined,
+                      icon: Broken.chart_21,
                       label: 'Tracking',
                       onTap: () {
                         Navigator.pop(context);
                         context.push('/trackerLibrary');
                       }),
                   _SheetTile(
-                      icon: Icons.history_outlined,
+                      icon: Broken.clock_1,
                       label: 'History',
                       onTap: () {
                         Navigator.pop(context);
                         context.push('/history');
                       }),
                   _SheetTile(
-                      icon: Icons.info_outline_rounded,
+                      icon: Broken.info_circle,
                       label: 'About',
                       onTap: () {
                         Navigator.pop(context);
-                        context.push('/settings');
+                        context.push('/about');
                       }),
                 ],
               ),
@@ -296,8 +297,8 @@ class _SheetTile extends StatelessWidget {
       ),
       title: Text(label,
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      trailing: Icon(Icons.chevron_right_rounded,
-          color: cs.onSurface.withValues(alpha: 0.30)),
+      trailing: Icon(Broken.arrow_right_3,
+          size: 18, color: cs.onSurface.withValues(alpha: 0.30)),
       onTap: onTap,
     );
   }
