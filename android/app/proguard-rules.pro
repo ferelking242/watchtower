@@ -51,6 +51,7 @@
   -dontwarn com.mr.flutter.**
   -dontwarn com.bluechilli.**
   -dontwarn com.ajinasokan.**
+  -dontwarn com.crazecoder.**
 
   # Rhino JS engine (flutter_new_pipe_extractor) - java.beans absent on Android
   -dontwarn java.beans.**
