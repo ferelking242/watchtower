@@ -706,8 +706,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
-    if (dest.contains("/more")) {
-      destinations[dest.indexOf("/more")] = NavigationRailDestination(
+    if (dest.contains("/settings")) {
+      destinations[dest.indexOf("/settings")] = NavigationRailDestination(
         selectedIcon: const Icon(Icons.more_horiz),
         icon: const Icon(Icons.more_horiz_outlined),
         label: Padding(
@@ -831,8 +831,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: l10n.browse,
       );
     }
-    if (dest.contains('/more')) {
-      destMap['/more'] = NavigationDestination(
+    if (dest.contains('/settings')) {
+      destMap['/settings'] = NavigationDestination(
         selectedIcon: const Icon(Icons.more_horiz),
         icon: const Icon(Icons.more_horiz_outlined),
         label: l10n.more,
@@ -1048,8 +1048,8 @@ class _TabletLayoutState extends State<_TabletLayout> {
   static const _validLocations = {
     '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
     '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
-    '/updates', '/browse', '/more', '/trackerLibrary', '/globalSearch',
-    '/settings', '/marketplace', '/discover', '/plugins',
+    '/updates', '/browse', '/settings', '/trackerLibrary', '/globalSearch',
+    '/marketplace', '/discover', '/plugins',
   };
 
   static const _mainItems = [
@@ -1068,7 +1068,6 @@ class _TabletLayoutState extends State<_TabletLayout> {
   ];
 
   static const _footerItems = [
-    (route: '/more',     icon: Icons.more_horiz_outlined,  activeIcon: Icons.more_horiz,  tooltip: 'Plus'),
     (route: '/settings', icon: Icons.settings_outlined,    activeIcon: Icons.settings,    tooltip: 'Paramètres'),
   ];
 
@@ -1572,7 +1571,7 @@ class _SidebarFooter extends StatelessWidget {
           ),
           InkWell(
             borderRadius: BorderRadius.circular(8),
-            onTap: () => context.go('/more'),
+            onTap: () => context.go('/settings'),
             child: Padding(
               padding: const EdgeInsets.all(5),
               child: Icon(
@@ -1594,7 +1593,7 @@ double _getNavigationRailWidthLegacy(bool isLongPressed, String? location) {
   const validLocations = {
     '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
     '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
-    '/updates', '/browse', '/more', '/trackerLibrary',
+    '/updates', '/browse', '/settings', '/trackerLibrary',
   };
   return (location == null || validLocations.contains(location)) ? 200 : 0;
 }
@@ -1661,7 +1660,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/history',
     '/updates',
     '/browse',
-    '/more',
+    '/settings',
     '/trackerLibrary',
     '/marketplace',
     '/schedule',
@@ -1763,9 +1762,9 @@ class _FloatingDockState extends State<_FloatingDock> {
             icon: Icons.history_outlined,
             activeIcon: Icons.history,
           ));
-        case '/more':
+        case '/settings':
           items.add(_DockItemData(
-            route: '/more',
+            route: '/settings',
             label: l10n.more,
             icon: Icons.apps_outlined,
             activeIcon: Icons.apps,
@@ -2468,7 +2467,7 @@ class _ClassicDock extends StatelessWidget {
       '/WatchtowerHome': 'Accueil â discover trending content',
       '/browse': 'Browse â explore & install sources and extensions',
       '/history': 'History â recently read or watched items',
-      '/more': 'More â settings, about & advanced options',
+      '/settings': 'More â settings, about & advanced options',
       '/updates': 'Updates â new chapters & episodes available',
       '/trackerLibrary': 'Tracking â sync progress with external trackers',
       '_watchtower_menu': 'Menu — History, Updates, Schedule & more',
