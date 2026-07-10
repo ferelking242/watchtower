@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/about/providers/get_package_info.dart';
 import 'package:watchtower/modules/more/widgets/downloaded_only_widget.dart';
 import 'package:watchtower/modules/more/widgets/file_explorer_widget.dart';
 import 'package:watchtower/modules/more/widgets/incognito_mode_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/ui/widgets/namida_toggle_theme_container.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 // ── Nav item data ──────────────────────────────────────────────────────────
@@ -22,6 +24,89 @@ class _NavItem {
     required this.route,
     this.routeExtra,
   });
+}
+
+// ── Namida-style settings tile ───────────────────────────────────────────────
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String route;
+  final dynamic routeExtra;
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.route,
+    this.routeExtra,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (routeExtra != null) {
+            context.push(route, extra: routeExtra);
+          } else {
+            context.push(route);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: isDark ? 0.30 : 0.55),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, size: 22, color: cs.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Broken.arrow_right_3,
+                size: 18,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.40),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ── Simple nav list tile ─────────────────────────────────────────────────
@@ -73,8 +158,8 @@ class _NavTile extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
+                Broken.arrow_right_3,
+                size: 18,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.55),
               ),
             ],
@@ -176,6 +261,8 @@ class _HeroHeader extends ConsumerWidget {
               ],
             ),
           ),
+          // ── Namida-style theme toggle ─────────────────────────────────
+          ToggleThemeModeContainer(maxWidth: 110),
         ],
       ),
     );
@@ -206,6 +293,107 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+// ── Settings tiles (Namida style) ──────────────────────────────────────────
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    const tiles = [
+      (
+        icon: Broken.brush_2,
+        title: 'Apparence',
+        subtitle: 'Thème, couleurs, mode sombre',
+        route: '/appearance',
+        extra: null,
+      ),
+      (
+        icon: Broken.component,
+        title: 'Navigation',
+        subtitle: 'Onglets, dock, rail latéral',
+        route: '/customNavSettings',
+        extra: null,
+      ),
+      (
+        icon: Broken.play_cricle,
+        title: 'Lecture',
+        subtitle: 'Lecteur, qualité, sous-titres',
+        route: '/reader',
+        extra: null,
+      ),
+      (
+        icon: Broken.brush_1,
+        title: 'Personnalisations',
+        subtitle: 'Interface, polices, icônes',
+        route: '/appearance',
+        extra: null,
+      ),
+      (
+        icon: Broken.refresh_circle,
+        title: 'Sauvegarde et Restauration',
+        subtitle: 'Exporter / importer vos données',
+        route: '/dataAndStorage',
+        extra: null,
+      ),
+      (
+        icon: Broken.hierarchy_3,
+        title: 'Avancé',
+        subtitle: 'Options techniques avancées',
+        route: '/dataAndStorage',
+        extra: null,
+      ),
+      (
+        icon: Broken.info_circle,
+        title: 'À propos',
+        subtitle: 'Version, crédits, licence',
+        route: '/about',
+        extra: null,
+      ),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHigh
+            : cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(tiles.length, (i) {
+          final t = tiles[i];
+          final isLast = i == tiles.length - 1;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SettingsTile(
+                icon: t.icon,
+                title: t.title,
+                subtitle: t.subtitle,
+                route: t.route,
+                routeExtra: t.extra,
+              ),
+              if (!isLast)
+                Divider(
+                  height: 0.5,
+                  thickness: 0.5,
+                  indent: 76,
+                  endIndent: 0,
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
 // ── Main screen ─────────────────────────────────────────────────────────────
 
 class MoreScreen extends ConsumerStatefulWidget {
@@ -218,65 +406,54 @@ class MoreScreen extends ConsumerStatefulWidget {
 class MoreScreenState extends ConsumerState<MoreScreen> {
   List<_NavItem> _buildNavItems(dynamic l10n) => [
         _NavItem(
-          icon: Icons.playlist_add_check_rounded,
+          icon: Broken.video_square,
           label: (_) => 'Ma Liste',
           route: '/AnimeLibrary',
         ),
         _NavItem(
-          icon: Icons.history,
+          icon: Broken.clock,
           label: (_) => l10n.history,
           route: '/history',
         ),
         _NavItem(
-          icon: Icons.new_releases_outlined,
+          icon: Broken.notification_bing,
           label: (_) => l10n.updates,
           route: '/updates',
         ),
         _NavItem(
-          icon: Icons.download_outlined,
+          icon: Broken.driver,
           label: (_) => l10n.download_queue,
           route: '/downloadQueue',
         ),
         _NavItem(
-          icon: Icons.label_outline_rounded,
+          icon: Broken.category,
           label: (_) => l10n.categories,
           route: '/categories',
           routeExtra: (false, 0),
         ),
         _NavItem(
-          icon: Icons.query_stats_outlined,
+          icon: Broken.presention_chart,
           label: (_) => l10n.statistics,
           route: '/statistics',
         ),
         _NavItem(
-          icon: Icons.calendar_month_outlined,
+          icon: Broken.clock_1,
           label: (_) => l10n.calendar,
           route: '/calendarScreen',
         ),
         _NavItem(
-          icon: Icons.storage,
+          icon: Broken.driver,
           label: (_) => l10n.data_and_storage,
           route: '/dataAndStorage',
         ),
-    
         _NavItem(
-          icon: Icons.language_rounded,
+          icon: Broken.global,
           label: (_) => 'Web View',
           route: '/mangawebview',
           routeExtra: {
             'url': 'https://github.com/ferelking242/watchtower-extensions',
             'title': 'Web View',
           },
-        ),
-        _NavItem(
-          icon: Icons.settings_outlined,
-          label: (_) => l10n.settings,
-          route: '/settings',
-        ),
-        _NavItem(
-          icon: Icons.info_outline,
-          label: (_) => l10n.about,
-          route: '/about',
         ),
       ];
 
@@ -292,7 +469,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
         body: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            // ── Pinned gradient header (mêmes specs que la page About) ────────
+            // ── Pinned gradient header ────────────────────────────────────
             SliverAppBar(
               expandedHeight: 180,
               floating: false,
@@ -361,6 +538,15 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                               error: (_, __) => const SizedBox.shrink(),
                             ),
                           ),
+                          // ── Namida theme toggle ───────────────────────
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: const ToggleThemeModeContainer(maxWidth: 106),
+                          ),
                         ],
                       ),
                     ),
@@ -375,6 +561,17 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _TogglesSection(),
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.07)
+                        : Colors.black.withValues(alpha: 0.07),
+                  ),
+                  // ── Namida-style settings tiles ───────────────────────
+                  const _SectionLabel('Paramètres'),
+                  const _SettingsSection(),
+                  const SizedBox(height: 8),
                   Divider(
                     height: 1,
                     thickness: 0.5,
@@ -450,6 +647,9 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const _SectionLabel('Paramètres'),
+                  const _SettingsSection(),
+                  const SizedBox(height: 8),
                   const _SectionLabel('Navigation'),
                   ...List.generate(navItems.length, (i) {
                     final isLast = i == navItems.length - 1;
