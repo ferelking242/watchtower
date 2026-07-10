@@ -1,4 +1,4 @@
-name: Build Android ARMv8 Debug
+name: Build Android ARMv8 Profile
 
 on:
   push:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build:
-    name: Build ARMv8 Debug APK
+    name: Build ARMv8 Profile APK
     runs-on: ubuntu-latest
 
     steps:
@@ -80,11 +80,11 @@ jobs:
 
       # Cache .dart_tool/flutter_build uniquement (pas tout .dart_tool — évite les stale metadata).
       # Clé exacte: OS + Flutter version + mode + sources Dart. Sans restore-keys → zéro stale kernel.
-      - name: Cache Flutter build intermediates (debug only)
+      - name: Cache Flutter build intermediates (profile only)
         uses: actions/cache@v4
         with:
           path: .dart_tool/flutter_build
-          key: flutter-debug-${{ runner.os }}-3.38.x-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
+          key: flutter-profile-${{ runner.os }}-3.38.x-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
 
       # Pre-install Rust Android target pour eviter le download live dans Gradle
       - name: Install Rust Android target
@@ -195,14 +195,14 @@ jobs:
         if: steps.icons-cache.outputs.cache-hit != 'true'
         run: dart run flutter_launcher_icons
 
-      - name: Build APK (ARMv8 debug)
+      - name: Build APK (ARMv8 profile)
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=false -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
         run: |
           for attempt in 1 2 3; do
             echo "--- Build attempt $attempt/3 ---"
             if flutter build apk \
-              --debug \
+              --profile \
               --target-platform android-arm64 \
               --split-per-abi \
               --build-name=${{ steps.ver.outputs.name }} \
@@ -221,34 +221,34 @@ jobs:
 
       - name: Rename APK
         run: |
-          SRC=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
-          DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.apk
+          SRC=build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
+          DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.apk
           cp "$SRC" "$DST"
           echo "APK: $(du -sh $DST | cut -f1)"
 
       - name: FitGirl-style artifact — LZMA2 ultra compressed APK
         run: |
-          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.apk
+          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.apk
           echo "APK size: $(du -sh $APK)"
           7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
-            Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.7z \
+            Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.7z \
             "$APK"
           echo "=== Compressed artifact ==="
-          ls -lh Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.7z
+          ls -lh Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.7z
 
       - name: Upload raw APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug-raw
-          path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.apk
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile-raw
+          path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.apk
           compression-level: 0
           retention-days: 30
 
       - name: Upload 7z compressed artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug-7z
-          path: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.7z
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile-7z
+          path: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.7z
           compression-level: 0
           retention-days: 30
 
@@ -256,10 +256,10 @@ jobs:
         if: success()
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
-            -H "Title: Build Android Debug OK" \
+            -H "Title: Build Android Profile OK" \
             -H "Priority: default" \
             -H "Tags: white_check_mark" \
-            -d "APK debug arm64 — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "APK profile arm64 — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
 
       - name: Notify ntfy (build FAILED)
         if: failure()
