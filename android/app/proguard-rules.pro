@@ -33,6 +33,17 @@
   -keep class com.getkeepsafe.** { *; }
   -keep class com.crazecoder.** { *; }
   -keep class com.ajinasokan.** { *; }
+  -keep class com.csdcorp.** { *; }
+  -keep class com.it_nomads.** { *; }
+  -keep class com.pichillilorenzo.** { *; }
+  -keep class com.tundralabs.** { *; }
+  -keep class io.github.ponnamkarthik.** { *; }
+  -keep class com.lyokone.** { *; }
+  -keep class com.transistorsoft.** { *; }
+  -keep class io.crossbell.** { *; }
+  -keep class com.llfbandit.** { *; }
+  -keep class vn.hunghd.flutterdownloader.** { *; }
+  -keep class io.reactivex.rxjava3.** { *; }
 
   -dontwarn com.aaassseee.**
   -dontwarn com.alexmercerind.**
@@ -52,6 +63,17 @@
   -dontwarn com.bluechilli.**
   -dontwarn com.ajinasokan.**
   -dontwarn com.crazecoder.**
+  -dontwarn com.csdcorp.**
+  -dontwarn com.it_nomads.**
+  -dontwarn com.pichillilorenzo.**
+  -dontwarn com.tundralabs.**
+  -dontwarn io.github.ponnamkarthik.**
+  -dontwarn com.lyokone.**
+  -dontwarn com.transistorsoft.**
+  -dontwarn io.crossbell.**
+  -dontwarn com.llfbandit.**
+  -dontwarn vn.hunghd.flutterdownloader.**
+  -dontwarn io.reactivex.rxjava3.**
 
   # Rhino JS engine (flutter_new_pipe_extractor) - java.beans absent on Android
   -dontwarn java.beans.**
