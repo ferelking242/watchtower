@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +15,7 @@ import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
+import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -297,6 +300,7 @@ class _ExtensionListTileWidgetState
                           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
                       );
                     }
+                    unawaited(LayoutDownloader.instance.remove(widget.source));
                     isar.sourcePreferences.deleteAllSync(sourcePrefsIds);
                     isar.sourcePreferenceStringValues
                         .deleteAllSync(sourcePrefsStringIds);

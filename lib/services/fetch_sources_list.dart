@@ -319,9 +319,12 @@ Future<void> fetchSourcesList({
         toAdd.add(source);
         continue;
       }
-      final shouldUpdate =
-          (existing.isAdded ?? false) &&
+      final versionBumped =
           compareVersions(existing.version ?? '', source.version ?? '') < 0;
+      final layoutVersionBumped = source.uiLayoutVersion != null &&
+          source.uiLayoutVersion != existing.uiLayoutVersion;
+      final shouldUpdate =
+          (existing.isAdded ?? false) && (versionBumped || layoutVersionBumped);
       if (!shouldUpdate) continue;
       if (autoUpdateExtensions) {
         toAutoUpdate.add(source);
@@ -363,6 +366,8 @@ Future<void> fetchSourcesList({
         ..isLocal = false
         ..notes            = s.notes
         ..additionalParams = s.additionalParams ?? ""
+        ..uiLayout = s.uiLayout
+        ..uiLayoutVersion = s.uiLayoutVersion
         ..repo = repo
         ..updatedAt = now).toList();
       await isar.writeTxn(() async => isar.sources.putAll(built));
@@ -519,6 +524,8 @@ Future<void> _updateSource(
     ..additionalParams = source.additionalParams ?? ""
     ..isObsolete = false
     ..notes = source.notes
+    ..uiLayout = source.uiLayout
+    ..uiLayoutVersion = source.uiLayoutVersion
     ..repo = repo
     ..updatedAt = DateTime.now().millisecondsSinceEpoch;
 
@@ -555,6 +562,8 @@ Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
     ..appMinVerReq = source.appMinVerReq
     ..isObsolete = false
     ..notes = source.notes
+    ..uiLayout = source.uiLayout
+    ..uiLayoutVersion = source.uiLayoutVersion
     ..repo = repo
     ..updatedAt = DateTime.now().millisecondsSinceEpoch;
   await isar.writeTxn(() async => isar.sources.put(newSource));
