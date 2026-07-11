@@ -904,6 +904,8 @@ class _OverviewTabState extends State<_OverviewTab> {
     final m = widget.media;
     final cs = widget.cs;
     final theme = widget.theme;
+    // Use description from detail query (full) falling back to base media
+    final description = widget.detail.value?.base.description ?? widget.media.description;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 80),
@@ -931,8 +933,6 @@ class _OverviewTabState extends State<_OverviewTab> {
         const SizedBox(height: 12),
 
         // ── Synopsis ───────────────────────────────────────────────────────
-        // Use description from detail query (full) falling back to base media
-        final description = widget.detail.value?.base.description ?? widget.media.description;
         if (description != null && description.isNotEmpty) ...[
           _GlassCard(
             child: Column(
