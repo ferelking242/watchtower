@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -232,18 +233,18 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
                             labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                             tabs: const [
-                              Tab(text: 'Overview'),
-                              Tab(text: 'Episodes'),
-                              Tab(text: 'Related'),
-                              Tab(text: 'Characters'),
-                              Tab(text: 'Staff'),
-                              Tab(text: 'Reviews'),
-                              Tab(text: 'Threads'),
-                              Tab(text: 'Following'),
-                              Tab(text: 'Activities'),
-                              Tab(text: 'Recommendations'),
-                              Tab(text: 'Statistics'),
-                              Tab(text: 'Watch Order'),
+                              Tab(icon: Icon(Broken.info_circle, size: 13), text: 'Overview'),
+                              Tab(icon: Icon(Broken.video, size: 13), text: 'Episodes'),
+                              Tab(icon: Icon(Broken.link_2, size: 13), text: 'Related'),
+                              Tab(icon: Icon(Broken.user, size: 13), text: 'Characters'),
+                              Tab(icon: Icon(Broken.people, size: 13), text: 'Staff'),
+                              Tab(icon: Icon(Broken.star, size: 13), text: 'Reviews'),
+                              Tab(icon: Icon(Broken.messages, size: 13), text: 'Threads'),
+                              Tab(icon: Icon(Broken.heart, size: 13), text: 'Following'),
+                              Tab(icon: Icon(Broken.activity, size: 13), text: 'Activities'),
+                              Tab(icon: Icon(Broken.like, size: 13), text: 'Recommendations'),
+                              Tab(icon: Icon(Broken.chart_2, size: 13), text: 'Statistics'),
+                              Tab(icon: Icon(Broken.video_time, size: 13), text: 'Watch Order'),
                             ],
                           ),
                           bgColor: scaffoldBg,
@@ -286,24 +287,73 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       child: Row(
         children: [
           _CircleBtn(
-            icon: Icons.arrow_back_rounded,
+            icon: Broken.arrow_left,
             onTap: () => Navigator.of(context).maybePop(),
           ),
-          const Spacer(),
-          _CircleBtn(
-            icon: Icons.favorite_border_rounded,
-            onTap: () {},
+          const SizedBox(width: 8),
+          Expanded(
+            child: _ScrollingTitle(text: m.displayTitle),
           ),
           const SizedBox(width: 8),
           _CircleBtn(
-            icon: Icons.more_vert_rounded,
-            onTap: () => _openWebview(
-              'https://anilist.co/${m.type.toLowerCase()}/${m.id}',
-              m.displayTitle,
-            ),
+            icon: Broken.menu_1,
+            onTap: () => _showMoreMenu(context, m),
           ),
         ],
       ),
+    );
+  }
+
+  void _showMoreMenu(BuildContext context, AnilistMedia m) {
+    final anilistUrl = 'https://anilist.co/${m.type.toLowerCase()}/${m.id}';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return _MoreMenuSheet(
+          cs: cs,
+          options: [
+            _MoreMenuOption(
+              icon: Broken.global,
+              label: 'Open in WebView',
+              onTap: () {
+                Navigator.pop(ctx);
+                _openWebview(anilistUrl, m.displayTitle);
+              },
+            ),
+            _MoreMenuOption(
+              icon: Broken.global_search,
+              label: 'Find on Extensions',
+              onTap: () {
+                Navigator.pop(ctx);
+                final type = m.type == 'MANGA' ? ItemType.manga : ItemType.anime;
+                context.push('/globalSearch', extra: (m.displayTitle, type));
+              },
+            ),
+            _MoreMenuOption(
+              icon: Broken.share,
+              label: 'Share',
+              onTap: () {
+                Navigator.pop(ctx);
+                _share(m);
+              },
+            ),
+            _MoreMenuOption(
+              icon: Broken.flag,
+              label: 'Report',
+              isDestructive: true,
+              onTap: () {
+                Navigator.pop(ctx);
+                _openWebview(
+                  'https://anilist.co/forum/thread/14/',
+                  'Report',
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -617,6 +667,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
           itemBuilder: (_, i) => _ThreadCard(
             thread: list[i],
             mediaTitleForCategories: m.displayTitle,
+            onTap: () => _openWebview(list[i].siteUrl, list[i].title),
           ),
         );
       },
@@ -708,6 +759,10 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
             return _RecommendationRow(
               media: r,
               onTap: () => context.push('/anilistDetail', extra: r),
+              onVote: () => _openWebview(
+                'https://anilist.co/${r.type.toLowerCase()}/${r.id}/recommendations',
+                r.displayTitle,
+              ),
             );
           },
         );
@@ -876,7 +931,9 @@ class _OverviewTabState extends State<_OverviewTab> {
         const SizedBox(height: 12),
 
         // ── Synopsis ───────────────────────────────────────────────────────
-        if (m.description != null && m.description!.isNotEmpty) ...[
+        // Use description from detail query (full) falling back to base media
+        final description = widget.detail.value?.base.description ?? widget.media.description;
+        if (description != null && description.isNotEmpty) ...[
           _GlassCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -885,7 +942,7 @@ class _OverviewTabState extends State<_OverviewTab> {
                   duration: const Duration(milliseconds: 280),
                   curve: Curves.easeOut,
                   child: Text(
-                    m.description!,
+                    description,
                     style: theme.textTheme.bodySmall?.copyWith(
                       height: 1.6,
                       color: cs.onSurface.withValues(alpha: 0.8),
@@ -1831,15 +1888,19 @@ class _ReviewCardState extends State<_ReviewCard> {
 class _ThreadCard extends StatelessWidget {
   final AnilistThread thread;
   final String mediaTitleForCategories;
+  final VoidCallback onTap;
 
-  const _ThreadCard({required this.thread, required this.mediaTitleForCategories});
+  const _ThreadCard({required this.thread, required this.mediaTitleForCategories, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final t = thread;
 
-    return Padding(
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1928,6 +1989,7 @@ class _ThreadCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }
@@ -2193,8 +2255,9 @@ class _ActivityCard extends StatelessWidget {
 class _RecommendationRow extends StatelessWidget {
   final AnilistMedia media;
   final VoidCallback onTap;
+  final VoidCallback? onVote;
 
-  const _RecommendationRow({required this.media, required this.onTap});
+  const _RecommendationRow({required this.media, required this.onTap, this.onVote});
 
   @override
   Widget build(BuildContext context) {
@@ -2257,9 +2320,15 @@ class _RecommendationRow extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.thumb_up_outlined, size: 16, color: cs.onSurface.withValues(alpha: 0.5)),
-                    const SizedBox(width: 8),
-                    Icon(Icons.thumb_down_outlined, size: 16, color: cs.onSurface.withValues(alpha: 0.5)),
+                    GestureDetector(
+                      onTap: onVote,
+                      child: Icon(Broken.like, size: 18, color: cs.primary.withValues(alpha: 0.8)),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: onVote,
+                      child: Icon(Broken.dislike, size: 18, color: cs.onSurface.withValues(alpha: 0.5)),
+                    ),
                   ],
                 ),
               ],
@@ -2630,7 +2699,7 @@ class _WatchOrderItem extends StatelessWidget {
                               if (relation.type.isNotEmpty) ...[
                                 const SizedBox(height: 4),
                                 Text(
-                                  relation.type,
+                                  _friendlyMediaType(relation.type, relation.format),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: cs.onSurface.withValues(alpha: 0.5),
@@ -2831,6 +2900,179 @@ class _GlassCard extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scrolling title (marquee when text overflows)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ScrollingTitle extends StatefulWidget {
+  final String text;
+  const _ScrollingTitle({required this.text});
+
+  @override
+  State<_ScrollingTitle> createState() => _ScrollingTitleState();
+}
+
+class _ScrollingTitleState extends State<_ScrollingTitle>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))
+      ..addStatusListener((s) {
+        if (!mounted) return;
+        if (s == AnimationStatus.completed) {
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) _ctrl.reverse();
+          });
+        } else if (s == AnimationStatus.dismissed) {
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) _ctrl.forward();
+          });
+        }
+      })
+      ..addListener(() {
+        if (!_scrollCtrl.hasClients) return;
+        final max = _scrollCtrl.position.maxScrollExtent;
+        if (max <= 0) return;
+        _scrollCtrl.jumpTo(_ctrl.value * max);
+      });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollCtrl.hasClients) return;
+      if (_scrollCtrl.position.maxScrollExtent > 0) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: _scrollCtrl,
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Text(
+          widget.text,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, height: 1.2),
+          maxLines: 1,
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// More-menu bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MoreMenuOption {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+  const _MoreMenuOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+}
+
+class _MoreMenuSheet extends StatelessWidget {
+  final ColorScheme cs;
+  final List<_MoreMenuOption> options;
+  const _MoreMenuSheet({required this.cs, required this.options});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surface.withValues(alpha: 0.96),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: cs.onSurface.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...options.map((o) {
+                    final color = o.isDestructive ? Colors.redAccent : cs.onSurface;
+                    return InkWell(
+                      onTap: o.onTap,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                        child: Row(
+                          children: [
+                            Icon(o.icon, size: 22, color: color.withValues(alpha: 0.8)),
+                            const SizedBox(width: 16),
+                            Text(
+                              o.label,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 4),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Friendly media type label (handles Novel vs Manga)
+// ─────────────────────────────────────────────────────────────────────────────
+
+String _friendlyMediaType(String type, String? format) {
+  if (format == 'NOVEL') return 'Novel';
+  if (format == 'ONE_SHOT') return 'One-shot';
+  if (format == 'MANHWA') return 'Manhwa';
+  if (format == 'MANHUA') return 'Manhua';
+  if (type == 'ANIME') return 'Anime';
+  if (type == 'MANGA') return 'Manga';
+  return type;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _CircleBtn extends StatelessWidget {
   final IconData icon;
@@ -3099,41 +3341,50 @@ class _EpisodeRowState extends State<_EpisodeRow> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Thumbnail ─────────────────────────────────────────────
-                Stack(
-                  children: [
-                    ep.image != null
-                        ? Image.network(
-                            ep.image!,
-                            width: 128,
-                            height: 80,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const _EpisodePlaceholder(),
-                          )
-                        : const _EpisodePlaceholder(),
-                    Positioned(
-                      bottom: 5,
-                      right: 5,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.72),
-                          borderRadius: BorderRadius.circular(4),
+                SizedBox(
+                  width: 120,
+                  height: 90,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          bottomLeft: Radius.circular(12),
                         ),
-                        child: Text(
-                          ep.episodeNumber == 0
-                              ? 'S'
-                              : 'EP ${ep.episodeNumber}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                        child: ep.image != null
+                            ? Image.network(
+                                ep.image!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    const _EpisodePlaceholder(),
+                              )
+                            : const _EpisodePlaceholder(),
+                      ),
+                      Positioned(
+                        bottom: 5,
+                        right: 5,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.72),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            ep.episodeNumber == 0
+                                ? 'S'
+                                : 'EP ${ep.episodeNumber}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
 
                 // ── Info ───────────────────────────────────────────────────
@@ -3205,17 +3456,14 @@ class _EpisodeRowState extends State<_EpisodeRow> {
                           ),
                         ],
 
-                        // Play button row
+                        // Play button — full-width
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            _SmallPlayButton(
-                              icon: Icons.play_circle_filled_rounded,
-                              label: 'Watch',
-                              cs: cs,
-                              onTap: () => _showStreamSheet(context),
-                            ),
-                          ],
+                        _SmallPlayButton(
+                          icon: Icons.play_circle_filled_rounded,
+                          label: 'Watch',
+                          cs: cs,
+                          fullWidth: true,
+                          onTap: () => _showStreamSheet(context),
                         ),
                       ],
                     ),
@@ -3251,11 +3499,13 @@ class _SmallPlayButton extends StatelessWidget {
   final String label;
   final ColorScheme cs;
   final VoidCallback onTap;
+  final bool fullWidth;
   const _SmallPlayButton({
     required this.icon,
     required this.label,
     required this.cs,
     required this.onTap,
+    this.fullWidth = false,
   });
 
   @override
@@ -3263,13 +3513,15 @@ class _SmallPlayButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        width: fullWidth ? double.infinity : null,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: cs.primary.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 14, color: cs.primary),
             const SizedBox(width: 4),
@@ -3294,8 +3546,6 @@ class _EpisodePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 128,
-      height: 80,
       color: Theme.of(context)
           .colorScheme
           .surfaceContainerHighest
@@ -3721,7 +3971,7 @@ class _RelationListTile extends StatelessWidget {
                     if (relation.type.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
-                        relation.type,
+                        _friendlyMediaType(relation.type, relation.format),
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurface.withValues(alpha: 0.5),

@@ -188,13 +188,12 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 class NavigationOrderState extends _$NavigationOrderState {
   final items = [
     '/discover',
-    '/WatchtowerHome',
+    '/Library',
     '/AnimeLibrary',
     '/MangaLibrary',
     '/NovelLibrary',
     '/MusicLibrary',
     '/GameLibrary',
-    '/Library',
     '/marketplace',
     '/browse',
     '/history',
@@ -239,7 +238,6 @@ class HideItemsState extends _$HideItemsState {
           '/trackerLibrary',
           '/updates',
           '/history',
-          '/WatchtowerHome',
         ];
   }
 

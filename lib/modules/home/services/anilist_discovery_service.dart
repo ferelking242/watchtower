@@ -990,6 +990,7 @@ final anilistBrowseProvider =
 class AnilistThread {
   final int id;
   final String title;
+  final String siteUrl;
   final int viewCount;
   final int replyCount;
   final int likeCount;
@@ -1001,6 +1002,7 @@ class AnilistThread {
   const AnilistThread({
     required this.id,
     required this.title,
+    required this.siteUrl,
     required this.viewCount,
     required this.replyCount,
     required this.likeCount,
@@ -1013,9 +1015,11 @@ class AnilistThread {
   factory AnilistThread.fromJson(Map<String, dynamic> json) {
     final user = (json['user'] as Map?)?.cast<String, dynamic>() ?? {};
     final cats = (json['categories'] as List?) ?? [];
+    final id = (json['id'] as num).toInt();
     return AnilistThread(
-      id: (json['id'] as num).toInt(),
+      id: id,
       title: json['title'] as String? ?? '',
+      siteUrl: json['siteUrl'] as String? ?? 'https://anilist.co/forum/thread/$id',
       viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
       replyCount: (json['replyCount'] as num?)?.toInt() ?? 0,
       likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
@@ -1048,7 +1052,7 @@ Future<List<AnilistThread>> _fetchThreads(int mediaId) async {
 query ($mediaId: Int, $page: Int) {
   Page(page: $page, perPage: 20) {
     threads(mediaCategoryId: $mediaId, sort: [REPLIED_AT_DESC]) {
-      id title viewCount replyCount likeCount repliedAt
+      id title siteUrl viewCount replyCount likeCount repliedAt
       user { name avatar { medium } }
       categories { name }
     }
