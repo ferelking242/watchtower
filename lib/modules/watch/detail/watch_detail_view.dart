@@ -1078,6 +1078,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       final filtered = result.where((ch) => _langKey(ch) == lang).toList();
       if (filtered.isNotEmpty) result = filtered;
     }
+    // Some extensions return duplicate entries for the same episode (e.g. one
+    // per source/quality variant). Without deduping, the season+language
+    // filter above can still leave far more entries than actual episodes,
+    // which threw off the "+N more" count on the episode strip (it counted
+    // duplicates from every season instead of just the remaining episodes of
+    // the selected one). Keep one Chapter per distinct episode number.
+    {
+      final seen = <int>{};
+      final deduped = <Chapter>[];
+      for (int i = 0; i < result.length; i++) {
+        if (seen.add(_epNum(result[i].name, i + 1))) deduped.add(result[i]);
+      }
+      result = deduped;
+    }
     return result;
   }
 
@@ -2708,9 +2722,14 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   String? _selectedSeason;
   _Downloader _downloader = _Downloader.internal;
   String _externalApp = 'adm';
+  static const Map<String, String> _externalAppIds = {
+    'ADM': 'adm',
+    '1DM': '1dm',
+    'FDM': 'fdm',
+    'IDM+': 'idm',
+  };
   final Set<Chapter> _selected = {};
   bool _selectAll = false;
-  bool _downloaderExpanded = false;
 
   bool get _isFilm {
     if (widget.chapters.length != 1) return false;
@@ -2841,10 +2860,21 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
 
   String _epLabel(Chapter ch, int fallback) {
     if (_isFilm) return 'Film';
-    final m = RegExp(r'\d+').firstMatch(ch.name ?? '');
-    return m != null
-        ? 'E${m.group(0)!.padLeft(2, '0')}'
-        : 'E${(fallback + 1).toString().padLeft(2, '0')}';
+    final name = ch.name ?? '';
+    // "Ep. N" / "Episode N" pattern first — most reliable when present.
+    final epMatch =
+        RegExp(r'(?:Ep\.?|Episode)\s*(\d+)', caseSensitive: false).firstMatch(name);
+    if (epMatch != null) {
+      return 'E${epMatch.group(1)!.padLeft(2, '0')}';
+    }
+    // Otherwise take the LAST number in the name, not the first — names like
+    // "Saison 1 Episode 5" or "S01E05" always have the season number first,
+    // so matching the first digit sequence produced "E01" for every episode.
+    final all = RegExp(r'\d+').allMatches(name).toList();
+    if (all.isNotEmpty) {
+      return 'E${all.last.group(0)!.padLeft(2, '0')}';
+    }
+    return 'E${(fallback + 1).toString().padLeft(2, '0')}';
   }
 
   String _downloaderLabel() {
@@ -2891,16 +2921,18 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
         }
       }
     } else {
-      if (_selectedQuality != null && _videos.isNotEmpty) {
+      if (_selectedQuality != null) {
+        // Store the chosen quality LABEL, not a URL: `_videos` was only ever
+        // loaded for widget.chapters.first, so its URLs are meaningless for
+        // every other selected episode (each episode has its own distinct
+        // video list). downloadChapter() re-fetches each chapter's own
+        // videos and matches this label against them at actual download time.
+        final digitsMatch = RegExp(r'(\d{3,4})').firstMatch(_selectedQuality!);
+        final qualityKey =
+            digitsMatch?.group(1) ?? _selectedQuality!.trim().toLowerCase();
         for (final ch in chapters) {
           if (ch.id == null) continue;
-          final match = _videos.cast<Video?>().firstWhere(
-            (v) => _normQ(v!.quality) == _selectedQuality,
-            orElse: () => null,
-          );
-          if (match != null) {
-            chapterPreferredOriginalUrl[ch.id!] = match.originalUrl;
-          }
+          chapterPreferredQuality[ch.id!] = qualityKey;
         }
       }
       widget.onDownload(chapters);
@@ -2925,8 +2957,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Header poster + blur ──────────────────────────────────────────────
-          _buildHeader(),
+          // ── Minimal top bar: drag handle + close only ─────────────────────────
+          _buildTopBar(),
 
           // ── Loading bar ───────────────────────────────────────────────────────
           if (_loading)
@@ -2937,39 +2969,14 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
               borderRadius: BorderRadius.zero,
             ),
 
-          // ── Quality cards ─────────────────────────────────────────────────────
-          if (!_loading && qualities.isNotEmpty)
-            _buildQualityCards(qualities),
+          // ── Saison / Langue / Qualité as box pills (same style as the main
+          // Ressources row) ──────────────────────────────────────────────────────
+          if (!_loading &&
+              (seasons.length > 1 || langs.length > 1 || qualities.isNotEmpty))
+            _buildSelectorPillsRow(seasons, langs, qualities),
 
-          // ── Language / Season filters (only if multiple) ──────────────────────
-          if (!_loading) ...[
-            if (langs.length > 1)
-              _buildFilterRow(
-                icon: Icons.language_rounded,
-                label: 'Lang',
-                items: langs,
-                selected: _selectedLang,
-                onSelect: (l) => setState(() {
-                  _selectedLang = _selectedLang == l ? null : l;
-                  _selectedQuality = null;
-                }),
-              ),
-            if (seasons.length > 1)
-              _buildFilterRow(
-                icon: Icons.layers_rounded,
-                label: 'Saison',
-                items: seasons,
-                selected: _selectedSeason,
-                onSelect: (s) => setState(() {
-                  _selectedSeason = _selectedSeason == s ? null : s;
-                  _selected.clear();
-                  _selectAll = false;
-                }),
-              ),
-          ],
-
-          // ── Downloader collapsible ────────────────────────────────────────────
-          _buildDownloaderCollapsible(),
+          // ── "Télécharger avec" as a box pill too ──────────────────────────────
+          _buildDownloaderPillRow(),
 
           // ── Divider ───────────────────────────────────────────────────────────
           Divider(height: 1, thickness: 0.8, color: _faint),
@@ -3000,60 +3007,31 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────────────────────
-  Widget _buildHeader() {
+  // ── Top bar: drag handle + close only (no avatar/title, per redesign) ───────
+  Widget _buildTopBar() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 12, 10),
+          padding: const EdgeInsets.fromLTRB(16, 10, 12, 6),
           child: Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(Icons.download_rounded, color: _accent, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Télécharger',
-                      style: TextStyle(
-                        color: _grey,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      widget.manga.name ?? '',
-                      style: TextStyle(
-                        color: _text,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                  color: _faint,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
+              const Spacer(),
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: _faint,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.close, color: _grey, size: 16),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(color: _faint, shape: BoxShape.circle),
+                  child: Icon(Icons.close, color: _grey, size: 15),
                 ),
               ),
             ],
@@ -3064,137 +3042,100 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     );
   }
 
-  // ── Quality cards ─────────────────────────────────────────────────────────────
-  Widget _buildQualityCards(List<String> qualities) {
-    final effective = _selectedQuality ?? qualities.first;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Icon(Icons.hd_outlined, size: 13, color: _grey),
-            const SizedBox(width: 5),
-            Text('Qualité',
-                style: TextStyle(
-                    color: _grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500)),
-          ]),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: qualities.map((q) {
-                final sel = q == effective;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedQuality = q),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    margin: const EdgeInsets.only(right: 8),
-                    width: 72,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: sel
-                          ? LinearGradient(
-                              colors: [
-                                _accent,
-                                _accent.withValues(alpha: 0.65),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: sel ? null : _card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: sel ? Colors.transparent : _faint,
-                        width: 0.8,
-                      ),
-                      boxShadow: sel
-                          ? [
-                              BoxShadow(
-                                color: _accent.withValues(alpha: 0.35),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      q,
-                      style: TextStyle(
-                        color: sel
-                            ? Colors.white
-                            : _text.withValues(alpha: 0.65),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
+  // ── Box pill (same visual language as the main screen's Saison/Langue/
+  // Qualité dropdown pills: transparent, thin border, no shadow) ──────────────
+  Widget _buildPill({
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _faint, width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label,
+                style: TextStyle(color: _text.withValues(alpha: 0.75), fontSize: 13)),
+            const SizedBox(width: 6),
+            Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
+          ],
+        ),
       ),
     );
   }
 
-  // ── Filter row (lang / season) ────────────────────────────────────────────────
-  Widget _buildFilterRow({
-    required IconData icon,
-    required String label,
-    required List<String> items,
-    required String? selected,
-    required void Function(String) onSelect,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
-      child: Row(
-        children: [
-          Icon(icon, size: 13, color: _grey),
-          const SizedBox(width: 6),
-          Text(label,
-              style: TextStyle(
-                  color: _grey,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w500)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
+  void _showPillSheet(
+    String title,
+    List<String> items,
+    String? selectedValue,
+    void Function(String) onSelect,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: _bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
               child: Row(
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          color: _text, fontSize: 15, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(color: _card, shape: BoxShape.circle),
+                      child: Icon(Icons.close, size: 16, color: _grey),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: _faint),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 children: items.map((item) {
-                  final sel = item == selected;
+                  final sel = item == selectedValue;
                   return GestureDetector(
-                    onTap: () => onSelect(item),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 11, vertical: 5),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      onSelect(item);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        color: sel
-                            ? _accent.withValues(alpha: 0.12)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
+                        color: sel ? _accent.withValues(alpha: 0.12) : _card,
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: sel ? _accent : _faint,
-                          width: sel ? 1.2 : 0.8,
+                          color: sel ? _accent.withValues(alpha: 0.55) : Colors.transparent,
+                          width: 0.8,
                         ),
                       ),
                       child: Text(
                         item,
+                        textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: sel ? _accent : _grey,
-                          fontSize: 11.5,
-                          fontWeight:
-                              sel ? FontWeight.w600 : FontWeight.normal,
+                          color: sel ? _accent : _text,
+                          fontSize: 14,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -3202,214 +3143,106 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                 }).toList(),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Downloader collapsible ────────────────────────────────────────────────────
-  Widget _buildDownloaderCollapsible() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        InkWell(
-          onTap: () => setState(() => _downloaderExpanded = !_downloaderExpanded),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            child: Row(
-              children: [
-                Icon(Icons.download_for_offline_outlined,
-                    size: 15, color: _grey),
-                const SizedBox(width: 8),
-                Text('Télécharger avec',
-                    style: TextStyle(
-                        color: _text.withValues(alpha: 0.75),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500)),
-                const Spacer(),
-                Text(_downloaderLabel(),
-                    style: TextStyle(
-                        color: _accent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                AnimatedRotation(
-                  turns: _downloaderExpanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 220),
-                  child: Icon(Icons.keyboard_arrow_down_rounded,
-                      size: 18, color: _grey),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeInOut,
-          child: _downloaderExpanded
-              ? _buildDownloaderOptions()
-              : const SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDownloaderOptions() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _downloaderTile(
-            icon: Icons.settings_input_component_outlined,
-            label: 'Downloader interne',
-            subtitle: 'Moteur intégré Watchtower',
-            value: _Downloader.internal,
-          ),
-          Divider(height: 1, indent: 52, color: _faint),
-          _downloaderTile(
-            icon: Icons.multiple_stop_rounded,
-            label: 'Aria2',
-            subtitle: 'Téléchargeur multi-connexions',
-            value: _Downloader.aria2,
-          ),
-          Divider(height: 1, indent: 52, color: _faint),
-          _externalTile(),
-        ],
       ),
     );
   }
 
-  Widget _downloaderTile({
-    required IconData icon,
-    required String label,
-    required String subtitle,
-    required _Downloader value,
-  }) {
-    final sel = _downloader == value;
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => setState(() => _downloader = value),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-        child: Row(children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: sel
-                  ? _accent.withValues(alpha: 0.15)
-                  : _faint.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(icon,
-                size: 17, color: sel ? _accent : _grey),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                        color: sel ? _accent : _text,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600)),
-                Text(subtitle,
-                    style: TextStyle(color: _grey, fontSize: 11)),
-              ],
-            ),
-          ),
-          if (sel) Icon(Icons.check_rounded, color: _accent, size: 18),
-        ]),
-      ),
-    );
-  }
-
-  Widget _externalTile() {
-    final sel = _downloader == _Downloader.external;
-    const apps = [
-      ('ADM', 'adm'),
-      ('1DM', '1dm'),
-      ('FDM', 'fdm'),
-      ('IDM+', 'idm'),
-    ];
+  // ── Saison / Langue / Qualité as box pills, same row style as the main screen
+  Widget _buildSelectorPillsRow(
+      List<String> seasons, List<String> langs, List<String> qualities) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: sel
-                  ? _accent.withValues(alpha: 0.15)
-                  : _faint.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(Icons.open_in_new_rounded,
-                size: 17, color: sel ? _accent : _grey),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Downloader Android',
-                    style: TextStyle(
-                        color: sel ? _accent : _text,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: apps.map((a) {
-                    final appSel =
-                        sel && _externalApp == a.$2;
-                    return GestureDetector(
-                      onTap: () => setState(() {
-                        _downloader = _Downloader.external;
-                        _externalApp = a.$2;
-                      }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 140),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: appSel
-                              ? _accent.withValues(alpha: 0.15)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: appSel ? _accent : _faint,
-                            width: appSel ? 1.2 : 0.8,
-                          ),
-                        ),
-                        child: Text(
-                          a.$1,
-                          style: TextStyle(
-                            color: appSel ? _accent : _grey,
-                            fontSize: 12,
-                            fontWeight: appSel
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            if (seasons.length > 1) ...[
+              _buildPill(
+                label: _selectedSeason ?? seasons.first,
+                onTap: () => _showPillSheet(
+                  'Choisissez la saison',
+                  seasons,
+                  _selectedSeason,
+                  (s) => setState(() {
+                    _selectedSeason = _selectedSeason == s ? null : s;
+                    _selected.clear();
+                    _selectAll = false;
+                  }),
                 ),
-              ],
+              ),
+              const SizedBox(width: 8),
+            ],
+            if (langs.length > 1) ...[
+              _buildPill(
+                label: _selectedLang ?? langs.first,
+                onTap: () => _showPillSheet(
+                  'Choisissez la langue',
+                  langs,
+                  _selectedLang,
+                  (l) => setState(() {
+                    _selectedLang = _selectedLang == l ? null : l;
+                    _selectedQuality = null;
+                  }),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            if (qualities.isNotEmpty)
+              _buildPill(
+                label: _selectedQuality ?? qualities.first,
+                onTap: () => _showPillSheet(
+                  'Choisissez la résolution',
+                  qualities,
+                  _selectedQuality ?? qualities.first,
+                  (q) => setState(() => _selectedQuality = q),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── "Télécharger avec" as a box pill ─────────────────────────────────────────
+  Widget _buildDownloaderPillRow() {
+    const options = ['Interne', 'Aria2', 'ADM', '1DM', 'FDM', 'IDM+'];
+    final current = _downloaderLabel();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      child: Row(
+        children: [
+          Icon(Icons.download_for_offline_outlined, size: 15, color: _grey),
+          const SizedBox(width: 8),
+          Text('Télécharger avec',
+              style: TextStyle(
+                  color: _text.withValues(alpha: 0.75),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500)),
+          const Spacer(),
+          _buildPill(
+            label: current,
+            onTap: () => _showPillSheet(
+              'Télécharger avec',
+              options,
+              current,
+              (v) => setState(() {
+                switch (v) {
+                  case 'Interne':
+                    _downloader = _Downloader.internal;
+                    break;
+                  case 'Aria2':
+                    _downloader = _Downloader.aria2;
+                    break;
+                  default:
+                    _downloader = _Downloader.external;
+                    _externalApp = _externalAppIds[v] ?? v.toLowerCase();
+                }
+              }),
             ),
           ),
-          if (sel) Icon(Icons.check_rounded, color: _accent, size: 18),
         ],
       ),
     );
@@ -3557,15 +3390,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                     ),
               color: empty ? _faint : null,
               borderRadius: BorderRadius.circular(14),
-              boxShadow: empty
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: _accent.withValues(alpha: 0.38),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
             ),
             child: Material(
               color: Colors.transparent,

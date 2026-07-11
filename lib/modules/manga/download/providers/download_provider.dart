@@ -131,6 +131,26 @@ bool _isDirectLink(String url) {
 /// instead of blindly downloading `videosUrls.first`.
 final Map<int, String> chapterPreferredOriginalUrl = {};
 
+/// Reduces a quality string to just its resolution digits (e.g. "1080p",
+/// "1080P", "1080", "FHD 1080p60" → "1080"). Used to match a quality chosen
+/// in one UI (which may format labels differently, e.g. uppercase "P") against
+/// quality strings from a completely different source/episode's video list,
+/// without depending on either side's exact label formatting.
+String _qualityDigits(String raw) {
+  final m = RegExp(r'(\d{3,4})').firstMatch(raw);
+  if (m != null) return m.group(1)!;
+  return raw.trim().toLowerCase();
+}
+
+/// User-chosen quality label (normalized via [_normalizeQuality]), keyed by
+/// chapter.id. Used by the batch download sheet: unlike
+/// [chapterPreferredOriginalUrl] (a single episode's exact URL, valid only
+/// for the episode it was picked from), the sheet lets the user pick one
+/// quality for MANY episodes at once, and each episode has its own distinct
+/// set of video URLs — so a URL from episode 1 would never match episode 5's
+/// list. Matching by normalized quality label instead works across episodes.
+final Map<int, String> chapterPreferredQuality = {};
+
 /// Show a dialog letting the user pick which quality to download for an
 /// anime episode, then enqueue and start the download with that pick.
 ///
@@ -875,6 +895,20 @@ Future<void> downloadChapter(
           }
           // One-shot: clear so a future re-download asks again.
           chapterPreferredOriginalUrl.remove(chapter.id!);
+        }
+        // Batch download sheet: quality chosen by label (see chapterPreferredQuality
+        // doc) since it applies across many episodes that each have their own URLs.
+        final preferredQuality =
+            chapter.id != null ? chapterPreferredQuality[chapter.id!] : null;
+        if (preferredQuality != null && videosUrls.isNotEmpty) {
+          final idx = videosUrls
+              .indexWhere((v) => _qualityDigits(v.quality) == preferredQuality);
+          if (idx > 0) {
+            final picked = videosUrls.removeAt(idx);
+            videosUrls = [picked, ...videosUrls];
+          }
+          // One-shot: clear so a future re-download asks again.
+          chapterPreferredQuality.remove(chapter.id!);
         }
         if (videosUrls.isNotEmpty) {
           subtitles = videosUrls.first.subtitles;
