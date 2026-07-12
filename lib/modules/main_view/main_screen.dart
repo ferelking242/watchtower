@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
@@ -1910,7 +1911,11 @@ class _FloatingDockState extends State<_FloatingDock> {
       final contentItems = items.sublist(1, items.length - 1);
       // back(32) + sep(9) + content + sep(9) + menu(itemWidth) + pill pads(4+6)
       final rawW = 32.0 + 9 + contentItems.length * _itemWidth + 9 + _itemWidth + 10.0;
-      final pillWidth = rawW.clamp(80.0, screenWidth - 32.0);
+      // Guard against narrow/transient layouts where screenWidth - 32 < 80,
+      // which would make clamp's upper bound smaller than its lower bound
+      // and throw "Invalid argument(s): 80.0".
+      final maxPillW = math.max(80.0, screenWidth - 32.0);
+      final pillWidth = rawW.clamp(80.0, maxPillW);
 
       return AnimatedContainer(
         duration: Duration(milliseconds: dockAnimMs),
@@ -1951,7 +1956,10 @@ class _FloatingDockState extends State<_FloatingDock> {
     // Normal mode — single pill
     final needsScroll = items.length > 5;
     final rawWidth = items.length * _itemWidth + _pillHPad * 2;
-    final pillWidth = rawWidth.clamp(80.0, screenWidth - 32.0);
+    // Same guard as above: keep the upper bound >= 80 so clamp never throws
+    // on narrow/transient screen widths.
+    final maxPillWidth = math.max(80.0, screenWidth - 32.0);
+    final pillWidth = rawWidth.clamp(80.0, maxPillWidth);
 
     return AnimatedContainer(
       duration: Duration(milliseconds: dockAnimMs),

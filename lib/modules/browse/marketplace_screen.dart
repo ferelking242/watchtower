@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -4425,7 +4426,11 @@ class _AccountDropdownOverlayState extends State<_AccountDropdownOverlay>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final left = (widget.position.dx - _kMenuWidth).clamp(8.0, screenWidth - _kMenuWidth - 8.0);
+    // Guard against narrow screens where screenWidth - _kMenuWidth - 8 < 8,
+    // which would make clamp's upper bound smaller than its lower bound and
+    // throw (same class of bug fixed in main_screen.dart's dock pill width).
+    final maxLeft = math.max(8.0, screenWidth - _kMenuWidth - 8.0);
+    final left = (widget.position.dx - _kMenuWidth).clamp(8.0, maxLeft);
     final top = widget.position.dy;
 
     return Stack(

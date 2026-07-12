@@ -67,9 +67,25 @@ jobs:
                   break
               removed = False
               for pkg in stubs:
-                  import re as _re
-                  if _re.match(rf'  {_re.escape(pkg)}: \S', line):
-                      lines.pop(i)
+                  key_match = re.match(r'  ' + re.escape(pkg) + r':(\s*\S.*)?$', line.rstrip('\n'))
+                  if key_match:
+                      # Single-line entry, e.g. "  ffi: ^2.1.3" — pop just this line.
+                      if key_match.group(1):
+                          lines.pop(i)
+                      else:
+                          # Multi-line block entry, e.g. a git dependency:
+                          #   media_kit:
+                          #     git:
+                          #       url: ...
+                          # Remove the key line plus every following line that is
+                          # indented deeper than it (the whole nested block).
+                          block_end = i + 1
+                          while block_end < len(lines):
+                              next_line = lines[block_end]
+                              if next_line.strip() and len(next_line) - len(next_line.lstrip(' ')) <= 2:
+                                  break
+                              block_end += 1
+                          del lines[i:block_end]
                       removed = True
                       break
               if not removed:
