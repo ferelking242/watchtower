@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/category.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
-  import 'package:watchtower/modules/music/music_discovery_screen.dart';
+import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
@@ -18,17 +19,16 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/global_style.dart';
 
-// ─── Design tokens ──────────────────────────────────────────────────────────
-// NOTE: _kBg removed — background now inherits from the app theme so the
-// screen blends with the surrounding interface instead of forcing a hard black.
+// ─── Design tokens ───────────────────────────────────────────────────────────
 const _kBorder        = Color(0xFF333333);
 const _kAccent        = Color(0xFFE91E63);
 const _kTextSecondary = Color(0xFF999999);
 
-// ─── Type order ─────────────────────────────────────────────────────────────
+// ─── Type order ──────────────────────────────────────────────────────────────
 const _kTypes = <ItemType>[
   ItemType.anime,
   ItemType.manga,
@@ -37,13 +37,13 @@ const _kTypes = <ItemType>[
   ItemType.game,
 ];
 
-// ─── Type icons ─────────────────────────────────────────────────────────────
+// ─── Type icons (Broken set) ─────────────────────────────────────────────────
 const _kTypeIcons = <ItemType, IconData>{
-  ItemType.anime: Icons.tv_rounded,
-  ItemType.manga: Icons.menu_book_rounded,
-  ItemType.novel: Icons.article_rounded,
-  ItemType.music: Icons.music_note_rounded,
-  ItemType.game:  Icons.sports_esports_rounded,
+  ItemType.anime:  Broken.video,
+  ItemType.manga:  Broken.book,
+  ItemType.novel:  Broken.document_text,
+  ItemType.music:  Broken.music,
+  ItemType.game:   Broken.game,
 };
 
 String _typeLabel(ItemType type) {
@@ -57,7 +57,7 @@ String _typeLabel(ItemType type) {
   }
 }
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
+// ─── Main screen ──────────────────────────────────────────────────────────────
 class MainLibraryScreen extends ConsumerStatefulWidget {
   final String? presetInput;
   const MainLibraryScreen({super.key, this.presetInput});
@@ -71,8 +71,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   int _typeIndex = 0;
   bool _showSearch = false;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   int _selectedCatIndex = 0;
   Settings? _cachedSettings;
+  List<Manga> _cachedMangaList = [];
 
   @override
   void initState() {
@@ -81,68 +83,68 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       _showSearch = true;
       _searchController.text = widget.presetInput!;
     }
+    _searchFocus.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
   ItemType get _currentType => _kTypes[_typeIndex];
 
-  void _changeType(int delta) {
-    setState(() {
-      _typeIndex = (_typeIndex + delta + _kTypes.length) % _kTypes.length;
-      _selectedCatIndex = 0;
-    });
-  }
-
   void _toggleSearch() {
     setState(() {
       _showSearch = !_showSearch;
-      if (!_showSearch) _searchController.clear();
+      if (!_showSearch) {
+        _searchController.clear();
+        _searchFocus.unfocus();
+      } else {
+        // Focus the field after the expand animation
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _searchFocus.requestFocus(),
+        );
+      }
     });
   }
 
-  // ── Ghost icon button — smaller, no heavy border ───────────────────────────
+  // ── Ghost circular icon button ─────────────────────────────────────────────
   Widget _iconBtn({
     required IconData icon,
     required VoidCallback onTap,
     bool active = false,
+    String? tooltip,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: active
-              ? _kAccent.withValues(alpha: 0.90)
-              : Colors.white.withValues(alpha: 0.07),
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Tooltip(
+      message: tooltip ?? '',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active
+                ? _kAccent.withValues(alpha: 0.90)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : cs.onSurface.withValues(alpha: 0.06)),
+          ),
+          child: Icon(
+            icon,
+            color: active
+                ? Colors.white
+                : (isDark
+                    ? Colors.white60
+                    : cs.onSurface.withValues(alpha: 0.55)),
+            size: 17,
+          ),
         ),
-        child: Icon(
-          icon,
-          color: active ? Colors.white : Colors.white60,
-          size: 16,
-        ),
-      ),
-    );
-  }
-
-  // ── Compact chevron button ─────────────────────────────────────────────────
-  Widget _chevronBtn(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Icon(icon, color: Colors.white38, size: 14),
       ),
     );
   }
@@ -162,10 +164,72 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 
+  // ── Filter overlay content (search-field filter icon) ─────────────────────
+  Widget _buildFilterOverlayContent(VoidCallback close) {
+    final l10n = l10nLocalizations(context)!;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AdaptiveOverlaySection(title: 'Filtres & Tri'),
+        AdaptiveOverlayItem(
+          icon: Broken.filter,
+          label: l10n.filter,
+          onTap: () {
+            close();
+            if (_cachedSettings != null) {
+              showLibrarySettingsSheet(
+                context: context,
+                vsync: this,
+                settings: _cachedSettings!,
+                itemType: _currentType,
+                entries: _cachedMangaList,
+              );
+            }
+          },
+        ),
+        AdaptiveOverlayItem(
+          icon: Broken.sort,
+          label: l10n.sort,
+          onTap: () {
+            close();
+            if (_cachedSettings != null) {
+              showLibrarySettingsSheet(
+                context: context,
+                vsync: this,
+                settings: _cachedSettings!,
+                itemType: _currentType,
+                entries: _cachedMangaList,
+              );
+            }
+          },
+        ),
+        const AdaptiveOverlayDivider(),
+        AdaptiveOverlayItem(
+          icon: Broken.setting_2,
+          label: l10n.display,
+          onTap: () {
+            close();
+            if (_cachedSettings != null) {
+              showLibrarySettingsSheet(
+                context: context,
+                vsync: this,
+                settings: _cachedSettings!,
+                itemType: _currentType,
+                entries: _cachedMangaList,
+              );
+            }
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     final cs   = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final settingsAsync = ref.watch(getSettingsStreamProvider);
     final mangaAsync    = ref.watch(
@@ -180,11 +244,18 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     if (settings != null) _cachedSettings = settings;
 
     final mangaList = mangaAsync.asData?.value ?? <Manga>[];
-    final cats      = catsAsync.maybeWhen(data: (c) => c, orElse: () => <Category>[]);
+    _cachedMangaList = mangaList;
+
+    final cats = catsAsync.maybeWhen(
+      data: (c) => c,
+      orElse: () => <Category>[],
+    );
 
     final int? selectedCatId = _selectedCatIndex == 0
         ? null
-        : (cats.length >= _selectedCatIndex ? cats[_selectedCatIndex - 1].id : null);
+        : (cats.length >= _selectedCatIndex
+            ? cats[_selectedCatIndex - 1].id
+            : null);
     final int extCatId = selectedCatId == null ? -1 : selectedCatId;
 
     return Scaffold(
@@ -194,209 +265,407 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Row 1 : type selector + action icons ─────────────────────────
+            // ── Row 1: type pills + action icons ─────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
               child: Row(
                 children: [
-                  // ── Left : sub-dock type pills ──────────────────────────
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: List.generate(_kTypes.length, (i) {
-                            final t = _kTypes[i];
-                            final sel = _typeIndex == i;
-                            return GestureDetector(
-                              onTap: () => setState(() {
-                                _typeIndex = i;
-                                _selectedCatIndex = 0;
-                              }),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                margin: const EdgeInsets.only(right: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: sel ? _kAccent : Colors.white.withValues(alpha: 0.07),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      _kTypeIcons[t] ?? Icons.library_books_rounded,
-                                      color: sel ? Colors.white : Colors.white54,
-                                      size: 13,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      _typeLabel(t),
-                                      style: TextStyle(
-                                        color: sel ? Colors.white : Colors.white54,
-                                        fontSize: 13,
-                                        fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                  // ── Type pills (scrollable) ───────────────────────────
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: List.generate(_kTypes.length, (i) {
+                          final t = _kTypes[i];
+                          final sel = _typeIndex == i;
+                          return GestureDetector(
+                            onTap: () => setState(() {
+                              _typeIndex = i;
+                              _selectedCatIndex = 0;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: sel
+                                    ? _kAccent
+                                    : (isDark
+                                        ? Colors.white.withValues(alpha: 0.07)
+                                        : cs.onSurface.withValues(alpha: 0.05)),
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                            );
-                          }),
-                        ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _kTypeIcons[t] ?? Broken.book,
+                                    color: sel
+                                        ? Colors.white
+                                        : (isDark
+                                            ? Colors.white54
+                                            : cs.onSurface
+                                                .withValues(alpha: 0.45)),
+                                    size: 13,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _typeLabel(t),
+                                    style: TextStyle(
+                                      color: sel
+                                          ? Colors.white
+                                          : (isDark
+                                              ? Colors.white54
+                                              : cs.onSurface
+                                                  .withValues(alpha: 0.50)),
+                                      fontSize: 13,
+                                      fontWeight: sel
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
                       ),
                     ),
-                                      const SizedBox(width: 8),
+                  ),
+                  const SizedBox(width: 8),
 
-                  // ── Right : action icons — smaller, lighter ─────────────────
+                  // ── Actions: Search → Notifications → 3-dots ─────────
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // 1. Search toggle
                       _iconBtn(
-                        icon: Icons.search,
+                        icon: Broken.search_normal_1,
                         onTap: _toggleSearch,
                         active: _showSearch,
+                        tooltip: l10n.search,
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 6),
+
+                      // 2. Notifications
                       _iconBtn(
-                        icon: Icons.download_outlined,
-                        onTap: () {},
-                      ),
-                      const SizedBox(width: 5),
-                      _buildThreeDotsBtn(context, l10n, mangaList),
-                      const SizedBox(width: 5),
-                      _iconBtn(
-                        icon: Icons.notifications_outlined,
+                        icon: Broken.notification,
                         onTap: () => context.push('/updates'),
+                        tooltip: l10n.updates_tab,
                       ),
+                      const SizedBox(width: 6),
+
+                      // 3. Three-dots menu
+                      _buildThreeDotsBtn(context, l10n, mangaList),
                     ],
                   ),
                 ],
               ),
             ),
 
-            // ── Search bar ───────────────────────────────────────────────────
+            // ── Search bar (animated slide-in) ───────────────────────────
             ClipRect(
               child: AnimatedAlign(
-                duration: const Duration(milliseconds: 120),
+                duration: const Duration(milliseconds: 140),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topCenter,
                 heightFactor: _showSearch ? 1.0 : 0.0,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                  child: Container(
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(21),
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        Icon(Icons.search, color: cs.onSurfaceVariant, size: 17),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            autofocus: _showSearch,
-                            style: TextStyle(
-                              color: cs.onSurface,
-                              fontSize: 14,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Search library',
-                              hintStyle: TextStyle(color: cs.onSurfaceVariant),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                        AnimatedOpacity(
-                          duration: const Duration(milliseconds: 100),
-                          opacity: _searchController.text.isNotEmpty ? 1.0 : 0.0,
-                          child: GestureDetector(
-                            onTap: () {
-                              _searchController.clear();
-                              setState(() {});
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              child: Icon(
-                                Icons.close,
-                                color: cs.onSurfaceVariant,
-                                size: 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                    ),
-                  ),
+                  child: _buildSearchBar(cs, isDark),
                 ),
               ),
             ),
 
-            // ── Row 2 : filter / category bar ────────────────────────────────
-            // "Manage" is its own separate pill bubble — distinct from "All".
+            // ── Category bar ─────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-              child: _buildFilterBar(context, cats),
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: _buildCategoryBar(context, cats, cs, isDark),
             ),
 
             const SizedBox(height: 8),
 
-            // ── Library content ─────────────────────────────────────────────
-              Expanded(
-                child: _currentType == ItemType.music
-                    ? const MusicDiscoveryScreen()
-                    : LibraryScreen(
-                        key: ValueKey('lib_${_typeIndex}_$extCatId'),
-                        itemType: _currentType,
-                        presetInput: null,
-                        hideOwnAppBar: true,
-                        externalSearchQuery: _showSearch ? _searchController.text : null,
-                        externalCategoryId: extCatId,
-                      ),
+            // ── Library content ──────────────────────────────────────────
+            Expanded(
+              child: _currentType == ItemType.music
+                  ? const MusicDiscoveryScreen()
+                  : LibraryScreen(
+                      key: ValueKey('lib_${_typeIndex}_$extCatId'),
+                      itemType: _currentType,
+                      presetInput: null,
+                      hideOwnAppBar: true,
+                      externalSearchQuery:
+                          _showSearch ? _searchController.text : null,
+                      externalCategoryId: extCatId,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Animated search bar with filter overlay ────────────────────────────────
+  Widget _buildSearchBar(ColorScheme cs, bool isDark) {
+    final focused = _searchFocus.hasFocus;
+    final hasText = _searchController.text.isNotEmpty;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      height: 46,
+      decoration: BoxDecoration(
+        color: focused
+            ? (isDark ? cs.surfaceContainerHighest : cs.surface)
+            : (isDark
+                ? cs.surfaceContainerHigh
+                : cs.surfaceContainerHigh),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: focused
+              ? cs.primary.withValues(alpha: 0.50)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : cs.outline.withValues(alpha: 0.12)),
+          width: focused ? 1.4 : 1.0,
+        ),
+        boxShadow: focused
+            ? [
+                BoxShadow(
+                  color: cs.primary.withValues(alpha: 0.14),
+                  blurRadius: 12,
+                  spreadRadius: -3,
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+
+          // Search icon
+          Icon(
+            Broken.search_normal_1,
+            color: focused
+                ? cs.primary
+                : cs.onSurface.withValues(alpha: 0.40),
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+
+          // Text field
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocus,
+              autofocus: false,
+              style: TextStyle(
+                color: cs.onSurface,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w400,
               ),
-            ],
+              decoration: InputDecoration(
+                hintText: l10nLocalizations(context)!.search,
+                hintStyle: TextStyle(
+                  color: cs.onSurface.withValues(alpha: 0.35),
+                  fontSize: 14.5,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+
+          // Clear button
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 120),
+            opacity: hasText ? 1.0 : 0.0,
+            child: GestureDetector(
+              onTap: () {
+                _searchController.clear();
+                setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(
+                  Broken.close_circle,
+                  color: cs.onSurface.withValues(alpha: 0.38),
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+
+          // Filter overlay button
+          AdaptiveOverlayMenuButton(
+            menuWidth: 220,
+            trigger: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Icon(
+                Broken.filter,
+                size: 18,
+                color: focused
+                    ? cs.primary.withValues(alpha: 0.70)
+                    : cs.onSurface.withValues(alpha: 0.38),
+              ),
+            ),
+            contentBuilder: _buildFilterOverlayContent,
+          ),
+
+          const SizedBox(width: 2),
+        ],
+      ),
+    );
+  }
+
+  // ── Unified category bar (no double-band) ──────────────────────────────────
+  Widget _buildCategoryBar(
+    BuildContext context,
+    List<Category> cats,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          // ── Manage categories — ghost icon pill ───────────────────────
+          GestureDetector(
+            onTap: () => _showManageCategories(context, cats),
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : cs.outline.withValues(alpha: 0.18),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                Broken.setting_2,
+                size: 15,
+                color: isDark
+                    ? Colors.white38
+                    : cs.onSurface.withValues(alpha: 0.38),
+              ),
+            ),
+          ),
+
+          // ── Subtle separator ──────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Container(
+              width: 1,
+              height: 18,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.10)
+                  : cs.outline.withValues(alpha: 0.14),
+            ),
+          ),
+
+          // ── "All" pill ────────────────────────────────────────────────
+          _pill(
+            label: 'All',
+            selected: _selectedCatIndex == 0,
+            onTap: () => setState(() => _selectedCatIndex = 0),
+            cs: cs,
+            isDark: isDark,
+          ),
+
+          // ── Category pills ────────────────────────────────────────────
+          for (int i = 0; i < cats.length; i++)
+            _pill(
+              label: cats[i].name ?? '',
+              selected: _selectedCatIndex == i + 1,
+              onTap: () => setState(() => _selectedCatIndex = i + 1),
+              cs: cs,
+              isDark: isDark,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pill({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    required ColorScheme cs,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 170),
+        margin: const EdgeInsets.only(right: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? _kAccent
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.0)
+                  : Colors.transparent),
+          borderRadius: BorderRadius.circular(10),
+          border: selected
+              ? null
+              : Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.0)
+                      : Colors.transparent,
+                ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected
+                ? Colors.white
+                : (isDark ? _kTextSecondary : cs.onSurface.withValues(alpha: 0.55)),
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            fontSize: 13,
           ),
         ),
-      );
+      ),
+    );
   }
-  // ── 3-dot popup — same size as other icon buttons ─────────────────────────
+
+  // ── Three-dots popup ───────────────────────────────────────────────────────
   Widget _buildThreeDotsBtn(
     BuildContext context,
     dynamic l10n,
     List<Manga> mangaList,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
-      width: 32,
-      height: 32,
+      width: 34,
+      height: 34,
       child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.07),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : cs.onSurface.withValues(alpha: 0.06),
         ),
         child: ClipOval(
           child: ArrowPopupMenuButton<int>(
-            icon: const Icon(Icons.more_horiz, color: Colors.white60, size: 16),
+            icon: Icon(
+              Broken.more_2,
+              color: isDark ? Colors.white60 : cs.onSurface.withValues(alpha: 0.55),
+              size: 17,
+            ),
             padding: EdgeInsets.zero,
             menuWidth: 230,
             itemBuilder: (_) => [
               PopupMenuItem<int>(
-                value: 0,
-                child: Row(children: [
-                  const Icon(Icons.filter_list_sharp, size: 18),
-                  const SizedBox(width: 12),
-                  Text(l10n.filter),
-                ]),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem<int>(
                 value: 1,
                 child: Row(children: [
-                  const Icon(Icons.refresh_rounded, size: 18),
+                  const Icon(Broken.refresh_left_square, size: 18),
                   const SizedBox(width: 12),
                   Text(l10n.update_library),
                 ]),
@@ -404,7 +673,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               PopupMenuItem<int>(
                 value: 2,
                 child: Row(children: [
-                  const Icon(Icons.shuffle_rounded, size: 18),
+                  const Icon(Broken.shuffle, size: 18),
                   const SizedBox(width: 12),
                   Text(l10n.open_random_entry),
                 ]),
@@ -412,7 +681,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               PopupMenuItem<int>(
                 value: 3,
                 child: Row(children: [
-                  const Icon(Icons.archive_outlined, size: 18),
+                  const Icon(Broken.folder_add, size: 18),
                   const SizedBox(width: 12),
                   Text(l10n.import),
                 ]),
@@ -421,7 +690,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 PopupMenuItem<int>(
                   value: 4,
                   child: Row(children: [
-                    const Icon(Icons.stream_rounded, size: 18),
+                    const Icon(Broken.video, size: 18),
                     const SizedBox(width: 12),
                     Text(l10n.torrent_stream),
                   ]),
@@ -429,17 +698,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ],
             onSelected: (v) {
               switch (v) {
-                case 0:
-                  if (_cachedSettings != null) {
-                    showLibrarySettingsSheet(
-                      context: context,
-                      vsync: this,
-                      settings: _cachedSettings!,
-                      itemType: _currentType,
-                      entries: mangaList,
-                    );
-                  }
-                  break;
                 case 1:
                   updateLibrary(
                     ref: ref,
@@ -459,109 +717,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                   break;
               }
             },
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Filter bar : 2 distinct pill bubbles ─────────────────────────────────
-  //
-  //  [ ⚙ ]   [ All  Cat1  Cat2 … ]
-  //   └─ manage bubble (separate)   └─ categories scrollable bubble
-  //
-  Widget _buildFilterBar(BuildContext context, List<Category> cats) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        // ── Bubble 1 : "Manage" — standalone, left ───────────────────────────
-        GestureDetector(
-          onTap: () => _showManageCategories(context, cats),
-          child: Container(
-            height: 36,
-            width: 36,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.10),
-                width: 1,
-              ),
-            ),
-            child: const Icon(
-              Icons.tune_rounded,
-              color: Colors.white54,
-              size: 17,
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 8),
-
-        // ── Bubble 2 : "All" + categories — scrollable pill row ──────────────
-        Expanded(
-          child: Container(
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.09),
-                width: 1,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  children: [
-                    _pill(
-                      label: 'All',
-                      selected: _selectedCatIndex == 0,
-                      onTap: () => setState(() => _selectedCatIndex = 0),
-                      cs: cs,
-                    ),
-                    for (int i = 0; i < cats.length; i++)
-                      _pill(
-                        label: cats[i].name ?? '',
-                        selected: _selectedCatIndex == i + 1,
-                        onTap: () => setState(() => _selectedCatIndex = i + 1),
-                        cs: cs,
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _pill({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-    required ColorScheme cs,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          color: selected ? _kAccent : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : _kTextSecondary,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            fontSize: 13,
           ),
         ),
       ),
@@ -618,6 +773,7 @@ class _ManageCategoriesSheetState
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final catsAsync =
         ref.watch(getMangaCategorieStreamProvider(itemType: widget.itemType));
     return DraggableScrollableSheet(
@@ -625,21 +781,24 @@ class _ManageCategoriesSheetState
       minChildSize: 0.4,
       maxChildSize: 0.9,
       builder: (_, sc) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
+            // Handle
             Container(
               margin: const EdgeInsets.only(top: 10),
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: cs.onSurface.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Row(
@@ -648,13 +807,13 @@ class _ManageCategoriesSheetState
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: _kAccent.withValues(alpha: 0.2),
+                      color: _kAccent.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.label_rounded,
+                      Broken.tag,
                       color: _kAccent,
-                      size: 24,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -665,7 +824,6 @@ class _ManageCategoriesSheetState
                         Text(
                           'Manage Categories',
                           style: TextStyle(
-                            color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
@@ -673,7 +831,10 @@ class _ManageCategoriesSheetState
                         SizedBox(height: 3),
                         Text(
                           'Remove tabs you no longer need.\nTitles stay in your library.',
-                          style: TextStyle(color: Colors.grey, fontSize: 12.5),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.grey,
+                          ),
                         ),
                       ],
                     ),
@@ -684,12 +845,12 @@ class _ManageCategoriesSheetState
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: Colors.white12,
+                        color: cs.onSurface.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.white70,
+                      child: Icon(
+                        Broken.close_circle,
+                        color: cs.onSurface.withValues(alpha: 0.60),
                         size: 18,
                       ),
                     ),
@@ -697,7 +858,11 @@ class _ManageCategoriesSheetState
                 ],
               ),
             ),
-            const Divider(color: Color(0xFF2D2D2D), height: 20),
+            Divider(
+              color: cs.outline.withValues(alpha: 0.15),
+              height: 20,
+            ),
+            // Category list + add field
             Expanded(
               child: catsAsync.when(
                 data: (cats) => ListView(
@@ -717,22 +882,26 @@ class _ManageCategoriesSheetState
                           child: Container(
                             height: 46,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF252525),
+                              color: cs.surfaceContainerHigh,
                               borderRadius: BorderRadius.circular(12),
-                              border:
-                                  Border.all(color: const Color(0xFF3D3D3D)),
+                              border: Border.all(
+                                color: cs.outline.withValues(alpha: 0.15),
+                              ),
                             ),
                             child: TextField(
                               controller: _ctrl,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: cs.onSurface,
                                 fontSize: 14,
                               ),
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 hintText: 'New category name',
-                                hintStyle: TextStyle(color: Colors.grey),
+                                hintStyle: TextStyle(
+                                  color: cs.onSurface.withValues(alpha: 0.38),
+                                ),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
+                                contentPadding:
+                                    const EdgeInsets.symmetric(
                                   horizontal: 14,
                                   vertical: 12,
                                 ),
@@ -747,34 +916,35 @@ class _ManageCategoriesSheetState
                             width: 46,
                             height: 46,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF3D3D3D),
-                              borderRadius: BorderRadius.circular(23),
+                              color: _kAccent,
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
-                              Icons.add,
+                              Broken.element_plus,
                               color: Colors.white,
-                              size: 22,
+                              size: 20,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: TextButton(
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFF252525),
+                          backgroundColor:
+                              cs.surfaceContainerHigh,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Done',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: cs.onSurface,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -800,7 +970,7 @@ class _ManageCategoriesSheetState
   }
 }
 
-// ─── Category row ─────────────────────────────────────────────────────────────
+// ─── Category row (in manage sheet) ──────────────────────────────────────────
 class _CatRow extends ConsumerWidget {
   final Category cat;
   final ItemType itemType;
@@ -814,16 +984,19 @@ class _CatRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final count = ref
         .watch(
-          getAllMangaStreamProvider(categoryId: cat.id, itemType: itemType),
+          getAllMangaStreamProvider(
+              categoryId: cat.id, itemType: itemType),
         )
         .maybeWhen(data: (l) => l.length, orElse: () => 0);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF252525),
+        color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -834,8 +1007,8 @@ class _CatRow extends ConsumerWidget {
               children: [
                 Text(
                   cat.name ?? '',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -843,7 +1016,10 @@ class _CatRow extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   '$count titles',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12.5),
+                  style: TextStyle(
+                    color: cs.onSurface.withValues(alpha: 0.45),
+                    fontSize: 12.5,
+                  ),
                 ),
               ],
             ),
@@ -854,13 +1030,13 @@ class _CatRow extends ConsumerWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: _kAccent.withValues(alpha: 0.2),
+                color: _kAccent.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.delete_outline_rounded,
+                Broken.trash,
                 color: _kAccent,
-                size: 20,
+                size: 18,
               ),
             ),
           ),
