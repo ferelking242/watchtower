@@ -258,7 +258,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
           splashRadius: 20,
           onPressed: () => context.push('/updates'),
           icon: const Icon(Broken.notification),
-          tooltip: l10n.updates_tab,
+          tooltip: l10n.updates,
         ),
 
         // ── 3. Three-dots popup ────────────────────────────────────────────

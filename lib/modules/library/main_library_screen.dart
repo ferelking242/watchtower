@@ -352,7 +352,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                       _iconBtn(
                         icon: Broken.notification,
                         onTap: () => context.push('/updates'),
-                        tooltip: l10n.updates_tab,
+                        tooltip: l10n.updates,
                       ),
                       const SizedBox(width: 6),
 
