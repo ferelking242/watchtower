@@ -2,6 +2,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
@@ -15,16 +17,22 @@ import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 
-/// AppBar for the library screen.
+/// AppBar for the standalone library screen.
 ///
-/// Handles search mode, long-press selection mode, and the popup menu.
-class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
+/// Actions order (per design spec): Search → Notifications → Three-dots menu
+/// Filter is accessible:
+///   • Inside the search field when search mode is active (filter overlay).
+///   • Via the three-dots menu ("Filters & Sort") when search is inactive.
+///
+/// All icons use the Broken icon set — no Material icons in the action area.
+class LibraryAppBar extends ConsumerStatefulWidget implements PreferredSizeWidget {
   final ItemType itemType;
   final bool isNotFiltering;
   final bool showNumbersOfItems;
@@ -64,17 +72,80 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
   Size get preferredSize => Size.fromHeight(AppBar().preferredSize.height);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibraryAppBar> createState() => _LibraryAppBarState();
+}
+
+class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
+  // ── Filter overlay shown via search-field filter icon ──────────────────────
+  Widget _buildFilterOverlayContent(VoidCallback close) {
+    final l10n = l10nLocalizations(context)!;
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AdaptiveOverlaySection(title: 'Filter & Sort'),
+        AdaptiveOverlayItem(
+          icon: Broken.filter,
+          label: l10n.filter,
+          onTap: () {
+            close();
+            showLibrarySettingsSheet(
+              context: context,
+              vsync: widget.vsync,
+              settings: widget.settings,
+              itemType: widget.itemType,
+              entries: widget.entries,
+            );
+          },
+        ),
+        AdaptiveOverlayItem(
+          icon: Broken.sort,
+          label: l10n.sort,
+          onTap: () {
+            close();
+            showLibrarySettingsSheet(
+              context: context,
+              vsync: widget.vsync,
+              settings: widget.settings,
+              itemType: widget.itemType,
+              entries: widget.entries,
+            );
+          },
+        ),
+        const AdaptiveOverlayDivider(),
+        AdaptiveOverlayItem(
+          icon: Broken.setting_2,
+          label: l10n.display,
+          onTap: () {
+            close();
+            showLibrarySettingsSheet(
+              context: context,
+              vsync: widget.vsync,
+              settings: widget.settings,
+              itemType: widget.itemType,
+              entries: widget.entries,
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isLongPressed = ref.watch(isLongPressedStateProvider);
     final mangaIdsList = ref.watch(mangasListStateProvider);
-    final manga = categoryId == null
+    final manga = widget.categoryId == null
         ? ref.watch(
-            getAllMangaWithoutCategoriesStreamProvider(itemType: itemType),
+            getAllMangaWithoutCategoriesStreamProvider(
+                itemType: widget.itemType),
           )
         : ref.watch(
             getAllMangaStreamProvider(
-              categoryId: categoryId,
-              itemType: itemType,
+              categoryId: widget.categoryId,
+              itemType: widget.itemType,
             ),
           );
     final l10n = l10nLocalizations(context)!;
@@ -83,7 +154,7 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
     if (isLongPressed) {
       return manga.when(
         data: (data) => _SelectionAppBar(
-          itemType: itemType,
+          itemType: widget.itemType,
           mangaIdsList: mangaIdsList,
           data: data,
         ),
@@ -92,28 +163,46 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
       );
     }
 
+    // ── Filter button embedded in the search field ─────────────────────────
+    final filterBtn = AdaptiveOverlayMenuButton(
+      menuWidth: 210,
+      trigger: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Icon(
+          Broken.filter,
+          size: 18,
+          color: widget.isNotFiltering
+              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45)
+              : Theme.of(context).colorScheme.primary,
+        ),
+      ),
+      contentBuilder: _buildFilterOverlayContent,
+    );
+
     return AppBar(
       elevation: 0,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      title: isSearch
+      title: widget.isSearch
           ? null
           : Row(
               children: [
                 Text(
-                  itemType.localized(l10n),
-                  style: TextStyle(color: Theme.of(context).hintColor),
+                  widget.itemType.localized(l10n),
+                  style:
+                      TextStyle(color: Theme.of(context).hintColor),
                 ),
                 const SizedBox(width: 10),
-                if (showNumbersOfItems)
+                if (widget.showNumbersOfItems)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 3),
                     child: Badge(
                       backgroundColor: Theme.of(context).focusColor,
                       label: Text(
-                        numberOfItems.toString(),
+                        widget.numberOfItems.toString(),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context).textTheme.bodySmall!.color,
+                          color:
+                              Theme.of(context).textTheme.bodySmall!.color,
                         ),
                       ),
                     ),
@@ -121,26 +210,30 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ],
             ),
       actions: [
-        isSearch
-            ? SeachFormTextField(
-                onChanged: (_) => onSearchClear(),
-                onPressed: onSearchToggle,
-                controller: textEditingController,
-                onSuffixPressed: () {
-                  textEditingController.clear();
-                  onSearchClear();
-                },
-              )
-            : IconButton(
-                splashRadius: 20,
-                onPressed: () {
-                  textEditingController.clear();
-                  onSearchToggle();
-                },
-                icon: const Icon(Icons.search),
-              ),
-        // Checkbox when searching library to ignore filters
-        if (isSearch)
+        // ── 1. Search ──────────────────────────────────────────────────────
+        if (widget.isSearch)
+          SeachFormTextField(
+            onChanged: (_) => widget.onSearchClear(),
+            onPressed: widget.onSearchToggle,
+            controller: widget.textEditingController,
+            onSuffixPressed: () {
+              widget.textEditingController.clear();
+              widget.onSearchClear();
+            },
+            filterButton: filterBtn,
+          )
+        else
+          IconButton(
+            splashRadius: 20,
+            onPressed: () {
+              widget.textEditingController.clear();
+              widget.onSearchToggle();
+            },
+            icon: const Icon(Broken.search_normal_1),
+          ),
+
+        // Ignore-filters checkbox (only when searching, mobile)
+        if (widget.isSearch)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -149,38 +242,71 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     ? l10n.ignore_filters.replaceFirst(' ', '\n')
                     : l10n.ignore_filters.replaceAll('\n', ''),
                 textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11),
               ),
               Checkbox(
-                value: ignoreFiltersOnSearch,
+                value: widget.ignoreFiltersOnSearch,
                 onChanged: (val) {
-                  onIgnoreFiltersChanged(val ?? false);
+                  widget.onIgnoreFiltersChanged(val ?? false);
                 },
               ),
             ],
           ),
-        // ── Horizontal 3-dot popup (was vertical more_vert) ──────────────
-        ArrowPopupMenuButton(
+
+        // ── 2. Notifications ───────────────────────────────────────────────
+        IconButton(
+          splashRadius: 20,
+          onPressed: () => context.push('/updates'),
+          icon: const Icon(Broken.notification),
+          tooltip: l10n.updates_tab,
+        ),
+
+        // ── 3. Three-dots popup ────────────────────────────────────────────
+        ArrowPopupMenuButton<int>(
           popUpAnimationStyle: popupAnimationStyle,
-          // Use horizontal ellipsis for a cleaner, Aidoku-style look
-          icon: const Icon(Icons.more_horiz),
+          icon: const Icon(Broken.more_2),
           itemBuilder: (context) {
             return [
               PopupMenuItem<int>(
                 value: 0,
-                child: Text(context.l10n.update_library),
+                child: Row(children: [
+                  const Icon(Broken.refresh_left_square, size: 18),
+                  const SizedBox(width: 10),
+                  Text(context.l10n.update_library),
+                ]),
               ),
               PopupMenuItem<int>(
                 value: 1,
-                child: Text(l10n.open_random_entry),
+                child: Row(children: [
+                  const Icon(Broken.programming_arrows, size: 18),
+                  const SizedBox(width: 10),
+                  Text(l10n.open_random_entry),
+                ]),
               ),
               PopupMenuItem<int>(
                 value: 2,
-                child: Text(l10n.import),
+                child: Row(children: [
+                  const Icon(Broken.arrow_square, size: 18),
+                  const SizedBox(width: 10),
+                  Text(l10n.import),
+                ]),
               ),
-              if (itemType == ItemType.anime)
+              PopupMenuItem<int>(
+                value: 4,
+                child: Row(children: [
+                  const Icon(Broken.filter, size: 18),
+                  const SizedBox(width: 10),
+                  Text(l10n.filter),
+                ]),
+              ),
+              if (widget.itemType == ItemType.anime)
                 PopupMenuItem<int>(
                   value: 3,
-                  child: Text(l10n.torrent_stream),
+                  child: Row(children: [
+                    const Icon(Broken.video_play, size: 18),
+                    const SizedBox(width: 10),
+                    Text(l10n.torrent_stream),
+                  ]),
                 ),
             ];
           },
@@ -191,7 +317,7 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
                   ref: ref,
                   context: context,
                   mangaList: value,
-                  itemType: itemType,
+                  itemType: widget.itemType,
                 );
               });
             } else if (value == 1) {
@@ -210,27 +336,19 @@ class LibraryAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 );
               });
             } else if (value == 2) {
-              showImportLocalDialog(context, itemType);
-            } else if (value == 3 && itemType == ItemType.anime) {
+              showImportLocalDialog(context, widget.itemType);
+            } else if (value == 3 && widget.itemType == ItemType.anime) {
               addTorrent(context);
+            } else if (value == 4) {
+              showLibrarySettingsSheet(
+                context: context,
+                vsync: widget.vsync,
+                settings: widget.settings,
+                itemType: widget.itemType,
+                entries: widget.entries,
+              );
             }
           },
-        ),
-        IconButton(
-          splashRadius: 20,
-          onPressed: () {
-            showLibrarySettingsSheet(
-              context: context,
-              vsync: vsync,
-              settings: settings,
-              itemType: itemType,
-              entries: entries,
-            );
-          },
-          icon: Icon(
-            Icons.filter_list_sharp,
-            color: isNotFiltering ? null : Colors.yellow,
-          ),
         ),
       ],
     );
@@ -258,9 +376,11 @@ class _SelectionAppBar extends ConsumerWidget {
       leading: IconButton(
         onPressed: () {
           ref.read(mangasListStateProvider.notifier).clear();
-          ref.read(isLongPressedStateProvider.notifier).update(!isLongPressed);
+          ref
+              .read(isLongPressedStateProvider.notifier)
+              .update(!isLongPressed);
         },
-        icon: const Icon(Icons.clear),
+        icon: const Icon(Broken.close_circle),
       ),
       actions: [
         IconButton(
@@ -269,22 +389,28 @@ class _SelectionAppBar extends ConsumerWidget {
               ref.read(mangasListStateProvider.notifier).selectAll(manga);
             }
           },
-          icon: const Icon(Icons.select_all),
+          icon: const Icon(Broken.tick_square),
         ),
         IconButton(
           onPressed: () {
             if (data.length == mangaIdsList.length) {
               for (var manga in data) {
-                ref.read(mangasListStateProvider.notifier).selectSome(manga);
+                ref
+                    .read(mangasListStateProvider.notifier)
+                    .selectSome(manga);
               }
-              ref.read(isLongPressedStateProvider.notifier).update(false);
+              ref
+                  .read(isLongPressedStateProvider.notifier)
+                  .update(false);
             } else {
               for (var manga in data) {
-                ref.read(mangasListStateProvider.notifier).selectSome(manga);
+                ref
+                    .read(mangasListStateProvider.notifier)
+                    .selectSome(manga);
               }
             }
           },
-          icon: const Icon(Icons.flip_to_back_rounded),
+          icon: const Icon(Broken.back_square),
         ),
       ],
     );
