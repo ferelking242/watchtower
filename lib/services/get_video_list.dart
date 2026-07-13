@@ -5,6 +5,7 @@ import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/youtube_watch_resolver.dart';
 import 'package:watchtower/services/torrent_server.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/utils.dart';
@@ -233,6 +234,24 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       if (!videos.any((element) => element.quality == video.quality)) {
         videos.add(video);
       }
+    }
+
+    // Some source extensions (lightweight FR streaming wrappers, mostly)
+    // have no real CDN backend of their own — they just relay the official
+    // YouTube embed the site uses, so they hand back the YouTube watch/embed
+    // page verbatim. mpv can't play that page directly, so resolve those
+    // entries into actually-playable streams via the same YouTube backend
+    // already powering the Music module.
+    if (videos.any(
+      (v) => YoutubeWatchResolver.isYoutubeUrl(
+        v.originalUrl.isNotEmpty ? v.originalUrl : v.url,
+      ),
+    )) {
+      videos = await YoutubeWatchResolver.resolve(
+        ref,
+        videos,
+        epLabel: epLabel,
+      );
     }
 
     if (videos.isEmpty) {
