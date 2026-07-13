@@ -10,6 +10,7 @@ import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
+import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
@@ -78,58 +79,14 @@ class LibraryAppBar extends ConsumerStatefulWidget implements PreferredSizeWidge
 class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
   // ── Filter overlay shown via search-field filter icon ──────────────────────
   Widget _buildFilterOverlayContent(VoidCallback close) {
-    final l10n = l10nLocalizations(context)!;
-    final cs = Theme.of(context).colorScheme;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const AdaptiveOverlaySection(title: 'Filter & Sort'),
-        AdaptiveOverlayItem(
-          icon: Broken.slider_horizontal,
-          label: l10n.filter,
-          onTap: () {
-            close();
-            showLibrarySettingsSheet(
-              context: context,
-              vsync: widget.vsync,
-              settings: widget.settings,
-              itemType: widget.itemType,
-              entries: widget.entries,
-            );
-          },
-        ),
-        AdaptiveOverlayItem(
-          icon: Broken.sort,
-          label: l10n.sort,
-          onTap: () {
-            close();
-            showLibrarySettingsSheet(
-              context: context,
-              vsync: widget.vsync,
-              settings: widget.settings,
-              itemType: widget.itemType,
-              entries: widget.entries,
-            );
-          },
-        ),
-        const AdaptiveOverlayDivider(),
-        AdaptiveOverlayItem(
-          icon: Broken.setting_2,
-          label: l10n.display,
-          onTap: () {
-            close();
-            showLibrarySettingsSheet(
-              context: context,
-              vsync: widget.vsync,
-              settings: widget.settings,
-              itemType: widget.itemType,
-              entries: widget.entries,
-            );
-          },
-        ),
-      ],
+    return LibraryFilterSortMenu(
+      itemType: widget.itemType,
+      settings: widget.settings,
+      entries: widget.entries,
+      close: close,
+      onSelect: () {
+        ref.read(isLongPressedStateProvider.notifier).update(true);
+      },
     );
   }
 
@@ -165,7 +122,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
 
     // ── Filter button embedded in the search field ─────────────────────────
     final filterBtn = AdaptiveOverlayMenuButton(
-      menuWidth: 210,
+      menuWidth: 250,
       trigger: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Icon(
