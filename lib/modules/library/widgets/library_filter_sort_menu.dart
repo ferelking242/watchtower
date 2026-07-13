@@ -443,36 +443,43 @@ class _LibraryFilterSortMenuState
         .toSet()
         .toList()
       ..sort();
-    final selected = ref.watch(
-      selectedLibrarySourcesFilterProvider(widget.itemType),
-    );
+    final notifier = selectedLibrarySourcesFilter(widget.itemType);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _backHeader(l10nLocalizations(context)!.sources, () => _go(_Level.filter)),
-        if (sources.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Text(
-              'Aucune source détectée dans cette bibliothèque.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: notifier,
+      builder: (context, selected, _) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _backHeader(
+              l10nLocalizations(context)!.sources,
+              () => _go(_Level.filter),
             ),
-          )
-        else
-          for (final source in sources)
-            AdaptiveOverlayItem(
-              label: source,
-              selected: selected.contains(source),
-              onTap: () => ref
-                  .read(selectedLibrarySourcesFilterProvider(widget.itemType).notifier)
-                  .toggle(source),
-            ),
-      ],
+            if (sources.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: Text(
+                  'Aucune source détectée dans cette bibliothèque.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              )
+            else
+              for (final source in sources)
+                AdaptiveOverlayItem(
+                  label: source,
+                  selected: selected.contains(source),
+                  onTap: () => _toggleInNotifier(notifier, source),
+                ),
+          ],
+        );
+      },
     );
   }
 
@@ -482,50 +489,58 @@ class _LibraryFilterSortMenuState
     final categoriesAsync = ref.watch(
       getMangaCategorieStreamProvider(itemType: widget.itemType),
     );
-    final selected = ref.watch(
-      selectedLibraryCategoriesFilterProvider(widget.itemType),
-    );
+    final notifier = selectedLibraryCategoriesFilter(widget.itemType);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _backHeader(l10nLocalizations(context)!.categories, () => _go(_Level.filter)),
-        ...categoriesAsync.maybeWhen(
-          data: (cats) => cats.isEmpty
-              ? [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                    child: Text(
-                      'Aucune catégorie créée.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
+    return ValueListenableBuilder<Set<int>>(
+      valueListenable: notifier,
+      builder: (context, selected, _) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _backHeader(
+              l10nLocalizations(context)!.categories,
+              () => _go(_Level.filter),
+            ),
+            ...categoriesAsync.maybeWhen(
+              data: (cats) => cats.isEmpty
+                  ? [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: Text(
+                          'Aucune catégorie créée.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.5),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ]
-              : cats
-                  .where((c) => c.id != null)
-                  .map(
-                    (c) => AdaptiveOverlayItem(
-                      label: c.name ?? '',
-                      selected: selected.contains(c.id),
-                      onTap: () => ref
-                          .read(selectedLibraryCategoriesFilterProvider(
-                                  widget.itemType)
-                              .notifier)
-                          .toggle(c.id!),
-                    ),
-                  )
-                  .toList(),
-          orElse: () => const <Widget>[],
-        ),
-      ],
+                    ]
+                  : cats
+                      .where((c) => c.id != null)
+                      .map(
+                        (c) => AdaptiveOverlayItem(
+                          label: c.name ?? '',
+                          selected: selected.contains(c.id),
+                          onTap: () => _toggleInNotifier(notifier, c.id!),
+                        ),
+                      )
+                      .toList(),
+              orElse: () => const <Widget>[],
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  void _toggleInNotifier<T>(ValueNotifier<Set<T>> notifier, T value) {
+    final next = Set<T>.from(notifier.value);
+    if (!next.remove(value)) next.add(value);
+    notifier.value = next;
   }
 
   // ── Small helpers ──────────────────────────────────────────────────────────
@@ -549,43 +564,38 @@ class _LibraryFilterSortMenuState
   }
 }
 
-// ── Local, hand-written providers (no codegen) for Sources/Categories ────────
+// ── Local, hand-written selection state (no riverpod codegen) ────────────────
 //
 // Kept separate from the @riverpod-generated filter pipeline so this feature
 // doesn't require regenerating *.g.dart files. Selecting sources/categories
 // here narrows what's shown, layered client-side on top of the existing
-// filtered/sorted list — see [applyLibrarySourceAndCategoryFilters].
+// filtered/sorted list — see [applyLibrarySourceAndCategoryFilters]. Scoped
+// per [ItemType] (manga/anime/novel each get their own selection).
 
-final selectedLibrarySourcesFilterProvider =
-    StateProvider.family<Set<String>, ItemType>((ref, arg) => <String>{});
+final Map<ItemType, ValueNotifier<Set<String>>> _librarySourcesFilterByType =
+    {};
+final Map<ItemType, ValueNotifier<Set<int>>> _libraryCategoriesFilterByType =
+    {};
 
-final selectedLibraryCategoriesFilterProvider =
-    StateProvider.family<Set<int>, ItemType>((ref, arg) => <int>{});
+ValueNotifier<Set<String>> selectedLibrarySourcesFilter(ItemType itemType) =>
+    _librarySourcesFilterByType.putIfAbsent(
+      itemType,
+      () => ValueNotifier<Set<String>>(<String>{}),
+    );
 
-extension on StateController<Set<String>> {
-  void toggle(String value) {
-    final next = Set<String>.from(state);
-    if (!next.remove(value)) next.add(value);
-    state = next;
-  }
-}
-
-extension on StateController<Set<int>> {
-  void toggle(int value) {
-    final next = Set<int>.from(state);
-    if (!next.remove(value)) next.add(value);
-    state = next;
-  }
-}
+ValueNotifier<Set<int>> selectedLibraryCategoriesFilter(ItemType itemType) =>
+    _libraryCategoriesFilterByType.putIfAbsent(
+      itemType,
+      () => ValueNotifier<Set<int>>(<int>{}),
+    );
 
 /// Applies the local Sources/Categories selections on top of an already
 /// filtered+sorted list. No-op when nothing is selected.
 List<Manga> applyLibrarySourceAndCategoryFilters(
-  WidgetRef ref,
   ItemType itemType,
   List<Manga> mangas,
 ) {
-  final sources = ref.watch(selectedLibrarySourcesFilterProvider(itemType));
+  final sources = selectedLibrarySourcesFilter(itemType).value;
   if (sources.isNotEmpty) {
     mangas = mangas.where((m) => sources.contains(m.source)).toList();
   }
