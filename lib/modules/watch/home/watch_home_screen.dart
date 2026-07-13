@@ -46,8 +46,7 @@ class WatchHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<WatchHomeScreen> createState() => _WatchHomeScreenState();
 }
 
-class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
-    with TickerProviderStateMixin {
+class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   late Source _source = widget.source;
   Source get source => _source;
   bool get isLocal => source.name == 'local' && source.lang == '';
@@ -92,9 +91,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   // ── Refresh key — incremented on each pull-to-refresh to force hero rebuild
   int _refreshKey = 0;
 
-  // ── Aidoku-style tab controller ───────────────────────────────────────────
-  late TabController _tabCtrl;
-
   @override
   void initState() {
     super.initState();
@@ -105,8 +101,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
       statusBarBrightness:      Brightness.dark,
     ));
     _scrollCtrl.addListener(_onScroll);
-    _tabCtrl = TabController(length: 3, vsync: this);
-    _tabCtrl.addListener(() { if (mounted) setState(() {}); });
     _loadLayout();
     _initSpeech();
   }
@@ -114,7 +108,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
   @override
 
   void dispose() {
-    _tabCtrl.dispose();
     _suggestionTimer?.cancel();
     _speech.stop();
     _scrollCtrl.removeListener(_onScroll);
@@ -354,226 +347,262 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen>
                 child: _buildSearchView(context))
             : KeyedSubtree(
                 key: const ValueKey('home'),
-                child: _buildAidokuHome(context)),
+                child: _buildNetflixHome(context)),
       ),
     );
   }
 
-  // ── Aidoku-style home view ─────────────────────────────────────────────────
+  // ── Netflix home view ──────────────────────────────────────────────────────
 
-  Widget _buildAidokuHome(BuildContext ctx) {
-    return NestedScrollView(
-      controller: _scrollCtrl,
-      headerSliverBuilder: (context, innerBoxIsScrolled) => [
-        // ── Collapsing SliverAppBar ───────────────────────────────────────
-        SliverAppBar(
-          expandedHeight:  104,
-          collapsedHeight: kToolbarHeight,
-          pinned:          true,
-          floating:        false,
-          backgroundColor: nfBackgroundColor,
-          surfaceTintColor: Colors.transparent,
-          shadowColor:     Colors.transparent,
-          forceElevated:   innerBoxIsScrolled,
-          leading: context.canPop()
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 20),
-                  onPressed: () => context.pop(),
-                )
-              : null,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search_rounded,
-                  color: Colors.white, size: 22),
-              onPressed: () => setState(() => _isSearching = true),
-            ),
-            const SizedBox(width: 4),
-          ],
-          flexibleSpace: FlexibleSpaceBar(
-            titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 14),
-            title: Text(
-              source.name ?? source.lang ?? 'Anime',
-              style: const TextStyle(
-                color:         Colors.white,
-                fontSize:      17,
-                fontWeight:    FontWeight.w700,
-                letterSpacing: -0.3,
-              ),
-            ),
-            expandedTitleScale: 1.9,
-            background: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin:  Alignment.topCenter,
-                  end:    Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.55),
-                    nfBackgroundColor,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+  Widget _buildNetflixHome(BuildContext ctx) {
+    // Partition custom lists
+    final categoryLists = _customLists
+        .where((cl) => cl['layout'] == 'category')
+        .toList();
+    final regularLists = _customLists
+        .where((cl) =>
+            cl['id'] != 'carousel' &&
+            cl['layout'] != 'category' &&
+            cl['id'] != 'catalogue' &&
+            cl['layout'] != '__tab__')
+        .toList();
+    final newHotLists = regularLists
+        .where((cl) => (cl['layout'] as String? ?? '') == 'new_hot')
+        .toList();
 
-        // ── Sticky pill tab bar ───────────────────────────────────────────
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _PillTabBarDelegate(
-            tabController: _tabCtrl,
-            tabs:          const ['Accueil', 'Populaire', 'Récents'],
-          ),
-        ),
-      ],
+    // De-duplicate content rows by display title
+    final seenTitles = <String>{};
+    final contentLists = regularLists
+        .where((cl) => (cl['layout'] as String? ?? '') != 'new_hot')
+        .where((cl) {
+          final title = (cl['name'] as String? ?? cl['id'] as String).trim();
+          return seenTitles.add(title);
+        })
+        .toList();
 
-      // ── Tab body ─────────────────────────────────────────────────────────
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          _buildAccueilTab(ctx),
-          _buildPopularTab(ctx),
-          _buildRecentsTab(ctx),
-        ],
-      ),
-    );
-  }
+    final catalogueList =
+        _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
 
-  // ── Accueil tab ────────────────────────────────────────────────────────────
-
-  Widget _buildAccueilTab(BuildContext ctx) {
-    return RefreshIndicator(
-      onRefresh:       _onRefresh,
-      color:           Colors.white,
-      backgroundColor: const Color(0xFF1A1A1A),
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics()),
-        slivers: [
-          // ── "Popular New Titles" section ──────────────────────────────
-          SliverToBoxAdapter(
-            child: _AidokuSectionHeader(title: 'Popular New Titles'),
-          ),
-          SliverToBoxAdapter(
-            child: _PopularBigCarousel(
-              source: source,
-              onTap: (manga) {
-                if (_tryOpenReel(ctx, manga, source)) return;
-                pushToMangaReaderDetail(
-                  ref: ref, context: ctx, getManga: manga,
-                  lang: source.lang!, source: source.name!,
-                  itemType: source.itemType, sourceId: source.id,
-                );
-              },
-            ),
-          ),
-
-          // ── "Latest Updates" section ──────────────────────────────────
-          SliverToBoxAdapter(
-            child: _AidokuSectionHeader(
-              title: 'Latest Updates',
-              hasArrow: true,
-              onArrow: () => Navigator.of(ctx).push(MaterialPageRoute(
-                builder: (_) => _WatchSectionPage(
-                  source: source,
-                  title:  'Latest Updates',
-                  type:   _SectionKind.latest,
-                ),
-              )),
-            ),
-          ),
-          _LatestUpdatesSliver(
-            source: source,
+    // ── Hero banner is pinned above the scroll area so it never scrolls away
+    // during pull-to-refresh.
+    return Stack(
+      children: [
+        // ── Pinned hero banner (does NOT scroll) ───────────────────────────
+        Positioned(
+          top:   0,
+          left:  0,
+          right: 0,
+          child: _HeroBannerSection(
+            key:         ValueKey('hero_$_refreshKey'),
+            source:      source,
+            customLists: _customLists,
+            appBarH:     _appBarH,
             onTap: (manga) {
               if (_tryOpenReel(ctx, manga, source)) return;
               pushToMangaReaderDetail(
-                ref: ref, context: ctx, getManga: manga,
-                lang: source.lang!, source: source.name!,
+                ref:      ref, context: ctx, getManga: manga,
+                lang:     source.lang!, source: source.name!,
                 itemType: source.itemType, sourceId: source.id,
               );
             },
           ),
+        ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
-      ),
-    );
-  }
-
-  // ── Populaire tab ──────────────────────────────────────────────────────────
-
-  Widget _buildPopularTab(BuildContext ctx) {
-    return RefreshIndicator(
-      onRefresh:       _onRefresh,
-      color:           Colors.white,
-      backgroundColor: const Color(0xFF1A1A1A),
-      child: Consumer(
-        builder: (c, r, _) {
-          final snap = r.watch(getPopularProvider(source: source, page: 1));
-          return snap.when(
-            data: (d) => _buildGrid(ctx, d?.list ?? []),
-            loading: () => _buildShimmerGrid(),
-            error:   (e, _) => Center(
-              child: Text(e.toString(),
-                  style: const TextStyle(color: Colors.white60))),
-          );
-        },
-      ),
-    );
-  }
-
-  // ── Récents tab ────────────────────────────────────────────────────────────
-
-  Widget _buildRecentsTab(BuildContext ctx) {
-    return RefreshIndicator(
-      onRefresh:       _onRefresh,
-      color:           Colors.white,
-      backgroundColor: const Color(0xFF1A1A1A),
-      child: Consumer(
-        builder: (c, r, _) {
-          final snap =
-              r.watch(getLatestUpdatesProvider(source: source, page: 1));
-          return snap.when(
-            data: (d) {
-              final items = d?.list ?? [];
-              if (items.isEmpty) {
-                return const Center(
-                  child: Text('Aucun résultat',
-                      style: TextStyle(color: Colors.white60)),
-                );
+        // ── Scrollable content (with pull-to-refresh) ──────────────────────
+        RefreshIndicator(
+          onRefresh:       _onRefresh,
+          color:           Colors.white,
+          backgroundColor: const Color(0xFF1A1A1A),
+          // displacement pushes the spinner below status bar
+          displacement:    _appBarH + 8,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n is ScrollUpdateNotification ||
+                  n is ScrollEndNotification) {
+                final px = n.metrics.pixels;
+                if ((px - _scrollOffset).abs() > 0.5) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _scrollOffset = px);
+                  });
+                }
+                if (px >= n.metrics.maxScrollExtent - 400 &&
+                    _catalogueHasNext &&
+                    !_catalogueLoading) {
+                  _loadCatalogue();
+                }
               }
-              return ListView.builder(
-                padding:   const EdgeInsets.fromLTRB(0, 8, 0, 120),
-                itemCount: items.length,
-                itemBuilder: (_, i) => _LatestUpdateTile(
-                  manga:  items[i],
-                  source: source,
-                  onTap:  () {
-                    if (_tryOpenReel(ctx, items[i], source)) return;
-                    pushToMangaReaderDetail(
-                      ref: ref, context: ctx, getManga: items[i],
-                      lang: source.lang!, source: source.name!,
-                      itemType: source.itemType, sourceId: source.id,
-                    );
+              return false;
+            },
+            child: CustomScrollView(
+              controller: _scrollCtrl,
+              physics:    const AlwaysScrollableScrollPhysics(
+                              parent: ClampingScrollPhysics()),
+              slivers: [
+                // ── Spacer that matches hero banner height ────────────────
+                // (hero is pinned in Stack above, scrollable area starts below)
+                SliverToBoxAdapter(
+                  child: _HeroBannerSpacer(
+                    source:     source,
+                    customLists: _customLists,
+                  ),
+                ),
+
+                // ── Category chips ────────────────────────────────────────
+                if (categoryLists.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: _buildCategoryChips(ctx, categoryLists),
+                  ),
+
+                // ── Content rows (spotlight / ranked / compact) ───────────
+                ...contentLists.map((cl) => SliverToBoxAdapter(
+                  child: _NfContentRow(
+                    source:  source,
+                    listId:  cl['id'] as String,
+                    title:   cl['name'] as String? ?? cl['id'] as String,
+                    onSeeAll: () => Navigator.of(ctx).push(MaterialPageRoute(
+                      builder: (_) => _WatchSectionPage(
+                        source:       source,
+                        title:        cl['name'] as String? ?? '',
+                        type:         _SectionKind.custom,
+                        customListId: cl['id'] as String,
+                      ),
+                    )),
+                    onTapManga: (manga) {
+                      if (_tryOpenReel(ctx, manga, source)) return;
+                      pushToMangaReaderDetail(
+                        ref: ref, context: ctx, getManga: manga,
+                        lang: source.lang!, source: source.name!,
+                        itemType: source.itemType, sourceId: source.id,
+                      );
+                    },
+                  ),
+                )),
+
+                // ── New & Hot section ─────────────────────────────────────
+                if (newHotLists.isNotEmpty) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                      child: Row(
+                        children: [
+                          const Text('Nouveau & Populaire',
+                              style: TextStyle(
+                                  color:      Colors.white,
+                                  fontSize:   18,
+                                  fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          SeeAllButton(
+                            color: Colors.white70,
+                            onTap: () => Navigator.of(ctx).push(
+                              MaterialPageRoute(
+                                builder: (_) => _WatchSectionPage(
+                                  source:       source,
+                                  title:        'Nouveau & Populaire',
+                                  type:         _SectionKind.custom,
+                                  customListId: newHotLists.first['id'] as String,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ...newHotLists.expand((cl) => [
+                    SliverToBoxAdapter(
+                      child: Consumer(builder: (c, r, _) {
+                        final data = r.watch(getCustomListProvider(
+                            source: source,
+                            listId: cl['id'] as String,
+                            page:   1));
+                        return data.when(
+                          data: (d) {
+                            final items = d?.list ?? [];
+                            if (items.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              children: items.take(5).map((m) =>
+                                NfNewAndHotTile(manga: m, source: source),
+                              ).toList(),
+                            );
+                          },
+                          loading: () => _NfShimmerNewHot(),
+                          error:   (_, __) => const SizedBox.shrink(),
+                        );
+                      }),
+                    ),
+                  ]),
+                ],
+
+                // ── Catalogue header ──────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                    child: Row(
+                      children: [
+                        const Text('Catalogue',
+                            style: TextStyle(
+                                color:      Colors.white,
+                                fontSize:   18,
+                                fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        SeeAllButton(
+                          color: Colors.white70,
+                          onTap: () => Navigator.of(ctx).push(
+                            MaterialPageRoute(
+                              builder: (_) => _WatchSectionPage(
+                                source:       source,
+                                title:        'Catalogue',
+                                type:         catalogueList != null
+                                    ? _SectionKind.custom
+                                    : _SectionKind.popular,
+                                customListId: catalogueList?['id'] as String?,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Catalogue grid ────────────────────────────────────────
+                _CatalogueSection(
+                  source:         source,
+                  items:          _catalogueItems,
+                  loading:        _catalogueLoading,
+                  hasNext:        _catalogueHasNext,
+                  catalogueList:  catalogueList,
+                  onFirstLoad: (items, hasNext) {
+                    if (mounted && _catalogueItems.isEmpty) {
+                      setState(() {
+                        _catalogueItems.addAll(items);
+                        _cataloguePage    = 2;
+                        _catalogueHasNext = hasNext;
+                      });
+                    }
                   },
                 ),
-              );
-            },
-            loading: () => _buildShimmerList(),
-            error:   (e, _) => Center(
-              child: Text(e.toString(),
-                  style: const TextStyle(color: Colors.white60))),
-          );
-        },
-      ),
-    );
-  }
 
-  Widget _buildShimmerList() {
-    return ListView.builder(
-      padding:   const EdgeInsets.fromLTRB(0, 8, 0, 120),
-      itemCount: 8,
-      itemBuilder: (_, __) => _LatestUpdateTile.shimmer(),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Floating app bar overlay ────────────────────────────────────
+        Positioned(
+          top:   0,
+          left:  0,
+          right: 0,
+          child: NfWatchAppBarWidget(
+            scrollOffset: _scrollOffset,
+            sourceName:   source.name ?? source.lang ?? 'Anime',
+            onSearchTap:  () => setState(() => _isSearching = true),
+            canPop:       context.canPop(),
+            onBackTap:    () => context.pop(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1445,498 +1474,6 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
                     );
                   },
                 ),
-    );
-  }
-}
-
-// ── Aidoku pill tab bar delegate ───────────────────────────────────────────────
-
-class _PillTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabController         tabController;
-  final List<String>          tabs;
-
-  const _PillTabBarDelegate({
-    required this.tabController,
-    required this.tabs,
-  });
-
-  static const double _h = 46.0;
-
-  @override double get minExtent => _h;
-  @override double get maxExtent => _h;
-
-  @override
-  bool shouldRebuild(_PillTabBarDelegate old) =>
-      old.tabController != tabController || old.tabs != tabs;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final cs    = Theme.of(context).colorScheme;
-    final accent = cs.primary;
-
-    return Container(
-      height:     _h,
-      color:      nfBackgroundColor,
-      alignment:  Alignment.centerLeft,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding:         const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          children: List.generate(tabs.length, (i) {
-            final selected = tabController.index == i;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => tabController.animateTo(i),
-                child: AnimatedContainer(
-                  duration:    const Duration(milliseconds: 180),
-                  padding:     const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 7),
-                  decoration: BoxDecoration(
-                    color:        selected
-                        ? accent
-                        : Colors.white.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    tabs[i],
-                    style: TextStyle(
-                      color:      selected ? Colors.white : Colors.white70,
-                      fontSize:   13,
-                      fontWeight: selected
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      letterSpacing: 0.1,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Aidoku section header ──────────────────────────────────────────────────────
-
-class _AidokuSectionHeader extends StatelessWidget {
-  final String       title;
-  final bool         hasArrow;
-  final VoidCallback? onArrow;
-
-  const _AidokuSectionHeader({
-    required this.title,
-    this.hasArrow  = false,
-    this.onArrow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 22, 8, 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color:      Colors.white,
-              fontSize:   18,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const Spacer(),
-          if (hasArrow && onArrow != null)
-            GestureDetector(
-              onTap: onArrow,
-              child: Container(
-                width:  32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color:        Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.white70,
-                  size:  20,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Popular big card carousel ──────────────────────────────────────────────────
-
-class _PopularBigCarousel extends ConsumerWidget {
-  final Source                 source;
-  final void Function(MManga)? onTap;
-
-  const _PopularBigCarousel({
-    required this.source,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final snap = ref.watch(getPopularProvider(source: source, page: 1));
-    return snap.when(
-      data: (d) {
-        final items = d?.list ?? [];
-        if (items.isEmpty) return _shimmer(context);
-        return SizedBox(
-          height: 208,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding:         const EdgeInsets.symmetric(horizontal: 12),
-            itemCount:       items.length,
-            itemBuilder:     (_, i) => _PopularBigCard(
-              manga:  items[i],
-              source: source,
-              onTap:  () => onTap?.call(items[i]),
-            ),
-          ),
-        );
-      },
-      loading: () => _shimmer(context),
-      error:   (_, __) => const SizedBox.shrink(),
-    );
-  }
-
-  Widget _shimmer(BuildContext context) {
-    return SizedBox(
-      height: 208,
-      child: Skeletonizer(
-        enabled: true,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding:         const EdgeInsets.symmetric(horizontal: 12),
-          physics:         const NeverScrollableScrollPhysics(),
-          children: List.generate(
-            4,
-            (_) => Container(
-              width:  290,
-              height: 192,
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                color:        Colors.grey[900],
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Popular big card ───────────────────────────────────────────────────────────
-
-class _PopularBigCard extends StatelessWidget {
-  final MManga        manga;
-  final Source        source;
-  final VoidCallback? onTap;
-
-  const _PopularBigCard({
-    required this.manga,
-    required this.source,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const coverW = 113.0;
-    const coverH = 170.0;
-
-    final genres = manga.genre ?? [];
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width:  290,
-        height: 192,
-        margin: const EdgeInsets.only(right: 12),
-        decoration: BoxDecoration(
-          color:        const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Cover image ──────────────────────────────────────────────
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft:    Radius.circular(12),
-                bottomLeft: Radius.circular(12),
-              ),
-              child: SizedBox(
-                width:  coverW,
-                height: double.infinity,
-                child: manga.imageUrl != null && manga.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        manga.imageUrl!,
-                        fit:          BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholderCover(),
-                      )
-                    : _placeholderCover(),
-              ),
-            ),
-
-            // ── Text content ─────────────────────────────────────────────
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    Text(
-                      manga.name ?? '—',
-                      maxLines:  2,
-                      overflow:  TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color:      Colors.white,
-                        fontSize:   14,
-                        fontWeight: FontWeight.w700,
-                        height:     1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Description
-                    Expanded(
-                      child: Text(
-                        manga.description ?? '',
-                        maxLines:  4,
-                        overflow:  TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color:    Colors.white54,
-                          fontSize: 11.5,
-                          height:   1.4,
-                        ),
-                      ),
-                    ),
-
-                    // Genre chips
-                    if (genres.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        height: 22,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: genres.take(3).map((g) {
-                            return Container(
-                              margin: const EdgeInsets.only(right: 5),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 3),
-                              decoration: BoxDecoration(
-                                color:        Colors.white.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                g,
-                                style: const TextStyle(
-                                  color:    Colors.white60,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _placeholderCover() {
-    return Container(
-      color: const Color(0xFF2C2C2E),
-      child: const Center(
-        child: Icon(Icons.movie_outlined, color: Colors.white24, size: 32),
-      ),
-    );
-  }
-}
-
-// ── Latest updates sliver ──────────────────────────────────────────────────────
-
-class _LatestUpdatesSliver extends ConsumerWidget {
-  final Source                 source;
-  final void Function(MManga)? onTap;
-
-  const _LatestUpdatesSliver({
-    required this.source,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final snap = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-    return snap.when(
-      data: (d) {
-        final items = (d?.list ?? []).take(8).toList();
-        if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
-        return SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (_, i) => _LatestUpdateTile(
-              manga:  items[i],
-              source: source,
-              onTap:  () => onTap?.call(items[i]),
-            ),
-            childCount: items.length,
-          ),
-        );
-      },
-      loading: () => SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (_, __) => _LatestUpdateTile.shimmer(),
-          childCount: 5,
-        ),
-      ),
-      error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-    );
-  }
-}
-
-// ── Latest update tile ─────────────────────────────────────────────────────────
-
-class _LatestUpdateTile extends StatelessWidget {
-  final MManga?       manga;
-  final Source?       source;
-  final VoidCallback? onTap;
-  final bool          _isShimmer;
-
-  // ignore: use_super_parameters
-  const _LatestUpdateTile({
-    required MManga manga,
-    required Source source,
-    this.onTap,
-  }) : manga      = manga,
-       source     = source,
-       _isShimmer = false;
-
-  const _LatestUpdateTile.shimmer()
-      : manga      = null,
-        source     = null,
-        onTap      = null,
-        _isShimmer = true;
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isShimmer) {
-      return Skeletonizer(
-        enabled: true,
-        child: _buildTileContent(
-          imageUrl:    null,
-          title:       '████████████',
-          subtitle:    'Chapter 42 • 2h',
-        ),
-      );
-    }
-    return GestureDetector(
-      onTap: onTap,
-      child: _buildTileContent(
-        imageUrl: manga?.imageUrl,
-        title:    manga?.name ?? '—',
-        subtitle: '',
-      ),
-    );
-  }
-
-  Widget _buildTileContent({
-    required String?  imageUrl,
-    required String   title,
-    required String   subtitle,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Cover
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: SizedBox(
-              width:  56,
-              height: 80,
-              child: imageUrl != null && imageUrl.isNotEmpty
-                  ? Image.network(
-                      imageUrl,
-                      fit:          BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder(),
-                    )
-                  : _placeholder(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Text
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize:       MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color:      Colors.white,
-                    fontSize:   14,
-                    fontWeight: FontWeight.w600,
-                    height:     1.3,
-                  ),
-                ),
-                if (subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color:    Colors.white54,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          // Arrow
-          const Padding(
-            padding: EdgeInsets.only(left: 8),
-            child: Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.white24,
-              size:  18,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _placeholder() {
-    return Container(
-      color: const Color(0xFF2C2C2E),
-      child: const Center(
-        child: Icon(Icons.movie_outlined, color: Colors.white24, size: 18),
-      ),
     );
   }
 }
