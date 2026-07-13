@@ -1,6 +1,6 @@
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/utils/log/logger.dart';
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import 'package:youtube_explode_dart/youtube_explode_dart.dart' hide Video;
 
 /// Some watch-source extensions (lightweight FR streaming wrappers, mostly)
 /// have no real CDN backend of their own — they just relay the official
