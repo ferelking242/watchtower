@@ -966,69 +966,56 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
 
     Widget _buildPopularCarousel(BuildContext ctx, List<MManga> mangas) {
         if (mangas.isEmpty) return const SizedBox(height: 8);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: SizedBox(
-            height: 220,
-            child: _PopularCarousel(mangas: mangas.take(10).toList(), source: source),
-          ),
+        // No horizontal padding — carousel items fill 100% width
+        return SizedBox(
+          height: 220,
+          child: _PopularCarousel(mangas: mangas.take(10).toList(), source: source),
         );
       }
 
       Widget _buildCarouselSkeleton(BuildContext ctx) {
           final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
           final high = Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Skeletonizer(
-              enabled: true,
-              effect: ShimmerEffect(
-                  baseColor: base, highlightColor: high,
-                  duration: const Duration(milliseconds: 1200)),
-              child: Container(
-                height: 220,
-                decoration: BoxDecoration(
-                  color: base.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: base, width: 0.5),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
-                      ),
-                      child: Container(width: 160, color: base),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 14, 10, 14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(height: 17, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
-                            const SizedBox(height: 8),
-                            Container(width: 100, height: 13, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
-                            const Spacer(),
-                            Row(children: [
-                              Container(width: 55, height: 22, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(11))),
-                              const SizedBox(width: 6),
-                              Container(width: 55, height: 22, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(11))),
-                            ]),
-                            const SizedBox(height: 8),
-                            Row(children: [
-                              Container(width: 12, height: 12, decoration: BoxDecoration(color: base, shape: BoxShape.circle)),
-                              const SizedBox(width: 6),
-                              Container(width: 60, height: 11, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
-                            ]),
-                          ],
-                        ),
+          // Full-width shimmer, no card background — matches the real carousel
+          return Skeletonizer(
+            enabled: true,
+            effect: ShimmerEffect(
+                baseColor: base, highlightColor: high,
+                duration: const Duration(milliseconds: 1200)),
+            child: SizedBox(
+              height: 220,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Cover placeholder
+                  Container(width: 160, color: base),
+                  // Info placeholder
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(height: 17, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                          const SizedBox(height: 8),
+                          Container(width: 100, height: 13, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                          const Spacer(),
+                          Row(children: [
+                            Container(width: 55, height: 22, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(11))),
+                            const SizedBox(width: 6),
+                            Container(width: 55, height: 22, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(11))),
+                          ]),
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            Container(width: 12, height: 12, decoration: BoxDecoration(color: base, shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            Container(width: 60, height: 11, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+                          ]),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );
@@ -1440,35 +1427,13 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
             shadowColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,
-            expandedHeight: 0,
+            // ── 120px expanded → large title visible; collapses to toolbar ──
+            expandedHeight: 120,
             automaticallyImplyLeading: false,
             leadingWidth: 90,
             centerTitle: true,
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: Image.network(
-                      source.iconUrl!,
-                      width: 20, height: 20,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                  child: Text(
-                    sourceName,
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
+            // title: is intentionally absent — FlexibleSpaceBar.title handles
+            // both expanded (large) and collapsed (small) states automatically.
             leading: GestureDetector(
               onTap: () => context.pop(),
               behavior: HitTestBehavior.opaque,
@@ -1564,30 +1529,71 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
                 },
               ),
             ),
-            flexibleSpace: LayoutBuilder(
-                builder: (lbCtx, _) => Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                        child: Container(
-                          color: Theme.of(lbCtx).scaffoldBackgroundColor
-                              .withValues(alpha: 0.92),
+            // flexibleSpace: blur glass + large animated title (centered, on top)
+            flexibleSpace: Stack(
+              fit: StackFit.expand,
+              children: [
+                // ── Blur background ──────────────────────────────────────
+                LayoutBuilder(
+                  builder: (lbCtx, _) => ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                      child: Container(
+                        color: Theme.of(lbCtx).scaffoldBackgroundColor
+                            .withValues(alpha: 0.92),
+                      ),
+                    ),
+                  ),
+                ),
+                // ── Large → small animated title (centered, in front) ────
+                FlexibleSpaceBar(
+                  centerTitle: true,
+                  expandedTitleScale: 1.75,
+                  // titlePadding bottom: tab pill height (40) + small gap
+                  titlePadding: const EdgeInsetsDirectional.fromSTEB(
+                      72, 0, 72, 46),
+                  title: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(5),
+                          child: Image.network(
+                            source.iconUrl!,
+                            width: 20, height: 20,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: Text(
+                          sourceName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                    Positioned(
-                      bottom: 0, left: 0, right: 0,
-                      child: Container(
-                        height: 0.5,
-                        color: Theme.of(lbCtx).dividerColor
-                            .withValues(alpha: 0.25),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                // ── Bottom divider ───────────────────────────────────────
+                Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: Builder(
+                    builder: (lbCtx) => Container(
+                      height: 0.5,
+                      color: Theme.of(lbCtx).dividerColor
+                          .withValues(alpha: 0.25),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
         body: _buildBody(context),
@@ -1811,35 +1817,26 @@ class _MangaHomeImageCardListTileState
             );
           }
         },
-        child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context)
-              .colorScheme
-              .surfaceContainerHighest
-              .withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.15),
-            width: 0.5,
-          ),
-        ),
+        // ── No card background — content is posed directly on the screen ──
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Cover image
+            // ── Cover image ──────────────────────────────────────────────
             ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                bottomLeft: Radius.circular(12),
-              ),
+              borderRadius: BorderRadius.zero,
               child: imgUrl.isNotEmpty
                   ? Image(
                       image: coverImage,
                       width: 160,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
-                      frameBuilder: (ctx, child, frame, loaded) {
+                      // frameBuilder: shimmer while null, crossfade when loaded.
+                      // IMPORTANT: wasSynchronouslyLoaded (2nd bool) ≠ "finished
+                      // loading". When frame != null the image IS ready — always
+                      // animate TO opacity 1.0, never hold at 0.0.
+                      frameBuilder: (ctx, child, frame, wasSynchronouslyLoaded) {
                         if (frame == null) {
+                          // Still loading — show shimmer placeholder
                           return Skeletonizer(
                             enabled: true,
                             effect: ShimmerEffect(
@@ -1847,13 +1844,20 @@ class _MangaHomeImageCardListTileState
                               highlightColor: Theme.of(ctx).colorScheme.surface,
                               duration: const Duration(milliseconds: 1000),
                             ),
-                            child: Container(width: 160, color: Theme.of(ctx).colorScheme.surfaceContainerHighest),
+                            child: Container(
+                              width: 160,
+                              color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                            ),
                           );
                         }
-                        return AnimatedOpacity(
-                          opacity: loaded ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 200),
-                          child: child,
+                        // Frame ready — crossfade in (or instant if cached)
+                        if (wasSynchronouslyLoaded) return child;
+                        return TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOut,
+                          builder: (_, opacity, __) =>
+                              Opacity(opacity: opacity, child: child),
                         );
                       },
                       errorBuilder: (_, __, ___) => Container(
@@ -1866,10 +1870,10 @@ class _MangaHomeImageCardListTileState
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
             ),
-            // Info panel
+            // ── Info panel ───────────────────────────────────────────────
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1963,8 +1967,7 @@ class _MangaHomeImageCardListTileState
             ),
           ],
         ),
-      ),
-    );
+      );
     }
   }
 
