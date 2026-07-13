@@ -675,12 +675,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             danger: true,
           ),
           _action(
-            title: "Guide de premier lancement",
-            subtitle: "Relancer le tutoriel de démarrage",
-            onTap: () => context.push('/onboarding'),
-            trailing: Icons.arrow_forward_ios_rounded,
-          ),
-          _action(
             title: "Notifications",
             subtitle: "Gérer les alertes de l'application",
             onTap: _openNotificationSettings,
