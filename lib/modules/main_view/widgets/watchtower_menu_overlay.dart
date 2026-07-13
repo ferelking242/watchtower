@@ -36,6 +36,7 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/schedule':        ('Schedule',   Icons.calendar_month_rounded),
   '/marketplace':     ('Market',     Icons.storefront_rounded),
   '/plugins':         ('Plugins',    Icons.extension_rounded),
+  '/downloadQueue':   ('Downloads',  Icons.download_rounded),
   '_enableLibSwitch': ('Hub',        Icons.grid_view_rounded),
 };
 
@@ -53,16 +54,18 @@ const kWtDefaultHideItems = [
 
 const kWtStaticRoutes = [
   '/browse', '/marketplace', '/plugins', '/schedule', '/updates', '/history',
+  '/downloadQueue',
 ];
 
 // French label overrides — used when device/app locale is 'fr'.
 const _kFrLabels = <String, String>{
-  '/discover':    'Recherche',
-  '/browse':      'Explorer',
-  '/schedule':    'Planning',
-  '/updates':     'Nouveautés',
-  '/history':     'Historique',
-  '/marketplace': 'Marché',
+  '/discover':      'Recherche',
+  '/browse':        'Explorer',
+  '/schedule':      'Planning',
+  '/updates':       'Nouveautés',
+  '/history':       'Historique',
+  '/marketplace':   'Marché',
+  '/downloadQueue': 'Téléchargements',
 };
 
 // ── Visual constants (Seanime-style solid dark boxes) ─────────────────────────

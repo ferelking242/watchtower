@@ -7,7 +7,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 /// Changes vs old version:
 /// - [StatefulWidget] with [FocusNode] for focus animation (border glow + color).
 /// - Broken icons: [Broken.arrow_left_2] back, [Broken.close_circle] clear,
-///   [Broken.filter] filter (optional).
+///   [Broken.slider_horizontal] filter (optional).
 /// - Better theme integration, rounded corners, improved padding.
 /// - Optional [filterButton] widget shown at the right end (filter overlay trigger).
 class SeachFormTextField extends StatefulWidget {

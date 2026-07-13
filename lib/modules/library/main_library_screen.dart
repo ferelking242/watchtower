@@ -173,7 +173,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       children: [
         const AdaptiveOverlaySection(title: 'Filtres & Tri'),
         AdaptiveOverlayItem(
-          icon: Broken.filter,
+          icon: Broken.slider_horizontal,
           label: l10n.filter,
           onTap: () {
             close();
@@ -505,7 +505,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             trigger: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Icon(
-                Broken.filter,
+                Broken.slider_horizontal,
                 size: 18,
                 color: focused
                     ? cs.primary.withValues(alpha: 0.70)

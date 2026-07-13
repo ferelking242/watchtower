@@ -87,7 +87,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
       children: [
         const AdaptiveOverlaySection(title: 'Filter & Sort'),
         AdaptiveOverlayItem(
-          icon: Broken.filter,
+          icon: Broken.slider_horizontal,
           label: l10n.filter,
           onTap: () {
             close();
@@ -169,7 +169,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
       trigger: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Icon(
-          Broken.filter,
+          Broken.slider_horizontal,
           size: 18,
           color: widget.isNotFiltering
               ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45)
@@ -294,7 +294,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
               PopupMenuItem<int>(
                 value: 4,
                 child: Row(children: [
-                  const Icon(Broken.filter, size: 18),
+                  const Icon(Broken.slider_horizontal, size: 18),
                   const SizedBox(width: 10),
                   Text(l10n.filter),
                 ]),
