@@ -8,6 +8,8 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart'
     show navigationOrderStateProvider, hideItemsStateProvider;
+import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart'
+    show themeModeStateProvider, followSystemThemeStateProvider;
 
 // ── Broken icon mapping for Watchtower routes ──────────────────────────────────
 const _kRouteIcon = <String, IconData>{
@@ -69,6 +71,14 @@ class WatchDiscoverDrawer extends ConsumerWidget {
             _WatchLogoContainer(cs: cs, isDark: isDark, onTap: onClose),
 
             // ── Divider ──────────────────────────────────────────────────────
+            _NamidaContainerDivider(
+              color: (isDark ? Colors.white : Colors.black)
+                  .withValues(alpha: 0.10),
+            ),
+
+            // ── Theme mode toggle (system / clair / sombre) ───────────────────
+            const _ThemeModeToggleBox(),
+
             _NamidaContainerDivider(
               color: (isDark ? Colors.white : Colors.black)
                   .withValues(alpha: 0.10),
@@ -166,6 +176,92 @@ const _kFrDrawerLabels = <String, String>{
   '/marketplace':    'Marché',
   '/plugins':        'Plugins',
 };
+
+// ── Theme mode toggle box ──────────────────────────────────────────────────────
+// Segmented control: Système / Clair / Sombre — placed above Customization/Settings.
+
+class _ThemeModeToggleBox extends ConsumerWidget {
+  const _ThemeModeToggleBox();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final followSystem = ref.watch(followSystemThemeStateProvider);
+    final themeIsDark = ref.watch(themeModeStateProvider);
+
+    // 0 = system, 1 = light, 2 = dark
+    final selected = followSystem ? 0 : (themeIsDark ? 2 : 1);
+
+    Widget segment({
+      required int index,
+      required IconData icon,
+      required String label,
+    }) {
+      final active = selected == index;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () {
+            switch (index) {
+              case 0:
+                ref.read(followSystemThemeStateProvider.notifier).set(true);
+              case 1:
+                ref.read(followSystemThemeStateProvider.notifier).set(false);
+                ref.read(themeModeStateProvider.notifier).setLightTheme();
+              case 2:
+                ref.read(followSystemThemeStateProvider.notifier).set(false);
+                ref.read(themeModeStateProvider.notifier).setDarkTheme();
+            }
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: active
+                  ? cs.primary.withValues(alpha: 0.16)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: active
+                    ? cs.primary.withValues(alpha: 0.55)
+                    : cs.outline.withValues(alpha: 0.16),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon,
+                    size: 18, color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.55)),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Row(
+        children: [
+          segment(index: 0, icon: Broken.autobrightness, label: 'Système'),
+          segment(index: 1, icon: Broken.sun, label: 'Clair'),
+          segment(index: 2, icon: Broken.moon, label: 'Sombre'),
+        ],
+      ),
+    );
+  }
+}
 
 // ── NamidaDrawerListTile (source: Namida custom_widgets.dart) ─────────────────
 

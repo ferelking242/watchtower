@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/manga.dart';
@@ -27,6 +28,7 @@ import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/services/layout_registry.dart';
+import 'package:watchtower/ui/widgets/see_all_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Accent colours for the novel module
@@ -381,8 +383,33 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   // HOME VIEW
   // ══════════════════════════════════════════════════════════════════════════
 
+  // ── pull-to-refresh handler ────────────────────────────────────────────────
+
+  Future<void> _onRefreshHome() async {
+    // Invalidate all providers that feed the home view so data actually reloads
+    ref.invalidate(getPopularProvider(source: source, page: 1));
+    ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
+    for (final cl in _customLists) {
+      final listId = cl['id'] as String;
+      ref.invalidate(getCustomListProvider(source: source, listId: listId, page: 1));
+    }
+    setState(() {
+      _catalogueItems.clear();
+      _cataloguePage  = 1;
+      _catalogueHasNext = true;
+    });
+    // Let the providers settle
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+  }
+
   Widget _buildHomeView(BuildContext ctx) {
-    return CustomScrollView(
+    return RefreshIndicator(
+      color: _kNovelGold,
+      onRefresh: _onRefreshHome,
+      // notificationPredicate keeps the refresh trigger only at the very top
+      // so it doesn't fire while scrolling inside sections.
+      notificationPredicate: (n) => n.depth == 0,
+      child: CustomScrollView(
       controller: _homeScrollCtrl,
       slivers: [
         // ── 3-card peeking book carousel ──────────────────────────────────
@@ -482,21 +509,34 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
               }
             });
 
+            final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
+
             if (_catalogueItems.isEmpty) {
-              return SliverGrid(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
-                delegate: SliverChildBuilderDelegate(
-                  (_, __) => Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8),
+              return SliverToBoxAdapter(
+                child: Skeletonizer(
+                  enabled: true,
+                  effect: ShimmerEffect(
+                      baseColor: base,
+                      highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+                      duration: const Duration(milliseconds: 1200)),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
+                    itemCount: 12,
+                    itemBuilder: (_, __) => Container(
+                      decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
-                  childCount: 12,
                 ),
               );
             }
+
+            Widget _shimmerCell() => Container(
+              decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
+            );
 
             return SliverGrid(
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -504,8 +544,14 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
               delegate: SliverChildBuilderDelegate(
                 (c2, i) {
                   if (i >= _catalogueItems.length) {
-                    return const Center(child: Padding(padding: EdgeInsets.all(12),
-                        child: CircularProgressIndicator(strokeWidth: 2)));
+                    return Skeletonizer(
+                      enabled: true,
+                      effect: ShimmerEffect(
+                          baseColor: base,
+                          highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+                          duration: const Duration(milliseconds: 1200)),
+                      child: _shimmerCell(),
+                    );
                   }
                   return MangaImageCardWidget(
                     getMangaDetail: _catalogueItems[i],
@@ -522,6 +568,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
         const SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
+      ),
     );
   }
 
@@ -533,7 +580,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   }
 
   IconData _sectionIcon(int idx) {
-    const ic = [Icons.fiber_new_rounded, Icons.emoji_events_rounded, Icons.auto_stories_rounded, Icons.bookmark_rounded];
+    const ic = [Broken.star_1, Broken.cup, Broken.book_1, Broken.bookmark];
     return ic[idx % ic.length];
   }
 
@@ -553,17 +600,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
           Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
         ]),
         if (onSeeAll != null)
-          GestureDetector(
-            onTap: onSeeAll,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(color: c.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(10)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text('Voir tout', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c)),
-                Icon(Icons.chevron_right_rounded, size: 14, color: c),
-              ]),
-            ),
-          ),
+          SeeAllButton(onTap: onSeeAll, color: c),
       ]),
     );
   }
@@ -709,16 +746,25 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   }
 
   Widget _buildGrid(BuildContext ctx) {
+    final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
     return GridView.builder(
       controller: _scrollCtrl,
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
-      itemCount: _mangaList.length + (_isLoadingMore ? 1 : 0),
+      itemCount: _mangaList.length + (_isLoadingMore ? 3 : 0),
       itemBuilder: (c, i) {
         if (i >= _mangaList.length) {
-          return const Center(child: Padding(padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(strokeWidth: 2)));
+          return Skeletonizer(
+            enabled: true,
+            effect: ShimmerEffect(
+                baseColor: base,
+                highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+                duration: const Duration(milliseconds: 1200)),
+            child: Container(
+              decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
+            ),
+          );
         }
         return MangaImageCardWidget(
           getMangaDetail: _mangaList[i],
@@ -1288,25 +1334,84 @@ class _NovelSectionPageState extends ConsumerState<_NovelSectionPage> {
             return Center(child: Text(context.l10n.no_result,
                 style: TextStyle(color: Theme.of(context).hintColor)));
           }
-          return GridView.builder(
-            controller: _scrollCtrl,
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
-            itemCount: _items.length + (_loading ? 1 : 0),
-            itemBuilder: (c, i) {
-              if (i >= _items.length) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-              return MangaImageCardWidget(
-                getMangaDetail: _items[i],
-                source: widget.source,
-                itemType: widget.source.itemType,
-                isComfortableGrid: false,
-              );
-            },
+          return _SectionPageGrid(
+            items: _items,
+            loading: _loading,
+            scrollCtrl: _scrollCtrl,
+            source: widget.source,
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => _SectionPageSkeleton(),
         error:   (e, _) => Center(child: Text(e.toString())),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _NovelSectionPage helpers — extracted to avoid capturing BuildContext
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SectionPageGrid extends StatelessWidget {
+  final List<MManga> items;
+  final bool loading;
+  final ScrollController scrollCtrl;
+  final Source source;
+  const _SectionPageGrid({required this.items, required this.loading, required this.scrollCtrl, required this.source});
+
+  @override
+  Widget build(BuildContext context) {
+    final base = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
+    return GridView.builder(
+      controller: scrollCtrl,
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
+      itemCount: items.length + (loading ? 3 : 0),
+      itemBuilder: (c, i) {
+        if (i >= items.length) {
+          return Skeletonizer(
+            enabled: true,
+            effect: ShimmerEffect(
+                baseColor: base,
+                highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                duration: const Duration(milliseconds: 1200)),
+            child: Container(
+              decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
+            ),
+          );
+        }
+        return MangaImageCardWidget(
+          getMangaDetail: items[i],
+          source: source,
+          itemType: source.itemType,
+          isComfortableGrid: false,
+        );
+      },
+    );
+  }
+}
+
+class _SectionPageSkeleton extends StatelessWidget {
+  const _SectionPageSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final base = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
+    return Skeletonizer(
+      enabled: true,
+      effect: ShimmerEffect(
+          baseColor: base,
+          highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+          duration: const Duration(milliseconds: 1200)),
+      child: GridView.builder(
+        padding: const EdgeInsets.all(8),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
+        itemCount: 12,
+        itemBuilder: (_, __) => Container(
+          decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
+        ),
       ),
     );
   }

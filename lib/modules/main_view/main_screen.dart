@@ -413,31 +413,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       children: [
                     Scaffold(
                       extendBody: true,
-                      body: NotificationListener<UserScrollNotification>(
-                        onNotification: (n) {
-                          // Only care about vertical primary scrolls so the
-                          // horizontal carousels inside the dock or pages do
-                          // not toggle visibility.
-                          if (n.metrics.axis != Axis.vertical) return false;
-                          final hidden = ref.read(dockHiddenProvider);
-                          final atTop = n.metrics.pixels <= n.metrics.minScrollExtent;
-                          // Only hide when actually scrolling down AND not already at the top.
-                          // This prevents the dock from hiding when there isn't enough content
-                          // to scroll back up — which would leave it stuck hidden forever.
-                          if (n.direction == ScrollDirection.reverse &&
-                              !hidden &&
-                              !atTop) {
-                            ref.read(dockHiddenProvider.notifier).set(true);
-                          } else if (hidden &&
-                              (n.direction == ScrollDirection.forward || atTop)) {
-                            // Reveal when scrolling up OR when we're already at the top
-                            // (covers the case where there's not enough content to scroll).
-                            ref.read(dockHiddenProvider.notifier).set(false);
-                          }
-                          return false;
-                        },
-                        child: widget.child,
-                      ),
+                      // The dock is now always persistent — it no longer
+                      // auto-hides on scroll/inactivity nor when the drawer
+                      // is swiped open. See _isVisible() in _FloatingDockState.
+                      body: widget.child,
                       bottomNavigationBar: dockStyle == 'classic'
                               ? _RoundedOrClassicDock(
                                   isRounded: false,
@@ -1680,9 +1659,9 @@ class _FloatingDockState extends State<_FloatingDock> {
     if (widget.isLongPressed) return false;
     final loc = widget.location;
     if (loc != null && !_validLocations.contains(loc)) return false;
-    // Hide while the user is scrolling down through a feed.
-    final hidden = widget.ref.read(dockHiddenProvider);
-    return !hidden;
+    // Persistent dock: it no longer hides on scroll, inactivity, or while
+    // the drawer is being swiped open — it stays on the page at all times.
+    return true;
   }
 
   bool _isActive(String route) {

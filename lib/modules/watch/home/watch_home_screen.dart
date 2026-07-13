@@ -21,6 +21,7 @@ import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/ui/widgets/see_all_button.dart';
 import 'nf_widgets/nf_app_bar.dart';
 import 'nf_widgets/nf_highlight_banner.dart';
 import 'nf_widgets/nf_movie_box.dart';
@@ -86,6 +87,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   List<Map<String, dynamic>> _customLists = const [];
   // ── App-bar height (filled in build, used for padding) ────────────────────
   double _appBarH = kToolbarHeight;
+
+  // ── Refresh key — incremented on each pull-to-refresh to force hero rebuild
+  int _refreshKey = 0;
 
   @override
   void initState() {
@@ -205,6 +209,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         _cataloguePage    = 1;
         _catalogueHasNext = true;
         _catalogueLoading = false;
+        _refreshKey++;
       });
     }
     // Allow providers to start rebuilding
@@ -378,13 +383,38 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     final catalogueList =
         _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
 
+    // ── Hero banner is pinned above the scroll area so it never scrolls away
+    // during pull-to-refresh.
     return Stack(
       children: [
-        // ── Scrollable content ─────────────────────────────────────────────
+        // ── Pinned hero banner (does NOT scroll) ───────────────────────────
+        Positioned(
+          top:   0,
+          left:  0,
+          right: 0,
+          child: _HeroBannerSection(
+            key:         ValueKey('hero_$_refreshKey'),
+            source:      source,
+            customLists: _customLists,
+            appBarH:     _appBarH,
+            onTap: (manga) {
+              if (_tryOpenReel(ctx, manga, source)) return;
+              pushToMangaReaderDetail(
+                ref:      ref, context: ctx, getManga: manga,
+                lang:     source.lang!, source: source.name!,
+                itemType: source.itemType, sourceId: source.id,
+              );
+            },
+          ),
+        ),
+
+        // ── Scrollable content (with pull-to-refresh) ──────────────────────
         RefreshIndicator(
-          onRefresh: _onRefresh,
-          color:     Colors.white,
+          onRefresh:       _onRefresh,
+          color:           Colors.white,
           backgroundColor: const Color(0xFF1A1A1A),
+          // displacement pushes the spinner below status bar
+          displacement:    _appBarH + 8,
           child: NotificationListener<ScrollNotification>(
             onNotification: (n) {
               if (n is ScrollUpdateNotification ||
@@ -408,20 +438,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               physics:    const AlwaysScrollableScrollPhysics(
                               parent: ClampingScrollPhysics()),
               slivers: [
-                // ── Hero banner ──────────────────────────────────────────
+                // ── Spacer that matches hero banner height ────────────────
+                // (hero is pinned in Stack above, scrollable area starts below)
                 SliverToBoxAdapter(
-                  child: _HeroBannerSection(
+                  child: _HeroBannerSpacer(
                     source:     source,
                     customLists: _customLists,
-                    appBarH:    _appBarH,
-                    onTap: (manga) {
-                      if (_tryOpenReel(ctx, manga, source)) return;
-                      pushToMangaReaderDetail(
-                        ref:      ref, context: ctx, getManga: manga,
-                        lang:     source.lang!, source: source.name!,
-                        itemType: source.itemType, sourceId: source.id,
-                      );
-                    },
                   ),
                 ),
 
@@ -469,8 +491,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                                   fontSize:   18,
                                   fontWeight: FontWeight.bold)),
                           const Spacer(),
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).push(
+                          SeeAllButton(
+                            color: Colors.white70,
+                            onTap: () => Navigator.of(ctx).push(
                               MaterialPageRoute(
                                 builder: (_) => _WatchSectionPage(
                                   source:       source,
@@ -480,8 +503,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                                 ),
                               ),
                             ),
-                            child: Text(ctx.l10n.view_all,
-                                style: const TextStyle(color: Colors.white70)),
                           ),
                         ],
                       ),
@@ -524,8 +545,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                                 fontSize:   18,
                                 fontWeight: FontWeight.bold)),
                         const Spacer(),
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).push(
+                        SeeAllButton(
+                          color: Colors.white70,
+                          onTap: () => Navigator.of(ctx).push(
                             MaterialPageRoute(
                               builder: (_) => _WatchSectionPage(
                                 source:       source,
@@ -537,8 +559,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                               ),
                             ),
                           ),
-                          child: Text(ctx.l10n.view_all,
-                              style: const TextStyle(color: Colors.white70)),
                         ),
                       ],
                     ),
@@ -576,7 +596,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           right: 0,
           child: NfWatchAppBarWidget(
             scrollOffset: _scrollOffset,
-            sourceName:   source.name ?? source.lang ?? 'Watch',
+            sourceName:   source.name ?? source.lang ?? 'Anime',
             onSearchTap:  () => setState(() => _isSearching = true),
             canPop:       context.canPop(),
             onBackTap:    () => context.pop(),
@@ -800,7 +820,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         final pop = r.watch(getPopularProvider(source: source, page: 1));
         return pop.when(
           data: (d) => _buildGrid(ctx, d?.list ?? []),
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => _buildShimmerGrid(),
           error:   (e, _) => Center(
             child: Text(e.toString(),
                 style: const TextStyle(color: Colors.white60))),
@@ -827,12 +847,27 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             }
             return _buildGrid(ctx, items);
           },
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => _buildShimmerGrid(),
           error:   (e, _) => Center(
             child: Text(e.toString(),
                 style: const TextStyle(color: Colors.white60))),
         );
       },
+    );
+  }
+
+  /// Shimmer grid for search/popular loading states — replaces plain spinner.
+  Widget _buildShimmerGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 140,
+        childAspectRatio:   0.65,
+        mainAxisSpacing:    8,
+        crossAxisSpacing:   8,
+      ),
+      itemCount: 12,
+      itemBuilder: (_, __) => _NfShimmerPosterTile(),
     );
   }
 
@@ -856,6 +891,27 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   }
 }
 
+// ── Hero banner spacer ─────────────────────────────────────────────────────────
+// A transparent box that reserves the same vertical space as the pinned hero
+// banner so the scrollable list starts below it.
+
+class _HeroBannerSpacer extends ConsumerWidget {
+  final Source                     source;
+  final List<Map<String, dynamic>> customLists;
+
+  const _HeroBannerSpacer({
+    required this.source,
+    required this.customLists,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final width = MediaQuery.of(context).size.width;
+    final height = width + (width * .6);
+    return SizedBox(width: width, height: height);
+  }
+}
+
 // ── Hero banner section ────────────────────────────────────────────────────────
 // Picks first item from 'banner' list, falls back to first popular item.
 
@@ -866,6 +922,7 @@ class _HeroBannerSection extends ConsumerWidget {
   final void Function(MManga)  onTap;
 
   const _HeroBannerSection({
+    super.key,
     required this.source,
     required this.customLists,
     required this.appBarH,
@@ -931,7 +988,7 @@ class _HeroBannerSection extends ConsumerWidget {
 }
 
 // ── Horizontal content row ─────────────────────────────────────────────────────
-// One section: title + "Voir tout" + horizontal ListView of NfMovieBox.
+// One section: title + SeeAllButton + horizontal ListView of NfMovieBox.
 
 class _NfContentRow extends ConsumerWidget {
   final Source                 source;
@@ -981,17 +1038,28 @@ class _NfContentRow extends ConsumerWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              // Item count badge
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color:        Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${items.length}',
+                  style: const TextStyle(
+                    color:      Colors.white60,
+                    fontSize:   11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               const Spacer(),
               if (onSeeAll != null)
-                TextButton(
-                  onPressed: onSeeAll,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                  ),
-                  child: Text(ctx.l10n.view_all,
-                      style: const TextStyle(fontSize: 13)),
+                SeeAllButton(
+                  color: Colors.white70,
+                  onTap: onSeeAll!,
                 ),
             ],
           ),
@@ -1232,7 +1300,7 @@ bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
 
 enum _SectionKind { popular, latest, custom }
 
-// ── Full-page section drill-down ("Voir tout") ─────────────────────────────────
+// ── Full-page section drill-down ───────────────────────────────────────────────
 
 class _WatchSectionPage extends ConsumerStatefulWidget {
   final Source        source;

@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
@@ -242,13 +243,13 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
               ),
               if (t > 0.4)
                 IconButton(
-                  icon: Icon(Icons.search_rounded,
+                  icon: Icon(Broken.search_normal_1,
                       color: cs.onSurface, size: 22),
                   onPressed: _expandAndFocusSearch,
                   visualDensity: VisualDensity.compact,
                 ),
               IconButton(
-                icon: Icon(Icons.camera_alt_outlined,
+                icon: Icon(Broken.camera,
                     color: cs.onSurface, size: 24),
                 onPressed: () {},
                 visualDensity: VisualDensity.compact,
@@ -285,7 +286,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                           children: [
                             const SizedBox(width: 14),
                             Icon(
-                              Icons.search_rounded,
+                              Broken.search_normal_1,
                               size: 20,
                               color: _focus.hasFocus
                                   ? cs.onSurface
@@ -324,7 +325,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 10),
-                                  child: Icon(Icons.close_rounded,
+                                  child: Icon(Broken.close_circle,
                                       size: 18,
                                       color: cs.onSurfaceVariant),
                                 ),
@@ -394,8 +395,8 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
             children: [
               Icon(
                 isSelected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
+                    ? Broken.tick_circle
+                    : Broken.record,
                 size: 18,
                 color: isSelected
                     ? cs.primary
@@ -707,7 +708,7 @@ class _TrackResultsSection extends ConsumerWidget {
                         url: imageUrl,
                         width: 46,
                         height: 46,
-                        placeholder: Icon(Icons.music_note_rounded,
+                        placeholder: Icon(Broken.note,
                             color: cs.onSurfaceVariant),
                       ),
                     ),
@@ -771,7 +772,7 @@ class _TrackResultsSection extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     // More
-                    Icon(Icons.more_vert_rounded,
+                    Icon(Broken.more_2,
                         color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                   ],
                 ),
@@ -839,6 +840,7 @@ class _HorizontalSection<T> extends StatelessWidget {
                   width: 130,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       circular
                           ? CircleAvatar(
@@ -850,7 +852,7 @@ class _HorizontalSection<T> extends StatelessWidget {
                                   width: 130,
                                   height: 130,
                                   placeholder: Icon(
-                                      Icons.person_rounded,
+                                      Broken.user,
                                       color: cs.onSurfaceVariant),
                                 ),
                               ),
@@ -861,7 +863,7 @@ class _HorizontalSection<T> extends StatelessWidget {
                                 url: url,
                                 width: 130,
                                 height: 130,
-                                placeholder: Icon(Icons.album_rounded,
+                                placeholder: Icon(Broken.music_square,
                                     color: cs.onSurfaceVariant),
                               ),
                             ),
@@ -1039,7 +1041,7 @@ class _SectionGridCard extends StatelessWidget {
             Align(
               alignment: Alignment.bottomRight,
               child: Icon(
-                Icons.library_music_rounded,
+                Broken.music_library_2,
                 color: Colors.white.withValues(alpha: 0.3),
                 size: 28,
               ),
@@ -1064,7 +1066,7 @@ class _NoPluginPlaceholder extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.extension_rounded,
+          Icon(Broken.element_plus,
               size: 56, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18)),
           const SizedBox(height: 16),
           Text(
@@ -1095,7 +1097,7 @@ class _NoPluginPlaceholder extends StatelessWidget {
               ),
             ),
             onPressed: () => GoRouter.of(rootNavigatorKey.currentContext!).push('/marketplace'),
-            icon: const Icon(Icons.store_rounded),
+            icon: const Icon(Broken.shop),
             label: const Text('Marketplace'),
           ),
         ],
@@ -1117,7 +1119,7 @@ class _EmptyResults extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off_rounded,
+          Icon(Broken.search_zoom_in,
               size: 56, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18)),
           const SizedBox(height: 16),
           Text(
@@ -1287,10 +1289,6 @@ class _MusicFilterButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.tune_rounded,
-                size: 16,
-                color: isActive ? cs.primary : cs.onSurfaceVariant),
-            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
@@ -1299,6 +1297,10 @@ class _MusicFilterButton extends StatelessWidget {
                 fontSize: 13,
               ),
             ),
+            const SizedBox(width: 6),
+            Icon(Broken.filter,
+                size: 16,
+                color: isActive ? cs.primary : cs.onSurfaceVariant),
           ],
         ),
       ),

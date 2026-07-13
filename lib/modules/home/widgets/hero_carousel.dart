@@ -117,12 +117,36 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                               fit: BoxFit.cover,
                               alignment: const Alignment(0, -0.3),
                               cache: true,
+                              loadStateChanged: (state) {
+                                if (state.extendedImageLoadState ==
+                                    LoadState.completed) return null;
+                                // Shimmer-style placeholder while loading or on error
+                                return Container(
+                                  color: Theme.of(ctx)
+                                      .colorScheme
+                                      .surfaceContainerHighest,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.movie_creation_outlined,
+                                      size: 48,
+                                      color: Colors.white24,
+                                    ),
+                                  ),
+                                );
+                              },
                             )
                           else
                             Container(
                               color: Theme.of(ctx)
                                   .colorScheme
                                   .surfaceContainerHighest,
+                              child: const Center(
+                                child: Icon(
+                                  Icons.movie_creation_outlined,
+                                  size: 48,
+                                  color: Colors.white24,
+                                ),
+                              ),
                             ),
 
                           // ── Top edge scrim (blur→image seamless) ─────────
@@ -171,6 +195,17 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                               ),
                             ),
                           ),
+
+                          // ── Episode count pill — top left ────────────────
+                          if (m.episodes != null && m.episodes! > 0)
+                            Positioned(
+                              top: 12,
+                              left: 12,
+                              child: _Badge(
+                                label: '${m.episodes}',
+                                bg: Colors.black.withValues(alpha: 0.55),
+                              ),
+                            ),
 
                           // ── Score badge — top right ──────────────────────
                           if (m.averageScore != null)

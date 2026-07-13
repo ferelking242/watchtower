@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/music/models/music_models.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/widgets/music_playbutton_card.dart';
@@ -78,12 +79,12 @@ class _MusicSearchTabState extends ConsumerState<MusicSearchTab> {
             decoration: InputDecoration(
               hintText: 'Artists, songs or podcasts',
               prefixIcon:
-                  const Icon(Icons.search_rounded),
+                  const Icon(Broken.search_normal_1),
               suffixIcon: AnimatedOpacity(
                 opacity: _ctrl.text.isNotEmpty ? 1 : 0,
                 duration: const Duration(milliseconds: 200),
                 child: IconButton(
-                  icon: const Icon(Icons.close_rounded, iconSize: 18),
+                  icon: const Icon(Broken.close_circle, iconSize: 18),
                   onPressed: () {
                     _ctrl.clear();
                     ref.read(musicSearchTermProvider.notifier).state = '';
@@ -157,14 +158,14 @@ class _MusicSearchTabState extends ConsumerState<MusicSearchTab> {
 
 class _SearchBrowseGrid extends StatelessWidget {
   static const _cats = [
-    ('Pop', Color(0xFF8D67AB), Icons.music_note_rounded),
-    ('Hip-Hop', Color(0xFFBA5D07), Icons.mic_external_on_rounded),
-    ('Rock', Color(0xFFE8115B), Icons.bolt_rounded),
-    ('Electronic', Color(0xFF1E3264), Icons.graphic_eq_rounded),
-    ('R&B', Color(0xFF056952), Icons.audiotrack_rounded),
-    ('Jazz', Color(0xFF0D73EC), Icons.music_note_outlined),
-    ('Classical', Color(0xFF537AA1), Icons.queue_music_rounded),
-    ('Podcasts', Color(0xFF8C1932), Icons.podcasts_rounded),
+    ('Pop', Color(0xFF8D67AB), Broken.note),
+    ('Hip-Hop', Color(0xFFBA5D07), Broken.microphone),
+    ('Rock', Color(0xFFE8115B), Broken.flash_1),
+    ('Electronic', Color(0xFF1E3264), Broken.voice_square),
+    ('R&B', Color(0xFF056952), Broken.note_21),
+    ('Jazz', Color(0xFF0D73EC), Broken.note),
+    ('Classical', Color(0xFF537AA1), Broken.music_playlist),
+    ('Podcasts', Color(0xFF8C1932), Broken.microphone_2),
   ];
 
   @override
@@ -238,7 +239,7 @@ class _SearchResults extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.extension_rounded,
+            Icon(Broken.element_plus,
                 size: 52, color: cs.onSurface.withValues(alpha: 0.15)),
             const SizedBox(height: 16),
             Text('No music extension installed',
@@ -254,7 +255,7 @@ class _SearchResults extends ConsumerWidget {
             const SizedBox(height: 20),
             OutlinedButton.icon(
               onPressed: () {},
-              icon: const Icon(Icons.store_rounded),
+              icon: const Icon(Broken.shop),
               label: const Text('Open Marketplace'),
             ),
           ],
