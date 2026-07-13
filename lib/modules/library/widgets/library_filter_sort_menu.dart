@@ -556,18 +556,23 @@ class _LibraryFilterSortMenuState
 // here narrows what's shown, layered client-side on top of the existing
 // filtered/sorted list — see [applyLibrarySourceAndCategoryFilters].
 
-final selectedLibrarySourcesFilterProvider = NotifierProvider.family<
-    _SelectedSet<String>, Set<String>, ItemType>(_SelectedSet<String>.new);
+final selectedLibrarySourcesFilterProvider =
+    StateProvider.family<Set<String>, ItemType>((ref, arg) => <String>{});
 
-final selectedLibraryCategoriesFilterProvider = NotifierProvider.family<
-    _SelectedSet<int>, Set<int>, ItemType>(_SelectedSet<int>.new);
+final selectedLibraryCategoriesFilterProvider =
+    StateProvider.family<Set<int>, ItemType>((ref, arg) => <int>{});
 
-class _SelectedSet<T> extends FamilyNotifier<Set<T>, ItemType> {
-  @override
-  Set<T> build(ItemType arg) => <T>{};
+extension on StateController<Set<String>> {
+  void toggle(String value) {
+    final next = Set<String>.from(state);
+    if (!next.remove(value)) next.add(value);
+    state = next;
+  }
+}
 
-  void toggle(T value) {
-    final next = Set<T>.from(state);
+extension on StateController<Set<int>> {
+  void toggle(int value) {
+    final next = Set<int>.from(state);
     if (!next.remove(value)) next.add(value);
     state = next;
   }
