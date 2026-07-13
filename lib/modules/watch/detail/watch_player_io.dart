@@ -1920,33 +1920,50 @@ class _FullscreenControlsOverlayState
     );
   }
 
+  // Native-style skip button: number sits inside the arrow loop (same look
+  // as Android's built-in replay_10 / forward_10 icons), no bulky outer
+  // circle — matches the visual language of the rest of the control bar.
+  Widget _buildSkipButton({required bool isForward, required int seconds}) {
+    return GestureDetector(
+      onTap: () {
+        if (_locked) return;
+        _seek(isForward ? seconds : -seconds);
+      },
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              isForward ? Icons.forward_rounded : Icons.replay_rounded,
+              color: Colors.white,
+              size: 44,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                '$seconds',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCenterRow() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        GestureDetector(
-          onTap: () {
-            if (_locked) return;
-            _seek(-15);
-          },
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.35),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white30, width: 1),
-            ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.replay_rounded, color: Colors.white, size: 22),
-                Text('15', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1.1)),
-              ],
-            ),
-          ),
-        ),
+        _buildSkipButton(isForward: false, seconds: 15),
         const SizedBox(width: 32),
         StreamBuilder<bool>(
           stream: widget.player.stream.playing,
@@ -1964,28 +1981,7 @@ class _FullscreenControlsOverlayState
           ),
         ),
         const SizedBox(width: 32),
-        GestureDetector(
-          onTap: () {
-            if (_locked) return;
-            _seek(15);
-          },
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.35),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white30, width: 1),
-            ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.forward_rounded, color: Colors.white, size: 22),
-                Text('15', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1.1)),
-              ],
-            ),
-          ),
-        ),
+        _buildSkipButton(isForward: true, seconds: 15),
       ],
     );
   }
