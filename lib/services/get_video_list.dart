@@ -248,7 +248,6 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       ),
     )) {
       videos = await YoutubeWatchResolver.resolve(
-        ref,
         videos,
         epLabel: epLabel,
       );
