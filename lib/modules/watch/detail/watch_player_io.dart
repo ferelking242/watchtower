@@ -1930,25 +1930,24 @@ class _FullscreenControlsOverlayState
             if (_locked) return;
             _seek(-15);
           },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Stack(
-              alignment: Alignment.center,
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white30, width: 1),
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.replay_rounded, color: Colors.white, size: 34),
-                Positioned(
-                  bottom: 7,
-                  child: Text("15",
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold)),
-                ),
+                Icon(Icons.replay_rounded, color: Colors.white, size: 22),
+                Text('15', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1.1)),
               ],
             ),
           ),
         ),
-        const SizedBox(width: 30),
+        const SizedBox(width: 32),
         StreamBuilder<bool>(
           stream: widget.player.stream.playing,
           initialData: widget.player.state.playing,
@@ -1964,26 +1963,25 @@ class _FullscreenControlsOverlayState
             ),
           ),
         ),
-        const SizedBox(width: 30),
+        const SizedBox(width: 32),
         GestureDetector(
           onTap: () {
             if (_locked) return;
             _seek(15);
           },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Stack(
-              alignment: Alignment.center,
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white30, width: 1),
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.forward_rounded, color: Colors.white, size: 34),
-                Positioned(
-                  bottom: 7,
-                  child: Text("15",
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold)),
-                ),
+                Icon(Icons.forward_rounded, color: Colors.white, size: 22),
+                Text('15', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1.1)),
               ],
             ),
           ),
@@ -3430,12 +3428,20 @@ class _TrackTile extends StatelessWidget {
     int   _doubleTapCount = 0;
     bool? _doubleTapRight;
     Timer? _doubleTapResetTimer;
-    bool _showLeftSkipHUD  = false;
-    bool _showRightSkipHUD = false;
-    int  _skipHudSeconds   = 15;
-    Timer? _skipHudTimer;
+    // Portrait: badge haut-centre (pas d'animation ripple)
+    bool   _showSkipBadge  = false;
+    String _skipBadgeText  = '';
+    Timer? _skipBadgeTimer;
+    Timer? _skipHudTimer; // kept for compatibility
     Timer? _seekDebounceTimer;
     int   _accumulatedSeekDelta = 0;
+    int  _skipHudSeconds   = 15;
+
+    // ── Horizontal seek (swipe timeline) ─────────────────────────────────────
+    double? _horizDragStartX;
+    Duration _horizSeekStartPos = Duration.zero;
+    int _horizSeekDelta = 0;
+    bool _showSeekSwipeHUD = false;
 
     @override
     void initState() {
@@ -3461,6 +3467,7 @@ class _TrackTile extends StatelessWidget {
       _hideTimer?.cancel();
       _hudTimer?.cancel();
       _doubleTapResetTimer?.cancel();
+      _skipBadgeTimer?.cancel();
       _skipHudTimer?.cancel();
       _seekDebounceTimer?.cancel();
       super.dispose();
@@ -3509,14 +3516,87 @@ class _TrackTile extends StatelessWidget {
         if (mounted) { _seek(_accumulatedSeekDelta); _accumulatedSeekDelta = 0; }
       });
 
-      _skipHudTimer?.cancel();
-      setState(() { _showLeftSkipHUD = !isRight; _showRightSkipHUD = isRight; });
-      _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
-        if (mounted) setState(() { _showLeftSkipHUD = false; _showRightSkipHUD = false; });
+      // Portrait: badge haut-centre discret au lieu du ripple plein-écran
+      final sign = isRight ? '+' : '-';
+      _skipBadgeTimer?.cancel();
+      setState(() {
+        _showSkipBadge = true;
+        _skipBadgeText = '${sign}${_skipHudSeconds}s';
       });
+      _skipBadgeTimer = Timer(const Duration(milliseconds: 900), () {
+        if (mounted) setState(() => _showSkipBadge = false);
+      });
+
       _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
         _doubleTapCount = 0; _doubleTapRight = null; _accumulatedSeekDelta = 0;
       });
+    }
+
+    // ── Horizontal drag → seek timeline ──────────────────────────────────────
+    void _onHorizDragStart(DragStartDetails d) {
+      _horizDragStartX = d.globalPosition.dx;
+      _horizSeekStartPos = widget.player.state.position;
+      _horizSeekDelta = 0;
+      _hideTimer?.cancel();
+    }
+
+    void _onHorizDragUpdate(DragUpdateDetails d, Size size) {
+      if (_horizDragStartX == null) return;
+      final dx = d.globalPosition.dx - _horizDragStartX!;
+      final dur = widget.player.state.duration.inSeconds;
+      if (dur <= 0) return;
+      // ~60s per full screen width
+      _horizSeekDelta = (dx / size.width * 90).round();
+      setState(() => _showSeekSwipeHUD = true);
+    }
+
+    void _onHorizDragEnd(DragEndDetails _) {
+      if (_horizDragStartX != null && _horizSeekDelta != 0) {
+        final dur = widget.player.state.duration;
+        final next = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+        final clamped = next < Duration.zero ? Duration.zero : (next > dur ? dur : next);
+        widget.player.seek(clamped);
+      }
+      _horizDragStartX = null;
+      _horizSeekDelta = 0;
+      setState(() => _showSeekSwipeHUD = false);
+      _resetHideTimer();
+    }
+
+    String _fmtPos(Duration d) {
+      final h = d.inHours;
+      final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+      final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+      return h > 0 ? '$h:$m:$s' : '$m:$s';
+    }
+
+    Widget _buildSeekSwipeHUD() {
+      final pos = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+      final dur = widget.player.state.duration;
+      final clamped = pos < Duration.zero ? Duration.zero : (pos > dur ? dur : pos);
+      final sign = _horizSeekDelta >= 0 ? '+' : '';
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _horizSeekDelta >= 0 ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+              color: Colors.white, size: 22,
+            ),
+            const SizedBox(height: 3),
+            Text('${sign}${_horizSeekDelta}s',
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(_fmtPos(clamped),
+                style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          ],
+        ),
+      );
     }
 
     void _handleSwipeDrag(DragUpdateDetails d, Size size) {
@@ -3644,59 +3724,48 @@ class _TrackTile extends StatelessWidget {
       );
     }
 
+    // Portrait: play/pause uniquement au centre (pas de boutons -15/+15)
     Widget _buildCenterRow() {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          GestureDetector(
-            onTap: () => _seek(-15),
-            child: const Padding(
-              padding: EdgeInsets.all(16),
-              child: Icon(Icons.replay_rounded, color: Colors.white, size: 34),
+      return StreamBuilder<bool>(
+        stream: widget.player.stream.playing,
+        initialData: widget.player.state.playing,
+        builder: (_, snap) => GestureDetector(
+          onTap: () {
+            widget.player.playOrPause();
+            _resetHideTimer();
+          },
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.45),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 38,
             ),
           ),
-          const SizedBox(width: 30),
-          StreamBuilder<bool>(
-            stream: widget.player.stream.playing,
-            initialData: widget.player.state.playing,
-            builder: (_, snap) => GestureDetector(
-              onTap: () {
-                widget.player.playOrPause();
-                _resetHideTimer();
-              },
-              child: Icon(
-                (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 58,
-              ),
-            ),
-          ),
-          const SizedBox(width: 30),
-          GestureDetector(
-            onTap: () => _seek(15),
-            child: const Padding(
-              padding: EdgeInsets.all(16),
-              child: Icon(Icons.forward_rounded, color: Colors.white, size: 34),
-            ),
-          ),
-        ],
+        ),
       );
     }
 
     @override
     Widget build(BuildContext context) {
       final size = MediaQuery.of(context).size;
+      final safeTop = MediaQuery.of(context).padding.top;
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        // NOTE: no onTap here — single tap is owned exclusively by the
-        // left/right half-screen zones below (see portrait overlay for why).
         onVerticalDragStart: (d) {
           _dragStartPos = d.globalPosition;
           _hideTimer?.cancel();
         },
         onVerticalDragUpdate: (d) => _handleSwipeDrag(d, size),
-        onVerticalDragEnd: (_) { _dragStartPos = null; },
+        onVerticalDragEnd: (_) { _dragStartPos = null; if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer(); },
+        onHorizontalDragStart: _onHorizDragStart,
+        onHorizontalDragUpdate: (d) => _onHorizDragUpdate(d, size),
+        onHorizontalDragEnd: _onHorizDragEnd,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -3730,39 +3799,68 @@ class _TrackTile extends StatelessWidget {
                 seekingNotifier: widget.seekingNotifier,
               ),
             ),
-            // ── Left-half double-tap zone (seek back) ───────────────────────────
+            // ── Left zone 30% — double-tap = seek -15, tap = toggle controls ──
             Positioned(
               left: 0, top: 0, bottom: 0,
-              width: size.width * 0.5,
+              width: size.width * 0.3,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onDoubleTap: () => _handleDoubleTap(isRight: false),
                 onTap: _onTap,
               ),
             ),
-            // ── Right-half double-tap zone (seek forward) ───────────────────────
+            // ── Centre 40% — double-tap = pause/resume, tap = toggle controls ─
+            Positioned(
+              left: size.width * 0.3, top: 0, bottom: 0,
+              width: size.width * 0.4,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: () {
+                  widget.player.playOrPause();
+                  _resetHideTimer();
+                },
+                onTap: _onTap,
+              ),
+            ),
+            // ── Right zone 30% — double-tap = seek +15, tap = toggle controls ─
             Positioned(
               right: 0, top: 0, bottom: 0,
-              width: size.width * 0.5,
+              width: size.width * 0.3,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onDoubleTap: () => _handleDoubleTap(isRight: true),
                 onTap: _onTap,
               ),
             ),
-            // ── Skip ripple — left half of screen ───────────────────────────────
-            if (_showLeftSkipHUD)
+            // ── Skip badge haut-centre (remplace le ripple plein-écran) ────────
+            if (_showSkipBadge)
               Positioned(
-                left: 0, top: 0, bottom: 0,
-                width: size.width * 0.5,
-                child: IgnorePointer(child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds)),
-              ),
-            // ── Skip ripple — right half of screen ──────────────────────────────
-            if (_showRightSkipHUD)
-              Positioned(
-                right: 0, top: 0, bottom: 0,
-                width: size.width * 0.5,
-                child: IgnorePointer(child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds)),
+                top: safeTop + 8,
+                left: 0, right: 0,
+                child: IgnorePointer(
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _showSkipBadge ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 180),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.50),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white24, width: 0.8),
+                        ),
+                        child: Text(
+                          _skipBadgeText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             // ── Brightness HUD ─────────────────────────────────────────────────
             if (_showBrightnessHUD)
@@ -3780,7 +3878,14 @@ class _TrackTile extends StatelessWidget {
                   child: Center(child: _buildVolumeHUD(value: _volume)),
                 ),
               ),
-            // Center controls (-15 / play-pause / +15) — fades with the overlay
+            // ── Seek swipe HUD (horizontal drag) ──────────────────────────────
+            if (_showSeekSwipeHUD)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(child: _buildSeekSwipeHUD()),
+                ),
+              ),
+            // ── Play/Pause centre — visible quand _showControls ───────────────
             IgnorePointer(
               ignoring: !_showControls,
               child: AnimatedOpacity(
@@ -3790,7 +3895,47 @@ class _TrackTile extends StatelessWidget {
                 child: Center(child: _buildCenterRow()),
               ),
             ),
-            // Inline controls — visible only when _showControls
+            // ── Icône Paramètres haut-droite (portrait only) ─────────────────
+            if (_showControls)
+              Positioned(
+                top: safeTop + 2,
+                right: 6,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    // Ouvre le lecteur plein-écran (paramètres complets)
+                    if (context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => _FullscreenPlayerPage(
+                            controller: widget.controller,
+                            player: widget.player,
+                            title: widget.title,
+                            loadedVideos: widget.loadedVideos,
+                            onSwitchQuality: widget.onSwitchQuality,
+                            selectedQuality: widget.selectedQuality,
+                            onPrevEpisode: widget.onPrevEpisode,
+                            onNextEpisode: widget.onNextEpisode,
+                            chapters: widget.chapters,
+                            onEpisodeTap: widget.onEpisodeTap,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.40),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.settings_outlined, color: Colors.white70, size: 20),
+                  ),
+                ),
+              ),
+            // ── Inline controls bas — visible quand _showControls ─────────────
             if (_showControls)
               Positioned(
                 left: 0, right: 0, bottom: 0,

@@ -35,10 +35,24 @@ import 'package:watchtower/services/isolate_service.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
-// SVG icon provided for the movie meta row
-const _kFilmSvg = '''
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
-  <path fill-rule="evenodd" clip-rule="evenodd" d="M14.0605 13.4546H11.8205C13.5385 12.2473 14.6666 10.2546 14.6666 8.00001C14.6666 4.32405 11.6759 1.33334 7.99992 1.33334C4.32396 1.33334 1.33325 4.32405 1.33325 8.00001C1.33325 11.676 4.32396 14.6667 7.99992 14.6667C8.01608 14.6667 8.03063 14.6643 8.04679 14.6643C8.05083 14.6643 8.05406 14.6667 8.0581 14.6667H14.0605C14.3951 14.6667 14.666 14.3952 14.666 14.0606C14.6666 13.7261 14.3951 13.4546 14.0605 13.4546ZM7.99992 3.95959C7.33083 3.95959 6.7878 4.50262 6.7878 5.17172C6.7878 5.84081 7.33083 6.38384 7.99992 6.38384C8.66901 6.38384 9.21204 5.84081 9.21204 5.17172C9.21204 4.50262 8.66901 3.95959 7.99992 3.95959ZM7.99992 9.45776C7.33083 9.45776 6.7878 10.0008 6.7878 10.6699C6.7878 11.339 7.33083 11.882 7.99992 11.882C8.66901 11.882 9.21204 11.339 9.21204 10.6699C9.21204 10.0008 8.66901 9.45776 7.99992 9.45776ZM10.7491 6.7087C10.08 6.7087 9.53699 7.25173 9.53699 7.92082C9.53699 8.58991 10.08 9.13294 10.7491 9.13294C11.4182 9.13294 11.9612 8.58991 11.9612 7.92082C11.9612 7.25173 11.4182 6.7087 10.7491 6.7087ZM5.2509 6.7087C4.58181 6.7087 4.03878 7.25173 4.03878 7.92082C4.03878 8.58991 4.58181 9.13294 5.2509 9.13294C5.91999 9.13294 6.46302 8.58991 6.46302 7.92082C6.46302 7.25173 5.91999 6.7087 5.2509 6.7087Z" fill="currentColor"/>
+// SVG icon — film (clapperboard)
+const _kMovieSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+  <rect x="2" y="6" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/>
+  <path d="M2 10h20" stroke="currentColor" stroke-width="1.5"/>
+  <path d="M7 6V2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M12 6V2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M17 6V2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M2 7l5-3M9 7l5-3M16 7l5-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+</svg>''';
+
+// SVG icon — série (écran TV)
+const _kSerieSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none">
+  <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/>
+  <path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="8" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+  <path d="M13 8h4M13 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 </svg>''';
 
 class WatchDetailView extends ConsumerStatefulWidget {
@@ -542,11 +556,21 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final isMovie = _isMovie(chapters);
     final parts = <String>[];
 
-    // Language/country code
-    final lang = widget.manga.lang?.trim().toUpperCase() ?? '';
-    if (lang.isNotEmpty) parts.add(lang);
+    // Production country from ·-prefixed genres (provided by extensions)
+    final productionCountry = (widget.manga.genre ?? [])
+        .where((g) => g.startsWith('·'))
+        .map((g) => g.substring(1).trim())
+        .where((g) => g.isNotEmpty)
+        .firstOrNull;
+    // Fallback to lang when no country available (never display raw "MULTI")
+    final lang = widget.manga.lang?.trim() ?? '';
+    if (productionCountry != null && productionCountry.isNotEmpty) {
+      parts.add(productionCountry);
+    } else if (lang.isNotEmpty && lang.toLowerCase() != 'multi') {
+      parts.add(lang.toUpperCase());
+    }
 
-    // First genre that isn't "film"/"movie"/"serie"
+    // First genre that isn't "film"/"movie"/"serie" and isn't ·-prefixed
     final typeGenre = (widget.manga.genre ?? [])
         .where((g) {
           final l = g.toLowerCase().trim();
@@ -576,7 +600,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SvgPicture.string(
-          _kFilmSvg,
+          isMovie ? _kMovieSvg : _kSerieSvg,
           width: 14,
           height: 14,
           colorFilter: ColorFilter.mode(_grey, BlendMode.srcIn),

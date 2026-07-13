@@ -11,7 +11,7 @@ Widget cachedNetworkImage({
   required BoxFit? fit,
   AlignmentGeometry? alignment,
   bool useCustomNetworkImage = true,
-  Widget errorWidget = const Icon(Icons.error, size: 50),
+  Widget errorWidget = const Icon(Icons.image_not_supported_outlined, size: 50, color: Colors.white38),
 }) {
   if (kIsWeb) {
     return Image.network(
@@ -54,7 +54,7 @@ Widget cachedCompressedNetworkImage({
   required BoxFit? fit,
   AlignmentGeometry? alignment,
   bool useCustomNetworkImage = true,
-  Widget errorWidget = const Icon(Icons.error, size: 50),
+  Widget errorWidget = const Icon(Icons.image_not_supported_outlined, size: 50, color: Colors.white38),
   int maxBytes = 5 << 10,
 }) {
   if (kIsWeb) {
