@@ -105,7 +105,10 @@ GoRouter router(Ref ref) {
       .watch(navigationOrderStateProvider)
       .where((e) => !hiddenItems.contains(e))
       .first;
-  final destination = needsOnboarding ? '/onboarding' : mainLocation;
+  // Onboarding tutorial disabled — was low quality and confusing, always
+  // land straight on the main app. Route kept registered below in case a
+  // future rewrite wants to reuse it.
+  final destination = mainLocation;
 
   return GoRouter(
     observers: [],
