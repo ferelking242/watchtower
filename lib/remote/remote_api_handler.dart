@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
 import 'package:shelf/shelf.dart';
+import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/main.dart';
@@ -10,8 +11,12 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/models/video.dart';
+import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
+import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
+import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/utils/constant.dart';
@@ -30,12 +35,24 @@ class RemoteApiHandler {
   final ProviderContainer ref;
   RemoteApiHandler(this.ref);
 
+  // ── NSFW gating ────────────────────────────────────────────────────────
+  // This API surface can be reached by third-party client apps, so NSFW
+  // sources are never listed nor servable through it, regardless of the
+  // user's in-app NSFW toggle. This is a hard exclusion, not a preference.
+  Response? _nsfwBlocked(Source? source) {
+    if (source?.isNsfw == true) {
+      return _error('Source not available via API', status: 403);
+    }
+    return null;
+  }
+
   Future<Response> getSources(Request req) async {
     try {
       final sources = isar.sources
           .filter()
           .isActiveEqualTo(true)
           .isAddedEqualTo(true)
+          .isNsfwEqualTo(false)
           .findAllSync();
       return _json({'sources': sources.map(_sourceToMap).toList()});
     } catch (e) { return _error(e.toString()); }
@@ -46,6 +63,8 @@ class RemoteApiHandler {
       final page = int.tryParse(req.url.queryParameters['page'] ?? '1') ?? 1;
       final source = _findSource(sourceId);
       if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
       final result = await ref.read(getPopularProvider(source: source, page: page).future);
       return _json({'mangas': _pagesToList(result), 'hasNextPage': result?.hasNextPage ?? false});
     } catch (e) { return _error(e.toString()); }
@@ -56,6 +75,8 @@ class RemoteApiHandler {
       final page = int.tryParse(req.url.queryParameters['page'] ?? '1') ?? 1;
       final source = _findSource(sourceId);
       if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
       final result = await ref.read(getLatestUpdatesProvider(source: source, page: page).future);
       return _json({'mangas': _pagesToList(result), 'hasNextPage': result?.hasNextPage ?? false});
     } catch (e) { return _error(e.toString()); }
@@ -67,6 +88,8 @@ class RemoteApiHandler {
       final page = int.tryParse(req.url.queryParameters['page'] ?? '1') ?? 1;
       final source = _findSource(sourceId);
       if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
       final result = await ref.read(
         searchProvider(source: source, query: q, page: page, filterList: []).future,
       );
@@ -78,9 +101,45 @@ class RemoteApiHandler {
     try {
       final source = _findSource(sourceId);
       if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
       final url = Uri.decodeComponent(mangaId);
       final detail = await ref.read(getDetailProvider(url: url, source: source).future);
       return _json(_mangaToMap(detail));
+    } catch (e) { return _error(e.toString()); }
+  }
+
+  /// Video/episode links for "watch" sources (anime, movies, series...).
+  /// `url` is the episode/video page URL as returned by [getMangaDetail]'s
+  /// chapters list — the same value the in-app player would use.
+  Future<Response> getVideos(Request req, String sourceId) async {
+    try {
+      final url = req.url.queryParameters['url'];
+      if (url == null) return _error('Missing url param', status: 400);
+      final source = _findSource(sourceId);
+      if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
+      final decoded = Uri.decodeComponent(url);
+      final videos = await getIsolateService.get<List<Video>>(
+        url: decoded,
+        source: source,
+        serviceType: 'getVideoList',
+        proxyServer: ref.read(androidProxyServerStateProvider),
+      );
+      return _json({'videos': videos.map(_videoToMap).toList()});
+    } catch (e) { return _error(e.toString()); }
+  }
+
+  /// Available search/browse filters for a source (genres, sort, status...).
+  Future<Response> getFilters(Request req, String sourceId) async {
+    try {
+      final source = _findSource(sourceId);
+      if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
+      final filters = getFilterList(source: source);
+      return _json({'filters': filterValuesListToJson(filters)});
     } catch (e) { return _error(e.toString()); }
   }
 
@@ -174,6 +233,11 @@ class RemoteApiHandler {
 
   List<Map<String, dynamic>> _pagesToList(MPages? pages) =>
       pages?.list?.map(_mMangaToMap).toList() ?? [];
+
+  Map<String, dynamic> _videoToMap(Video v) => {
+    'url': v.url, 'quality': v.quality, 'originalUrl': v.originalUrl,
+    'headers': v.headers,
+  };
 
   Map<String, dynamic> _mMangaToMap(MManga m) => {
     'name': m.name, 'imageUrl': m.imageUrl, 'link': m.link,

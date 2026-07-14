@@ -173,6 +173,59 @@ import 'package:flutter/material.dart';
               icon: Icons.lan_outlined,
               isPrimary: false,
             ),
+            const SizedBox(height: 16),
+
+            // ── API key ───────────────────────────────────────────────────
+            const Text('Clé API',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.vpn_key_outlined,
+                    color: context.secondaryColor),
+                title: SelectableText(
+                  state.apiKey ?? '...',
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                ),
+                subtitle: const Text(
+                  'À ajouter en ?key=... ou en en-tête Authorization: Bearer sur chaque appel /api',
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.copy),
+                      tooltip: 'Copier',
+                      onPressed: state.apiKey == null
+                          ? null
+                          : () {
+                              Clipboard.setData(
+                                  ClipboardData(text: state.apiKey!));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Clé copiée'),
+                                    duration: Duration(seconds: 2)),
+                              );
+                            },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'Régénérer (invalide l\'ancienne clé)',
+                      onPressed: () async {
+                        await notifier.regenerateApiKey();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Nouvelle clé générée'),
+                                duration: Duration(seconds: 2)),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
 
             // ── Instructions ──────────────────────────────────────────────

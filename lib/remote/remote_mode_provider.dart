@@ -15,12 +15,14 @@ class RemoteModeState {
   final String? tunnelUrl;
   final String? tunnelError;
   final double? downloadProgress;
+  final String? apiKey;
   const RemoteModeState({
     this.isRunning = false,
     this.localUrl,
     this.tunnelUrl,
     this.tunnelError,
     this.downloadProgress,
+    this.apiKey,
   });
 }
 
@@ -35,6 +37,7 @@ class RemoteModeNotifier extends AsyncNotifier<RemoteModeState> {
       tunnelUrl: RemoteServerService.instance.tunnelUrl,
       tunnelError: RemoteServerService.instance.tunnelError,
       downloadProgress: RemoteServerService.instance.downloadProgress,
+      apiKey: RemoteServerService.instance.apiKey,
     );
   }
 
@@ -45,6 +48,7 @@ class RemoteModeNotifier extends AsyncNotifier<RemoteModeState> {
       tunnelUrl: RemoteServerService.instance.tunnelUrl,
       tunnelError: RemoteServerService.instance.tunnelError,
       downloadProgress: RemoteServerService.instance.downloadProgress,
+      apiKey: RemoteServerService.instance.apiKey,
     ));
   }
 
@@ -60,6 +64,10 @@ class RemoteModeNotifier extends AsyncNotifier<RemoteModeState> {
       final box = await Hive.openBox(_kBox);
       await box.put(_kEnabled, true);
     }
+  }
+
+  Future<void> regenerateApiKey() async {
+    await RemoteServerService.instance.regenerateApiKey();
   }
 }
 

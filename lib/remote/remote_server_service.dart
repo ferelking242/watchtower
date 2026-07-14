@@ -1,7 +1,9 @@
 import 'dart:async';
   import 'dart:convert';
   import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+  import 'dart:math';
   import 'package:flutter/foundation.dart';
+  import 'package:hive/hive.dart';
   import 'package:shelf/shelf.dart';
   import 'package:shelf/shelf_io.dart' as shelf_io;
   import 'package:shelf_router/shelf_router.dart';
@@ -23,12 +25,46 @@ import 'dart:async';
     String? _tunnelUrl;
     String? _tunnelError;
     double? _downloadProgress;
+    String? _apiKey;
 
     bool get isRunning => _running;
     String? get localUrl => _localUrl;
     String? get tunnelUrl => _tunnelUrl;
     String? get tunnelError => _tunnelError;
     double? get downloadProgress => _downloadProgress;
+    String? get apiKey => _apiKey;
+
+    // ── API key ──────────────────────────────────────────────────────────
+    // Required (as `?key=` or `Authorization: Bearer <key>`) on every
+    // `/api/*` route except `/api/ping` — this server can be reached by
+    // any third-party app, local or via the public tunnel, so it must not
+    // be wide open. Persisted so it survives toggling the server off/on.
+    static const _kBox = 'remote_mode';
+    static const _kApiKey = 'api_key';
+
+    Future<String> _loadOrCreateApiKey() async {
+      final box = await Hive.openBox(_kBox);
+      final existing = box.get(_kApiKey) as String?;
+      if (existing != null && existing.isNotEmpty) return existing;
+      final key = _generateApiKey();
+      await box.put(_kApiKey, key);
+      return key;
+    }
+
+    String _generateApiKey() {
+      final rnd = Random.secure();
+      const chars =
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      return List.generate(32, (_) => chars[rnd.nextInt(chars.length)]).join();
+    }
+
+    Future<void> regenerateApiKey() async {
+      final box = await Hive.openBox(_kBox);
+      final key = _generateApiKey();
+      await box.put(_kApiKey, key);
+      _apiKey = key;
+      _notify();
+    }
 
     final List<VoidCallback> _listeners = [];
     void addListener(VoidCallback cb) => _listeners.add(cb);
@@ -160,6 +196,7 @@ import 'dart:async';
       if (_running) return;
 
       _slog('Demarrage HTTP port 4567...');
+      _apiKey = await _loadOrCreateApiKey();
       final router = Router();
 
       Response cors(Response r) => r.change(headers: {
@@ -172,6 +209,24 @@ import 'dart:async';
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       });
+
+      // Every /api/* route (besides /api/ping) requires the API key shown
+      // in the Mode Distant screen, passed as `?key=` or a Bearer token.
+      Middleware requireApiKey() => (Handler inner) => (Request req) async {
+            final path = req.url.path;
+            if (!path.startsWith('api/') || path == 'api/ping') {
+              return inner(req);
+            }
+            final auth = req.headers['authorization'];
+            final headerKey = (auth != null && auth.startsWith('Bearer '))
+                ? auth.substring(7)
+                : null;
+            final key = req.url.queryParameters['key'] ?? headerKey;
+            if (key == null || key != _apiKey) {
+              return cors(_unauthorized());
+            }
+            return inner(req);
+          };
 
       router.get('/', (Request req) async =>
           cors(Response.ok(_buildHomePage(),
@@ -187,6 +242,10 @@ import 'dart:async';
           cors(await handler.getLatest(req, sourceId)));
       router.get('/api/source/<sourceId>/search', (Request req, String sourceId) async =>
           cors(await handler.search(req, sourceId)));
+      router.get('/api/source/<sourceId>/filters', (Request req, String sourceId) async =>
+          cors(await handler.getFilters(req, sourceId)));
+      router.get('/api/source/<sourceId>/videos', (Request req, String sourceId) async =>
+          cors(await handler.getVideos(req, sourceId)));
       router.get('/api/manga/<sourceId>/<mangaId>', (Request req, String sourceId, String mangaId) async =>
           cors(await handler.getMangaDetail(req, sourceId, mangaId)));
       router.get('/api/manga/<sourceId>/<mangaId>/chapters', (Request req, String sourceId, String mangaId) async =>
@@ -198,7 +257,9 @@ import 'dart:async';
       router.get('/api/proxy', (Request req) async => cors(await handler.proxyImage(req)));
       router.add('OPTIONS', '/<path|.*>', optionsH);
 
-      final pipeline = const Pipeline().addHandler(router.call);
+      final pipeline = const Pipeline()
+          .addMiddleware(requireApiKey())
+          .addHandler(router.call);
       _server = await shelf_io.serve(pipeline, InternetAddress.anyIPv4, 4567);
       _localUrl = 'http://' + (await _getLanIp()) + ':4567';
       _running = true;
@@ -226,6 +287,12 @@ import 'dart:async';
       };
       await _tunnel!.start();
     }
+
+    Response _unauthorized() => Response(
+          401,
+          body: jsonEncode({'error': 'Missing or invalid API key'}),
+          headers: {'Content-Type': 'application/json'},
+        );
 
     Future<String> _getLanIp() async {
       try {
