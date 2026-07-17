@@ -5,31 +5,37 @@
 <h1 align="center">Watchtower</h1>
 
 <p align="center">
-  <b>Manga · Anime · Movies · Music · Novels — free, open-source, cross-platform</b>
+  <strong>Manga · Anime · Séries · Musique · Novels — gratuit, open-source, cross-platform</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml">
-    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml/badge.svg" alt="Build APK"/>
-  </a>
+    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml/badge.svg" alt="APK"/>
+  </a>&nbsp;
   <a href="https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml">
-    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml/badge.svg" alt="Build IPA"/>
-  </a>
+    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml/badge.svg" alt="IPA"/>
+  </a>&nbsp;
   <a href="https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml">
-    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml/badge.svg" alt="Build Server"/>
+    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml/badge.svg" alt="Server"/>
   </a>
+</p>
+
+<p align="center">
+  <a href="https://watchtower-website-zeta.vercel.app/">🌐 Site web</a> &nbsp;·&nbsp;
+  <a href="https://watchtower-website-zeta.vercel.app/download/">📥 Télécharger</a> &nbsp;·&nbsp;
+  <a href="deployment/README.md">🚀 Déployer le serveur</a>
 </p>
 
 ---
 
-## 📦 Download
+## 📦 Télécharger
 
-| Platform | Link |
+| Plateforme | Lien |
 |---|---|
 | **Android APK** (arm64) | [Actions → Build ARMv8](https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml) |
 | **iOS IPA** (TrollStore) | [Actions → Build IPA](https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml) |
 | **Windows** | [Actions → Build Windows](https://github.com/ferelking242/watchtower/actions/workflows/build-windows-x64.yml) |
-| **Docker image** | `ghcr.io/ferelking242/watchtower-server:latest` |
+| **Docker** | `ghcr.io/ferelking242/watchtower-server:latest` |
 
 ---
 
@@ -38,51 +44,54 @@
 ```
 watchtower/
 ├── lib/
-│   ├── modules/       ← UI (anime, manga, music, novels, player, library…)
-│   ├── eval/          ← JS & Dart extension execution engine (QuickJS)
-│   ├── remote/        ← Embedded HTTP server (shelf) — remote API on port 4567
-│   ├── services/      ← Networking, downloads (Aria2), anti-bot bypass
-│   ├── ffi/           ← Go torrent server (C bindings)
-│   └── src/rust/      ← Rust bindings (EPUB, image processing, TLS)
-├── server/            ← Standalone Node.js headless server (deploy to cloud)
+│   ├── modules/        ← UI par média (anime, manga, music, novels, player…)
+│   ├── eval/           ← Moteur d'extensions JS/Dart (QuickJS)
+│   ├── remote/         ← Serveur HTTP embarqué (shelf) — port 4567
+│   ├── services/       ← Réseau, téléchargements (Aria2), anti-bot
+│   ├── ffi/            ← Serveur torrent Go (bindings C)
+│   └── src/rust/       ← Bindings Rust (EPUB, image, TLS custom)
+├── server/             ← Serveur Node.js headless (déploiement cloud)
 │   ├── server.js
-│   └── src/           ← HTTP bridges, JS runtime, extension registry
-├── rust/              ← Rust library (flutter_rust_bridge)
-└── go/                ← Go BitTorrent client + HTTP streaming server
+│   └── src/            ← Bridges HTTP/DOM/Crypto, runtime JS, registry extensions
+├── deployment/         ← Configs et guides de déploiement
+│   ├── README.md       ← Toutes les options de déploiement
+│   └── colab_deploy.ipynb
+├── rust/               ← Bibliothèque Rust (flutter_rust_bridge)
+└── go/                 ← Client BitTorrent + serveur streaming HTTP
 ```
 
-**Two server modes — same extensions:**
+### Deux modes serveur, mêmes extensions
 
-| Mode | How | When to use |
+| Mode | Comment | Quand l'utiliser |
 |---|---|---|
-| **Embedded** (`lib/remote/`) | Flutter app exposes port 4567 via `shelf` | App running on phone/desktop |
-| **Headless** (`server/`) | Standalone Node.js process | Cloud (Railway, Render, VPS, Colab…) |
+| **Embarqué** (`lib/remote/`) | L'app Flutter expose le port 4567 via `shelf` | App installée sur téléphone/desktop |
+| **Headless** (`server/`) | Processus Node.js autonome | Cloud — Railway, Render, VPS, Colab… |
 
-Both modes run the same JS extensions and expose the same REST API.
+Les deux modes exécutent les mêmes extensions JS et exposent la même API REST.
 
 ---
 
-## 🚀 Deploy the Headless Server
+## 🚀 Déployer le serveur headless
 
 ### ☁️ One-click cloud
 
-| Platform | Button |
+| Plateforme | Bouton |
 |---|---|
 | **Railway** | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https://github.com/ferelking242/watchtower&rootDirectory=server) |
 | **Render** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ferelking242/watchtower) |
-| **Google Colab** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferelking242/watchtower/blob/main/colab_deploy.ipynb) |
+| **Google Colab** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferelking242/watchtower/blob/main/deployment/colab_deploy.ipynb) |
 
-### 🐳 Docker (local / VPS)
+> 📖 **[Guide complet de déploiement →](deployment/README.md)** (Railway, Render, Docker, Colab, HuggingFace, RunPod)
+
+### 🐳 Docker (local / VPS) — démarrage rapide
 
 ```bash
 git clone https://github.com/ferelking242/watchtower.git
 cd watchtower/server
-
-cp .env.example .env        # → set API_KEY
+cp .env.example .env        # → remplis API_KEY
 docker compose up -d
-
 curl http://localhost:8080/api/ping
-# {"status":"ok","version":"0.1.0"}
+# → {"status":"ok","version":"0.1.0"}
 ```
 
 ### 🟢 Node.js direct
@@ -93,54 +102,38 @@ npm install
 API_KEY=mysecretkey PORT=8080 node server.js
 ```
 
-### 🤗 Hugging Face Spaces
+---
 
-Create a Space → **Docker** runtime → copy `server/` contents → add `API_KEY` secret.
+## 📡 API REST
 
-### ⚗️ Google Colab (free, session-based)
+| Endpoint | Description |
+|---|---|
+| `GET /api/ping` | Health check |
+| `GET /api/sources` | Liste des sources |
+| `GET /api/sources/:id/popular` | Contenu populaire |
+| `GET /api/sources/:id/latest` | Dernières mises à jour |
+| `GET /api/sources/:id/search?q=` | Recherche |
+| `GET /api/sources/:id/detail?url=` | Détail d'un item |
+| `GET /api/sources/:id/videos?url=` | URLs de streaming vidéo |
+| `GET /api/sources/:id/pages?url=` | Pages manga |
 
-Open [colab_deploy.ipynb](colab_deploy.ipynb) → fill in API key + ngrok token → **Run all** → copy the public URL into the app settings.
-
-### 🏃 RunPod
-
-```bash
-git clone https://github.com/ferelking242/watchtower.git
-cd watchtower/server
-npm ci
-API_KEY=yourkey PORT=8080 node server.js &
-```
-Expose port `8080` in the pod network settings.
+Auth : `X-Api-Key: <clé>` ou `Authorization: Bearer <clé>`
 
 ---
 
-## 📱 Connect the App to Your Server
+## 📱 Connecter l'app au serveur
 
-**Settings → Remote Server → Server URL** → paste your URL → enter your `API_KEY`.
-
----
-
-## 🔧 Server Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `8080` | HTTP port |
-| `API_KEY` | _(empty = open)_ | Auth key for all `/api/*` routes |
-| `EXTENSIONS_REPO_URL` | mangayomi-extensions/main | Extensions catalogue base URL |
-| `CACHE_TTL_MS` | `300000` | Cache TTL (5 min) |
-| `CACHE_DIR` | `/data/cache` | On-disk cache |
-| `PREFS_DIR` | `/data/prefs` | Per-source preferences |
-| `RATE_WINDOW_MS` | `60000` | Rate limit window |
-| `RATE_MAX_TOKENS` | `60` | Max requests per window |
+**Paramètres → Serveur distant → URL** → colle l'URL → entre ta `API_KEY`.
 
 ---
 
-## 🛠️ Build the App Locally
+## 🛠️ Build local
 
 ```bash
 git clone https://github.com/ferelking242/watchtower.git
 cd watchtower
 
-# Requires: Flutter SDK 3.38+, Rust toolchain, Java 17
+# Prérequis : Flutter SDK 3.38+, Rust, Java 17
 flutter pub get
 flutter run
 flutter build apk --release --target-platform android-arm64 --split-per-abi
@@ -148,12 +141,15 @@ flutter build apk --release --target-platform android-arm64 --split-per-abi
 
 ---
 
-## 🔗 Related
+## 🔗 Repos liés
 
-- **[watchtower-real](https://github.com/ferelking242/watchtower-real)** — TikTok-style feed UI (will be integrated into this app)
+| Repo | Rôle |
+|---|---|
+| [watchtower-real](https://github.com/ferelking242/watchtower-real) | UI TikTok-style feed (sera intégré ici) |
+| [watchtower-website](https://github.com/ferelking242/watchtower-website) | Site de documentation |
 
 ---
 
-## 📄 License
+## 📄 Licence
 
 Apache 2.0
