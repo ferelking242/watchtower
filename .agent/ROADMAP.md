@@ -45,16 +45,17 @@
 
 ---
 
-## Phase 1 — SDK (📋 Planifié, priorité haute)
+## Phase 1 — SDK (🚧 En cours)
 
 | Tâche | Statut | Repo cible | Notes |
 |---|---|---|---|
-| `server/openapi.yaml` | 📋 | watchtower | Spec formelle de l'API — source de vérité |
-| Swagger UI embarqué dans le serveur | 📋 | watchtower | `GET /docs` → UI interactive |
-| Créer `ferelking242/watchtower-sdk-dart` | 📋 | nouveau repo | Extraire `RemoteApiClient` de Reel |
-| Modèles typés Dart (`Source`, `FeedItem`…) | 📋 | watchtower-sdk-dart | Depuis les réponses JSON actuelles |
-| Retry + backoff dans SDK Dart | 📋 | watchtower-sdk-dart | Exponentiel, max 3 tentatives |
-| Remplacer `RemoteApiClient` dans Reel par le SDK | 📋 | watchtower-real | `pubspec.yaml` git dep |
+| `server/openapi.yaml` | ✅ | watchtower | Spec OpenAPI 3.1 complète — 10 endpoints, tous les schémas |
+| Swagger UI embarqué dans le serveur | ✅ | watchtower | `GET /docs` + `GET /docs/openapi.yaml` — aucune dépendance npm |
+| Créer `ferelking242/watchtower-sdk-dart` | ✅ | nouveau repo | Repo créé, SDK complet écrit |
+| Modèles typés Dart (`Source`, `FeedItem`…) | ✅ | watchtower-sdk-dart | Source, FeedItem, ItemsPage, ContentDetail, VideoStream, MangaPage, Filter |
+| Retry + backoff dans SDK Dart | ✅ | watchtower-sdk-dart | Exponentiel 300ms→600ms→1200ms, max 3 tentatives |
+| Tests SDK Dart | ✅ | watchtower-sdk-dart | Couverture ping, list, popular, videos, detail, pages, retry |
+| Remplacer `RemoteApiClient` dans Reel par le SDK | 📋 | watchtower-real | `pubspec.yaml` git dep — à faire après stabilisation Reel |
 | Créer `ferelking242/watchtower-sdk-js` | 📋 | nouveau repo | TypeScript, npm `@watchtower/client` |
 | SDK Python (optionnel phase 1) | 📋 | nouveau repo | PyPI `watchtower-client`, pour Colab |
 

@@ -1,0 +1,670 @@
+openapi: 3.1.0
+
+info:
+  title: Watchtower API
+  version: 1.0.0
+  description: |
+    API REST exposée par le serveur Watchtower.
+    Deux runtimes, une seule API :
+    - **Embarqué** : Dart/shelf, port 4567 (app Flutter installée sur l'appareil)
+    - **Headless** : Node.js/Express, port 8080 (cloud : Railway, Render, Docker…)
+
+    ### Authentification
+    Toutes les routes sauf `/api/ping` nécessitent une clé API si `API_KEY` est configurée.
+    Passe la clé via le header `X-Api-Key` ou `Authorization: Bearer <clé>`.
+
+    ### Sources NSFW
+    Les sources marquées `isNsfw: true` ne sont jamais listées dans `GET /api/sources`.
+    Un appel direct sur une source NSFW via son `:id` retourne `403`.
+
+servers:
+  - url: http://localhost:4567
+    description: Serveur embarqué (Dart/shelf — app Flutter)
+  - url: http://localhost:8080
+    description: Serveur headless (Node.js — cloud)
+
+tags:
+  - name: health
+    description: Diagnostic
+  - name: sources
+    description: Catalogue de sources d'extensions
+  - name: content
+    description: Contenu récupéré via les extensions
+
+paths:
+
+  # ── Health ──────────────────────────────────────────────────────────────────
+
+  /api/ping:
+    get:
+      tags: [health]
+      operationId: ping
+      summary: Health check
+      description: Route publique, ne nécessite pas de clé API. Sert à vérifier que le serveur tourne.
+      responses:
+        '200':
+          description: Serveur opérationnel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PingResponse'
+              example:
+                status: ok
+                version: 0.1.0
+
+  # ── Sources ─────────────────────────────────────────────────────────────────
+
+  /api/sources:
+    get:
+      tags: [sources]
+      operationId: listSources
+      summary: Lister toutes les sources disponibles
+      description: |
+        Retourne la liste de toutes les sources non-NSFW disponibles.
+        La source locale `watchtower-local` est toujours présente en première position.
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Liste de sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourcesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/sources/{id}:
+    get:
+      tags: [sources]
+      operationId: getSource
+      summary: Récupérer une source par son identifiant
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+      responses:
+        '200':
+          description: Détails de la source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ── Content ─────────────────────────────────────────────────────────────────
+
+  /api/sources/{id}/popular:
+    get:
+      tags: [content]
+      operationId: getPopular
+      summary: Récupérer les contenus populaires d'une source
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Page de contenus populaires
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemsPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/sources/{id}/latest:
+    get:
+      tags: [content]
+      operationId: getLatest
+      summary: Récupérer les dernières mises à jour d'une source
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Page de contenus récents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemsPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/sources/{id}/search:
+    get:
+      tags: [content]
+      operationId: search
+      summary: Rechercher dans une source
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+        - name: q
+          in: query
+          description: Terme de recherche
+          required: false
+          schema:
+            type: string
+            example: attack on titan
+        - name: query
+          in: query
+          description: Alias de `q` (compatibilité)
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Résultats de recherche
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemsPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/sources/{id}/detail:
+    get:
+      tags: [content]
+      operationId: getDetail
+      summary: Récupérer le détail d'un contenu (chapitres, épisodes…)
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+        - $ref: '#/components/parameters/ContentUrl'
+      responses:
+        '200':
+          description: Détail du contenu avec chapitres ou épisodes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/sources/{id}/videos:
+    get:
+      tags: [content]
+      operationId: getVideos
+      summary: Récupérer les streams vidéo d'un épisode
+      description: Retourne la liste des qualités disponibles pour un épisode vidéo.
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+        - $ref: '#/components/parameters/ContentUrl'
+      responses:
+        '200':
+          description: Liste des streams vidéo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideosResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/sources/{id}/pages:
+    get:
+      tags: [content]
+      operationId: getPages
+      summary: Récupérer les pages d'un chapitre (manga)
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+        - $ref: '#/components/parameters/ContentUrl'
+      responses:
+        '200':
+          description: Liste des pages du chapitre
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/sources/{id}/filters:
+    get:
+      tags: [content]
+      operationId: getFilters
+      summary: Récupérer les filtres de recherche d'une source
+      security:
+        - ApiKeyHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+      responses:
+        '200':
+          description: Filtres disponibles pour la recherche avancée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiltersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+# ── Components ───────────────────────────────────────────────────────────────
+
+components:
+
+  # ── Parameters ──────────────────────────────────────────────────────────────
+
+  parameters:
+    SourceId:
+      name: id
+      in: path
+      required: true
+      description: Identifiant de la source (slug, id numérique ou nom)
+      schema:
+        type: string
+      example: local
+
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Numéro de page (commence à 1)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    ContentUrl:
+      name: url
+      in: query
+      required: true
+      description: URL du contenu sur la source distante
+      schema:
+        type: string
+        format: uri
+
+  # ── Schemas ─────────────────────────────────────────────────────────────────
+
+  schemas:
+
+    PingResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        version:
+          type: string
+          example: 0.1.0
+
+    Source:
+      type: object
+      required: [id, name, lang]
+      properties:
+        id:
+          type: string
+          description: Identifiant unique de la source
+          example: local
+        name:
+          type: string
+          description: Nom affiché de la source
+          example: Watchtower Local
+        lang:
+          type: string
+          description: Code langue ISO 639-1
+          example: fr
+        baseUrl:
+          type: string
+          description: URL de base du site source
+          example: https://example.com
+        sourceCodeUrl:
+          type: string
+          description: URL du fichier JS de l'extension
+          example: https://raw.githubusercontent.com/…/source.js
+        iconUrl:
+          type: string
+          description: URL de l'icône de la source
+          example: https://example.com/favicon.ico
+        isNsfw:
+          type: boolean
+          default: false
+          description: Si true, la source est filtrée de l'API publique
+        itemType:
+          type: integer
+          description: |
+            Type de contenu :
+            - `0` = manga
+            - `1` = novel
+            - `2` = video / anime
+            - `3` = music
+          enum: [0, 1, 2, 3]
+          example: 2
+        isManga:
+          type: boolean
+          default: false
+        version:
+          type: string
+          example: 1.0.0
+        supportsLatest:
+          type: boolean
+          default: true
+
+    SourcesResponse:
+      type: object
+      required: [sources]
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Source'
+
+    FeedItem:
+      type: object
+      description: Élément retourné dans les listes popular/latest/search
+      properties:
+        link:
+          type: string
+          description: URL de la page de détail du contenu
+          example: https://example.com/anime/123
+        name:
+          type: string
+          description: Titre du contenu
+          example: Attack on Titan
+        imageUrl:
+          type: string
+          description: URL de la miniature
+          example: https://example.com/img/aot.jpg
+        author:
+          type: string
+          example: Hajime Isayama
+        description:
+          type: string
+        genre:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: Completed
+
+    ItemsPage:
+      type: object
+      required: [mangas, hasNextPage]
+      properties:
+        mangas:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedItem'
+        hasNextPage:
+          type: boolean
+          description: Indique s'il existe une page suivante
+
+    Chapter:
+      type: object
+      description: Chapitre (manga) ou épisode (anime)
+      properties:
+        url:
+          type: string
+          description: URL du chapitre/épisode
+        name:
+          type: string
+          description: Titre ou numéro du chapitre
+          example: Chapter 1
+        dateUpload:
+          type: string
+          description: Date de mise en ligne (timestamp ms ou string)
+        chapterNumber:
+          type: number
+          example: 1
+        scanlator:
+          type: string
+
+    ContentDetail:
+      type: object
+      description: Détail complet d'un contenu (manga ou anime)
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        author:
+          type: string
+        status:
+          type: string
+        genre:
+          type: array
+          items:
+            type: string
+        chapters:
+          type: array
+          description: Chapitres (manga/novel)
+          items:
+            $ref: '#/components/schemas/Chapter'
+        episodes:
+          type: array
+          description: Épisodes (anime/vidéo)
+          items:
+            $ref: '#/components/schemas/Chapter'
+
+    VideoStream:
+      type: object
+      required: [url, quality]
+      properties:
+        url:
+          type: string
+          description: URL directe du stream
+          example: https://cdn.example.com/video.m3u8
+        quality:
+          type: string
+          description: Label de qualité
+          example: 1080p
+        headers:
+          type: object
+          description: Headers HTTP supplémentaires requis pour lire le stream
+          additionalProperties:
+            type: string
+          example:
+            Referer: https://example.com
+        isM3U8:
+          type: boolean
+          default: false
+        isMPD:
+          type: boolean
+          default: false
+
+    VideosResponse:
+      type: object
+      required: [videos]
+      properties:
+        videos:
+          type: array
+          items:
+            $ref: '#/components/schemas/VideoStream'
+
+    MangaPage:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Numéro de la page (commence à 0)
+        url:
+          type: string
+          description: URL de l'image
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+
+    PagesResponse:
+      type: object
+      required: [pages]
+      properties:
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/MangaPage'
+
+    Filter:
+      type: object
+      description: Filtre de recherche avancée (type variable selon l'extension)
+      properties:
+        type:
+          type: string
+          example: SelectFilter
+        name:
+          type: string
+          example: Genre
+        value:
+          description: Valeur courante du filtre
+        options:
+          type: array
+          items:
+            type: string
+
+    FiltersResponse:
+      type: object
+      required: [filters]
+      properties:
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Filter'
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Source not found
+
+  # ── Responses ────────────────────────────────────────────────────────────────
+
+  responses:
+    BadRequest:
+      description: Paramètre requis manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: url query param required
+
+    Unauthorized:
+      description: Clé API manquante ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Missing or invalid API key
+
+    Forbidden:
+      description: Source NSFW — non disponible via l'API publique
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Source not available via API
+
+    NotFound:
+      description: Source introuvable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Source not found
+
+    InternalError:
+      description: Erreur interne du serveur (extension crash, réseau…)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Extension returned empty result
+
+  # ── Security schemes ────────────────────────────────────────────────────────
+
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Clé API passée dans le header `X-Api-Key`
+
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Clé API passée comme `Authorization: Bearer <clé>`

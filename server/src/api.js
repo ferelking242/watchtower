@@ -3,9 +3,13 @@ const express = require('express');
 const { rateLimiterMiddleware } = require('./rate-limiter');
 const registry = require('./extension-registry');
 const { createRuntime } = require('./js-runtime');
+const docsRouter = require('./docs');
 
 const app = express();
 app.use(express.json());
+
+// ── Docs — GET /docs (Swagger UI, no auth required) ──────────────────────────
+app.use('/docs', docsRouter);
 
 // ── Request / Response logger ─────────────────────────────────────────────────
 const RESET = '\x1b[0m', GREEN = '\x1b[32m', YELLOW = '\x1b[33m',
