@@ -5,6 +5,22 @@
 
 ---
 
+## Session 2026-07-17 (agent) — ajouts
+
+| Tâche | Statut | Repo | Notes |
+|---|---|---|---|
+| Serveur headless lancé ici (Replit) | ✅ | watchtower | Node.js 20, port 8080, `/api/ping` OK, 114 sources |
+| `ProfileScreen` — page Compte | ✅ | watchtower-real | AppBar + icône 3-barres → /connect |
+| `FriendsScreen` — page Amis | ✅ | watchtower-real | Tabs Suggérés/Abonnements, follow animé |
+| `InboxScreen` — page Boîte | ✅ | watchtower-real | Tabs Tout/Mentions/Activité, badge unread |
+| Routes /profile /friends /inbox | ✅ | watchtower-real | router.dart mis à jour |
+| Bottom nav branchée sur les pages | ✅ | watchtower-real | Amis→/friends Boîte→/inbox Profil→/profile |
+| Config serveur retirée de l'accueil | ✅ | watchtower-real | /connect accessible via Profil → 3-barres |
+| Fix build APK : dependency_overrides | ✅ | watchtower-real | media_kit_video conflit @HEAD corrigé |
+| Build APK déclenché (CI) | 🚧 | watchtower-real | run in_progress après fix |
+
+---
+
 ## Phase 0 — Fondations (✅ Complété)
 
 | Tâche | Statut | Date | Notes |
