@@ -9,39 +9,22 @@ async function getFetch() {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
-// Primary remote catalogue (manga/novel only — anime_index.json doesn't exist yet)
+// Catalogue des extensions watchtower (format watch.json — array de sources JS)
 const CATALOGUE_URL = process.env.CATALOGUE_URL ||
-  'https://kodjodevf.github.io/mangayomi-extensions/index.json';
+  'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main/index/watch.json';
 
-// Raw base URL for resolving relative sourceCodeUrls
+// Base URL brute pour résoudre les sourceCodeUrl relatifs (non utilisé normalement
+// car watch.json contient déjà des URLs absolues jsdelivr, mais conservé au cas où)
 const RAW_BASE = process.env.EXTENSIONS_REPO_URL ||
-  'https://raw.githubusercontent.com/kodjodevf/mangayomi-extensions/main';
+  'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
 
 const CACHE_DIR = process.env.CACHE_DIR || path.join(__dirname, '../../data/cache');
 const CACHE_TTL = parseInt(process.env.CACHE_TTL_MS || '300000', 10);
-
-// Path to the bundled local extension
-const LOCAL_EXT_PATH = path.join(__dirname, '../extensions/local.js');
 
 console.log(`[REGISTRY] CATALOGUE_URL = ${CATALOGUE_URL}`);
 console.log(`[REGISTRY] RAW_BASE      = ${RAW_BASE}`);
 console.log(`[REGISTRY] CACHE_DIR     = ${CACHE_DIR}`);
 console.log(`[REGISTRY] CACHE_TTL     = ${CACHE_TTL}ms`);
-console.log(`[REGISTRY] LOCAL_EXT     = ${LOCAL_EXT_PATH}`);
-
-// ── Built-in "local" source descriptor ───────────────────────────────────────
-const LOCAL_SOURCE = {
-  id:            'local',
-  name:          'Watchtower Local',
-  lang:          'fr',
-  baseUrl:       '',
-  sourceCodeUrl: '__local__',       // sentinel — load from disk
-  iconUrl:       '',
-  isNsfw:        false,
-  itemType:      2,                 // 2 = video/anime in mangayomi convention
-  isManga:       false,
-  version:       '1.0.0',
-};
 
 // ── In-memory cache ───────────────────────────────────────────────────────────
 const _memCache = new Map();
@@ -103,8 +86,8 @@ async function fetchText(url) {
 }
 
 // ── Remote catalogue ──────────────────────────────────────────────────────────
-let _catalogue     = null;
-let _catalogueTs   = 0;
+let _catalogue   = null;
+let _catalogueTs = 0;
 
 async function getCatalogue() {
   if (_catalogue && Date.now() - _catalogueTs < CACHE_TTL) return _catalogue;
@@ -113,10 +96,11 @@ async function getCatalogue() {
   const text = await fetchText(CATALOGUE_URL);
   const raw  = JSON.parse(text);
 
-  // Normalise to array
+  // watch.json est un array direct ; fallback sur d'autres formats si besoin
   const all = Array.isArray(raw) ? raw : (raw.sources || raw.extensions || []);
 
-  // Only keep JS-based sources (Dart sources can't run in Node.js vm)
+  // On garde uniquement les extensions JS (les sources Dart ne peuvent pas
+  // tourner dans le vm Node.js)
   _catalogue = all.filter(s =>
     s.sourceCodeUrl && String(s.sourceCodeUrl).endsWith('.js')
   );
@@ -129,38 +113,28 @@ async function getCatalogue() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * List sources.
- * The built-in "local" source is always prepended (itemType=2, video).
+ * Liste toutes les sources du catalogue watchtower-extensions.
+ * Par défaut exclut les sources NSFW ; passer includeNsfw: true pour toutes.
  */
 async function listSources({ includeNsfw = false } = {}) {
-  let remote = [];
+  let sources = [];
   try {
     const cat = await getCatalogue();
-    remote = cat.filter(s => includeNsfw || !s.isNsfw);
+    sources = cat.filter(s => includeNsfw || !s.isNsfw);
   } catch (e) {
-    console.warn(`[REGISTRY] Could not load remote catalogue: ${e.message}`);
+    console.warn(`[REGISTRY] Could not load catalogue: ${e.message}`);
   }
 
-  // Always include local source first
-  const all = [LOCAL_SOURCE, ...remote];
-  console.log(`[REGISTRY] listSources → ${all.length} sources (local + ${remote.length} remote)`);
-  return all;
+  console.log(`[REGISTRY] listSources → ${sources.length} sources (includeNsfw=${includeNsfw})`);
+  return sources;
 }
 
 /**
- * Find a source by id, slug, or name (case-insensitive).
- * Always checks built-in local source first.
+ * Trouve une source par id, slug ou nom (insensible à la casse).
  */
 async function findSource(idOrName) {
   const q = String(idOrName).toLowerCase();
   console.log(`[REGISTRY] findSource("${idOrName}")…`);
-
-  // Check built-in first
-  if (q === 'local' || q === String(LOCAL_SOURCE.id) ||
-      q === LOCAL_SOURCE.name.toLowerCase()) {
-    console.log(`[REGISTRY] → built-in local source`);
-    return LOCAL_SOURCE;
-  }
 
   try {
     const sources = await listSources({ includeNsfw: true });
@@ -186,15 +160,11 @@ async function findSource(idOrName) {
 }
 
 /**
- * Return the JS source code for a given source.
- * Handles built-in (__local__) and remote sources.
+ * Retourne le code JS d'une source.
+ * Toutes les sourceCodeUrl dans watch.json sont des URLs absolues (jsdelivr CDN)
+ * donc on les télécharge directement.
  */
 async function getSourceJs(source) {
-  if (source.sourceCodeUrl === '__local__') {
-    console.log(`[REGISTRY] Loading built-in local extension from disk`);
-    return fs.readFileSync(LOCAL_EXT_PATH, 'utf8');
-  }
-
   if (!source.sourceCodeUrl) throw new Error(`Source "${source.name}" has no sourceCodeUrl`);
 
   const url = source.sourceCodeUrl.startsWith('http')
