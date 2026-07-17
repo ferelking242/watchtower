@@ -5,6 +5,16 @@
 
 ---
 
+## Session 2026-07-17 (agent session 3) — ajouts
+
+| Tâche | Statut | Repo | Notes |
+|---|---|---|---|
+| Fix `valueOrNull` → `.asData?.value` | ✅ | watchtower-real | Bug Riverpod 3.x dans `connect_screen.dart` |
+| Pagination infinie feed | ✅ | watchtower-real | `loadMore()` dans FeedNotifier + déclencheur onPageChanged |
+| Spinner "loading more" | ✅ | watchtower-real | `_LoadingMoreIndicator` + `loadingMoreProvider` |
+
+---
+
 ## Session 2026-07-17 (agent) — ajouts
 
 | Tâche | Statut | Repo | Notes |
@@ -78,8 +88,8 @@
 
 | Tâche | Statut | Fichier cible | Notes |
 |---|---|---|---|
-| Pagination infinie dans `feed_provider.dart` | 📋 | watchtower-real | Charger page suivante quand index → fin |
-| Settings screen (URL + API key + source) | 📋 | watchtower-real | Actuellement hardcodé dans SharedPrefs |
+| Pagination infinie dans `feed_provider.dart` | ✅ | watchtower-real | loadMore() déclenché quand index ≥ items.length - 3 |
+| Settings screen (URL + API key + source) | ✅ | watchtower-real | ConnectScreen (/connect) — déjà complet depuis session 1 |
 | Double-tap like sur `feed_page.dart` | 📋 | watchtower-real | Animation cœur style TikTok |
 | Long-press pause sur `feed_page.dart` | 📋 | watchtower-real | Pause pendant le hold |
 | Progress bar vidéo (fine, bottom) | 📋 | watchtower-real | Style TikTok : trait fin en bas |
