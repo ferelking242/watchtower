@@ -5,6 +5,18 @@
 
 ---
 
+## Session 2026-07-17 (agent session 4) — ajouts
+
+| Tâche | Statut | Repo | Notes |
+|---|---|---|---|
+| Double-tap like (animation cœur) | ✅ | watchtower-real | `_HeartBurst` HookWidget, scale+opacity, positionné au tap |
+| Long-press pause | ✅ | watchtower-real | `onLongPressStart/End/Cancel`, indicateur visuel |
+| Progress bar vidéo (thin bottom) | ✅ | watchtower-real | `_VideoProgressBar` StreamBuilder position/duration |
+| Fix CI APK workflow (keystore) | ✅ | watchtower-real | Décode KEYSTORE_BASE64, fallback keytool, build release |
+| Fix CI IPA workflow (Xcode 16 signing) | ✅ | watchtower-real | Patch pbxproj + Podfile après flutter create → no-codesign |
+
+---
+
 ## Session 2026-07-17 (agent session 3) — ajouts
 
 | Tâche | Statut | Repo | Notes |
