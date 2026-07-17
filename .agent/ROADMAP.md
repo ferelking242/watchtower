@@ -67,7 +67,16 @@
 
 ---
 
-## Phase 1 — SDK (🚧 En cours)
+## Session 2026-07-17 (agent session 5) — ajouts
+
+| Tâche | Statut | Repo | Notes |
+|---|---|---|---|
+| Exposer `getRaw()` dans SDK Dart | ✅ | watchtower-sdk-dart | GET brut avec retry+auth — commit c211df4 |
+| Remplacer `RemoteApiClient` par adaptateur SDK | ✅ | watchtower-real | pubspec git dep + remote_client.dart réécrit — commit ceba6fd |
+
+---
+
+## Phase 1 — SDK (✅ Complété pour Reel)
 
 | Tâche | Statut | Repo cible | Notes |
 |---|---|---|---|
@@ -77,7 +86,8 @@
 | Modèles typés Dart (`Source`, `FeedItem`…) | ✅ | watchtower-sdk-dart | Source, FeedItem, ItemsPage, ContentDetail, VideoStream, MangaPage, Filter |
 | Retry + backoff dans SDK Dart | ✅ | watchtower-sdk-dart | Exponentiel 300ms→600ms→1200ms, max 3 tentatives |
 | Tests SDK Dart | ✅ | watchtower-sdk-dart | Couverture ping, list, popular, videos, detail, pages, retry |
-| Remplacer `RemoteApiClient` dans Reel par le SDK | 📋 | watchtower-real | `pubspec.yaml` git dep — à faire après stabilisation Reel |
+| Exposer `getRaw()` dans SDK Dart | ✅ | watchtower-sdk-dart | GET brut avec retry+auth pour clients nécessitant la réponse brute |
+| Remplacer `RemoteApiClient` dans Reel par le SDK | ✅ | watchtower-real | Adaptateur thin — interface identique, internalement WatchtowerClient |
 | Créer `ferelking242/watchtower-sdk-js` | 📋 | nouveau repo | TypeScript, npm `@watchtower/client` |
 | SDK Python (optionnel phase 1) | 📋 | nouveau repo | PyPI `watchtower-client`, pour Colab |
 
