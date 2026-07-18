@@ -1,6 +1,6 @@
 # Watchtower
 
-Flutter fork of [Mangayomi](https://github.com/kodjodevf/mangayomi), featuring a Netflix-inspired "Watch" module for streaming sources.
+Application Flutter multimédia — manga, anime, séries, musique, novels. Module Watch Netflix-style pour sources streaming, avec serveur headless Node.js et extensions JS/Dart.
 
 ## Build & CI
 
@@ -15,9 +15,12 @@ Flutter fork of [Mangayomi](https://github.com/kodjodevf/mangayomi), featuring a
 - `lib/modules/watch/` — Netflix-style Watch module (home, detail, search).
   - `home/watch_home_screen.dart` — main home screen (pull-to-refresh, search, catalogue).
   - `home/nf_widgets/` — Netflix-adapted UI components.
-- `lib/modules/manga/` — standard manga/anime module (Mangayomi base).
+- `lib/modules/manga/` — module manga/anime (lecture, sources, bibliothèque).
 - `lib/models/` — Isar entity models (`Manga`, `Source`, etc.).
 - `lib/services/` — Riverpod provider services for extension data.
+- `server/` — Serveur Node.js headless (déploiement cloud), registry extensions.
+- `rust/` — Bindings Rust (EPUB, image, TLS custom via flutter_rust_bridge).
+- `go/` — Client BitTorrent + serveur streaming HTTP.
 
 ## Rules
 
