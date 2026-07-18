@@ -1403,15 +1403,16 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
     }
 
 
-    if (_isSearch) {
-      return _buildSearchScreen(context);
-    }
-
     final sourceName = !isLocal
         ? (source.name ?? '')
         : '${l10n.local_source} ${source.itemType.localized(l10n)}';
 
-    return Scaffold(
+    // ── Aidoku-style : on garde la home dans le Stack, l'overlay de recherche
+    // s'anime par-dessus plutôt que de remplacer toute la page.
+    return Stack(
+      children: [
+        // ─── Home scaffold ────────────────────────────────────────────────
+        Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: NestedScrollView(
         controller: _scrollController,
@@ -1431,9 +1432,9 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
             expandedHeight: 120,
             automaticallyImplyLeading: false,
             leadingWidth: 90,
-            centerTitle: true,
-            // title: is intentionally absent — FlexibleSpaceBar.title handles
-            // both expanded (large) and collapsed (small) states automatically.
+            // centerTitle: false → FlexibleSpaceBar gère le titre dans les deux états.
+            // Le grand titre apparaît à GAUCHE (Aidoku), la toolbar le reprend à gauche aussi.
+            centerTitle: false,
             leading: GestureDetector(
               onTap: () => context.pop(),
               behavior: HitTestBehavior.opaque,
@@ -1508,25 +1509,31 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
                 ),
               const SizedBox(width: 4),
             ],
-            // Pills stick inside the SliverAppBar — part of the header, not a
-            // separate sliver. Transparent so the flexibleSpace blur shows through.
+            // Pills — Aidoku : fade-out lors de la recherche, fade-in au retour.
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(40),
-              child: _TabPillsRow(
-                tabs: _tabs,
-                selectedIndex: _selectedIndex,
-                onSelect: (index) {
-                  _mangaList.clear();
-                  setState(() {
-                      _selectedIndex = index;
-                      _isFiltering = false;
-                      _isSearch = false;
-                      _query = "";
-                      _textEditingController.clear();
-                      _page = 1;
-                      _isLoading = false;
-                    });
-                },
+              preferredSize: const Size.fromHeight(44),
+              child: AnimatedOpacity(
+                opacity: _isSearch ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: _isSearch,
+                  child: _TabPillsRow(
+                    tabs: _tabs,
+                    selectedIndex: _selectedIndex,
+                    onSelect: (index) {
+                      _mangaList.clear();
+                      setState(() {
+                        _selectedIndex = index;
+                        _isFiltering = false;
+                        _isSearch = false;
+                        _query = "";
+                        _textEditingController.clear();
+                        _page = 1;
+                        _isLoading = false;
+                      });
+                    },
+                  ),
+                ),
               ),
             ),
             // flexibleSpace: blur glass + large animated title (centered, on top)
@@ -1545,13 +1552,15 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
                     ),
                   ),
                 ),
-                // ── Large → small animated title (centered, in front) ────
+                // ── Grand titre GAUCHE (étendu) → disparaît quand collapsé
+                // Le titre collapsé centré est géré par SliverAppBar.title ci-dessus.
+                // Aidoku : titre gauche en mode large, centré en mode toolbar.
                 FlexibleSpaceBar(
-                  centerTitle: true,
-                  expandedTitleScale: 1.75,
-                  // titlePadding bottom: tab pill height (40) + small gap
+                  centerTitle: false,         // ← GAUCHE en mode étendu (Aidoku)
+                  expandedTitleScale: 1.5,    // légèrement moins agressif que 1.75
+                  // padding gauche 16 pour aligner avec le contenu, droite 72 pour actions
                   titlePadding: const EdgeInsetsDirectional.fromSTEB(
-                      72, 0, 72, 46),
+                      16, 0, 72, 46),
                   title: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1560,12 +1569,12 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
                           borderRadius: BorderRadius.circular(5),
                           child: Image.network(
                             source.iconUrl!,
-                            width: 20, height: 20,
+                            width: 18, height: 18,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 7),
                       ],
                       Flexible(
                         child: Text(
@@ -1573,6 +1582,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1598,7 +1608,21 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
         ],
         body: _buildBody(context),
       ),
-    );
+        ), // Scaffold (home)
+
+        // ─── Overlay de recherche — Aidoku style ──────────────────────────
+        // Fade-in par-dessus la home, fade-out au retour.
+        AnimatedOpacity(
+          opacity: _isSearch ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          child: IgnorePointer(
+            ignoring: !_isSearch,
+            child: _buildSearchScreen(context),
+          ),
+        ),
+      ], // Stack.children
+    ); // Stack
   }
 }
 
@@ -1617,16 +1641,18 @@ class _TabPillsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Aidoku ListingsHeaderView : HStack(spacing: 6), padding .horizontal (16),
+    // pills : horizontal 13 / vertical 8. Hauteur totale ≈ 44.
     return SizedBox(
-      height: 40,
+      height: 44,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         itemCount: tabs.length,
         itemBuilder: (context, index) {
           final tab = tabs[index];
           return Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: 6), // Aidoku spacing: 6
             child: MangasCardSelector(
               icon: tab.icon,
               emojiStr: tab.emojiStr,

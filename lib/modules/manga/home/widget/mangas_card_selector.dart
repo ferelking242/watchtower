@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
+/// Pill selector — style Aidoku / iOS :
+///   • Actif   : couleur primaire (tint), texte blanc
+///   • Inactif : secondarySystemFill (surfaceContainerHighest), texte primaire
+///   • Forme   : RoundedRectangle cornerRadius 100 (stadium)
+///   • Padding : horizontal 13, vertical 8  (identique à Aidoku ListingsHeaderView)
+///   • Police  : footnote w500 (~12 sp)
+///   • Pas de bordure
 class MangasCardSelector extends StatelessWidget {
   final String text;
-  final IconData? icon;      // Material icon — optionnel
-  final String? emojiStr;    // emoji / texte court — optionnel
+  final IconData? icon;    // optionnel — affiché en petit avant le texte
+  final String? emojiStr;  // emoji / texte court — optionnel
   final bool selected;
   final VoidCallback onPressed;
+
   const MangasCardSelector({
     super.key,
     required this.text,
@@ -18,45 +26,41 @@ class MangasCardSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = selected
-        ? Colors.white
-        : Theme.of(context).textTheme.bodyMedium!.color;
+    final cs = Theme.of(context).colorScheme;
+
+    final bgColor = selected
+        ? cs.primary
+        : cs.surfaceContainerHighest.withValues(alpha: 0.85);
+
+    final textColor = selected ? Colors.white : cs.onSurface;
 
     return GestureDetector(
       onTap: onPressed,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
-          color: selected
-              ? context.primaryColor
-              : context.primaryColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected
-                ? context.primaryColor
-                : context.primaryColor.withValues(alpha: 0.22),
-            width: 0.8,
-          ),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(100), // stadium — identique à Aidoku
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon!, size: 13, color: textColor),
-              const SizedBox(width: 5),
+              Icon(icon!, size: 12, color: textColor),
+              const SizedBox(width: 4),
             ] else if (emojiStr != null) ...[
-              Text(emojiStr!,
-                  style: const TextStyle(fontSize: 11, height: 1.0)),
+              Text(emojiStr!, style: const TextStyle(fontSize: 11, height: 1.0)),
               const SizedBox(width: 4),
             ],
             Text(
               text,
-              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500, // .footnote.weight(.medium) Aidoku
                 color: textColor,
+                height: 1.2,
               ),
             ),
           ],
