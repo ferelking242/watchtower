@@ -653,11 +653,15 @@ Future<void> downloadChapter(
     // Register immediately so any concurrent processDownloads call sees this
     // chapter as active and does not double-start it while the page-URL fetch
     // is still in progress (was the root cause of the "0/1 page" stuck bug).
+    // NOTE: manga and itemType are declared below (after getMangaMainDirectory),
+    // so we read them directly from the already-loaded relation here.
+    // processDownloads always calls ch.manga.loadSync() before dispatching, so
+    // chapter.manga.value is non-null by the time we reach this point.
     if (chapter.id != null) {
       ActiveDownloadRegistry.registerInternal(
         chapter.id!, '${chapter.id}',
-        itemType: itemType,
-        source: manga.source ?? '_unknown',
+        itemType: chapter.manga.value?.itemType ?? ItemType.manga,
+        source: chapter.manga.value?.source ?? '_unknown',
       );
     }
 

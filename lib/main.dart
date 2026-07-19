@@ -281,7 +281,7 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
     // high-end devices don't spawn hundreds of isolates.
     final cores = Platform.numberOfProcessors;
     final poolSize = (cores * 2).clamp(8, 32);
-    log('[main] device has $cores CPU cores → isolate pool size = $poolSize');
+    debugPrint('[main] device has $cores CPU cores → isolate pool size = $poolSize');
     unawaited(MDownloader.initializeIsolatePool(poolSize: poolSize));
   }
   // Hive is already initialized + nav_display opened in main() before runApp.
