@@ -627,6 +627,27 @@ package com.watchtower.app
                   else -> result.notImplemented()
               }
           }
+
+          // ── 12. Download Foreground Service control ────────────────────────
+          // Flutter calls start/stop/update to drive DownloadForegroundService.
+          // This keeps the download queue alive when the app is backgrounded.
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "watchtower/download_service"
+          ).setMethodCallHandler { call, result ->
+              try {
+                  val count = call.argument<Int>("count") ?: 0
+                  val title = call.argument<String>("title") ?: "Téléchargement en cours…"
+                  when (call.method) {
+                      "start"  -> { DownloadForegroundService.start(applicationContext, count, title);  result.success(null) }
+                      "update" -> { DownloadForegroundService.update(applicationContext, count, title); result.success(null) }
+                      "stop"   -> { DownloadForegroundService.stop(applicationContext);                 result.success(null) }
+                      else     -> result.notImplemented()
+                  }
+              } catch (e: Exception) {
+                  result.error("SVC_ERR", e.message, null)
+              }
+          }
       }
 
       private fun pluginJsonToMap(json: org.json.JSONObject): Map<String, Any?> {

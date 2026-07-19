@@ -99,8 +99,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   bool _busyInstall = false;
 
   // ── Optional permissions ──────────────────────────────────────────────────
-  bool _overlayGranted = false;  // PiP / draw-over-other-apps
-  bool _busyOverlay = false;
+  bool _overlayGranted  = false; // PiP / draw-over-other-apps
+  bool _busyOverlay     = false;
+  bool _batteryGranted  = false; // Exempt from battery optimisation (Android)
+  bool _busyBattery     = false;
 
   @override
   void initState() {
@@ -146,12 +148,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final n = await Permission.notification.status;
     final i = await Permission.requestInstallPackages.status;
     final o = await Permission.systemAlertWindow.status;
+    final b = await Permission.ignoreBatteryOptimizations.status;
     if (!mounted) return;
     setState(() {
       _storageGranted = s.isGranted;
-      _notifGranted = n.isGranted;
+      _notifGranted   = n.isGranted;
       _installGranted = i.isGranted;
       _overlayGranted = o.isGranted;
+      _batteryGranted = b.isGranted;
     });
   }
 
@@ -261,6 +265,32 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     });
   }
 
+  Future<void> _reqBattery() async {
+    if (_busyBattery) return;
+    setState(() => _busyBattery = true);
+    bool granted = false;
+    try {
+      if (!kIsWeb && Platform.isAndroid) {
+        final status = await Permission.ignoreBatteryOptimizations.status;
+        if (status.isPermanentlyDenied) {
+          await openAppSettings();
+          final updated = await Permission.ignoreBatteryOptimizations.status;
+          granted = updated.isGranted;
+        } else {
+          final result = await Permission.ignoreBatteryOptimizations.request();
+          granted = result.isGranted;
+        }
+      } else {
+        granted = true;
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _batteryGranted = granted;
+      _busyBattery = false;
+    });
+  }
+
   // ── Navigation ───────────────────────────────────────────────────────────
 
   void _next() {
@@ -303,14 +333,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   notifGranted: _notifGranted,
                   installGranted: _installGranted,
                   overlayGranted: _overlayGranted,
+                  batteryGranted: _batteryGranted,
                   busyStorage: _busyStorage,
                   busyNotif: _busyNotif,
                   busyInstall: _busyInstall,
                   busyOverlay: _busyOverlay,
+                  busyBattery: _busyBattery,
                   onStorage: _reqStorage,
                   onNotif: _reqNotif,
                   onInstall: _reqInstall,
                   onOverlay: _reqOverlay,
+                  onBattery: _reqBattery,
                   onFinish: _finish,
                 ),
               ],
@@ -863,23 +896,26 @@ class _Card extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PermissionsPage extends StatelessWidget {
-  final bool storageGranted, notifGranted, installGranted, overlayGranted;
-  final bool busyStorage, busyNotif, busyInstall, busyOverlay;
-  final VoidCallback onStorage, onNotif, onInstall, onOverlay, onFinish;
+  final bool storageGranted, notifGranted, installGranted, overlayGranted, batteryGranted;
+  final bool busyStorage, busyNotif, busyInstall, busyOverlay, busyBattery;
+  final VoidCallback onStorage, onNotif, onInstall, onOverlay, onBattery, onFinish;
 
   const _PermissionsPage({
     required this.storageGranted,
     required this.notifGranted,
     required this.installGranted,
     required this.overlayGranted,
+    required this.batteryGranted,
     required this.busyStorage,
     required this.busyNotif,
     required this.busyInstall,
     required this.busyOverlay,
+    required this.busyBattery,
     required this.onStorage,
     required this.onNotif,
     required this.onInstall,
     required this.onOverlay,
+    required this.onBattery,
     required this.onFinish,
   });
 
@@ -979,6 +1015,17 @@ class _PermissionsPage extends StatelessWidget {
                 granted: overlayGranted,
                 busy: busyOverlay,
                 onTap: onOverlay,
+                optional: true,
+              ),
+              const SizedBox(height: 16),
+              _PermRow(
+                icon: Icons.battery_saver_rounded,
+                title: 'Pas de restriction batterie',
+                subtitle:
+                    'Empêche Android de tuer les téléchargements en arrière-plan (Doze, veille).',
+                granted: batteryGranted,
+                busy: busyBattery,
+                onTap: onBattery,
                 optional: true,
               ),
             ],

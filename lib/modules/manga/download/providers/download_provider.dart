@@ -45,6 +45,7 @@ import 'package:watchtower/utils/utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/services/download_manager/background_keep_alive.dart';
 part 'download_provider.g.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1397,8 +1398,11 @@ Future<void> downloadChapter(
 Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   // Keep this provider alive so it can run for the full duration of the queue.
   final keepAlive = ref.keepAlive();
+  // Acquire wakelock + start Android foreground service so the OS does not
+  // kill the process while downloads are running in the background.
+  unawaited(BackgroundKeepAlive.start());
   try {
-    await Future.doWhile(() async {
+    await Future.doWhile<bool>(() async {
       // Poll interval — short enough to feel snappy, long enough not to thrash.
       await Future.delayed(const Duration(milliseconds: 900));
 
@@ -1513,8 +1517,10 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
 
       return true; // keep polling
     });
+  } finally {
+    // Always release the wakelock and stop the foreground service, whether
+    // the queue drained normally, threw, or was cancelled.
     keepAlive.close();
-  } catch (_) {
-    keepAlive.close();
+    unawaited(BackgroundKeepAlive.stop());
   }
 }
