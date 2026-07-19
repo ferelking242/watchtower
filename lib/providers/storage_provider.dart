@@ -17,6 +17,8 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/sync_preference.dart';
 import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
+import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
+import 'package:watchtower/local_indexer/models/local_file_cache.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -288,6 +290,9 @@ class StorageProvider {
         SyncPreferenceSchema,
         SourcePreferenceSchema,
         SourcePreferenceStringValueSchema,
+        // ── Local Indexer ──────────────────────────────────────────────────
+        LocalIndexedItemSchema,
+        LocalFileCacheSchema,
       ];
 
       // Helper: purge any broken/partial Isar instance stuck in the global
@@ -321,7 +326,7 @@ class StorageProvider {
         // on-disk DB was created with a different schema (stale build data).
         // We store a tiny version file next to the DB and wipe the DB files
         // before opening if the version doesn't match — guaranteeing a clean slate.
-        const kCurrentDbVersion = '9';
+        const kCurrentDbVersion = '10'; // +LocalIndexedItem +LocalFileCache
         final versionFile = File('${dir!.path}/watchtowerDb.schema_version');
         try {
           final storedVersion = await versionFile.exists()

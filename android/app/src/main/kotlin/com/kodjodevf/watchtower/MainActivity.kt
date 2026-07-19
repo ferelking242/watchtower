@@ -111,6 +111,7 @@ package com.watchtower.app
       override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
           super.configureFlutterEngine(flutterEngine)
           Shizuku.addRequestPermissionResultListener(shizukuPermListener)
+          flutterEngine.plugins.add(MediaStorePlugin()) // Local Indexer MediaStore bridge
 
           // ── 1. Torrent server ──────────────────────────────────────────────
           MethodChannel(
