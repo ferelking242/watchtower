@@ -733,7 +733,15 @@ Future<void> _processM3u8Download(
 
   // Byte accumulators — updated after each segment lands.
   int downloadedBytes = 0;
+  // Once we have sampled enough segments we lock the total estimate so it
+  // does not jump around as the running average fluctuates.  The estimate
+  // is frozen after kLockAfterSegments completed segments, whichever comes
+  // first.  After locking, only downloadedBytes grows; the UI shows smooth
+  // "14 MB / 58 MB" progress without the total jumping.
   int estimatedTotalBytes = 0;
+  bool _totalLocked = false;
+  // Number of segments after which the estimate is considered stable.
+  const int kLockAfterSegments = 8;
 
   try {
     final int concurrency = params.concurrentDownloads.clamp(1, 32);
@@ -763,10 +771,16 @@ Future<void> _processM3u8Download(
               }
             } catch (_) {}
 
-            // Re-estimate total after each segment using running average.
-            if (completed > 0) {
+            // Estimate total only while we do not yet have a stable reading.
+            // Once kLockAfterSegments segments have landed, lock the estimate
+            // so the total does not keep jumping as different-sized segments
+            // change the running average.
+            if (!_totalLocked && completed > 0) {
               final avgBytesPerSegment = downloadedBytes ~/ completed;
               estimatedTotalBytes = avgBytesPerSegment * total;
+              if (completed >= kLockAfterSegments) {
+                _totalLocked = true;
+              }
             }
 
             replyPort.send(DownloadProgress(

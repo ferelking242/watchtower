@@ -1439,15 +1439,20 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
       }
 
       // ── Re-read limits every tick so settings changes apply immediately ───
+      // IMPORTANT: always load() first — the provider build() methods call
+      // load() without await (synchronous context), so they return the cached
+      // default values on the first build.  Reading directly from the service
+      // after awaiting load() guarantees the user's persisted settings are used.
+      await DownloadSettingsService.instance.load();
       final typeMax = <ItemType, int>{
-        ItemType.manga: ref.read(mangaSimultaneousStateProvider),
-        ItemType.anime: ref.read(watchSimultaneousStateProvider),
-        ItemType.novel: ref.read(novelSimultaneousStateProvider),
+        ItemType.manga: DownloadSettingsService.instance.mangaSimultaneous,
+        ItemType.anime: DownloadSettingsService.instance.watchSimultaneous,
+        ItemType.novel: DownloadSettingsService.instance.novelSimultaneous,
       };
       final typePerSrcMax = <ItemType, int>{
-        ItemType.manga: ref.read(mangaSimultaneousPerSourceStateProvider),
-        ItemType.anime: ref.read(watchSimultaneousPerSourceStateProvider),
-        ItemType.novel: ref.read(novelSimultaneousPerSourceStateProvider),
+        ItemType.manga: DownloadSettingsService.instance.mangaSimultaneousPerSource,
+        ItemType.anime: DownloadSettingsService.instance.watchSimultaneousPerSource,
+        ItemType.novel: DownloadSettingsService.instance.novelSimultaneousPerSource,
       };
 
       // ── Start downloads that fit within the limits ─────────────────────────

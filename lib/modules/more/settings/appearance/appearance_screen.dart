@@ -410,3 +410,178 @@ class AppearanceScreen extends ConsumerWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Language picker dialog
+// ---------------------------------------------------------------------------
+
+class _LanguagePickerDialog extends StatelessWidget {
+  const _LanguagePickerDialog({
+    required this.currentLocale,
+    required this.onSelected,
+    required this.cancelLabel,
+  });
+
+  final Locale currentLocale;
+  final ValueChanged<Locale> onSelected;
+  final String cancelLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final locales = AppLocalizations.supportedLocales;
+    return AlertDialog(
+      title: const Text('Language'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SuperListView.builder(
+          shrinkWrap: true,
+          itemCount: locales.length,
+          itemBuilder: (context, index) {
+            final locale = locales[index];
+            final tag = locale.toLanguageTag();
+            final flag = langFlagEmoji(tag);
+            final name = completeLanguageName(tag);
+            final selected = locale.languageCode == currentLocale.languageCode &&
+                locale.countryCode == currentLocale.countryCode;
+            return RadioListTile<Locale>(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: locale,
+              groupValue: selected ? locale : null,
+              title: Text('$flag  $name'),
+              onChanged: (_) {
+                onSelected(locale);
+                Navigator.pop(context);
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            cancelLabel,
+            style: TextStyle(color: context.primaryColor),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Font picker dialog
+// ---------------------------------------------------------------------------
+
+class _FontPickerDialog extends StatefulWidget {
+  const _FontPickerDialog({
+    required this.currentFont,
+    required this.defaultLabel,
+    required this.cancelLabel,
+    required this.onSelected,
+  });
+
+  final String? currentFont;
+  final String defaultLabel;
+  final String cancelLabel;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  State<_FontPickerDialog> createState() => _FontPickerDialogState();
+}
+
+class _FontPickerDialogState extends State<_FontPickerDialog> {
+  late final TextEditingController _search;
+  late List<MapEntry<String, dynamic>> _all;
+  late List<MapEntry<String, dynamic>> _filtered;
+
+  @override
+  void initState() {
+    super.initState();
+    _all = GoogleFonts.asMap().entries.toList();
+    _filtered = _all;
+    _search = TextEditingController()
+      ..addListener(() {
+        final q = _search.text.toLowerCase();
+        setState(() {
+          _filtered = q.isEmpty
+              ? _all
+              : _all.where((e) => e.key.toLowerCase().contains(q)).toList();
+        });
+      });
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Font'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              controller: _search,
+              decoration: const InputDecoration(
+                hintText: 'Search fonts…',
+                prefixIcon: Icon(Icons.search),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: SuperListView.builder(
+                itemCount: _filtered.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    // Default option
+                    return RadioListTile<String?>(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: null,
+                      groupValue: widget.currentFont,
+                      title: Text(widget.defaultLabel),
+                      onChanged: (_) {
+                        widget.onSelected(null);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }
+                  final entry = _filtered[index - 1];
+                  final fontFamily = entry.value().fontFamily!;
+                  return RadioListTile<String?>(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: fontFamily,
+                    groupValue: widget.currentFont,
+                    title: Text(entry.key),
+                    onChanged: (_) {
+                      widget.onSelected(fontFamily);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            widget.cancelLabel,
+            style: TextStyle(color: context.primaryColor),
+          ),
+        ),
+      ],
+    );
+  }
+}
+

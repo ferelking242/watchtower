@@ -61,7 +61,7 @@ const LocalFileCacheSchema = CollectionSchema(
   idName: r'id',
   indexes: {
     r'filePath': IndexSchema(
-      id: 9876543210987654321,
+      id: 5678901234567890123,
       name: r'filePath',
       unique: true,
       replace: false,
