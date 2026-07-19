@@ -16,6 +16,11 @@ class ActiveDownloadRegistry {
   // External engines that implement DownloadEngine (e.g. Aria2)
   static final _engines = <int, DownloadEngine>{};
 
+  // Per-engine metadata — mirrors what _internalItemType/_internalSource do
+  // for pool tasks.  We keep them separate so the two paths stay independent.
+  static final _engineItemType = <int, ItemType>{};
+  static final _engineSource = <int, String>{};
+
   // Internal pool task IDs for M3u8Downloader / MDownloader
   static final _internalTaskIds = <int, String>{};
 
@@ -25,8 +30,21 @@ class ActiveDownloadRegistry {
 
   // ── Registration ──────────────────────────────────────────────────────────
 
-  static void registerEngine(int downloadId, DownloadEngine engine) {
+  /// Register an external engine (e.g. Aria2) for [downloadId].
+  ///
+  /// [itemType] and [source] are required for accurate limit counting via
+  /// [activeCountForType] and [activeCountForSource].  Without them the
+  /// scheduler cannot enforce per-source caps for engine-backed downloads.
+  static void registerEngine(
+    int downloadId,
+    DownloadEngine engine, {
+    ItemType itemType = ItemType.anime,
+    String source = '_unknown',
+  }) {
     _engines[downloadId] = engine;
+    _engineItemType[downloadId] = itemType;
+    _engineSource[downloadId] = source;
+    // Remove any stale internal-pool entry for the same ID
     _internalTaskIds.remove(downloadId);
     _internalItemType.remove(downloadId);
     _internalSource.remove(downloadId);
@@ -41,11 +59,16 @@ class ActiveDownloadRegistry {
     _internalTaskIds[downloadId] = taskId;
     _internalItemType[downloadId] = itemType ?? ItemType.manga;
     _internalSource[downloadId] = source ?? '_unknown';
+    // Remove any stale engine entry for the same ID
     _engines.remove(downloadId);
+    _engineItemType.remove(downloadId);
+    _engineSource.remove(downloadId);
   }
 
   static void unregister(int downloadId) {
     _engines.remove(downloadId);
+    _engineItemType.remove(downloadId);
+    _engineSource.remove(downloadId);
     _internalTaskIds.remove(downloadId);
     _internalItemType.remove(downloadId);
     _internalSource.remove(downloadId);
@@ -57,23 +80,35 @@ class ActiveDownloadRegistry {
   static bool get hasActive =>
       _engines.isNotEmpty || _internalTaskIds.isNotEmpty;
 
-  /// Number of active internal downloads for a given [ItemType].
+  /// Number of active downloads (pool tasks + engines) for a given [ItemType].
   static int activeCountForType(ItemType type) {
     int count = 0;
+    // Internal pool tasks
     for (final id in _internalTaskIds.keys) {
       if (_internalItemType[id] == type) count++;
     }
-    // External engines counted as belonging to their type is not tracked;
-    // for simplicity include them in anime (video) count.
-    if (type == ItemType.anime) count += _engines.length;
+    // External engines — use the metadata stored at registerEngine time
+    for (final id in _engines.keys) {
+      if (_engineItemType[id] == type) count++;
+    }
     return count;
   }
 
   /// Number of active downloads for a given [ItemType] + source combination.
+  ///
+  /// Includes both pool tasks (internal) and engine-backed (external) downloads
+  /// so the per-source cap is enforced uniformly regardless of download engine.
   static int activeCountForSource(ItemType type, String source) {
     int count = 0;
+    // Internal pool tasks
     for (final id in _internalTaskIds.keys) {
       if (_internalItemType[id] == type && _internalSource[id] == source) {
+        count++;
+      }
+    }
+    // External engines
+    for (final id in _engines.keys) {
+      if (_engineItemType[id] == type && _engineSource[id] == source) {
         count++;
       }
     }
@@ -95,11 +130,10 @@ class ActiveDownloadRegistry {
       return;
     }
     if (_internalTaskIds.containsKey(downloadId)) {
+      // Cancel exactly the task that was registered — no guessing about
+      // 'm3u8_' prefixes.  The caller always stores the actual pool task ID.
       final taskId = _internalTaskIds[downloadId]!;
-      // Cancel both the bare and m3u8-prefixed variants — historically
-      // both shapes have been registered depending on the call site.
       DownloadIsolatePool.instance.cancelTask(taskId);
-      DownloadIsolatePool.instance.cancelTask('m3u8_$taskId');
       // Drop the entry so the scheduler considers this chapter idle on
       // resume and re-enqueues it via processDownloads. Already-downloaded
       // segments stay on disk and are skipped on the next attempt.
@@ -127,9 +161,9 @@ class ActiveDownloadRegistry {
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.cancel();
     } else if (_internalTaskIds.containsKey(downloadId)) {
+      // Cancel exactly the registered task ID — no hardcoded prefix guessing.
       final taskId = _internalTaskIds[downloadId]!;
       DownloadIsolatePool.instance.cancelTask(taskId);
-      DownloadIsolatePool.instance.cancelTask('m3u8_$taskId');
     }
     unregister(downloadId);
   }

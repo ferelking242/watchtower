@@ -978,7 +978,10 @@ Future<void> downloadChapter(
           isar.downloads.putSync(
             dl
               ..failed = (dl.failed ?? 0) + 1
-              ..isDownload = false,
+              ..isDownload = false
+              // Stop processDownloads from re-queuing this chapter on every
+              // 900ms tick.  The user can retry manually from the queue UI.
+              ..isStartDownload = false,
           );
         }
       });
@@ -1193,7 +1196,9 @@ Future<void> downloadChapter(
             final dl = isar.downloads.getSync(chapter.id!);
             if (dl != null) {
               isar.writeTxnSync(() {
-                isar.downloads.putSync(dl..failed = 1);
+                isar.downloads.putSync(
+                  dl..failed = 1..isStartDownload = false,
+                );
               });
             }
           }
@@ -1202,7 +1207,9 @@ Future<void> downloadChapter(
           final dl = isar.downloads.getSync(chapter.id!);
           if (dl != null) {
             isar.writeTxnSync(() {
-              isar.downloads.putSync(dl..failed = 1);
+              isar.downloads.putSync(
+                dl..failed = 1..isStartDownload = false,
+              );
             });
           }
         }
@@ -1214,7 +1221,9 @@ Future<void> downloadChapter(
         final dl = isar.downloads.getSync(chapter.id!);
         if (dl != null) {
           isar.writeTxnSync(() {
-            isar.downloads.putSync(dl..failed = 1);
+            isar.downloads.putSync(
+              dl..failed = 1..isStartDownload = false,
+            );
           });
         }
       }
@@ -1248,7 +1257,11 @@ Future<void> downloadChapter(
           chapterId: '${chapter.id}',
         );
         if (chapter.id != null) {
-          ActiveDownloadRegistry.registerEngine(chapter.id!, aria2Engine);
+          ActiveDownloadRegistry.registerEngine(
+            chapter.id!, aria2Engine,
+            itemType: itemType,
+            source: manga.source ?? '_unknown',
+          );
         }
         bool aria2Failed = false;
         try {
@@ -1322,7 +1335,11 @@ Future<void> downloadChapter(
           final dl = isar.downloads.getSync(chapter.id!);
           if (dl != null) {
             isar.writeTxnSync(() {
-              isar.downloads.putSync(dl..failed = 1);
+              // isStartDownload=false stops processDownloads from
+              // re-queueing this broken episode every 900ms tick.
+              isar.downloads.putSync(
+                dl..failed = 1..isStartDownload = false,
+              );
             });
           }
           throw caughtError;
@@ -1349,7 +1366,14 @@ Future<void> downloadChapter(
         final dl = isar.downloads.getSync(chapter.id!);
         if (dl != null) {
           isar.writeTxnSync(() {
-            isar.downloads.putSync(dl..failed = 1..isDownload = false);
+            isar.downloads.putSync(
+              dl
+                ..failed = 1
+                ..isDownload = false
+                // Stop infinite retry — leave isStartDownload=false so
+                // processDownloads skips this chapter until user retries.
+                ..isStartDownload = false,
+            );
           });
         }
       } catch (_) {}
@@ -1452,8 +1476,10 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         // stale after pause/resume because isolates exit without a callback).
         final curType = ActiveDownloadRegistry.activeCountForType(type);
         final curSrc = ActiveDownloadRegistry.activeCountForSource(type, chSrc);
-        final tLimit = typeMax[type] ?? 1;
-        final sLimit = typePerSrcMax[type] ?? 1;
+        // Fallback of 2 instead of 1: an unknown ItemType should not
+        // single-thread the queue; 2 is a sane conservative default.
+        final tLimit = typeMax[type] ?? 2;
+        final sLimit = typePerSrcMax[type] ?? 2;
 
         if (curType >= tLimit || curSrc >= sLimit) continue outer;
 
