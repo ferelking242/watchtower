@@ -24,7 +24,8 @@ class _PlayerDecoderScreenState extends ConsumerState<PlayerDecoderScreen> {
     final useYUV420P = ref.watch(useYUV420PStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.decoder)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(context.l10n.decoder)),
       body: SingleChildScrollView(
         child: Column(
           children: [

@@ -102,7 +102,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     Widget build(BuildContext context) {
       if (kIsWeb) {
         return Scaffold(
-          appBar: AppBar(title: Text(_title)),
+          appBar: AppBar(
+          leading: const BackButton(),title: Text(_title)),
           body: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -123,6 +124,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
       return Scaffold(
         appBar: AppBar(
+          leading: const BackButton(),
           title: Text(_title),
           actions: [
             if (_scanning)

@@ -27,7 +27,8 @@ class TrackScreen extends ConsumerWidget {
     );
     final l10n = l10nLocalizations(context)!;
     return Scaffold(
-      appBar: AppBar(title: Text(l10nLocalizations(context)!.tracking)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(l10nLocalizations(context)!.tracking)),
       body: SingleChildScrollView(
         child: StreamBuilder(
           stream: isar.trackPreferences.filter().syncIdIsNotNull().watch(

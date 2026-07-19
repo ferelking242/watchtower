@@ -18,7 +18,8 @@ class NovelDownloadScreen extends ConsumerWidget {
     final novelOnlyOnWifi = ref.watch(novelOnlyOnWifiStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Téléchargements — Roman')),
+      appBar: AppBar(
+          leading: const BackButton(),title: const Text('Téléchargements — Roman')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(

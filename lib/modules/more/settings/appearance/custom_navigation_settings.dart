@@ -26,7 +26,8 @@ class CustomNavigationSettings extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.reorder_navigation)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(l10n.reorder_navigation)),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

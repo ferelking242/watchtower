@@ -91,6 +91,7 @@ class _ExtensionServerScreenState extends ConsumerState<ExtensionServerScreen> {
         : (_hasUpdateAvailable ? l10n.update_files : l10n.up_to_date);
     return Scaffold(
       appBar: AppBar(
+          leading: const BackButton(),
         title: Text(
           _showExtensionServerSection
               ? l10n.android_proxy_server_mihon

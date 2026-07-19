@@ -10,7 +10,8 @@ class PlayerOverviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n!.player)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(l10n!.player)),
       body: SingleChildScrollView(
         child: Column(
           children: [

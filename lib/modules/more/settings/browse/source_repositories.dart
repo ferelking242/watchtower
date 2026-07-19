@@ -44,6 +44,7 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
     final data = AsyncValue.data(repositories);
     return Scaffold(
       appBar: AppBar(
+          leading: const BackButton(),
         title: switch (widget.itemType) {
           ItemType.manga => Text(l10n.manage_manga_repo_urls),
           ItemType.anime => Text(l10n.manage_anime_repo_urls),

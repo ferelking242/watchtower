@@ -54,7 +54,8 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
     final appLockEnabled = ref.watch(appLockEnabledStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.security)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(l10n.security)),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

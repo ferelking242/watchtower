@@ -33,7 +33,8 @@ class SyncScreen extends ConsumerWidget {
       l10n.sync_auto_12_hours: 43200,
     };
     return Scaffold(
-      appBar: AppBar(title: Text(l10nLocalizations(context)!.syncing)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(l10nLocalizations(context)!.syncing)),
       body: SingleChildScrollView(
         child: StreamBuilder(
           stream: isar.syncPreferences.filter().syncIdIsNotNull().watch(

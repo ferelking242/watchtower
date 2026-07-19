@@ -65,7 +65,8 @@ class UiSettingsScreen extends ConsumerWidget {
         );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Interface & Effets')),
+      appBar: AppBar(
+          leading: const BackButton(),title: const Text('Interface & Effets')),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

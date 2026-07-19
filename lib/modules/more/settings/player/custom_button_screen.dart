@@ -21,7 +21,8 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
     final l10n = context.l10n;
     final customButtons = ref.watch(getCustomButtonsStreamProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.custom_buttons_edit)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(l10n.custom_buttons_edit)),
       body: customButtons.when(
         data: (data) {
           if (data.isEmpty) {

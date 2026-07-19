@@ -19,7 +19,8 @@ class DownloadCardsScreen extends ConsumerWidget {
     final swipeRight = ref.watch(swipeRightActionStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cartes & Gestes')),
+      appBar: AppBar(
+          leading: const BackButton(),title: const Text('Cartes & Gestes')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(

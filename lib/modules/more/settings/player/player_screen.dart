@@ -35,7 +35,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final fullScreenPlayer = ref.watch(fullScreenPlayerStateProvider);
     final forceLandscapePlayer = ref.watch(forceLandscapePlayerStateProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.internal_player)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(context.l10n.internal_player)),
       body: SingleChildScrollView(
         child: Column(
           children: [

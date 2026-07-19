@@ -27,7 +27,8 @@ class MangaDownloadScreen extends ConsumerWidget {
         ref.watch(anticipatoryDownloadReadStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Téléchargements — Manga')),
+      appBar: AppBar(
+          leading: const BackButton(),title: const Text('Téléchargements — Manga')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(

@@ -34,7 +34,8 @@ class WatchDownloadScreen extends ConsumerWidget {
         ref.watch(preferredExternalDownloaderStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Téléchargements — Watch')),
+      appBar: AppBar(
+          leading: const BackButton(),title: const Text('Téléchargements — Watch')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(

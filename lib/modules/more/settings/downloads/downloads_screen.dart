@@ -44,7 +44,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final concurrentDownloads = ref.watch(concurrentDownloadsStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Téléchargements')),
+      appBar: AppBar(
+          leading: const BackButton(),title: const Text('Téléchargements')),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

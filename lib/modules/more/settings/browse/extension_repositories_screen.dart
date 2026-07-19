@@ -35,6 +35,7 @@ class _ExtensionRepositoriesScreenState
     final l10n = l10nLocalizations(context)!;
     return Scaffold(
       appBar: AppBar(
+          leading: const BackButton(),
         title: Text(l10n.extensions),
         bottom: TabBar(
           controller: _tab,

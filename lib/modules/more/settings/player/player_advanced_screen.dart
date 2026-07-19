@@ -24,7 +24,8 @@ class _PlayerAdvancedScreenState extends ConsumerState<PlayerAdvancedScreen> {
     final useMpvConfig = ref.watch(useMpvConfigStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.advanced)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(context.l10n.advanced)),
       body: SingleChildScrollView(
         child: Column(
           children: [

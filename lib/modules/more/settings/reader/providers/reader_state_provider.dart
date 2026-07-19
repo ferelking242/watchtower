@@ -186,15 +186,12 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 
 @riverpod
 class NavigationOrderState extends _$NavigationOrderState {
-  // Hub (Anime/Manga/Novel) comes before Library in the dock, per product
-  // request — keep this order so the collapsed "_enableLibSwitch" (Hub) item
-  // is placed ahead of "/Library" once merge-into-dock logic runs.
   final items = [
     '/discover',
+    '/Library',
     '/AnimeLibrary',
     '/MangaLibrary',
     '/NovelLibrary',
-    '/Library',
     '/MusicLibrary',
     '/GameLibrary',
     '/marketplace',

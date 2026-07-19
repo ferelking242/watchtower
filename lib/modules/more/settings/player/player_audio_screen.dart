@@ -27,7 +27,8 @@ class _PlayerAudioScreenState extends ConsumerState<PlayerAudioScreen> {
     final volumeBoostCap = ref.watch(volumeBoostCapStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.video_audio)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(context.l10n.video_audio)),
       body: SingleChildScrollView(
         child: Column(
           children: [

@@ -35,7 +35,8 @@ class ReaderScreen extends ConsumerWidget {
     final volumeButtonNav = ref.watch(volumeButtonNavigationStateProvider);
     final invertVolumeButtonNav = ref.watch(invertVolumeButtonNavigationStateProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.reader)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(context.l10n.reader)),
       body: SingleChildScrollView(
         child: Column(
           children: [

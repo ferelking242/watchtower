@@ -38,7 +38,8 @@ class BrowseSScreen extends ConsumerWidget {
     final extensionLayout = ref.watch(extensionLayoutModeProvider);
     final l10n = l10nLocalizations(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n!.browse)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(l10n!.browse)),
       body: SingleChildScrollView(
         child: Column(
           children: [

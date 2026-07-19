@@ -30,7 +30,8 @@ class _ManageTrackersScreenState extends State<ManageTrackersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.manage_trackers)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(context.l10n.manage_trackers)),
       body: GridViewWidget(
         childAspectRatio: 0.69,
         itemCount: trackPreferences.length,

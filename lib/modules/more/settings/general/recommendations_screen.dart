@@ -76,6 +76,7 @@ class _RecommendationsScreenState
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
+          leading: const BackButton(),
         title: const Text('Recommendations'),
         actions: [
           TextButton.icon(

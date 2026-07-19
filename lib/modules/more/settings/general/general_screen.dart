@@ -32,7 +32,8 @@ class GeneralScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.general)),
+      appBar: AppBar(
+          leading: const BackButton(),title: Text(l10n.general)),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

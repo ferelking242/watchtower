@@ -631,13 +631,15 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Avancé")),
+        appBar: AppBar(
+          leading: const BackButton(),title: const Text("Avancé")),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Avancé")),
+      appBar: AppBar(
+          leading: const BackButton(),title: const Text("Avancé")),
       body: ListView(
         children: [
           // ── Section : Installation automatique ─────────────────────────
@@ -673,6 +675,12 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               _setBool(_kDetailedReportsKey, v);
             },
             danger: true,
+          ),
+          _action(
+            title: "Guide de premier lancement",
+            subtitle: "Relancer le tutoriel de démarrage",
+            onTap: () => context.push('/onboarding'),
+            trailing: Icons.arrow_forward_ios_rounded,
           ),
           _action(
             title: "Notifications",
