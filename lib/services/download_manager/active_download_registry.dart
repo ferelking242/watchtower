@@ -1,3 +1,4 @@
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/engines/download_engine.dart';
 
@@ -18,21 +19,65 @@ class ActiveDownloadRegistry {
   // Internal pool task IDs for M3u8Downloader / MDownloader
   static final _internalTaskIds = <int, String>{};
 
+  // Per-download metadata for counting
+  static final _internalItemType = <int, ItemType>{};
+  static final _internalSource = <int, String>{};
+
   // ── Registration ──────────────────────────────────────────────────────────
 
   static void registerEngine(int downloadId, DownloadEngine engine) {
     _engines[downloadId] = engine;
     _internalTaskIds.remove(downloadId);
+    _internalItemType.remove(downloadId);
+    _internalSource.remove(downloadId);
   }
 
-  static void registerInternal(int downloadId, String taskId) {
+  static void registerInternal(
+    int downloadId,
+    String taskId, {
+    ItemType? itemType,
+    String? source,
+  }) {
     _internalTaskIds[downloadId] = taskId;
+    _internalItemType[downloadId] = itemType ?? ItemType.manga;
+    _internalSource[downloadId] = source ?? '_unknown';
     _engines.remove(downloadId);
   }
 
   static void unregister(int downloadId) {
     _engines.remove(downloadId);
     _internalTaskIds.remove(downloadId);
+    _internalItemType.remove(downloadId);
+    _internalSource.remove(downloadId);
+  }
+
+  // ── Counting ──────────────────────────────────────────────────────────────
+
+  /// True when at least one download is actively running.
+  static bool get hasActive =>
+      _engines.isNotEmpty || _internalTaskIds.isNotEmpty;
+
+  /// Number of active internal downloads for a given [ItemType].
+  static int activeCountForType(ItemType type) {
+    int count = 0;
+    for (final id in _internalTaskIds.keys) {
+      if (_internalItemType[id] == type) count++;
+    }
+    // External engines counted as belonging to their type is not tracked;
+    // for simplicity include them in anime (video) count.
+    if (type == ItemType.anime) count += _engines.length;
+    return count;
+  }
+
+  /// Number of active downloads for a given [ItemType] + source combination.
+  static int activeCountForSource(ItemType type, String source) {
+    int count = 0;
+    for (final id in _internalTaskIds.keys) {
+      if (_internalItemType[id] == type && _internalSource[id] == source) {
+        count++;
+      }
+    }
+    return count;
   }
 
   // ── Control ───────────────────────────────────────────────────────────────
@@ -59,21 +104,22 @@ class ActiveDownloadRegistry {
       // resume and re-enqueues it via processDownloads. Already-downloaded
       // segments stay on disk and are skipped on the next attempt.
       _internalTaskIds.remove(downloadId);
+      _internalItemType.remove(downloadId);
+      _internalSource.remove(downloadId);
     }
   }
 
   /// Resume a paused download.
   ///
   /// * External engine: engine.resume() is called.
-  /// * Internal: the caller (UI) should re-invoke processDownloads after
-  ///   removing the chapter from pausedIds. Because [pause] unregistered
-  ///   the chapter, the scheduler will see it as idle and start a fresh
-  ///   download which skips any files already on disk.
+  /// * Internal: the re-query loop in processDownloads automatically picks
+  ///   up the chapter on the next tick once it's no longer in pausedIds.
   static Future<void> resume(int downloadId) async {
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.resume();
     }
-    // Internal resume is handled externally by re-triggering processDownloads.
+    // Internal resume is handled automatically by processDownloads re-querying
+    // Isar on each tick.
   }
 
   /// Cancel and remove the download from the registry.

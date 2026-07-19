@@ -210,7 +210,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _DownloadTabList(
+                    _GroupedDownloadTabList(
                       entries: watchEntries,
                       allEntries: entries,
                       emptyIcon: Icons.play_circle_outline,
@@ -224,7 +224,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
                     ),
-                    _DownloadTabList(
+                    _GroupedDownloadTabList(
                       entries: mangaEntries,
                       allEntries: entries,
                       emptyIcon: Icons.menu_book_outlined,
@@ -238,7 +238,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
                     ),
-                    _DownloadTabList(
+                    _GroupedDownloadTabList(
                       entries: novelEntries,
                       allEntries: entries,
                       emptyIcon: Icons.auto_stories_outlined,
@@ -268,8 +268,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     final wasPaused = ref.read(downloadQueueStateProvider).pausedIds.contains(id);
     ref.read(downloadQueueStateProvider.notifier).togglePause(id);
     if (wasPaused) {
-      // Resuming: re-trigger the scheduler for internal engines
-      ref.invalidate(processDownloadsProvider);
+      // processDownloads re-queries Isar every ~900 ms, so resumed chapters
+      // are picked up automatically without invalidating the provider.
+      // Just ensure the scheduler loop is running (no-op if it already is).
       ref.read(processDownloadsProvider());
     }
   }
@@ -621,8 +622,8 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     iconColor: scheme.primary,
                     total: watchTotal,
                     perSource: watchPerSrc,
-                    maxTotal: 10,
-                    maxPerSource: 5,
+                    maxTotal: 20,
+                    maxPerSource: 10,
                     onTotalChanged: (v) => ref.read(watchSimultaneousStateProvider.notifier).set(v),
                     onPerSourceChanged: (v) => ref.read(watchSimultaneousPerSourceStateProvider.notifier).set(v),
                     scheme: scheme,
@@ -634,8 +635,8 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     iconColor: scheme.secondary,
                     total: mangaTotal,
                     perSource: mangaPerSrc,
-                    maxTotal: 10,
-                    maxPerSource: 5,
+                    maxTotal: 20,
+                    maxPerSource: 10,
                     onTotalChanged: (v) => ref.read(mangaSimultaneousStateProvider.notifier).set(v),
                     onPerSourceChanged: (v) => ref.read(mangaSimultaneousPerSourceStateProvider.notifier).set(v),
                     scheme: scheme,
@@ -647,8 +648,8 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     iconColor: scheme.tertiary,
                     total: novelTotal,
                     perSource: novelPerSrc,
-                    maxTotal: 10,
-                    maxPerSource: 5,
+                    maxTotal: 20,
+                    maxPerSource: 10,
                     onTotalChanged: (v) => ref.read(novelSimultaneousStateProvider.notifier).set(v),
                     onPerSourceChanged: (v) => ref.read(novelSimultaneousPerSourceStateProvider.notifier).set(v),
                     scheme: scheme,
@@ -659,51 +660,67 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   // ── Disposition des cartes ───────────────────────────────
                   _SheetSection(label: 'Disposition', scheme: scheme, icon: Icons.view_list_outlined, helpText: 'Densité d\'affichage des éléments de la file'),
                   const SizedBox(height: 10),
-                  Row(
-                    children: DownloadCardLayout.values.map((l) {
-                      final selected = layout == l;
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: GestureDetector(
-                            onTap: () => ref.read(downloadCardLayoutStateProvider.notifier).set(l),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? scheme.primary.withValues(alpha: 0.15)
-                                    : scheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
+                  // 5 layout modes — use a responsive 3-column grid
+                  LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final itemWidth = (constraints.maxWidth - 8 * 4) / 3;
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: DownloadCardLayout.values.map((l) {
+                          final selected = layout == l;
+                          return SizedBox(
+                            width: itemWidth,
+                            child: GestureDetector(
+                              onTap: () => ref
+                                  .read(downloadCardLayoutStateProvider.notifier)
+                                  .set(l),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
                                   color: selected
-                                      ? scheme.primary
-                                      : scheme.outlineVariant,
-                                  width: selected ? 1.5 : 1,
+                                      ? scheme.primary.withValues(alpha: 0.15)
+                                      : scheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: selected
+                                        ? scheme.primary
+                                        : scheme.outlineVariant,
+                                    width: selected ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      l.icon,
+                                      size: 20,
+                                      color: selected
+                                          ? scheme.primary
+                                          : scheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      l.label,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: selected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                        color: selected
+                                            ? scheme.primary
+                                            : scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(l.icon,
-                                      size: 20,
-                                      color: selected ? scheme.primary : scheme.onSurfaceVariant),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    l.label,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                                      color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
+                    },
                   ),
 
                   const SizedBox(height: 20),
@@ -1149,7 +1166,12 @@ class _TabBadge extends StatelessWidget {
 // Download Tab List
 // ──────────────────────────────────────────────────────────────
 
-class _DownloadTabList extends StatelessWidget {
+// ──────────────────────────────────────────────────────────────
+// Grouped download tab list — collapsible source categories
+// with drag-to-reorder between groups.
+// ──────────────────────────────────────────────────────────────
+
+class _GroupedDownloadTabList extends ConsumerStatefulWidget {
   final List<Download> entries;
   final List<Download> allEntries;
   final IconData emptyIcon;
@@ -1163,7 +1185,7 @@ class _DownloadTabList extends StatelessWidget {
   final void Function(Download) onRetry;
   final void Function(Download) onOpen;
 
-  const _DownloadTabList({
+  const _GroupedDownloadTabList({
     required this.entries,
     required this.allEntries,
     required this.emptyIcon,
@@ -1179,20 +1201,174 @@ class _DownloadTabList extends StatelessWidget {
   });
 
   @override
+  ConsumerState<_GroupedDownloadTabList> createState() =>
+      _GroupedDownloadTabListState();
+}
+
+class _GroupedDownloadTabListState
+    extends ConsumerState<_GroupedDownloadTabList> {
+  /// Sources currently collapsed by the user (in-memory, resets on screen close).
+  final _collapsed = <String>{};
+
+  /// Custom source order persisted in [DownloadSettingsService].
+  List<String> _order = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrder();
+  }
+
+  Future<void> _loadOrder() async {
+    await DownloadSettingsService.instance.load();
+    if (mounted) {
+      setState(() {
+        _order = List<String>.from(
+          DownloadSettingsService.instance.sourceDownloadOrder,
+        );
+      });
+    }
+  }
+
+  void _persistOrder(List<String> order) {
+    _order = List<String>.from(order);
+    DownloadSettingsService.instance.setSourceDownloadOrder(_order);
+  }
+
+  Map<String, List<Download>> _groupBySource() {
+    final m = <String, List<Download>>{};
+    for (final d in widget.entries) {
+      final src = d.chapter.value?.manga.value?.source ?? 'autre';
+      (m[src] ??= []).add(d);
+    }
+    return m;
+  }
+
+  /// Returns sources in the user's preferred order, with any new sources
+  /// appended at the end.
+  List<String> _orderedSources(Map<String, List<Download>> groups) {
+    final all = groups.keys.toList();
+    final result = <String>[];
+    for (final src in _order) {
+      if (all.contains(src)) result.add(src);
+    }
+    for (final src in all) {
+      if (!result.contains(src)) result.add(src);
+    }
+    return result;
+  }
+
+  String _displayName(String src) {
+    if (src.isEmpty || src == 'autre') return 'Autre';
+    final s = src.replaceAll('-', ' ').replaceAll('_', ' ');
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
+  Widget _buildDismissible(Download element) {
+    final isPaused = widget.queueState.pausedIds.contains(element.id ?? -1);
+    final itemType = element.chapter.value?.manga.value?.itemType;
+    final defaultBadge = itemType == ItemType.manga
+        ? 'ATLAS'
+        : itemType == ItemType.novel
+            ? 'HERMES'
+            : 'HYDRA';
+    final engine = widget.queueState.engineMap[element.id ?? -1] ?? defaultBadge;
+    final retryCount = widget.queueState.retryCounts[element.id ?? -1] ?? 0;
+
+    return Dismissible(
+      key: ValueKey('dl_${element.id ?? 0}'),
+      direction: DismissDirection.horizontal,
+      dismissThresholds: const {
+        DismissDirection.startToEnd: 0.30,
+        DismissDirection.endToStart: 0.30,
+      },
+      background: Container(
+        color: Colors.red.shade700,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 28),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.delete_outline_rounded, color: Colors.white, size: 30),
+            SizedBox(height: 4),
+            Text(
+              'Supprimer',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        color: Colors.orange.shade700,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              color: Colors.white,
+              size: 30,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isPaused ? 'Reprendre' : 'Pause',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.endToStart) {
+          widget.onPauseResume(element);
+          return false;
+        }
+        widget.onDelete(element);
+        return true;
+      },
+      child: _DownloadCard(
+        download: element,
+        isPaused: isPaused,
+        engine: engine,
+        retryCount: retryCount,
+        swipeLeftAction: widget.swipeLeft,
+        swipeRightAction: widget.swipeRight,
+        onPauseResume: () => widget.onPauseResume(element),
+        onCancel: () => widget.onCancel(element),
+        onDelete: () => widget.onDelete(element),
+        onRetry: () => widget.onRetry(element),
+        onOpen: () => widget.onOpen(element),
+        entries: widget.allEntries,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (entries.isEmpty) {
+    if (widget.entries.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              emptyIcon,
+              widget.emptyIcon,
               size: 60,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.12),
             ),
             const SizedBox(height: 14),
             Text(
-              emptyLabel,
+              widget.emptyLabel,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 14,
@@ -1203,79 +1379,171 @@ class _DownloadTabList extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
-      itemCount: entries.length,
-      itemBuilder: (context, index) {
-        final element = entries[index];
-        final isPaused = queueState.pausedIds.contains(element.id ?? -1);
-        final itemType = element.chapter.value?.manga.value?.itemType;
-        final defaultEngineBadge = itemType == ItemType.manga
-            ? 'ATLAS'
-            : itemType == ItemType.novel
-                ? 'HERMES'
-                : 'HYDRA';
-        final engine =
-            queueState.engineMap[element.id ?? -1] ?? defaultEngineBadge;
-        final retryCount =
-            queueState.retryCounts[element.id ?? -1] ?? 0;
+    final groups = _groupBySource();
+    final sources = _orderedSources(groups);
+    final scheme = Theme.of(context).colorScheme;
 
-        return Dismissible(
-          key: ValueKey('dl_' + (element.id ?? 0).toString()),
-          direction: DismissDirection.horizontal,
-          dismissThresholds: const {
-            DismissDirection.startToEnd: 0.30,
-            DismissDirection.endToStart: 0.30,
-          },
-          background: Container(
-            color: Colors.red.shade700,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.only(left: 28),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.delete_outline_rounded, color: Colors.white, size: 30),
-                SizedBox(height: 4),
-                Text('Supprimer', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-          secondaryBackground: Builder(
-            builder: (ctx) => Container(
-              color: Colors.orange.shade700,
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 28),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded, color: Colors.white, size: 30),
-                  const SizedBox(height: 4),
-                  Text(isPaused ? 'Reprendre' : 'Pause', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
-                ],
+    // Single source: plain flat list (no grouping overhead).
+    if (sources.length <= 1) {
+      return ListView.builder(
+        padding: const EdgeInsets.only(bottom: 80),
+        itemCount: widget.entries.length,
+        itemBuilder: (_, i) => _buildDismissible(widget.entries[i]),
+      );
+    }
+
+    // Multiple sources: collapsible groups with drag-to-reorder.
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.only(bottom: 80),
+      buildDefaultDragHandles: false,
+      itemCount: sources.length,
+      proxyDecorator: (child, _, __) => Material(
+        color: Colors.transparent,
+        elevation: 6,
+        shadowColor: scheme.shadow.withValues(alpha: 0.4),
+        child: child,
+      ),
+      onReorder: (oldIdx, newIdx) {
+        setState(() {
+          if (newIdx > oldIdx) newIdx--;
+          final moved = sources.removeAt(oldIdx);
+          sources.insert(newIdx, moved);
+          _persistOrder(List<String>.from(sources));
+        });
+      },
+      itemBuilder: (ctx, idx) {
+        final src = sources[idx];
+        final items = groups[src]!;
+        final isCollapsed = _collapsed.contains(src);
+        final itemType = items.first.chapter.value?.manga.value?.itemType;
+
+        return KeyedSubtree(
+          key: ValueKey('src_$src'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Source group header ─────────────────────────────────
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => setState(() {
+                    if (_collapsed.contains(src)) {
+                      _collapsed.remove(src);
+                    } else {
+                      _collapsed.add(src);
+                    }
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          scheme.surfaceContainerHigh.withValues(alpha: 0.55),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: scheme.outlineVariant.withValues(alpha: 0.5),
+                          width: 0.5,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Drag handle — only this initiates reorder
+                        ReorderableDragStartListener(
+                          index: idx,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: Icon(
+                              Icons.drag_handle_rounded,
+                              size: 18,
+                              color: scheme.onSurfaceVariant
+                                  .withValues(alpha: 0.45),
+                            ),
+                          ),
+                        ),
+                        // Source type icon
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            itemType == ItemType.anime
+                                ? Icons.play_circle_outline
+                                : itemType == ItemType.novel
+                                    ? Icons.auto_stories_outlined
+                                    : Icons.menu_book_outlined,
+                            size: 15,
+                            color: scheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Source name
+                        Expanded(
+                          child: Text(
+                            _displayName(src),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Count badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${items.length}',
+                            style: TextStyle(
+                              color: scheme.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Collapse chevron
+                        AnimatedRotation(
+                          turns: isCollapsed ? -0.25 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Icon(
+                            Icons.expand_more_rounded,
+                            size: 20,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          confirmDismiss: (direction) async {
-            if (direction == DismissDirection.endToStart) {
-              onPauseResume(element);
-              return false;
-            }
-            onDelete(element);
-            return true;
-          },
-          child: _DownloadCard(
-            download: element,
-            isPaused: isPaused,
-            engine: engine,
-            retryCount: retryCount,
-            swipeLeftAction: swipeLeft,
-            swipeRightAction: swipeRight,
-            onPauseResume: () => onPauseResume(element),
-            onCancel: () => onCancel(element),
-            onDelete: () => onDelete(element),
-            onRetry: () => onRetry(element),
-            onOpen: () => onOpen(element),
-            entries: allEntries,
+              // ── Download items (animated collapse) ──────────────────
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 200),
+                crossFadeState: isCollapsed
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
+                firstChild: const SizedBox.shrink(),
+                secondChild: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: items.map(_buildDismissible).toList(),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -1380,7 +1648,7 @@ class _DownloadCard extends ConsumerWidget {
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0),
-              minHeight: layout == DownloadCardLayout.compact ? 2 : 4,
+              minHeight: (layout == DownloadCardLayout.minimal || layout == DownloadCardLayout.compact) ? 2 : 4,
               backgroundColor: scheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation<Color>(
                 hasFailed
@@ -1422,6 +1690,97 @@ class _DownloadCard extends ConsumerWidget {
         ),
       ),
     );
+
+    // ── Minimal layout ──────────────────────────────────────────────────────
+    // Ultra-dense: single row with title · chapter, status dot, and action icon.
+    // Progress shown as a hairline bar at the bottom.
+    if (layout == DownloadCardLayout.minimal) {
+      return Container(
+        color: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${manga?.name ?? 'Inconnu'}  ·  ${chapter?.name ?? ''}',
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (progress > 0 && !isComplete)
+                  Text(
+                    _buildProgressLabel(itemType, succeeded, total, failed),
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 10,
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                // Status dot
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: statusColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: hasFailed
+                      ? onRetry
+                      : isPaused
+                          ? onPauseResume
+                          : isComplete
+                              ? onOpen
+                              : onPauseResume,
+                  child: Icon(
+                    isComplete
+                        ? Icons.folder_open_outlined
+                        : hasFailed
+                            ? Icons.replay
+                            : isPaused
+                                ? Icons.play_arrow_rounded
+                                : Icons.download_rounded,
+                    color: actionColor,
+                    size: 14,
+                  ),
+                ),
+              ],
+            ),
+            if (progressBar != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(1),
+                  child: LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    minHeight: 2,
+                    backgroundColor: scheme.surfaceContainerHighest,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      hasFailed
+                          ? Colors.redAccent
+                          : isPaused
+                              ? Colors.orange
+                              : scheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
 
     // ── Compact layout ──────────────────────────────────────────────────────
     if (layout == DownloadCardLayout.compact) {
@@ -1471,6 +1830,132 @@ class _DownloadCard extends ConsumerWidget {
               progressBar,
             ],
           ],
+        ),
+      );
+    }
+
+    // ── Media layout ────────────────────────────────────────────────────────
+    // Large card with a prominent cover — designed for anime / video queues.
+    if (layout == DownloadCardLayout.media) {
+      return Container(
+        color: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        child: Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+              width: 0.5,
+            ),
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _CoverThumbnail(
+                imageUrl: manga?.imageUrl,
+                customBytes: manga?.customCoverImage?.cast<int>(),
+                itemType: itemType,
+                width: 70,
+                height: 100,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        manga?.name ?? 'Inconnu',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        chapter?.name ?? '',
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              engine,
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (progress > 0 && !isComplete)
+                            Text(
+                              _buildProgressLabel(
+                                itemType,
+                                succeeded,
+                                total,
+                                failed,
+                              ),
+                              style: TextStyle(
+                                color: scheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
+                                fontSize: 10,
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (progressBar != null) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(child: progressBar!),
+                            const SizedBox(width: 8),
+                            actionBtn,
+                          ],
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: actionBtn,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -2212,7 +2697,6 @@ class _PauseResumeAllFab extends ConsumerWidget {
         tooltip: 'Reprendre tout',
         onPressed: () {
           ref.read(downloadQueueStateProvider.notifier).resumeAll();
-          ref.invalidate(processDownloadsProvider);
           ref.read(processDownloadsProvider());
         },
         backgroundColor: Colors.green.shade700,

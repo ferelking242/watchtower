@@ -654,7 +654,11 @@ Future<void> downloadChapter(
     // chapter as active and does not double-start it while the page-URL fetch
     // is still in progress (was the root cause of the "0/1 page" stuck bug).
     if (chapter.id != null) {
-      ActiveDownloadRegistry.registerInternal(chapter.id!, '${chapter.id}');
+      ActiveDownloadRegistry.registerInternal(
+        chapter.id!, '${chapter.id}',
+        itemType: itemType,
+        source: manga.source ?? '_unknown',
+      );
     }
 
     final http = MClient.init(
@@ -1111,10 +1115,14 @@ Future<void> downloadChapter(
         // Register internal task for pause/cancel support
         final taskId = '${chapter.id}';
         if (chapter.id != null) {
-          ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
+          ActiveDownloadRegistry.registerInternal(
+            chapter.id!, taskId,
+            itemType: itemType,
+            source: manga.source ?? '_unknown',
+          );
           ref
               .read(downloadQueueStateProvider.notifier)
-              .setEngine(chapter.id!, 'IMG');
+              .setEngine(chapter.id!, 'ATLAS');
         }
         AppLogger.log(
           '[ch:' + (chapter.id?.toString() ?? '?') + '] START ${pages.length} imgs → ' + itemType.name,
@@ -1264,7 +1272,11 @@ Future<void> downloadChapter(
           }
           final taskId = 'm3u8_${chapter.id}';
           if (chapter.id != null) {
-            ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
+            ActiveDownloadRegistry.registerInternal(
+              chapter.id!, taskId,
+              itemType: itemType,
+              source: manga.source ?? '_unknown',
+            );
           }
           try {
             await m3u8Downloader!.download(
@@ -1281,7 +1293,11 @@ Future<void> downloadChapter(
         log('[downloadChapter][anime/HLS] starting chapterId=${chapter.id}');
         final taskId = 'm3u8_${chapter.id}';
         if (chapter.id != null) {
-          ActiveDownloadRegistry.registerInternal(chapter.id!, taskId);
+          ActiveDownloadRegistry.registerInternal(
+            chapter.id!, taskId,
+            itemType: itemType,
+            source: manga.source ?? '_unknown',
+          );
         }
 
         Object? caughtError;
@@ -1351,164 +1367,114 @@ Future<void> downloadChapter(
 
 @riverpod
 Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
+  // Keep this provider alive so it can run for the full duration of the queue.
   final keepAlive = ref.keepAlive();
   try {
-    final ongoingDownloads = await isar.downloads
-        .filter()
-        .idIsNotNull()
-        .isDownloadEqualTo(false)
-        .isStartDownloadEqualTo(true)
-        .findAll();
-
-    // Isar links are lazy — load chapter and manga before accessing .value.
-    for (final dl in ongoingDownloads) {
-      await dl.chapter.load();
-      final ch = dl.chapter.value;
-      if (ch != null) await ch.manga.load();
-    }
-
-    // Skip chapters that are currently paused or already actively running.
-    // Also skip downloads whose chapter link failed to load (orphaned record).
-    final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
-    final toStart = ongoingDownloads
-        .where(
-          (d) {
-            final chId = d.chapter.value?.id;
-            if (chId == null) return false; // orphaned — skip
-            return !pausedIds.contains(chId) &&
-                !ActiveDownloadRegistry.isActive(chId);
-          },
-        )
-        .toList();
-
-    log('[processDownloads] total=${ongoingDownloads.length} paused=${pausedIds.length} toStart=${toStart.length}');
-
-    if (toStart.isEmpty) {
-      keepAlive.close();
-      return;
-    }
-
-    // ── Concurrency limits ───────────────────────────────────────────────────
-    // Global cap (legacy "simultaneous downloads" setting).
-    // NOTE: declared as var so they can be refreshed each tick inside doWhile.
-    var globalMax = ref.read(concurrentDownloadsStateProvider);
-    // Per-type caps and per-(type,source) caps read from the dedicated providers.
-    var typeMax = <ItemType, int>{
-      ItemType.manga: ref.read(mangaSimultaneousStateProvider),
-      ItemType.anime: ref.read(watchSimultaneousStateProvider),
-      ItemType.novel: ref.read(novelSimultaneousStateProvider),
-    };
-    var typePerSrcMax = <ItemType, int>{
-      ItemType.manga: ref.read(mangaSimultaneousPerSourceStateProvider),
-      ItemType.anime: ref.read(watchSimultaneousPerSourceStateProvider),
-      ItemType.novel: ref.read(novelSimultaneousPerSourceStateProvider),
-    };
-
-    // ── Cross-source round-robin queues ──────────────────────────────────────
-    // Group by source so the scheduler interleaves sources fairly.
-    final perSourceQueues = <String, List<Download>>{};
-    for (final d in toStart) {
-      final src = d.chapter.value?.manga.value?.source ?? '_unknown';
-      (perSourceQueues[src] ??= <Download>[]).add(d);
-    }
-    final sourceOrder = perSourceQueues.keys.toList();
-    int rrIdx = 0;
-
-    // Active-download counters — updated synchronously so each tick is
-    // consistent even when multiple downloads finish between ticks.
-    int current = 0; // global in-flight count
-    final activePerType = <ItemType, int>{}; // in-flight per ItemType
-    final activePerSrc = <String, int>{}; // in-flight per '${type}_$source'
-
-    int downloaded = 0; // completed (callback fired) count
-
-    bool allQueuesEmpty() =>
-        perSourceQueues.values.every((q) => q.isEmpty);
-
-    /// Round-robin pick that respects per-type and per-source limits.
-    /// Returns null when all remaining items are at their limit (not truly
-    /// exhausted — a slot will free when an in-flight download finishes).
-    Download? nextPick() {
-      if (allQueuesEmpty()) return null;
-      final n = sourceOrder.length;
-      for (var i = 0; i < n; i++) {
-        final src = sourceOrder[(rrIdx + i) % n];
-        final queue = perSourceQueues[src];
-        if (queue == null || queue.isEmpty) continue;
-        final d = queue.first;
-        final type = d.chapter.value?.manga.value?.itemType ?? ItemType.manga;
-        final tLimit = typeMax[type] ?? 1;
-        final sLimit = typePerSrcMax[type] ?? 1;
-        final curType = activePerType[type] ?? 0;
-        final curSrc = activePerSrc['${type.name}_$src'] ?? 0;
-        if (curType >= tLimit || curSrc >= sLimit) continue;
-        rrIdx = (rrIdx + i + 1) % n;
-        return queue.removeAt(0);
-      }
-      return null; // all remaining items are throttled — wait for a free slot
-    }
-
     await Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
+      // Poll interval — short enough to feel snappy, long enough not to thrash.
+      await Future.delayed(const Duration(milliseconds: 900));
 
-      // Done: all started downloads have completed.
-      if (toStart.length == downloaded) return false;
+      // ── Re-query Isar fresh every tick ────────────────────────────────────
+      // This is the key fix: we never take a snapshot of the queue.  Paused
+      // chapters that are later resumed, newly added downloads, and completed
+      // downloads are all naturally handled because we look at the live DB
+      // state on every iteration instead of a stale list built at startup.
+      final ongoingRaw = isar.downloads
+          .filter()
+          .idIsNotNull()
+          .isDownloadEqualTo(false)
+          .isStartDownloadEqualTo(true)
+          .findAllSync();
 
-      // Refresh limits each tick so settings changes take effect immediately.
-      // Since globalMax/typeMax/typePerSrcMax are var (not final) and captured
-      // by the nextPick() closure by reference, the closure sees updated values.
-      globalMax = ref.read(concurrentDownloadsStateProvider);
-      typeMax = <ItemType, int>{
+      for (final dl in ongoingRaw) {
+        dl.chapter.loadSync();
+        final ch = dl.chapter.value;
+        if (ch != null) ch.manga.loadSync();
+      }
+
+      final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
+
+      // Items that are waiting to start:
+      //   - not paused in the UI
+      //   - not currently registered in the ActiveDownloadRegistry (i.e. not
+      //     already running inside an isolate or external engine)
+      final toStart = ongoingRaw.where((d) {
+        final chId = d.chapter.value?.id;
+        if (chId == null) return false; // orphaned record — skip
+        return !pausedIds.contains(chId) && !ActiveDownloadRegistry.isActive(chId);
+      }).toList();
+
+      // Exit when nothing is waiting AND nothing is running.
+      if (toStart.isEmpty && !ActiveDownloadRegistry.hasActive) {
+        log('[processDownloads] queue drained — stopping');
+        return false;
+      }
+
+      // ── Re-read limits every tick so settings changes apply immediately ───
+      final typeMax = <ItemType, int>{
         ItemType.manga: ref.read(mangaSimultaneousStateProvider),
         ItemType.anime: ref.read(watchSimultaneousStateProvider),
         ItemType.novel: ref.read(novelSimultaneousStateProvider),
       };
-      typePerSrcMax = <ItemType, int>{
+      final typePerSrcMax = <ItemType, int>{
         ItemType.manga: ref.read(mangaSimultaneousPerSourceStateProvider),
         ItemType.anime: ref.read(watchSimultaneousPerSourceStateProvider),
         ItemType.novel: ref.read(novelSimultaneousPerSourceStateProvider),
       };
 
-      // Try to start as many downloads as possible within all caps.
-      while (current < globalMax) {
-        final downloadItem = nextPick();
-        if (downloadItem == null) break; // nothing to start right now
+      // ── Start downloads that fit within the limits ─────────────────────────
+      // Cross-source round-robin: interleave sources fairly.
+      final perSourceQueues = <String, List<Download>>{};
+      for (final d in toStart) {
+        final src = d.chapter.value?.manga.value?.source ?? '_unknown';
+        (perSourceQueues[src] ??= <Download>[]).add(d);
+      }
+      final sourceKeys = perSourceQueues.keys.toList();
+      int rrIdx = 0;
 
-        final chapter = downloadItem.chapter.value!;
-        final type = downloadItem.chapter.value?.manga.value?.itemType ?? ItemType.manga;
-        final src = downloadItem.chapter.value?.manga.value?.source ?? '_unknown';
+      outer:
+      for (var attempt = 0; attempt < toStart.length; attempt++) {
+        // Round-robin over sources
+        final src = sourceKeys[rrIdx % sourceKeys.length];
+        rrIdx++;
 
-        // Update counters before starting so re-entrant ticks see the right state.
-        current++;
-        activePerType[type] = (activePerType[type] ?? 0) + 1;
-        activePerSrc['${type.name}_$src'] = (activePerSrc['${type.name}_$src'] ?? 0) + 1;
+        final queue = perSourceQueues[src];
+        if (queue == null || queue.isEmpty) continue;
+
+        final d = queue.first;
+        final chapter = d.chapter.value;
+        if (chapter == null) { queue.removeAt(0); continue; }
+
+        final type = chapter.manga.value?.itemType ?? ItemType.manga;
+        final chSrc = chapter.manga.value?.source ?? '_unknown';
+
+        // Check live counts from the registry (not local counters — those go
+        // stale after pause/resume because isolates exit without a callback).
+        final curType = ActiveDownloadRegistry.activeCountForType(type);
+        final curSrc = ActiveDownloadRegistry.activeCountForSource(type, chSrc);
+        final tLimit = typeMax[type] ?? 1;
+        final sLimit = typePerSrcMax[type] ?? 1;
+
+        if (curType >= tLimit || curSrc >= sLimit) continue outer;
+
+        queue.removeAt(0);
 
         AppLogger.log(
-          'Queue → [ch:' + (chapter.id?.toString() ?? '?') + '] '
-          '"' + ((chapter.name ?? '').length > 35 ? chapter.name!.substring(0, 35) + '…' : (chapter.name ?? '')) + '" '
-          'type=' + type.name,
+          'Queue → [ch:${chapter.id}] "${(chapter.name ?? '').length > 35 ? (chapter.name ?? '').substring(0, 35) + '…' : (chapter.name ?? '')}" '
+          'type=${type.name} src=$chSrc curType=$curType/$tLimit curSrc=$curSrc/$sLimit',
           logLevel: LogLevel.info,
           tag: LogTag.download,
         );
-        log('[processDownloads] starting chapterId=${chapter.id} "${chapter.name}" type=${type.name} src=$src');
-        await Future.delayed(const Duration(milliseconds: 200));
-        ref.read(
-          downloadChapterProvider(
-            chapter: chapter,
-            useWifi: useWifi,
-            callback: () {
-              downloaded++;
-              current = (current - 1).clamp(0, 9999);
-              activePerType[type] = ((activePerType[type] ?? 1) - 1).clamp(0, 9999);
-              activePerSrc['${type.name}_$src'] = ((activePerSrc['${type.name}_$src'] ?? 1) - 1).clamp(0, 9999);
-              log('[processDownloads] done chapterId=${chapter.id} downloaded=$downloaded/${toStart.length}');
-            },
-          ),
-        );
-      }
+        log('[processDownloads] starting chapterId=${chapter.id} "${chapter.name}" type=${type.name} src=$chSrc');
 
-      // If everything is truly exhausted and nothing is in flight, stop.
-      if (allQueuesEmpty() && current == 0) return false;
+        // Small stagger to avoid thundering herd on the remote server.
+        await Future.delayed(const Duration(milliseconds: 150));
+
+        // Start the download.  downloadChapter registers itself in
+        // ActiveDownloadRegistry synchronously (before any await), so the next
+        // iteration of this loop sees the correct live count immediately.
+        ref.read(downloadChapterProvider(chapter: chapter, useWifi: useWifi));
+      }
 
       return true; // keep polling
     });

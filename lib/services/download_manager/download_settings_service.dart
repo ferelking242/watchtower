@@ -136,7 +136,6 @@ class DownloadSettingsService {
   DownloadMode get animeDownloadMode {
     final raw = (_data['animeDownloadMode'] ?? _data['downloadMode']) as int?;
     if (raw == null) return DownloadMode.internalDownloader;
-    // Migrate old values: any unknown/removed mode → internal
     if (raw >= DownloadMode.values.length) return DownloadMode.internalDownloader;
     return DownloadMode.values[raw.clamp(0, DownloadMode.values.length - 1)];
   }
@@ -185,7 +184,6 @@ class DownloadSettingsService {
   MangaArchiveFormat get mangaArchiveFormat {
     final idx = _data['mangaArchiveFormat'] as int?;
     if (idx == null) {
-      // Migrate old saveAsCBZ bool
       final oldCbz = _data['saveAsCBZ'] as bool? ?? false;
       return oldCbz ? MangaArchiveFormat.cbz : MangaArchiveFormat.folder;
     }
@@ -195,7 +193,6 @@ class DownloadSettingsService {
 
   Future<void> setMangaArchiveFormat(MangaArchiveFormat format) async {
     _data['mangaArchiveFormat'] = format.index;
-    // Keep legacy key in sync
     _data['saveAsCBZ'] = format == MangaArchiveFormat.cbz;
     await _save();
   }
@@ -298,46 +295,46 @@ class DownloadSettingsService {
   // ── Per-type simultaneous downloads (queue slots) ─────────────────────────
 
   int get watchSimultaneous =>
-      (_data['watchSimultaneous'] as int? ?? 2).clamp(1, 10);
+      (_data['watchSimultaneous'] as int? ?? 2).clamp(1, 20);
   Future<void> setWatchSimultaneous(int v) async {
-    _data['watchSimultaneous'] = v.clamp(1, 10);
+    _data['watchSimultaneous'] = v.clamp(1, 20);
     await _save();
   }
 
   int get mangaSimultaneous =>
-      (_data['mangaSimultaneous'] as int? ?? 3).clamp(1, 10);
+      (_data['mangaSimultaneous'] as int? ?? 3).clamp(1, 20);
   Future<void> setMangaSimultaneous(int v) async {
-    _data['mangaSimultaneous'] = v.clamp(1, 10);
+    _data['mangaSimultaneous'] = v.clamp(1, 20);
     await _save();
   }
 
   int get novelSimultaneous =>
-      (_data['novelSimultaneous'] as int? ?? 3).clamp(1, 10);
+      (_data['novelSimultaneous'] as int? ?? 3).clamp(1, 20);
   Future<void> setNovelSimultaneous(int v) async {
-    _data['novelSimultaneous'] = v.clamp(1, 10);
+    _data['novelSimultaneous'] = v.clamp(1, 20);
     await _save();
   }
 
   // ── Per-source simultaneous downloads ─────────────────────────────────────
 
   int get watchSimultaneousPerSource =>
-      (_data['watchSimPerSource'] as int? ?? 1).clamp(1, 5);
+      (_data['watchSimPerSource'] as int? ?? 1).clamp(1, 10);
   Future<void> setWatchSimultaneousPerSource(int v) async {
-    _data['watchSimPerSource'] = v.clamp(1, 5);
+    _data['watchSimPerSource'] = v.clamp(1, 10);
     await _save();
   }
 
   int get mangaSimultaneousPerSource =>
-      (_data['mangaSimPerSource'] as int? ?? 2).clamp(1, 5);
+      (_data['mangaSimPerSource'] as int? ?? 2).clamp(1, 10);
   Future<void> setMangaSimultaneousPerSource(int v) async {
-    _data['mangaSimPerSource'] = v.clamp(1, 5);
+    _data['mangaSimPerSource'] = v.clamp(1, 10);
     await _save();
   }
 
   int get novelSimultaneousPerSource =>
-      (_data['novelSimPerSource'] as int? ?? 2).clamp(1, 5);
+      (_data['novelSimPerSource'] as int? ?? 2).clamp(1, 10);
   Future<void> setNovelSimultaneousPerSource(int v) async {
-    _data['novelSimPerSource'] = v.clamp(1, 5);
+    _data['novelSimPerSource'] = v.clamp(1, 10);
     await _save();
   }
 
@@ -353,10 +350,21 @@ class DownloadSettingsService {
     await _save();
   }
 
+  // ── Source download order ──────────────────────────────────────────────────
+
+  List<String> get sourceDownloadOrder {
+    final raw = _data['sourceDownloadOrder'] as List?;
+    if (raw == null) return [];
+    return raw.whereType<String>().toList();
+  }
+
+  Future<void> setSourceDownloadOrder(List<String> order) async {
+    _data['sourceDownloadOrder'] = order;
+    await _save();
+  }
+
   // ── Card buttons (which action buttons appear on each download card) ────────
 
-  /// Returns the set of enabled card button names.
-  /// Default: pauseResume only.
   Set<CardButton> get enabledCardButtons {
     final raw = _data['cardButtons'] as List?;
     if (raw == null) return {CardButton.pauseResume};
@@ -401,28 +409,45 @@ class DownloadSettingsService {
 
 // ── Card layout enum ──────────────────────────────────────────────────────────
 
-enum DownloadCardLayout { compact, standard, full }
+/// Display modes for download queue cards.
+///
+/// - [minimal]  — ultra-dense single row, no cover art.
+/// - [compact]  — two-line row, no cover art.
+/// - [standard] — default: small cover + text + progress bar.
+/// - [full]     — medium cover + engine badge + detailed byte progress.
+/// - [media]    — large cover + full info panel, optimised for anime queues.
+// IMPORTANT: do NOT reorder existing values — they are persisted as their
+// integer index in the JSON settings file.  Append new values at the end only.
+enum DownloadCardLayout { compact, standard, full, minimal, media }
 
 extension DownloadCardLayoutExt on DownloadCardLayout {
   String get label {
     switch (this) {
+      case DownloadCardLayout.minimal:
+        return 'Minimal';
       case DownloadCardLayout.compact:
         return 'Compact';
       case DownloadCardLayout.standard:
         return 'Standard';
       case DownloadCardLayout.full:
         return 'Étendu';
+      case DownloadCardLayout.media:
+        return 'Médias';
     }
   }
 
   IconData get icon {
     switch (this) {
+      case DownloadCardLayout.minimal:
+        return Icons.density_small;
       case DownloadCardLayout.compact:
         return Icons.view_agenda_outlined;
       case DownloadCardLayout.standard:
         return Icons.view_stream_outlined;
       case DownloadCardLayout.full:
         return Icons.view_day_outlined;
+      case DownloadCardLayout.media:
+        return Icons.auto_awesome_mosaic_outlined;
     }
   }
 }

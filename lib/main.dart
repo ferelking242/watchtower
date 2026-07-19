@@ -275,7 +275,14 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   if (!kIsWeb) _ensureLocalSources();
   await AppLogger.init();
   if (!kIsWeb) {
-    unawaited(MDownloader.initializeIsolatePool(poolSize: 6));
+    // Auto-tune the isolate pool size to the device's CPU count.
+    // Use 2× logical-core count so IO-bound work can overlap on each core,
+    // clamped to [8, 32] so low-end phones get at least 8 workers and
+    // high-end devices don't spawn hundreds of isolates.
+    final cores = Platform.numberOfProcessors;
+    final poolSize = (cores * 2).clamp(8, 32);
+    log('[main] device has $cores CPU cores → isolate pool size = $poolSize');
+    unawaited(MDownloader.initializeIsolatePool(poolSize: poolSize));
   }
   // Hive is already initialized + nav_display opened in main() before runApp.
   // Nothing more to do here for Hive setup.
