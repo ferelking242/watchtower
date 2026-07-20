@@ -155,6 +155,42 @@ jobs:
             echo 'Patched CSSParser.dart'
           fi
 
+      - name: Patch large int literals in .g.dart files (dart2js JS-safe)
+        run: |
+          python3 << 'PYEOF'
+          # dart2js rejects integer literals > 2^53 - 1 (JavaScript Number precision).
+          # Isar-generated .g.dart files store 64-bit xxh3 collection IDs as const int
+          # literals.  On web we use MockIsar which never reads these IDs, so replacing
+          # them with 0 is safe.  We must do this BEFORE flutter build web.
+          import re, glob
+
+          JS_MAX = 9007199254740991  # 2^53 - 1
+
+          def replace_fn(m):
+              try:
+                  val = int(m.group(1))
+                  if val > JS_MAX:
+                      return '0'
+              except ValueError:
+                  pass
+              return m.group(0)
+
+          patched = 0
+          for path in glob.glob('lib/**/*.g.dart', recursive=True):
+              with open(path, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              # Match standalone positive integer literals (not inside strings/comments).
+              # Negative literals are -<literal>; the literal part is what triggers the
+              # error, so patching the positive literal to 0 makes -0 == 0.
+              new = re.sub(r'\b(\d{10,})\b', replace_fn, content)
+              if new != content:
+                  with open(path, 'w', encoding='utf-8') as f:
+                      f.write(new)
+                  print(f'Patched: {path}')
+                  patched += 1
+          print(f'Total .g.dart files patched: {patched}')
+          PYEOF
+
       - name: Build Web
         run: flutter build web --release --no-tree-shake-icons --base-href /watchtower/
 
