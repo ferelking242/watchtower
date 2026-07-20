@@ -127,8 +127,24 @@ void main(List<String> args) async {
 
       MediaKit.ensureInitialized();
       if (!kIsWeb) {
-        await RustLib.init();
-        await imgCropIsolate.start();
+        // Wrap each native-library init in its own try-catch.
+        // Without this, an UnsatisfiedLinkError (e.g. missing .so in the APK,
+        // wrong ABI, or a cargokit compile failure) propagates up through the
+        // async function and halts execution BEFORE runApp() is ever called —
+        // the app stays frozen on the native splash screen with zero Flutter
+        // output and no crash report visible to the user.
+        try {
+          await RustLib.init();
+        } catch (e, st) {
+          debugPrint('[main] RustLib.init() failed — app will run without Rust FFI: $e\n$st');
+          AppLogger.log('RustLib.init failed: $e\n$st', logLevel: LogLevel.error);
+        }
+        try {
+          await imgCropIsolate.start();
+        } catch (e, st) {
+          debugPrint('[main] imgCropIsolate.start() failed: $e\n$st');
+          AppLogger.log('imgCropIsolate.start failed: $e\n$st', logLevel: LogLevel.error);
+        }
         // getIsolateService.start() is intentionally called AFTER initDB below.
         // Both the main isolate and the background isolate call StorageProvider().initDB().
         // If a stale DB (schema mismatch from an old build) is on disk, calling them

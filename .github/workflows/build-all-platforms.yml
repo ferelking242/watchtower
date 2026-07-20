@@ -86,6 +86,27 @@ jobs:
         if: steps.p7zip-cache.outputs.cache-hit != 'true'
         run: sudo apt-get install -y p7zip-full --quiet
 
+      # ── Rust (required for rust_lib_watchtower FFI via cargokit) ────────────
+      # ubuntu-latest has Rust pre-installed but NOT the Android cross-targets.
+      # Without aarch64-linux-android / x86_64-linux-android, cargokit fails to
+      # compile librust_lib_watchtower.so → APK ships without it → RustLib.init()
+      # throws UnsatisfiedLinkError before runApp() → app freezes on splash screen.
+      - name: Install Rust Android cross targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Cache Rust (Android ${{ matrix.label }})
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-${{ matrix.label }}-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-android-${{ matrix.label }}-${{ runner.os }}-
+
       - name: Decode keystore from secret
         run: |
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
@@ -210,6 +231,23 @@ jobs:
       - name: Install p7zip (if not cached)
         if: steps.p7zip-cache.outputs.cache-hit != 'true'
         run: sudo apt-get install -y p7zip-full --quiet
+
+      # ── Rust (required for rust_lib_watchtower FFI via cargokit) ────────────
+      - name: Install Rust Android cross targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Cache Rust (Android universal)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-universal-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-android-universal-${{ runner.os }}-
 
       - name: Decode keystore from secret
         run: |

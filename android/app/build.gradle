@@ -94,7 +94,14 @@ android {
            matchingFallbacks = ['release']
            signingConfig signingConfigs.watchtower
            minifyEnabled true
-           shrinkResources true
+           // shrinkResources intentionally DISABLED for profile builds.
+           // When enabled alongside minifyEnabled, R8 removes resources that are
+           // accessed via getIdentifier() (dynamic name lookup) and can also
+           // silently drop native library entries (.so) from the APK manifest,
+           // causing UnsatisfiedLinkError at runtime — app hangs on splash screen.
+           // Release keeps it true (acceptable trade-off for distribution size);
+           // profile is used for sideloading/TrollStore where correctness > size.
+           shrinkResources false
            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
        }
        debug {
