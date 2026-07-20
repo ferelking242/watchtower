@@ -50,11 +50,6 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// ── NSFW guard ─────────────────────────────────────────────────────────────────
-function nsfwBlocked(source) {
-  return source && source.isNsfw === true;
-}
-
 // ── Response helpers ───────────────────────────────────────────────────────────
 const json  = (res, data, status = 200) => res.status(status).json(data);
 const error = (res, msg, status = 500)  => json(res, { error: msg }, status);
@@ -163,7 +158,6 @@ app.get('/api/sources/:id', async (req, res) => {
       console.warn(`[SOURCE] Not found: "${req.params.id}"`);
       return error(res, 'Source not found', 404);
     }
-    if (nsfwBlocked(source)) return error(res, 'Source not available via API', 403);
     json(res, source);
   } catch (e) {
     console.error(`[SOURCE] Error for id "${req.params.id}":`, e);
@@ -179,7 +173,6 @@ app.get('/api/sources/:id/popular', async (req, res) => {
       console.warn(`[POPULAR] Source not found: "${req.params.id}"`);
       return error(res, 'Source not found', 404);
     }
-    if (nsfwBlocked(source)) return error(res, 'Source not available via API', 403);
     const page = parseInt(req.query.page || '1', 10);
     console.log(`[POPULAR] source="${source.name}" (${req.params.id}) page=${page}`);
     const runtime = await getRuntimeForSource(source);
@@ -201,7 +194,6 @@ app.get('/api/sources/:id/latest', async (req, res) => {
       console.warn(`[LATEST] Source not found: "${req.params.id}"`);
       return error(res, 'Source not found', 404);
     }
-    if (nsfwBlocked(source)) return error(res, 'Source not available via API', 403);
     const page = parseInt(req.query.page || '1', 10);
     console.log(`[LATEST] source="${source.name}" (${req.params.id}) page=${page}`);
     const runtime = await getRuntimeForSource(source);
@@ -220,7 +212,6 @@ app.get('/api/sources/:id/search', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    if (nsfwBlocked(source)) return error(res, 'Source not available via API', 403);
     const q    = (req.query.q || req.query.query || '').replace(/'/g, "\\'");
     const page = parseInt(req.query.page || '1', 10);
     console.log(`[SEARCH] source="${source.name}" q="${q}" page=${page}`);
@@ -239,7 +230,6 @@ app.get('/api/sources/:id/detail', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    if (nsfwBlocked(source)) return error(res, 'Source not available via API', 403);
     const url = (req.query.url || '').replace(/'/g, "\\'");
     if (!url) return error(res, 'url query param required', 400);
     console.log(`[DETAIL] source="${source.name}" url="${url.slice(0, 100)}"`);
@@ -259,7 +249,6 @@ app.get('/api/sources/:id/videos', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    if (nsfwBlocked(source)) return error(res, 'Source not available via API', 403);
     const url = (req.query.url || '').replace(/'/g, "\\'");
     if (!url) return error(res, 'url query param required', 400);
     console.log(`[VIDEOS] source="${source.name}" url="${url.slice(0, 100)}"`);
@@ -280,7 +269,6 @@ app.get('/api/sources/:id/filters', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    if (nsfwBlocked(source)) return error(res, 'Source not available via API', 403);
     const runtime = await getRuntimeForSource(source);
     const data = await callExtension(runtime, 'getFilterList()', req.params.id);
     json(res, { filters: Array.isArray(data) ? data : [] });
@@ -292,7 +280,6 @@ app.get('/api/sources/:id/pages', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    if (nsfwBlocked(source)) return error(res, 'Source not available via API', 403);
     const url = (req.query.url || '').replace(/'/g, "\\'");
     if (!url) return error(res, 'url query param required', 400);
     const runtime = await getRuntimeForSource(source);
