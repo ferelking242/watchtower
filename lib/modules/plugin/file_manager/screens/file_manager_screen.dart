@@ -382,8 +382,7 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> {
         itemBuilder: (_, i) {
           final file = files[i];
           return FileGridItem(
-            file: file,
-            isSelected: state.selectedPaths.contains(file.path),
+            item: file,
             onTap: () => _onTap(file),
             onLongPress: () => _onLongPress(file),
           );
@@ -397,43 +396,9 @@ class _FileManagerScreenState extends ConsumerState<FileManagerScreen> {
       itemBuilder: (_, i) {
         final file = files[i];
         return FileListItem(
-          file: file,
-          isSelected: state.selectedPaths.contains(file.path),
+          item: file,
           onTap: () => _onTap(file),
           onLongPress: () => _onLongPress(file),
-          trailing: PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, size: 20),
-            onSelected: (v) {
-              if (v == 'rename') _showRenameDialog(file);
-              if (v == 'copy') {
-                notifier.toggleSelection(file.path);
-                notifier.copySelected();
-                notifier.clearSelection();
-              }
-              if (v == 'cut') {
-                notifier.toggleSelection(file.path);
-                notifier.cutSelected();
-                notifier.clearSelection();
-              }
-              if (v == 'delete') {
-                notifier.toggleSelection(file.path);
-                notifier.deleteSelected();
-              }
-              if (v == 'open_with') OpenFile.open(file.path);
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'rename', child: Text('Renommer')),
-              const PopupMenuItem(value: 'copy', child: Text('Copier')),
-              const PopupMenuItem(value: 'cut', child: Text('Couper')),
-              if (!file.isDirectory)
-                const PopupMenuItem(
-                    value: 'open_with', child: Text('Ouvrir avec…')),
-              const PopupMenuItem(
-                  value: 'delete',
-                  child: Text('Supprimer',
-                      style: TextStyle(color: Colors.red))),
-            ],
-          ),
         );
       },
     );

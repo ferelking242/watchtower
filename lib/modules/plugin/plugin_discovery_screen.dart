@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/launcher/screens/create_shortcut_sheet.dart';
-import 'package:watchtower/launcher/models/launcher_shortcut.dart';
 import 'package:watchtower/modules/home/widgets/library_header_bar.dart';
 import 'package:watchtower/models/manga.dart';
 
@@ -55,7 +53,6 @@ class PluginDiscoveryScreen extends ConsumerWidget {
                     icon: Broken.folder,
                     color: Color(0xFFFFA726),
                     route: '/fileManager',
-                    module: LauncherModule.local,
                   ),
                   _PluginCard(
                     id: 'local_indexer',
@@ -64,7 +61,6 @@ class PluginDiscoveryScreen extends ConsumerWidget {
                     icon: Broken.hierarchy_3,
                     color: Color(0xFF5C6BC0),
                     route: '/AnimeLibrary',
-                    module: LauncherModule.library,
                   ),
                 ],
               ),
@@ -85,7 +81,6 @@ class _PluginCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String route;
-  final LauncherModule module;
 
   const _PluginCard({
     required this.id,
@@ -94,7 +89,6 @@ class _PluginCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.route,
-    required this.module,
   });
 
   @override
@@ -192,9 +186,6 @@ class _PluginCard extends StatelessWidget {
   }
 
   void _onLongPress(BuildContext context) {
-    showCreateShortcutSheet(
-      context,
-      initialModule: module,
-    );
+    // Shortcut sheet not yet available — no-op.
   }
 }

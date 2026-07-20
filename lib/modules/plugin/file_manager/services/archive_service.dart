@@ -105,7 +105,7 @@ class ArchiveService {
               name: f.name,
               isFile: f.isFile,
               size: f.size,
-              compressedSize: f.compressedSize,
+              compressedSize: f.size,
             ))
         .toList();
   }

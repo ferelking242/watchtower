@@ -137,19 +137,18 @@ class FileManagerState {
 
 // ── Notifier ──────────────────────────────────────────────────────────────────
 
-class FileManagerNotifier extends StateNotifier<FileManagerState> {
-  final Ref _ref;
-
-  FileManagerNotifier(this._ref)
-      : super(FileManagerState(
-          tabs: [
-            FolderTab(
-              label: '1',
-              currentPath: _defaultPath(),
-            ),
-          ],
-        )) {
-    _init();
+class FileManagerNotifier extends Notifier<FileManagerState> {
+  @override
+  FileManagerState build() {
+    Future.microtask(_init);
+    return FileManagerState(
+      tabs: [
+        FolderTab(
+          label: '1',
+          currentPath: _defaultPath(),
+        ),
+      ],
+    );
   }
 
   static String _defaultPath() {
@@ -484,6 +483,6 @@ class FileManagerNotifier extends StateNotifier<FileManagerState> {
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 final fileManagerProvider =
-    StateNotifierProvider<FileManagerNotifier, FileManagerState>(
-  (ref) => FileManagerNotifier(ref),
+    NotifierProvider<FileManagerNotifier, FileManagerState>(
+  FileManagerNotifier.new,
 );

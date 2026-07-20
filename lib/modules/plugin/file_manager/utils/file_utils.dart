@@ -40,7 +40,7 @@ class FileUtils {
       case FileKind.image:    return Broken.image;
       case FileKind.video:    return Broken.video_square;
       case FileKind.audio:    return Broken.music;
-      case FileKind.archive:  return Broken.zip_file;
+      case FileKind.archive:  return Broken.archive;
       case FileKind.pdf:      return Broken.book;
       case FileKind.document: return Broken.document;
       case FileKind.code:     return Broken.code;
