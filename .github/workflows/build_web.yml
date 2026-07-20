@@ -76,6 +76,11 @@ jobs:
               'receive_sharing_intent':       'web_stubs/receive_sharing_intent',
               'open_filex':                   'web_stubs/open_filex',
               'flutter_avif':                'web_stubs/flutter_avif',
+              'flutter_avif_android':        'web_stubs/flutter_avif_android',
+              'flutter_avif_platform_interface': 'web_stubs/flutter_avif_platform_interface',
+              'dartssh2':                     'web_stubs/dartssh2',
+              'on_audio_query':               'web_stubs/on_audio_query',
+              'on_audio_query_platform_interface': 'web_stubs/on_audio_query_platform_interface',
           }
           dep_start = next((i for i, l in enumerate(lines) if l.rstrip() == 'dependency_overrides:'), None)
           if dep_start is None:
