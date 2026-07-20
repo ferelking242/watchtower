@@ -3,23 +3,126 @@ library sqlite3_common;
 import 'dart:convert';
 import 'dart:typed_data';
 
+// ── Typedefs ──────────────────────────────────────────────────────────────────
+
+typedef ScalarFunction = Object? Function(List<Object?> arguments);
+typedef AggregateFunction<V> = AggregateContext<V> Function();
+
+class AggregateContext<V> {
+  V? value;
+  AggregateContext();
+}
+
+// ── ResultSet ─────────────────────────────────────────────────────────────────
+
+class Row {
+  final List<String> _columnNames;
+  final List<Object?> _values;
+  Row(this._columnNames, this._values);
+  Object? operator [](String key) {
+    final i = _columnNames.indexOf(key);
+    return i >= 0 ? _values[i] : null;
+  }
+  bool containsKey(String key) => _columnNames.contains(key);
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    for (var i = 0; i < _columnNames.length; i++) {
+      map[_columnNames[i]] = _values[i];
+    }
+    return map;
+  }
+}
+
+class ResultSet extends Iterable<Row> {
+  final List<String> columnNames;
+  final List<Row> rows;
+  ResultSet(this.columnNames, this.rows);
+
+  @override
+  Iterator<Row> get iterator => rows.iterator;
+}
+
 // ── Core types ────────────────────────────────────────────────────────────────
 
 /// Stub for sqlite3's CommonDatabase.
-/// Drift's sqlite3/database.dart imports this — must exist so dart2js can
-/// resolve the type, even though NativeDatabase is never called on web.
+/// Drift imports this — must exist so dart2js can resolve the type, even though
+/// NativeDatabase is never called on web.
 abstract class CommonDatabase {
   String? get filename => null;
   int get lastInsertRowId => 0;
   int get updatedRows => 0;
+
+  int get userVersion;
+  set userVersion(int value);
+
   void execute(String sql, [List<Object?> parameters = const []]);
+
+  CommonPreparedStatement prepare(
+    String sql, {
+    bool persistent = false,
+    bool vtab = true,
+  });
+
+  void createFunction({
+    required String functionName,
+    required ScalarFunction function,
+    AllowedArgumentCount argumentCount = const AllowedArgumentCount.any(),
+    bool deterministic = false,
+    bool directOnly = true,
+  });
+
+  void createCollation({
+    required String name,
+    required int Function(String, String) function,
+  }) {}
+
+  void createAggregateFunction<V>({
+    required String functionName,
+    required AggregateFunction<V> function,
+    AllowedArgumentCount argumentCount = const AllowedArgumentCount.any(),
+    bool deterministic = false,
+    bool directOnly = true,
+  }) {}
+
+  void close();
   void dispose();
 }
 
-/// Concrete stub that extends CommonDatabase (for the Database.open() return type).
+/// Concrete stub that extends CommonDatabase.
 class Database extends CommonDatabase {
+  int _userVersion = 0;
+
+  @override
+  int get userVersion => _userVersion;
+
+  @override
+  set userVersion(int value) {
+    _userVersion = value;
+  }
+
   @override
   void execute(String sql, [List<Object?> parameters = const []]) {}
+
+  @override
+  CommonPreparedStatement prepare(
+    String sql, {
+    bool persistent = false,
+    bool vtab = true,
+  }) =>
+      _PreparedStatement();
+
+  @override
+  void createFunction({
+    required String functionName,
+    required ScalarFunction function,
+    AllowedArgumentCount argumentCount = const AllowedArgumentCount.any(),
+    bool deterministic = false,
+    bool directOnly = true,
+  }) {}
+
+  @override
+  void close() {}
+
   @override
   void dispose() {}
 }
@@ -32,12 +135,36 @@ class Sqlite3 {
 
 final sqlite3 = Sqlite3();
 
-// ── Types used by drift/src/sqlite3/database.dart ────────────────────────────
+// ── CommonPreparedStatement ───────────────────────────────────────────────────
 
-/// Stub for sqlite3's CommonPreparedStatement.
 abstract class CommonPreparedStatement {
-  void dispose();
+  ResultSet select([List<Object?> parameters = const []]);
+  void execute([List<Object?> parameters = const []]);
+  int executeReturningRowId([List<Object?> parameters = const []]) => 0;
   void reset();
+  void close();
+  void dispose();
+}
+
+class _PreparedStatement extends CommonPreparedStatement {
+  @override
+  ResultSet select([List<Object?> parameters = const []]) =>
+      ResultSet([], []);
+
+  @override
+  void execute([List<Object?> parameters = const []]) {}
+
+  @override
+  int executeReturningRowId([List<Object?> parameters = const []]) => 0;
+
+  @override
+  void reset() {}
+
+  @override
+  void close() {}
+
+  @override
+  void dispose() {}
 }
 
 // ── Types used by drift/src/sqlite3/native_functions.dart ───────────────────
