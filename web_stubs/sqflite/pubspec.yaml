@@ -1,0 +1,6 @@
+name: sqflite
+version: 2.4.2+1
+description: Web stub for sqflite — no FFI dependency on Flutter Web.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'

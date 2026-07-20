@@ -1,0 +1,6 @@
+name: ftpconnect
+version: 2.0.10
+description: Web stub for ftpconnect — no archive dependency.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'

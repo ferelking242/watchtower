@@ -69,6 +69,13 @@ jobs:
               'just_zstd':                   'web_stubs/just_zstd',
               'excel':                        'web_stubs/excel',
               'excel2003':                    'web_stubs/excel2003',
+              'docx_to_text':                'web_stubs/docx_to_text',
+              'ftpconnect':                   'web_stubs/ftpconnect',
+              'sqflite':                      'web_stubs/sqflite',
+              'dart_lz4':                    'web_stubs/dart_lz4',
+              'receive_sharing_intent':       'web_stubs/receive_sharing_intent',
+              'open_filex':                   'web_stubs/open_filex',
+              'flutter_avif':                'web_stubs/flutter_avif',
           }
           dep_start = next((i for i, l in enumerate(lines) if l.rstrip() == 'dependency_overrides:'), None)
           if dep_start is None:
