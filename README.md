@@ -1,79 +1,115 @@
 <p align="center">
-  <img src="assets/app_icons/icon-red.png" width="120" alt="Watchtower"/>
+  <img src="assets/app_icons/icon-red.png" width="110" alt="Watchtower"/>
 </p>
 
 <h1 align="center">Watchtower</h1>
 
 <p align="center">
-  <strong>Manga · Anime · Séries · Musique · Novels — gratuit, open-source, cross-platform</strong>
+  <b>Manga · Anime · Séries · Musique · Novels</b><br/>
+  Gratuit · Open-source · Cross-platform
 </p>
 
 <p align="center">
   <a href="https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml">
-    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml/badge.svg" alt="APK"/>
-  </a>&nbsp;
+    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml/badge.svg" alt="Android"/>
+  </a>
   <a href="https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml">
-    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml/badge.svg" alt="IPA"/>
-  </a>&nbsp;
+    <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml/badge.svg" alt="iOS"/>
+  </a>
   <a href="https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml">
     <img src="https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml/badge.svg" alt="Server"/>
   </a>
+  <a href="https://github.com/ferelking242/watchtower/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/licence-Apache%202.0-blue.svg" alt="Licence"/>
+  </a>
+  <img src="https://img.shields.io/badge/Flutter-3.38+-02569B?logo=flutter" alt="Flutter"/>
 </p>
 
 <p align="center">
-  <a href="https://watchtower-website-zeta.vercel.app/">🌐 Site web</a> &nbsp;·&nbsp;
-  <a href="https://watchtower-website-zeta.vercel.app/download/">📥 Télécharger</a> &nbsp;·&nbsp;
-  <a href="deployment/README.md">🚀 Déployer le serveur</a>
+  <a href="https://watchtower-website-zeta.vercel.app/">🌐 Site web</a>
+  &nbsp;·&nbsp;
+  <a href="https://watchtower-website-zeta.vercel.app/download/">📥 Télécharger</a>
+  &nbsp;·&nbsp;
+  <a href="deployment/README.md">🚀 Déployer</a>
+  &nbsp;·&nbsp;
+  <a href="CHANGELOG.md">📋 Changelog</a>
 </p>
 
 ---
 
-## 📦 Télécharger
+## ✨ Fonctionnalités
 
-| Plateforme | Lien |
-|---|---|
-| **Android APK** (arm64) | [Actions → Build ARMv8](https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml) |
-| **iOS IPA** (TrollStore) | [Actions → Build IPA](https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml) |
-| **Windows** | [Actions → Build Windows](https://github.com/ferelking242/watchtower/actions/workflows/build-windows-x64.yml) |
-| **Docker** | `ghcr.io/ferelking242/watchtower-server:latest` |
+<table>
+  <tr>
+    <td align="center" width="25%">📺<br/><b>Anime & Séries</b><br/><sub>Streaming multi-sources, lecteur intégré</sub></td>
+    <td align="center" width="25%">📚<br/><b>Manga & Novels</b><br/><sub>Lecture hors-ligne, chapitres, marque-pages</sub></td>
+    <td align="center" width="25%">🎵<br/><b>Musique</b><br/><sub>Lecteur audio, playlists, sources JS</sub></td>
+    <td align="center" width="25%">🧩<br/><b>Extensions JS</b><br/><sub>Sources communautaires via QuickJS</sub></td>
+  </tr>
+  <tr>
+    <td align="center">🌐<br/><b>Cross-platform</b><br/><sub>Android · iOS · Windows · Linux · macOS · Web</sub></td>
+    <td align="center">☁️<br/><b>Serveur headless</b><br/><sub>Déploiement cloud (Railway, Render, Docker)</sub></td>
+    <td align="center">🔒<br/><b>Anti-bot & TLS</b><br/><sub>Rotation UA, TLS custom via Rust</sub></td>
+    <td align="center">⚡<br/><b>Torrent intégré</b><br/><sub>Client BitTorrent Go, streaming HTTP</sub></td>
+  </tr>
+</table>
 
 ---
 
 ## 🏗️ Architecture
 
+Watchtower repose sur **trois couches** qui partagent exactement les mêmes extensions JS :
+
 ```
 watchtower/
-├── lib/
-│   ├── modules/        ← UI par média (anime, manga, music, novels, player…)
-│   ├── eval/           ← Moteur d'extensions JS/Dart (QuickJS)
-│   ├── remote/         ← Serveur HTTP embarqué (shelf) — port 4567
-│   ├── services/       ← Réseau, téléchargements (Aria2), anti-bot
-│   ├── ffi/            ← Serveur torrent Go (bindings C)
-│   └── src/rust/       ← Bindings Rust (EPUB, image, TLS custom)
-├── server/             ← Serveur Node.js headless (déploiement cloud)
-│   ├── server.js
-│   └── src/            ← Bridges HTTP/DOM/Crypto, runtime JS, registry extensions
-├── deployment/         ← Configs et guides de déploiement
-│   ├── README.md       ← Toutes les options de déploiement
+├── lib/                        ← Application Flutter principale
+│   ├── modules/                  · UI par média (anime, manga, music, novels, player)
+│   ├── eval/                     · Moteur d'extensions JS/Dart (QuickJS)
+│   ├── remote/                   · Serveur HTTP embarqué (shelf — port 4567)
+│   ├── services/                 · Réseau, téléchargements Aria2, anti-bot
+│   ├── ffi/                      · Bindings C → serveur torrent Go
+│   └── src/rust/                 · Bindings Rust (EPUB, image, TLS custom)
+│
+├── server/                     ← Serveur headless Node.js (cloud)
+│   ├── server.js                 · Express + QuickJS VM + bridges
+│   ├── src/bridges/              · HTTP, DOM (Cheerio), crypto, prefs
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── .env.example
+│
+├── deployment/                 ← Configs & guides de déploiement
+│   ├── README.md                 · Toutes les options (Railway, Render, Docker, Colab…)
+│   ├── render.yaml               · Config Render (symlink depuis la racine)
 │   └── colab_deploy.ipynb
-├── rust/               ← Bibliothèque Rust (flutter_rust_bridge)
-└── go/                 ← Client BitTorrent + serveur streaming HTTP
+│
+├── rust/                       ← Bibliothèque Rust (flutter_rust_bridge 2.x)
+└── go/                         ← Client BitTorrent + serveur streaming HTTP
 ```
 
 ### Deux modes serveur, mêmes extensions
 
-| Mode | Comment | Quand l'utiliser |
+| Mode | Fichiers | Quand l'utiliser |
 |---|---|---|
-| **Embarqué** (`lib/remote/`) | L'app Flutter expose le port 4567 via `shelf` | App installée sur téléphone/desktop |
-| **Headless** (`server/`) | Processus Node.js autonome | Cloud — Railway, Render, VPS, Colab… |
+| **Embarqué** | `lib/remote/` — shelf port 4567 | App installée (téléphone / desktop) |
+| **Headless** | `server/` — Node.js autonome | Cloud : Railway, Render, VPS, Colab… |
 
-Les deux modes exécutent les mêmes extensions JS et exposent la même API REST.
+---
+
+## 📦 Télécharger
+
+| Plateforme | Comment obtenir |
+|---|---|
+| **Android** (arm64) | [Actions → Build ARMv8](https://github.com/ferelking242/watchtower/actions/workflows/build-arm64-debug.yml) |
+| **iOS** (TrollStore) | [Actions → Build IPA](https://github.com/ferelking242/watchtower/actions/workflows/build-ios-ipa.yml) |
+| **Windows** x64 | [Actions → Build Windows](https://github.com/ferelking242/watchtower/actions/workflows/build-windows-x64.yml) |
+| **Docker** | `ghcr.io/ferelking242/watchtower-server:latest` |
+| **Web** | [watchtower-website-zeta.vercel.app/download](https://watchtower-website-zeta.vercel.app/download/) |
 
 ---
 
 ## 🚀 Déployer le serveur headless
 
-### ☁️ One-click cloud
+### ☁️ One-click
 
 | Plateforme | Bouton |
 |---|---|
@@ -81,17 +117,16 @@ Les deux modes exécutent les mêmes extensions JS et exposent la même API REST
 | **Render** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ferelking242/watchtower) |
 | **Google Colab** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferelking242/watchtower/blob/main/deployment/colab_deploy.ipynb) |
 
-> 📖 **[Guide complet de déploiement →](deployment/README.md)** (Railway, Render, Docker, Colab, HuggingFace, RunPod)
+> 📖 **[Guide complet de déploiement →](deployment/README.md)**  
+> Railway · Render · Docker · Colab · HuggingFace · RunPod
 
-### 🐳 Docker (local / VPS) — démarrage rapide
+### 🐳 Docker — démarrage rapide
 
 ```bash
 git clone https://github.com/ferelking242/watchtower.git
 cd watchtower/server
-cp .env.example .env        # → remplis API_KEY
+cp .env.example .env   # remplis API_KEY
 docker compose up -d
-curl http://localhost:8080/api/ping
-# → {"status":"ok","version":"0.1.0"}
 ```
 
 ### 🟢 Node.js direct
@@ -104,52 +139,74 @@ API_KEY=mysecretkey PORT=8080 node server.js
 
 ---
 
-## 📡 API REST
-
-| Endpoint | Description |
-|---|---|
-| `GET /api/ping` | Health check |
-| `GET /api/sources` | Liste des sources |
-| `GET /api/sources/:id/popular` | Contenu populaire |
-| `GET /api/sources/:id/latest` | Dernières mises à jour |
-| `GET /api/sources/:id/search?q=` | Recherche |
-| `GET /api/sources/:id/detail?url=` | Détail d'un item |
-| `GET /api/sources/:id/videos?url=` | URLs de streaming vidéo |
-| `GET /api/sources/:id/pages?url=` | Pages manga |
-
-Auth : `X-Api-Key: <clé>` ou `Authorization: Bearer <clé>`
-
----
-
-## 📱 Connecter l'app au serveur
-
-**Paramètres → Serveur distant → URL** → colle l'URL → entre ta `API_KEY`.
-
----
-
 ## 🛠️ Build local
+
+<details>
+<summary><b>Prérequis</b></summary>
+
+- Flutter SDK **3.38+**
+- Dart **3.10+**
+- Rust (pour les bindings flutter_rust_bridge)
+- Java **17** (build Android)
+- Go **1.21+** (optionnel — pour recompiler le client torrent)
+
+</details>
 
 ```bash
 git clone https://github.com/ferelking242/watchtower.git
 cd watchtower
 
-# Prérequis : Flutter SDK 3.38+, Rust, Java 17
 flutter pub get
-flutter run
-flutter build apk --release --target-platform android-arm64 --split-per-abi
+flutter run                                                          # dev
+flutter build apk --release --target-platform android-arm64         # Android
+flutter build ipa                                                    # iOS
+flutter build windows                                                # Windows
+flutter build linux                                                  # Linux
 ```
+
+> ℹ️ Les builds de release sont gérés par **GitHub Actions** — voir `.github/workflows/`.
 
 ---
 
-## 🔗 Repos liés
+## 🔗 Écosystème
 
 | Repo | Rôle |
 |---|---|
-| [watchtower-real](https://github.com/ferelking242/watchtower-real) | UI TikTok-style feed (sera intégré ici) |
-| [watchtower-website](https://github.com/ferelking242/watchtower-website) | Site de documentation |
+| [ferelking242/watchtower](https://github.com/ferelking242/watchtower) | App principale — moteur, serveur, UI |
+| [ferelking242/watchtower-real](https://github.com/ferelking242/watchtower-real) | UI TikTok-style (feed vertical — fusion prévue) |
+| [ferelking242/watchtower-website](https://github.com/ferelking242/watchtower-website) | Site de documentation (VitePress / Vercel) |
+
+---
+
+## 🧰 Stack technique
+
+<p align="left">
+  <img src="https://img.shields.io/badge/Flutter-3.38+-02569B?logo=flutter&logoColor=white" alt="Flutter"/>
+  <img src="https://img.shields.io/badge/Dart-3.10+-0175C2?logo=dart&logoColor=white" alt="Dart"/>
+  <img src="https://img.shields.io/badge/Rust-flutter--rust--bridge-B7410E?logo=rust&logoColor=white" alt="Rust"/>
+  <img src="https://img.shields.io/badge/Go-torrent-00ADD8?logo=go&logoColor=white" alt="Go"/>
+  <img src="https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white" alt="Node.js"/>
+  <img src="https://img.shields.io/badge/Docker-ghcr.io-2496ED?logo=docker&logoColor=white" alt="Docker"/>
+  <img src="https://img.shields.io/badge/QuickJS-extensions-yellow" alt="QuickJS"/>
+</p>
+
+| Couche | Tech |
+|---|---|
+| UI / App | Flutter 3.38+, Dart 3.10+ |
+| State | Riverpod 3.x |
+| DB locale | Isar (community fork) |
+| Préférences | Hive 2.x |
+| Vidéo | media_kit (kodjodevf fork) |
+| Navigation | GoRouter 17.x |
+| Extensions JS | QuickJS via FFI |
+| Rust | flutter_rust_bridge 2.x |
+| Go | Aria2 + streaming torrent |
+| Serveur headless | Node.js 20 + Express + QuickJS VM |
+| CI | GitHub Actions |
+| Docs | VitePress + Vercel |
 
 ---
 
 ## 📄 Licence
 
-Apache 2.0
+Distribué sous licence **Apache 2.0** — voir [LICENSE](LICENSE).
