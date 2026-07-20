@@ -15,31 +15,17 @@ class AggregateContext<V> {
 
 // ── ResultSet ─────────────────────────────────────────────────────────────────
 
-class Row {
-  final List<String> _columnNames;
-  final List<Object?> _values;
-  Row(this._columnNames, this._values);
-  Object? operator [](String key) {
-    final i = _columnNames.indexOf(key);
-    return i >= 0 ? _values[i] : null;
-  }
-  bool containsKey(String key) => _columnNames.contains(key);
-  Map<String, Object?> toMap() {
-    final map = <String, Object?>{};
-    for (var i = 0; i < _columnNames.length; i++) {
-      map[_columnNames[i]] = _values[i];
-    }
-    return map;
-  }
-}
+// Row is a Map<String, dynamic> alias so ResultSet.toList() returns
+// List<Map<String, dynamic>> as drift expects.
+typedef Row = Map<String, dynamic>;
 
-class ResultSet extends Iterable<Row> {
+class ResultSet extends Iterable<Map<String, dynamic>> {
   final List<String> columnNames;
-  final List<Row> rows;
+  final List<Map<String, dynamic>> rows;
   ResultSet(this.columnNames, this.rows);
 
   @override
-  Iterator<Row> get iterator => rows.iterator;
+  Iterator<Map<String, dynamic>> get iterator => rows.iterator;
 }
 
 // ── Core types ────────────────────────────────────────────────────────────────
@@ -61,6 +47,7 @@ abstract class CommonDatabase {
     String sql, {
     bool persistent = false,
     bool vtab = true,
+    bool checkNoTail = false,
   });
 
   void createFunction({
@@ -108,6 +95,7 @@ class Database extends CommonDatabase {
     String sql, {
     bool persistent = false,
     bool vtab = true,
+    bool checkNoTail = false,
   }) =>
       _PreparedStatement();
 
@@ -149,7 +137,7 @@ abstract class CommonPreparedStatement {
 class _PreparedStatement extends CommonPreparedStatement {
   @override
   ResultSet select([List<Object?> parameters = const []]) =>
-      ResultSet([], []);
+      ResultSet([], <Map<String, dynamic>>[]);
 
   @override
   void execute([List<Object?> parameters = const []]) {}
