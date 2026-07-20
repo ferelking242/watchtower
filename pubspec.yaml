@@ -311,6 +311,12 @@ dependency_overrides:
       url: https://github.com/kodjodevf/flutter_inappwebview.git
       path: flutter_inappwebview
       ref: d4921f953ef75bdc21de6aed498a3badab696aa6
+  desktop_webview_window:
+    git:
+      url: https://github.com/kodjodevf/desktop_webview_window.git
+      path: packages/desktop_webview_window
+      ref: 81653aaaa923da75d943513c67f693ccbabeba09
+  syncfusion_flutter_pdfviewer: ^33.2.13
   bonsoir_android:
     git:
       url: https://github.com/KRTirtho/Bonsoir.git
