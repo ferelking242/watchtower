@@ -15,7 +15,7 @@ extension GetSettingsCollection on Isar {
 
 const SettingsSchema = CollectionSchema(
   name: r'Settings',
-  id: -8656046621518759136,
+  id: 8656046621518759136,
   properties: {
     r'algorithmWeights': PropertySchema(
       id: 0,
@@ -20511,7 +20511,7 @@ extension SettingsQueryProperty
 
 const MCookieSchema = Schema(
   name: r'MCookie',
-  id: -1854909335245943751,
+  id: 1854909335245943751,
   properties: {
     r'cookie': PropertySchema(id: 0, name: r'cookie', type: IsarType.string),
     r'host': PropertySchema(id: 1, name: r'host', type: IsarType.string),
@@ -20918,7 +20918,7 @@ extension MCookieQueryObject
 
 const SortLibraryMangaSchema = Schema(
   name: r'SortLibraryManga',
-  id: -8485569296691672246,
+  id: 8485569296691672246,
   properties: {
     r'index': PropertySchema(id: 0, name: r'index', type: IsarType.long),
     r'reverse': PropertySchema(id: 1, name: r'reverse', type: IsarType.bool),
@@ -21089,7 +21089,7 @@ extension SortLibraryMangaQueryObject
 
 const SortChapterSchema = Schema(
   name: r'SortChapter',
-  id: -468129901904543096,
+  id: 468129901904543096,
   properties: {
     r'index': PropertySchema(id: 0, name: r'index', type: IsarType.long),
     r'mangaId': PropertySchema(id: 1, name: r'mangaId', type: IsarType.long),
@@ -21342,7 +21342,7 @@ extension SortChapterQueryObject
 
 const ChapterFilterDownloadedSchema = Schema(
   name: r'ChapterFilterDownloaded',
-  id: -5772236935601996927,
+  id: 5772236935601996927,
   properties: {
     r'mangaId': PropertySchema(id: 0, name: r'mangaId', type: IsarType.long),
     r'type': PropertySchema(id: 1, name: r'type', type: IsarType.long),
@@ -21844,7 +21844,7 @@ extension ChapterFilterUnreadQueryObject
 
 const ChapterFilterBookmarkedSchema = Schema(
   name: r'ChapterFilterBookmarked',
-  id: -4183165879060895626,
+  id: 4183165879060895626,
   properties: {
     r'mangaId': PropertySchema(id: 0, name: r'mangaId', type: IsarType.long),
     r'type': PropertySchema(id: 1, name: r'type', type: IsarType.long),
@@ -23119,7 +23119,7 @@ extension ChapterPageIndexQueryObject
 
 const PersonalReaderModeSchema = Schema(
   name: r'PersonalReaderMode',
-  id: -1072936262658804338,
+  id: 1072936262658804338,
   properties: {
     r'mangaId': PropertySchema(id: 0, name: r'mangaId', type: IsarType.long),
     r'readerMode': PropertySchema(
@@ -23350,7 +23350,7 @@ extension PersonalReaderModeQueryObject
 
 const AutoScrollPagesSchema = Schema(
   name: r'AutoScrollPages',
-  id: -2184999012300377466,
+  id: 2184999012300377466,
   properties: {
     r'autoScroll': PropertySchema(
       id: 0,
@@ -24295,7 +24295,7 @@ extension RepoQueryObject on QueryBuilder<Repo, Repo, QFilterCondition> {}
 
 const PersonalPageModeSchema = Schema(
   name: r'PersonalPageMode',
-  id: -7061860019786197792,
+  id: 7061860019786197792,
   properties: {
     r'mangaId': PropertySchema(id: 0, name: r'mangaId', type: IsarType.long),
     r'pageMode': PropertySchema(
@@ -24885,7 +24885,7 @@ extension FilterScanlatorQueryObject
 
 const L10nLocaleSchema = Schema(
   name: r'L10nLocale',
-  id: -880412678425487799,
+  id: 880412678425487799,
   properties: {
     r'countryCode': PropertySchema(
       id: 0,
@@ -25294,7 +25294,7 @@ extension L10nLocaleQueryObject
 
 const CustomColorFilterSchema = Schema(
   name: r'CustomColorFilter',
-  id: -2363592387931876829,
+  id: 2363592387931876829,
   properties: {
     r'a': PropertySchema(id: 0, name: r'a', type: IsarType.long),
     r'b': PropertySchema(id: 1, name: r'b', type: IsarType.long),
@@ -27204,7 +27204,7 @@ extension PlayerSubtitleSettingsQueryObject
 
 const AlgorithmWeightsSchema = Schema(
   name: r'AlgorithmWeights',
-  id: -2865436974642812672,
+  id: 2865436974642812672,
   properties: {
     r'genre': PropertySchema(id: 0, name: r'genre', type: IsarType.long),
     r'setting': PropertySchema(id: 1, name: r'setting', type: IsarType.long),

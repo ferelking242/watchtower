@@ -15,7 +15,7 @@ extension GetMangaCollection on Isar {
 
 const MangaSchema = CollectionSchema(
   name: r'Manga',
-  id: -5643034226035087553,
+  id: 5643034226035087553,
   properties: {
     r'artist': PropertySchema(id: 0, name: r'artist', type: IsarType.string),
     r'author': PropertySchema(id: 1, name: r'author', type: IsarType.string),
@@ -100,7 +100,7 @@ const MangaSchema = CollectionSchema(
   indexes: {},
   links: {
     r'chapters': LinkSchema(
-      id: -1477759690489116902,
+      id: 1477759690489116902,
       name: r'chapters',
       target: r'Chapter',
       single: false,
