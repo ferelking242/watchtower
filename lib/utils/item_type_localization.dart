@@ -14,6 +14,8 @@ extension ItemTypeLocalization on ItemType {
         return 'Music';
       case ItemType.game:
         return 'Games';
+      case ItemType.plugin:
+        return 'Plugins';
     }
   }
 
@@ -29,6 +31,8 @@ extension ItemTypeLocalization on ItemType {
         return 'Music sources';
       case ItemType.game:
         return 'Game sources';
+      case ItemType.plugin:
+        return 'Plugin sources';
     }
   }
 
@@ -44,6 +48,8 @@ extension ItemTypeLocalization on ItemType {
         return 'Music extensions';
       case ItemType.game:
         return 'Game extensions';
+      case ItemType.plugin:
+        return 'Plugin extensions';
     }
   }
 }

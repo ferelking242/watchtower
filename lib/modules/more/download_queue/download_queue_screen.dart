@@ -2148,6 +2148,7 @@ class _DownloadCard extends ConsumerWidget {
       case ItemType.novel:
       case ItemType.music:
       case ItemType.game:
+      case ItemType.plugin:
         return '${(succeeded.toDouble() / math.max(total, 1) * 100).toStringAsFixed(0)}%';
     }
   }

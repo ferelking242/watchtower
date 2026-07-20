@@ -49,6 +49,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
           return 'Music';
         case ItemType.game:
           return 'Game';
+        case ItemType.plugin:
+          return 'Plugin';
       }
     }
 

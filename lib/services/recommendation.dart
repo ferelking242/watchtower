@@ -136,6 +136,7 @@ String _mediaType(ItemType itemType) {
     ItemType.novel => "MANGA",
     ItemType.music => "MANGA",
     ItemType.game => "MANGA",
+    ItemType.plugin => "MANGA",
   };
 }
 

@@ -16,6 +16,7 @@ class LocalHowToScreen extends StatelessWidget {
         ItemType.novel => 'Novel',
         ItemType.music => 'Music',
         ItemType.game => 'Game',
+        ItemType.plugin => 'Plugin',
       };
 
   String get _defaultPath {
@@ -32,6 +33,7 @@ class LocalHowToScreen extends StatelessWidget {
         ItemType.novel => ['EPUB'],
         ItemType.music => ['MP3', 'FLAC', 'AAC', 'OGG', 'WAV', 'M4A', 'OPUS'],
         ItemType.game => ['APK', 'ZIP', 'RAR', '7Z'],
+        ItemType.plugin => [],
       };
 
   String get _folderStructureExample => switch (itemType) {
@@ -71,6 +73,11 @@ class LocalHowToScreen extends StatelessWidget {
           '  │   ├── game.apk\n'
           '  │   └── data.zip\n'
           '  └── Another Game.apk',
+        ItemType.plugin =>
+          'Plugin/\n'
+          '  ├── my-plugin/\n'
+          '  │   └── plugin.json\n'
+          '  └── another-plugin.json',
       };
 
   IconData get _typeIcon => switch (itemType) {
@@ -79,6 +86,7 @@ class LocalHowToScreen extends StatelessWidget {
         ItemType.novel => Icons.menu_book_outlined,
         ItemType.music => Icons.music_note_outlined,
         ItemType.game => Icons.sports_esports_outlined,
+        ItemType.plugin => Icons.extension_outlined,
       };
 
   @override

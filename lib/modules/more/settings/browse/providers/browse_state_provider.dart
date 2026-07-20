@@ -162,6 +162,7 @@ class ExtensionsRepoState extends _$ExtensionsRepoState {
       ItemType.novel => settings.novelExtensionsRepo,
       ItemType.game  => settings.gameExtensionsRepo,
       ItemType.music => settings.musicExtensionsRepo,
+      ItemType.plugin => null,
     };
     if (existing != null) return existing;
     final defaults = switch (itemType) {
@@ -170,6 +171,7 @@ class ExtensionsRepoState extends _$ExtensionsRepoState {
       ItemType.novel => _defaultNovelRepos(),
       ItemType.game  => _defaultGameRepos(),
       ItemType.music => _defaultMusicRepos(),
+      ItemType.plugin => <Repo>[],
     };
     Future.microtask(() => set(defaults));
     return defaults;
@@ -215,6 +217,7 @@ class ExtensionsRepoState extends _$ExtensionsRepoState {
             ..musicExtensionsRepo = value
             ..updatedAt = DateTime.now().millisecondsSinceEpoch,
         ),
+        ItemType.plugin => 0,
       };
       a;
     });

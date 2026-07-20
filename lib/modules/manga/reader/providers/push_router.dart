@@ -41,6 +41,7 @@ Future<void> pushMangaReaderView({
         break;
       case ItemType.music:
       case ItemType.game:
+      case ItemType.plugin:
         break;
     }
   }
@@ -64,6 +65,7 @@ void pushReplacementMangaReaderView({
       break;
     case ItemType.music:
     case ItemType.game:
+    case ItemType.plugin:
       break;
   }
 }

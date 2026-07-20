@@ -29,6 +29,7 @@ Future importArchivesFromFile(
         ItemType.novel => ['epub'],
         ItemType.music => [],
         ItemType.game => [],
+        ItemType.plugin => [],
       },
     );
     if (result != null) {

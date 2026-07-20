@@ -216,10 +216,15 @@ class AppLogger {
 
     final storage = StorageProvider();
     if (!kIsWeb && Platform.isAndroid) {
-      final status = await Permission.storage.status;
-      if (!status.isGranted) {
-        final result = await Permission.storage.request();
-        if (!result.isGranted) return;
+      try {
+        final status = await Permission.storage.status;
+        if (!status.isGranted) {
+          final result = await Permission.storage.request();
+          if (!result.isGranted) return;
+        }
+      } catch (_) {
+        // Activity not yet attached (cold start race); skip file logging.
+        return;
       }
     }
     final directory = await storage.getDefaultDirectory();

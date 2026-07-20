@@ -67,6 +67,9 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
       case ItemType.game:
         icon = Icons.sports_esports_outlined;
         break;
+      case ItemType.plugin:
+        icon = Icons.extension_outlined;
+        break;
     }
     return Tab(icon: Icon(icon, size: 18), text: label);
   }
@@ -567,6 +570,10 @@ class _HistoryListItem extends ConsumerWidget {
         typeIcon = Icons.sports_esports_outlined;
         typeColor = Colors.red;
         break;
+      case ItemType.plugin:
+        typeIcon = Icons.extension_outlined;
+        typeColor = Colors.teal;
+        break;
     }
 
     return ElevatedButton(
@@ -745,6 +752,10 @@ class _HistoryGrid extends ConsumerWidget {
           case ItemType.game:
             typeIcon = Icons.sports_esports_outlined;
             typeColor = Colors.red;
+            break;
+          case ItemType.plugin:
+            typeIcon = Icons.extension_outlined;
+            typeColor = Colors.teal;
             break;
         }
 
