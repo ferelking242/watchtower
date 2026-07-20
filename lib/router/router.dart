@@ -120,6 +120,13 @@ GoRouter router(Ref ref) {
     refreshListenable: router,
     routes: [
       ...router._routes,
+      // Splash is declared here (not inside RouterNotifier) so it can close
+      // over `destination`, which is only in scope in this router() function.
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) =>
+            WatchtowerSplashScreen(destination: destination),
+      ),
     ],
     navigatorKey: navigatorKey,
     onException: (context, state, router) => router.go(mainLocation),
@@ -417,16 +424,6 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute(name: "remoteMode", child: const RemoteModeScreen()),
     _genericRoute(name: "remoteSetup", child: const RemoteSetupScreen()),
-    // ── Splash ─────────────────────────────────────────────────────────────
-    // Registered as a top-level route (outside ShellRoute / MainScreen) so
-    // there is no bottom-nav bar visible during the splash animation.
-    // `destination` is captured from the enclosing `router()` call so the
-    // splash always lands on the correct first tab even if nav-order changes.
-    GoRoute(
-      path: '/splash',
-      builder: (context, state) =>
-          WatchtowerSplashScreen(destination: destination),
-    ),
   ];
 
   GoRoute _genericRoute<T>({
