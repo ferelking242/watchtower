@@ -32,19 +32,22 @@ subprojects {
       // is only available when the kotlin-android plugin is applied to *this*
       // project, so we use the task-level API which is always safe.
       project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions {
-          jvmTarget = "17"
-          // flutter_avif_android 3.1.0 declares FlutterAvifPlugin in BOTH
-          // FlutterAvifPlugin.kt and FlutterAvifPlugin.java (upstream bug).
-          // K2 (Kotlin 2.x) treats this as a hard "Redeclaration" error.
-          // Forcing languageVersion=1.9 on this module only puts the K2 compiler
-          // into K1-compat mode: the duplicate Java+Kotlin class is tolerated,
-          // but the compiler can still read K2/2.x metadata from other libraries
-          // (e.g. device_info_plus 12.3.0 compiled with Kotlin 2.2.0).
-          // This is the correct fix — not downgrading the global Kotlin version.
-          if (project.name == "flutter_avif_android") {
-            languageVersion = "1.9"
-            apiVersion = "1.9"
+        kotlinOptions { jvmTarget = "17" }
+      }
+      // flutter_avif_android 3.1.0 upstream bug: the package ships BOTH
+      // FlutterAvifPlugin.kt AND FlutterAvifPlugin.java, two implementations
+      // of the same class. Both compile to FlutterAvifPlugin.class and the
+      // JAR bundler fails with "already contains entry, cannot overwrite".
+      // K2 additionally rejects this as a hard "Redeclaration" error.
+      // Fix: strip the Java srcDir from this module so only the Kotlin
+      // implementation (the authoritative one, functionally identical) is
+      // compiled. This eliminates both the K2 error and the JAR conflict.
+      if (project.name == "flutter_avif_android") {
+        project.android {
+          sourceSets {
+            main {
+              java.srcDirs = []
+            }
           }
         }
       }
