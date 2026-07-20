@@ -61,7 +61,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile') }}
+          # Key includes Podfile.lock so that any pubspec.yaml change that adds/removes
+          # a pod invalidates the cache — prevents stale pods directory with old pod names
+          # (e.g. rust_lib_mangayomi) being used after a package rename.
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile', 'ios/Podfile.lock') }}
           restore-keys: pods-${{ runner.os }}-
 
       - name: Flutter pub get
@@ -76,6 +79,20 @@ jobs:
 
       - name: Regenerate app icons (flutter_launcher_icons)
         run: dart run flutter_launcher_icons:main
+
+      - name: Clean stale Podfile.lock (rust_lib_mangayomi → rust_lib_watchtower rename)
+        run: |
+          # The Podfile.lock was generated when the local FFI plugin was still named
+          # rust_lib_mangayomi. After the rename to rust_lib_watchtower, the lock is
+          # stale: flutter pub get creates .symlinks/plugins/rust_lib_watchtower/ but
+          # pod install looks for rust_lib_mangayomi/ → not found → pods installed
+          # from stale cache. Remove the old lock so pod install regenerates it fresh.
+          if grep -q "rust_lib_mangayomi" ios/Podfile.lock 2>/dev/null; then
+            echo "Stale Podfile.lock detected — removing to force regeneration"
+            rm ios/Podfile.lock
+          else
+            echo "Podfile.lock is current — no action needed"
+          fi
 
       - name: Install CocoaPods
         run: |

@@ -60,7 +60,7 @@
       # Static linkage merges the framework into the main Runner binary, so
       # there is no separate framework to sign/load and no metadata lookup
       # across a dynamic image boundary.
-      if ['wakelock_plus', 'bonsoir_darwin'].include?(target.name)
+      if ['wakelock_plus'].include?(target.name)
         target.build_configurations.each do |config|
           config.build_settings['MACH_O_TYPE'] = 'staticlib'
         end
