@@ -1,5 +1,5 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class VideoControlsOverlay extends StatelessWidget {
   final String title;
@@ -97,7 +97,7 @@ class VideoControlsOverlay extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Broken.lock, color: accentColor, size: 22),
+                  Icon(CupertinoIcons.lock_fill, color: accentColor, size: 20),
                   const SizedBox(width: 8),
                   const Text(
                     'Slide / Tap to Unlock',
@@ -137,8 +137,9 @@ class VideoControlsOverlay extends StatelessWidget {
             child: SafeArea(
               child: Row(
                 children: [
+                  // Back button — chevron iOS style
                   IconButton(
-                    icon: Icon(Broken.arrow_down_2, color: itemsColor, size: 28),
+                    icon: Icon(CupertinoIcons.back, color: itemsColor, size: 26),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 12),
@@ -178,7 +179,7 @@ class VideoControlsOverlay extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Speed Selector Dropdown Menu
+                  // Speed Selector — gauge icon (iOS style)
                   PopupMenuButton<double>(
                     tooltip: 'Playback Speed',
                     icon: Container(
@@ -191,7 +192,7 @@ class VideoControlsOverlay extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Broken.play_cricle, color: itemsColor, size: 16),
+                          Icon(CupertinoIcons.gauge, color: itemsColor, size: 15),
                           const SizedBox(width: 6),
                           Text(
                             '${playbackSpeed}x',
@@ -218,7 +219,7 @@ class VideoControlsOverlay extends StatelessWidget {
                   const SizedBox(width: 8),
                   // Lock Toggle Button
                   IconButton(
-                    icon: Icon(Broken.unlock, color: itemsColor, size: 24),
+                    icon: Icon(CupertinoIcons.lock_open, color: itemsColor, size: 22),
                     tooltip: 'Lock Controls',
                     onPressed: onToggleLock,
                   ),
@@ -237,13 +238,13 @@ class VideoControlsOverlay extends StatelessWidget {
                 const SizedBox(),
                 // Previous Button
                 Opacity(
-                  opacity: onPrevious != null ? 1.0 : 0.4,
+                  opacity: onPrevious != null ? 1.0 : 0.35,
                   child: Container(
                     decoration: BoxDecoration(color: Colors.black.withOpacity(0.35), shape: BoxShape.circle),
                     child: IconButton(
-                      iconSize: 32,
+                      iconSize: 30,
                       padding: const EdgeInsets.all(14),
-                      icon: Icon(Broken.previous, color: itemsColor),
+                      icon: Icon(CupertinoIcons.backward_end_fill, color: itemsColor),
                       onPressed: onPrevious != null ? () {
                         onInteract();
                         onPrevious?.call();
@@ -262,9 +263,12 @@ class VideoControlsOverlay extends StatelessWidget {
                     border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.5),
                   ),
                   child: IconButton(
-                    iconSize: 52,
+                    iconSize: 50,
                     padding: const EdgeInsets.all(20),
-                    icon: Icon(isPlaying ? Broken.pause : Broken.play, color: itemsColor),
+                    icon: Icon(
+                      isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+                      color: itemsColor,
+                    ),
                     onPressed: () {
                       onInteract();
                       onPlayPause();
@@ -273,13 +277,13 @@ class VideoControlsOverlay extends StatelessWidget {
                 ),
                 // Next Button
                 Opacity(
-                  opacity: onNext != null ? 1.0 : 0.4,
+                  opacity: onNext != null ? 1.0 : 0.35,
                   child: Container(
                     decoration: BoxDecoration(color: Colors.black.withOpacity(0.35), shape: BoxShape.circle),
                     child: IconButton(
-                      iconSize: 32,
+                      iconSize: 30,
                       padding: const EdgeInsets.all(14),
-                      icon: Icon(Broken.next, color: itemsColor),
+                      icon: Icon(CupertinoIcons.forward_end_fill, color: itemsColor),
                       onPressed: onNext != null ? () {
                         onInteract();
                         onNext?.call();
@@ -316,13 +320,13 @@ class VideoControlsOverlay extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        trackHeight: 4.5,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-                        activeTrackColor: accentColor,
+                        trackHeight: 3.5,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+                        activeTrackColor: Colors.white,
                         inactiveTrackColor: Colors.white.withOpacity(0.25),
-                        thumbColor: accentColor,
-                        overlayColor: accentColor.withOpacity(0.3),
+                        thumbColor: Colors.white,
+                        overlayColor: Colors.white.withOpacity(0.2),
                       ),
                       child: Slider(
                         value: safeVal,
@@ -345,16 +349,13 @@ class VideoControlsOverlay extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Current / Total Time Chip
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
-                        ),
-                        child: Text(
-                          '${_formatDuration(position)} / ${_formatDuration(duration)}',
-                          style: TextStyle(color: itemsColor, fontSize: 13, fontWeight: FontWeight.bold),
+                      Text(
+                        '${_formatDuration(position)} / ${_formatDuration(duration)}',
+                        style: TextStyle(
+                          color: itemsColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
                         ),
                       ),
                       // Action Icons Row
@@ -362,14 +363,14 @@ class VideoControlsOverlay extends StatelessWidget {
                         children: [
                           // Repeat Button
                           IconButton(
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
                             icon: Icon(
-                              repeatMode == 0
-                                  ? Icons.repeat_rounded
-                                  : repeatMode == 1
-                                      ? Icons.repeat_one_rounded
-                                      : Icons.repeat_rounded,
-                              color: repeatMode != 0 ? accentColor : itemsColor.withOpacity(0.7),
-                              size: 22,
+                              repeatMode == 1
+                                  ? CupertinoIcons.repeat_1
+                                  : CupertinoIcons.repeat,
+                              color: repeatMode != 0 ? accentColor : itemsColor.withOpacity(0.65),
+                              size: 20,
                             ),
                             tooltip: 'Repeat Mode',
                             onPressed: () {
@@ -377,20 +378,28 @@ class VideoControlsOverlay extends StatelessWidget {
                               onToggleRepeat();
                             },
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           // Mute Button
                           IconButton(
-                            icon: Icon(isMuted ? Broken.volume_slash : Broken.volume_high, color: itemsColor, size: 22),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
+                            icon: Icon(
+                              isMuted ? CupertinoIcons.speaker_slash_fill : CupertinoIcons.speaker_3_fill,
+                              color: itemsColor,
+                              size: 20,
+                            ),
                             tooltip: isMuted ? 'Unmute' : 'Mute',
                             onPressed: () {
                               onInteract();
                               onToggleMute();
                             },
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           // Copy Link
                           IconButton(
-                            icon: Icon(Icons.copy_rounded, color: itemsColor, size: 22),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
+                            icon: Icon(CupertinoIcons.doc_on_clipboard, color: itemsColor, size: 19),
                             tooltip: 'Copy URL',
                             onPressed: () {
                               onInteract();
@@ -401,10 +410,18 @@ class VideoControlsOverlay extends StatelessWidget {
                               ));
                             },
                           ),
-                          const SizedBox(width: 8),
-                          // Full Screen
+                          const SizedBox(width: 4),
+                          // Full Screen — iOS arrow style
                           IconButton(
-                            icon: Icon(isFullScreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: itemsColor, size: 28),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
+                            icon: Icon(
+                              isFullScreen
+                                  ? CupertinoIcons.arrow_down_right_arrow_up_left
+                                  : CupertinoIcons.arrow_up_left_and_arrow_down_right,
+                              color: itemsColor,
+                              size: 22,
+                            ),
                             tooltip: isFullScreen ? 'Exit Full Screen' : 'Full Screen',
                             onPressed: () {
                               onInteract();
