@@ -10,14 +10,23 @@ class HttpBridge {
     name: 'Client',
     constructors: {
       '': (visitor, positionalArgs, namedArgs) {
+        Map<String, dynamic>? copyWith;
+        if (positionalArgs.length > 1) {
+          try {
+            // reqcopyWith is a JSON-encoded map of override headers/settings.
+            // Wrap in try-catch: malformed JSON from an untrusted extension script
+            // would otherwise crash the d4rt interpreter with an unhandled exception.
+            copyWith = (jsonDecode(positionalArgs[1] as String) as Map)
+                .cast<String, dynamic>();
+          } catch (_) {
+            // Ignore malformed reqcopyWith — proceed without overrides.
+          }
+        }
         return MClient.init(
           source: positionalArgs.isNotEmpty
               ? positionalArgs[0] as MSource
               : null,
-          reqcopyWith: positionalArgs.length > 1
-              ? (jsonDecode(positionalArgs[1] as String) as Map)
-                    .cast<String, dynamic>()
-              : null,
+          reqcopyWith: copyWith,
         );
       },
     },

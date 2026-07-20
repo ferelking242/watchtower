@@ -213,11 +213,11 @@ app.get('/api/sources/:id/search', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    const q    = (req.query.q || req.query.query || '').replace(/'/g, "\\'");
+    const q    = req.query.q || req.query.query || '';
     const page = parseInt(req.query.page || '1', 10);
     console.log(`[SEARCH] source="${source.name}" q="${q}" page=${page}`);
     const runtime = await getRuntimeForSource(source);
-    const data = await callExtension(runtime, `search('${q}', ${page}, [])`, req.params.id);
+    const data = await callExtension(runtime, `search(${JSON.stringify(q)}, ${page}, [])`, req.params.id);
     const list = data?.list ?? data ?? [];
     json(res, { mangas: list, hasNextPage: data?.hasNextPage ?? false });
   } catch (e) {
@@ -231,11 +231,11 @@ app.get('/api/sources/:id/detail', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    const url = (req.query.url || '').replace(/'/g, "\\'");
+    const url = req.query.url || '';
     if (!url) return error(res, 'url query param required', 400);
     console.log(`[DETAIL] source="${source.name}" url="${url.slice(0, 100)}"`);
     const runtime = await getRuntimeForSource(source);
-    const data = await callExtension(runtime, `getDetail('${url}')`, req.params.id);
+    const data = await callExtension(runtime, `getDetail(${JSON.stringify(url)})`, req.params.id);
     const chapCount = data?.chapters?.length ?? data?.episodes?.length ?? '?';
     console.log(`[DETAIL] Got ${chapCount} chapters/episodes`);
     json(res, data || {});
@@ -250,11 +250,11 @@ app.get('/api/sources/:id/videos', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    const url = (req.query.url || '').replace(/'/g, "\\'");
+    const url = req.query.url || '';
     if (!url) return error(res, 'url query param required', 400);
     console.log(`[VIDEOS] source="${source.name}" url="${url.slice(0, 100)}"`);
     const runtime = await getRuntimeForSource(source);
-    const data = await callExtension(runtime, `getVideoList('${url}')`, req.params.id);
+    const data = await callExtension(runtime, `getVideoList(${JSON.stringify(url)})`, req.params.id);
     const list = Array.isArray(data) ? data : [];
     console.log(`[VIDEOS] Got ${list.length} video streams`);
     list.forEach((v, i) => console.log(`  [${i}] quality="${v.quality}" url="${String(v.url).slice(0,80)}"`));
@@ -281,10 +281,10 @@ app.get('/api/sources/:id/pages', async (req, res) => {
   try {
     const source = await registry.findSource(req.params.id);
     if (!source) return error(res, 'Source not found', 404);
-    const url = (req.query.url || '').replace(/'/g, "\\'");
+    const url = req.query.url || '';
     if (!url) return error(res, 'url query param required', 400);
     const runtime = await getRuntimeForSource(source);
-    const data = await callExtension(runtime, `getPageList('${url}')`, req.params.id);
+    const data = await callExtension(runtime, `getPageList(${JSON.stringify(url)})`, req.params.id);
     json(res, { pages: Array.isArray(data) ? data : [] });
   } catch (e) { error(res, e.message); }
 });

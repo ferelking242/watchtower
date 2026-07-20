@@ -72,7 +72,19 @@ async function fetchText(url) {
   console.log(`[FETCH] GET ${url}`);
   const t0 = Date.now();
   const fetch = await getFetch();
-  const res = await fetch(url, { timeout: 30000 });
+  // node-fetch v3 removed the `timeout` option — use AbortController instead.
+  // Without this, network hangs block the event loop indefinitely.
+  const controller = new AbortController();
+  const _tid = setTimeout(() => controller.abort(), 30000);
+  let res;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } catch (e) {
+    clearTimeout(_tid);
+    if (e.name === 'AbortError') throw new Error(`Fetch timeout (30s) for ${url}`);
+    throw e;
+  }
+  clearTimeout(_tid);
   const ms = Date.now() - t0;
   if (!res.ok) {
     console.error(`[FETCH] FAILED ${res.status} ${url} (${ms}ms)`);
