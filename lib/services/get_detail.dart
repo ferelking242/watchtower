@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:watchtower/eval/model/m_chapter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/remote/remote_web_sync.dart';
@@ -31,9 +33,9 @@ Future<MManga> getDetail(
             link: manga['link'] as String? ?? url,
             author: manga['author'] as String?,
             description: manga['description'] as String?,
-            status: manga['status'] as String?,
+            status: Status.unknown,
             genre: (manga['genre'] as List?)?.cast<String>(),
-            chapters: rawChapters.map((c) {
+            chapters: rawChapters.map<MChapter>((c) {
               final ch = c as Map<String, dynamic>;
               return MChapter(
                 url: ch['url'] as String?,
