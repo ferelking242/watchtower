@@ -7,8 +7,8 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
-import '../../../../core/icon_fonts/broken_icons.dart';
-import '../../../../providers/file_manager_provider.dart';
+import '../../../core/icon_fonts/broken_icons.dart';
+import '../../../providers/file_manager_provider.dart';
 import '../../widgets/nfile_icon.dart';
 import '../internal_file_picker_screen.dart';
 

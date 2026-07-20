@@ -110,7 +110,7 @@ class DiscordNotifier extends AsyncNotifier<void> {
   Future<void> clear() async {
     if (!kIsDesktop) return;
     // clearActivity() removed in fork; passing null activity achieves the same
-    await FlutterDiscordRPC.instance.setActivity(activity: null);
+    await FlutterDiscordRPC.instance.setActivity(activity: const RPCActivity());
   }
 
   Future<void> close() async {
