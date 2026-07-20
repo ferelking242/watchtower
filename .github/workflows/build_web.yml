@@ -1,9 +1,13 @@
 name: Build & Deploy Flutter Web → GitHub Pages
 
 on:
-  push:
-    branches: [main]
+  # Web build disabled — Isar (64-bit int schema IDs) is incompatible with dart2js/JS.
+  # Re-enable if Isar is replaced with a web-compatible DB.
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force web build (will fail until Isar is replaced)'
+        required: false
 
 permissions:
   contents: read
