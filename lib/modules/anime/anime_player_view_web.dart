@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/services/get_video_list.dart';
 
 class AnimePlayerView extends ConsumerStatefulWidget {
   final int episodeId;
@@ -49,7 +50,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
     _loadChapter();
   }
 
-  void _loadChapter() {
+  Future<void> _loadChapter() async {
     final ch = isar.chapters
         .filter()
         .idEqualTo(widget.episodeId)
@@ -57,7 +58,20 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
     if (ch == null) return;
     _chapter = ch;
 
-    final url = ch.url ?? '';
+    // Resolve the actual stream URL through the remote server (same as native
+    // player). Falls back to ch.url for local sources where it's already a
+    // direct stream URL.
+    String url = ch.url ?? '';
+    if (url.isNotEmpty) {
+      try {
+        final (videos, _, _, _) =
+            await ref.read(getVideoListProvider(episode: ch).future);
+        if (videos.isNotEmpty) url = videos.first.url;
+      } catch (_) {
+        // ch.url is a direct URL (local source) — use as-is
+      }
+    }
+
     if (url.isEmpty) return;
 
     _video = html.VideoElement()

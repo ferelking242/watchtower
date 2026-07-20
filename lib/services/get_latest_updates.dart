@@ -1,14 +1,13 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:isar_community/isar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
-import 'package:watchtower/remote/remote_web_sync.dart';
+import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'get_latest_updates.g.dart';
@@ -22,10 +21,12 @@ Future<MPages?> getLatestUpdates(
   // ── Web: route through remote server ────────────────────────────────────
   if (kIsWeb) {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final baseUrl = prefs.getString('remote_server_url');
-      if (baseUrl != null && baseUrl.isNotEmpty && source.id != null) {
-        final results = await fetchRemoteLatest(baseUrl, source.id!, page);
+      if (RemoteClient.instance.isConfigured && source.id != null) {
+        final data = await RemoteClient.instance.get(
+          '/api/sources/${source.id}/latest',
+          params: {'page': '$page'},
+        );
+        final results = (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
         if (results != null) {
           return MPages(
             list: results.map((m) => MManga(
@@ -35,7 +36,7 @@ Future<MPages?> getLatestUpdates(
               author: m['author'] as String?,
               description: m['description'] as String?,
             )).toList(),
-            hasNextPage: (results.length >= 20),
+            hasNextPage: data['hasNextPage'] as bool? ?? (results.length >= 20),
           );
         }
       }

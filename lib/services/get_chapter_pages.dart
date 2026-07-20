@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
-import 'package:watchtower/remote/remote_web_sync.dart';
+import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/eval/javascript/http.dart';
@@ -61,27 +61,28 @@ Future<GetChapterPagesModel> getChapterPages(
     try {
       final chapterUrl = chapter.url ?? '';
       final sourceId = chManga?.sourceId;
-      if (sourceId != null && chapterUrl.isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        final baseUrl = prefs.getString('remote_server_url');
-        if (baseUrl != null && baseUrl.isNotEmpty) {
-          final rawPages = await fetchRemotePages(baseUrl, sourceId, chapterUrl);
-          if (rawPages != null && rawPages.isNotEmpty) {
-            final pageUrls = rawPages.map((p) {
-              final url = p['url'] as String? ?? '';
-              final headersRaw = p['headers'] as Map?;
-              final headers = headersRaw?.cast<String, String>();
-              return PageUrl(url, headers: headers);
-            }).toList();
-            keepAlive.close();
-            return GetChapterPagesModel(
-              path: null,
-              pageUrls: pageUrls,
-              isLocaleList: List.filled(pageUrls.length, false),
-              archiveImages: List.filled(pageUrls.length, null),
-              uChapDataPreload: [],
-            );
-          }
+      if (sourceId != null && chapterUrl.isNotEmpty &&
+          RemoteClient.instance.isConfigured) {
+        final data = await RemoteClient.instance.get(
+          '/api/sources/$sourceId/pages',
+          params: {'url': chapterUrl},
+        );
+        final rawPages = (data['pages'] as List?)?.cast<Map<String, dynamic>>();
+        if (rawPages != null && rawPages.isNotEmpty) {
+          final pageUrls = rawPages.map((p) {
+            final url = p['url'] as String? ?? '';
+            final headersRaw = p['headers'] as Map?;
+            final headers = headersRaw?.cast<String, String>();
+            return PageUrl(url, headers: headers);
+          }).toList();
+          keepAlive.close();
+          return GetChapterPagesModel(
+            path: null,
+            pageUrls: pageUrls,
+            isLocaleList: List.filled(pageUrls.length, false),
+            archiveImages: List.filled(pageUrls.length, null),
+            uChapDataPreload: [],
+          );
         }
       }
     } catch (e) {

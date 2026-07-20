@@ -1,15 +1,26 @@
-name: Build Flutter Web
+name: Build & Deploy Flutter Web → GitHub Pages
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
       - name: Checkout
@@ -69,16 +80,9 @@ jobs:
               for pkg in stubs:
                   key_match = re.match(r'  ' + re.escape(pkg) + r':(\s*\S.*)?$', line.rstrip('\n'))
                   if key_match:
-                      # Single-line entry, e.g. "  ffi: ^2.1.3" — pop just this line.
                       if key_match.group(1):
                           lines.pop(i)
                       else:
-                          # Multi-line block entry, e.g. a git dependency:
-                          #   media_kit:
-                          #     git:
-                          #       url: ...
-                          # Remove the key line plus every following line that is
-                          # indented deeper than it (the whole nested block).
                           block_end = i + 1
                           while block_end < len(lines):
                               next_line = lines[block_end]
@@ -90,60 +94,40 @@ jobs:
                       break
               if not removed:
                   i += 1
-          file_content = ''.join(lines)
-          to_add = []
-          for pkg, stub_path in stubs.items():
-              if f'  {pkg}:\n    path: {stub_path}' not in file_content:
-                  to_add.append(f'  {pkg}:\n    path: {stub_path}\n')
-          for item in reversed(to_add):
-              lines.insert(dep_start + 1, item)
+          insert_at = dep_start + 1
+          stub_lines = []
+          for pkg, path in stubs.items():
+              stub_lines.append(f'  {pkg}:\n')
+              stub_lines.append(f'    path: {path}\n')
+          lines[insert_at:insert_at] = stub_lines
           with open('pubspec.yaml', 'w') as f:
               f.writelines(lines)
-          print(f'Added {len(to_add)} stubs to dependency_overrides')
+          print('pubspec.yaml patched with web stubs')
           PYEOF
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Patch isar integer literals for dart2js
-        run: |
-          python3 << 'PYEOF'
-          import re, glob
-          pattern = re.compile(r'\b\d{16,}\b')
-          count = 0
-          for path in glob.glob('lib/**/*.dart', recursive=True):
-              try:
-                  with open(path) as f:
-                      content = f.read()
-                  if pattern.search(content):
-                      new_content = pattern.sub('0', content)
-                      with open(path, 'w') as f:
-                          f.write(new_content)
-                      print(f'Patched: {path}')
-                      count += 1
-              except Exception as e:
-                  print(f'Error: {path}: {e}')
-          print(f'Total isar files patched: {count}')
-          PYEOF
-
-      - name: Patch dart:ffi files in pub-cache
+      - name: Stub native-only Dart pub-cache files
         run: |
           python3 << 'PYEOF'
           import os, glob
           pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dev')
-          patterns = [
-              f'{pub_cache}/sqlite3-*/lib/src/ffi/**/*.dart',
-              f'{pub_cache}/sqlite3-*/lib/open.dart',
-              f'{pub_cache}/drift-*/lib/src/sqlite3/database_tracker.dart',
-          ]
-          stub = '// Web build stub\n'
           count = 0
-          for pattern in patterns:
-              for path in glob.glob(pattern, recursive=True):
-                  with open(path, 'w') as f:
-                      f.write(stub)
-                  print(f'Stubbed: {os.path.basename(path)}')
-                  count += 1
+          rust_stub = ('// Web stub\n'
+              'void initializeRustLibWatchtower() {}\n'
+              'void initializeRustLibWatchtowerFull({dynamic staticLib}) {}\n')
+          for path in glob.glob(f'{pub_cache}/rust_lib_watchtower-*/lib/*.dart'):
+              with open(path, 'w') as f:
+                  f.write(rust_stub)
+              print(f'Stubbed rust: {os.path.basename(path)}')
+              count += 1
+          qjs_stub = ('// Web stub\n'
+              'class FlutterQjs { static void setUp({dynamic maxStack, dynamic memLimit}) {} }\n'
+              'class QjsEngine { dynamic evaluate(String s) => null; void dispose() {} '
+              'void setModuleHandler(dynamic h) {} void setHostPromiseRejectionHandler(dynamic h) {} }\n')
+          for path in glob.glob(f'{pub_cache}/flutter_qjs-*/lib/*.dart'):
+              with open(path, 'w') as f:
+                  f.write(qjs_stub)
+              print(f'Stubbed qjs: {os.path.basename(path)}')
+              count += 1
           drift_stub = ('// Web stub\n'
               'import \'package:drift/drift.dart\';\n'
               'class NativeDatabase {\n'
@@ -172,18 +156,19 @@ jobs:
           fi
 
       - name: Build Web
-        run: flutter build web --release --no-tree-shake-icons
+        run: flutter build web --release --no-tree-shake-icons --base-href /watchtower/
 
-      - name: Deploy to Vercel
-        run: |
-          npm install -g vercel@latest
-          cp vercel.json build/web/vercel.json
-          cd build/web
-          vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | tee /tmp/vout.txt
-          grep -Eo 'https://[^ ]+\.vercel\.app' /tmp/vout.txt | tail -1 || true
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
 
       - name: Notify ntfy (build FAILED)
         if: failure()

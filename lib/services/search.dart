@@ -8,10 +8,9 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
-import 'package:watchtower/remote/remote_web_sync.dart';
+import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 part 'search.g.dart';
 
 @riverpod
@@ -25,10 +24,12 @@ Future<MPages?> search(
   // Web: route through remote server if configured
   if (kIsWeb) {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final baseUrl = prefs.getString('remote_server_url');
-      if (baseUrl != null && baseUrl.isNotEmpty && source.id != null) {
-        final results = await fetchRemoteSearch(baseUrl, source.id!, query, page);
+      if (RemoteClient.instance.isConfigured && source.id != null) {
+        final data = await RemoteClient.instance.get(
+          '/api/sources/${source.id}/search',
+          params: {'query': query, 'page': '$page'},
+        );
+        final results = (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
         if (results != null) {
           return MPages(
             list: results.map((m) => MManga(
@@ -38,7 +39,7 @@ Future<MPages?> search(
               author: m['author'] as String?,
               description: m['description'] as String?,
             )).toList(),
-            hasNextPage: true,
+            hasNextPage: data['hasNextPage'] as bool? ?? true,
           );
         }
       }

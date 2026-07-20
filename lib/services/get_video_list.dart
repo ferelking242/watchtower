@@ -6,7 +6,7 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/storage_provider.dart';
-import 'package:watchtower/remote/remote_web_sync.dart';
+import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/youtube_watch_resolver.dart';
 import 'package:watchtower/services/torrent_server.dart';
@@ -52,21 +52,22 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
         return ([Video(episodeUrl, episode.name ?? 'Vidéo', episodeUrl)], false, <String>[], null);
       }
 
-      if (sourceId != null && episodeUrl.isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        final baseUrl = prefs.getString('remote_server_url');
-        if (baseUrl != null && baseUrl.isNotEmpty) {
-          final rawVideos = await fetchRemoteVideos(baseUrl, sourceId, episodeUrl);
-          if (rawVideos != null && rawVideos.isNotEmpty) {
-            final videos = rawVideos.map((v) => Video(
-              v['url'] as String? ?? '',
-              v['quality'] as String? ?? episode.name ?? 'Auto',
-              v['originalUrl'] as String? ?? v['url'] as String? ?? '',
-              headers: (v['headers'] as Map?)?.cast<String, String>(),
-            )).toList();
-            keepAlive.close();
-            return (videos, false, <String>[], null);
-          }
+      if (sourceId != null && episodeUrl.isNotEmpty &&
+          RemoteClient.instance.isConfigured) {
+        final data = await RemoteClient.instance.get(
+          '/api/sources/$sourceId/videos',
+          params: {'url': episodeUrl},
+        );
+        final rawVideos = (data['videos'] as List?)?.cast<Map<String, dynamic>>();
+        if (rawVideos != null && rawVideos.isNotEmpty) {
+          final videos = rawVideos.map((v) => Video(
+            v['url'] as String? ?? '',
+            v['quality'] as String? ?? episode.name ?? 'Auto',
+            v['originalUrl'] as String? ?? v['url'] as String? ?? '',
+            headers: (v['headers'] as Map?)?.cast<String, String>(),
+          )).toList();
+          keepAlive.close();
+          return (videos, false, <String>[], null);
         }
       }
     } catch (e) {
