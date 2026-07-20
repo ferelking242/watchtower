@@ -87,7 +87,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .dart_tool/flutter_build
-          key: flutter-profile-${{ runner.os }}-3.38.x-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
+          key: flutter-profile-${{ runner.os }}-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
 
       # Pre-install Rust Android target pour eviter le download live dans Gradle
       - name: Install Rust Android target
