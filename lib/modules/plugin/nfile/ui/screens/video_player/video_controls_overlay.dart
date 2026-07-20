@@ -418,7 +418,7 @@ class VideoControlsOverlay extends StatelessWidget {
                             icon: Icon(
                               isFullScreen
                                   ? CupertinoIcons.arrow_down_right_arrow_up_left
-                                  : CupertinoIcons.arrow_up_left_and_arrow_down_right,
+                                  : CupertinoIcons.fullscreen,
                               color: itemsColor,
                               size: 22,
                             ),
