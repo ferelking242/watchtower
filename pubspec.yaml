@@ -319,6 +319,8 @@ dependency_overrides:
       url: https://github.com/KRTirtho/flutter-plugins.git
       path: packages/desktop_webview_window
   syncfusion_flutter_pdfviewer: ^33.2.13
+  excel:
+    path: packages/excel
   bonsoir_android:
     git:
       url: https://github.com/KRTirtho/Bonsoir.git

@@ -48,9 +48,12 @@ jobs:
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-pub-
 
-      # Cache Gradle — deps only, no restore-keys (exact key or clean build to avoid stale task outputs)
+      # Cache Gradle — timeout + continue-on-error so a hanging restore never
+      # kills the entire run; a cold Gradle build is slow but correct.
       - name: Cache Gradle
         uses: actions/cache@v4
+        timeout-minutes: 8
+        continue-on-error: true
         with:
           path: |
             ~/.gradle/caches
