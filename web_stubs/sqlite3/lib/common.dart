@@ -126,6 +126,11 @@ final sqlite3 = Sqlite3();
 // ── CommonPreparedStatement ───────────────────────────────────────────────────
 
 abstract class CommonPreparedStatement {
+  bool get isExplain => false;
+  bool get isExplainQueryPlan => false;
+  int get parameterCount => 0;
+  List<String?> get parameterNames => [];
+
   ResultSet select([List<Object?> parameters = const []]);
   void execute([List<Object?> parameters = const []]);
   int executeReturningRowId([List<Object?> parameters = const []]) => 0;
