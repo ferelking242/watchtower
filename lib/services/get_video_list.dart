@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/remote/remote_web_sync.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/youtube_watch_resolver.dart';
 import 'package:watchtower/services/torrent_server.dart';
@@ -34,6 +37,45 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
     logLevel: LogLevel.info,
     tag: LogTag.watch,
   );
+
+  // ── Web: all video resolution goes through the remote server ────────────
+  if (kIsWeb) {
+    try {
+      if (epManga == null) throw StateError('Episode has no linked manga');
+      final episodeUrl = episode.url ?? '';
+      final sourceId = epManga.sourceId;
+
+      // isLocal source on web → episode.url is already a direct video URL
+      final localSrc = getSource(epManga.lang!, epManga.source!, sourceId);
+      if (localSrc?.isLocal == true && episodeUrl.isNotEmpty) {
+        keepAlive.close();
+        return ([Video(episodeUrl, episode.name ?? 'Vidéo', episodeUrl)], false, <String>[], null);
+      }
+
+      if (sourceId != null && episodeUrl.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        final baseUrl = prefs.getString('remote_server_url');
+        if (baseUrl != null && baseUrl.isNotEmpty) {
+          final rawVideos = await fetchRemoteVideos(baseUrl, sourceId, episodeUrl);
+          if (rawVideos != null && rawVideos.isNotEmpty) {
+            final videos = rawVideos.map((v) => Video(
+              v['url'] as String? ?? '',
+              v['quality'] as String? ?? episode.name ?? 'Auto',
+              v['originalUrl'] as String? ?? v['url'] as String? ?? '',
+              headers: (v['headers'] as Map?)?.cast<String, String>(),
+            )).toList();
+            keepAlive.close();
+            return (videos, false, <String>[], null);
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.log('[$epLabel] getVideoList WEB ERROR: $e',
+          logLevel: LogLevel.error, tag: LogTag.watch);
+    }
+    keepAlive.close();
+    return (<Video>[], false, <String>[], null);
+  }
 
   try {
     if (epManga == null) throw StateError('Episode has no linked manga');

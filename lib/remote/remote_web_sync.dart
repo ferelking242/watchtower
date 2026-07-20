@@ -135,29 +135,101 @@ Future<void> syncRemoteDataToMockIsar(MockIsar mockIsar) async {
   }
 }
 
-/// Called when a source card is tapped on web — fetches live popular list.
+// ─────────────────────────────────────────────────────────────────────────────
+// Live fetch helpers — all route through /api/sources/:id/* (server routes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+Future<String?> _remoteBaseUrl() async {
+  final prefs = await SharedPreferences.getInstance();
+  final url = prefs.getString(_kPrefKey);
+  if (url == null || url.isEmpty) return null;
+  return url;
+}
+
+MManga _mapToMManga(Map<String, dynamic> m) => MManga(
+  name: m['name'] as String?,
+  imageUrl: m['imageUrl'] as String?,
+  link: m['link'] as String?,
+  author: m['author'] as String?,
+  description: m['description'] as String?,
+  status: m['status'] as String?,
+  genre: (m['genre'] as List?)?.cast<String>(),
+);
+
+/// Popular list for a source.
 Future<List<Map<String, dynamic>>?> fetchRemotePopular(
     String baseUrl, int sourceId, int page) async {
   try {
-    final res = await http
-        .get(Uri.parse('$baseUrl/api/source/$sourceId/popular?page=$page'))
-        .timeout(const Duration(seconds: 10));
+    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/popular')
+        .replace(queryParameters: {'page': '$page'});
+    final res = await http.get(uri).timeout(const Duration(seconds: 12));
     if (res.statusCode != 200) return null;
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
   } catch (_) { return null; }
 }
 
-/// Called when searching on web.
-Future<List<Map<String, dynamic>>?> fetchRemoteSearch(
-    String baseUrl, int sourceId, String query, int page) async {
+/// Latest updates for a source.
+Future<List<Map<String, dynamic>>?> fetchRemoteLatest(
+    String baseUrl, int sourceId, int page) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/source/$sourceId/search')
-        .replace(queryParameters: {'q': query, 'page': '$page'});
-    final res = await http.get(uri).timeout(const Duration(seconds: 10));
+    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/latest')
+        .replace(queryParameters: {'page': '$page'});
+    final res = await http.get(uri).timeout(const Duration(seconds: 12));
     if (res.statusCode != 200) return null;
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
+  } catch (_) { return null; }
+}
+
+/// Search a source.
+Future<List<Map<String, dynamic>>?> fetchRemoteSearch(
+    String baseUrl, int sourceId, String query, int page) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/search')
+        .replace(queryParameters: {'q': query, 'page': '$page'});
+    final res = await http.get(uri).timeout(const Duration(seconds: 12));
+    if (res.statusCode != 200) return null;
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
+  } catch (_) { return null; }
+}
+
+/// Manga/anime detail (chapters, description, etc.).
+Future<Map<String, dynamic>?> fetchRemoteDetail(
+    String baseUrl, int sourceId, String itemUrl) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/detail')
+        .replace(queryParameters: {'url': itemUrl});
+    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) return null;
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  } catch (_) { return null; }
+}
+
+/// Video list for an episode URL.
+Future<List<Map<String, dynamic>>?> fetchRemoteVideos(
+    String baseUrl, int sourceId, String episodeUrl) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/videos')
+        .replace(queryParameters: {'url': episodeUrl});
+    final res = await http.get(uri).timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) return null;
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return (data['videos'] as List?)?.cast<Map<String, dynamic>>();
+  } catch (_) { return null; }
+}
+
+/// Page list for a manga chapter URL.
+Future<List<Map<String, dynamic>>?> fetchRemotePages(
+    String baseUrl, int sourceId, String chapterUrl) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/pages')
+        .replace(queryParameters: {'url': chapterUrl});
+    final res = await http.get(uri).timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) return null;
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return (data['pages'] as List?)?.cast<Map<String, dynamic>>();
   } catch (_) { return null; }
 }
 
