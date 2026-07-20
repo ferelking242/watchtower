@@ -15,7 +15,7 @@ extension GetUpdateCollection on Isar {
 
 const UpdateSchema = CollectionSchema(
   name: r'Update',
-  id: 8192355249181452821,
+  id: -8192355249181452821,
   properties: {
     r'chapterName': PropertySchema(
       id: 0,
@@ -39,7 +39,7 @@ const UpdateSchema = CollectionSchema(
   indexes: {},
   links: {
     r'chapter': LinkSchema(
-      id: 7524967726288995715,
+      id: -7524967726288995715,
       name: r'chapter',
       target: r'Chapter',
       single: true,

@@ -15,7 +15,7 @@ extension GetLocalFileCacheCollection on Isar {
 
 const LocalFileCacheSchema = CollectionSchema(
   name: r'LocalFileCache',
-  id: 2718281828459045235,
+  id: -7414987195037502886,
   properties: {
     r'cachedAt': PropertySchema(
       id: 0,

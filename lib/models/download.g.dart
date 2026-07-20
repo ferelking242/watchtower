@@ -44,7 +44,7 @@ const DownloadSchema = CollectionSchema(
   indexes: {},
   links: {
     r'chapter': LinkSchema(
-      id: 5548652258422470046,
+      id: -5548652258422470046,
       name: r'chapter',
       target: r'Chapter',
       single: true,

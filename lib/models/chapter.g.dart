@@ -15,7 +15,7 @@ extension GetChapterCollection on Isar {
 
 const ChapterSchema = CollectionSchema(
   name: r'Chapter',
-  id: 7604549436611156012,
+  id: -7604549436611156012,
   properties: {
     r'archivePath': PropertySchema(
       id: 0,
@@ -82,7 +82,7 @@ const ChapterSchema = CollectionSchema(
   indexes: {},
   links: {
     r'manga': LinkSchema(
-      id: 8510956094935473973,
+      id: -8510956094935473973,
       name: r'manga',
       target: r'Manga',
       single: true,

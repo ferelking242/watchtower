@@ -326,7 +326,7 @@ class StorageProvider {
         // on-disk DB was created with a different schema (stale build data).
         // We store a tiny version file next to the DB and wipe the DB files
         // before opening if the version doesn't match — guaranteeing a clean slate.
-        const kCurrentDbVersion = '12'; // fix: negative Isar collection IDs → positive (abs value)
+        const kCurrentDbVersion = '13'; // +plugin ItemType (schema enum change forces wipe)
         final versionFile = File('${dir!.path}/watchtowerDb.schema_version');
         try {
           final storedVersion = await versionFile.exists()

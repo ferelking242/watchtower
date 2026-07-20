@@ -15,7 +15,7 @@ extension GetLocalIndexedItemCollection on Isar {
 
 const LocalIndexedItemSchema = CollectionSchema(
   name: r'LocalIndexedItem',
-  id: 3141592653589793238,
+  id: 6736314745990097625,
   properties: {
     r'audioCodec': PropertySchema(
       id: 0,

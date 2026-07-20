@@ -15,7 +15,7 @@ extension GetTrackPreferenceCollection on Isar {
 
 const TrackPreferenceSchema = CollectionSchema(
   name: r'Track Preference',
-  id: 7260395670212271073,
+  id: -7260395670212271073,
   properties: {
     r'oAuth': PropertySchema(id: 0, name: r'oAuth', type: IsarType.string),
     r'prefs': PropertySchema(id: 1, name: r'prefs', type: IsarType.string),
