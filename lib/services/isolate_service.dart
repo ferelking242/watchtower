@@ -90,8 +90,11 @@ class GetIsolateService {
     });
 
     _sendPort = await completer.future.timeout(
-      const Duration(seconds: 5),
-      onTimeout: () => throw StateError('Isolate handshake timed out'),
+      // 5 s was too short on low-end devices → bumped to 20 s.
+      // The isolate does date formatting + QuickJS init which can take
+      // several seconds on cold first launch with a slow filesystem.
+      const Duration(seconds: 20),
+      onTimeout: () => throw StateError('Isolate handshake timed out after 20 s'),
     );
     _isRunning = true;
   }

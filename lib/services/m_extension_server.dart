@@ -30,9 +30,28 @@ class MExtensionServerPlatform {
     try {
       final isRunning = await check();
       if (!isRunning) {
-        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-        final port = server.port;
-        await server.close();
+        // Bind to port 0 to let the OS pick a free port, record it, then
+        // close immediately.  The tiny window between close() and the
+        // MExtensionServer startServer() call is a race — on a busy system
+        // another process could claim that port.  We retry up to 3 times and
+        // add a short jitter to reduce the collision probability.
+        int port = 0;
+        for (int attempt = 0; attempt < 3; attempt++) {
+          final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+          port = server.port;
+          await server.close();
+          await Future.delayed(Duration(milliseconds: attempt * 10));
+          // Verify the port is still free by binding once more.
+          try {
+            final verify = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+            await verify.close();
+            break; // Port is still available, proceed.
+          } catch (_) {
+            // Port was stolen — retry with a new one.
+            port = 0;
+          }
+        }
+        if (port == 0) return; // Could not secure a free port — abort silently.
         if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
           final settings = isar.settings.getSync(kSettingsId);
           final jrePath = settings?.jrePath;

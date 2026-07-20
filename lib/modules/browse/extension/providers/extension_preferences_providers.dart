@@ -103,7 +103,10 @@ SourcePreference getSourcePreferenceEntry(String key, int sourceId) {
     }
     sourcePreference = getSourcePreference(source: source).firstWhere(
       (element) => element.key == key,
-      orElse: () => throw "Error when getting source preference",
+      // Return an empty preference instead of throwing — a missing key is
+      // normal when a JS extension is first installed and has not set any
+      // preferences yet.  Throwing here crashed every extension cold-start.
+      orElse: () => SourcePreference()..key = key,
     );
     setPreferenceSetting(sourcePreference, source);
   }

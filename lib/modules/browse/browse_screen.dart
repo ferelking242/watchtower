@@ -70,11 +70,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
     void _applyNewTypes(List<ItemType> newTypes) {
       final prevIndex = _tabBarController.index;
-      final newIndex = prevIndex.clamp(0, newTypes.length.clamp(0, 9999));
-  
+      // Clamp to the valid range for the new type list so animateTo never
+      // throws "Invalid argument: index out of range".
+      final newIndex = prevIndex.clamp(0, (newTypes.length - 1).clamp(0, 9999));
+
       _types = newTypes;
-      _tabBarController.dispose();
+      // Create the new controller BEFORE disposing the old one so that the
+      // current frame's TabBar/TabBarView never reads a disposed controller.
+      final oldController = _tabBarController;
       _initTabController(newTypes, initialIndex: newIndex);
+      // Defer disposal to after the current frame so the widget tree has
+      // already been rebuilt with the new controller.
+      WidgetsBinding.instance.addPostFrameCallback((_) => oldController.dispose());
     }
 
     @override

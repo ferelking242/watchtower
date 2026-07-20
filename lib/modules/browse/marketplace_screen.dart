@@ -919,8 +919,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   void _openAccountDropdown() {
-    setState(() => _accountOpen = true);
-    final renderBox = _accountKey.currentContext?.findRenderObject() as RenderBox?;
+    if (mounted) setState(() => _accountOpen = true);
+    // Safe cast — findRenderObject() can return any RenderObject;
+    // use `is` check instead of `as RenderBox?` to avoid a cast exception
+    // when the widget is being rebuilt or has been unmounted.
+    final ro = _accountKey.currentContext?.findRenderObject();
+    final renderBox = ro is RenderBox ? ro : null;
     if (renderBox == null) return;
     final offset = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
@@ -953,12 +957,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
 
+  // ── Tab bar — single-row horizontal scroll with pill chips ──────────────────
   Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
-    // Row 1: Tout | Watch | Manga | Mihon | Aniyomi
-    // Row 2: Novel | Game | Music | Binary
     const labels = [
       'Tout', 'Watch', 'Manga', 'Mihon', 'Aniyomi',
-      'Novel', 'Game', 'Music', 'Plugin', 'Binary',
+      'Novel', 'Game', 'Music', 'Outils', 'Binaires',
     ];
     const icons = <IconData>[
       Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
@@ -968,101 +971,121 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     ];
     return Container(
       color: theme.scaffoldBackgroundColor,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-        child: AnimatedBuilder(
-          animation: _tabCtrl,
-          builder: (_, __) => Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF18181B),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF27272A)),
-            ),
-            child: Column(
-              children: () {
-                Widget chip(int i) {
-                  final sel = _tabCtrl.index == i;
-                  return Expanded(child: GestureDetector(
-                    onTap: () { _tabCtrl.animateTo(i); setState(() { _globalLangFilter = null; _globalRepoFilter = null; _globalProgLangFilter = null; }); },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: sel ? const Color(0xFF27272A) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(icons[i], size: 11, color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF52525B)),
-                        const SizedBox(width: 3),
-                        Flexible(child: Text(labels[i], style: TextStyle(fontSize: 11,
-                          fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-                          color: sel ? const Color(0xFFE4E4E7) : const Color(0xFF71717A)),
-                          overflow: TextOverflow.ellipsis, maxLines: 1)),
-                      ]),
+      // Fixed height avoids layout jitter during tab animations.
+      height: 52,
+      child: AnimatedBuilder(
+        animation: _tabCtrl,
+        builder: (_, __) => ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          itemCount: labels.length,
+          itemBuilder: (_, i) {
+            final sel = _tabCtrl.index == i;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () {
+                  _tabCtrl.animateTo(i);
+                  if (mounted) {
+                    setState(() {
+                      _globalLangFilter = null;
+                      _globalRepoFilter = null;
+                      _globalProgLangFilter = null;
+                    });
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: sel
+                          ? cs.primary
+                          : cs.outlineVariant.withValues(alpha: 0.5),
+                      width: sel ? 1.5 : 1,
                     ),
-                  ));
-                }
-                return <Widget>[
-                  Row(children: [chip(0), chip(1), chip(2), chip(3), chip(4)]),
-                  const SizedBox(height: 2),
-                  Row(children: [chip(5), chip(6), chip(7), chip(8), chip(9)]),
-                ];
-              }(),
-            ),
-          ),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(icons[i], size: 14,
+                        color: sel ? cs.onPrimaryContainer : cs.onSurfaceVariant),
+                    const SizedBox(width: 6),
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                        color: sel ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
   
+  // ── Persistent search bar — theme-aware, taller, more spacious ──────────────
   Widget _buildPersistentSearch(ColorScheme cs, ThemeData theme) {
-      return Container(
-        color: theme.scaffoldBackgroundColor,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
-          child: Container(
-            height: 42,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1C1C1F),
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-              border: Border.fromBorderSide(
-                BorderSide(color: Color(0xFF2A2A2E)),
-              ),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 12),
-                const Icon(Icons.search_rounded, size: 16, color: Color(0xFF71717A)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    style: const TextStyle(fontSize: 14, color: Color(0xFFE4E4E7)),
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher une extension…',
-                      hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF52525B)),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-                if (_searchQuery.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF71717A)),
-                    onPressed: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                const SizedBox(width: 10),
-              ],
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
+        child: Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _searchQuery.isNotEmpty
+                  ? cs.primary.withValues(alpha: 0.55)
+                  : cs.outlineVariant.withValues(alpha: 0.4),
             ),
           ),
+          child: Row(
+            children: [
+              const SizedBox(width: 14),
+              Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  onTap: () => setState(() => _searchOpen = true),
+                  style: TextStyle(fontSize: 14, color: cs.onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher une extension…',
+                    hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.55)),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              if (_searchQuery.isNotEmpty)
+                IconButton(
+                  icon: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                ),
+              const SizedBox(width: 12),
+            ],
+          ),
         ),
-      );
-    }
+      ),
+    );
+  }
   
   Widget _buildFilterRows(ColorScheme cs, ThemeData theme) {
     final repoSet = <String>{};
@@ -1077,34 +1100,47 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         + (_globalProgLangFilter != null ? 1 : 0)
         + (_globalLangFilter != null ? 1 : 0);
 
+    // ── Theme-aware filter decorations ──────────────────────────────────────
     BoxDecoration deco(bool active) => BoxDecoration(
-      color: const Color(0xFF18181B),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: active ? const Color(0xFF4F46E5) : const Color(0xFF27272A)),
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(
+        color: active ? cs.primary : cs.outlineVariant.withValues(alpha: 0.5),
+        width: active ? 1.5 : 1,
+      ),
     );
 
     return Container(
       color: theme.scaffoldBackgroundColor,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 4),
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
+            // ── Repo filter ─────────────────────────────────────────────
             Expanded(
               child: Container(
-                height: 36, padding: const EdgeInsets.symmetric(horizontal: 10),
+                height: 38, padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: deco(_globalRepoFilter != null),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String?>(
                     value: _globalRepoFilter, isExpanded: true, isDense: true,
-                    icon: const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
-                    style: TextStyle(fontSize: 12, color: _globalRepoFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
-                    dropdownColor: const Color(0xFF1C1C1F),
+                    icon: Icon(Icons.expand_more_rounded, size: 14, color: cs.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _globalRepoFilter != null ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                    dropdownColor: cs.surfaceContainerLow,
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('D\u00e9p\u00f4t', style: TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)))),
+                      DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Dépôt', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                      ),
                       ...repos.map((r) {
-                        final label = r.contains('ferelking242') ? '\u2b50 Official' : r.split('/').lastOrNull ?? r;
-                        return DropdownMenuItem<String?>(value: r,
-                          child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFFE4E4E7))));
+                        final label = r.contains('ferelking242') ? '⭐ Official' : r.split('/').lastOrNull ?? r;
+                        return DropdownMenuItem<String?>(
+                          value: r,
+                          child: Text(label, style: TextStyle(fontSize: 12, color: cs.onSurface)),
+                        );
                       }),
                     ],
                     onChanged: (v) => setState(() => _globalRepoFilter = v),
@@ -1112,28 +1148,56 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
+            // ── Prog-lang filter ─────────────────────────────────────────
             SizedBox(
-              width: 92,
+              width: 96,
               child: Container(
-                height: 36, padding: const EdgeInsets.symmetric(horizontal: 8),
+                height: 38, padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: deco(_globalProgLangFilter != null),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<SourceCodeLanguage?>(
                     value: _globalProgLangFilter, isExpanded: true, isDense: true,
-                    icon: const Icon(Icons.expand_more_rounded, size: 12, color: Color(0xFF71717A)),
-                    dropdownColor: const Color(0xFF1C1C1F),
+                    icon: Icon(Icons.expand_more_rounded, size: 12, color: cs.onSurfaceVariant),
+                    dropdownColor: cs.surfaceContainerLow,
                     selectedItemBuilder: (_) => [
-                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.code_rounded, size: 12, color: Color(0xFFA1A1AA)), const SizedBox(width: 4), const Text('Lang', style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))])),
-                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [_ProgLangBadge(color: const Color(0xFFF7DF1E), textColor: const Color(0xFF000000), label: 'JS'), const SizedBox(width: 4), const Text('JS', style: TextStyle(fontSize: 11, color: Color(0xFFA5B4FC)))])),
-                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [_ProgLangBadge(color: const Color(0xFF0175C2), textColor: Colors.white, label: 'D'), const SizedBox(width: 4), const Text('Dart', style: TextStyle(fontSize: 11, color: Color(0xFFA5B4FC)))])),
+                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.code_rounded, size: 12, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 4),
+                        Text('Lang', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                      ])),
+                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const _ProgLangBadge(color: Color(0xFFF7DF1E), textColor: Color(0xFF000000), label: 'JS'),
+                        const SizedBox(width: 4),
+                        Text('JS', style: TextStyle(fontSize: 11, color: cs.primary)),
+                      ])),
+                      Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const _ProgLangBadge(color: Color(0xFF0175C2), textColor: Colors.white, label: 'D'),
+                        const SizedBox(width: 4),
+                        Text('Dart', style: TextStyle(fontSize: 11, color: cs.primary)),
+                      ])),
                     ],
-                    items: const [
-                      DropdownMenuItem<SourceCodeLanguage?>(value: null, child: Text('Tous', style: TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)))),
-                      DropdownMenuItem<SourceCodeLanguage?>(value: SourceCodeLanguage.javascript,
-                        child: Row(children: [_ProgLangBadge(color: Color(0xFFF7DF1E), textColor: Color(0xFF000000), label: 'JS'), SizedBox(width: 8), Text('JavaScript', style: TextStyle(fontSize: 12, color: Color(0xFFE4E4E7)))])),
-                      DropdownMenuItem<SourceCodeLanguage?>(value: SourceCodeLanguage.dart,
-                        child: Row(children: [_ProgLangBadge(color: Color(0xFF0175C2), textColor: Colors.white, label: 'D'), SizedBox(width: 8), Text('Dart', style: TextStyle(fontSize: 12, color: Color(0xFFE4E4E7)))])),
+                    items: [
+                      DropdownMenuItem<SourceCodeLanguage?>(
+                        value: null,
+                        child: Text('Tous', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                      ),
+                      DropdownMenuItem<SourceCodeLanguage?>(
+                        value: SourceCodeLanguage.javascript,
+                        child: Row(children: [
+                          const _ProgLangBadge(color: Color(0xFFF7DF1E), textColor: Color(0xFF000000), label: 'JS'),
+                          const SizedBox(width: 8),
+                          Text('JavaScript', style: TextStyle(fontSize: 12, color: cs.onSurface)),
+                        ]),
+                      ),
+                      DropdownMenuItem<SourceCodeLanguage?>(
+                        value: SourceCodeLanguage.dart,
+                        child: Row(children: [
+                          const _ProgLangBadge(color: Color(0xFF0175C2), textColor: Colors.white, label: 'D'),
+                          const SizedBox(width: 8),
+                          Text('Dart', style: TextStyle(fontSize: 12, color: cs.onSurface)),
+                        ]),
+                      ),
                     ],
                     onChanged: (v) => setState(() => _globalProgLangFilter = v),
                   ),
@@ -1141,47 +1205,75 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               ),
             ),
           ]),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(children: [
+            // ── Language filter ──────────────────────────────────────────
             Expanded(
               child: GestureDetector(
                 onTap: () => _showLangGridPicker(humanLangs),
                 child: Container(
-                  height: 36, padding: const EdgeInsets.symmetric(horizontal: 10),
+                  height: 38, padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: deco(_globalLangFilter != null),
                   child: Row(children: [
-                    const Icon(Icons.language_outlined, size: 14, color: Color(0xFF71717A)),
+                    Icon(Icons.language_outlined, size: 14, color: cs.onSurfaceVariant),
                     const SizedBox(width: 8),
                     Expanded(child: Text(
-                      _globalLangFilter != null ? '${_MarketplaceScreenState._langFlag(_globalLangFilter!)} ${_MarketplaceScreenState._langDisplayName(_globalLangFilter!)}' : 'Langue',
-                      style: TextStyle(fontSize: 12, color: _globalLangFilter != null ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
+                      _globalLangFilter != null
+                          ? '${_MarketplaceScreenState._langFlag(_globalLangFilter!)} ${_MarketplaceScreenState._langDisplayName(_globalLangFilter!)}'
+                          : 'Langue',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _globalLangFilter != null ? cs.primary : cs.onSurfaceVariant,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     )),
-                    const Icon(Icons.expand_more_rounded, size: 14, color: Color(0xFF71717A)),
+                    Icon(Icons.expand_more_rounded, size: 14, color: cs.onSurfaceVariant),
                   ]),
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
+            // ── Settings / active filters badge ──────────────────────────
             Stack(clipBehavior: Clip.none, children: [
               GestureDetector(
                 onTap: _showMarketplaceSettings,
                 child: Container(
-                  width: 36, height: 36,
+                  width: 38, height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF18181B), borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: activeCount > 0 ? const Color(0xFF4F46E5) : const Color(0xFF27272A)),
+                    color: activeCount > 0
+                        ? cs.primaryContainer
+                        : cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: activeCount > 0
+                          ? cs.primary
+                          : cs.outlineVariant.withValues(alpha: 0.5),
+                    ),
                   ),
-                  child: Icon(Icons.tune_rounded, size: 16,
-                      color: activeCount > 0 ? const Color(0xFF818CF8) : const Color(0xFF71717A)),
+                  child: Icon(
+                    Icons.tune_rounded,
+                    size: 18,
+                    color: activeCount > 0 ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+                  ),
                 ),
               ),
-              if (activeCount > 0) Positioned(top: -5, right: -5,
-                child: Container(
-                  width: 14, height: 14,
-                  decoration: const BoxDecoration(color: Color(0xFF4F46E5), shape: BoxShape.circle),
-                  child: Center(child: Text('$activeCount', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white))),
-                )),
+              if (activeCount > 0)
+                Positioned(
+                  top: -5, right: -5,
+                  child: Container(
+                    width: 16, height: 16,
+                    decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+                    child: Center(
+                      child: Text(
+                        '$activeCount',
+                        style: TextStyle(
+                          fontSize: 9, fontWeight: FontWeight.w700,
+                          color: cs.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ]),
           ]),
         ]),
@@ -3894,7 +3986,11 @@ class _ExtIcon extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment(-1 + 2 * _anim.value, 0),
             end: Alignment(1 + 2 * _anim.value, 0),
-            colors: const [Color(0xFF2A2A2E), Color(0xFF3F3F46), Color(0xFF2A2A2E)],
+            colors: [
+              Theme.of(context).colorScheme.surfaceContainerHigh,
+              Theme.of(context).colorScheme.surfaceContainerHighest,
+              Theme.of(context).colorScheme.surfaceContainerHigh,
+            ],
             stops: const [0.0, 0.5, 1.0],
           ),
         ),
@@ -4807,27 +4903,27 @@ class _PickerTile extends StatelessWidget {
       }).toList();
 
       return Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF18181B),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.78),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const SizedBox(height: 8),
           Container(width: 36, height: 4,
-            decoration: BoxDecoration(color: const Color(0xFF3F3F46), borderRadius: BorderRadius.circular(2))),
+            decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 14),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
-              const Icon(Icons.language_rounded, size: 18, color: Color(0xFF818CF8)),
+              Icon(Icons.language_rounded, size: 18, color: cs.primary),
               const SizedBox(width: 8),
               Text('Langue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
               const Spacer(),
               if (widget.selected != null)
                 TextButton(
                   onPressed: () => widget.onPick(null),
-                  style: TextButton.styleFrom(foregroundColor: const Color(0xFFF87171), padding: EdgeInsets.zero),
+                  style: TextButton.styleFrom(foregroundColor: cs.error, padding: EdgeInsets.zero),
                   child: const Text('Effacer', style: TextStyle(fontSize: 13)),
                 ),
             ]),
@@ -4836,22 +4932,23 @@ class _PickerTile extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
-              height: 38,
+              height: 42,
               decoration: BoxDecoration(
-                color: const Color(0xFF27272A),
-                borderRadius: BorderRadius.circular(10),
+                color: cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
               ),
               child: Row(children: [
-                const SizedBox(width: 10),
-                const Icon(Icons.search_rounded, size: 16, color: Color(0xFF71717A)),
+                const SizedBox(width: 12),
+                Icon(Icons.search_rounded, size: 16, color: cs.onSurfaceVariant),
                 const SizedBox(width: 8),
                 Expanded(child: TextField(
                   controller: _search,
                   onChanged: (v) => setState(() => _query = v),
-                  style: const TextStyle(fontSize: 13, color: Color(0xFFE4E4E7)),
-                  decoration: const InputDecoration(
+                  style: TextStyle(fontSize: 13, color: cs.onSurface),
+                  decoration: InputDecoration(
                     hintText: 'Rechercher une langue...',
-                    hintStyle: TextStyle(fontSize: 13, color: Color(0xFF52525B)),
+                    hintStyle: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.55)),
                     border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero,
                   ),
                 )),
@@ -4875,19 +4972,22 @@ class _PickerTile extends StatelessWidget {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 120),
                     decoration: BoxDecoration(
-                      color: sel ? const Color(0xFF4F46E5).withValues(alpha: 0.2) : const Color(0xFF27272A),
+                      color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: sel ? const Color(0xFF4F46E5) : Colors.transparent),
+                      border: Border.all(
+                        color: sel ? cs.primary : cs.outlineVariant.withValues(alpha: 0.4),
+                        width: sel ? 1.5 : 1,
+                      ),
                     ),
                     child: Center(child: isAll
                       ? Text('Toutes', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: sel ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)))
+                          color: sel ? cs.onPrimaryContainer : cs.onSurfaceVariant))
                       : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                           Text(_MarketplaceScreenState._langFlag(l), style: const TextStyle(fontSize: 18)),
                           const SizedBox(height: 1),
                           Text(_MarketplaceScreenState._langDisplayName(l),
                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                                color: sel ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA)),
+                                color: sel ? cs.onPrimaryContainer : cs.onSurfaceVariant),
                             overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
                         ]),
                     ),
@@ -4953,8 +5053,9 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
     Widget _section(String title, Widget child) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-            color: Color(0xFF71717A), letterSpacing: 0.8)),
+        Builder(builder: (ctx) => Text(title,
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+              color: Theme.of(ctx).colorScheme.onSurfaceVariant, letterSpacing: 0.8))),
         const SizedBox(height: 10),
         child,
       ],
@@ -4971,33 +5072,33 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
         maxChildSize: 0.92,
         expand: false,
         builder: (_, ctrl) => Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF18181B),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(children: [
             const SizedBox(height: 8),
             Container(width: 36, height: 4,
-              decoration: BoxDecoration(color: const Color(0xFF3F3F46), borderRadius: BorderRadius.circular(2))),
+              decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(children: [
                 Container(
                   width: 32, height: 32,
-                  decoration: BoxDecoration(color: const Color(0xFF4F46E5).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8)),
+                  decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(8)),
+                  child: Icon(Icons.tune_rounded, size: 16, color: cs.onPrimaryContainer),
                 ),
                 const SizedBox(width: 10),
-                const Text('Filtres avancés', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFFE4E4E7))),
+                Text('Filtres avancés', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: cs.onSurface)),
                 const Spacer(),
                 if (nActive > 0)
                   TextButton(
                     onPressed: _resetAll,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      backgroundColor: const Color(0xFFF87171).withValues(alpha: 0.1),
-                      foregroundColor: const Color(0xFFF87171),
+                      backgroundColor: cs.errorContainer.withValues(alpha: 0.4),
+                      foregroundColor: cs.error,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     child: const Text('Effacer tout', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
@@ -5005,7 +5106,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
               ]),
             ),
             const SizedBox(height: 12),
-            Divider(height: 1, color: const Color(0xFF27272A)),
+            Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.5)),
             Expanded(
               child: ListView(
                 controller: ctrl,
@@ -5084,24 +5185,32 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
     final VoidCallback onTap;
     const _SortChip({required this.label, required this.icon, required this.active, required this.onTap});
     @override
-    Widget build(BuildContext context) => GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? const Color(0xFF4F46E5).withValues(alpha: 0.15) : const Color(0xFF27272A),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: active ? const Color(0xFF4F46E5) : Colors.transparent),
+    Widget build(BuildContext context) {
+      final cs = Theme.of(context).colorScheme;
+      return GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: active ? cs.primaryContainer : cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: active ? cs.primary : cs.outlineVariant.withValues(alpha: 0.5),
+              width: active ? 1.5 : 1,
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: active ? cs.onPrimaryContainer : cs.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600,
+              color: active ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+            )),
+          ]),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 14, color: active ? const Color(0xFFA5B4FC) : const Color(0xFF71717A)),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-            color: active ? const Color(0xFFA5B4FC) : const Color(0xFFA1A1AA))),
-        ]),
-      ),
-    );
+      );
+    }
   }
 
   // ─── Filter toggle tile ───────────────────────────────────────────────────────
@@ -5119,29 +5228,32 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
       onTap: () => onChanged(!value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: value ? const Color(0xFF4F46E5).withValues(alpha: 0.08) : const Color(0xFF27272A),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: value ? const Color(0xFF4F46E5).withValues(alpha: 0.4) : Colors.transparent),
+          color: value ? cs.primaryContainer.withValues(alpha: 0.5) : cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: value ? cs.primary.withValues(alpha: 0.5) : cs.outlineVariant.withValues(alpha: 0.4),
+            width: value ? 1.5 : 1,
+          ),
         ),
         child: Row(children: [
           Container(
-            width: 30, height: 30,
+            width: 32, height: 32,
             decoration: BoxDecoration(
-              color: value ? const Color(0xFF4F46E5).withValues(alpha: 0.2) : cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
+              color: value ? cs.primaryContainer : cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(icon, size: 16, color: value ? const Color(0xFF818CF8) : cs.onSurfaceVariant),
+            child: Icon(icon, size: 16, color: value ? cs.onPrimaryContainer : cs.onSurfaceVariant),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-              color: value ? const Color(0xFFE4E4E7) : cs.onSurface)),
+              color: value ? cs.onPrimaryContainer : cs.onSurface)),
             const SizedBox(height: 2),
-            Text(sub, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+            Text(sub, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant.withValues(alpha: 0.7))),
           ])),
-          _FToggle(value: value),
+          _FToggle(value: value, cs: cs),
         ]),
       ),
     );
@@ -5149,22 +5261,26 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
 
   class _FToggle extends StatelessWidget {
     final bool value;
-    const _FToggle({required this.value});
+    final ColorScheme cs;
+    const _FToggle({required this.value, required this.cs});
     @override
     Widget build(BuildContext context) => AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: 38, height: 22,
+      width: 40, height: 24,
       decoration: BoxDecoration(
-        color: value ? const Color(0xFF4F46E5) : const Color(0xFF3F3F46),
-        borderRadius: BorderRadius.circular(11),
+        color: value ? cs.primary : cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: AnimatedAlign(
         duration: const Duration(milliseconds: 200),
         alignment: value ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
-          width: 16, height: 16, margin: const EdgeInsets.symmetric(horizontal: 3),
-          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)]),
+          width: 18, height: 18, margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            color: value ? cs.onPrimary : cs.onSurfaceVariant.withValues(alpha: 0.7),
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4)],
+          ),
         ),
       ),
     );
@@ -5820,22 +5936,25 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
               borderRadius: BorderRadius.circular(16),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF18181B).withValues(alpha: 0.88),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: accent.withValues(alpha: 0.35), width: 1),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2)],
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(widget.icon ?? (widget.isError ? Icons.error_rounded : Icons.info_rounded), size: 18, color: accent),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(widget.message,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFE4E4E7)),
-                      maxLines: 2, overflow: TextOverflow.ellipsis)),
-                  ]),
-                ),
+                child: Builder(builder: (ctx) {
+                  final cs = Theme.of(ctx).colorScheme;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh.withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: accent.withValues(alpha: 0.35), width: 1),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)],
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(widget.icon ?? (widget.isError ? Icons.error_rounded : Icons.info_rounded), size: 18, color: accent),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(widget.message,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
+                        maxLines: 2, overflow: TextOverflow.ellipsis)),
+                    ]),
+                  );
+                }),
               ),
             ),
           ),
@@ -5872,17 +5991,19 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
           minChildSize: 0.4,
           maxChildSize: 0.9,
           expand: false,
-          builder: (ctx, sc) => Container(
+          builder: (ctx, sc) {
+            final cs = Theme.of(ctx).colorScheme;
+            return Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
+              color: cs.surfaceContainerLow,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              border: Border.all(color: const Color(0xFF2A2A2E)),
+              border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
             ),
             child: Column(
               children: [
                 const SizedBox(height: 8),
                 Container(width: 36, height: 4,
-                  decoration: BoxDecoration(color: const Color(0xFF3A3A3E), borderRadius: BorderRadius.circular(2))),
+                  decoration: BoxDecoration(color: cs.outlineVariant, borderRadius: BorderRadius.circular(2))),
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -5900,8 +6021,9 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
                 )),
               ],
             ),
-          ),
-        ),
+          );    // closes return Container(...)
+          },    // closes builder: (ctx, sc) { ... }
+        ),      // closes DraggableScrollableSheet
       );
     }
 
@@ -5909,11 +6031,13 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
     Widget build(BuildContext context, WidgetRef ref) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
-        child: Material(
-          color: const Color(0xFF1A1A1E),
+        child: Builder(builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Material(
+          color: cs.surfaceContainerLow,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            onTap: () => _showBinarySheet(context),
+            onTap: () => _showBinarySheet(ctx),
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.all(14),
@@ -5934,7 +6058,7 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFE4E4E7))),
+                    Text(name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -5944,12 +6068,12 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(color: const Color(0xFF27272A), borderRadius: BorderRadius.circular(4)),
-                      child: const Text('Moteur', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF71717A))),
+                      decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(4)),
+                      child: Text('Moteur', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
                     ),
                   ]),
                   const SizedBox(height: 3),
-                  Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(desc, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis),
                 ])),
                 const SizedBox(width: 10),
                 OutlinedButton(
@@ -5967,10 +6091,11 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
               ]),
             ),
           ),
-        ),
-      );
-    }
+        );       // closes return Material(...)
+      }),         // closes child: Builder(builder: (ctx) { ... })
+    );
   }
+}
 
 
 // ─── Binary tab ────────────────────────────────────────────────────────────────

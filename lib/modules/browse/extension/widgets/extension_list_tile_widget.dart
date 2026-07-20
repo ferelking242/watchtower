@@ -36,19 +36,22 @@ class ExtensionListTileWidget extends ConsumerStatefulWidget {
 class _ExtensionListTileWidgetState
     extends ConsumerState<ExtensionListTileWidget> {
   bool _isLoading = false;
-  late final bool _updateAvailable;
-  late final bool _sourceNotEmpty;
   String? _lastError;
 
-  @override
-  void initState() {
-    super.initState();
-    _updateAvailable =
-        compareVersions(widget.source.version!, widget.source.versionLast!) < 0;
-    _sourceNotEmpty =
-        widget.source.sourceCode != null &&
-        widget.source.sourceCode!.isNotEmpty;
+  // Computed from the current widget.source so they stay accurate when the
+  // parent rebuilds with a refreshed Source (e.g. after an install/update).
+  // Using `late final` here was a bug: initState only runs once, so after
+  // an update the stale value was shown until the widget was disposed.
+  bool get _updateAvailable {
+    final v = widget.source.version;
+    final vl = widget.source.versionLast;
+    if (v == null || vl == null) return false;
+    return compareVersions(v, vl) < 0;
   }
+
+  bool get _sourceNotEmpty =>
+      widget.source.sourceCode != null &&
+      widget.source.sourceCode!.isNotEmpty;
 
   Future<void> _handleSourceFetch() async {
     setState(() { _isLoading = true; _lastError = null; });
@@ -149,7 +152,7 @@ class _ExtensionListTileWidgetState
                         color: cs.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: widget.source.iconUrl!.isEmpty
+                      child: (widget.source.iconUrl?.isEmpty ?? true)
                           ? const Icon(Icons.extension_rounded, size: 18)
                             : ExtensionIconWidget(
                                 sourceId: widget.source.id,
@@ -414,7 +417,7 @@ class _ExtensionListTileWidgetState
           color: Theme.of(context).secondaryHeaderColor.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(5),
         ),
-        child: widget.source.iconUrl!.isEmpty
+        child: (widget.source.iconUrl?.isEmpty ?? true)
             ? const Icon(Icons.extension_rounded, size: 18)
               : ExtensionIconWidget(
                   sourceId: widget.source.id,
@@ -433,8 +436,8 @@ class _ExtensionListTileWidgetState
           const SizedBox(width: 4),
           Text(
             _updateAvailable
-                ? '${widget.source.version!} → ${widget.source.versionLast!}'
-                : widget.source.version!,
+                ? '${widget.source.version ?? ''} → ${widget.source.versionLast ?? ''}'
+                : widget.source.version ?? '',
             style: TextStyle(
               fontWeight: FontWeight.w300,
               fontSize: 12,
