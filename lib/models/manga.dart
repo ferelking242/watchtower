@@ -149,4 +149,4 @@ enum Status {
   publishingFinished,
 }
 
-enum ItemType { manga, anime, novel, music, game }
+enum ItemType { manga, anime, novel, music, game, plugin }

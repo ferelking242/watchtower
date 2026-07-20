@@ -17,6 +17,7 @@ import 'package:watchtower/modules/browse/sources/sources_screen.dart';
   import 'package:watchtower/modules/game/game_discovery_screen.dart';
   import 'package:watchtower/modules/music/music_discovery_screen.dart';
   import 'package:watchtower/modules/game/game_discovery_screen.dart';
+import 'package:watchtower/modules/plugin/plugin_discovery_screen.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -48,6 +49,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           if (!hideItems.contains("/NovelLibrary")) ItemType.novel,
           if (!hideItems.contains("/MusicLibrary")) ItemType.music,
           if (!hideItems.contains("/GameLibrary")) ItemType.game,
+          if (!hideItems.contains("/PluginLibrary")) ItemType.plugin,
         ];
 
     static bool _typesEqual(List<ItemType> a, List<ItemType> b) {
@@ -430,6 +432,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         return 'Music';
       case ItemType.game:
         return 'Games';
+      case ItemType.plugin:
+        return 'Plugins';
     }
   }
 
@@ -445,6 +449,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         return Icons.music_note_outlined;
       case ItemType.game:
         return Icons.sports_esports_outlined;
+      case ItemType.plugin:
+        return Icons.extension_outlined;
     }
   }
 
@@ -551,6 +557,9 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
       }
       if (widget.itemType == ItemType.game) {
         return const GameDiscoveryScreen();
+      }
+      if (widget.itemType == ItemType.plugin) {
+        return const PluginDiscoveryScreen();
       }
       return SourcesScreen(
         itemType: widget.itemType,
