@@ -21,6 +21,7 @@ package com.watchtower.app
   import io.flutter.plugin.common.EventChannel
   import io.flutter.plugin.common.MethodChannel
   import io.flutter.plugin.common.StandardMethodCodec
+  import com.kodjodevf.watchtower.DownloadForegroundService
   import com.kodjodevf.watchtower.MediaStorePlugin
   import libmtorrentserver.Libmtorrentserver
   import rikka.shizuku.Shizuku
