@@ -843,6 +843,23 @@ Future<void> downloadChapter(
         }
       }
 
+      // ── Auto-add to library when a chapter finishes downloading ──────────
+      // If the parent manga/anime is not yet in the library (favorite=false),
+      // add it automatically so the user can find their downloads in Library.
+      if (progress.isCompleted) {
+        final parentManga = chapter.manga.value;
+        if (parentManga != null && parentManga.id != null &&
+            parentManga.favorite != true) {
+          final mangaRecord = isar.mangas.getSync(parentManga.id!);
+          if (mangaRecord != null && mangaRecord.favorite != true) {
+            isar.writeTxnSync(() {
+              mangaRecord.favorite = true;
+              isar.mangas.putSync(mangaRecord);
+            });
+          }
+        }
+      }
+
       // ── Android notification: real chapter name + progress bar ───────────
       // Only update for anime downloads where we have meaningful byte progress.
       if (progress.itemType == ItemType.anime && progress.total > 0 && isarTotal > 0) {

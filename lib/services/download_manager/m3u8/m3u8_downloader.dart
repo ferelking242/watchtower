@@ -287,12 +287,26 @@ class M3u8Downloader {
     _log('Merging segments...');
     try {
       await _mergeTsToMp4(outputFile, tempDir);
+
+      // Measure the actual merged file size so Isar stores the real value
+      // instead of the segment-count estimate (which is always an under-estimate
+      // because TS container overhead is not included in the per-segment average).
+      int? actualBytes;
+      try {
+        actualBytes = await File(outputFile).length();
+        _log('Merge size: ${(actualBytes / 1024 / 1024).toStringAsFixed(1)} MB  path=$outputFile');
+      } catch (e) {
+        _log('Warning: could not stat merged file: $e');
+      }
+
       onProgress.call(
         DownloadProgress(
           1,
           1,
           chapter.manga.value!.itemType,
           isCompleted: true,
+          downloadedBytes: actualBytes,
+          totalBytes: actualBytes,
         ),
       );
       _log('Merge completed successfully');

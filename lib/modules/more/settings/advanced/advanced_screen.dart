@@ -21,6 +21,9 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
+import 'package:watchtower/models/download.dart';
+import 'package:path/path.dart' as p;
+import 'package:watchtower/utils/extensions/string_extensions.dart';
 
 // ─── Hive-backed Advanced Settings helpers ────────────────────────────────────
 
@@ -412,6 +415,124 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     }
   }
 
+  // ── Download reindex ─────────────────────────────────────────────────────────
+
+  /// Scans every Download record in Isar. For any entry that is NOT yet marked
+  /// complete, checks whether the actual file already exists on disk — this
+  /// can happen after a crash, a migration, or a manual file copy.  Marks
+  /// found files as [isDownload = true] so the UI correctly shows them.
+  Future<void> _reindexDownloads() async {
+    _toast("Réindexation en cours…");
+    try {
+      final storageProvider = StorageProvider();
+      int fixed = 0;
+      final downloads = await isar.downloads.where().findAll();
+
+      for (final dl in downloads) {
+        if (dl.isDownload == true) continue;
+        dl.chapter.loadSync();
+        final chapter = dl.chapter.value;
+        if (chapter == null) continue;
+        chapter.manga.loadSync();
+        final manga = chapter.manga.value;
+        if (manga == null) continue;
+
+        final mangaDir = await storageProvider.getMangaMainDirectory(chapter);
+        if (mangaDir == null) continue;
+
+        bool fileFound = false;
+        int sizeKb = 0;
+        final chapterName = (chapter.name ?? '').replaceForbiddenCharacters(' ');
+
+        if (manga.itemType == ItemType.anime) {
+          final mp4 = File(p.join(mangaDir.path, '$chapterName.mp4'));
+          if (mp4.existsSync()) {
+            fileFound = true;
+            sizeKb = (mp4.lengthSync() / 1024).ceil();
+          }
+        } else if (manga.itemType == ItemType.manga) {
+          // Check individual image files in the chapter subfolder.
+          final chapterDir = await storageProvider.getMangaChapterDirectory(
+              chapter, mangaMainDirectory: mangaDir);
+          if (chapterDir != null && chapterDir.existsSync()) {
+            final imgs = chapterDir.listSync()
+                .where((f) => f.path.endsWith('.jpg')).toList();
+            if (imgs.isNotEmpty) { fileFound = true; sizeKb = imgs.length; }
+          }
+          // Also accept a CBZ archive.
+          final cbz = File(p.join(mangaDir.path, '${chapter.name}.cbz'));
+          if (!fileFound && cbz.existsSync()) {
+            fileFound = true;
+            sizeKb = (cbz.lengthSync() / 1024).ceil();
+          }
+        } else if (manga.itemType == ItemType.novel) {
+          final html = File(p.join(mangaDir.path, '${chapter.name}.html'));
+          if (html.existsSync()) {
+            fileFound = true;
+            sizeKb = (html.lengthSync() / 1024).ceil();
+          }
+        }
+
+        if (fileFound) {
+          await isar.writeTxn(() async {
+            final record = await isar.downloads.get(dl.id!);
+            if (record != null && record.isDownload != true) {
+              record
+                ..isDownload = true
+                ..isStartDownload = false
+                ..failed = 0;
+              if (sizeKb > 0) {
+                record.succeeded = sizeKb;
+                record.total = sizeKb;
+              }
+              await isar.downloads.put(record);
+            }
+          });
+          fixed++;
+        }
+      }
+      if (!mounted) return;
+      _toast("$fixed chapitre(s) réindexé(s) sur ${downloads.length}");
+    } catch (e) {
+      _toast("Erreur: $e");
+    }
+  }
+
+  /// Finds every fully-downloaded chapter whose parent manga/anime is NOT yet
+  /// in the library (favorite = false) and adds it automatically.
+  Future<void> _addDownloadsToLibrary() async {
+    _toast("Vérification en cours…");
+    try {
+      final downloads = await isar.downloads
+          .filter()
+          .isDownloadEqualTo(true)
+          .findAll();
+
+      int added = 0;
+      for (final dl in downloads) {
+        dl.chapter.loadSync();
+        final chapter = dl.chapter.value;
+        if (chapter == null) continue;
+        chapter.manga.loadSync();
+        final manga = chapter.manga.value;
+        if (manga == null || manga.id == null || manga.favorite == true) continue;
+
+        await isar.writeTxn(() async {
+          final m = await isar.mangas.get(manga.id!);
+          if (m != null && m.favorite != true) {
+            m.favorite = true;
+            await isar.mangas.put(m);
+            added++;
+          }
+        });
+      }
+      if (!mounted) return;
+      _toast("$added série(s) ajoutées à la bibliothèque");
+    } catch (e) {
+      _toast("Erreur: $e");
+    }
+  }
+
   // ── Icon / Library cache helpers ─────────────────────────────────────────────
 
   static String _fmtSize(int bytes) {
@@ -793,10 +914,14 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           _action(
             title: "Réindexe les téléchargements",
             subtitle:
-                "Forcer l'application à revérifier les chapitres téléchargés",
-            onTap: () {
-              _toast("Réindexation des téléchargements…");
-            },
+                "Recherche les fichiers déjà présents sur le disque et corrige les entrées manquantes",
+            onTap: _reindexDownloads,
+          ),
+          _action(
+            title: "Téléchargés non en bibliothèque",
+            subtitle:
+                "Ajoute automatiquement à la bibliothèque toutes les séries dont un chapitre est déjà téléchargé",
+            onTap: _addDownloadsToLibrary,
           ),
           _action(
             title: "Effacer la base de données",

@@ -199,6 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     // Copied AppBar search animation from Namida's SubpagesTopContainer pattern
     return Scaffold(
       appBar: AppBar(
+        leading: BackButton(onPressed: () => context.pop()),
         // Namida-style: title animates out, search field animates in
         title: _searchOpen
             ? SizeTransition(
