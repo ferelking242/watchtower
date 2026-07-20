@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/modules/home/widgets/library_header_bar.dart';
 import 'package:watchtower/models/manga.dart';
 
 class PluginDiscoveryScreen extends ConsumerWidget {
@@ -13,8 +12,8 @@ class PluginDiscoveryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: SafeArea(
@@ -22,8 +21,6 @@ class PluginDiscoveryScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const LibraryHeaderBar(itemType: ItemType.plugin),
-
             // ── Titre section ────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -57,7 +54,7 @@ class PluginDiscoveryScreen extends ConsumerWidget {
                   _PluginCard(
                     id: 'local_indexer',
                     label: 'Local Indexer',
-                    subtitle: 'Bibliothèque locale\nAnime, Manga, Manga…',
+                    subtitle: 'Bibliothèque locale\nAnime, Manga, Novel…',
                     icon: Broken.hierarchy_3,
                     color: Color(0xFF5C6BC0),
                     route: '/AnimeLibrary',
@@ -186,6 +183,106 @@ class _PluginCard extends StatelessWidget {
   }
 
   void _onLongPress(BuildContext context) {
-    // Shortcut sheet not yet available — no-op.
+    final cs = Theme.of(context).colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+
+                // Plugin identity row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [color, color.withValues(alpha: 0.6)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(label,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 15)),
+                            Text(subtitle.replaceAll('\n', ' '),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: cs.onSurface.withValues(alpha: 0.55))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // Option — Ouvrir
+                ListTile(
+                  leading: Icon(Icons.open_in_new_rounded, color: cs.primary),
+                  title: const Text('Ouvrir'),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    context.push(route);
+                  },
+                ),
+
+                // Option — Créer un raccourci
+                ListTile(
+                  leading: Icon(Icons.add_to_home_screen_rounded,
+                      color: cs.primary),
+                  title: const Text('Créer un raccourci'),
+                  subtitle: const Text('Ajouter à l\'écran d\'accueil'),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Raccourci pour "$label" — bientôt disponible'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

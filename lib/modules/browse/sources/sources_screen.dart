@@ -67,6 +67,10 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                     .where((e) => e.isActive == true)
                     .where((e) => e.itemType == widget.itemType)
                     .where((e) => showNSFW || !(e.isNsfw ?? false))
+                    // "local" source is always shown via the fixed section
+                    // at the bottom of the column — exclude it from the
+                    // grouped list so it never appears twice.
+                    .where((e) => !(e.name == 'local' && (e.lang ?? '').isEmpty))
                     .toList();
                 {
                   final seen = <String>{};
@@ -182,40 +186,38 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                           ),
                       ],
 
-                      // ── Source locale — toujours en bas ───────────────────
-                      SliverToBoxAdapter(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 12, top: 10, bottom: 2),
-                              child: Text(
-                                l10n.other,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                            SourceListTile(
-                              source: Source(
-                                name: "local",
-                                lang: "",
-                                itemType: widget.itemType,
-                              ),
-                              itemType: widget.itemType,
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 );
               },
             ),
           ),
+        ),
+
+        // ── Source locale — toujours visible, même sans extensions ───────
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 12, top: 10, bottom: 2),
+              child: Text(
+                l10n.other,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            SourceListTile(
+              source: Source(
+                name: "local",
+                lang: "",
+                itemType: widget.itemType,
+              ),
+              itemType: widget.itemType,
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
       ],
     );

@@ -110,10 +110,10 @@ GoRouter router(Ref ref) {
       .watch(navigationOrderStateProvider)
       .where((e) => !hiddenItems.contains(e))
       .first;
-  // Onboarding tutorial disabled — was low quality and confusing, always
-  // land straight on the main app. Route kept registered below in case a
-  // future rewrite wants to reuse it.
-  final destination = mainLocation;
+  // Redirect to onboarding on first launch (marker file absent).
+  // needsOnboarding is set in main() before runApp() and imported from
+  // onboarding_state.dart which is already imported in this file.
+  final destination = needsOnboarding ? '/onboarding' : mainLocation;
 
   return GoRouter(
     observers: [],

@@ -13,10 +13,6 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
-  import 'package:watchtower/modules/music/music_discovery_screen.dart';
-  import 'package:watchtower/modules/game/game_discovery_screen.dart';
-  import 'package:watchtower/modules/music/music_discovery_screen.dart';
-  import 'package:watchtower/modules/game/game_discovery_screen.dart';
 import 'package:watchtower/modules/plugin/plugin_discovery_screen.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
@@ -553,10 +549,16 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
     @override
     Widget build(BuildContext context) {
       if (widget.itemType == ItemType.music) {
-        return const MusicDiscoveryScreen();
+        return SourcesScreen(
+          itemType: ItemType.music,
+          onShowExtensions: () => context.push('/marketplace'),
+        );
       }
       if (widget.itemType == ItemType.game) {
-        return const GameDiscoveryScreen();
+        return SourcesScreen(
+          itemType: ItemType.game,
+          onShowExtensions: () => context.push('/marketplace'),
+        );
       }
       if (widget.itemType == ItemType.plugin) {
         return const PluginDiscoveryScreen();
