@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import com.kodjodevf.watchtower.MainActivity
 
 class WebSharingForegroundService : Service() {
     private val CHANNEL_ID = "web_sharing_channel"

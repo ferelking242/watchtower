@@ -163,7 +163,7 @@ class DownloadForegroundService : Service() {
             )
 
         // BigText style: show full chapter name even when it's long.
-        if (title.isNotEmpty && title != "Téléchargement en cours…") {
+        if (title.isNotEmpty() && title != "Téléchargement en cours…") {
             builder.setStyle(
                 NotificationCompat.BigTextStyle()
                     .bigText(body)
