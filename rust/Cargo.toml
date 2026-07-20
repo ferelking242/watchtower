@@ -24,7 +24,7 @@
   # It is installed as the process-default provider in client.rs before any TLS.
   rustls = { version = "0.23", default-features = false, features = ["ring"] }
   webpki-roots = "0.26"
-  tokio = { version = "1.50.0", features = ["full"] }
+  tokio = { version = "1", features = ["full"] }
   tokio-util = "0.7.16"
   epub = "2.1.5"
   zip = "8.5.0"
