@@ -637,12 +637,14 @@ package com.watchtower.app
               "watchtower/download_service"
           ).setMethodCallHandler { call, result ->
               try {
-                  val count = call.argument<Int>("count") ?: 0
-                  val title = call.argument<String>("title") ?: "Téléchargement en cours…"
+                  val count    = call.argument<Int>("count")    ?: 0
+                  val title    = call.argument<String>("title")    ?: "Téléchargement en cours…"
+                  val subtitle = call.argument<String>("subtitle") ?: ""
+                  val progress = call.argument<Int>("progress")    ?: -1
                   when (call.method) {
-                      "start"  -> { DownloadForegroundService.start(applicationContext, count, title);  result.success(null) }
-                      "update" -> { DownloadForegroundService.update(applicationContext, count, title); result.success(null) }
-                      "stop"   -> { DownloadForegroundService.stop(applicationContext);                 result.success(null) }
+                      "start"  -> { DownloadForegroundService.start(applicationContext, count, title, subtitle, progress);  result.success(null) }
+                      "update" -> { DownloadForegroundService.update(applicationContext, count, title, subtitle, progress); result.success(null) }
+                      "stop"   -> { DownloadForegroundService.stop(applicationContext);                                     result.success(null) }
                       else     -> result.notImplemented()
                   }
               } catch (e: Exception) {

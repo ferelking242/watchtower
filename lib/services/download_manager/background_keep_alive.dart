@@ -43,13 +43,23 @@ class BackgroundKeepAlive {
   }
 
   /// Update the notification text (Android) — call when active count changes.
+  ///
+  /// [title]    — name of the current chapter/episode (shown as notification title).
+  /// [progress] — download progress 0-100 (-1 = indeterminate).
   static Future<void> update({
     required int count,
     String title = 'Téléchargement en cours…',
+    int progress = -1,
+    String subtitle = '',
   }) async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        await _ch.invokeMethod<void>('update', {'count': count, 'title': title});
+        await _ch.invokeMethod<void>('update', {
+          'count': count,
+          'title': title,
+          'progress': progress,
+          'subtitle': subtitle,
+        });
       } catch (_) {}
     }
   }

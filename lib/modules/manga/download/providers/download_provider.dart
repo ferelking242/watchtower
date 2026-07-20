@@ -734,6 +734,12 @@ Future<void> downloadChapter(
       }
     }
 
+    // Tracks the KB already stored in Isar from a previous (paused) download
+    // session.  Captured once on the very first setProgress() call, then added
+    // as an offset to every subsequent tick so the progress bar never goes
+    // backwards after a pause → resume.  -1 = not yet captured.
+    var _resumeSucceededKbOffset = -1;
+
     Future<void> setProgress(DownloadProgress progress) async {
       if (progress.total > 0 && AppLogger.isExtremeMode) {
         final pct = (progress.completed / progress.total * 100).toInt();
@@ -783,6 +789,34 @@ Future<void> downloadChapter(
       }
 
       final download = isar.downloads.getSync(chapter.id!);
+
+      // ── First-tick: capture resume offset from Isar ──────────────────────
+      // setProgress(0, 0, …) is called once before any real progress arrives.
+      // If the stored record already has bytes, this is a resume — capture the
+      // offset so every subsequent tick adds it back in.
+      if (_resumeSucceededKbOffset < 0) {
+        final stored = download?.succeeded ?? 0;
+        _resumeSucceededKbOffset = stored > 500 ? stored : 0;
+      }
+
+      // ── Anime: resume-safe corrections ───────────────────────────────────
+      // On pause → resume the fresh M3u8Downloader only sees remaining segments:
+      //   • isarTotal  is re-estimated from remaining segs → smaller than original.
+      //   • isarSucceeded restarts from 0               → appears to go backwards.
+      // Corrections:
+      //   1. Never shrink the stored total (floor at the stored value).
+      //   2. Add the already-downloaded offset to every succeeded value.
+      if (progress.itemType == ItemType.anime && download != null) {
+        final storedTotal = download.total ?? 0;
+        if (storedTotal > 500 && isarTotal < storedTotal) {
+          isarTotal = storedTotal;
+        }
+        if (_resumeSucceededKbOffset > 0) {
+          isarSucceeded += _resumeSucceededKbOffset;
+          if (isarSucceeded > isarTotal) isarSucceeded = isarTotal;
+        }
+      }
+
       if (download == null) {
         final newDl = Download(
           id: chapter.id,
@@ -807,6 +841,21 @@ Future<void> downloadChapter(
             );
           });
         }
+      }
+
+      // ── Android notification: real chapter name + progress bar ───────────
+      // Only update for anime downloads where we have meaningful byte progress.
+      if (progress.itemType == ItemType.anime && progress.total > 0 && isarTotal > 0) {
+        final pct = (isarSucceeded * 100 ~/ isarTotal).clamp(0, 100);
+        final activeCount = ActiveDownloadRegistry.activeCountForType(ItemType.anime);
+        final notifTitle = chapter.name ?? 'Téléchargement en cours…';
+        final notifSub = '$activeCount téléchargement${activeCount > 1 ? 's' : ''} actif${activeCount > 1 ? 's' : ''}';
+        unawaited(BackgroundKeepAlive.update(
+          count: activeCount,
+          title: notifTitle,
+          progress: pct,
+          subtitle: notifSub,
+        ));
       }
     }
 

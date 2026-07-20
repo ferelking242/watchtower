@@ -372,7 +372,8 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             ..succeeded = 0
             ..failed = 0
             ..total = 1
-            ..isDownload = false);
+            ..isDownload = false
+            ..isStartDownload = true);
         }
       });
       ref.read(processDownloadsProvider());

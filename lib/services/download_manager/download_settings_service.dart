@@ -318,7 +318,7 @@ class DownloadSettingsService {
   // ── Per-source simultaneous downloads ─────────────────────────────────────
 
   int get watchSimultaneousPerSource =>
-      (_data['watchSimPerSource'] as int? ?? 1).clamp(1, 10);
+      (_data['watchSimPerSource'] as int? ?? 3).clamp(1, 10);
   Future<void> setWatchSimultaneousPerSource(int v) async {
     _data['watchSimPerSource'] = v.clamp(1, 10);
     await _save();
