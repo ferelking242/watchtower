@@ -181,13 +181,15 @@ function createRuntime(source) {
   const runtime = new WatchtowerRuntime();
   const store = new ElementStore();
 
-  // Register native bridges
-  registerHttpBridge(runtime);
+  // ── Step 1: get domJs and set it FIRST so the context reset happens before
+  //           any bridge injects JS into the VM. Every runtime.evaluate() call
+  //           inside a bridge registration creates the context on demand; if
+  //           setDomJs is called afterwards it wipes that context and the
+  //           injected classes (Client, SharedPreferences, …) are lost.
   const domJs = registerDomBridge(runtime, store);
-  registerPrefsBridge(runtime, source.id || source.name || 'default');
-  registerExtractorsBridge(runtime);
+  runtime.setDomJs(domJs); // resets context — must happen before other bridges
 
-  // Register crypto handlers
+  // ── Step 2: register message-channel handlers (no evaluate() calls here yet)
   runtime.onMessage('cryptoHandler',         ([t, iv, k, enc]) => crypto.cryptoHandler(t, iv, k, enc));
   runtime.onMessage('encryptAESCryptoJS',    ([t, k])          => crypto.encryptAESCryptoJS(t, k));
   runtime.onMessage('decryptAESCryptoJS',    ([t, k])          => crypto.decryptAESCryptoJS(t, k));
@@ -195,26 +197,30 @@ function createRuntime(source) {
   runtime.onMessage('unpackJsAndCombine',    ([s])             => crypto.unpackJsAndCombine(s));
   runtime.onMessage('unpackJs',              ([s])             => crypto.unpackJs(s) || '');
 
-  // parseDates — relative-date parser
   runtime.onMessage('parseDates', ([values, dateFormat, locale]) => {
     return JSON.stringify(values.map(d => parseSingleDate(d, dateFormat, locale)));
   });
 
-  // log bridge
   runtime.onMessage('log', ([level, msg]) => {
     const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
     fn(`[EXT][${level}] ${msg}`);
     return null;
   });
 
-  // Set DOM JS before context is created
-  runtime.setDomJs(domJs);
-
-  // Bootstrap all injected JS in order
+  // ── Step 3: bootstrap the VM context with all base classes.
+  //           These evaluate() calls are safe now — setDomJs has already run.
   runtime.evaluate(MPROVIDER_JS);
   runtime.evaluate(UTILS_JS);
+  runtime.evaluate(UTILS_DATE_JS);
 
-  // Inject source JSON as the extension's `source` property context
+  // ── Step 4: register bridges whose registration also injects JS classes
+  //           (Client, SharedPreferences). They run after the context exists
+  //           and will NOT be wiped by a subsequent setDomJs.
+  registerHttpBridge(runtime);
+  registerPrefsBridge(runtime, source.id || source.name || 'default');
+  registerExtractorsBridge(runtime);
+
+  // Inject source metadata
   const sourceJson = JSON.stringify(source);
   runtime.evaluate(`const __sourceJson = ${sourceJson};`);
 

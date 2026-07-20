@@ -70,33 +70,32 @@ async function getRuntimeForSource(source) {
 
   const runtime  = createRuntime(source);
 
-  // Evaluate the extension JS
-  runtime.evaluate(sourceJs);
-  console.log(`[RUNTIME] Extension JS evaluated`);
+  // Evaluate the extension JS + auto-instantiation in ONE runInContext call
+  // so that lexically-scoped class declarations are still in scope when we
+  // try to instantiate the extension (a separate vm.runInContext cannot see them).
+  const AUTO_INSTANTIATE = `
+;(function _autoInstantiate() {
+  if (typeof extention !== 'undefined') return;
+  var _candidates = ['DefaultExtension','Extension','NovelExtension',
+                     'MangaExtension','AnimeExtension','Source','Extention'];
+  for (var _i = 0; _i < _candidates.length; _i++) {
+    try {
+      var _cls = eval(_candidates[_i]); // eslint-disable-line no-eval
+      if (_cls && typeof _cls === 'function') {
+        extention = new _cls();
+        console.log('[RUNTIME] Auto-instantiated: ' + _candidates[_i]);
+        return;
+      }
+    } catch(_e) { /* not defined — try next */ }
+  }
+  console.warn('[RUNTIME] Could not auto-instantiate extension');
+})();
+`;
+  runtime.evaluate(sourceJs + AUTO_INSTANTIATE);
+  console.log(`[RUNTIME] Extension JS evaluated + auto-instantiation attempted`);
 
-  // Instantiate the extension
   const hasExtention = await runtime.evaluateAsync('typeof extention');
   console.log(`[RUNTIME] typeof extention → ${hasExtention.stringResult}`);
-
-  if (hasExtention.stringResult === '"undefined"') {
-    console.log(`[RUNTIME] extention not auto-defined, scanning globalThis for MProvider subclasses…`);
-    const fallback = await runtime.evaluateAsync(`
-      (function() {
-        const names = Object.getOwnPropertyNames(globalThis)
-          .filter(n => {
-            try { return globalThis[n] && globalThis[n].prototype instanceof MProvider; }
-            catch(_) { return false; }
-          });
-        if (names.length > 0) {
-          console.log('[RUNTIME] Found class: ' + names[0]);
-          globalThis.extention = new globalThis[names[0]]();
-          return names[0];
-        }
-        return 'NOT_FOUND';
-      })();
-    `);
-    console.log(`[RUNTIME] Fallback instantiation result: ${fallback.stringResult}`);
-  }
 
   _runtimes.set(key, runtime);
   console.log(`[RUNTIME] Runtime ready for "${key}"`);
@@ -140,9 +139,11 @@ app.use('/api', requireAuth, rateLimiterMiddleware);
 app.get('/api/sources', async (req, res) => {
   try {
     console.log('[SOURCES] Listing sources…');
-    const sources = await registry.listSources({ includeNsfw: false });
-    console.log(`[SOURCES] Found ${sources.length} non-NSFW sources`);
-    sources.forEach((s, i) => console.log(`  [${i}] id=${s.id} name="${s.name}" lang=${s.lang} type=${s.itemType}`));
+    const rawSources = await registry.listSources({ includeNsfw: true });
+    // Stringify all IDs — Dart SDK expects String, not int
+    const sources = rawSources.map(s => ({ ...s, id: String(s.id) }));
+    console.log(`[SOURCES] Found ${sources.length} sources (NSFW included)`);
+    sources.forEach((s, i) => console.log(`  [${i}] id=${s.id} name="${s.name}" lang=${s.lang}`));
     json(res, { sources });
   } catch (e) {
     console.error('[SOURCES] Error:', e);
