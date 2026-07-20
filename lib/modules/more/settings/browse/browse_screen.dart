@@ -108,23 +108,39 @@ class BrowseSScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  ListTile(
-                    onTap: () => context.push('/extensionServer'),
-                    title: Text(
-                      (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-                          ? l10n.android_proxy_server
-                          : l10n.android_proxy_server_mihon,
+                  // ── Serveur distant (web uniquement) ─────────────────────
+                  if (kIsWeb)
+                    ListTile(
+                      onTap: () => context.push('/remoteSetup'),
+                      leading: const Icon(Icons.wifi_tethering_rounded),
+                      title: const Text('Serveur distant'),
+                      subtitle: Text(
+                        'Connecter votre appareil pour synchroniser la bibliothèque',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.secondaryColor,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
                     ),
-                    subtitle: Text(
-                      (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-                          ? l10n.apkbridge_description
-                          : l10n.android_proxy_server_mihon_description,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: context.secondaryColor,
+                  if (!kIsWeb)
+                    ListTile(
+                      onTap: () => context.push('/extensionServer'),
+                      title: Text(
+                        (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                            ? l10n.android_proxy_server
+                            : l10n.android_proxy_server_mihon,
+                      ),
+                      subtitle: Text(
+                        (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                            ? l10n.apkbridge_description
+                            : l10n.android_proxy_server_mihon_description,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.secondaryColor,
+                        ),
                       ),
                     ),
-                  ),
                   ListTile(
                       onTap: () {
                         Navigator.of(context).push(

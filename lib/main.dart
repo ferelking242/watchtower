@@ -185,8 +185,8 @@ void main(List<String> args) async {
               ],
             ),
           );
-        seedMockWebData(_mockIsar);
-        // Sync real data from remote server (if configured)
+        // Sync real data from remote server (if configured).
+        // seedMockWebData removed — no fake demo data on production web build.
         await syncRemoteDataToMockIsar(_mockIsar);
         isar = _mockIsar;
       } else {

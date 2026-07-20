@@ -5,6 +5,10 @@ import 'package:flutter/foundation.dart';
   import 'package:http/http.dart' as http;
   import 'dart:async';
   import 'dart:convert';
+  import 'package:watchtower/main.dart' show isar;
+  import 'package:watchtower/utils/mock_isar.dart' show MockIsar;
+  import 'package:watchtower/remote/remote_web_sync.dart'
+      if (dart.library.io) 'package:watchtower/remote/remote_web_sync_stub.dart';
 
   const _kPrefKey = 'remote_server_url';
 
@@ -81,7 +85,20 @@ import 'package:flutter/foundation.dart';
           if (data['ok'] == true) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString(_kPrefKey, url);
+            // Immediately seed MockIsar from the server so the library
+            // is populated without waiting for the next app restart.
+            if (kIsWeb) {
+              unawaited(syncRemoteDataToMockIsar(isar as MockIsar));
+            }
             widget.onConnected?.call();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Serveur connecté — synchronisation en cours…'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
             return;
           }
         }
