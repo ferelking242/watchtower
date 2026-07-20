@@ -173,7 +173,7 @@ class ArchiveService {
       // stream zip files to avoid OOM
       if (lowerPath.endsWith('.zip') || lowerPath.contains('.zip.')) {
         final inputStream = InputFileStream(archivePath);
-        final archive = ZipDecoder().decodeBuffer(inputStream, password: password != null && password.isNotEmpty ? password : null);
+        final archive = ZipDecoder().decodeStream(inputStream, password: password != null && password.isNotEmpty ? password : null);
         
         for (final fileEntry in archive.files) {
           final filename = fileEntry.name;
@@ -200,7 +200,7 @@ class ArchiveService {
         outputStream.closeSync();
 
         final tarInputStream = InputFileStream(tempTarFile.path);
-        final archive = TarDecoder().decodeBuffer(tarInputStream);
+        final archive = TarDecoder().decodeStream(tarInputStream);
         for (final fileEntry in archive.files) {
           final filename = fileEntry.name;
           final destPath = p.join(destinationDir, filename);
@@ -222,7 +222,7 @@ class ArchiveService {
       // stream tar files
       if (lowerPath.endsWith('.tar')) {
         final inputStream = InputFileStream(archivePath);
-        final archive = TarDecoder().decodeBuffer(inputStream);
+        final archive = TarDecoder().decodeStream(inputStream);
         for (final fileEntry in archive.files) {
           final filename = fileEntry.name;
           final destPath = p.join(destinationDir, filename);
@@ -282,7 +282,7 @@ class ArchiveService {
         // try streaming zip for unknown extension to avoid OOM
         final inputStream = InputFileStream(archivePath);
         try {
-          final zipArchive = ZipDecoder().decodeBuffer(inputStream, password: password != null && password.isNotEmpty ? password : null);
+          final zipArchive = ZipDecoder().decodeStream(inputStream, password: password != null && password.isNotEmpty ? password : null);
           for (final fileEntry in zipArchive.files) {
             final filename = fileEntry.name;
             final destPath = p.join(destinationDir, filename);

@@ -39,7 +39,7 @@ dependencies:
   isar_community_flutter_libs: ^3.3.2
   share_plus: ^12.0.2
   xpath_selector_html_parser: ^3.0.1
-  archive: ^3.6.1
+  archive: ^4.0.9
   file_picker: ^11.0.2
   path_provider: ^2.1.5
   scrollable_positioned_list: ^0.3.8
@@ -90,9 +90,8 @@ dependencies:
   freezed_annotation: ^3.0.0
   desktop_webview_window:
     git:
-      url: https://github.com/kodjodevf/desktop_webview_window.git
+      url: https://github.com/KRTirtho/flutter-plugins.git
       path: packages/desktop_webview_window
-      ref: 81653aaaa923da75d943513c67f693ccbabeba09
   volume_controller: ^3.4.4
   screen_brightness: ^2.1.1
   flutter_html: ^3.0.0
@@ -304,7 +303,7 @@ dependency_overrides:
   meta: 1.16.0
   web: ^1.1.0
   flutter_secure_storage_platform_interface: 2.0.0
-  archive: ^3.6.1
+  archive: ^4.0.9
   protobuf: ^5.0.0
   flutter_feather_icons:
     path: web_stubs/flutter_feather_icons
@@ -317,9 +316,8 @@ dependency_overrides:
       ref: d4921f953ef75bdc21de6aed498a3badab696aa6
   desktop_webview_window:
     git:
-      url: https://github.com/kodjodevf/desktop_webview_window.git
+      url: https://github.com/KRTirtho/flutter-plugins.git
       path: packages/desktop_webview_window
-      ref: 81653aaaa923da75d943513c67f693ccbabeba09
   syncfusion_flutter_pdfviewer: ^33.2.13
   bonsoir_android:
     git:

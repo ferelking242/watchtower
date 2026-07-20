@@ -401,7 +401,7 @@ class BackgroundArchiveService {
       if (lowerPath.endsWith('.zip') || lowerPath.contains('.zip.')) {
         sendPort.send({'status': 'progress', 'progress': 0.1, 'currentFile': 'Opening zip...'});
         final inputStream = InputFileStream(archivePath);
-        final archive = ZipDecoder().decodeBuffer(inputStream, password: password != null && password.isNotEmpty ? password : null);
+        final archive = ZipDecoder().decodeStream(inputStream, password: password != null && password.isNotEmpty ? password : null);
         final totalFiles = archive.length;
         
         for (int i = 0; i < totalFiles; i++) {
@@ -440,7 +440,7 @@ class BackgroundArchiveService {
 
         sendPort.send({'status': 'progress', 'progress': 0.3, 'currentFile': 'Extracting tar...'});
         final tarInputStream = InputFileStream(tempTarFile.path);
-        final archive = TarDecoder().decodeBuffer(tarInputStream);
+        final archive = TarDecoder().decodeStream(tarInputStream);
         final totalFiles = archive.length;
         
         for (int i = 0; i < totalFiles; i++) {
@@ -474,7 +474,7 @@ class BackgroundArchiveService {
       if (lowerPath.endsWith('.tar')) {
         sendPort.send({'status': 'progress', 'progress': 0.1, 'currentFile': 'Opening tar...'});
         final inputStream = InputFileStream(archivePath);
-        final archive = TarDecoder().decodeBuffer(inputStream);
+        final archive = TarDecoder().decodeStream(inputStream);
         final totalFiles = archive.length;
         
         for (int i = 0; i < totalFiles; i++) {
@@ -551,7 +551,7 @@ class BackgroundArchiveService {
         sendPort.send({'status': 'progress', 'progress': 0.1, 'currentFile': 'Opening archive...'});
         final inputStream = InputFileStream(archivePath);
         try {
-          final zipArchive = ZipDecoder().decodeBuffer(inputStream, password: password != null && password.isNotEmpty ? password : null);
+          final zipArchive = ZipDecoder().decodeStream(inputStream, password: password != null && password.isNotEmpty ? password : null);
           final totalFiles = zipArchive.length;
           
           for (int i = 0; i < totalFiles; i++) {
