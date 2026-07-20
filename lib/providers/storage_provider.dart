@@ -347,6 +347,17 @@ class StorageProvider {
         }
         // ─────────────────────────────────────────────────────────────────────
 
+        // On iPhone 7 and other RAM-constrained iOS devices, Isar's default
+        // 1 GB mmap window causes iOS to evict memory-mapped pages under
+        // pressure.  When Dart then calls isar_get_offsets on an evicted page
+        // the Rust code receives a KERN_PROTECTION_FAILURE → SIGBUS, which
+        // is uncatchable in Dart and kills the process (crash log frame 0:
+        // isar_get_offsets + 112, kernel triage: VM - Fault hit memory
+        // shortage × 5).  Limiting maxSizeMiB to 256 on iOS keeps the mmap
+        // footprint small enough that pages stay resident.  Desktop/Android
+        // keep the default 1024 MB (plenty of RAM, no mmap eviction issue).
+        final maxSizeMiB = Platform.isIOS ? 256 : 1024;
+
         Isar isar;
       try {
         isar = await Isar.open(
@@ -354,6 +365,7 @@ class StorageProvider {
           directory: dir!.path,
           name: "watchtowerDb",
           inspector: inspector,
+          maxSizeMiB: maxSizeMiB,
         );
       } catch (e) {
         final eMsg = e.toString();
@@ -372,6 +384,7 @@ class StorageProvider {
             directory: dir!.path,
             name: "watchtowerDb",
             inspector: inspector,
+            maxSizeMiB: maxSizeMiB,
           );
         } catch (e2) {
           debugPrint('[initDB] retry-1 failed ($e2) — evicting again, waiting 500ms, final attempt');
@@ -386,6 +399,7 @@ class StorageProvider {
             directory: dir!.path,
             name: "watchtowerDb",
             inspector: inspector,
+            maxSizeMiB: maxSizeMiB,
           );
         }
       }
