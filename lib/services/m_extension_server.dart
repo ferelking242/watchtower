@@ -76,9 +76,10 @@ class MExtensionServerPlatform {
             .set("http://127.0.0.1:$port");
       }
     } catch (e) {
-      if (kDebugMode) {
-        if (kDebugMode) print(e);
-      }
+      // Do NOT update androidProxyServerStateProvider here — the server failed
+      // to start, so callers will correctly see the previous (empty / 0-port)
+      // state and not attempt to route requests to a non-existent server.
+      if (kDebugMode) print(e);
     }
   }
 

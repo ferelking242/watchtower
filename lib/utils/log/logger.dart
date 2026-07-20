@@ -264,7 +264,16 @@ class AppLogger {
     _initialized = true;
 
     _logQueue.stream.listen((entry) {
-      _sink.writeln(entry);
+      // Guard against writes to a closed sink.
+      // IOSink has no public `isClosed` getter; catch the StateError
+      // that is thrown if the underlying file has been closed (e.g. on
+      // hot-restart or explicit dispose()), rather than letting the
+      // exception propagate into the stream and kill the listener.
+      try {
+        _sink.writeln(entry);
+      } catch (_) {
+        // Sink is closed — entries are still available in _ring and _liveCtrl.
+      }
     });
 
     await _writeSessionHeader();
