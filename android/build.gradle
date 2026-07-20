@@ -18,6 +18,21 @@ subprojects {
       project.android {
         compileSdkVersion 36
         buildToolsVersion "34.0.0"
+        // Force Java 17 on every subproject so it matches the Kotlin jvmTarget=17
+        // set by the Kotlin Gradle Plugin when Java 17 is the active JDK.
+        // Without this, plugins like flutter_avif_android default their
+        // compileXxxJavaWithJavac to JVM 11, causing the
+        // "Inconsistent JVM-target compatibility" Gradle error.
+        compileOptions {
+          sourceCompatibility JavaVersion.VERSION_17
+          targetCompatibility JavaVersion.VERSION_17
+        }
+      }
+      // KotlinCompile tasks must also be pinned explicitly — android.kotlinOptions
+      // is only available when the kotlin-android plugin is applied to *this*
+      // project, so we use the task-level API which is always safe.
+      project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions { jvmTarget = "17" }
       }
       // The app module builds a "profile" buildType with matchingFallbacks=['release'].
       // matchingFallbacks only kicks in when Gradle's variant-aware dependency resolution
