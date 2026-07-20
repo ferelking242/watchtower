@@ -66,6 +66,7 @@ jobs:
               'sqlite3_flutter_libs':        'web_stubs/sqlite3_flutter_libs',
               'ffi':                         'web_stubs/ffi',
               'sqlite3':                     'web_stubs/sqlite3',
+              'just_zstd':                   'web_stubs/just_zstd',
           }
           dep_start = next((i for i, l in enumerate(lines) if l.rstrip() == 'dependency_overrides:'), None)
           if dep_start is None:
