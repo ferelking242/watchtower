@@ -153,7 +153,7 @@ MManga _mapToMManga(Map<String, dynamic> m) => MManga(
   link: m['link'] as String?,
   author: m['author'] as String?,
   description: m['description'] as String?,
-  status: m['status'] as String?,
+  status: Status.unknown,
   genre: (m['genre'] as List?)?.cast<String>(),
 );
 
