@@ -4,7 +4,7 @@ publish_to: "none"
 version: 8.1.160+160
 
 environment:
-  sdk: ^3.10.0
+  sdk: '>=3.11.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -144,7 +144,7 @@ dependencies:
   xml: ^6.6.1
   receive_sharing_intent: ^1.8.1
   dynamic_color: ^1.7.0
-  sqflite: ^2.4.2+1
+  sqflite: ^2.3.3+1
   ftpconnect: ^2.0.10
   qr_flutter: ^4.1.0
   dart_lz4: ^1.0.0
@@ -304,14 +304,8 @@ dependency_overrides:
   meta: 1.16.0
   web: ^1.1.0
   flutter_secure_storage_platform_interface: 2.0.0
-  local_auth:
-    path: web_stubs/local_auth
-  window_manager:
-    path: web_stubs/window_manager
-  desktop_webview_window:
-    path: web_stubs/desktop_webview_window
-  flutter_discord_rpc_fork:
-    path: web_stubs/flutter_discord_rpc_fork
+  archive: ^4.0.9
+  protobuf: ^5.0.0
   flutter_inappwebview:
     git:
       url: https://github.com/kodjodevf/flutter_inappwebview.git

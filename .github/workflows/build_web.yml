@@ -29,7 +29,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.x'
+          flutter-version: '3.x'
           channel: stable
           cache: true
 
@@ -81,6 +81,10 @@ jobs:
               'dartssh2':                     'web_stubs/dartssh2',
               'on_audio_query':               'web_stubs/on_audio_query',
               'on_audio_query_platform_interface': 'web_stubs/on_audio_query_platform_interface',
+              'local_auth':                      'web_stubs/local_auth',
+              'window_manager':                  'web_stubs/window_manager',
+              'desktop_webview_window':          'web_stubs/desktop_webview_window',
+              'flutter_discord_rpc_fork':        'web_stubs/flutter_discord_rpc_fork',
           }
           dep_start = next((i for i, l in enumerate(lines) if l.rstrip() == 'dependency_overrides:'), None)
           if dep_start is None:
