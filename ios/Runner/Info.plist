@@ -49,7 +49,11 @@
   		<string>audio</string>
   		<string>processing</string>
   	</array>
-	<key>NSLocalNetworkUsageDescription</key>
+	<key>NSBonjourServices</key>
+<array>
+  <string>_spotube._tcp</string>
+</array>
+<key>NSLocalNetworkUsageDescription</key>
   	<string>Watchtower uses the local network to communicate with the aria2 download daemon.</string>
   	<key>NSFaceIDUsageDescription</key>
 	<string>Watchtower needs to authenticate using Face ID.</string>

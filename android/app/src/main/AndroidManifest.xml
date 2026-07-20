@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.watchtower.app">
     <!-- ── Android TV / Leanback ─────────────────────────────────────────── -->
     <!-- required="false" → APK installs on both phones and TV boxes         -->
@@ -32,6 +33,11 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- bonsoir mDNS discovery on Android 12+ (API 31+) requires NEARBY_WIFI_DEVICES.
+         Without it NsdManager service resolution fails silently on API 31+ devices. -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="33" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
      <application
         android:label="Watchtower"
