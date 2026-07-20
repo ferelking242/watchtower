@@ -49,7 +49,7 @@ class PluginDiscoveryScreen extends ConsumerWidget {
                     subtitle: 'Explorateur de fichiers\navancé avec lecteurs',
                     icon: Broken.folder,
                     color: Color(0xFFFFA726),
-                    route: '/fileManager',
+                    route: '/nfileHome',
                   ),
                   _PluginCard(
                     id: 'local_indexer',

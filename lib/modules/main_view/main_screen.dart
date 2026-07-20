@@ -374,6 +374,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 }
               }
 
+              // ── NFile sub-dock: show back button when inside nfile routes ─
+              if (location?.startsWith('/nfile') == true) {
+                dest = ['_nfileBack', ...dest];
+              }
+
               // ── 5-item dock cap ───────────────────────────────────────────
               // Classic dock gets a capped dest (4 user items); overflow goes
               // to the menu overlay.  Floating dock caps internally in _buildItems.
@@ -448,6 +453,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                       setState(() => isLibrarySwitch = true);
                                     } else if (destination == "_disableLibrarySwitch") {
                                       setState(() => isLibrarySwitch = false);
+                                    } else if (destination == "_nfileBack") {
+                                      route.go('/plugins');
                                     } else {
                                       route.go(destination);
                                     }
@@ -479,6 +486,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                     } else if (destination == "_watchtower_menu") {
                                       ref.read(menuOpenProvider.notifier).state =
                                           !ref.read(menuOpenProvider);
+                                    } else if (destination == "_nfileBack") {
+                                      route.go('/plugins');
                                     } else {
                                       route.go(destination);
                                     }
@@ -730,6 +739,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     if (dest.contains('_disableLibSwitch')) {
       destMap['_disableLibSwitch'] = NavigationDestination(
+        selectedIcon: const Icon(Broken.arrow_left_2),
+        icon: const Icon(Broken.arrow_left_2),
+        label: l10n.go_back,
+      );
+    }
+    if (dest.contains('_nfileBack')) {
+      destMap['_nfileBack'] = NavigationDestination(
         selectedIcon: const Icon(Broken.arrow_left_2),
         icon: const Icon(Broken.arrow_left_2),
         label: l10n.go_back,
@@ -1030,7 +1046,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
     '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
     '/updates', '/browse', '/settings', '/trackerLibrary', '/globalSearch',
-    '/marketplace', '/discover', '/plugins',
+    '/marketplace', '/discover', '/plugins', '/nfileHome',
   };
 
   static const _mainItems = [
@@ -1647,6 +1663,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/schedule',
     '/discover',
     '/plugins',
+    '/nfileHome',
   };
 
   @override
@@ -1806,6 +1823,13 @@ class _FloatingDockState extends State<_FloatingDock> {
             icon: Broken.arrow_left_2,
             activeIcon: Broken.arrow_left_2,
           ));
+        case '_nfileBack':
+          items.add(_DockItemData(
+            route: '_nfileBack',
+            label: l10n.go_back,
+            icon: Broken.arrow_left_2,
+            activeIcon: Broken.arrow_left_2,
+          ));
         case '/MusicLibraryPage':
           items.add(const _DockItemData(
             route: '/MusicLibraryPage',
@@ -1825,7 +1849,7 @@ class _FloatingDockState extends State<_FloatingDock> {
 
     // In Hub or Library sub-dock mode, allow 5 content slots so that all items
     // fit; otherwise cap at 4.
-    final _hubMode = d.contains('_disableLibSwitch') || d.contains('_disableLibrarySwitch');
+    final _hubMode = d.contains('_disableLibSwitch') || d.contains('_disableLibrarySwitch') || d.contains('_nfileBack');
     final _cap = _hubMode ? 5 : 4;
     if (items.length > _cap) {
       items.removeRange(_cap, items.length);
@@ -1878,7 +1902,8 @@ class _FloatingDockState extends State<_FloatingDock> {
     // own mini pills flanking the content pill for a cleaner visual.
     final inSubDock = items.length >= 3 &&
         (items.first.route == '_disableLibSwitch' ||
-            items.first.route == '_disableLibrarySwitch');
+            items.first.route == '_disableLibrarySwitch' ||
+            items.first.route == '_nfileBack');
 
     final screenWidth = MediaQuery.of(context).size.width;
 

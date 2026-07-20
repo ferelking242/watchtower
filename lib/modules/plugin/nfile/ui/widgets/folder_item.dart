@@ -1,0 +1,366 @@
+import 'package:flutter/material.dart';
+import '../../models/file_item_model.dart';
+import '../../models/file_filter_type.dart';
+import 'package:provider/provider.dart';
+import '../../providers/file_manager_provider.dart';
+import 'nfile_icon.dart';
+import '../../core/utils.dart';
+import '../../core/icon_fonts/broken_icons.dart';
+import '../../services/pin_service.dart';
+import '../../services/app_manager_service.dart';
+import 'package:path/path.dart' as p;
+import 'dart:typed_data';
+
+class FolderItem extends StatelessWidget {
+  final FileItemModel folder;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onIconTap;
+  final Function(String) onAction;
+  final bool isSelected;
+  final double iconScale;
+  final double itemPaddingMultiplier;
+  final bool showShowInLocationOption;
+
+  const FolderItem({
+    super.key,
+    required this.folder,
+    required this.onTap,
+    this.onLongPress,
+    this.onIconTap,
+    required this.onAction,
+    this.isSelected = false,
+    this.iconScale = 1.0,
+    this.itemPaddingMultiplier = 1.0,
+    this.showShowInLocationOption = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final folderIconOption = context.select<FileManagerProvider, String>((p) => p.folderIconOption);
+    final useMaterialIcons = context.select<FileManagerProvider, bool>((p) => p.useMaterialIcons);
+    final isHighlighted = context.select<FileManagerProvider, bool>(
+      (p) => p.forceHighlightedPaths.contains(folder.path) || (p.enableFolderHighlight && p.highlightedPaths.contains(folder.path)),
+    );
+
+    final cardMargin = EdgeInsets.symmetric(
+      horizontal: (16 * itemPaddingMultiplier).clamp(4.0, 32.0),
+      vertical: (4 * itemPaddingMultiplier).clamp(1.0, 16.0),
+    );
+
+    final child = Card(
+      margin: cardMargin,
+      color: isSelected ? theme.colorScheme.primaryContainer.withOpacity(0.4) : theme.colorScheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isSelected ? theme.colorScheme.primary : theme.dividerColor.withOpacity(0.1),
+          width: isSelected ? 1.5 : 1.0,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.all((12.0 * itemPaddingMultiplier).clamp(4.0, 24.0)),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: onIconTap ?? onLongPress,
+                child: Container(
+                  width: 48 * iconScale,
+                  height: 48 * iconScale,
+                  decoration: BoxDecoration(
+                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: (() {
+                    final parentPath = p.dirname(folder.path).toLowerCase();
+                    final isPackageFolder = parentPath.endsWith('/android/data') || parentPath.endsWith('/android/obb') || parentPath.endsWith(r'\android\data') || parentPath.endsWith(r'\android\obb');
+
+                    if (isPackageFolder && !isSelected) {
+                      return FutureBuilder<Uint8List?>(
+                        future: AppManagerService.getAppIcon(folder.name),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
+                            return Center(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.memory(
+                                  snapshot.data!,
+                                  width: 38 * iconScale,
+                                  height: 38 * iconScale,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    FileUtils.getFolderIcon(folderIconOption, useMaterial: useMaterialIcons),
+                                    color: theme.colorScheme.primary,
+                                    size: 28 * iconScale,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                          return Icon(
+                            FileUtils.getFolderIcon(folderIconOption, useMaterial: useMaterialIcons),
+                            color: theme.colorScheme.primary,
+                            size: 28 * iconScale,
+                          );
+                        },
+                      );
+                    }
+
+                    return Icon(
+                      isSelected ? FileUtils.getAdaptiveIcon(Broken.tick_circle, useMaterialIcons) : FileUtils.getFolderIcon(folderIconOption, useMaterial: useMaterialIcons),
+                      color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.primary,
+                      size: 28 * iconScale,
+                    );
+                  })(),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (PinService.isPinned(folder.path)) ...[
+                          Icon(
+                            Icons.push_pin_rounded,
+                            size: 14 * (1 + (iconScale - 1) * 0.3),
+                            color: Colors.orange,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Expanded(
+                          child: Text(
+                            folder.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15 * (1 + (iconScale - 1) * 0.3),
+                            ),
+                            maxLines: context.select<FileManagerProvider, bool>((p) => p.adaptiveMultiLineNames) ? 3 : 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Consumer<FileManagerProvider>(
+                      builder: (context, provider, _) {
+                        final activeFilter = provider.filterType;
+                        if (activeFilter != FileFilterType.all) {
+                          return FutureBuilder<int>(
+                            future: provider.getMatchingFileCount(folder.path, activeFilter),
+                            builder: (context, snapshot) {
+                              final count = snapshot.data ?? 0;
+                              final name = provider.getFilterTypeName(activeFilter, count);
+                              return Text(
+                                '$count $name',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
+                          );
+                        } else {
+                          if (!provider.showFolderContentsCount && !provider.showFolderSizes) {
+                            if (provider.hideTimeAndDate) {
+                              return const SizedBox.shrink();
+                            }
+                            return Text(
+                              FileUtils.formatDate(folder.modified, use24Hour: provider.use24HourFormat),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          }
+
+                          return FutureBuilder<List<int>>(
+                            future: Future.wait([
+                              provider.showFolderContentsCount ? provider.getFolderItemCount(folder.path) : Future.value(-1),
+                              provider.showFolderSizes ? provider.getFolderSize(folder.path) : Future.value(-1),
+                            ]),
+                            builder: (context, snapshot) {
+                              final data = snapshot.data;
+                              final count = (data != null && data[0] != -1) ? data[0] : null;
+                              final size = (data != null && data[1] != -1) ? data[1] : null;
+
+                              final parts = <String>[];
+                              if (count != null) {
+                                parts.add(count == 1 ? '1 item' : '$count items');
+                              }
+                              if (size != null) {
+                                parts.add(FileUtils.formatBytes(size, 1));
+                              }
+                              if (!provider.hideTimeAndDate) {
+                                parts.add(FileUtils.formatDate(folder.modified, use24Hour: provider.use24HourFormat));
+                              }
+
+                              if (parts.isEmpty) return const SizedBox.shrink();
+
+                              return Text(
+                                parts.join(' • '),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              if (!context.select<FileManagerProvider, bool>((p) => p.hideActionMenuButtons))
+                PopupMenuButton<String>(
+                  icon: const NfileIcon(Broken.more, size: 22),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  position: PopupMenuPosition.under,
+                  elevation: 8,
+                  onSelected: onAction,
+                  itemBuilder: (context) {
+                    return [
+                      if (showShowInLocationOption)
+                        const PopupMenuItem(
+                          value: 'show_in_location',
+                          child: Row(children: [NfileIcon(Broken.folder_open, size: 20), SizedBox(width: 12), Text('Show in location', style: TextStyle(fontWeight: FontWeight.w500))]),
+                        ),
+                      if (showShowInLocationOption)
+                        const PopupMenuItem(
+                          value: 'share',
+                          child: Row(children: [Icon(Icons.share_outlined, size: 20), SizedBox(width: 12), Text('Share', style: TextStyle(fontWeight: FontWeight.w500))]),
+                        ),
+                      const PopupMenuItem(value: 'archive', child: Row(children: [NfileIcon(Broken.box_add, size: 20), SizedBox(width: 12), Text('Archive', style: TextStyle(fontWeight: FontWeight.w500))])),
+                      const PopupMenuItem(value: 'copy', child: Row(children: [NfileIcon(Broken.document_copy, size: 20), SizedBox(width: 12), Text('Copy', style: TextStyle(fontWeight: FontWeight.w500))])),
+                      const PopupMenuItem(value: 'cut', child: Row(children: [NfileIcon(Broken.scissor, size: 20), SizedBox(width: 12), Text('Cut', style: TextStyle(fontWeight: FontWeight.w500))])),
+                      const PopupMenuItem(value: 'rename', child: Row(children: [NfileIcon(Broken.edit, size: 20), SizedBox(width: 12), Text('Rename', style: TextStyle(fontWeight: FontWeight.w500))])),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(children: [NfileIcon(Broken.trash, size: 20, color: Colors.redAccent), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500))]),
+                      ),
+                    ];
+                  },
+                )
+              else
+                _TrailingInfoWidget(
+                  isFolder: true,
+                  item: folder,
+                  iconScale: iconScale,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return Stack(
+      children: [
+        child,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 500),
+              opacity: isHighlighted ? 1.0 : 0.0,
+              child: Container(
+                margin: cardMargin,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withOpacity(0.25),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrailingInfoWidget extends StatelessWidget {
+  final bool isFolder;
+  final FileItemModel item;
+  final double iconScale;
+
+  const _TrailingInfoWidget({
+    required this.isFolder,
+    required this.item,
+    required this.iconScale,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = context.watch<FileManagerProvider>();
+    if (!provider.hideActionMenuButtons) return const SizedBox.shrink();
+
+    final option = provider.trailingInfoType;
+    if (option == 'none') return const SizedBox.shrink();
+
+    if (option == 'dateTime') {
+      return Padding(
+        padding: const EdgeInsets.only(left: 8.0),
+        child: Text(
+          FileUtils.formatDate(item.modified, use24Hour: provider.use24HourFormat),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+            fontSize: 12.0 * (1 + (iconScale - 1) * 0.3),
+          ),
+        ),
+      );
+    }
+
+    if (option == 'sizeAndCount') {
+      if (!isFolder) {
+        return Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: Text(
+            FileUtils.formatBytes(item.size, 1),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+              fontSize: 12.0 * (1 + (iconScale - 1) * 0.3),
+            ),
+          ),
+        );
+      } else {
+        return FutureBuilder<int>(
+          future: provider.getFolderItemCount(item.path),
+          builder: (context, snapshot) {
+            final count = snapshot.data;
+            String label = '...';
+            if (count != null && count >= 0) {
+              label = count == 1 ? '1 item' : '$count items';
+            }
+            return Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+                  fontSize: 12.0 * (1 + (iconScale - 1) * 0.3),
+                ),
+              ),
+            );
+          },
+        );
+      }
+    }
+
+    return const SizedBox.shrink();
+  }
+}

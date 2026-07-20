@@ -61,10 +61,7 @@ import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/music/pages/search/music_search_screen.dart';
 import 'package:watchtower/modules/game/game_discovery_screen.dart';
 import 'package:watchtower/modules/plugin/plugin_discovery_screen.dart';
-import 'package:watchtower/modules/plugin/file_manager/screens/file_manager_screen.dart';
-import 'package:watchtower/modules/plugin/file_manager/screens/image_viewer_screen.dart';
-import 'package:watchtower/modules/plugin/file_manager/screens/document_viewer_screen.dart';
-import 'package:watchtower/modules/plugin/file_manager/screens/archive_viewer_screen.dart';
+import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart' as nfile_home;
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
@@ -228,22 +225,9 @@ class RouterNotifier extends ChangeNotifier {
           name: "PluginLibrary",
           child: const PluginDiscoveryScreen(),
         ),
-        _genericRoute<String?>(
-          name: "fileManager",
-          builder: (path) => FileManagerScreen(initialPath: path),
-        ),
-        _genericRoute<(String, List<String>)>(
-          name: "fileManagerImage",
-          builder: (data) =>
-              FmImageViewerScreen(initialPath: data.$1, allPaths: data.$2),
-        ),
-        _genericRoute<String>(
-          name: "fileManagerDocument",
-          builder: (path) => FmDocumentViewerScreen(filePath: path),
-        ),
-        _genericRoute<String>(
-          name: "fileManagerArchive",
-          builder: (path) => FmArchiveViewerScreen(archivePath: path),
+        _genericRoute(
+          name: "nfileHome",
+          child: nfile_home.HomeScreen(toggleTheme: () {}),
         ),
         _genericRoute(
           name: "WatchtowerHome",

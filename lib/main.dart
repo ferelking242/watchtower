@@ -64,6 +64,14 @@ import 'package:watchtower/services/mihon_auto_sync.dart';
 import 'package:watchtower/services/device_capabilities.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:watchtower/modules/music/services/kv_store/encrypted_kv_store.dart';
+// --- NFile integration ---
+import 'package:provider/provider.dart';
+import 'package:watchtower/modules/plugin/nfile/providers/file_manager_provider.dart' as nfile_fm;
+import 'package:watchtower/modules/plugin/nfile/providers/media_provider.dart' as nfile_media;
+import 'package:watchtower/modules/plugin/nfile/services/preferences_service.dart' as nfile_prefs;
+import 'package:watchtower/modules/plugin/nfile/services/pin_service.dart' as nfile_pin;
+import 'package:watchtower/modules/plugin/nfile/services/network_connections_service.dart' as nfile_network;
+import 'package:watchtower/modules/plugin/nfile/services/recycle_bin_service.dart' as nfile_recycle;
 import 'package:watchtower/modules/music/l10n/generated/app_localizations.dart'
     as spotube_l10n;
 
@@ -218,8 +226,26 @@ void main(List<String> args) async {
         await EncryptedKvStoreService.initialize();
       }
 
+      // --- NFile service initialisation ---
+      try {
+        await nfile_prefs.PreferencesService.init();
+        await nfile_pin.PinService.init();
+        await nfile_network.NetworkConnectionsService.init();
+        await nfile_recycle.RecycleBinService.init();
+      } catch (e) {
+        debugPrint('[NFile] Service init error: $e');
+      }
+
       needsOnboarding = !await onboardingIsComplete();
-      runApp(ProviderScope(child: MyApp(), retry: (retryCount, error) => null));
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => nfile_fm.FileManagerProvider()),
+            ChangeNotifierProvider(create: (_) => nfile_media.MediaProvider()),
+          ],
+          child: ProviderScope(child: MyApp(), retry: (retryCount, error) => null),
+        ),
+      );
       unawaited(_postLaunchInit(storage));
     },
     (Object error, StackTrace stack) {
