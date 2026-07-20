@@ -67,6 +67,8 @@ jobs:
               'ffi':                         'web_stubs/ffi',
               'sqlite3':                     'web_stubs/sqlite3',
               'just_zstd':                   'web_stubs/just_zstd',
+              'excel':                        'web_stubs/excel',
+              'excel2003':                    'web_stubs/excel2003',
           }
           dep_start = next((i for i, l in enumerate(lines) if l.rstrip() == 'dependency_overrides:'), None)
           if dep_start is None:

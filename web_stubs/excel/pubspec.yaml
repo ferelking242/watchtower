@@ -1,0 +1,6 @@
+name: excel
+version: 4.0.6
+description: Web stub for excel — no-op on Flutter Web.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'
