@@ -278,21 +278,23 @@ jobs:
           compression-level: 0
           retention-days: 30
 
-      # Rolling release: delete the old ios-latest tag+release so the next
-      # step can recreate it cleanly.  Fails silently if it doesn't exist yet.
-      - name: Delete existing ios-latest release/tag
-        run: gh release delete ios-latest --yes --cleanup-tag 2>/dev/null || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ios-latest
-          name: "Watchtower iOS (TrollStore)"
-          prerelease: true
-          files: Watchtower-iOS-profile.ipa
-          body: IPA pour TrollStore (iPhone 7 / iOS 15+). Build auto depuis main.
+      # Rolling release: delete old release+tag, force-push a fresh tag,
+      # then create the release with gh CLI — avoids softprops race conditions.
+      - name: Publish ios-latest rolling release
+        run: |
+          set -euo pipefail
+          # 1. Delete old release + tag (silent if they don't exist yet)
+          gh release delete ios-latest --yes --cleanup-tag 2>/dev/null || true
+          git tag -d ios-latest 2>/dev/null || true
+          git push origin :refs/tags/ios-latest 2>/dev/null || true
+          # 2. Create a fresh annotated tag pointing at HEAD
+          git tag -a ios-latest -m "iOS rolling release"
+          git push origin ios-latest
+          # 3. Create the GitHub release and upload the IPA
+          gh release create ios-latest Watchtower-iOS-profile.ipa \
+            --title "Watchtower iOS (TrollStore)" \
+            --notes "IPA pour TrollStore (iPhone 7 / iOS 15+). Build auto depuis main." \
+            --prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
