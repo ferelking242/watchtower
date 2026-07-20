@@ -35,4 +35,19 @@
   # but we always call use_preconfigured_tls() which bypasses that path at runtime.
   # The stub satisfies the type checker with zero C dependencies.
   rustls-platform-verifier = { path = "patches/rustls-platform-verifier" }
+
+  # ── aws-lc-rs stub (ring re-export) ─────────────────────────────────────────
+  # aws-lc-rs → aws-lc-sys → BoringSSL C code whose CRYPTO_library_init() runs
+  # via dispatch_once on iOS.  On Dopamine-jailbroken iOS 15 (TrollStore) this
+  # self-test calls abort() → SIGABRT, crashing the app before any Flutter frame.
+  #
+  # aws-lc-rs was designed as a drop-in replacement for ring (same public API).
+  # This stub re-exports ring under the aws-lc-rs crate name so that transitive
+  # consumers (quinn-proto, rustls with aws_lc_rs feature unified in) compile and
+  # link correctly with zero C code in the binary.
+  #
+  # The active TLS provider is ring, installed before any TLS in client.rs:
+  #   rustls::crypto::ring::default_provider().install_default()
+  # so aws-lc-rs code paths are never reached at runtime.
+  aws-lc-rs = { path = "patches/aws-lc-rs" }
   

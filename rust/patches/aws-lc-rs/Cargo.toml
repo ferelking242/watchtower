@@ -1,0 +1,45 @@
+[package]
+name = "aws-lc-rs"
+version = "1.16.2"
+edition = "2021"
+
+# ── Stub: ring-backed aws-lc-rs replacement ──────────────────────────────────
+#
+# WHY THIS EXISTS
+# ===============
+# aws-lc-rs pulls in aws-lc-sys, which compiles BoringSSL C code.
+# BoringSSL runs CRYPTO_library_init() via __attribute__((constructor)) / iOS
+# dispatch_once. On Dopamine-jailbroken iOS 15 (TrollStore) this call fails
+# its entropy / memory-layout self-test and calls abort() — SIGABRT before any
+# Flutter/Dart code runs. The app appears to launch then immediately close.
+#
+# HOW THE STUB WORKS
+# ==================
+# Ring is installed as the process-default crypto provider in client.rs BEFORE
+# any TLS handshake occurs (rustls::crypto::ring::default_provider().install_default()).
+# All real crypto goes through ring; the aws-lc-rs code paths in quinn-proto
+# and rustls are compiled but NEVER EXECUTED.  Replacing aws-lc-rs with this
+# pure-Rust ring re-export stub means:
+#   • Zero C code compiled         → no BoringSSL static init
+#   • Zero FIPS self-tests         → no abort() on jailbroken iOS
+#   • Linker resolves ring symbols → binary is valid
+#   • Type checker satisfied       → no build errors
+#
+# The stub intentionally has no aws-lc-sys dependency.
+
+[dependencies]
+ring = "0.17"
+
+# rustls feature only needed if rustls enables its aws_lc_rs feature:
+# provides the default_provider() shim.
+[dependencies.rustls]
+version = "0.23"
+default-features = false
+features = ["ring", "std"]
+optional = true
+
+[features]
+# Mirror the features that downstream crates check, but keep them no-ops.
+default = []
+aws-lc-rs = []
+fips = []
