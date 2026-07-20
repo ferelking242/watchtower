@@ -1402,7 +1402,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   // kill the process while downloads are running in the background.
   unawaited(BackgroundKeepAlive.start());
   try {
-    await Future.doWhile<bool>(() async {
+    await Future.doWhile(() async {
       // Poll interval — short enough to feel snappy, long enough not to thrash.
       await Future.delayed(const Duration(milliseconds: 900));
 
