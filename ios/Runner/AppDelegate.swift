@@ -18,7 +18,7 @@ import app_links
         // ── CRITICAL: guard prevents crash at boot when window/rootViewController is nil.
         // The original used "as!" (force-cast) which crashes if the window isn't ready yet.
         guard let controller = window?.rootViewController as? FlutterViewController else {
-            PluginSafeRegistrar.safeRegister(withRegistry: self)
+            PluginSafeRegistrar.safeRegister(with: self)
             return super.application(application, didFinishLaunchingWithOptions: launchOptions)
         }
 
@@ -279,7 +279,7 @@ import app_links
         // Root cause: stale Pods directory (pubspec.yaml updated but `pod install`
         // not re-run, leaving old and new versions of the same pod on disk).
         // Fix: run `cd ios && pod install --repo-update` to regenerate Podfile.lock.
-        PluginSafeRegistrar.safeRegister(withRegistry: self)
+        PluginSafeRegistrar.safeRegister(with: self)
 
         // ── Handle deep links present at launch ────────────────────────────────────
         // IMPORTANT: call super BEFORE returning so Flutter's engine lifecycle

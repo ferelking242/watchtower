@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Returns YES if registration completed without any exception, NO if an ObjC
 /// exception was caught (in which case the exception is logged to NSLog).
-+ (BOOL)safeRegisterWithRegistry:(NSObject<FlutterPluginRegistry> *)registry;
++ (BOOL)safeRegisterWith:(NSObject<FlutterPluginRegistry> *)registry;
 
 @end
 

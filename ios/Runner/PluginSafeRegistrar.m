@@ -3,7 +3,7 @@
 
 @implementation PluginSafeRegistrar
 
-+ (BOOL)safeRegisterWithRegistry:(NSObject<FlutterPluginRegistry> *)registry {
++ (BOOL)safeRegisterWith:(NSObject<FlutterPluginRegistry> *)registry {
     @try {
         [GeneratedPluginRegistrant registerWithRegistry:registry];
         return YES;
