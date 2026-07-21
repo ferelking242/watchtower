@@ -228,7 +228,6 @@ dependencies:
   wikipedia_api: ^0.1.0
   get_it: ^8.0.3
   file_selector: ^1.0.3
-  open_file: ^3.5.10
   flutter_sharing_intent: ^1.1.0
   home_widget: ^0.7.0
   local_notifier: ^0.1.6
