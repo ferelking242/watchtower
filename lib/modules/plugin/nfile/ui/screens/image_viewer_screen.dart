@@ -5,7 +5,6 @@ import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:mime/mime.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:flutter_avif/flutter_avif.dart';
 import '../../providers/media_provider.dart';
 import '../../core/icon_fonts/broken_icons.dart';
 
@@ -267,10 +266,8 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                 }
 
                 final bool isValidFile = imgFile != null && imgFile.existsSync() && imgFile.lengthSync() > 16;
-                final bool isAvif = imgFile != null && imgFile.path.toLowerCase().endsWith('.avif');
-
                 final ImageProvider provider = isValidFile
-                    ? (isAvif ? FileAvifImage(imgFile) : FileImage(imgFile)) as ImageProvider
+                    ? FileImage(imgFile!)
                     : (thumbData != null ? MemoryImage(thumbData) : MemoryImage(_kTransparentImage));
 
                 return PhotoViewGalleryPageOptions(

@@ -148,7 +148,6 @@ dependencies:
   qr_flutter: ^4.1.0
   dart_lz4: ^1.0.0
   just_zstd: ^0.2.0
-  flutter_avif: ^3.1.0
 
   # --- Spotube Music Integration ---
   auto_route: ^9.2.0
