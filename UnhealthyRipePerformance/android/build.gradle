@@ -1,0 +1,91 @@
+allprojects {
+    repositories {
+        google()
+        // JetBrains CDN proxy for Maven Central — avoids 403 on GitHub Actions IPs
+        // (only proxies Maven Central artifacts, Flutter artifacts still come from google())
+        maven { url "https://cache-redirector.jetbrains.com/maven-central" }
+        mavenCentral()
+        maven { url "https://jitpack.io" }
+    }
+}
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    afterEvaluate { project ->
+    if (project.plugins.hasPlugin("com.android.application") ||
+      project.plugins.hasPlugin("com.android.library")) {
+      project.android {
+        compileSdkVersion 36
+        buildToolsVersion "34.0.0"
+        // Force Java 17 on every subproject so it matches the Kotlin jvmTarget=17
+        // set by the Kotlin Gradle Plugin when Java 17 is the active JDK.
+        // Without this, plugins like flutter_avif_android default their
+        // compileXxxJavaWithJavac to JVM 11, causing the
+        // "Inconsistent JVM-target compatibility" Gradle error.
+        compileOptions {
+          sourceCompatibility JavaVersion.VERSION_17
+          targetCompatibility JavaVersion.VERSION_17
+        }
+      }
+      // KotlinCompile tasks must also be pinned explicitly — android.kotlinOptions
+      // is only available when the kotlin-android plugin is applied to *this*
+      // project, so we use the task-level API which is always safe.
+      project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions { jvmTarget = "17" }
+      }
+      // flutter_avif_android 3.1.0 upstream bug: the package ships BOTH
+      // FlutterAvifPlugin.kt AND FlutterAvifPlugin.java, two implementations
+      // of the same class. Both compile to FlutterAvifPlugin.class and the
+      // JAR bundler fails with "already contains entry, cannot overwrite".
+      // K2 additionally rejects this as a hard "Redeclaration" error.
+      // Fix: strip the Java srcDir from this module so only the Kotlin
+      // implementation (the authoritative one, functionally identical) is
+      // compiled. This eliminates both the K2 error and the JAR conflict.
+      if (project.name == "flutter_avif_android") {
+        project.android {
+          sourceSets {
+            main {
+              java.srcDirs = []
+            }
+          }
+        }
+      }
+      // The app module builds a "profile" buildType with matchingFallbacks=['release'].
+      // matchingFallbacks only kicks in when Gradle's variant-aware dependency resolution
+      // can't find an exact "profile" match — but with this many plugin subprojects the
+      // fallback resolves inconsistently: some plugins (app_links observed in practice)
+      // end up compiled against the wrong/no variant, so GeneratedPluginRegistrant calls
+      // "new AppLinksPlugin()" against a class that was never actually packaged — R8 sees
+      // it as reachable and "keeps" it, but there is nothing to keep (NoClassDefFoundError
+      // at runtime, not a build error, because missing-class warnings are suppressed).
+      // Giving every plugin library module a REAL "profile" buildType (identical to
+      // release) removes the ambiguity entirely instead of depending on fallback matching.
+      if (project.plugins.hasPlugin("com.android.library") && !project.name.equals("app")) {
+        project.android {
+          buildTypes {
+            if (buildTypes.findByName("profile") == null) {
+              profile {
+                initWith(buildTypes.release)
+              }
+            }
+          }
+        }
+      }
+    }
+    if (project.hasProperty("android")) {
+      project.android {
+        if (namespace == null) {
+          namespace project.group
+        }
+      }
+    }
+  }
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

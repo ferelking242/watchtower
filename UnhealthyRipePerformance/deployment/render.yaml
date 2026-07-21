@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: watchtower-server
+    runtime: node
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /api/ping
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: API_KEY
+        generateValue: true
+      - key: CACHE_TTL_MS
+        value: "300000"
+      - key: RATE_MAX_TOKENS
+        value: "60"
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: watchtower-data
+      mountPath: /data
+      sizeGB: 1

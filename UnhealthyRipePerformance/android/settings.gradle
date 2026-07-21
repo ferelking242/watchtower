@@ -1,0 +1,36 @@
+pluginManagement {
+      def flutterSdkPath = {
+          def properties = new Properties()
+          file("local.properties").withInputStream { properties.load(it) }
+          def flutterSdkPath = properties.getProperty("flutter.sdk")
+          assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
+          return flutterSdkPath
+      }
+      settings.ext.flutterSdkPath = flutterSdkPath()
+
+      includeBuild("${settings.ext.flutterSdkPath}/packages/flutter_tools/gradle")
+
+      repositories {
+          google()
+          // JetBrains CDN proxy for Maven Central — avoids 403/rate-limit from GitHub Actions IPs
+          maven { url "https://cache-redirector.jetbrains.com/maven-central" }
+          // Primary plugin portal
+          gradlePluginPortal()
+          // JetBrains Kotlin bootstrap repo — has all Kotlin versions including pre-releases
+          maven { url "https://maven.pkg.jetbrains.space/public/p/kotlin/bootstrap" }
+          // Gradle libs-releases for extra Gradle tooling artifacts
+          maven { url "https://repo.gradle.org/gradle/libs-releases" }
+          // JitPack fallback
+          maven { url "https://jitpack.io" }
+          mavenCentral()
+      }
+  }
+
+  plugins {
+      id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+      id "com.android.application" version "8.12.1" apply false
+      id "org.jetbrains.kotlin.android" version "2.2.20" apply false
+  }
+
+  include ":app"
+  

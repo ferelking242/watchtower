@@ -1,0 +1,6 @@
+name: docx_to_text
+version: 1.0.1
+description: Web stub for docx_to_text — no archive dependency.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'

@@ -1,0 +1,11 @@
+name: sqlite3_flutter_libs
+description: Web stub for sqlite3 native libs
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter

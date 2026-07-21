@@ -1,0 +1,157 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.watchtower.app">
+    <!-- ── Android TV / Leanback ─────────────────────────────────────────── -->
+    <!-- required="false" → APK installs on both phones and TV boxes         -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <!-- Declare touch as not required so TV (no touchscreen) can run the app -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- dataSync type required for Android 14+ foreground download service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Let user exempt Watchtower from battery optimisation so downloads survive Doze -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+   <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- NFile permissions -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- bonsoir mDNS discovery on Android 12+ (API 31+) requires NEARBY_WIFI_DEVICES.
+         Without it NsdManager service resolution fails silently on API 31+ devices. -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="33" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+     <application
+        android:label="Watchtower"
+        android:name="${applicationName}"
+        android:icon="@mipmap/launcher_icon"
+        android:usesCleartextTraffic="true"
+        android:allowBackup="false"
+        android:hasFragileUserData="true"
+        android:enableOnBackInvokedCallback="true"
+        android:extractNativeLibs="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:supportsPictureInPicture="true"
+            android:banner="@mipmap/launcher_icon">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <!-- Phone / tablet launcher -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Android TV / Leanback launcher -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
+            </intent-filter>
+            <intent-filter android:label="Add source repository">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="watchtower" android:host="add-repo" />
+            </intent-filter>
+            <intent-filter android:label="Add custom button">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="watchtower" android:host="add-button" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:exported="true">
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="watchtower" />
+            </intent-filter>
+        </activity>
+        
+        <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="com.watchtower.app.fileprovider"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/file_paths" />
+        </provider>
+        
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+        <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+        <!-- Disable Impeller/Vulkan at APPLICATION level (Flutter reads ApplicationInfo.metaData,
+             NOT ActivityInfo.metaData â placing it inside <activity> is silently ignored).
+             Impeller on Samsung Exynos/Mali GPU causes ~3s black screen before surfaceCreated. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+            <!-- ── Download Foreground Service ───────────────────────────────── -->
+        <!-- foregroundServiceType="dataSync" is required on Android 14+ for  -->
+        <!-- any service that transfers data in the background.               -->
+        <service
+            android:name="com.kodjodevf.watchtower.DownloadForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+        <!-- NFile: FTP Server foreground service -->
+        <service
+            android:name="com.watchtower.app.nfile.FtpForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+        <!-- NFile: Web Sharing foreground service -->
+        <service
+            android:name="com.watchtower.app.nfile.WebSharingForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+        <!-- Shizuku provider — required for ADB-level permission grant -->
+          <provider
+              android:name="rikka.shizuku.ShizukuProvider"
+              android:authorities="${applicationId}.shizuku"
+              android:multiprocess="false"
+              android:enabled="true"
+              android:exported="true"
+              android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <!-- ── Music player home widget ──────────────────────────────────── -->
+        <receiver
+            android:name="com.watchtower.app.glance.HomePlayerWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/home_player_widget_info" />
+        </receiver>
+      </application>
+</manifest>

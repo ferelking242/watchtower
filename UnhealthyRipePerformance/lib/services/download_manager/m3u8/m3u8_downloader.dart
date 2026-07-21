@@ -1,0 +1,493 @@
+import 'dart:developer';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/video.dart';
+import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
+import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
+import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
+import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
+import 'package:watchtower/services/download_manager/m_downloader.dart';
+import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/utils/log/logger.dart';
+import 'package:path/path.dart' as path;
+import 'package:convert/convert.dart';
+
+class M3u8Downloader {
+  final String m3u8Url;
+  final String downloadDir;
+  final Map<String, String>? headers;
+  final String fileName;
+  final int concurrentDownloads;
+  final Chapter chapter;
+  final List<Track>? subtitles;
+
+  /// Source page URL — used as Referer header (anti-403 fix)
+  final String? refererUrl;
+
+  static var httpClient = MClient.httpClient(
+    settings: const ClientSettings(
+      throwOnStatusCode: false,
+      tlsSettings: TlsSettings(verifyCertificates: true),
+    ),
+  );
+
+  M3u8Downloader({
+    required this.m3u8Url,
+    required this.downloadDir,
+    required this.fileName,
+    this.headers,
+    required this.chapter,
+    this.concurrentDownloads = 1,
+    required this.subtitles,
+    this.refererUrl,
+  });
+
+  void _log(String message) {
+    if (kDebugMode) {
+      log('[M3u8Downloader] $message');
+    }
+    AppLogger.log(message);
+  }
+
+  void close() {
+    DownloadIsolatePool.instance.cancelTask('m3u8_${chapter.id}');
+    isolateChapsSendPorts.remove('${chapter.id}');
+  }
+
+  /// Build effective headers, injecting Referer, User-Agent, and cookies.
+  Map<String, String> _buildEffectiveHeaders({String? urlOverride}) {
+    final uri = Uri.tryParse(urlOverride ?? m3u8Url);
+    final origin = uri != null ? '${uri.scheme}://${uri.host}' : '';
+    final effectiveReferer = refererUrl ?? origin;
+
+    final merged = <String, String>{
+      'User-Agent': _appUserAgent(),
+      if (effectiveReferer.isNotEmpty) 'Referer': effectiveReferer,
+      if (origin.isNotEmpty) 'Origin': origin,
+      ...?headers,
+    };
+
+    // Inject cookies stored for this domain
+    final cookies = MClient.getCookiesPref(urlOverride ?? m3u8Url);
+    if (cookies.isNotEmpty) {
+      merged.addAll(cookies);
+      merged['User-Agent'] = _appUserAgent();
+    }
+
+    return merged;
+  }
+
+  String _appUserAgent() {
+    return 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+  }
+
+  Future<T> _withRetry<T>(
+    Future<T> Function() operation, {
+    int maxAttempts = 3,
+    Duration delay = const Duration(seconds: 2),
+  }) async {
+    int attempts = 0;
+    while (true) {
+      try {
+        attempts++;
+        return await operation();
+      } catch (e) {
+        if (attempts >= maxAttempts) {
+          throw M3u8DownloaderException(
+            'Operation failed after $maxAttempts attempts',
+            e,
+          );
+        }
+        _log('Attempt $attempts failed, retrying in ${delay.inSeconds}s: $e');
+        await Future.delayed(delay * attempts);
+      }
+    }
+  }
+
+  Future<(List<TsInfo>, Uint8List?, Uint8List?, int?)> _getTsList() async {
+    try {
+      var effectiveUrl = m3u8Url;
+      var uri = Uri.parse(effectiveUrl);
+      var m3u8Host = "${uri.scheme}://${uri.host}${path.dirname(uri.path)}";
+
+      // Fetch with full headers (anti-403)
+      var m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
+
+      // If this is a master playlist (variant streams listed via
+      // #EXT-X-STREAM-INF), follow the highest-bandwidth variant first,
+      // otherwise we'd "download" the variant playlist URLs as if they were
+      // TS segments (which produced a few-KB invalid mp4 file).
+      if (m3u8Body.contains('#EXT-X-STREAM-INF')) {
+        final variantUrl = _pickBestVariant(m3u8Host, m3u8Body);
+        if (variantUrl != null) {
+          _log('Master playlist detected, switching to variant: $variantUrl');
+          effectiveUrl = variantUrl;
+          uri = Uri.parse(effectiveUrl);
+          m3u8Host = "${uri.scheme}://${uri.host}${path.dirname(uri.path)}";
+          m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
+        }
+      }
+
+      final tsList = _parseTsList(m3u8Host, m3u8Body);
+      final mediaSequence = _extractMediaSequence(m3u8Body);
+
+      _log("Total TS files to download: ${tsList.length}");
+
+      final (key, iv) = await _getM3u8KeyAndIv(m3u8Body);
+      if (key != null) _log("TS Key found");
+      if (iv != null) _log("TS IV found");
+      if (mediaSequence != null) _log("Media sequence: $mediaSequence");
+
+      return (tsList, key, iv, mediaSequence);
+    } catch (e) {
+      // If we get a 403, attempt to re-fetch with refreshed headers
+      _log('Failed to get TS list, attempting header refresh: $e');
+      throw M3u8DownloaderException('Failed to get TS list', e);
+    }
+  }
+
+  Future<void> download(void Function(DownloadProgress) onProgress) async {
+    final tempDir = path.join(downloadDir, 'temp');
+    await StorageProvider().createDirectorySafely(tempDir);
+
+    try {
+      final (tsList, key, iv, mediaSequence) = await _getTsList();
+
+      final tsListToDownload = await _filterExistingSegments(tsList, tempDir);
+      _log('Downloading ${tsListToDownload.length} segments...');
+
+      await _downloadSegmentsWithProgress(
+        tsListToDownload,
+        tempDir,
+        key,
+        iv,
+        mediaSequence,
+        onProgress,
+      );
+
+      for (var element in subtitles ?? <Track>[]) {
+        final subtitleFile = File(
+          path.join('${downloadDir}_subtitles', '${element.label}.srt'),
+        );
+        if (subtitleFile.existsSync()) {
+          _log('Subtitle file already exists: ${element.label}');
+          continue;
+        }
+        _log('Downloading subtitle file: ${element.label}');
+        if (element.file == null || element.file!.trim().isEmpty) {
+          _log('Warning: No subtitle file: ${element.label}');
+          continue;
+        }
+        subtitleFile.createSync(recursive: true);
+        if (element.file!.startsWith("http")) {
+          final response = await _withRetry(
+            () => httpClient.get(
+              Uri.parse(element.file ?? ''),
+              headers: _buildEffectiveHeaders(),
+            ),
+          );
+          if (response.statusCode != 200) {
+            _log('Warning: Failed to download subtitle file: ${element.label}');
+            continue;
+          }
+          _log('Subtitle file downloaded: ${element.label}');
+          await subtitleFile.writeAsBytes(response.bodyBytes);
+        } else {
+          _log('Subtitle file written: ${element.label}');
+          await subtitleFile.writeAsString(element.file!);
+        }
+      }
+    } catch (e) {
+      AppLogger.log("Download failed", logLevel: LogLevel.error);
+      AppLogger.log(e.toString(), logLevel: LogLevel.error);
+      throw M3u8DownloaderException('Download failed', e);
+    } finally {
+      close();
+    }
+  }
+
+  Future<List<TsInfo>> _filterExistingSegments(
+    List<TsInfo> tsList,
+    String tempDir,
+  ) async {
+    // A segment is considered complete only when BOTH the .ts file AND its
+    // .done marker exist. A lone .ts without a marker means the write was
+    // interrupted mid-stream (e.g. app kill, network drop) and the file is
+    // potentially truncated — it must be re-downloaded to avoid merge artifacts.
+    return tsList.where((ts) {
+      final tsPath = path.join(tempDir, '${ts.name}.ts');
+      final donePath = '$tsPath.done';
+      return !(File(tsPath).existsSync() && File(donePath).existsSync());
+    }).toList();
+  }
+
+  Future<void> _downloadSegmentsWithProgress(
+    List<TsInfo> segments,
+    String tempDir,
+    Uint8List? key,
+    Uint8List? iv,
+    int? mediaSequence,
+    void Function(DownloadProgress) onProgress,
+  ) async {
+    final completer = Completer<void>();
+    final taskId = 'm3u8_${chapter.id}';
+
+    isolateChapsSendPorts['${chapter.id}'] = true;
+
+    await DownloadIsolatePool.instance.submitM3u8Download(
+      taskId: taskId,
+      segments: segments,
+      tempDir: tempDir,
+      key: key,
+      iv: iv,
+      mediaSequence: mediaSequence,
+      concurrentDownloads: concurrentDownloads,
+      headers: _buildEffectiveHeaders(),
+      itemType: chapter.manga.value!.itemType,
+      onProgress: (progress) {
+        onProgress(progress);
+      },
+      onComplete: () async {
+        await _mergeSegments(fileName, tempDir, onProgress);
+        if (await Directory(tempDir).exists()) {
+          try {
+            await Directory(tempDir).delete(recursive: true);
+          } catch (e) {
+            _log('Warning: Failed to clean up temporary directory: $e');
+          }
+        }
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      onError: (error) {
+        if (!completer.isCompleted) {
+          completer.completeError(error);
+        }
+      },
+      onCancelled: () {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+    );
+
+    return completer.future;
+  }
+
+  Future<void> _mergeSegments(
+    String outputFile,
+    String tempDir,
+    void Function(DownloadProgress) onProgress,
+  ) async {
+    _log('Merging segments...');
+    try {
+      await _mergeTsToMp4(outputFile, tempDir);
+
+      // Measure the actual merged file size so Isar stores the real value
+      // instead of the segment-count estimate (which is always an under-estimate
+      // because TS container overhead is not included in the per-segment average).
+      int? actualBytes;
+      try {
+        actualBytes = await File(outputFile).length();
+        _log('Merge size: ${(actualBytes / 1024 / 1024).toStringAsFixed(1)} MB  path=$outputFile');
+      } catch (e) {
+        _log('Warning: could not stat merged file: $e');
+      }
+
+      onProgress.call(
+        DownloadProgress(
+          1,
+          1,
+          chapter.manga.value!.itemType,
+          isCompleted: true,
+          downloadedBytes: actualBytes,
+          totalBytes: actualBytes,
+        ),
+      );
+      _log('Merge completed successfully');
+    } catch (e) {
+      throw M3u8DownloaderException('Failed to merge segments', e);
+    }
+  }
+
+  Future<void> _mergeTsToMp4(String fileName, String directory) async {
+    try {
+      final dir = Directory(directory);
+      final files = await dir
+          .list()
+          .where((entity) => entity.path.endsWith('.ts'))
+          .toList();
+
+      files.sort((a, b) {
+        final aIndex = int.parse(
+          a.path.substringAfter("TS_").substringBefore("."),
+        );
+        final bIndex = int.parse(
+          b.path.substringAfter("TS_").substringBefore("."),
+        );
+        return aIndex.compareTo(bIndex);
+      });
+
+      final outFile = File(fileName).openWrite();
+      for (var file in files) {
+        final inFile = File(file.path).openRead();
+        await outFile.addStream(inFile);
+      }
+      await outFile.close();
+    } catch (e) {
+      throw M3u8DownloaderException('Failed to merge TS files', e);
+    }
+  }
+
+  Future<String> _getM3u8Body(String url) async {
+    final effectiveHeaders = _buildEffectiveHeaders(urlOverride: url);
+    final response = await httpClient.get(
+      Uri.parse(url),
+      headers: effectiveHeaders,
+    );
+
+    if (response.statusCode == 403) {
+      _log('403 Forbidden — retrying with refreshed headers...');
+      // Wait briefly and retry with cookies refreshed
+      await Future.delayed(const Duration(seconds: 1));
+      final retryHeaders = _buildEffectiveHeaders(urlOverride: url);
+      final retryResponse = await httpClient.get(
+        Uri.parse(url),
+        headers: retryHeaders,
+      );
+      if (retryResponse.statusCode != 200) {
+        throw M3u8DownloaderException(
+          'Failed to load m3u8 body (status ${retryResponse.statusCode} after retry)',
+        );
+      }
+      return retryResponse.body;
+    }
+
+    if (response.statusCode != 200) {
+      throw M3u8DownloaderException(
+        'Failed to load m3u8 body (status ${response.statusCode})',
+      );
+    }
+    return response.body;
+  }
+
+  /// Parse a master playlist and return the absolute URL of the variant
+  /// stream with the highest BANDWIDTH (best quality available).
+  String? _pickBestVariant(String host, String body) {
+    final lines = body.split('\n');
+    int bestBw = -1;
+    String? bestUrl;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (!line.startsWith('#EXT-X-STREAM-INF')) continue;
+      final bwMatch = RegExp(r'BANDWIDTH=(\d+)', caseSensitive: false)
+          .firstMatch(line);
+      final bw = bwMatch != null ? int.tryParse(bwMatch.group(1) ?? '') ?? 0 : 0;
+      // The next non-comment, non-empty line is the variant URL.
+      String? variant;
+      for (var j = i + 1; j < lines.length; j++) {
+        final cand = lines[j].trim();
+        if (cand.isEmpty || cand.startsWith('#')) continue;
+        variant = cand;
+        break;
+      }
+      if (variant == null) continue;
+      final absolute = variant.startsWith('http')
+          ? variant
+          : '$host/${variant.replaceFirst(RegExp(r'^/'), '')}';
+      if (bw > bestBw) {
+        bestBw = bw;
+        bestUrl = absolute;
+      }
+    }
+    return bestUrl;
+  }
+
+  List<TsInfo> _parseTsList(String host, String body) {
+    final lines = body.split('\n');
+    final tsList = <TsInfo>[];
+    var index = 0;
+
+    for (final line in lines) {
+      if (line.isEmpty || line.startsWith('#')) continue;
+      index++;
+      final tsUrl = line.trim().startsWith('http')
+          ? line.trim()
+          : '$host/${line.trim().replaceFirst(RegExp(r'^/'), '')}';
+      tsList.add(TsInfo('TS_$index', tsUrl));
+    }
+    return tsList;
+  }
+
+  Future<(Uint8List?, Uint8List?)> _getM3u8KeyAndIv(String m3u8Body) async {
+    try {
+      final uri = Uri.parse(m3u8Url);
+      final m3u8Host = '${uri.scheme}://${uri.host}${path.dirname(uri.path)}';
+
+      for (final line in m3u8Body.split('\n')) {
+        if (!line.contains('#EXT-X-KEY')) continue;
+
+        final (keyUrl, iv) = _extractKeyAttributes(line, m3u8Host);
+        if (keyUrl == null) break;
+
+        final response = await _withRetry(
+          () => httpClient.get(
+            Uri.parse(keyUrl),
+            headers: _buildEffectiveHeaders(urlOverride: keyUrl),
+          ),
+        );
+        if (response.statusCode == 200) {
+          return (Uint8List.fromList(response.bodyBytes), iv);
+        }
+      }
+      return (null, null);
+    } catch (e) {
+      throw M3u8DownloaderException('Failed to get m3u8 key and IV', e);
+    }
+  }
+
+  (String?, Uint8List?) _extractKeyAttributes(String content, String host) {
+    final keyPattern = RegExp(
+      r'#EXT-X-KEY:METHOD=AES-128(?:,URI="([^"]+)")?(?:,IV=0x([A-F0-9]+))?',
+      caseSensitive: false,
+    );
+    final match = keyPattern.firstMatch(content);
+    if (match == null) return (null, null);
+
+    String? uri = match.group(1);
+    if (uri != null && !uri.contains('http')) {
+      uri = '$host$uri';
+    }
+
+    final ivStr = match.group(2);
+    final iv = ivStr != null
+        ? Uint8List.fromList(hex.decode(ivStr.replaceFirst('0x', '')))
+        : null;
+
+    return (uri, iv);
+  }
+
+  int? _extractMediaSequence(String content) {
+    for (final line in content.split('\n')) {
+      if (!line.startsWith('#EXT-X-MEDIA-SEQUENCE')) continue;
+      return int.tryParse(line.substringAfter(':').trim());
+    }
+    return null;
+  }
+}
+
+class M3u8DownloaderException implements Exception {
+  final String message;
+  final dynamic originalError;
+
+  M3u8DownloaderException(this.message, [this.originalError]);
+
+  @override
+  String toString() =>
+      'M3u8DownloaderException: $message${originalError != null ? ' ($originalError)' : ''}';
+}

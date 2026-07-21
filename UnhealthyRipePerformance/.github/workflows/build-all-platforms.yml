@@ -1,0 +1,499 @@
+name: Build All Platforms
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+# Cancel in-progress runs on new push — only the latest commit matters
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ────────────────────────────────────────────────────────────
+  # Android — split APKs per ABI (arm64-v8a and x86_64 only)
+  # Signed with KEYSTORE_B64 secret → watchtower-debug.keystore → profile buildType
+  # ────────────────────────────────────────────────────────────
+  build-android:
+    name: Android (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: arm64-v8a
+            target: android-arm64
+          - label: x86_64
+            target: android-x64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      # Gradle cache keyed on gradle files + pubspec + all Dart sources.
+      # Including lib/** ensures any Dart change invalidates the cache,
+      # making it safe to enable Gradle build caching (caching=true below).
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+            gradle-${{ runner.os }}-
+
+      - name: Cache Android SDK extras (NDK, CMake)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
+      # Cache p7zip binary — avoids ~40s apt-get install on every run
+      - name: Cache p7zip
+        id: p7zip-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/bin/7z
+            /usr/lib/p7zip
+          key: p7zip-${{ runner.os }}-v1
+
+      - name: Install p7zip (if not cached)
+        if: steps.p7zip-cache.outputs.cache-hit != 'true'
+        run: sudo apt-get install -y p7zip-full --quiet
+
+      # ── Rust (required for rust_lib_watchtower FFI via cargokit) ────────────
+      # ubuntu-latest has Rust pre-installed but NOT the Android cross-targets.
+      # Without aarch64-linux-android / x86_64-linux-android, cargokit fails to
+      # compile librust_lib_watchtower.so → APK ships without it → RustLib.init()
+      # throws UnsatisfiedLinkError before runApp() → app freezes on splash screen.
+      - name: Install Rust Android cross targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Cache Rust (Android ${{ matrix.label }})
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-${{ matrix.label }}-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-android-${{ matrix.label }}-${{ runner.os }}-
+
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build APK — ${{ matrix.label }}
+        env:
+          # caching=true: safe because the Gradle Actions cache key above includes
+          # all Dart sources — any code change busts the cache → no stale task output.
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dhttp.keepAlive=false"
+        run: |
+          flutter build apk \
+            --profile \
+            --target-platform ${{ matrix.target }} \
+            --split-per-abi
+
+      - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
+        run: |
+          mkdir -p artifacts apk_raw
+          TARGET_APK="build/app/outputs/flutter-apk/app-${{ matrix.label }}-profile.apk"
+          if [ ! -f "$TARGET_APK" ]; then
+            echo "ERROR: $TARGET_APK not found. Available:"
+            ls -lh build/app/outputs/flutter-apk/ || true
+            exit 1
+          fi
+          echo "APK size: $(du -sh $TARGET_APK)"
+          # FITGIRL TRICK: APKs store native .so UNCOMPRESSED for mmap
+          # Extract ZIP → compress raw files → 40-60% gain on libs
+          unzip -q "$TARGET_APK" -d apk_raw/
+          echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"
+          7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
+            "artifacts/app-${{ matrix.label }}-debug.7z" apk_raw/
+          rm -rf apk_raw
+          echo "=== Final artifact ==="
+          ls -lh artifacts/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.label }}
+          path: artifacts/*.7z
+          compression-level: 0
+          retention-days: 30
+
+      - name: Notify ntfy (Android build OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android OK (${{ matrix.label }})" \
+            -H "Priority: default" \
+            -d "APK built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+      - name: Notify ntfy (Android build FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android FAIL (${{ matrix.label }})" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "Android build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+  # ────────────────────────────────────────────────────────────
+  # Android Universal (all supported ABIs in one APK)
+  # ────────────────────────────────────────────────────────────
+  build-android-universal:
+    name: Android (Universal)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+            gradle-${{ runner.os }}-
+
+      - name: Cache Android SDK extras (NDK, CMake)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
+      - name: Cache p7zip
+        id: p7zip-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/bin/7z
+            /usr/lib/p7zip
+          key: p7zip-${{ runner.os }}-v1
+
+      - name: Install p7zip (if not cached)
+        if: steps.p7zip-cache.outputs.cache-hit != 'true'
+        run: sudo apt-get install -y p7zip-full --quiet
+
+      # ── Rust (required for rust_lib_watchtower FFI via cargokit) ────────────
+      - name: Install Rust Android cross targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Cache Rust (Android universal)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-universal-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-android-universal-${{ runner.os }}-
+
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build Universal APK
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dhttp.keepAlive=false"
+        run: flutter build apk --profile
+
+      - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
+        run: |
+          mkdir -p apk_raw
+          TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
+          echo "APK size: $(du -sh $TARGET_APK)"
+          unzip -q "$TARGET_APK" -d apk_raw/
+          echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"
+          7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
+            watchtower-android-universal.7z apk_raw/
+          rm -rf apk_raw
+          ls -lh watchtower-android-universal.7z
+
+      - name: Upload Universal APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-universal
+          path: watchtower-android-universal.7z
+          compression-level: 0
+          retention-days: 30
+
+      - name: Notify ntfy (Android Universal OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android Universal OK" \
+            -H "Priority: default" \
+            -d "Universal APK built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+      - name: Notify ntfy (Android Universal FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android Universal FAIL" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "Android Universal build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+  # ────────────────────────────────────────────────────────────
+  # Linux x64
+  # Needs Rust for rust_lib_watchtower FFI plugin (cargokit)
+  # Needs many GTK/GStreamer/media libs for media_kit and friends
+  # ────────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux x64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Cache Rust (Linux x64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-linux-x64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-linux-x64-${{ runner.os }}-
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config libunwind-dev \
+            libgtk-3-dev libwebkit2gtk-4.0-dev libsoup-3.0-dev liblzma-dev libblkid-dev libmount-dev \
+            libglib2.0-dev libdbus-1-dev \
+            libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev \
+            gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+            libasound2-dev libpulse-dev libxcb-xfixes0-dev \
+            libepoxy-dev libmpv-dev mpv \
+            p7zip-full golang-go || true
+
+      - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build Linux
+        run: flutter build linux --release
+
+      - name: Package archive (7z LZMA2 max)
+        run: |
+          cd build/linux/x64/release/bundle
+          7z a -t7z -mx=9 -mmt=2 \
+            ../../../../../watchtower-linux-x64.7z .
+          cd -
+          ls -lh watchtower-linux-x64.7z
+
+      - name: Upload Linux bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: watchtower-linux-x64.7z
+          compression-level: 0
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────
+  # macOS
+  # ────────────────────────────────────────────────────────────
+  build-macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build macOS
+        run: flutter build macos --release
+
+      - name: Package archive (zip -9)
+        run: |
+          RELEASE_DIR="build/macos/Build/Products/Release"
+          echo "--- Contents of $RELEASE_DIR ---"
+          ls -la "$RELEASE_DIR" 2>/dev/null || echo "(dir not found)"
+          APP=$(find "$RELEASE_DIR" -name "*.app" -maxdepth 2 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then
+            echo "ERROR: No .app bundle found. Scanning deeper..."
+            find build/macos -name "*.app" 2>/dev/null || true
+            exit 1
+          fi
+          echo "Found: $APP"
+          zip -r9 watchtower-macos.zip "$APP"
+          ls -lh watchtower-macos.zip
+
+      - name: Upload macOS bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: watchtower-macos.zip
+          compression-level: 9
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────
+  # Windows x64
+  # Needs Rust for rust_lib_watchtower FFI plugin (cargokit cmake)
+  # ────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows x64
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+          cache: true
+
+      - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ${{ env.LOCALAPPDATA }}\Pub\Cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Cache Rust (Windows x64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-windows-x64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-windows-x64-${{ runner.os }}-
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Package archive (7z max)
+        shell: pwsh
+        run: |
+          7z a -t7z -mx=9 -mmt=2 `
+            watchtower-windows-x64.7z `
+            build\windows\x64\runner\Release\*
+          Get-Item watchtower-windows-x64.7z | Select-Object Name, Length
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: watchtower-windows-x64.7z
+          compression-level: 0
+          retention-days: 30

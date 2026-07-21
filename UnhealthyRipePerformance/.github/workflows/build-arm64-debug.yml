@@ -1,0 +1,274 @@
+name: Build Android ARMv8 Profile
+
+on:
+  push:
+    branches: [ main, master, service-dart-fix ]
+  pull_request:
+    branches: [ main, master, service-dart-fix ]
+  workflow_dispatch:
+
+# Annule le build précédent dès qu'un nouveau push arrive — seul le dernier tourne.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ARMv8 Profile APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # 50 commits suffisent pour le changelog (le tag précédent est rarement plus loin)
+          fetch-depth: 50
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter (latest stable)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-
+
+      # Cache Gradle — timeout + continue-on-error so a hanging restore never
+      # kills the entire run; a cold Gradle build is slow but correct.
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        timeout-minutes: 8
+        continue-on-error: true
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+
+      # Cache Rust — rust_lib_watchtower compile aarch64-linux-android (~150-200s sans cache)
+      - name: Cache Rust (Android arm64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-arm64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-android-arm64-${{ runner.os }}-
+
+      # Cache Android NDK 27 + CMake 3.22.1 — telecharges par Gradle a chaque run
+      - name: Cache Android SDK extras (NDK 27, CMake)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
+      # Cache .dart_tool/flutter_build uniquement (pas tout .dart_tool — évite les stale metadata).
+      # Clé exacte: OS + Flutter version + mode + sources Dart. Sans restore-keys → zéro stale kernel.
+      - name: Cache Flutter build intermediates (profile only)
+        uses: actions/cache@v4
+        with:
+          path: .dart_tool/flutter_build
+          key: flutter-profile-${{ runner.os }}-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
+
+      # Pre-install Rust Android target pour eviter le download live dans Gradle
+      - name: Install Rust Android target
+        run: rustup target add aarch64-linux-android
+
+      - name: Compute and bump version
+        id: ver
+        run: |
+          MAJOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9]+)\..*/\1/')
+          MINOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*[0-9]+\.([0-9]+)\..*/\1/')
+          PATCH=${GITHUB_RUN_NUMBER}
+          VNAME="${MAJOR}.${MINOR}.${PATCH}"
+          VCODE=${GITHUB_RUN_NUMBER}
+          TAG="v${VNAME}-b${VCODE}"
+          sed -i "s/^version:.*/version: ${VNAME}+${VCODE}/" pubspec.yaml
+          echo "name=${VNAME}"  >> "$GITHUB_OUTPUT"
+          echo "code=${VCODE}"  >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}"     >> "$GITHUB_OUTPUT"
+          echo "full=${VNAME}+${VCODE}" >> "$GITHUB_OUTPUT"
+          echo "Bumped to ${VNAME}+${VCODE} (tag: ${TAG})"
+
+      - name: Generate Mihon-style changelog
+        id: changelog
+        run: |
+          python3 - << 'PYEOF'
+          import subprocess, re, os
+          prev_tag = subprocess.getoutput("git tag --sort=-creatordate 2>/dev/null | head -1").strip()
+          if prev_tag:
+            raw = subprocess.getoutput('git log --no-merges --pretty=format:"%s" "' + prev_tag + '..HEAD" 2>/dev/null')
+          else:
+            raw = subprocess.getoutput('git log --no-merges --pretty=format:"%s" -40 2>/dev/null')
+          messages = [l.strip() for l in raw.strip().splitlines() if l.strip()]
+          feat, changes, improvements, fixes, removals = [], [], [], [], []
+          for msg in messages:
+            m = re.match(r'^(feat|fix|chore|refactor|perf|i18n|docs|style|test|build|ci|revert)(\([^)]+\))?!?:\s*(.*)', msg, re.IGNORECASE)
+            if m:
+                typ = m.group(1).lower()
+                desc = (m.group(3) or '').strip()
+                label = '- ' + desc
+                if typ == 'feat': feat.append(label)
+                elif typ == 'fix': fixes.append(label)
+                elif typ in ('chore','build','ci','style','test'): removals.append(label)
+                elif typ in ('refactor','perf'): improvements.append(label)
+                elif typ in ('i18n','docs'): changes.append(label)
+                elif typ == 'revert': removals.append(label)
+            else:
+                lo = msg.lower()
+                if any(w in lo for w in ['feat','add ','new ','impl','redesign']): feat.append('- ' + msg)
+                elif any(w in lo for w in ['fix','bug','patch','repair','resolve']): fixes.append('- ' + msg)
+                elif any(w in lo for w in ['remove','delete','deprecat','drop']): removals.append('- ' + msg)
+                elif any(w in lo for w in ['improve','optim','perf','refactor']): improvements.append('- ' + msg)
+                else: changes.append('- ' + msg)
+          def dedup(lst):
+            seen = set()
+            return [x for x in lst if not (x in seen or seen.add(x))]
+          feat = dedup(feat)[:20]
+          changes = dedup(changes)[:15]
+          improvements = dedup(improvements)[:15]
+          fixes = dedup(fixes)[:20]
+          removals = dedup(removals)[:10]
+          sections = []
+          if feat: sections.append('## \u2728 Nouvelles fonctionnalit\u00e9s\n' + '\n'.join(feat))
+          if changes: sections.append('## \u2699\ufe0f Changements\n' + '\n'.join(changes))
+          if improvements: sections.append('## \U0001f680 Am\u00e9liorations\n' + '\n'.join(improvements))
+          if fixes: sections.append('## \U0001f9e9 Corrections\n' + '\n'.join(fixes))
+          if removals: sections.append('## \U0001f9f9 Suppressions\n' + '\n'.join(removals))
+          if not sections: sections = ['## \u2699\ufe0f Changements\n- Maintenance et corrections internes']
+          footer = '\n\n---\n### \U0001f4f1 Installation Android\n1. T\u00e9l\u00e9chargez le fichier APK\n2. Ouvrez-le sur Android\n3. Activez \"Sources inconnues\" si demand\u00e9'
+          body = '\n\n'.join(sections) + footer
+          with open('/tmp/changelog.md', 'w') as f:
+            f.write(body)
+          print('Changelog OK')
+          PYEOF
+          echo "file=/tmp/changelog.md" >> "$GITHUB_OUTPUT"
+
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
+      - name: Free disk space
+        run: |
+            df -h
+            sudo rm -rf /usr/local/lib/android/sdk/ndk/26* /usr/local/lib/android/sdk/ndk/29* || true
+            sudo rm -rf /usr/local/lib/android/sdk/build-tools/33* /usr/local/lib/android/sdk/build-tools/34* || true
+            sudo rm -rf /usr/local/.ghcup /usr/local/share/powershell || true
+            sudo apt-get clean -y || true
+            df -h
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Fix flutter_new_pipe_extractor missing assets dir
+        run: |
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read d; do
+            mkdir -p "$d/assets"
+          done
+
+      - name: Cache launcher icons (skip regen if assets unchanged)
+        id: icons-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/app/src/main/res
+            ios/Runner/Assets.xcassets
+          key: launcher-icons-${{ hashFiles('pubspec.yaml', 'assets/app_icons/**', 'assets/icons/**') }}
+
+      - name: Generate app icons (flutter_launcher_icons)
+        if: steps.icons-cache.outputs.cache-hit != 'true'
+        run: dart run flutter_launcher_icons
+
+      - name: Build APK (ARMv8 profile)
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=false -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
+        run: |
+          for attempt in 1 2 3; do
+            echo "--- Build attempt $attempt/3 ---"
+            if flutter build apk \
+              --profile \
+              --target-platform android-arm64 \
+              --split-per-abi \
+              --build-name=${{ steps.ver.outputs.name }} \
+              --build-number=${{ steps.ver.outputs.code }}; then
+              echo "Build succeeded on attempt $attempt"
+              break
+            fi
+            if [ $attempt -lt 3 ]; then
+              echo "Build failed, waiting 45s..."
+              sleep 45
+            else
+              echo "All 3 attempts failed."
+              exit 1
+            fi
+          done
+
+      - name: Rename APK
+        run: |
+          SRC=build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
+          DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.apk
+          cp "$SRC" "$DST"
+          echo "APK: $(du -sh $DST | cut -f1)"
+
+      - name: FitGirl-style artifact — LZMA2 ultra compressed APK
+        run: |
+          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.apk
+          echo "APK size: $(du -sh $APK)"
+          7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
+            Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.7z \
+            "$APK"
+          echo "=== Compressed artifact ==="
+          ls -lh Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.7z
+
+      - name: Upload raw APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile-raw
+          path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.apk
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload 7z compressed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile-7z
+          path: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.7z
+          compression-level: 0
+          retention-days: 30
+
+      - name: Notify ntfy (build OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android Profile OK" \
+            -H "Priority: default" \
+            -H "Tags: white_check_mark" \
+            -d "APK profile arm64 — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+      - name: Notify ntfy (build FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android FAIL" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "Android build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
