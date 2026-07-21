@@ -9,7 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
-import com.kodjodevf.watchtower.MainActivity
+import com.watchtower.app.MainActivity
 
 class FtpForegroundService : Service() {
     private val CHANNEL_ID = "ftp_server_channel"
