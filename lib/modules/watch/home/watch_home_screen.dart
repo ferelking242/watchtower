@@ -168,7 +168,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       onResult: (result) {
         final words = result.recognizedWords;
         if (words.isNotEmpty) {
-          _searchCtrl.text = words;
+          _searchCtrl.value = TextEditingValue(
+            text: words,
+            selection: TextSelection.collapsed(offset: words.length),
+          );
           _onQueryChanged(words);
         }
       },
@@ -308,7 +311,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   }
 
   void _onSuggestionTap(String title) {
-    _searchCtrl.text = title;
+    _searchCtrl.value = TextEditingValue(
+      text: title,
+      selection: TextSelection.collapsed(offset: title.length),
+    );
     _suggestionTimer?.cancel();
     setState(() {
       _query       = title;

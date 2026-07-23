@@ -57,7 +57,8 @@ class PluginDiscoveryScreen extends ConsumerWidget {
                     subtitle: 'Bibliothèque locale\nAnime, Manga, Novel…',
                     icon: Broken.hierarchy_3,
                     color: Color(0xFF5C6BC0),
-                    route: '/AnimeLibrary',
+                    route: '/localSources',
+                    extra: ItemType.anime,
                   ),
                 ],
               ),
@@ -78,6 +79,7 @@ class _PluginCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String route;
+  final Object? extra;
 
   const _PluginCard({
     required this.id,
@@ -86,6 +88,7 @@ class _PluginCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.route,
+    this.extra,
   });
 
   @override
@@ -94,7 +97,7 @@ class _PluginCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
-      onTap: () => context.push(route),
+      onTap: () => context.push(route, extra: extra),
       onLongPress: () => _onLongPress(context),
       child: Container(
         padding: const EdgeInsets.all(16),

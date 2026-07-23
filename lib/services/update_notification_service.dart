@@ -4,6 +4,7 @@ import 'dart:async';
 
   import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
   import 'package:flutter_local_notifications/flutter_local_notifications.dart';
   import 'package:http/http.dart' as http;
   import 'package:package_info_plus/package_info_plus.dart';
@@ -89,7 +90,7 @@ const String _kActionInstall = 'action_install';
             ),
           );
 
-          await androidPlugin?.requestNotificationsPermission();
+          _requestAndroidPermissionWhenReady(androidPlugin);
         } else if (Platform.isIOS) {
           await _plugin
               .resolvePlatformSpecificImplementation<
@@ -423,6 +424,24 @@ const String _kActionInstall = 'action_install';
         tag: LogTag.network,
       );
     }
+  }
+
+  void _requestAndroidPermissionWhenReady(
+    AndroidFlutterLocalNotificationsPlugin? androidPlugin,
+  ) {
+    if (androidPlugin == null) return;
+
+    Future<void> request() async {
+      try {
+        await androidPlugin.requestNotificationsPermission();
+      } catch (e) {
+        AppLogger.log('Android notification permission deferred: $e');
+      }
+    }
+
+    // AndroidFlutterLocalNotificationsPlugin needs an attached Activity.
+    // init() can run before Flutter has rendered the first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => request());
   }
 
   /// Met à jour la notification de progression du téléchargement.

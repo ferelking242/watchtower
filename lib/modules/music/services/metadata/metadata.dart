@@ -14,6 +14,7 @@ import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/services/metadata/errors/exceptions.dart';
 import 'package:watchtower/modules/music/services/metadata/apis/localstorage.dart';
 import 'package:watchtower/modules/music/services/metadata/endpoints/album.dart';
 import 'package:watchtower/modules/music/services/metadata/endpoints/artist.dart';
@@ -139,14 +140,18 @@ class MetadataPlugin {
     await HetuOtpUtilLoader.loadBytecodeFlutter(hetu);
     await HetuSpotubePluginLoader.loadBytecodeFlutter(hetu);
 
-    hetu.loadBytecode(bytes: byteCode, moduleName: "plugin");
-    hetu.eval("""
-      import "module:plugin" as plugin
+    try {
+      hetu.loadBytecode(bytes: byteCode, moduleName: "plugin");
+      hetu.eval("""
+        import "module:plugin" as plugin
 
-      var Plugin = plugin.${config.entryPoint}
+        var Plugin = plugin.${config.entryPoint}
 
-      var metadataPlugin = Plugin()
-      """);
+        var metadataPlugin = Plugin()
+        """);
+    } catch (_) {
+      throw MetadataPluginException.invalidPluginByteCode();
+    }
 
     return MetadataPlugin._(hetu);
   }

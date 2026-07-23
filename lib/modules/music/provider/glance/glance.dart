@@ -17,10 +17,17 @@ import 'package:watchtower/modules/music/utils/platform.dart';
 /// warning and silently skips writes.
 Future<void> _initHomeWidget() async {
   if (!kIsMobile) return;
-  if (kIsIOS) {
-    await HomeWidget.setAppGroupId('group.com.watchtower.app');
+  try {
+    if (kIsIOS) {
+      await HomeWidget.setAppGroupId('group.com.watchtower.app');
+      return;
+    }
+    if (kIsAndroid) {
+      await HomeWidget.registerBackgroundCallback(glanceBackgroundCallback);
+    }
+  } catch (e, stack) {
+    AppLogger.reportError(e, stack);
   }
-  await HomeWidget.registerBackgroundCallback(glanceBackgroundCallback);
 }
 
 @pragma("vm:entry-point")

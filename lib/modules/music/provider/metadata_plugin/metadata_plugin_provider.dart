@@ -526,23 +526,26 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     if (state.valueOrNull?.defaultMetadataPluginConfig == plugin) {
       final remainingPlugins = state.valueOrNull?.plugins.where(
             (p) =>
-                p != plugin && p.abilities.contains(PluginAbilities.metadata),
+                p.slug != plugin.slug &&
+                p.abilities.contains(PluginAbilities.metadata),
           ) ??
           [];
-      if (remainingPlugins.length == 1) {
-        await setDefaultMetadataPlugin(remainingPlugins.first);
+      final replacement = remainingPlugins.firstOrNull;
+      if (replacement != null) {
+        await setDefaultMetadataPlugin(replacement);
       }
     }
 
     if (state.valueOrNull?.defaultAudioSourcePluginConfig == plugin) {
       final remainingPlugins = state.valueOrNull?.plugins.where(
             (p) =>
-                p != plugin &&
+                p.slug != plugin.slug &&
                 p.abilities.contains(PluginAbilities.audioSource),
           ) ??
           [];
-      if (remainingPlugins.length == 1) {
-        await setDefaultAudioSourcePlugin(remainingPlugins.first);
+      final replacement = remainingPlugins.firstOrNull;
+      if (replacement != null) {
+        await setDefaultAudioSourcePlugin(replacement);
       }
     }
   }
@@ -677,11 +680,20 @@ final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
     final pluginByteCode =
         await pluginsNotifier.getPluginByteCode(defaultPlugin);
 
-    return await MetadataPlugin.create(
-      youtubeEngine,
-      defaultPlugin,
-      pluginByteCode,
-    );
+    try {
+      return await MetadataPlugin.create(
+        youtubeEngine,
+        defaultPlugin,
+        pluginByteCode,
+      );
+    } on MetadataPluginException catch (error, stack) {
+      AppLogger.log.w(
+        "Metadata plugin '${defaultPlugin.slug}' could not be loaded",
+        error: error,
+        stackTrace: stack,
+      );
+      return null;
+    }
   },
 );
 
@@ -701,10 +713,19 @@ final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
     final pluginByteCode =
         await pluginsNotifier.getPluginByteCode(defaultPlugin);
 
-    return await MetadataPlugin.create(
-      youtubeEngine,
-      defaultPlugin,
-      pluginByteCode,
-    );
+    try {
+      return await MetadataPlugin.create(
+        youtubeEngine,
+        defaultPlugin,
+        pluginByteCode,
+      );
+    } on MetadataPluginException catch (error, stack) {
+      AppLogger.log.w(
+        "Audio source plugin '${defaultPlugin.slug}' could not be loaded",
+        error: error,
+        stackTrace: stack,
+      );
+      return null;
+    }
   },
 );

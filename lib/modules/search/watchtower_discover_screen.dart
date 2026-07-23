@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
+import 'package:lottie/lottie.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
@@ -207,6 +208,7 @@ class _WatchtowerDiscoverScreenState
   bool _isLoading = false;
   bool _hasError = false;
   String _errorMsg = '';
+  int _requestGeneration = 0;
   int _page = 1;
   bool _hasNextPage = true;
   final List<_DiscoverItem> _items = [];
@@ -272,9 +274,14 @@ class _WatchtowerDiscoverScreenState
 
   void _setMode(_DiscoverMode m) {
     if (_mode == m) return;
+    _debounce?.cancel();
+    _searchFocus.unfocus();
+    _requestGeneration++;
     setState(() {
       _mode = m;
       _filterOpen = false;
+      _searchCtrl.clear();
+      _searchQuery = '';
       switch (m) {
         case _DiscoverMode.watch:
           _type = _ContentType.anime;
@@ -374,9 +381,9 @@ class _WatchtowerDiscoverScreenState
 
   void _onSearchChanged(String v) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
+    _debounce = Timer(const Duration(milliseconds: 300), () {
       if (mounted) {
-        _searchQuery = v;
+        _searchQuery = v.trim();
         _fetchResults(reset: true);
       }
     });
@@ -389,18 +396,21 @@ class _WatchtowerDiscoverScreenState
 
   Future<void> _fetchResults({bool reset = false}) async {
     if (reset) {
+      _requestGeneration++;
       setState(() {
         _page = 1;
         _items.clear();
         _hasNextPage = true;
         _hasError = false;
+        _isLoading = false;
       });
     }
     if (!_hasNextPage || _isLoading) return;
+    final requestGeneration = _requestGeneration;
     setState(() => _isLoading = true);
     try {
       final (newItems, hasNext) = await _queryAniList(_page);
-      if (mounted) {
+      if (mounted && requestGeneration == _requestGeneration) {
         setState(() {
           _items.addAll(newItems);
           _hasNextPage = hasNext;
@@ -410,7 +420,7 @@ class _WatchtowerDiscoverScreenState
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && requestGeneration == _requestGeneration) {
         setState(() {
           _isLoading = false;
           _hasError = true;
@@ -1281,6 +1291,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     if (_hasError && _items.isEmpty) {
       return _buildErrorState(cs);
     }
+    if (!_isLoading && _items.isEmpty) {
+      return _buildEmptyState(cs);
+    }
 
     // FIX 2: support compact / comfortable / cinema display modes
     final cols = _displayMode == _DiscoverDisplayMode.compact ? _columnsCount : _columnsCount.clamp(1, 2);
@@ -1335,6 +1348,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   Widget _buildList(BuildContext context, ColorScheme cs, bool isDark) {
     if (_hasError && _items.isEmpty) {
       return _buildErrorState(cs);
+    }
+    if (!_isLoading && _items.isEmpty) {
+      return _buildEmptyState(cs);
     }
 
     return ListView.builder(
@@ -1407,6 +1423,44 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               onPressed: () => _fetchResults(reset: true),
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ColorScheme cs) {
+    final query = _searchQuery.isEmpty ? 'cette recherche' : '« $_searchQuery »';
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 180,
+              height: 180,
+              child: Lottie.asset(
+                'assets/animations/empty.json',
+                repeat: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Aucun résultat trouvé pour $query',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: cs.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Essaie un autre terme ou modifie les filtres.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
             ),
           ],
         ),
@@ -2611,11 +2665,18 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fillColor =
+        isDark ? const Color(0xFF29292D) : cs.surfaceContainerHigh;
     return Container(
       height: 42,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh,
+        color: fillColor,
         borderRadius: BorderRadius.circular(13),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.10)
+              : cs.outlineVariant.withValues(alpha: 0.65),
+        ),
       ),
       child: TextField(
         controller: controller,

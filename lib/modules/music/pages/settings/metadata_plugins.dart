@@ -46,19 +46,17 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                 .toList() ??
             [];
         final pluginRepos = pluginReposSnapshot.asData?.value.items ?? [];
-        if (installedPluginIds.isEmpty) return pluginRepos;
         final availablePlugins = pluginRepos
             .whereNot((repo) => installedPluginIds.contains(repo.repoUrl))
+            .where((repo) {
+              if (tabState.value == 0) return true;
+              return repo.topics.contains(
+                tabState.value == 1
+                    ? "spotube-metadata-plugin"
+                    : "spotube-audio-source-plugin",
+              );
+            })
             .toList();
-        if (tabState.value != 0) {
-          return availablePlugins.where((d) {
-            return d.topics.contains(
-              tabState.value == 1
-                  ? "spotube-metadata-plugin"
-                  : "spotube-audio-source-plugin",
-            );
-          }).toList();
-        }
         return availablePlugins;
       },
       [

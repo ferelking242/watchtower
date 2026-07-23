@@ -64,11 +64,10 @@ class BypassNotificationService {
                 enableVibration: true,
               ),
             );
-        await _plugin
+        final androidPlugin = _plugin
             .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.requestNotificationsPermission();
+              AndroidFlutterLocalNotificationsPlugin>();
+        _requestAndroidPermissionWhenReady(androidPlugin);
       } else if (!kIsWeb && Platform.isIOS) {
         await _plugin
             .resolvePlatformSpecificImplementation<
@@ -85,6 +84,26 @@ class BypassNotificationService {
         tag: LogTag.network,
       );
     }
+  }
+
+  void _requestAndroidPermissionWhenReady(
+    AndroidFlutterLocalNotificationsPlugin? androidPlugin,
+  ) {
+    if (androidPlugin == null) return;
+
+    Future<void> request() async {
+      try {
+        await androidPlugin.requestNotificationsPermission();
+      } catch (e) {
+        AppLogger.log(
+          'Android notification permission deferred: $e',
+          logLevel: LogLevel.debug,
+          tag: LogTag.network,
+        );
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => request());
   }
 
   void _openSheet(String url) {
