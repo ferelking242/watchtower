@@ -344,6 +344,7 @@ jobs:
             libgtk-3-dev libwebkit2gtk-4.0-dev libsoup-3.0-dev liblzma-dev libblkid-dev libmount-dev \
             libglib2.0-dev libdbus-1-dev \
             libnotify-dev \
+            libayatana-appindicator3-dev \
             libsecret-1-dev libjsoncpp-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libgstreamer-plugins-bad1.0-dev \
