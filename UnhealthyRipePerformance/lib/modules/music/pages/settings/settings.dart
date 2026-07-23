@@ -5,11 +5,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/accounts.dart';
-import 'package:watchtower/modules/music/pages/settings/sections/appearance.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/desktop.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/downloads.dart';
+import 'package:watchtower/modules/music/pages/settings/sections/general.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/language_region.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/playback.dart';
+import 'package:watchtower/modules/music/pages/settings/sections/providers.dart';
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
 
@@ -39,8 +40,9 @@ class SettingsPage extends HookConsumerWidget {
                 controller: controller,
                 children: [
                   const SettingsAccountSection(),
+                  const SettingsProvidersSection(),
+                  const SettingsGeneralSection(),
                   const SettingsLanguageRegionSection(),
-                  const SettingsAppearanceSection(),
                   const SettingsPlaybackSection(),
                   const SettingsDownloadsSection(),
                   if (kIsDesktop) const SettingsDesktopSection(),
