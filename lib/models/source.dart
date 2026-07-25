@@ -255,6 +255,11 @@ class Source {
 
   bool get isTorrent => (typeSource?.toLowerCase() ?? "") == "torrent";
 
+  /// True when the extension ships a ui-layout JSON that declares home sections.
+  /// Mirrors Aidoku's `source.features.providesHome`.
+  /// Used to show/hide the "Accueil" pill tab in every source home screen.
+  bool get providesHome => uiLayout != null && uiLayout!.isNotEmpty;
+
   MSource toMSource() {
     return MSource(
       id: id,

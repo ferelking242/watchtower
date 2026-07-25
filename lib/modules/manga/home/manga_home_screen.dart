@@ -1090,30 +1090,32 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
               );
             }),
 
-            // Latest Updates section ─────────────────────────────────────────
-            _buildSectionHeader(
-              ctx,
-              title: 'Latest Updates',
-              onSeeAll: () {
-                Navigator.of(ctx).push(MaterialPageRoute(
-                  builder: (_) => _ExtensionSectionPage(
-                    source: source,
-                    title: 'Latest Updates',
-                    type: _SectionType.latest,
-                  ),
-                ));
-              },
-            ),
-            Consumer(
-              builder: (c, ref, _) {
-                final latest = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-                return latest.when(
-                  data: (d) => _buildLatestVerticalList(ctx, d?.list ?? []),
-                  loading: () => _buildLatestSkeleton(ctx),
-                  error: (_, __) => const SizedBox(height: 8),
-                );
-              },
-            ),
+            // Latest Updates section — only when the source supports it ──────
+            if (supportsLatest) ...[
+              _buildSectionHeader(
+                ctx,
+                title: 'Latest Updates',
+                onSeeAll: () {
+                  Navigator.of(ctx).push(MaterialPageRoute(
+                    builder: (_) => _ExtensionSectionPage(
+                      source: source,
+                      title: 'Latest Updates',
+                      type: _SectionType.latest,
+                    ),
+                  ));
+                },
+              ),
+              Consumer(
+                builder: (c, ref, _) {
+                  final latest = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+                  return latest.when(
+                    data: (d) => _buildLatestVerticalList(ctx, d?.list ?? []),
+                    loading: () => _buildLatestSkeleton(ctx),
+                    error: (_, __) => const SizedBox(height: 8),
+                  );
+                },
+              ),
+            ],
 
             const SizedBox(height: 32),
               ],

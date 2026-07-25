@@ -58,7 +58,10 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   static const _kLatestIdx  = 2;
   static const _kFilterIdx  = 3;
 
-  late int _selectedIdx = widget.isLatest ? _kLatestIdx : _kHomeIdx;
+  // Start on Popular when the source has no custom home layout.
+  late int _selectedIdx = widget.isLatest
+      ? _kLatestIdx
+      : (widget.source.providesHome ? _kHomeIdx : _kPopularIdx);
 
   bool   _isSearching = false;
   String _query       = '';
@@ -308,8 +311,12 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   // ── pill tab bar ───────────────────────────────────────────────────────────
 
   Widget _buildTabBar(BuildContext ctx) {
+    // "Accueil" tab only when the source ships a ui-layout JSON (providesHome)
+    // or the layout has already been loaded and contains custom sections.
+    final _hasHomeTab = source.providesHome || _customLists.isNotEmpty;
     final tabs = <({IconData icon, String label, int idx})>[
-      (icon: Icons.menu_book_rounded,              label: 'Accueil',    idx: _kHomeIdx),
+      if (_hasHomeTab)
+        (icon: Icons.menu_book_rounded,              label: 'Accueil',    idx: _kHomeIdx),
       (icon: Icons.local_fire_department_rounded,  label: 'Populaires', idx: _kPopularIdx),
       if (supportsLatest)
         (icon: Icons.fiber_new_rounded,            label: 'Récents',    idx: _kLatestIdx),

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "home": {
+    "sections": [
+      {
+        "id": "home",
+        "component": "carousel",
+        "title": "Accueil",
+        "icon": "home",
+        "seeAll": false,
+        "paginated": false,
+        "requiresAuth": false
+      }
+    ]
+  }
+}
