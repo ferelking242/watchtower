@@ -801,14 +801,18 @@ Future<void> downloadChapter(
 
       // ── Anime: resume-safe corrections ───────────────────────────────────
       // On pause → resume the fresh M3u8Downloader only sees remaining segments:
-      //   • isarTotal  is re-estimated from remaining segs → smaller than original.
+      //   • isarTotal  is re-estimated from remaining segs → can differ from original.
       //   • isarSucceeded restarts from 0               → appears to go backwards.
       // Corrections:
-      //   1. Never shrink the stored total (floor at the stored value).
+      //   1. Once a meaningful total is established (>500 KB), freeze it completely
+      //      — never allow it to grow OR shrink from a new segment-based estimate.
+      //      Only the final merge completion signal (progress.isCompleted) may
+      //      update isarTotal with the real on-disk file size.
       //   2. Add the already-downloaded offset to every succeeded value.
       if (progress.itemType == ItemType.anime && download != null) {
         final storedTotal = download.total ?? 0;
-        if (storedTotal > 500 && isarTotal < storedTotal) {
+        if (storedTotal > 500 && !progress.isCompleted) {
+          // Freeze: use stored total regardless of new estimate direction.
           isarTotal = storedTotal;
         }
         if (_resumeSucceededKbOffset > 0) {
@@ -1059,6 +1063,22 @@ Future<void> downloadChapter(
       // CRITICAL: release processDownloads slot so the next queued
       // download can start — without this, one extension failure blocks
       // the entire download queue forever ("en attente" bug).
+      callback?.call();
+      keepAlive.close();
+      return;
+    }
+
+    // ── Pause check after async URL fetch ────────────────────────────────────
+    // If the user paused while we were fetching URLs (getChapterPages /
+    // getVideoList can take several seconds), honour the pause now instead of
+    // starting the actual download.  Without this check the early
+    // registerInternal at line 662 would absorb the cancelTask() call (no
+    // running pool task yet → no-op), and the download would start anyway.
+    if (chapter.id != null &&
+        ref.read(downloadQueueStateProvider).pausedIds.contains(chapter.id!)) {
+      // Unregister so processDownloads sees this chapter as idle and can
+      // re-pick it the moment the user taps resume.
+      ActiveDownloadRegistry.unregister(chapter.id!);
       callback?.call();
       keepAlive.close();
       return;

@@ -731,17 +731,39 @@ Future<void> _processM3u8Download(
     return;
   }
 
-  // Byte accumulators — updated after each segment lands.
-  int downloadedBytes = 0;
-  // Once we have sampled enough segments we lock the total estimate so it
-  // does not jump around as the running average fluctuates.  The estimate
-  // is frozen after kLockAfterSegments completed segments, whichever comes
-  // first.  After locking, only downloadedBytes grows; the UI shows smooth
-  // "14 MB / 58 MB" progress without the total jumping.
+  // Byte accumulators — updated by completed segments AND in-flight chunks.
+  // completedBytes: sum of all fully-downloaded segment sizes.
+  // slotBytes: per-slot running total of in-flight (mid-download) bytes.
+  int completedBytes = 0;
+  final slotBytes = List<int>.filled(params.concurrentDownloads.clamp(1, 32), 0);
+
+  // Total estimate — locked after kLockAfterSegments complete segments so the
+  // denominator in "14 MB / 58 MB" never jumps around during a session.
   int estimatedTotalBytes = 0;
   bool _totalLocked = false;
-  // Number of segments after which the estimate is considered stable.
   const int kLockAfterSegments = 8;
+
+  // Throttle: only send a real-time progress update when at least this many
+  // bytes of new data have arrived since the last send. 256 KB keeps the UI
+  // smooth without flooding the main isolate with tiny messages.
+  const int kProgressThrottleBytes = 256 * 1024;
+  int _lastReportedBytes = 0;
+
+  void _sendProgress(TsInfo? segment) {
+    final inFlight = slotBytes.fold<int>(0, (a, b) => a + b);
+    final totalDownloaded = completedBytes + inFlight;
+    if (totalDownloaded - _lastReportedBytes >= kProgressThrottleBytes || segment != null) {
+      _lastReportedBytes = totalDownloaded;
+      replyPort.send(DownloadProgress(
+        segment: segment,
+        completed,
+        total,
+        params.itemType,
+        downloadedBytes: totalDownloaded,
+        totalBytes: estimatedTotalBytes > 0 ? estimatedTotalBytes : null,
+      ));
+    }
+  }
 
   try {
     final int concurrency = params.concurrentDownloads.clamp(1, 32);
@@ -758,39 +780,46 @@ Future<void> _processM3u8Download(
       final slotIdx = i % concurrency;
       await slots[slotIdx];
 
+      // Reset this slot's in-flight counter for the new segment.
+      slotBytes[slotIdx] = 0;
+
       final segment = params.segments[i];
-      slots[slotIdx] = _downloadSegment(segment, params, client)
-          .then((_) {
+      final capturedSlotIdx = slotIdx;
+      slots[slotIdx] = _downloadSegment(
+        segment, params, client,
+        onChunk: (bytes) {
+          slotBytes[capturedSlotIdx] += bytes;
+          _sendProgress(null); // throttled real-time update
+        },
+      ).then((_) {
             completed++;
 
-            // Read size of the written .ts file for byte-accurate progress.
+            // Commit this slot's bytes to the completed accumulator.
             try {
               final tsFile = File(path.join(params.tempDir, '${segment.name}.ts'));
               if (tsFile.existsSync()) {
-                downloadedBytes += tsFile.lengthSync();
+                completedBytes += tsFile.lengthSync();
+              } else {
+                completedBytes += slotBytes[capturedSlotIdx];
               }
-            } catch (_) {}
+            } catch (_) {
+              completedBytes += slotBytes[capturedSlotIdx];
+            }
+            slotBytes[capturedSlotIdx] = 0;
 
-            // Estimate total only while we do not yet have a stable reading.
-            // Once kLockAfterSegments segments have landed, lock the estimate
-            // so the total does not keep jumping as different-sized segments
-            // change the running average.
+            // Lock the total estimate after enough segments so the denominator
+            // stops changing.
             if (!_totalLocked && completed > 0) {
-              final avgBytesPerSegment = downloadedBytes ~/ completed;
+              final avgBytesPerSegment = completedBytes ~/ completed;
               estimatedTotalBytes = avgBytesPerSegment * total;
               if (completed >= kLockAfterSegments) {
                 _totalLocked = true;
               }
             }
 
-            replyPort.send(DownloadProgress(
-              segment: segment,
-              completed,
-              total,
-              params.itemType,
-              downloadedBytes: downloadedBytes,
-              totalBytes: estimatedTotalBytes > 0 ? estimatedTotalBytes : null,
-            ));
+            // Always send an update on segment completion (threshold bypassed).
+            _lastReportedBytes = 0;
+            _sendProgress(segment);
           })
           .catchError((error) {
             replyPort.send(_toSendable(DownloadPoolException(
@@ -831,8 +860,9 @@ Future<void> _processM3u8Download(
 Future<void> _downloadSegment(
   TsInfo ts,
   M3u8DownloadParams params,
-  Client client,
-) async {
+  Client client, {
+  void Function(int bytes)? onChunk,
+}) async {
   const segmentTimeout = Duration(seconds: 45);
   final file = File(path.join(params.tempDir, '${ts.name}.ts'));
 
@@ -879,7 +909,10 @@ Future<void> _downloadSegment(
                 'Segment ${ts.name}: stream stalled for ${segmentTimeout.inSeconds}s',
               ),
             )
-            .forEach(sink.add);
+            .forEach((chunk) {
+              sink.add(chunk);
+              onChunk?.call(chunk.length);
+            });
       } finally {
         await sink.flush();
         await sink.close();

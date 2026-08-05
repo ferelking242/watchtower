@@ -65,7 +65,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
           .idIsNotNull()
           .isDownloadEqualTo(false)
           .isStartDownloadEqualTo(true)
-          .sortBySucceededDesc()
           .watch(fireImmediately: true),
       builder: (context, snapshot) {
         final allEntries = snapshot.data ?? [];
