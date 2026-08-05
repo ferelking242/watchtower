@@ -796,22 +796,31 @@ Future<void> downloadChapter(
       // offset so every subsequent tick adds it back in.
       if (_resumeSucceededKbOffset < 0) {
         final stored = download?.succeeded ?? 0;
-        _resumeSucceededKbOffset = stored > 500 ? stored : 0;
+        // Threshold is type-aware:
+        //   • anime  → succeeded is in KB; anything >500 KB is a real progress value.
+        //   • manga  → succeeded is page count; anything >1 means real progress.
+        final threshold = progress.itemType == ItemType.anime ? 500 : 1;
+        _resumeSucceededKbOffset = stored > threshold ? stored : 0;
       }
 
-      // ── Anime: resume-safe corrections ───────────────────────────────────
-      // On pause → resume the fresh M3u8Downloader only sees remaining segments:
-      //   • isarTotal  is re-estimated from remaining segs → can differ from original.
-      //   • isarSucceeded restarts from 0               → appears to go backwards.
+      // ── Resume-safe corrections (anime AND manga) ─────────────────────────
+      // On pause → resume, the fresh downloader only sees remaining items:
+      //   • isarTotal  may be re-estimated from remaining items → differs from original.
+      //   • isarSucceeded restarts from 0                       → appears to go backwards.
       // Corrections:
-      //   1. Once a meaningful total is established (>500 KB), freeze it completely
-      //      — never allow it to grow OR shrink from a new segment-based estimate.
-      //      Only the final merge completion signal (progress.isCompleted) may
-      //      update isarTotal with the real on-disk file size.
+      //   1. Once a meaningful total is established, freeze it completely
+      //      — never allow it to grow OR shrink from a new estimate.
+      //      Only the final completion signal (progress.isCompleted) may
+      //      update isarTotal with the real on-disk size / page count.
       //   2. Add the already-downloaded offset to every succeeded value.
-      if (progress.itemType == ItemType.anime && download != null) {
+      //
+      // Thresholds:
+      //   • anime  → total is in KB, use >500 KB as "meaningful".
+      //   • manga  → total is page count, use >1 as "meaningful" (>sentinel).
+      if (download != null) {
         final storedTotal = download.total ?? 0;
-        if (storedTotal > 500 && !progress.isCompleted) {
+        final freezeThreshold = progress.itemType == ItemType.anime ? 500 : 1;
+        if (storedTotal > freezeThreshold && !progress.isCompleted) {
           // Freeze: use stored total regardless of new estimate direction.
           isarTotal = storedTotal;
         }
@@ -821,10 +830,18 @@ Future<void> downloadChapter(
         }
       }
 
+      // When progress.completed==0 AND there is no resume offset, treat as
+      // "not started yet" and write 0.  But when there IS a resume offset
+      // (pages/KB already on disk from a previous session), write isarSucceeded
+      // (= offset alone, so the bar stays at the pre-pause position instead of
+      // jumping backwards to 0 on the very first tick after resume).
+      final writtenSucceeded =
+          (progress.completed == 0 && _resumeSucceededKbOffset <= 0) ? 0 : isarSucceeded;
+
       if (download == null) {
         final newDl = Download(
           id: chapter.id,
-          succeeded: progress.completed == 0 ? 0 : isarSucceeded,
+          succeeded: writtenSucceeded,
           failed: 0,
           total: isarTotal,
           isDownload: progress.isCompleted,
@@ -838,7 +855,7 @@ Future<void> downloadChapter(
           isar.writeTxnSync(() {
             isar.downloads.putSync(
               download
-                ..succeeded = progress.completed == 0 ? 0 : isarSucceeded
+                ..succeeded = writtenSucceeded
                 ..total = isarTotal
                 ..failed = 0
                 ..isDownload = progress.isCompleted,
@@ -1047,7 +1064,12 @@ Future<void> downloadChapter(
         tag: LogTag.download,
       );
       log('[downloadChapter] aborting — fetch error: $fetchError');
-      await isar.writeTxn(() async {
+      // Use writeTxnSync + getSync/putSync — never mix sync ops inside
+      // async writeTxn; that nests an implicit read-txn inside the write-txn
+      // and causes "Cannot perform this operation from within an active
+      // transaction" on some Isar versions, which then propagates to the
+      // outer catch and results in a double-crash log.
+      isar.writeTxnSync(() {
         final dl = isar.downloads.getSync(chapter.id!);
         if (dl != null) {
           isar.downloads.putSync(
@@ -1244,6 +1266,17 @@ Future<void> downloadChapter(
           ).download((progress) {
             setProgress(progress);
           });
+          // CRITICAL: MDownloader's onComplete fires onProgress(isCompleted=true)
+          // inside a void callback that is NOT awaited.  setProgress is async
+          // (it calls processConvert / CBZ conversion before the Isar write),
+          // so isDownload=true may NOT be in Isar by the time download() returns.
+          // The next processDownloads tick (900 ms) then finds the chapter still
+          // with isDownload=false → re-queues it → second dispatch causes a
+          // "nested transaction" crash on the extension timeout.
+          // Fix: explicitly await a final setProgress here, guaranteed to finish
+          // before callback?.call() unblocks processDownloads.  The double-call
+          // is idempotent (processConvert skips if the archive already exists).
+          await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
           AppLogger.log(
             '[ch:' + (chapter.id?.toString() ?? '?') + '] COMPLETE ✓',
             logLevel: LogLevel.info,

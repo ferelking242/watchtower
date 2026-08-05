@@ -1622,15 +1622,23 @@ class _DownloadCard extends ConsumerWidget {
 
     final scheme = Theme.of(context).colorScheme;
 
+    // The sentinel record written by addDownloadToQueue has succeeded=0, total=1.
+    // It means "we know a download is queued but haven't fetched page URLs yet".
+    // Show a dedicated label for this state instead of the generic "En attente".
+    final isRetrievingMetadata = !isComplete && !hasFailed && !isPaused &&
+        succeeded == 0 && total == 1;
+
     final String statusText = isComplete
         ? 'Terminé'
         : hasFailed
             ? 'Échec'
             : isPaused
                 ? 'En pause'
-                : progress > 0
-                    ? 'En cours…'
-                    : 'En attente';
+                : isRetrievingMetadata
+                    ? 'Récupération…'
+                    : progress > 0
+                        ? 'En cours…'
+                        : 'En attente';
     final Color statusColor = isComplete
         ? scheme.primary
         : hasFailed
@@ -2119,8 +2127,11 @@ class _DownloadCard extends ConsumerWidget {
         if (total > 1) {
           return '$succeeded / $total images';
         }
-        // Single-page edge case (shouldn't happen but guards against 0/0).
-        return succeeded > 0 ? '1 / 1 image' : '0 / 1 image';
+        // total==1 && succeeded==0 is the sentinel state (addDownloadToQueue
+        // writes succeeded=0, total=1 while URLs are being fetched).
+        // statusText already shows "Récupération…" — suppress the label here
+        // so we don't also show a confusing "0 / 1 image".
+        if (succeeded == 0) return '';
       case ItemType.anime:
         // Two sub-cases depending on what's stored in Isar:
         //
