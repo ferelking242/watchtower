@@ -91,7 +91,9 @@ jobs:
 
       # Pre-install Rust Android target pour eviter le download live dans Gradle
       - name: Install Rust Android target
-        run: rustup target add aarch64-linux-android
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
 
       - name: Compute and bump version
         id: ver
@@ -165,7 +167,16 @@ jobs:
 
       - name: Decode keystore from secret
         run: |
-          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          if [ -z "${{ secrets.KEYSTORE_B64 }}" ]; then
+            echo "Keystore secret is empty - generating temporary self-signed keystore to allow compilation"
+            keytool -genkey -v -keystore android/app/watchtower-debug.keystore \
+              -alias watchtower -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass watchtower -keypass watchtower \
+              -dname "CN=Watchtower, OU=Dev, O=Watchtower, L=Paris, S=IDF, C=FR" \
+              -storetype PKCS12
+          else
+            echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          fi
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
       - name: Free disk space
@@ -176,6 +187,10 @@ jobs:
             sudo rm -rf /usr/local/.ghcup /usr/local/share/powershell || true
             sudo apt-get clean -y || true
             df -h
+
+      - name: Install p7zip
+        run: sudo apt-get install -y p7zip-full --quiet
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -196,7 +211,7 @@ jobs:
 
       - name: Generate app icons (flutter_launcher_icons)
         if: steps.icons-cache.outputs.cache-hit != 'true'
-        run: dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons:main
 
       - name: Build APK (ARMv8 profile)
         env:
