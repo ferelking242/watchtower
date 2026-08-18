@@ -104,12 +104,17 @@ class Client {
 Future<String> _toHttpResponse(Client client, String method, List args) async {
   final url = args[2] as String;
   final headers = (args[3] as Map?)?.toMapStringString;
+  final isJson = (headers?[HttpHeaders.contentTypeHeader]?.contains("application/json") ?? false) ||
+                 (headers?['content-type']?.contains("application/json") ?? false) ||
+                 (headers?['Content-Type']?.contains("application/json") ?? false);
   final body = args.length >= 5
       ? args[4] is List
             ? args[4] as List
             : args[4] is String
             ? args[4] as String
-            : (args[4] as Map?)?.toMapStringDynamic
+            : isJson
+                ? (args[4] as Map?)?.toMapStringDynamic
+                : (args[4] as Map?)?.toMapStringString
       : null;
 
   AppLogger.log(

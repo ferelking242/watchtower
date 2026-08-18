@@ -85,7 +85,7 @@ class ShowNSFWState extends _$ShowNSFWState {
 }
 
 const _kWtExtBase =
-    'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
+    'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
 
 List<Repo> _defaultMangaRepos() => [
   Repo(
