@@ -11,10 +11,10 @@ async function getFetch() {
 // ── Config ────────────────────────────────────────────────────────────────────
 // Catalogue des extensions watchtower (format watch.json — array de sources JS)
 const CATALOGUE_URL = process.env.CATALOGUE_URL ||
-  'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main/index/watch.json';
+  'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main/index/watch.json';
 
 // Base URL brute pour résoudre les sourceCodeUrl relatifs (non utilisé normalement
-// car watch.json contient déjà des URLs absolues jsdelivr, mais conservé au cas où)
+// car watch.json contient déjà des URLs absolues, mais conservé au cas où)
 const RAW_BASE = process.env.EXTENSIONS_REPO_URL ||
   'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
 
