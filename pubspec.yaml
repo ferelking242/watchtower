@@ -124,7 +124,7 @@ dependencies:
   shared_preferences: ^2.3.5
   shelf: ^1.4.1
   shelf_router: ^1.1.4
-  dartssh2: ^2.14.0
+  dartssh2: ^2.22.0
 
   # --- NFile Integration ---
   provider: ^6.1.2
@@ -295,7 +295,7 @@ dependency_overrides:
   intl: ^0.20.2
   collection: any
   flutter_svg: ^2.0.17
-  meta: 1.16.0
+  meta: ^1.17.0
   web: ^1.1.0
   flutter_secure_storage_platform_interface: 2.0.0
   archive: ^4.0.9

@@ -12,6 +12,13 @@ allprojects {
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == "com.github.teamnewpipe" && details.requested.name == "NewPipeExtractor") {
+                details.useTarget("com.github.teamnewpipe:newpipeextractor:${details.requested.version}")
+            }
+        }
+    }
     afterEvaluate { project ->
     if (project.plugins.hasPlugin("com.android.application") ||
       project.plugins.hasPlugin("com.android.library")) {

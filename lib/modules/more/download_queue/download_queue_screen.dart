@@ -2132,6 +2132,7 @@ class _DownloadCard extends ConsumerWidget {
         // statusText already shows "Récupération…" — suppress the label here
         // so we don't also show a confusing "0 / 1 image".
         if (succeeded == 0) return '';
+        return '';
       case ItemType.anime:
         // Two sub-cases depending on what's stored in Isar:
         //
