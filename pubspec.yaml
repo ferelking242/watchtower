@@ -404,7 +404,8 @@ inno_bundle:
   name: Watchtower
   url: https://github.com/ferelking242/watchtower/
   support_url: https://github.com/ferelking242/watchtower/
-  updates_url: https://github.com/ferelking242/watchtower/releases/  languages:
+  updates_url: https://github.com/ferelking242/watchtower/releases/
+  languages:
     - english
     - french
     - german
