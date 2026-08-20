@@ -1,4 +1,4 @@
-name: Build Android ARMv8 Profile
+name: Build Profile APK
 
 on:
   push:

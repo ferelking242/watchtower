@@ -4,26 +4,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
-import 'package:dartssh2/dartssh2.dart';
 
 class WebSharingService extends ChangeNotifier {
   static final WebSharingService instance = WebSharingService._();
   WebSharingService._();
 
   static const _channel = MethodChannel('com.rubex.nfile/web_sharing_service');
-
-  static const String _ed25519PrivateKeyPem = '''
------BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACAWN3mZdOKrXnP+VFVDS6yuPfVgGbCOa0a/B0YHt7wfpAAAAJj80blj/NG5
-YwAAAAtzc2gtZWQyNTUxOQAAACAWN3mZdOKrXnP+VFVDS6yuPfVgGbCOa0a/B0YHt7wfpA
-AAAEBbg6hQHydFb0ZGHuYq+gCui5fFtXW1X2e3Ok3UKTfXMhY3eZl04qtec/5UVUNLrK49
-9WAZsI5rRr8HRge3vB+kAAAAFWFkbWluQERFU0tUT1AtS1NIUkFVNw==
------END OPENSSH PRIVATE KEY-----
-''';
-
-  SSHClient? _sshClient;
-  SSHRemoteForward? _sshForward;
 
   HttpServer? _localServer;
   bool _isLocalActive = false;
@@ -1940,116 +1926,14 @@ AAAEBbg6hQHydFb0ZGHuYq+gCui5fFtXW1X2e3Ok3UKTfXMhY3eZl04qtec/5UVUNLrK49
     return '127.0.0.1';
   }
 
-  // --- Real Internet Sharing cloud tunnel ---
+    // --- Internet Sharing (disabled — dartssh2 removed) ---
   Future<void> startInternetTunnel(String rootDir) async {
-    if (_isInternetActive) return;
-
-    try {
-      // 1. Ensure local HTTP server is running
-      if (!_isLocalActive) {
-        await startLocalServer(rootDir);
-      }
-
-      _isInternetActive = true;
-      _internetShareLink = 'Establishing secure proxy tunnel...';
-      notifyListeners();
-
-      // Update Foreground Service with tunnel starting text
-      try {
-        await _channel.invokeMethod('startWebSharingService', {
-          'url': 'Establishing secure proxy tunnel...',
-          'isInternet': true,
-        });
-      } catch (e) {
-        debugPrint('Failed to start native web sharing service for tunnel: $e');
-      }
-
-      // 2. Connect to localhost.run SSH server
-      final socket = await SSHSocket.connect('localhost.run', 22, timeout: const Duration(seconds: 15));
-      final keys = SSHKeyPair.fromPem(_ed25519PrivateKeyPem);
-      _sshClient = SSHClient(
-        socket,
-        username: 'nokey',
-        identities: keys,
-      );
-      await _sshClient!.authenticated;
-
-      // 3. Request remote port forwarding
-      _sshForward = await _sshClient!.forwardRemote(port: 80);
-      if (_sshForward == null) {
-        throw Exception('Remote port forwarding request denied by proxy server.');
-      }
-
-      // 4. Listen to incoming connection stream and pipe it to local HTTP Server (port 8080)
-      _sshForward!.connections.listen((connection) async {
-        try {
-          final localSocket = await Socket.connect('127.0.0.1', _port);
-          
-          connection.stream.cast<List<int>>().listen(
-            (data) => localSocket.add(data),
-            onError: (e) {
-              localSocket.close();
-              connection.sink.close();
-            },
-            onDone: () {
-              localSocket.close();
-              connection.sink.close();
-            },
-          );
-
-          localSocket.listen(
-            (data) => connection.sink.add(data),
-            onError: (e) {
-              localSocket.close();
-              connection.sink.close();
-            },
-            onDone: () {
-              localSocket.close();
-              connection.sink.close();
-            },
-          );
-        } catch (e) {
-          debugPrint('Error routing forwarded connection to local socket: $e');
-          connection.sink.close();
-        }
-      });
-
-      // 5. Start a session to obtain the allocated dynamic domain name from stdout
-      final session = await _sshClient!.execute('');
-      var stdoutBuffer = '';
-      session.stdout.cast<List<int>>().transform(utf8.decoder).listen((data) async {
-        debugPrint('Localhost.run Banner: $data');
-        stdoutBuffer += data;
-        final regExp = RegExp(r'([a-zA-Z0-9.-]+\.(localhost\.run|lhr\.life))');
-        final match = regExp.firstMatch(stdoutBuffer);
-        if (match != null) {
-          final domain = match.group(1)!;
-          _internetShareLink = 'https://$domain';
-          notifyListeners();
-
-          // Update Foreground Service with real public URL!
-          try {
-            await _channel.invokeMethod('startWebSharingService', {
-              'url': _internetShareLink,
-              'isInternet': true,
-            });
-          } catch (e) {
-            debugPrint('Failed to update native web sharing service with link: $e');
-          }
-        }
-      });
-
-      // Start client real traffic speed timer
-      _startSpeedTimer();
-
-    } catch (e) {
-      debugPrint('Failed to start internet sharing tunnel: $e');
-      stopInternetTunnel();
-      rethrow;
-    }
+    throw UnsupportedError(
+      'Internet tunnel is not available — dartssh2 was removed.',
+    );
   }
 
-  void _startSpeedTimer() {
+void _startSpeedTimer() {
     if (_speedTimer != null) return;
     _speedTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_clientsMap.isEmpty) {
@@ -2163,9 +2047,6 @@ AAAEBbg6hQHydFb0ZGHuYq+gCui5fFtXW1X2e3Ok3UKTfXMhY3eZl04qtec/5UVUNLrK49
     if (!_isInternetActive) return;
     _speedTimer?.cancel();
     _speedTimer = null;
-    _sshForward = null;
-    _sshClient?.close();
-    _sshClient = null;
     _isInternetActive = false;
     _internetShareLink = '';
     _clientsMap.clear();
@@ -2190,7 +2071,6 @@ AAAEBbg6hQHydFb0ZGHuYq+gCui5fFtXW1X2e3Ok3UKTfXMhY3eZl04qtec/5UVUNLrK49
   @override
   void dispose() {
     _speedTimer?.cancel();
-    _sshClient?.close();
     _localServer?.close(force: true);
     super.dispose();
   }
