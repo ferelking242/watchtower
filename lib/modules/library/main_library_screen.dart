@@ -1268,7 +1268,7 @@ class _CatRow extends ConsumerWidget {
         .watch(
           getAllMangaStreamProvider(categoryId: cat.id, itemType: itemType),
         )
-        .maybeWhen(data: (l) => l.where((m) => !(m.totalRead ?? 0 > 0)).length, orElse: () => 0);
+        .maybeWhen(data: (l) => l.where((m) => m.lastRead == null || m.lastRead == 0).length, orElse: () => 0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

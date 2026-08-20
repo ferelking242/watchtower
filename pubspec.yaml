@@ -124,7 +124,7 @@ dependencies:
   shared_preferences: ^2.3.5
   shelf: ^1.4.1
   shelf_router: ^1.1.4
-  dartssh2: 2.13.0
+  dartssh2: 2.22.5
 
   # --- NFile Integration ---
   provider: ^6.1.2
