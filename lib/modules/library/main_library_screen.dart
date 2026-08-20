@@ -728,7 +728,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               PopupMenuItem<int>(
                 value: 11,
                 child: Row(children: [
-                  const Icon(Broken.arrow_up_down, size: 18),
+                  const Icon(Broken.arrow_up_2, size: 18),
                   const SizedBox(width: 12),
                   Text(l10n.sort),
                 ]),
@@ -1072,7 +1072,7 @@ class _ManageCategoriesSheetState
                       color: cs.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Broken.tag,
                       color: cs.primary,
                       size: 22,
@@ -1268,7 +1268,7 @@ class _CatRow extends ConsumerWidget {
         .watch(
           getAllMangaStreamProvider(categoryId: cat.id, itemType: itemType),
         )
-        .maybeWhen(data: (l) => l.where((m) => !(m.isRead ?? false)).length, orElse: () => 0);
+        .maybeWhen(data: (l) => l.where((m) => !(m.totalRead ?? 0 > 0)).length, orElse: () => 0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

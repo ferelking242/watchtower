@@ -213,7 +213,7 @@ class _WatchtowerWPainter extends CustomPainter {
 
       final glowPaint = Paint()
         ..shader = RadialGradient(
-          alignment: Alignment(glowProgress - 1.0, 0),
+          center: Alignment(glowProgress - 1.0, 0),
           radius: 0.5,
           colors: [
             const Color(0xFFFF0000).withOpacity(0.6),

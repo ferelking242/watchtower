@@ -90,7 +90,7 @@ void main(List<String> args) async {
       // Preserve the native splash screen while Flutter initializes.
       // The native splash (black bg + icon) stays visible until we call
       // FlutterNativeSplash.remove() after the animated W intro starts.
-      final splashController = FlutterNativeSplash.preserve();
+      final splashController = FlutterNativeSplash.preserve(widgetsBinding: WidgetsBinding.instance);
       // Detect real device RAM and apply adaptive image-cache limits.
       // Must run before any other init so the cache is sized correctly from
       // the very first image load. Safe to await — it is a single fast
