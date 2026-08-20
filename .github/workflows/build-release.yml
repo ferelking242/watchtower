@@ -45,13 +45,14 @@ jobs:
 
       - name: Cache Gradle
         uses: actions/cache@v4
-        timeout-minutes: 8
-        continue-on-error: true
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+            gradle-${{ runner.os }}-
 
       - name: Cache Rust (Android arm64)
         uses: actions/cache@v4
@@ -130,27 +131,14 @@ jobs:
 
       - name: Build APK (ARMv8 release)
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=false -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
         run: |
-          for attempt in 1 2 3; do
-            echo "--- Build attempt $attempt/3 ---"
-            if flutter build apk \
-              --release \
-              --target-platform android-arm64 \
-              --split-per-abi \
-              --build-name=${{ steps.ver.outputs.name }} \
-              --build-number=${{ steps.ver.outputs.code }}; then
-              echo "Build succeeded on attempt $attempt"
-              break
-            fi
-            if [ $attempt -lt 3 ]; then
-              echo "Build failed, waiting 45s..."
-              sleep 45
-            else
-              echo "All 3 attempts failed."
-              exit 1
-            fi
-          done
+          flutter build apk \
+            --release \
+            --target-platform android-arm64 \
+            --split-per-abi \
+            --build-name=${{ steps.ver.outputs.name }} \
+            --build-number=${{ steps.ver.outputs.code }}
 
       - name: Rename APK
         run: |
