@@ -124,7 +124,7 @@ jobs:
           done
 
       - name: Generate app icons (skip regen if res cached)
-        run: dart run flutter_launcher_icons:main --overwrite
+        run: dart run flutter_launcher_icons:main
 
       - name: Build APK (ARMv8 debug)
         env:
