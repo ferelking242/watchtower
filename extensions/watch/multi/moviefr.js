@@ -7,7 +7,7 @@ const watchtowerSources = [{
     "typeSource": "single",
     "isManga": false,
     "itemType": 1,
-    "version": "1.0.6",
+    "version": "1.0.7",
     "dateFormat": "",
     "dateFormatLocale": "",
     "isNsfw": false,
@@ -19,7 +19,7 @@ const watchtowerSources = [{
     "paywall": "free",
     "hasSubtitles": true,
     "hasDub": true,
-    "notes": "MovieFR Android API reverse-engineered from com.mfr.moviefr. Uses /api/search/result, /api/vod/info_new and /api/channel/get_list.",
+    "notes": "MovieFR Android API reverse-engineered from com.mfr.moviefr v3.0.3 APK. Verified signing: DESede decrypt key + MD5. API server currently down (所有端点返回'系统出问题啦'). Headers match APK interceptors.",
     "editableBaseUrl": true
 }];
 var MF_DEFAULT_API = "https://jgzm.iuk9.com";
@@ -141,12 +141,17 @@ const now = String(Date.now());
 return {
 "Accept": "application/json",
 "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-"User-Agent": "Watchtower/1.0 MovieFR",
+"User-Agent": "okhttp/4.11.0",
 "app_id": "moviefr",
 "package_name": "com.mfr.moviefr",
 "version": "30003",
 "sys_platform": "2",
+"mob_mfr": "samsung",
+"mobmodel": "SM-G991B",
+"sysrelease": "13",
 "device_id": MF_DEVICE_ID,
+"gaid": "",
+"channel_code": "",
 "androidid": MF_DEVICE_ID,
 "cur_time": now,
 "token": "",
