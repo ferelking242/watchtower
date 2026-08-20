@@ -110,12 +110,11 @@ android {
            shrinkResources false
        }
    }
+   // ABI splits disabled — CI builds use --target-platform android-arm64 only.
+   // Re-enable and include x86_64 if a x86 build is ever needed.
    splits {
        abi {
-           enable true
-           reset()
-           include "arm64-v8a", "x86_64"
-           universalApk true
+           enable false
        }
    }
    repositories {

@@ -220,14 +220,17 @@ jobs:
         run: |
           flutter build apk \
             --profile \
+            --no-pub \
             --target-platform android-arm64 \
-            --split-per-abi \
             --build-name=${{ steps.ver.outputs.name }} \
             --build-number=${{ steps.ver.outputs.code }}
 
       - name: Rename APK
         run: |
           SRC=build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
+          if [ ! -f "$SRC" ]; then
+            SRC=build/app/outputs/flutter-apk/app-profile.apk
+          fi
           DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.apk
           cp "$SRC" "$DST"
           echo "APK: $(du -sh $DST | cut -f1)"

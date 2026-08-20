@@ -114,9 +114,6 @@ jobs:
             sudo apt-get clean -y || true
             df -h
 
-      - name: Install p7zip
-        run: sudo apt-get install -y p7zip-full --quiet
-
       - name: Install dependencies
         run: flutter pub get
 
@@ -135,14 +132,17 @@ jobs:
         run: |
           flutter build apk \
             --release \
+            --no-pub \
             --target-platform android-arm64 \
-            --split-per-abi \
             --build-name=${{ steps.ver.outputs.name }} \
             --build-number=${{ steps.ver.outputs.code }}
 
       - name: Rename APK
         run: |
           SRC=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          if [ ! -f "$SRC" ]; then
+            SRC=build/app/outputs/flutter-apk/app-release.apk
+          fi
           DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
           cp "$SRC" "$DST"
           echo "APK: $(du -sh $DST | cut -f1)"

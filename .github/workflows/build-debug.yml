@@ -114,9 +114,6 @@ jobs:
             sudo apt-get clean -y || true
             df -h
 
-      - name: Install p7zip
-        run: sudo apt-get install -y p7zip-full --quiet
-
       - name: Install dependencies
         run: flutter pub get
 
@@ -126,8 +123,8 @@ jobs:
             mkdir -p "$d/assets"
           done
 
-      - name: Generate app icons (flutter_launcher_icons)
-        run: dart run flutter_launcher_icons:main
+      - name: Generate app icons (skip regen if res cached)
+        run: dart run flutter_launcher_icons:main --overwrite
 
       - name: Build APK (ARMv8 debug)
         env:
@@ -135,14 +132,18 @@ jobs:
         run: |
           flutter build apk \
             --debug \
+            --no-pub \
             --target-platform android-arm64 \
-            --split-per-abi \
             --build-name=${{ steps.ver.outputs.name }} \
             --build-number=${{ steps.ver.outputs.code }}
 
       - name: Rename APK
         run: |
           SRC=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          if [ ! -f "$SRC" ]; then
+            # Without --split-per-abi, Flutter produces a single APK
+            SRC=build/app/outputs/flutter-apk/app-debug.apk
+          fi
           DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-debug.apk
           cp "$SRC" "$DST"
           echo "APK: $(du -sh $DST | cut -f1)"
