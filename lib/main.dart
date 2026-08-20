@@ -55,6 +55,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:watchtower/modules/splash/watchtower_splash_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
@@ -85,6 +87,10 @@ void main(List<String> args) async {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      // Preserve the native splash screen while Flutter initializes.
+      // The native splash (black bg + icon) stays visible until we call
+      // FlutterNativeSplash.remove() after the animated W intro starts.
+      final splashController = FlutterNativeSplash.preserve();
       // Detect real device RAM and apply adaptive image-cache limits.
       // Must run before any other init so the cache is sized correctly from
       // the very first image load. Safe to await — it is a single fast
@@ -385,6 +391,7 @@ class _MyAppState extends ConsumerState<MyApp>
   late AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
   Uri? lastUri;
+  bool _showSplash = true;
 
   @override
   void initState() {
@@ -446,6 +453,23 @@ class _MyAppState extends ConsumerState<MyApp>
 
   @override
   Widget build(BuildContext context) {
+    // Show Netflix-style W animated splash on cold start.
+    // The native splash (flutter_native_splash) covers Flutter init;
+    // this animated W plays once Flutter is ready, then reveals the app.
+    if (_showSplash) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: WatchtowerSplashScreen(
+          onAnimationComplete: () {
+            FlutterNativeSplash.remove();
+            setState(() {
+              _showSplash = false;
+            });
+          },
+        ),
+      );
+    }
+
     final followSystem = ref.watch(followSystemThemeStateProvider);
     final forcedDark = ref.watch(themeModeStateProvider);
     final themeMode = followSystem

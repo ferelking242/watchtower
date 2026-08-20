@@ -16,11 +16,16 @@ const crypto = require('./bridges/crypto-bridge');
 // handlers and returns their result synchronously (for sync-compatible handlers)
 // or as a Promise for async handlers.
 
+// Timeout for evaluate() calls — prevents infinite loops from extension JS.
+const EVAL_TIMEOUT_MS = 60000;
+
 class WatchtowerRuntime {
   constructor() {
     this._channels = {};
     this._context = null;
     this._domJs = '';
+    this._store = null; // set by createRuntime — reference for cleanup
+    this._destroyed = false;
   }
 
   /** Register a native message handler (mirrors flutter_qjs onMessage). */
@@ -30,9 +35,10 @@ class WatchtowerRuntime {
 
   /** Inject JavaScript into the global context (evaluated immediately). */
   evaluate(code) {
+    if (this._destroyed) return;
     this._ensureContext();
     try {
-      vm.runInContext(code, this._context);
+      vm.runInContext(code, this._context, { timeout: EVAL_TIMEOUT_MS });
     } catch (e) {
       console.error('[Runtime] evaluate error:', e.message);
     }
@@ -40,9 +46,10 @@ class WatchtowerRuntime {
 
   /** Evaluate JS and return { stringResult, isError }. */
   async evaluateAsync(code) {
+    if (this._destroyed) return { stringResult: 'Runtime was destroyed', isError: true };
     this._ensureContext();
     try {
-      const result = await vm.runInContext(code, this._context, { timeout: 60000 });
+      const result = await vm.runInContext(code, this._context, { timeout: EVAL_TIMEOUT_MS });
       const resolved = await Promise.resolve(result);
       const str = resolved === undefined || resolved === null ? '' :
                   typeof resolved === 'string' ? resolved : JSON.stringify(resolved);
@@ -55,6 +62,20 @@ class WatchtowerRuntime {
   /** Mirrors flutter_qjs handlePromise — resolves the JS Promise result. */
   async handlePromise(evalResult) {
     return evalResult; // already resolved by evaluateAsync
+  }
+
+  /**
+   * Release all resources held by this runtime.
+   * Called by the LRU eviction in api.js when a runtime is no longer needed.
+   * Without this, the ElementStore and VM context would leak memory until GC.
+   */
+  destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    if (this._store) { this._store.clear(); this._store = null; }
+    this._context = null;
+    this._channels = {};
+    this._domJs = '';
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
@@ -180,6 +201,7 @@ function _parseDates(values, dateFormat, locale) {
 function createRuntime(source) {
   const runtime = new WatchtowerRuntime();
   const store = new ElementStore();
+  runtime._store = store; // link for destroy() cleanup
 
   // ── Step 1: get domJs and set it FIRST so the context reset happens before
   //           any bridge injects JS into the VM. Every runtime.evaluate() call

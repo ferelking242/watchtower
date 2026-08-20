@@ -10,10 +10,23 @@ async function getFetch() {
   return _fetch;
 }
 
+// FIX: Timeout for video extractor HTTP requests — prevents hanging connections
+// when upstream video hosts are unresponsive or slow.
+const EXTRACTOR_TIMEOUT_MS = 30000;
+
 async function httpGet(url, headers = {}) {
   const fetch = await getFetch();
-  const res = await fetch(url, { headers });
-  return res.text();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EXTRACTOR_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { headers, signal: controller.signal });
+    clearTimeout(timer);
+    return res.text();
+  } catch (e) {
+    clearTimeout(timer);
+    // Return empty string on timeout/error — callers already handle empty results
+    return '';
+  }
 }
 
 function videoObj(url, quality = '', originalUrl = null, headers = {}) {

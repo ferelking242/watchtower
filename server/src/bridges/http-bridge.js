@@ -9,9 +9,14 @@ async function getFetch() {
   return _fetch;
 }
 
+// FIX: Timeout for extension HTTP requests — prevents hanging connections.
+const HTTP_TIMEOUT_MS = 30000;
+
 async function doRequest(method, url, headers = {}, body = null) {
   const fetch = await getFetch();
-  const opts = { method, headers: headers || {} };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+  const opts = { method, headers: headers || {}, signal: controller.signal };
   if (body !== null && body !== undefined) {
     if (typeof body === 'object' && !Array.isArray(body)) {
       opts.body = JSON.stringify(body);
@@ -25,6 +30,7 @@ async function doRequest(method, url, headers = {}, body = null) {
   }
   try {
     const res = await fetch(url, opts);
+    clearTimeout(timer);
     const text = await res.text();
     const respHeaders = {};
     res.headers.forEach((v, k) => { respHeaders[k] = v; });
@@ -40,9 +46,13 @@ async function doRequest(method, url, headers = {}, body = null) {
                   persistentConnection: false },
     });
   } catch (e) {
+    clearTimeout(timer);
+    const reason = e.name === 'AbortError'
+      ? `Request timeout (${HTTP_TIMEOUT_MS}ms)`
+      : `Fetch error: ${e.message}`;
     return JSON.stringify({
       body: '', headers: {}, isRedirect: false, persistentConnection: false,
-      reasonPhrase: `Fetch error: ${e.message}`, statusCode: 0,
+      reasonPhrase: reason, statusCode: 0,
       request: { method, url, headers: headers || {} },
     });
   }

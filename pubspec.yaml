@@ -229,6 +229,7 @@ dependencies:
   get_it: ^8.0.3
   file_selector: ^1.0.3
   flutter_sharing_intent: ^1.1.0
+  flutter_native_splash: ^2.4.3
   home_widget: ^0.7.0
   local_notifier: ^0.1.6
   tray_manager: ^0.5.0
@@ -403,9 +404,28 @@ inno_bundle:
   name: Watchtower
   url: https://github.com/ferelking242/watchtower/
   support_url: https://github.com/ferelking242/watchtower/
-  updates_url: https://github.com/ferelking242/watchtower/releases/
-  languages:
+  updates_url: https://github.com/ferelking242/watchtower/releases/  languages:
     - english
     - french
     - german
   admin: false
+
+flutter_native_splash:
+  color: "#000000"
+  image: assets/app_icons/icon-red.png
+  color_dark: "#000000"
+  image_dark: assets/app_icons/icon-red.png
+  android_12:
+    color: "#000000"
+    image: assets/app_icons/icon-red.png
+    color_dark: "#000000"
+    image_dark: assets/app_icons/icon-red.png
+  android: true
+  ios: true
+  web: false
+  fullscreen: true
+  screenshots:
+    - image: assets/app_icons/icon-red.png
+      platforms:
+        - android
+        - ios
