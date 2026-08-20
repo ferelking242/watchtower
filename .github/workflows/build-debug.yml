@@ -132,7 +132,6 @@ jobs:
         run: |
           flutter build apk \
             --debug \
-            --no-pub \
             --target-platform android-arm64 \
             --build-name=${{ steps.ver.outputs.name }} \
             --build-number=${{ steps.ver.outputs.code }}
