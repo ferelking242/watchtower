@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -76,6 +77,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   int _selectedCatIndex = 0;
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
+  late final PageController _arcPageCtrl = PageController(
+    viewportFraction: 0.28,
+    initialPage: _typeIndex,
+  );
 
   @override
   void initState() {
@@ -89,6 +94,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
   @override
   void dispose() {
+    _arcPageCtrl.dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -109,6 +115,120 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         );
       }
     });
+  }
+
+  // ── Arc carousel type selector ─────────────────────────────────────────────
+  Widget _buildArcTypeSelector(ColorScheme cs, bool isDark) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (_) {
+        final p = _arcPageCtrl.page;
+        if (p != null) {
+          final idx = p.round();
+          if (idx != _typeIndex && idx >= 0 && idx < _kTypes.length) {
+            setState(() => _typeIndex = idx);
+          }
+        }
+        return false;
+      },
+      child: PageView.builder(
+        controller: _arcPageCtrl,
+        itemCount: _kTypes.length,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (i) => setState(() => _typeIndex = i),
+        itemBuilder: (_, i) {
+          final selected = i == _typeIndex;
+          final diff = (i - _typeIndex).abs().toDouble();
+          final scale = (1.0 - diff * 0.12).clamp(0.76, 1.0);
+          final opacity = (1.0 - diff * 0.30).clamp(0.40, 1.0);
+          final blur = diff > 0.5 ? (diff * 1.8).clamp(0.0, 2.5) : 0.0;
+
+          return Center(
+            child: AnimatedScale(
+              scale: scale,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: AnimatedOpacity(
+                opacity: opacity,
+                duration: const Duration(milliseconds: 220),
+                child: ImageFiltered(
+                  imageFilter: blur > 0
+                      ? ImageFilter.blur(sigmaX: blur, sigmaY: blur)
+                      : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+                  child: GestureDetector(
+                    onTap: () {
+                      _arcPageCtrl.animateToPage(
+                        i,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                      );
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Arc + icon
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          width: selected ? 42 : 36,
+                          height: selected ? 42 : 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: selected
+                                ? LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      cs.primary,
+                                      cs.primary.withValues(alpha: 0.75),
+                                    ],
+                                  )
+                                : null,
+                            color: selected
+                                ? null
+                                : (isDark
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : cs.onSurface.withValues(alpha: 0.06)),
+                            boxShadow: selected
+                                ? [
+                                    BoxShadow(
+                                      color: cs.primary.withValues(alpha: 0.35),
+                                      blurRadius: 14,
+                                      spreadRadius: -2,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Icon(
+                            _kTypeIcons[_kTypes[i]]!,
+                            color: selected
+                                ? Colors.white
+                                : (isDark
+                                    ? Colors.white54
+                                    : cs.onSurface.withValues(alpha: 0.50)),
+                            size: selected ? 20 : 17,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        // Label
+                        Text(
+                          _typeLabel(_kTypes[i]),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                            color: selected
+                                ? cs.primary
+                                : (isDark ? _kTextSecondary : cs.onSurface.withValues(alpha: 0.45)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   // ── Ghost circular icon button ─────────────────────────────────────────────
@@ -219,72 +339,16 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Row 1: type pills + action icons ─────────────────────────
+            // ── Row 1: arc type selector + action icons ────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
               child: Row(
                 children: [
-                  // ── Type pills (scrollable) ───────────────────────────
+                  // ── Arc carousel type selector ─────────────────────────
                   Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: List.generate(_kTypes.length, (i) {
-                          final t = _kTypes[i];
-                          final sel = _typeIndex == i;
-                          return GestureDetector(
-                            onTap: () => setState(() {
-                              _typeIndex = i;
-                              _selectedCatIndex = 0;
-                            }),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              margin: const EdgeInsets.only(right: 6),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: sel
-                                    ? cs.primary
-                                    : (isDark
-                                        ? Colors.white.withValues(alpha: 0.07)
-                                        : cs.onSurface.withValues(alpha: 0.05)),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _kTypeIcons[t] ?? Broken.book,
-                                    color: sel
-                                        ? Colors.white
-                                        : (isDark
-                                            ? Colors.white54
-                                            : cs.onSurface
-                                                .withValues(alpha: 0.45)),
-                                    size: 13,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _typeLabel(t),
-                                    style: TextStyle(
-                                      color: sel
-                                          ? Colors.white
-                                          : (isDark
-                                              ? Colors.white54
-                                              : cs.onSurface
-                                                  .withValues(alpha: 0.50)),
-                                      fontSize: 13,
-                                      fontWeight: sel
-                                          ? FontWeight.w700
-                                          : FontWeight.w400,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
+                    child: SizedBox(
+                      height: 56,
+                      child: _buildArcTypeSelector(cs, isDark),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -557,28 +621,27 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 170),
-        margin: const EdgeInsets.only(right: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: selected
-              ? cs.primary
-              : (isDark
-                  ? Colors.white.withValues(alpha: 0.0)
-                  : Colors.transparent),
-          borderRadius: BorderRadius.circular(10),
-          border: selected
-              ? null
-              : Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.0)
-                      : Colors.transparent,
-                ),
+              ? cs.primary.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.60)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.15)
+                    : cs.outline.withValues(alpha: 0.25)),
+            width: selected ? 1.2 : 1.0,
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: selected
-                ? Colors.white
+                ? cs.primary
                 : (isDark ? _kTextSecondary : cs.onSurface.withValues(alpha: 0.55)),
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             fontSize: 13,
@@ -649,6 +712,27 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     Text(l10n.torrent_stream),
                   ]),
                 ),
+              const PopupMenuItem<int>(
+                enabled: false,
+                value: 99,
+                child: Divider(height: 1, indent: 0, endIndent: 0),
+              ),
+              PopupMenuItem<int>(
+                value: 10,
+                child: Row(children: [
+                  const Icon(Broken.filter, size: 18),
+                  const SizedBox(width: 12),
+                  Text(l10n.filter),
+                ]),
+              ),
+              PopupMenuItem<int>(
+                value: 11,
+                child: Row(children: [
+                  const Icon(Broken.arrow_up_down, size: 18),
+                  const SizedBox(width: 12),
+                  Text(l10n.sort),
+                ]),
+              ),
             ],
             onSelected: (v) {
               switch (v) {
@@ -669,10 +753,28 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 case 4:
                   addTorrent(context);
                   break;
+                case 10:
+                case 11:
+                  _showFilterSheet(context);
+                  break;
               }
             },
           ),
         ),
+      ),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context) {
+    if (_cachedSettings == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FilterSheet(
+        itemType: _currentType,
+        settings: _cachedSettings!,
+        entries: _cachedMangaList,
       ),
     );
   }
@@ -959,21 +1061,56 @@ class _CatRow extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  cat.name ?? '',
-                  style: TextStyle(
-                    color: cs.onSurface,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Icon(
+                        Broken.tag,
+                        size: 14,
+                        color: cs.primary.withValues(alpha: 0.80),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        cat.name ?? '',
+                        style: TextStyle(
+                          color: cs.onSurface,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '$count titles',
-                  style: TextStyle(
-                    color: cs.onSurface.withValues(alpha: 0.45),
-                    fontSize: 12.5,
-                  ),
+                const SizedBox(height: 6),
+                // Stats row
+                Row(
+                  children: [
+                    _statChip(
+                      icon: Broken.book,
+                      label: '$count',
+                      cs: cs,
+                    ),
+                    const SizedBox(width: 8),
+                    _statChip(
+                      icon: Broken.tick_circle,
+                      label: '0 reading',
+                      cs: cs,
+                    ),
+                    const SizedBox(width: 8),
+                    _statChip(
+                      icon: Broken.chart_2,
+                      label: '${count > 0 ? 0 : 0}%',
+                      cs: cs,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -984,17 +1121,250 @@ class _CatRow extends ConsumerWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.15),
+                color: cs.error.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Broken.trash,
-                color: cs.primary,
+                color: cs.error.withValues(alpha: 0.70),
                 size: 18,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _statChip({
+    required IconData icon,
+    required String label,
+    required ColorScheme cs,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: cs.onSurface.withValues(alpha: 0.45)),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              color: cs.onSurface.withValues(alpha: 0.50),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Filter bottom sheet (from 3-dots menu) ──────────────────────────────────
+class _FilterSheet extends ConsumerStatefulWidget {
+  final ItemType itemType;
+  final Settings settings;
+  final List<Manga> entries;
+
+  const _FilterSheet({
+    required this.itemType,
+    required this.settings,
+    required this.entries,
+  });
+
+  @override
+  ConsumerState<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends ConsumerState<_FilterSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = l10nLocalizations(context)!;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      minChildSize: 0.3,
+      maxChildSize: 0.85,
+      builder: (_, sc) => Container(
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Broken.filter, color: cs.primary, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      l10n.filter,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  // Reset
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        l10n.sort,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: cs.outline.withValues(alpha: 0.15), height: 20),
+            Expanded(
+              child: ListView(
+                controller: sc,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  // Downloaded toggle
+                  _filterToggle(
+                    icon: Broken.import,
+                    label: l10n.downloaded,
+                    cs: cs,
+                  ),
+                  // Tracking toggle
+                  _filterToggle(
+                    icon: Broken.chart_2,
+                    label: l10n.tracking,
+                    cs: cs,
+                  ),
+                  // Unread toggle
+                  _filterToggle(
+                    icon: Broken.eye_slash,
+                    label: l10n.unread,
+                    cs: cs,
+                  ),
+                  // Completed toggle
+                  _filterToggle(
+                    icon: Broken.tick_circle,
+                    label: l10n.completed,
+                    cs: cs,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        backgroundColor: cs.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Apply',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterToggle({
+    required IconData icon,
+    required String label,
+    required ColorScheme cs,
+  }) {
+    bool enabled = false;
+    return StatefulBuilder(
+      builder: (context, setLocal) => GestureDetector(
+        onTap: () => setLocal(() => enabled = !enabled),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: enabled
+                ? cs.primary.withValues(alpha: 0.10)
+                : cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: enabled
+                  ? cs.primary.withValues(alpha: 0.35)
+                  : cs.outline.withValues(alpha: 0.10),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: enabled ? cs.primary : cs.onSurface.withValues(alpha: 0.45)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: enabled ? cs.primary : cs.onSurface,
+                  ),
+                ),
+              ),
+              Icon(
+                enabled ? Broken.eye : Broken.eye_slash,
+                size: 16,
+                color: enabled ? cs.primary : cs.onSurface.withValues(alpha: 0.25),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

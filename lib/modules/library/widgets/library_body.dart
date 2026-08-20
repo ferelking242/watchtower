@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
@@ -103,7 +104,44 @@ class LibraryBody extends ConsumerWidget {
         );
 
         if (entries.isEmpty) {
-          return Center(child: Text(l10n.empty_library));
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 180,
+                    height: 180,
+                    child: Lottie.asset(
+                      'assets/animations/empty.json',
+                      repeat: true,
+                      animate: true,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    l10n.empty_library,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Add some titles to get started!',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         final entriesManga = reverse ? entries.reversed.toList() : entries;
