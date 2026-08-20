@@ -523,7 +523,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             trigger: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Icon(
-                Broken.slider_horizontal,
+                Broken.filter,
                 size: 18,
                 color: focused
                     ? cs.primary.withValues(alpha: 0.70)
@@ -827,6 +827,212 @@ class _ManageCategoriesSheetState
     setState(() {});
   }
 
+  void _showEditCategory(BuildContext context, Category cat) {
+    final cs = Theme.of(context).colorScheme;
+    final nameCtrl = TextEditingController(text: cat.name ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.45,
+        minChildSize: 0.3,
+        maxChildSize: 0.7,
+        builder: (_, sc) => Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(Broken.edit, color: cs.primary, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Edit Category',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: cs.onSurface.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Broken.close_circle,
+                          color: cs.onSurface.withValues(alpha: 0.60),
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(color: cs.outline.withValues(alpha: 0.15), height: 1),
+              // Content
+              Expanded(
+                child: ListView(
+                  controller: sc,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // Name field
+                    Text(
+                      'Name',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface.withValues(alpha: 0.60),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: cs.outline.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: TextField(
+                        controller: nameCtrl,
+                        style: TextStyle(
+                          color: cs.onSurface,
+                          fontSize: 14.5,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Category name',
+                          hintStyle: TextStyle(
+                            color: cs.onSurface.withValues(alpha: 0.35),
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Quick icon picker
+                    Text(
+                      'Icon',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface.withValues(alpha: 0.60),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        Broken.tag,
+                        Broken.book,
+                        Broken.video,
+                        Broken.music,
+                        Broken.game,
+                        Broken.star_1,
+                        Broken.heart,
+                        Broken.flash_1,
+                        Broken.crown_1,
+                        Broken.cpu,
+                        Broken.danger,
+                        Broken.document_text,
+                      ].map((icon) {
+                        return GestureDetector(
+                          onTap: () {
+                            // Store selected icon for saving
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: icon == Broken.tag
+                                    ? cs.primary.withValues(alpha: 0.50)
+                                    : cs.outline.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: Icon(
+                              icon,
+                              size: 18,
+                              color: icon == Broken.tag
+                                  ? cs.primary
+                                  : cs.onSurface.withValues(alpha: 0.45),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    // Save button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: TextButton(
+                        onPressed: () async {
+                          final newName = nameCtrl.text.trim();
+                          if (newName.isNotEmpty && cat.id != null) {
+                            cat.name = newName;
+                            await isar.writeTxn(() => isar.categorys.put(cat));
+                          }
+                          Navigator.pop(context);
+                        },
+                        style: TextButton.styleFrom(
+                          backgroundColor: cs.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Save',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -925,11 +1131,12 @@ class _ManageCategoriesSheetState
                   controller: sc,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
-                    for (final cat in cats)
+                    for (int ci = 0; ci < cats.length; ci++)
                       _CatRow(
-                        cat: cat,
+                        cat: cats[ci],
                         itemType: widget.itemType,
-                        onDelete: () => _delete(cat),
+                        onDelete: () => _delete(cats[ci]),
+                        onEdit: () => _showEditCategory(context, cats[ci]),
                       ),
                     const SizedBox(height: 16),
                     Row(
@@ -1031,107 +1238,170 @@ class _CatRow extends ConsumerWidget {
   final Category cat;
   final ItemType itemType;
   final VoidCallback onDelete;
+  final VoidCallback? onEdit;
 
   const _CatRow({
     required this.cat,
     required this.itemType,
     required this.onDelete,
+    this.onEdit,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final count = ref
         .watch(
           getAllMangaStreamProvider(
               categoryId: cat.id, itemType: itemType),
         )
         .maybeWhen(data: (l) => l.length, orElse: () => 0);
+    final totalCountAsync = ref.watch(
+      getAllMangaStreamProvider(categoryId: null, itemType: itemType),
+    );
+    final totalCount = totalCountAsync.maybeWhen(data: (l) => l.length, orElse: () => 1);
+    final percent = totalCount > 0 ? ((count / totalCount) * 100).round() : 0;
+
+    // Reading count: items in category where isRead == false
+    final readingCount = ref
+        .watch(
+          getAllMangaStreamProvider(categoryId: cat.id, itemType: itemType),
+        )
+        .maybeWhen(data: (l) => l.where((m) => !(m.isRead ?? false)).length, orElse: () => 0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : cs.outline.withValues(alpha: 0.08),
+        ),
       ),
-      child: Row(
-        children: [
-          Expanded(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onEdit,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
+                    // Icon badge
                     Container(
-                      width: 28,
-                      height: 28,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(7),
+                        gradient: LinearGradient(
+                          colors: [
+                            cs.primary.withValues(alpha: 0.20),
+                            cs.primary.withValues(alpha: 0.10),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         Broken.tag,
-                        size: 14,
-                        color: cs.primary.withValues(alpha: 0.80),
+                        size: 17,
+                        color: cs.primary,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
+                    // Name + description
                     Expanded(
-                      child: Text(
-                        cat.name ?? '',
-                        style: TextStyle(
-                          color: cs.onSurface,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            cat.name ?? '',
+                            style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (cat.name != null && cat.name!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                '$count items · $percent%',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: cs.onSurface.withValues(alpha: 0.40),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Delete button
+                    GestureDetector(
+                      onTap: onDelete,
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: cs.error.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Broken.trash,
+                          color: cs.error.withValues(alpha: 0.65),
+                          size: 16,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
                 // Stats row
                 Row(
                   children: [
                     _statChip(
                       icon: Broken.book,
-                      label: '$count',
+                      label: '$count entries',
                       cs: cs,
                     ),
                     const SizedBox(width: 8),
                     _statChip(
-                      icon: Broken.tick_circle,
-                      label: '0 reading',
+                      icon: Broken.eye,
+                      label: '$readingCount reading',
                       cs: cs,
                     ),
                     const SizedBox(width: 8),
                     _statChip(
                       icon: Broken.chart_2,
-                      label: '${count > 0 ? 0 : 0}%',
+                      label: '$percent%',
                       cs: cs,
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                // Progress bar
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: percent / 100.0,
+                    minHeight: 4,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    valueColor: AlwaysStoppedAnimation(cs.primary),
+                  ),
+                ),
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onDelete,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: cs.error.withValues(alpha: 0.10),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Broken.trash,
-                color: cs.error.withValues(alpha: 0.70),
-                size: 18,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1142,20 +1412,20 @@ class _CatRow extends ConsumerWidget {
     required ColorScheme cs,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: cs.onSurface.withValues(alpha: 0.45)),
-          const SizedBox(width: 3),
+          Icon(icon, size: 12, color: cs.onSurface.withValues(alpha: 0.45)),
+          const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10.5,
+              fontSize: 11,
               color: cs.onSurface.withValues(alpha: 0.50),
               fontWeight: FontWeight.w500,
             ),
