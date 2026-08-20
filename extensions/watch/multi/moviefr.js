@@ -7,7 +7,7 @@ const watchtowerSources = [{
     "typeSource": "single",
     "isManga": false,
     "itemType": 1,
-    "version": "1.0.5",
+    "version": "1.0.6",
     "dateFormat": "",
     "dateFormatLocale": "",
     "isNsfw": false,
@@ -179,12 +179,19 @@ async _post(path, body) {
       if (retries < MF_MAX_RETRIES) { retries++; await _sleep(MF_RETRY_DELAY_MS * retries); continue; }
       return { list: [], hasNextPage: false, _error: "Network error: " + e.message };
     }
+    // Check for non-JSON response (common when API is down or blocked)
+    var rawBody = String(res.body || "").trim();
     var json;
-    try { json = JSON.parse(res.body || ""); } catch (_) {
-      var text = String(res.body || "").replace(/\s+/g, " ").trim();
-      console.error("[MovieFR] Non-JSON response on " + path + ": " + text.slice(0, 200));
+    try { json = JSON.parse(rawBody); } catch (_) {
+      // Non-JSON response — likely an error message or HTML
+      var errMsg = rawBody.replace(/\s+/g, " ").slice(0, 200);
+      if (errMsg) {
+        console.error("[MovieFR] Non-JSON response on " + path + ": " + errMsg);
+      } else {
+        console.error("[MovieFR] Empty response on " + path);
+      }
       if (retries < MF_MAX_RETRIES) { retries++; await _sleep(MF_RETRY_DELAY_MS * retries); continue; }
-      return { list: [], hasNextPage: false, _error: text ? "API error: " + text.slice(0, 120) : "Empty response" };
+      return { list: [], hasNextPage: false, _error: errMsg ? "API unavailable: " + errMsg : "Empty response from server" };
     }
     if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
       var errMsg = (json && (json.msg || json.message)) || ("HTTP " + res.statusCode);
@@ -192,11 +199,16 @@ async _post(path, body) {
       if (retries < MF_MAX_RETRIES) { retries++; await _sleep(MF_RETRY_DELAY_MS * retries); continue; }
       return { list: [], hasNextPage: false, _error: errMsg };
     }
+    // API-level error codes
     if (json && json.code !== undefined && json.code !== 0 && json.code !== 200) {
       var errMsg2 = (json.msg || json.message) || "API error code " + json.code;
-      console.error("[MovieFR] API error on " + path + ": " + errMsg2);
+      console.error("[MovieFR] API error on " + path + ": code=" + json.code + " msg=" + errMsg2);
       if (retries < MF_MAX_RETRIES) { retries++; await _sleep(MF_RETRY_DELAY_MS * retries); continue; }
       return { list: [], hasNextPage: false, _error: errMsg2 };
+    }
+    // Success — also log if response contains no list data for debugging
+    if (json && !this._list(json).length && path.indexOf("comment") === -1) {
+      console.log("[MovieFR] Warning: empty list from " + path + " — keys=" + Object.keys(json).join(","));
     }
     return json;
   }
@@ -205,7 +217,7 @@ async _post(path, body) {
 _list(value) {
 if (Array.isArray(value)) return value;
 if (!value || typeof value !== "object") return [];
-var keys = ["list", "vod_list", "videos", "rows", "items", "records", "results", "data", "result"];
+var keys = ["list", "vod_list", "videos", "rows", "items", "records", "results", "data", "result", "channel_list", "vod_channel"];
 for (var i = 0; i < keys.length; i++) {
 var candidate = value[keys[i]];
 if (Array.isArray(candidate)) return candidate;
@@ -213,6 +225,12 @@ if (candidate && typeof candidate === "object") {
 var nested = this._list(candidate);
 if (nested.length) return nested;
 }
+}
+// Fallback: check all top-level keys for any array value
+var allKeys = Object.keys(value);
+for (var j = 0; j < allKeys.length; j++) {
+var v = value[allKeys[j]];
+if (Array.isArray(v) && v.length > 0) return v;
 }
 return [];
 }
@@ -413,6 +431,18 @@ values: [
 async getHome() {
 var result = await this._post("/api/channel/get_list", { pn: 1, page: 1, page_num: 1, pageIndex: 1, limit: MF_PAGE_SIZE, page_size: MF_PAGE_SIZE, pageSize: MF_PAGE_SIZE });
 var items = this._items(result);
+// If main catalog fails, try search as fallback
+if (!items.length) {
+  console.log("[MovieFR] getHome: main catalog empty, trying search fallback");
+  try {
+    var fallback = await this._post("/api/search/result", { kw: "", pn: 1, limit: MF_PAGE_SIZE });
+    var fallbackItems = this._items(fallback);
+    if (fallbackItems.length) items = fallbackItems;
+  } catch (_) {}
+}
+if (!items.length && result && result._error) {
+  console.error("[MovieFR] getHome failed: " + result._error);
+}
 return [{ id: "moviefr", title: "MovieFR", list: items }];
 }
 setupPreferences() {
