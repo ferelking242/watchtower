@@ -3,19 +3,32 @@ const cheerio = require('cheerio');
 
 // ── Element store (mimics Dart's _elements map) ──────────────────────────────
 // Each loaded document or selected element gets a numeric key.
+//
+// FIX: Added max size cap + periodic clear to prevent unbounded memory growth.
+// The original store never cleared, and after processing thousands of pages
+// the Map grew until the Node heap OOM'd.
 
 class ElementStore {
   constructor() {
     this._store = new Map();
     this._counter = 0;
+    this._created = Date.now();
+    this._maxSize = 10000; // safety cap
   }
   set(el, $) {
+    // Auto-clear if store grows too large (prevents OOM from long-running extensions)
+    if (this._store.size > this._maxSize) {
+      console.warn(`[ElementStore] Size ${this._store.size} exceeded ${this._maxSize} — clearing old entries`);
+      this._store.clear();
+      this._counter = 0;
+    }
     this._counter++;
     this._store.set(this._counter, { el, $ });
     return this._counter;
   }
   get(key) { return this._store.get(key); }
   clear() { this._store.clear(); this._counter = 0; }
+  get size() { return this._store.size; }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,10 +54,11 @@ function elHtml(el, $) {
 
 function elOuterHtml(el, $) {
   if (!el || !el.length) return '';
-  // cheerio doesn't have outerHtml directly; wrap in a dummy container
-  const wrap = cheerio.load('<div id="_w_"></div>');
-  wrap('#_w_').append(el.clone());
-  return wrap('#_w_').html() || '';
+  // FIX: Previously created a new cheerio.load() instance per call, which is
+  // extremely expensive (full HTML parser + context creation). Instead, use
+  // the existing $ instance from the store entry — $.html(el) already returns
+  // the outer HTML of the matched element in cheerio.
+  return $.html(el) || '';
 }
 
 function getSrc(el, $) {
@@ -68,8 +82,12 @@ function getDataSrc(el, $) {
 let xpathLib, xmldomLib;
 function xpathQuery(html, xpathExpr) {
   try {
-    if (!xpathLib) xpathLib = require('xpath');
-    if (!xmldomLib) xmldomLib = require('@xmldom/xmldom');
+    if (!xpathLib) {
+      try { xpathLib = require('xpath'); } catch (_) { return []; }
+    }
+    if (!xmldomLib) {
+      try { xmldomLib = require('@xmldom/xmldom'); } catch (_) { return []; }
+    }
     const DOMParser = new xmldomLib.DOMParser({
       errorHandler: { warning: () => {}, error: () => {}, fatalError: () => {} },
     });

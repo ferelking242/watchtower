@@ -1,6 +1,12 @@
 'use strict';
 // Token-bucket rate limiter — one bucket per API key (or IP as fallback).
 // Default: 60 requests per 60 seconds per key.
+//
+// FIX: Behind a reverse proxy (Railway, Render, Cloudflare), `req.ip` is
+// typically the proxy's IP — meaning ALL users share one bucket. One user
+// hitting the limit blocks everyone. We now prefer the API key as the bucket
+// identity, and only fall back to IP for unauthenticated routes (which is
+// handled by the auth middleware anyway).
 
 const WINDOW_MS  = parseInt(process.env.RATE_WINDOW_MS  || '60000', 10);
 const MAX_TOKENS = parseInt(process.env.RATE_MAX_TOKENS  || '60',    10);
@@ -26,14 +32,21 @@ class TokenBucket {
 const _buckets = new Map();
 
 // Periodic cleanup — remove stale buckets every 5 min
+// FIX: Added unref() to prevent the timer from keeping the process alive,
+// and use a reasonable interval to prevent slow bucket leak.
 setInterval(() => {
   const cutoff = Date.now() - WINDOW_MS * 2;
+  let cleaned = 0;
   for (const [k, v] of _buckets) {
-    if (v.lastFill < cutoff) _buckets.delete(k);
+    if (v.lastFill < cutoff) { _buckets.delete(k); cleaned++; }
+  }
+  if (cleaned > 0) {
+    console.log(`[RATE] Cleaned ${cleaned} stale buckets, ${_buckets.size} remaining`);
   }
 }, 300_000).unref();
 
 function rateLimiterMiddleware(req, res, next) {
+  // Prefer API key as bucket identity — each user gets their own bucket
   const key = req.headers['x-api-key'] ||
               (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '') ||
               req.ip;

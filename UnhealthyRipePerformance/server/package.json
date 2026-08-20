@@ -1,6 +1,6 @@
 {
   "name": "watchtower-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Watchtower headless extension server — exposes JS extension evaluation as an HTTP API",
   "main": "server.js",
   "scripts": {

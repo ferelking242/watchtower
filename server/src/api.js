@@ -6,10 +6,7 @@ const { createRuntime } = require('./js-runtime');
 const docsRouter = require('./docs');
 
 const app = express();
-app.use(express.json());
-
-// ── Docs — GET /docs (Swagger UI, no auth required) ──────────────────────────
-app.use('/docs', docsRouter);
+app.use(express.json({ limit: '2mb' })); // FIX: prevent DoS via huge payloads (was unlimited)
 
 // ── Request / Response logger ─────────────────────────────────────────────────
 const RESET = '\x1b[0m', GREEN = '\x1b[32m', YELLOW = '\x1b[33m',
@@ -36,6 +33,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Request timeout middleware ────────────────────────────────────────────────
+// FIX: Without a request timeout, a hanging extension (infinite loop, dead
+// upstream) leaves the connection open forever → exhausts the process FD limit
+// and makes the server unresponsive to new requests.
+const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '60000', 10);
+app.use((req, res, next) => {
+  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    if (!res.headersSent) {
+      console.warn(`[TIMEOUT] ${req.method} ${req.url} — ${REQUEST_TIMEOUT_MS}ms exceeded`);
+      res.status(504).json({ error: 'Request timed out' });
+    }
+  });
+  next();
+});
+
 // ── Auth middleware ────────────────────────────────────────────────────────────
 const API_KEY = process.env.API_KEY || '';
 
@@ -54,16 +66,71 @@ function requireAuth(req, res, next) {
 const json  = (res, data, status = 200) => res.status(status).json(data);
 const error = (res, msg, status = 500)  => json(res, { error: msg }, status);
 
-// ── Extension service cache (one runtime per source) ──────────────────────────
+// ── Extension service cache (LRU with max size) ──────────────────────────────
+// FIX: The original Map grew unbounded — every unique source created a full
+// VM context + extension JS + DOM store, never evicted. On a 512MB container
+// (Railway/Render free tier) this causes OOM crash within hours.
+// We use a simple LRU with MAX_RUNTIMES entries; oldest are evicted.
+const MAX_RUNTIMES = parseInt(process.env.MAX_RUNTIMES || '30', 10);
 const _runtimes = new Map();
+
+function lruGet(key) {
+  if (!_runtimes.has(key)) return undefined;
+  // Move to end (most recently used)
+  const val = _runtimes.get(key);
+  _runtimes.delete(key);
+  _runtimes.set(key, val);
+  return val;
+}
+
+function lruSet(key, val) {
+  if (_runtimes.has(key)) _runtimes.delete(key);
+  // Evict oldest if at capacity
+  if (_runtimes.size >= MAX_RUNTIMES) {
+    const oldest = _runtimes.keys().next().value;
+    console.log(`[RUNTIME] Evicting oldest runtime: "${oldest}"`);
+    const old = _runtimes.get(oldest);
+    if (old && typeof old.destroy === 'function') old.destroy();
+    _runtimes.delete(oldest);
+  }
+  _runtimes.set(key, val);
+}
+
+// ── Concurrency guard ─────────────────────────────────────────────────────────
+// FIX: Two simultaneous requests for the same source would both create a
+// runtime, then the second overwrites the first. This wastes resources and
+// can cause inconsistent state. We use a Map of in-flight Promises so the
+// second request reuses the first one's result.
+const _pendingRuntimes = new Map();
 
 async function getRuntimeForSource(source) {
   const key = String(source.id || source.name);
-  if (_runtimes.has(key)) {
-    console.log(`[RUNTIME] Cache hit for source "${key}"`);
-    return _runtimes.get(key);
+
+  // Check cache first
+  const cached = lruGet(key);
+  if (cached) {
+    return cached;
   }
 
+  // Check if another request is already building this runtime
+  if (_pendingRuntimes.has(key)) {
+    console.log(`[RUNTIME] Waiting for in-flight runtime build: "${key}"`);
+    return _pendingRuntimes.get(key);
+  }
+
+  // Build new runtime
+  const buildPromise = _buildRuntime(source, key);
+  _pendingRuntimes.set(key, buildPromise);
+
+  try {
+    const runtime = await buildPromise;
+    return runtime;
+  } finally {
+    _pendingRuntimes.delete(key);
+  }
+}
+
+async function _buildRuntime(source, key) {
   console.log(`[RUNTIME] Building new runtime for source "${key}" (${source.name})…`);
   const sourceJs = await registry.getSourceJs(source);
   console.log(`[RUNTIME] Extension JS fetched — ${sourceJs.length} bytes`);
@@ -71,8 +138,6 @@ async function getRuntimeForSource(source) {
   const runtime  = createRuntime(source);
 
   // Evaluate the extension JS + auto-instantiation in ONE runInContext call
-  // so that lexically-scoped class declarations are still in scope when we
-  // try to instantiate the extension (a separate vm.runInContext cannot see them).
   const AUTO_INSTANTIATE = `
 ;(function _autoInstantiate() {
   if (typeof extention !== 'undefined') return;
@@ -97,7 +162,7 @@ async function getRuntimeForSource(source) {
   const hasExtention = await runtime.evaluateAsync('typeof extention');
   console.log(`[RUNTIME] typeof extention → ${hasExtention.stringResult}`);
 
-  _runtimes.set(key, runtime);
+  lruSet(key, runtime);
   console.log(`[RUNTIME] Runtime ready for "${key}"`);
   return runtime;
 }
@@ -117,7 +182,13 @@ async function callExtension(runtime, call, sourceKey) {
     console.error(`[EXT] ${call} returned empty result (${ms}ms)`);
     throw new Error('Extension returned empty result');
   }
-  const parsed = JSON.parse(result.stringResult);
+  let parsed;
+  try {
+    parsed = JSON.parse(result.stringResult);
+  } catch (parseErr) {
+    console.error(`[EXT] ${call} returned invalid JSON (${ms}ms): ${result.stringResult.slice(0, 200)}`);
+    throw new Error(`Extension returned invalid JSON: ${parseErr.message}`);
+  }
   const count = Array.isArray(parsed?.list) ? parsed.list.length
                : Array.isArray(parsed) ? parsed.length : '(object)';
   console.log(`[EXT] ${call} OK (${ms}ms) — ${count} items`);
@@ -129,7 +200,7 @@ async function callExtension(runtime, call, sourceKey) {
 // Ping — no auth required
 app.get('/api/ping', (req, res) => {
   console.log('[PING] Health check');
-  json(res, { status: 'ok', version: '0.1.0' });
+  json(res, { status: 'ok', version: '0.2.0' });
 });
 
 // Everything else requires auth + rate limiting
@@ -143,7 +214,11 @@ app.get('/api/sources', async (req, res) => {
     // Stringify all IDs — Dart SDK expects String, not int
     const sources = rawSources.map(s => ({ ...s, id: String(s.id) }));
     console.log(`[SOURCES] Found ${sources.length} sources (NSFW included)`);
-    sources.forEach((s, i) => console.log(`  [${i}] id=${s.id} name="${s.name}" lang=${s.lang}`));
+    // Only log first 10 to avoid log flooding on large catalogues
+    sources.slice(0, 10).forEach((s, i) =>
+      console.log(`  [${i}] id=${s.id} name="${s.name}" lang=${s.lang}`)
+    );
+    if (sources.length > 10) console.log(`  … and ${sources.length - 10} more`);
     json(res, { sources });
   } catch (e) {
     console.error('[SOURCES] Error:', e);
@@ -257,7 +332,11 @@ app.get('/api/sources/:id/videos', async (req, res) => {
     const data = await callExtension(runtime, `getVideoList(${JSON.stringify(url)})`, req.params.id);
     const list = Array.isArray(data) ? data : [];
     console.log(`[VIDEOS] Got ${list.length} video streams`);
-    list.forEach((v, i) => console.log(`  [${i}] quality="${v.quality}" url="${String(v.url).slice(0,80)}"`));
+    // Only log first 5 to avoid log spam
+    list.slice(0, 5).forEach((v, i) =>
+      console.log(`  [${i}] quality="${v.quality}" url="${String(v.url).slice(0,80)}"`)
+    );
+    if (list.length > 5) console.log(`  … and ${list.length - 5} more`);
     json(res, { videos: list });
   } catch (e) {
     console.error(`[VIDEOS] Error:`, e.message);

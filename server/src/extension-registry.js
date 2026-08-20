@@ -9,12 +9,9 @@ async function getFetch() {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
-// Catalogue des extensions watchtower (format watch.json — array de sources JS)
 const CATALOGUE_URL = process.env.CATALOGUE_URL ||
-  'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main/index/watch.json';
+  'https://cdn.jsdelivr.net/gh/ferelking242/watchtower-extensions@main/index/watch.json';
 
-// Base URL brute pour résoudre les sourceCodeUrl relatifs (non utilisé normalement
-// car watch.json contient déjà des URLs absolues, mais conservé au cas où)
 const RAW_BASE = process.env.EXTENSIONS_REPO_URL ||
   'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
 
@@ -26,16 +23,29 @@ console.log(`[REGISTRY] RAW_BASE      = ${RAW_BASE}`);
 console.log(`[REGISTRY] CACHE_DIR     = ${CACHE_DIR}`);
 console.log(`[REGISTRY] CACHE_TTL     = ${CACHE_TTL}ms`);
 
-// ── In-memory cache ───────────────────────────────────────────────────────────
+// ── In-memory cache with max size ────────────────────────────────────────────
+// FIX: Original had unbounded Map; add max size to prevent memory leak.
+const MAX_MEM_CACHE = 200;
 const _memCache = new Map();
 
 function cacheGet(key) {
   const e = _memCache.get(key);
   if (!e) return null;
   if (Date.now() - e.ts > CACHE_TTL) { _memCache.delete(key); return null; }
+  // Move to end for LRU behavior
+  _memCache.delete(key);
+  _memCache.set(key, e);
   return e.data;
 }
-function cacheSet(key, data) { _memCache.set(key, { data, ts: Date.now() }); }
+function cacheSet(key, data) {
+  if (_memCache.has(key)) _memCache.delete(key);
+  if (_memCache.size >= MAX_MEM_CACHE) {
+    // Evict oldest
+    const oldest = _memCache.keys().next().value;
+    _memCache.delete(oldest);
+  }
+  _memCache.set(key, { data, ts: Date.now() });
+}
 
 // ── Disk cache ────────────────────────────────────────────────────────────────
 function ensureCacheDir() {
@@ -57,7 +67,10 @@ function diskSet(key, data) {
   fs.writeFileSync(diskCachePath(key), data, 'utf8');
 }
 
-// ── HTTP fetch with two-tier cache ────────────────────────────────────────────
+// ── Fetch with concurrency dedup ──────────────────────────────────────────────
+// FIX: If two requests fetch the same URL concurrently, dedupe them.
+const _pendingFetches = new Map();
+
 async function fetchText(url) {
   const mem = cacheGet(url);
   if (mem) { console.log(`[CACHE] Memory hit: ${url.slice(0, 80)}`); return mem; }
@@ -69,11 +82,27 @@ async function fetchText(url) {
     return disk;
   }
 
+  // Deduplicate concurrent fetches
+  if (_pendingFetches.has(url)) {
+    console.log(`[FETCH] Dedup pending: ${url.slice(0, 80)}`);
+    return _pendingFetches.get(url);
+  }
+
+  const fetchPromise = _doFetch(url);
+  _pendingFetches.set(url, fetchPromise);
+
+  try {
+    const result = await fetchPromise;
+    return result;
+  } finally {
+    _pendingFetches.delete(url);
+  }
+}
+
+async function _doFetch(url) {
   console.log(`[FETCH] GET ${url}`);
   const t0 = Date.now();
   const fetch = await getFetch();
-  // node-fetch v3 removed the `timeout` option — use AbortController instead.
-  // Without this, network hangs block the event loop indefinitely.
   const controller = new AbortController();
   const _tid = setTimeout(() => controller.abort(), 30000);
   let res;
@@ -108,11 +137,8 @@ async function getCatalogue() {
   const text = await fetchText(CATALOGUE_URL);
   const raw  = JSON.parse(text);
 
-  // watch.json est un array direct ; fallback sur d'autres formats si besoin
   const all = Array.isArray(raw) ? raw : (raw.sources || raw.extensions || []);
 
-  // On garde uniquement les extensions JS (les sources Dart ne peuvent pas
-  // tourner dans le vm Node.js)
   _catalogue = all.filter(s =>
     s.sourceCodeUrl && String(s.sourceCodeUrl).endsWith('.js')
   );
@@ -124,10 +150,6 @@ async function getCatalogue() {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/**
- * Liste toutes les sources du catalogue watchtower-extensions.
- * Par défaut exclut les sources NSFW ; passer includeNsfw: true pour toutes.
- */
 async function listSources({ includeNsfw = false } = {}) {
   let sources = [];
   try {
@@ -141,9 +163,6 @@ async function listSources({ includeNsfw = false } = {}) {
   return sources;
 }
 
-/**
- * Trouve une source par id, slug ou nom (insensible à la casse).
- */
 async function findSource(idOrName) {
   const q = String(idOrName).toLowerCase();
   console.log(`[REGISTRY] findSource("${idOrName}")…`);
@@ -171,11 +190,6 @@ async function findSource(idOrName) {
   }
 }
 
-/**
- * Retourne le code JS d'une source.
- * Toutes les sourceCodeUrl dans watch.json sont des URLs absolues (jsdelivr CDN)
- * donc on les télécharge directement.
- */
 async function getSourceJs(source) {
   if (!source.sourceCodeUrl) throw new Error(`Source "${source.name}" has no sourceCodeUrl`);
 
