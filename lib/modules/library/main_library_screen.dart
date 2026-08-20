@@ -27,7 +27,6 @@ import 'package:watchtower/utils/global_style.dart';
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const _kBorder        = Color(0xFF333333);
-const _kAccent        = Color(0xFFE91E63);
 const _kTextSecondary = Color(0xFF999999);
 
 // ─── Type order ──────────────────────────────────────────────────────────────
@@ -132,7 +131,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: active
-                ? _kAccent.withValues(alpha: 0.90)
+                ? cs.primary.withValues(alpha: 0.90)
                 : (isDark
                     ? Colors.white.withValues(alpha: 0.08)
                     : cs.onSurface.withValues(alpha: 0.06)),
@@ -245,7 +244,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                   horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: sel
-                                    ? _kAccent
+                                    ? cs.primary
                                     : (isDark
                                         ? Colors.white.withValues(alpha: 0.07)
                                         : cs.onSurface.withValues(alpha: 0.05)),
@@ -562,7 +561,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
         decoration: BoxDecoration(
           color: selected
-              ? _kAccent
+              ? cs.primary
               : (isDark
                   ? Colors.white.withValues(alpha: 0.0)
                   : Colors.transparent),
@@ -762,12 +761,12 @@ class _ManageCategoriesSheetState
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: _kAccent.withValues(alpha: 0.15),
+                      color: cs.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Broken.tag,
-                      color: _kAccent,
+                      color: cs.primary,
                       size: 22,
                     ),
                   ),
@@ -871,7 +870,7 @@ class _ManageCategoriesSheetState
                             width: 46,
                             height: 46,
                             decoration: BoxDecoration(
-                              color: _kAccent,
+                              color: cs.primary,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
@@ -985,12 +984,12 @@ class _CatRow extends ConsumerWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: _kAccent.withValues(alpha: 0.15),
+                color: cs.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Broken.trash,
-                color: _kAccent,
+                color: cs.primary,
                 size: 18,
               ),
             ),
