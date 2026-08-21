@@ -91,19 +91,19 @@ jobs:
           echo "code=${VCODE}"  >> "$GITHUB_OUTPUT"
           echo "Bumped to ${VNAME}+${VCODE}"
 
-      - name: Decode keystore from secret
+      - name: Prepare signing keystore
         run: |
-          if [ -z "${{ secrets.KEYSTORE_B64 }}" ]; then
-            echo "Keystore secret is empty - generating temporary self-signed keystore"
-            keytool -genkey -v -keystore android/app/watchtower-debug.keystore \
-              -alias watchtower -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass watchtower -keypass watchtower \
-              -dname "CN=Watchtower, OU=Dev, O=Watchtower, L=Paris, S=IDF, C=FR" \
-              -storetype PKCS12
+          KEYSTORE=android/app/watchtower-debug.keystore
+          if [ -n "${{ secrets.KEYSTORE_B64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > "$KEYSTORE"
+            echo "Decoded keystore from KEYSTORE_B64 secret"
+          elif [ -f "$KEYSTORE" ]; then
+            echo "Using committed keystore from repo (all builds share the same key)"
           else
-            echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+            echo "ERROR: No KEYSTORE_B64 secret and no committed keystore found"
+            exit 1
           fi
-          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+          echo "Keystore size: $(wc -c < "$KEYSTORE") bytes"
 
       - name: Free disk space
         run: |
