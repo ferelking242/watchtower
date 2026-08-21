@@ -1,9 +1,0 @@
-name: local_notifier
-description: Web stub for local_notifier
-version: 0.0.1
-publish_to: none
-environment:
-  sdk: '>=3.0.0 <4.0.0'
-dependencies:
-  flutter:
-    sdk: flutter

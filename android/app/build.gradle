@@ -53,6 +53,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            // Only ship arm64-v8a — other ABIs in the AAR are unused
+            // and add ~50 MB to the APK (armeabi-v7a, x86, x86_64).
+            abiFilters 'arm64-v8a'
+        }
     }
 
     packagingOptions {

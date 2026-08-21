@@ -62,9 +62,50 @@ artifacts/
 # External reference projects cloned for analysis (not part of the app)
 external/
 external_project/
+# Old duplicate project dirs — never re-add
+UnhealthyRipePerformance/
 
 # Local planning / scratch files (pushed only inside docs/ if needed)
 SEANIME_INSPIRATION_PLAN.md
 
 # Internal dev notes
 .dev/
+
+# Rust / Cargo build artifacts
+rust/target/
+rust_builder/target/
+
+# Archives and compressed dumps
+*.7z
+
+# Android build artifacts
+/android/app/libs/*.aar
+
+# Replit config (legacy)
+.replit
+replit.md
+replit.nix
+
+# Agent / CI scratch
+.agent/
+AGENT.md
+SCREENS.md
+WEB_COMPAT_REPORT.md
+
+# Deployment configs not used
+render.yaml
+vercel.json
+packaging/
+
+# Colab / Jupyter
+*.ipynb
+
+# Server (built separately)
+server/
+server.py
+
+# Empty ghost dirs
+watchtower/
+
+# Misc scratch
+colab_deploy.ipynb

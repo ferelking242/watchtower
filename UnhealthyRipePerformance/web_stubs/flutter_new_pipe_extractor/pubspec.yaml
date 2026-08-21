@@ -1,9 +1,0 @@
-name: flutter_new_pipe_extractor
-description: Web stub for flutter_new_pipe_extractor
-version: 0.0.1
-publish_to: none
-environment:
-  sdk: '>=3.0.0 <4.0.0'
-dependencies:
-  flutter:
-    sdk: flutter

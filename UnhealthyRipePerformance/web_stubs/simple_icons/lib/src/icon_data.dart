@@ -1,1 +1,0 @@
-library simple_icons_icon_data;
