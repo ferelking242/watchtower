@@ -15,11 +15,13 @@ Manga? findExistingManga(Source source, MManga manga) {
   if (source.lang == null || source.name == null) return null;
 
   final candidates = isar.mangas
+      .where()
       .filter()
       .langEqualTo(source.lang)
       .nameEqualTo(name)
       .sourceEqualTo(source.name)
-      .findAll();
+      .sortById()
+      .findAllSync();
   if (candidates.isEmpty) return null;
   return candidates.firstWhere(
     (e) => e.sourceId == null ? true : e.sourceId == source.id,
