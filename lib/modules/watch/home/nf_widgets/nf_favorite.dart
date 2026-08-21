@@ -14,13 +14,16 @@ Manga? findExistingManga(Source source, MManga manga) {
   if (name == null || name.isEmpty) return null;
   if (source.lang == null || source.name == null) return null;
 
-  // Filter client-side — isar_community 3.x requires a sort step before
-  // findAllSync on QAfterFilterCondition, so getAllSync + Dart filter is
-  // the safest cross-version approach for multi-field queries.
-  final candidates = isar.mangas.getAllSync().where((m) =>
-      m.lang == source.lang &&
-      m.name == name &&
-      m.source == source.name).toList();
+  // isar_community 3.x: findAllSync requires a where-clause state
+  // (QAfterWhere), not QAfterFilterCondition, so we load all IDs and
+  // filter client-side for multi-field lookups.
+  final all = isar.mangas.where().anyId().findAllSync();
+  final candidates = all
+      .where((m) =>
+          m.lang == source.lang &&
+          m.name == name &&
+          m.source == source.name)
+      .toList();
   if (candidates.isEmpty) return null;
   return candidates.firstWhere(
     (e) => e.sourceId == null ? true : e.sourceId == source.id,
