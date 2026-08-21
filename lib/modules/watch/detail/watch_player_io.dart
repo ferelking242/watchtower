@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -654,6 +655,9 @@ class _FullscreenControlsOverlayState
     // ── Current quality (synced with loadedVideos) ────────────────────────────
     String? _currentQuality;
 
+    // ── Miniature preview (YouTube-style) ────────────────────────────────────
+    final _SeekThumbPreview _thumbPreview = _SeekThumbPreview();
+
     // ── Seekbar drag state (smooth preview without seeking on every frame) ─────
     bool _seekDragging = false;
     double _seekDragValue = 0.0;
@@ -862,6 +866,7 @@ class _FullscreenControlsOverlayState
     _bufferingSub?.cancel();
     _completedSub?.cancel();
     _bufDebounce?.cancel();
+    _thumbPreview.dispose();
     super.dispose();
   }
 
@@ -1165,8 +1170,11 @@ class _FullscreenControlsOverlayState
           final dx = d.globalPosition.dx - _horizDragStartX!;
           final dur = widget.player.state.duration.inSeconds;
           if (dur <= 0) return;
-          // ~60s per full screen width
-          _horizSeekDelta = (dx / size.width * 90).round();
+          // Vitesse adaptative : un swipe pleine largeur couvre ~1/4 de la
+          // durée du flux (clip de 20 min → précis, film de 2 h → rapide).
+          final secondsPerScreen =
+              (widget.player.state.duration.inSeconds / 4).clamp(20.0, 900.0);
+          _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
           setState(() => _showSeekSwipeHUD = true);
         },
         onHorizontalDragEnd: (_) {
@@ -1405,31 +1413,25 @@ class _FullscreenControlsOverlayState
               ),
             ),
 
-          // Brightness HUD — left side, vertical
-            if (_showBrightnessHUD)
+          // Luminosité / Volume — pilule horizontale en HAUT au centre
+            if (_showBrightnessHUD || _showVolumeHUD)
               Positioned(
-                left: 20,
-                top: 0,
-                bottom: 0,
+                top: MediaQuery.of(context).padding.top + 10,
+                left: 0,
+                right: 0,
                 child: IgnorePointer(
                   child: Center(
-                    child: _buildSideHUD(
-                      icon: Icons.brightness_6_rounded,
-                      value: _brightness,
-                    ),
-                  ),
-                ),
-              ),
-
-            // Volume HUD — right side, vertical
-            if (_showVolumeHUD)
-              Positioned(
-                right: 20,
-                top: 0,
-                bottom: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: _buildVolumeHUD(value: _volume),
+                    child: _showBrightnessHUD
+                        ? _buildTopMediaHud(
+                            icon: Icons.brightness_6_rounded,
+                            value: _brightness)
+                        : _buildTopMediaHud(
+                            icon: _volume <= 0
+                                ? Icons.volume_off_rounded
+                                : _volume < 0.5
+                                    ? Icons.volume_down_rounded
+                                    : Icons.volume_up_rounded,
+                            value: _volume),
                   ),
                 ),
               ),
@@ -1482,10 +1484,10 @@ class _FullscreenControlsOverlayState
                   ),
                 ),
 
-              // Seek swipe HUD — center
+              // Seek swipe HUD — juste au-dessus de la barre de progression
               if (_showSeekSwipeHUD)
                 Positioned(
-                  top: 0, bottom: 0, left: 0, right: 0,
+                  bottom: 118, left: 0, right: 0,
                   child: IgnorePointer(
                     child: Center(
                       child: _buildSeekSwipeHUD(),
@@ -1569,106 +1571,72 @@ class _FullscreenControlsOverlayState
     );
   }
 
-  Widget _buildSideHUD({required IconData icon, required double value}) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+  // ── Pilule Luminosité/Volume — horizontale, en haut au centre ────────────
+  Widget _buildTopMediaHud({required IconData icon, required double value}) {
+    final clamped = value.clamp(0.0, 2.0);
+    final fill    = (clamped / 2).clamp(0.0, 1.0); // 0→200% sur la largeur
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      builder: (_, t, child) => Opacity(opacity: t, child: child),
+      child: Container(
+        width: 240,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.70),
-          borderRadius: BorderRadius.circular(14),
+          color: Colors.black.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(24),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            Icon(icon, color: Colors.white, size: 22),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 80,
-              width: 4,
+            Icon(icon,
+                color: clamped > 1.0 ? Colors.orangeAccent : Colors.white,
+                size: 20),
+            const SizedBox(width: 12),
+            Expanded(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: RotatedBox(
-                  quarterTurns: 3,
-                  child: LinearProgressIndicator(
-                    value: value,
-                    backgroundColor: Colors.white24,
-                    valueColor: const AlwaysStoppedAnimation(Colors.white),
-                    minHeight: 4,
+                borderRadius: BorderRadius.circular(3),
+                child: SizedBox(
+                  height: 6,
+                  child: Stack(
+                    children: [
+                      Container(color: Colors.white24),
+                      FractionallySizedBox(
+                        widthFactor: fill,
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                            color:
+                                clamped > 1.0 ? Colors.orangeAccent : Colors.white),
+                      ),
+                      // Repère du seuil 100 %
+                      const Align(
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: 1,
+                          height: 8,
+                          child: ColoredBox(color: Colors.black38),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              '${(value * 100).round()}%',
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 40,
+              child: Text(
+                '${(value * 100).round()}%',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: clamped > 1.0 ? Colors.orangeAccent : Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),
-      );
-    }
-
-  // Volume-specific HUD — PLAYit-style two-tone bar: white 0-100%,
-  // accent-colored 100-200% (boost zone), up to 200%.
-  Widget _buildVolumeHUD({required double value}) {
-    final base  = value.clamp(0.0, 1.0) / 1.0;      // fraction of the 0-100% segment
-    final boost = ((value - 1.0).clamp(0.0, 1.0));  // fraction of the 100-200% segment
-    final icon  = value <= 0
-        ? Icons.volume_off_rounded
-        : value <= 1.0
-            ? (value < 0.5 ? Icons.volume_down_rounded : Icons.volume_up_rounded)
-            : Icons.volume_up_rounded;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.70),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: value > 1.0 ? Colors.orangeAccent : Colors.white, size: 22),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 80,
-            width: 6,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Stack(
-                alignment: Alignment.bottomCenter,
-                children: [
-                  Container(color: Colors.white24),
-                  // 0-100% segment (white)
-                  FractionallySizedBox(
-                    heightFactor: (base * 0.5).clamp(0.0, 0.5),
-                    alignment: Alignment.bottomCenter,
-                    child: Container(color: Colors.white),
-                  ),
-                  // 100-200% segment (accent boost color)
-                  if (value > 1.0)
-                    FractionallySizedBox(
-                      heightFactor: (0.5 + boost * 0.5).clamp(0.0, 1.0),
-                      alignment: Alignment.bottomCenter,
-                      child: Container(color: Colors.orangeAccent),
-                    ),
-                  // Mid-line marker at the 100% boundary
-                  const Align(
-                    alignment: Alignment(0, 0),
-                    child: SizedBox(height: 1),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${(value * 100).round()}%',
-            style: TextStyle(
-              color: value > 1.0 ? Colors.orangeAccent : Colors.white70,
-              fontSize: 11,
-              fontWeight: value > 1.0 ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1706,6 +1674,27 @@ class _FullscreenControlsOverlayState
       ),
     );
   }
+  // ── Miniature preview : flux courant + position demandée ───────────────────
+  wt.Video? get _currentVideo {
+    final vids = widget.loadedVideos;
+    if (vids.isEmpty) return null;
+    for (final v in vids) {
+      if (v.quality == (widget.selectedQuality ?? _currentQuality)) return v;
+    }
+    return vids.first;
+  }
+
+  void _requestThumb(double fraction) {
+    final dur = widget.player.state.duration;
+    final v = _currentVideo;
+    if (v == null || dur <= Duration.zero) return;
+    _thumbPreview.request(
+      url: v.url,
+      headers: v.headers,
+      position: Duration(milliseconds: (fraction * dur.inMilliseconds).round()),
+    );
+  }
+
   Widget _buildControlsOverlay() {
     final safeArea = MediaQuery.of(context).padding;
     return Stack(
@@ -1959,29 +1948,19 @@ class _FullscreenControlsOverlayState
   }
 
   Widget _buildCenterRow() {
+    // Pas de pause au centre (déjà en bas à gauche dans la toolbar) —
+    // uniquement -15 / +15 plaqués aux bords, texte dans l'icône, sans fond.
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildSkipButton(isForward: false, seconds: 15),
-        const SizedBox(width: 32),
-        StreamBuilder<bool>(
-          stream: widget.player.stream.playing,
-          initialData: widget.player.state.playing,
-          builder: (_, snap) => GestureDetector(
-            onTap: () {
-              widget.player.playOrPause();
-              _resetHideTimer();
-            },
-            child: Icon(
-              (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              color: Colors.white,
-              size: 58,
-            ),
-          ),
+        Padding(
+          padding: const EdgeInsets.only(left: 28),
+          child: _buildSkipButton(isForward: false, seconds: 15),
         ),
-        const SizedBox(width: 32),
-        _buildSkipButton(isForward: true, seconds: 15),
+        Padding(
+          padding: const EdgeInsets.only(right: 28),
+          child: _buildSkipButton(isForward: true, seconds: 15),
+        ),
       ],
     );
   }
@@ -2074,12 +2053,17 @@ class _FullscreenControlsOverlayState
                         child: Slider(
                           value: displayValue,
                           secondaryTrackValue: _bufferFrac,
-                          onChangeStart: (_) {
+                          onChangeStart: (v) {
                             setState(() => _seekDragging = true);
                             _hideTimer?.cancel();
+                            _requestThumb(v);
                           },
-                          onChanged: (v) => setState(() => _seekDragValue = v),
+                          onChanged: (v) {
+                            setState(() => _seekDragValue = v);
+                            _requestThumb(v);
+                          },
                           onChangeEnd: (v) {
+                            _thumbPreview.clearRequest();
                             if (dur.inMilliseconds > 0) {
                               widget.player.seek(Duration(
                                   milliseconds: (v * dur.inMilliseconds).round()));
@@ -2102,23 +2086,50 @@ class _FullscreenControlsOverlayState
                     ),
                   ],
                 ),
-                // ── Seek-time preview bubble ──────────────────────────────────
+                // ── Aperçu miniature + bulle temps (YouTube-style) ────────────
                 if (_seekDragging)
                   Positioned(
-                    left: (thumbX - 30).clamp(0.0, constraints.maxWidth - 60),
+                    left: (thumbX - 75)
+                        .clamp(0.0, (constraints.maxWidth - 160).clamp(0.0, double.infinity)),
                     bottom: 26,
                     child: IgnorePointer(
-                      child: Container(
-                        width: 60,
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _fmt(previewDur),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                      child: ValueListenableBuilder<Uint8List?>(
+                        valueListenable: _thumbPreview.frame,
+                        builder: (_, frame, __) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (frame != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white24, width: 0.8),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(7),
+                                  child: Image.memory(
+                                    frame,
+                                    width: 150,
+                                    height: 84,
+                                    fit: BoxFit.cover,
+                                    gaplessPlayback: true,
+                                  ),
+                                ),
+                              ),
+                            Container(
+                              width: 60,
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _fmt(previewDur),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -3541,8 +3552,10 @@ class _TrackTile extends StatelessWidget {
       final dx = d.globalPosition.dx - _horizDragStartX!;
       final dur = widget.player.state.duration.inSeconds;
       if (dur <= 0) return;
-      // ~60s per full screen width
-      _horizSeekDelta = (dx / size.width * 90).round();
+      // Vitesse adaptative : ~1/4 de la durée par swipe pleine largeur.
+      final secondsPerScreen =
+          (widget.player.state.duration.inSeconds / 4).clamp(20.0, 900.0);
+      _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
       setState(() => _showSeekSwipeHUD = true);
     }
 
@@ -3622,70 +3635,52 @@ class _TrackTile extends StatelessWidget {
       }
     }
 
-    Widget _buildSideHUD({required IconData icon, required double value}) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.70), borderRadius: BorderRadius.circular(12)),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 60, width: 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: RotatedBox(
-                quarterTurns: 3,
-                child: LinearProgressIndicator(value: value, backgroundColor: Colors.white24, valueColor: const AlwaysStoppedAnimation(Colors.white), minHeight: 3),
-              ),
-            ),
+    // ── Pilule Luminosité/Volume — horizontale, en haut au centre ────────────
+    Widget _buildTopMediaHud({required IconData icon, required double value}) {
+      final clamped = value.clamp(0.0, 2.0);
+      final fill    = (clamped / 2).clamp(0.0, 1.0);
+      return TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        builder: (_, t, child) => Opacity(opacity: t, child: child),
+        child: Container(
+          width: 200,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(22),
           ),
-          const SizedBox(height: 6),
-          Text('${(value * 100).round()}%', style: const TextStyle(color: Colors.white70, fontSize: 9)),
-        ]),
-      );
-    }
-
-    // Volume-specific HUD — PLAYit-style two-tone bar: white 0-100%,
-    // accent-colored 100-200% (boost zone), up to 200%.
-    Widget _buildVolumeHUD({required double value}) {
-      final base  = value.clamp(0.0, 1.0);
-      final boost = (value - 1.0).clamp(0.0, 1.0);
-      final icon  = value <= 0
-          ? Icons.volume_off_rounded
-          : value <= 1.0
-              ? (value < 0.5 ? Icons.volume_down_rounded : Icons.volume_up_rounded)
-              : Icons.volume_up_rounded;
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.70), borderRadius: BorderRadius.circular(12)),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, color: value > 1.0 ? Colors.orangeAccent : Colors.white, size: 18),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 60, width: 4,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: Stack(alignment: Alignment.bottomCenter, children: [
-                Container(color: Colors.white24),
-                FractionallySizedBox(
-                  heightFactor: (base * 0.5).clamp(0.0, 0.5),
-                  alignment: Alignment.bottomCenter,
-                  child: Container(color: Colors.white),
-                ),
-                if (value > 1.0)
-                  FractionallySizedBox(
-                    heightFactor: (0.5 + boost * 0.5).clamp(0.0, 1.0),
-                    alignment: Alignment.bottomCenter,
-                    child: Container(color: Colors.orangeAccent),
+          child: Row(
+            children: [
+              Icon(icon, color: clamped > 1.0 ? Colors.orangeAccent : Colors.white, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: SizedBox(
+                    height: 5,
+                    child: Stack(children: [
+                      Container(color: Colors.white24),
+                      FractionallySizedBox(
+                        widthFactor: fill,
+                        alignment: Alignment.centerLeft,
+                        child: Container(color: clamped > 1.0 ? Colors.orangeAccent : Colors.white),
+                      ),
+                    ]),
                   ),
-              ]),
-            ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('${(value * 100).round()}%',
+                  style: TextStyle(
+                    color: clamped > 1.0 ? Colors.orangeAccent : Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  )),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text('${(value * 100).round()}%',
-              style: TextStyle(color: value > 1.0 ? Colors.orangeAccent : Colors.white70, fontSize: 9,
-                  fontWeight: value > 1.0 ? FontWeight.bold : FontWeight.normal)),
-        ]),
+        ),
       );
     }
 
@@ -3858,25 +3853,28 @@ class _TrackTile extends StatelessWidget {
                   ),
                 ),
               ),
-            // ── Brightness HUD ─────────────────────────────────────────────────
-            if (_showBrightnessHUD)
+            // ── Luminosité/Volume — pilule horizontale en HAUT au centre ─────
+            if (_showBrightnessHUD || _showVolumeHUD)
               Positioned(
-                left: 14, top: 0, bottom: 40,
+                top: safeTop + 8, left: 0, right: 0,
                 child: IgnorePointer(
-                  child: Center(child: _buildSideHUD(icon: Icons.brightness_6_rounded, value: _brightness)),
+                  child: Center(
+                    child: _showBrightnessHUD
+                        ? _buildTopMediaHud(icon: Icons.brightness_6_rounded, value: _brightness)
+                        : _buildTopMediaHud(
+                            icon: _volume <= 0
+                                ? Icons.volume_off_rounded
+                                : _volume < 0.5
+                                    ? Icons.volume_down_rounded
+                                    : Icons.volume_up_rounded,
+                            value: _volume),
+                  ),
                 ),
               ),
-            // ── Volume HUD ─────────────────────────────────────────────────────
-            if (_showVolumeHUD)
-              Positioned(
-                right: 14, top: 0, bottom: 40,
-                child: IgnorePointer(
-                  child: Center(child: _buildVolumeHUD(value: _volume)),
-                ),
-              ),
-            // ── Seek swipe HUD (horizontal drag) ──────────────────────────────
+            // ── Seek swipe HUD — juste au-dessus de la barre de progression ──
             if (_showSeekSwipeHUD)
-              Positioned.fill(
+              Positioned(
+                bottom: 96, left: 0, right: 0,
                 child: IgnorePointer(
                   child: Center(child: _buildSeekSwipeHUD()),
                 ),
@@ -5606,5 +5604,68 @@ class _ReelPickerSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ─── Seekbar miniature preview (YouTube-style) ────────────────────────────────
+// Second player muet dédié aux vignettes : on ouvre le même flux en pause,
+// on seek à la position demandée (debounce) puis on capture la frame décodée.
+class _SeekThumbPreview {
+  Player? _player;
+  String? _loadedUrl;
+  bool _ready = false;
+  int _seq = 0;
+  Timer? _debounce;
+
+  final ValueNotifier<Uint8List?> frame = ValueNotifier(null);
+
+  void request({
+    required String url,
+    required Map<String, String>? headers,
+    required Duration position,
+  }) {
+    _seq++;
+    final mySeq = _seq;
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 260), () async {
+      try {
+        final p = _player ??= Player(
+            configuration:
+                const PlayerConfiguration(bufferSize: 4 * 1024 * 1024));
+        if (_loadedUrl != url || !_ready) {
+          _loadedUrl = url;
+          _ready = false;
+          try { await p.setVolume(0.0); } catch (_) {}
+          try { await (p.platform as dynamic).setProperty('audio', 'no'); } catch (_) {}
+          await p.open(Media(url, httpHeaders: headers), play: false);
+          // Attend que le flux soit prêt (durée connue) avant de seeker.
+          await p.stream.duration
+              .firstWhere((d) => d > Duration.zero)
+              .timeout(const Duration(seconds: 10), onTimeout: () => Duration.zero);
+          _ready = true;
+        }
+        if (mySeq != _seq) return;
+        await p.seek(position);
+        // Laisse mpv décoder la frame demandée.
+        await Future.delayed(const Duration(milliseconds: 180));
+        if (mySeq != _seq) return;
+        final shot = await p.screenshot();
+        if (shot != null && mySeq == _seq) {
+          frame.value = shot;
+        }
+      } catch (_) {}
+    });
+  }
+
+  void clearRequest() {
+    _seq++;
+    _debounce?.cancel();
+  }
+
+  void dispose() {
+    _seq++;
+    _debounce?.cancel();
+    try { _player?.dispose(); } catch (_) {}
+    frame.dispose();
   }
 }
