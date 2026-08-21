@@ -179,7 +179,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                 tab: _tab,
                 onTabChanged: _onTabChanged,
                 headerOpacity: _headerOpacity,
-                scrollOffset: _scroll.hasClients ? _scroll.offset : 0,
                 onSearchTap: () => context.push('/globalSearch'),
                 onAvatarTap: () => showAccountSheet(context),
               ),

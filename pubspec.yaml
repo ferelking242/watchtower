@@ -120,6 +120,7 @@ dependencies:
   speech_to_text: ^7.0.0
   flutter_svg: ^2.0.17
   lottie: ^3.1.0
+  flutter_native_splash: ^2.4.3
   flutter_speed_dial: ^7.0.0
   shared_preferences: ^2.3.5
   shelf: ^1.4.1

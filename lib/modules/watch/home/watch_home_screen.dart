@@ -871,10 +871,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                                       ClipRRect(
                                         borderRadius:
                                             BorderRadius.circular(5),
-                                        child: NfPosterImage(
-                                          imageUrl: m.imageUrl,
+                                        child: ExtendedImage.network(
+                                          m.imageUrl ?? '',
                                           width:    32,
                                           height:   46,
+                                          fit: BoxFit.cover,
                                         ),
                                       ),
                                       const SizedBox(width: 12),

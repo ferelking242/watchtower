@@ -19,7 +19,7 @@ Manga? findExistingManga(Source source, MManga manga) {
       .langEqualTo(source.lang)
       .nameEqualTo(name)
       .sourceEqualTo(source.name)
-      .findAllSync();
+      .findAll();
   if (candidates.isEmpty) return null;
   return candidates.firstWhere(
     (e) => e.sourceId == null ? true : e.sourceId == source.id,
