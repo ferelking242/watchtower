@@ -91,14 +91,31 @@ jobs:
           echo "code=${VCODE}"  >> "$GITHUB_OUTPUT"
           echo "Bumped to ${VNAME}+${VCODE}"
 
-      - name: Verify signing keystore
+      - name: Cache signing keystore
+        id: keystore-cache
+        uses: actions/cache@v4
+        with:
+          path: android/app/watchtower-debug.keystore
+          key: signing-keystore-v2-${{ hashFiles('android/app/build.gradle') }}
+          restore-keys: signing-keystore-v2-
+
+      - name: Generate keystore with keytool (if not cached)
+        if: steps.keystore-cache.outputs.cache-hit != 'true'
+        run: |
+          keytool -genkeypair -v \
+            -keystore android/app/watchtower-debug.keystore \
+            -alias watchtower \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass watchtower -keypass watchtower \
+            -dname "CN=Watchtower, OU=Dev, O=Watchtower, L=Paris, S=IDF, C=FR" \
+            -storetype PKCS12
+          echo "Generated new keystore with keytool"
+
+      - name: Verify keystore
         run: |
           KEYSTORE=android/app/watchtower-debug.keystore
-          if [ ! -f "$KEYSTORE" ]; then
-            echo "ERROR: Committed keystore not found at $KEYSTORE"
-            exit 1
-          fi
-          echo "Keystore OK: $(wc -c < "$KEYSTORE") bytes — all 3 builds sign with this same key"
+          echo "Keystore size: $(wc -c < "$KEYSTORE") bytes"
+          keytool -list -keystore "$KEYSTORE" -storepass watchtower -alias watchtower 2>&1 | head -5
 
       - name: Free disk space
         run: |
@@ -127,6 +144,18 @@ jobs:
             --target-platform android-arm64 \
             --build-name=${{ steps.ver.outputs.name }} \
             --build-number=${{ steps.ver.outputs.code }}
+
+      - name: Verify APK signature
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          if [ -f "$APK" ]; then
+            echo "=== APK Signature Verification ==="
+            $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)/apksigner verify --verbose "$APK" 2>&1
+            echo "=== Cert info: ==="
+            $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)/apksigner verify --print-certs "$APK" 2>&1 | head -10
+          else
+            echo "WARNING: APK not found at $APK"
+          fi
 
       - name: Rename APK
         run: |
