@@ -175,7 +175,7 @@ jobs:
         run: |
           KEYSTORE=android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < "$KEYSTORE") bytes"
-          keytool -list -keystore "$KEYSTORE" -storepass watchtower2024 -alias watchtower 2>&1 | head -5
+          keytool -list -keystore "$KEYSTORE" -storepass watchtower -alias watchtower 2>&1 | head -5
 
       - name: Free disk space
         run: |

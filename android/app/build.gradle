@@ -73,9 +73,9 @@ android {
        // Allows in-place upgrade of debug/profile APKs without signature conflict.
        watchtower {
            keyAlias 'watchtower'
-           keyPassword 'watchtower2024'
+           keyPassword 'watchtower'
            storeFile file('watchtower-debug.keystore')
-           storePassword 'watchtower2024'
+           storePassword 'watchtower'
            storeType 'PKCS12'
        }
    }

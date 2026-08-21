@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.watchtower.app">
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- ── Android TV / Leanback ─────────────────────────────────────────── -->
     <!-- required="false" → APK installs on both phones and TV boxes         -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
