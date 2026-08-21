@@ -29,6 +29,7 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/widgets/watchtower_loader.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player controls use the Broken/Iconsax pack
+import 'package:cached_network_image/cached_network_image.dart';
 
 // ─── Speed levels ─────────────────────────────────────────────────────────────
 const _kAllSpeeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0];
@@ -612,7 +613,6 @@ class _FullscreenControlsOverlayState
   // ── Speed / Quality / Language / More inline pickers ──────────────────────
   bool _showSpeedPicker   = false;
   bool _showQualityPicker = false;
-  bool _showLangPicker    = false;
   bool _showMorePanel     = false;
   bool _showEpPanel       = false;
 
@@ -1414,6 +1414,7 @@ class _FullscreenControlsOverlayState
               child: _SettingsPanel(
                 player: widget.player,
                 accent: Theme.of(context).primaryColor,
+                onDownload: _startDownload,
                 onClose: () {
                   setState(() => _showSubPanel = false);
                   _resetHideTimer();
@@ -1703,6 +1704,44 @@ class _FullscreenControlsOverlayState
     );
   }
 
+  // ── Télécharge la source en cours (qualité sélectionnée) ────────────────────
+  Future<void> _startDownload() async {
+    try {
+      final vids = widget.loadedVideos;
+      wt.Video? video;
+      for (final v in vids) {
+        if (v.quality == _currentQuality) { video = v; break; }
+      }
+      video ??= vids.isNotEmpty ? vids.first : null;
+      if (video == null || video.url.isEmpty) {
+        _playerToast('Aucune source à télécharger');
+        return;
+      }
+      final base = await getApplicationDocumentsDirectory();
+      final dir = Directory('${base.path}/Watchtower/Downloads');
+      await dir.create(recursive: true);
+      final clean = widget.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final savePath = '${dir.path}/$clean (${video.quality}).mp4';
+      _playerToast('Téléchargement démarré…');
+      final req = await HttpClient().getUrl(Uri.parse(video.url));
+      video.headers?.forEach((k, v) => req.headers.set(k, v));
+      final res = await req.close();
+      if (res.statusCode != 200) {
+        _playerToast('Échec du téléchargement (HTTP \${res.statusCode})');
+        return;
+      }
+      final tmp = File('\$savePath.part');
+      final sink = tmp.openWrite();
+      await sink.addStream(res);
+      await sink.close();
+      await tmp.rename(savePath);
+      _playerToast('Téléchargement terminé ✔');
+    } catch (e) {
+      AppLogger.log('download failed: $e', logLevel: LogLevel.error, tag: 'PlayerDownload');
+      _playerToast('Échec du téléchargement');
+    }
+  }
+
   Widget _buildControlsOverlay() {
     final safeArea = MediaQuery.of(context).padding;
     return Stack(
@@ -1736,13 +1775,6 @@ class _FullscreenControlsOverlayState
             bottom: safeArea.bottom + 52,
             right: safeArea.right + 130,
             child: _buildQualityPickerOverlay(),
-          ),
-        // Language picker — expands upward from bottom-right
-        if (_showLangPicker)
-          Positioned(
-            bottom: safeArea.bottom + 52,
-            right: safeArea.right + 210,
-            child: _buildLangPickerOverlay(),
           ),
         // Episode list panel — right side
         if (_showEpPanel)
@@ -1868,13 +1900,8 @@ class _FullscreenControlsOverlayState
             },
             padding: const EdgeInsets.all(8),
           ),
-          // PiP button
-          IconButton(
-            icon: const Icon(Broken.mirroring_screen, color: Colors.white70, size: 20),
-            onPressed: () { _enterPiP(); _resetHideTimer(); },
-            padding: const EdgeInsets.all(8),
-          ),
-          // Episode list
+          // Episode list — hidden for movies (single item)
+          if (widget.chapters.length > 1)
           IconButton(
             icon: Icon(
               Broken.music_playlist,
@@ -1887,7 +1914,6 @@ class _FullscreenControlsOverlayState
                 _showEpPanel       = !_showEpPanel;
                 _showSpeedPicker   = false;
                 _showQualityPicker = false;
-                _showLangPicker    = false;
                 _showMorePanel     = false;
               });
             },
@@ -1906,7 +1932,6 @@ class _FullscreenControlsOverlayState
                 _showMorePanel     = !_showMorePanel;
                 _showSpeedPicker   = false;
                 _showQualityPicker = false;
-                _showLangPicker    = false;
                 _showEpPanel       = false;
               });
             },
@@ -2209,22 +2234,6 @@ class _FullscreenControlsOverlayState
             label: fitLabel,
             onTap: _toggleFit,
           ),
-          const SizedBox(width: 8),
-          // Langue (audio tracks inline picker)
-          _ToolbarChip(
-            icon: Broken.global,
-            label: _langLabel(),
-            active: _showLangPicker,
-            onTap: () {
-              _hideTimer?.cancel();
-              setState(() {
-                _showLangPicker    = !_showLangPicker;
-                _showSpeedPicker   = false;
-                _showQualityPicker = false;
-              });
-            },
-          ),
-          const SizedBox(width: 8),
           // Quality picker chip
           _ToolbarChip(
             icon: Icons.hd_outlined,
@@ -2235,7 +2244,6 @@ class _FullscreenControlsOverlayState
               setState(() {
                 _showQualityPicker = !_showQualityPicker;
                 _showSpeedPicker   = false;
-                _showLangPicker    = false;
               });
             },
           ),
@@ -2249,7 +2257,6 @@ class _FullscreenControlsOverlayState
               setState(() {
                 _showSpeedPicker   = !_showSpeedPicker;
                 _showQualityPicker = false;
-                _showLangPicker    = false;
               });
             },
           ),
@@ -2375,15 +2382,6 @@ class _FullscreenControlsOverlayState
     return 'Qualité';
   }
 
-  // ─── Lang label for chip ────────────────────────────────────────────────────
-  String _langLabel() {
-    final tracks = widget.player.state.tracks.audio;
-    final cur    = widget.player.state.track.audio;
-    if (tracks.isEmpty) return 'Audio';
-    final match = tracks.firstWhere((t) => t.id == cur.id, orElse: () => tracks.first);
-    return _audioTrackLabel(match, tracks.indexOf(match));
-  }
-
   // ─── Quality picker — uses loadedVideos from parent ────────────────────────
   Widget _buildQualityPickerOverlay() {
     final videos = widget.loadedVideos;
@@ -2453,94 +2451,6 @@ class _FullscreenControlsOverlayState
                                 ),
                                 if (isCurrent)
                                   Icon(Icons.check_rounded, color: Theme.of(context).primaryColor, size: 14),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 4),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Language picker — lists audio tracks from player ──────────────────────
-  Widget _buildLangPickerOverlay() {
-    final tracks = widget.player.state.tracks.audio;
-    final cur    = widget.player.state.track.audio;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      builder: (_, t, child) => Opacity(
-        opacity: t,
-        child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 320),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.88),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white12, width: 0.7),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(14, 10, 14, 6),
-                child: Text('Langue / Audio',
-                    style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
-              ),
-              const Divider(height: 1, color: Colors.white12),
-              if (tracks.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  child: Text('Aucune piste', style: TextStyle(color: Colors.white54, fontSize: 13)),
-                )
-              else
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: tracks.asMap().entries.map((e) {
-                        final i = e.key;
-                        final t = e.value;
-                        final sel = t.id == cur.id;
-                        final label = _audioTrackLabel(t, i);
-                        return GestureDetector(
-                          onTap: () {
-                            widget.player.setAudioTrack(t);
-                            setState(() => _showLangPicker = false);
-                            _resetHideTimer();
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 120),
-                            color: sel ? Colors.white.withValues(alpha: 0.10) : Colors.transparent,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 110,
-                                  child: Text(
-                                    label,
-                                    style: TextStyle(
-                                      color: sel ? Theme.of(context).primaryColor : Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: sel ? FontWeight.bold : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                                if (sel) ...[
-                                  const SizedBox(width: 8),
-                                  Icon(Icons.check_rounded, color: Theme.of(context).primaryColor, size: 14),
-                                ],
                               ],
                             ),
                           ),
@@ -2964,11 +2874,13 @@ class _SettingsPanel extends StatefulWidget {
   final Player player;
   final Color accent;
   final VoidCallback onClose;
+  final Future<void> Function()? onDownload;
 
   const _SettingsPanel({
     required this.player,
     required this.accent,
     required this.onClose,
+    this.onDownload,
   });
 
   @override
@@ -2978,6 +2890,70 @@ class _SettingsPanel extends StatefulWidget {
 class _SettingsPanelState extends State<_SettingsPanel> {
   bool _bilingual = false;
   double _subDelay = 0.0;
+  bool _subBoldBox = false;
+  double _subFontSize = 24;
+  static const Color _kBlue = Color(0xFF2E6CEF);
+
+  /// Bilingual subtitles: play a second subtitle track via mpv `secondary-sid`.
+  void _applyBilingual() {
+    final plat = widget.player.platform as dynamic;
+    try {
+      if (_bilingual) {
+        final cur = widget.player.state.track.subtitle;
+        final others = widget.player.state.tracks.subtitle
+            .where((t) => t.id != 'no' && t.id != '-1' && t.id != cur.id)
+            .toList();
+        if (others.isNotEmpty) {
+          plat.setProperty('secondary-sid', others.first.id);
+        } else {
+          _bilingual = false; // nothing to pair with
+        }
+      } else {
+        plat.setProperty('secondary-sid', 'no');
+      }
+    } catch (_) {}
+  }
+
+  /// Apply subtitle styling via mpv properties.
+  void _applySubStyle() {
+    final plat = widget.player.platform as dynamic;
+    try {
+      plat.setProperty('sub-font-size', _subFontSize.round().toString());
+      plat.setProperty('sub-border-style', _subBoldBox ? '3' : '1');
+      plat.setProperty('sub-back-color', _subBoldBox ? '&H80000000' : '&H00000000');
+      plat.setProperty('sub-shadow', '0');
+    } catch (_) {}
+  }
+
+  Widget _subSizeBtn(IconData icon, double delta) {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _subFontSize = (_subFontSize + delta).clamp(14.0, 64.0));
+        _applySubStyle();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(6)),
+        child: Icon(icon, color: Colors.white, size: 14),
+      ),
+    );
+  }
+
+  Widget _styleChip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? widget.accent.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? widget.accent : Colors.white12),
+        ),
+        child: Text(label, style: TextStyle(color: selected ? widget.accent : Colors.white70, fontSize: 12)),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3098,11 +3074,11 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                     },
                                     thumbColor: WidgetStateProperty.resolveWith(
                                         (states) => states.contains(WidgetState.selected)
-                                            ? widget.accent
+                                            ? _kBlue
                                             : Colors.white70),
                                     trackColor: WidgetStateProperty.resolveWith(
                                         (states) => states.contains(WidgetState.selected)
-                                            ? widget.accent.withValues(alpha: 0.45)
+                                            ? _kBlue.withValues(alpha: 0.85)
                                             : Colors.white24),
                                     overlayColor:
                                         WidgetStateProperty.all(Colors.transparent),
@@ -3186,10 +3162,12 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                       scale: 0.75,
                                       child: Switch(
                                         value: _bilingual,
-                                        onChanged: (v) =>
-                                            setState(() =>
-                                                _bilingual = v),
-                                        activeColor: widget.accent,
+                                        onChanged: (v) {
+                                          setState(() => _bilingual = v);
+                                          _applyBilingual();
+                                        },
+                                        activeColor: _kBlue,
+                                        activeTrackColor: _kBlue,
                                         materialTapTargetSize:
                                             MaterialTapTargetSize
                                                 .shrinkWrap,
@@ -3239,6 +3217,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                     accent: widget.accent,
                                     onTap: () {
                                       widget.player.setSubtitleTrack(t);
+                                      if (_bilingual) _applyBilingual();
                                       setState(() {});
                                     },
                                   );
@@ -3314,8 +3293,71 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                 ),
                               ),
                               Container(height: 0.6, color: Colors.white12),
+                              Container(height: 0.6, color: Colors.white12),
+                              // ── Style des sous-titres ──────────────────────────────
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Style des sous-titres',
+                                        style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        _styleChip('Contour', !_subBoldBox, () { setState(() => _subBoldBox = false); _applySubStyle(); }),
+                                        const SizedBox(width: 8),
+                                        _styleChip('Fond', _subBoldBox, () { setState(() => _subBoldBox = true); _applySubStyle(); }),
+                                        const Spacer(),
+                                        _subSizeBtn(Icons.remove_rounded, -2),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                                          child: Text('${_subFontSize.round()}',
+                                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                        ),
+                                        _subSizeBtn(Icons.add_rounded, 2),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(height: 0.6, color: Colors.white12),
+                              // ── Langue (pistes audio) — mêmes boxes que le picker ──
+                              const Padding(
+                                padding: EdgeInsets.fromLTRB(12, 10, 12, 2),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text('Langue',
+                                      style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                                child: Wrap(
+                                  spacing: 8, runSpacing: 8,
+                                  children: widget.player.state.tracks.audio.asMap().entries.map((e) {
+                                    final i = e.key; final t = e.value;
+                                    final sel = t.id == widget.player.state.track.audio.id;
+                                    return GestureDetector(
+                                      onTap: () { widget.player.setAudioTrack(t); setState(() {}); },
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 120),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                        decoration: BoxDecoration(
+                                          color: sel ? widget.accent.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.06),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: sel ? widget.accent : Colors.white12),
+                                        ),
+                                        child: Text(_audioTrackLabel(t, i),
+                                            style: TextStyle(color: sel ? widget.accent : Colors.white70, fontSize: 12)),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              Container(height: 0.6, color: Colors.white12),
                               InkWell(
-                                onTap: () {},
+                                onTap: () => widget.onDownload?.call(),
                                 child: const Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                   child: Row(
@@ -4201,7 +4243,7 @@ class _InlineControlsState extends State<_InlineControls> {
               padding:
                   EdgeInsets.symmetric(horizontal: 5, vertical: 6),
               child: Icon(
-                Broken.mirroring_screen,
+                Broken.screenmirroring,
                 color: Colors.white,
                 size: 18,
               ),
@@ -4366,36 +4408,42 @@ class _MorePanel extends StatefulWidget {
 
 class _MorePanelState extends State<_MorePanel> {
   double _brightness = 0.5;
+  static const Color _kBlue = Color(0xFF2E6CEF);
+
+  // Toggle tile — same visual language as the subtitle panel tiles.
+  Widget _toggleTile(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: active ? _kBlue.withValues(alpha: 0.16) : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: active ? _kBlue : Colors.white12, width: 1),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: TextStyle(color: active ? _kBlue : Colors.white, fontSize: 13)),
+            ),
+            Icon(
+              active ? Broken.tick_circle : Icons.radio_button_unchecked_rounded,
+              color: active ? _kBlue : Colors.white38,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     ScreenBrightness.instance.current.then((v) { if (mounted) setState(() => _brightness = v); }).catchError((_) {});
-  }
-
-  Widget _iconBtn(IconData icon, String label, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            width: 52, height: 52,
-            decoration: BoxDecoration(
-              color: active ? widget.accent.withValues(alpha: 0.22) : Colors.white12,
-              borderRadius: BorderRadius.circular(14),
-              border: active ? Border.all(color: widget.accent, width: 1.2) : null,
-            ),
-            child: Icon(icon, color: active ? widget.accent : Colors.white70, size: 22),
-          ),
-          const SizedBox(height: 5),
-          Text(label,
-              style: TextStyle(color: active ? widget.accent : Colors.white60, fontSize: 10),
-              textAlign: TextAlign.center),
-        ],
-      ),
-    );
   }
 
   @override
@@ -4446,33 +4494,20 @@ class _MorePanelState extends State<_MorePanel> {
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 14),
                     // Row 1: Audio tracks + Mirror + Night + Minuteur
-                    Wrap(
-                      spacing: 10, runSpacing: 12,
-                      children: [
-                        _iconBtn(Broken.musicnote, 'Audio seul', widget.audioOnly,
-                            () => widget.onAudioOnly(!widget.audioOnly)),
-                        _iconBtn(Broken.mirror, 'Miroir', widget.mirrorMode,
-                            () => widget.onMirror(!widget.mirrorMode)),
-                        _iconBtn(Broken.moon, 'Nuit', widget.nightMode,
-                            () => widget.onNight(!widget.nightMode)),
-                        _iconBtn(Broken.mirroring_screen, 'PiP', false, () {
-                          widget.onClose();
-                        }),
-                      ],
-                    ),
+                    _toggleTile('Audio seul', widget.audioOnly, () => widget.onAudioOnly(!widget.audioOnly)),
+                    _toggleTile('Miroir', widget.mirrorMode, () => widget.onMirror(!widget.mirrorMode)),
+                    _toggleTile('Mode nuit', widget.nightMode, () => widget.onNight(!widget.nightMode)),
                     const SizedBox(height: 14),
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // Loop section
                     const Text('Boucle', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
+                    Row(
                       children: [
-                        _iconBtn(Broken.repeate_one, 'Épisode', widget.loopOne,
-                            () => widget.onLoopOne(!widget.loopOne)),
-                        _iconBtn(Broken.repeate_music, 'Tout', widget.loopAll,
-                            () => widget.onLoopAll(!widget.loopAll)),
+                        Expanded(child: _toggleTile('Épisode', widget.loopOne, () => widget.onLoopOne(!widget.loopOne))),
+                        const SizedBox(width: 8),
+                        Expanded(child: _toggleTile('Tout', widget.loopAll, () => widget.onLoopAll(!widget.loopAll))),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -4688,27 +4723,94 @@ class _EpisodePanel extends StatelessWidget {
                                 onTap: () => onTap(ch),
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 120),
-                                  color: isCur ? accent.withValues(alpha: 0.14) : Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: isCur ? accent.withValues(alpha: 0.14) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isCur
+                                          ? accent.withValues(alpha: 0.5)
+                                          : Colors.white.withValues(alpha: 0.06),
+                                      width: 1,
+                                    ),
+                                  ),
                                   child: Row(
                                     children: [
-                                      if (isCur) ...[
-                                        Icon(Broken.play, color: accent, size: 16),
-                                        const SizedBox(width: 4),
-                                      ] else
-                                        const SizedBox(width: 20),
-                                      Expanded(
-                                        child: Text(
-                                          ch.name ?? 'Épisode ${i + 1}',
-                                          style: TextStyle(
-                                            color: isCur ? accent : Colors.white,
-                                            fontSize: 13,
-                                            fontWeight: isCur ? FontWeight.w600 : FontWeight.normal,
+                                      // ── Cover ──
+                                      Stack(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Container(
+                                              width: 96,
+                                              height: 54,
+                                              color: Colors.white.withValues(alpha: 0.07),
+                                              child: (ch.thumbnailUrl?.isNotEmpty ?? false)
+                                                  ? CachedNetworkImage(
+                                                      imageUrl: ch.thumbnailUrl!,
+                                                      fit: BoxFit.cover,
+                                                      fadeInDuration: Duration.zero,
+                                                      errorWidget: (_, __, ___) => const Center(
+                                                        child: Icon(Broken.video, color: Colors.white24, size: 20),
+                                                      ),
+                                                    )
+                                                  : const Center(
+                                                      child: Icon(Broken.video, color: Colors.white24, size: 20),
+                                                    ),
+                                            ),
                                           ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
+                                          if (isCur)
+                                            Positioned(
+                                              right: 4,
+                                              bottom: 4,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(3),
+                                                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                                                child: Icon(Broken.play, color: Colors.black87, size: 10),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(width: 10),
+                                      // ── Name + meta ──
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              ch.name ?? 'Épisode ${i + 1}',
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: isCur ? accent : Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: isCur ? FontWeight.w700 : FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              ch.duration?.isNotEmpty == true
+                                                  ? ch.duration!
+                                                  : 'Épisode ${i + 1}',
+                                              style: TextStyle(
+                                                color: isCur
+                                                    ? accent.withValues(alpha: 0.8)
+                                                    : Colors.white38,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
+                                      if (!isCur)
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 6),
+                                          child: Text(
+                                            '#${i + 1}',
+                                            style: const TextStyle(color: Colors.white24, fontSize: 11),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
