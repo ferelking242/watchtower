@@ -699,7 +699,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                                 bgUrl.isNotEmpty
                                     ? ExtendedImage.network(bgUrl,
                                           fit: BoxFit.cover,
-                                          enableMemoryCache: true,
                                           loadStateChanged: (state) =>
                                               state.extendedImageLoadState ==
                                                       LoadState.failed
@@ -1166,7 +1165,6 @@ class _NfHeroShimmerPlaceholderState extends State<NfHeroShimmerPlaceholder>
                       ? ExtendedImage.network(
                           widget.iconUrl!,
                           fit: BoxFit.contain,
-                          enableMemoryCache: true,
                           loadStateChanged: (state) =>
                               state.extendedImageLoadState == LoadState.failed
                                   ? const Icon(Icons.play_circle_fill_rounded,
@@ -1829,7 +1827,6 @@ class _CategoryGridPage extends StatelessWidget {
                     extImg.isNotEmpty
                         ? ExtendedImage.network(extImg,
                               fit: BoxFit.cover,
-                              enableMemoryCache: true,
                               loadStateChanged: (state) =>
                                   state.extendedImageLoadState ==
                                           LoadState.failed

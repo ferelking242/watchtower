@@ -126,7 +126,6 @@ class NfWatchAppBarWidget extends StatelessWidget {
                             width: 26,
                             height: 26,
                             fit: BoxFit.cover,
-                            enableMemoryCache: true,
                             loadStateChanged: (state) =>
                                 state.extendedImageLoadState ==
                                         LoadState.failed
