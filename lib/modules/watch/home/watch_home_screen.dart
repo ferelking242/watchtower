@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:extended_image/extended_image.dart';
+import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/manga.dart';
@@ -72,6 +73,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   Timer? _suggestionTimer;
   List<MManga> _suggestions = [];
   String _committedQuery = '';
+
+  // ── Search content-type tabs ───────────────────────────────────────────────
+  // Tabs come from the extension manifest (contentSubtype: movie/series/reel…).
+  // null = "Tout" — no type filter sent to the extension.
+  String? _selectedType;
 
   // ── Voice search ──────────────────────────────────────────────────────────
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -277,6 +283,52 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       _committedQuery = q.trim();
       _suggestions    = [];
     });
+  }
+
+  /// Content types declared by this extension (movie / series / reel …).
+  List<String> get _contentTypes => source.contentSubtype ?? const [];
+
+  /// Filter payload sent to the extension when a type tab is active.
+  /// Extensions that support filters receive a SelectFilter whose value is the
+  /// raw subtype string; unsupported extensions simply ignore it.
+  /// Memoized: Riverpod families key providers by argument identity, so a
+  /// freshly-built list per call would re-create the provider every rebuild.
+  List<dynamic> _searchFiltersCache = const [];
+  String? _searchFiltersKey;
+
+  List<dynamic> get _searchFilters {
+    if (_searchFiltersKey != _selectedType) {
+      final type = _selectedType;
+      _searchFiltersKey = _selectedType;
+      _searchFiltersCache = (type != null && _contentTypes.contains(type))
+          ? [
+              SelectFilter(
+                'content_type',
+                'Type',
+                _contentTypes.indexOf(type),
+                _contentTypes
+                    .map((t) => SelectFilterOption(t.capitalize(), t))
+                    .toList(),
+                null,
+              ),
+            ]
+          : const [];
+    }
+    return _searchFiltersCache;
+  }
+
+  void _onTypeTabTap(String? type) {
+    if (_selectedType == type) return;
+    setState(() => _selectedType = type);
+    // Re-run the current query under the new type filter.
+    if (_committedQuery.isNotEmpty) {
+      ref.invalidate(searchProvider(
+        source:     source,
+        query:      _committedQuery,
+        page:       1,
+        filterList: _searchFilters,
+      ));
+    }
   }
 
   void _onSuggestionTap(MManga manga) {
@@ -847,8 +899,29 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           ),
         ),
 
-        // ── Autocomplete suggestions ──────────────────────────────────────
-        // ── Results ──────────────────────────────────────────────────────
+        // ── Content-type tabs (movie / series / reel … from the ext) ──────
+        if (_contentTypes.isNotEmpty)
+          SizedBox(
+            height: 46,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding:         const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              children: [
+                _SearchTypeTab(
+                  label:    'Tout',
+                  selected: _selectedType == null,
+                  onTap:    () => _onTypeTabTap(null),
+                ),
+                for (final t in _contentTypes)
+                  _SearchTypeTab(
+                    label:    t.capitalize(),
+                    selected: _selectedType == t,
+                    onTap:    () => _onTypeTabTap(t),
+                  ),
+              ],
+            ),
+          ),
+
         // ── Results + floating suggestions overlay ────────────────────
         Expanded(
           child: Stack(
@@ -970,7 +1043,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         if (_committedQuery.isEmpty) return const SizedBox.shrink();
         final snap = r.watch(
             searchProvider(source: source, query: _committedQuery, page: 1,
-                filterList: const []));
+                filterList: _searchFilters));
         return snap.when(
           data: (d) {
             final items = d?.list ?? [];
@@ -1875,4 +1948,57 @@ class _CategoryGridPage extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Search content-type tab pill ───────────────────────────────────────────────
+// Netflix-style segmented pills under the search bar. Values come from the
+// extension manifest's contentSubtype list.
+
+class _SearchTypeTab extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SearchTypeTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.white12,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.black : Colors.white70,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+extension _StringCasing on String {
+  String capitalize() =>
+      isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
 }
