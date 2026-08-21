@@ -307,7 +307,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                 'Type',
                 _contentTypes.indexOf(type),
                 _contentTypes
-                    .map((t) => SelectFilterOption(t.capitalize(), t))
+                    .map((t) => SelectFilterOption(t.capitalize(), t, null))
                     .toList(),
                 null,
               ),
