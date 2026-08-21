@@ -46,7 +46,7 @@
         android:allowBackup="false"
         android:hasFragileUserData="true"
         android:enableOnBackInvokedCallback="true"
-        android:extractNativeLibs="false">
+        android:extractNativeLibs="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
