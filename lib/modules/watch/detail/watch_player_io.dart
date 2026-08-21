@@ -28,6 +28,7 @@ import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/widgets/watchtower_loader.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player controls use the Broken/Iconsax pack
 
 // ─── Speed levels ─────────────────────────────────────────────────────────────
 const _kAllSpeeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0];
@@ -1272,7 +1273,7 @@ class _FullscreenControlsOverlayState
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white12, width: 1),
                         ),
-                        child: const Icon(Icons.audiotrack_rounded, color: Colors.white70, size: 44),
+                        child: const Icon(Broken.musicnote, color: Colors.white70, size: 44),
                       ),
                       const SizedBox(height: 18),
                       Text(
@@ -1343,7 +1344,7 @@ class _FullscreenControlsOverlayState
                       color: Colors.black54,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.lock_rounded, color: Colors.white, size: 22),
+                    child: const Icon(Broken.lock, color: Colors.white, size: 22),
                   ),
                 ),
               ),
@@ -1374,7 +1375,7 @@ class _FullscreenControlsOverlayState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildIconCircle(
-                      icon: Icons.camera_alt_outlined,
+                      icon: Broken.camera,
                       tooltip: 'Capture',
                       onTap: () async {
                         setState(() => _showControls = false);
@@ -1430,14 +1431,14 @@ class _FullscreenControlsOverlayState
                   child: Center(
                     child: _showBrightnessHUD
                         ? _buildTopMediaHud(
-                            icon: Icons.brightness_6_rounded,
+                            icon: Broken.sun,
                             value: _brightness)
                         : _buildTopMediaHud(
                             icon: _volume <= 0
-                                ? Icons.volume_off_rounded
+                                ? Broken.volume_slash
                                 : _volume < 0.5
-                                    ? Icons.volume_down_rounded
-                                    : Icons.volume_up_rounded,
+                                    ? Broken.volume_low
+                                    : Broken.volume_high,
                             value: _volume),
                   ),
                 ),
@@ -1461,7 +1462,7 @@ class _FullscreenControlsOverlayState
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
+                                const Icon(Broken.forward, color: Colors.white, size: 18),
                                 const SizedBox(width: 6),
                                 Text(
                                   _holdBoostSpeed == _holdBoostSpeed.roundToDouble()
@@ -1561,7 +1562,7 @@ class _FullscreenControlsOverlayState
               children: [
                 for (int i = 0; i < arrows; i++)
                   Icon(
-                    isRight ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                    isRight ? Broken.forward : Broken.backward,
                     color: Colors.white.withValues(alpha: 0.55 + i * 0.15),
                     size: 40,
                   ),
@@ -1663,7 +1664,7 @@ class _FullscreenControlsOverlayState
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            _horizSeekDelta >= 0 ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+            _horizSeekDelta >= 0 ? Broken.forward : Broken.backward,
             color: Colors.white,
             size: 26,
           ),
@@ -1838,7 +1839,7 @@ class _FullscreenControlsOverlayState
         children: [
           if (widget.showBackButton)
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+              icon: const Icon(Broken.arrow_left, color: Colors.white, size: 22),
               onPressed: () => Navigator.of(context).pop(),
               padding: const EdgeInsets.all(8),
             ),
@@ -1856,7 +1857,7 @@ class _FullscreenControlsOverlayState
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.subtitles_outlined, color: Colors.white70, size: 20),
+            icon: const Icon(Broken.subtitle, color: Colors.white70, size: 20),
             onPressed: () {
               _hideTimer?.cancel();
               setState(() {
@@ -1869,14 +1870,14 @@ class _FullscreenControlsOverlayState
           ),
           // PiP button
           IconButton(
-            icon: const Icon(Icons.picture_in_picture_alt_outlined, color: Colors.white70, size: 20),
+            icon: const Icon(Broken.mirroring_screen, color: Colors.white70, size: 20),
             onPressed: () { _enterPiP(); _resetHideTimer(); },
             padding: const EdgeInsets.all(8),
           ),
           // Episode list
           IconButton(
             icon: Icon(
-              Icons.playlist_play_rounded,
+              Broken.music_playlist,
               color: _showEpPanel ? Theme.of(context).primaryColor : Colors.white70,
               size: 22,
             ),
@@ -1895,7 +1896,7 @@ class _FullscreenControlsOverlayState
           // More (PLAYit-style panel)
           IconButton(
             icon: Icon(
-              Icons.more_vert_rounded,
+              Broken.more,
               color: _showMorePanel ? Theme.of(context).primaryColor : Colors.white,
               size: 22,
             ),
@@ -1932,7 +1933,7 @@ class _FullscreenControlsOverlayState
           alignment: Alignment.center,
           children: [
             Icon(
-              isForward ? Icons.forward_rounded : Icons.replay_rounded,
+              isForward ? Broken.forward : Broken.backward,
               color: Colors.white,
               size: 44,
             ),
@@ -1987,7 +1988,7 @@ class _FullscreenControlsOverlayState
           color: Colors.black45,
           shape: BoxShape.circle,
         ),
-        child: const Icon(Icons.lock_open_rounded, color: Colors.white, size: 20),
+        child: const Icon(Broken.unlock, color: Colors.white, size: 20),
       ),
     );
   }
@@ -2164,7 +2165,7 @@ class _FullscreenControlsOverlayState
             initialData: widget.player.state.playing,
             builder: (_, snap) => IconButton(
               icon: Icon(
-                (snap.data ?? false) ? Icons.pause : Icons.play_arrow,
+                (snap.data ?? false) ? Broken.pause : Broken.play,
                 color: Colors.white,
                 size: 24,
               ),
@@ -2179,7 +2180,7 @@ class _FullscreenControlsOverlayState
           ),
           // Previous episode
           IconButton(
-            icon: Icon(Icons.skip_previous,
+            icon: Icon(Broken.previous,
                 color: widget.onPrevEpisode != null ? Colors.white70 : Colors.white24,
                 size: 24),
             onPressed: widget.onPrevEpisode != null ? () {
@@ -2191,7 +2192,7 @@ class _FullscreenControlsOverlayState
           ),
           // Next episode
           IconButton(
-            icon: Icon(Icons.skip_next,
+            icon: Icon(Broken.next,
                 color: widget.onNextEpisode != null ? Colors.white70 : Colors.white24,
                 size: 24),
             onPressed: widget.onNextEpisode != null ? () {
@@ -2204,14 +2205,14 @@ class _FullscreenControlsOverlayState
           const Spacer(),
           // Fit (cycle through modes)
           _ToolbarChip(
-            icon: Icons.fit_screen_outlined,
+            icon: Broken.crop,
             label: fitLabel,
             onTap: _toggleFit,
           ),
           const SizedBox(width: 8),
           // Langue (audio tracks inline picker)
           _ToolbarChip(
-            icon: Icons.language_outlined,
+            icon: Broken.global,
             label: _langLabel(),
             active: _showLangPicker,
             onTap: () {
@@ -2591,7 +2592,7 @@ class _FullscreenControlsOverlayState
           shape: BoxShape.circle,
         ),
         child: Icon(
-          _muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+          _muted ? Broken.volume_slash : Broken.volume_high,
           color: Colors.white,
           size: 20,
         ),
@@ -3601,7 +3602,7 @@ class _TrackTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              _horizSeekDelta >= 0 ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+              _horizSeekDelta >= 0 ? Broken.forward : Broken.backward,
               color: Colors.white, size: 22,
             ),
             const SizedBox(height: 3),
@@ -3712,7 +3713,7 @@ class _TrackTile extends StatelessWidget {
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Row(mainAxisSize: MainAxisSize.min, children: [
               for (int i = 0; i < arrows; i++)
-                Icon(isRight ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                Icon(isRight ? Broken.forward : Broken.backward,
                      color: Colors.white.withValues(alpha: 0.55 + i * 0.15), size: 36),
             ]),
             const SizedBox(height: 8),
@@ -3740,7 +3741,7 @@ class _TrackTile extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              (snap.data ?? false) ? Broken.pause : Broken.play,
               color: Colors.white,
               size: 38,
             ),
@@ -3867,13 +3868,13 @@ class _TrackTile extends StatelessWidget {
                 child: IgnorePointer(
                   child: Center(
                     child: _showBrightnessHUD
-                        ? _buildTopMediaHud(icon: Icons.brightness_6_rounded, value: _brightness)
+                        ? _buildTopMediaHud(icon: Broken.sun, value: _brightness)
                         : _buildTopMediaHud(
                             icon: _volume <= 0
-                                ? Icons.volume_off_rounded
+                                ? Broken.volume_slash
                                 : _volume < 0.5
-                                    ? Icons.volume_down_rounded
-                                    : Icons.volume_up_rounded,
+                                    ? Broken.volume_low
+                                    : Broken.volume_high,
                             value: _volume),
                   ),
                 ),
@@ -3913,6 +3914,7 @@ class _TrackTile extends StatelessWidget {
                             controller: widget.controller,
                             player: widget.player,
                             title: widget.title,
+                            currentChapterId: widget.currentChapterId,
                             loadedVideos: widget.loadedVideos,
                             onSwitchQuality: widget.onSwitchQuality,
                             selectedQuality: widget.selectedQuality,
@@ -3932,7 +3934,7 @@ class _TrackTile extends StatelessWidget {
                       color: Colors.black.withValues(alpha: 0.40),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.settings_outlined, color: Colors.white70, size: 20),
+                    child: const Icon(Broken.setting_2, color: Colors.white70, size: 20),
                   ),
                 ),
               ),
@@ -4078,8 +4080,8 @@ class _InlineControlsState extends State<_InlineControls> {
                     horizontal: 6, vertical: 6),
                 child: Icon(
                   (snap.data ?? false)
-                      ? Icons.pause
-                      : Icons.play_arrow,
+                      ? Broken.pause
+                      : Broken.play,
                   color: Colors.white,
                   size: 26,
                 ),
@@ -4199,7 +4201,7 @@ class _InlineControlsState extends State<_InlineControls> {
               padding:
                   EdgeInsets.symmetric(horizontal: 5, vertical: 6),
               child: Icon(
-                Icons.picture_in_picture_alt_outlined,
+                Broken.mirroring_screen,
                 color: Colors.white,
                 size: 18,
               ),
@@ -4447,13 +4449,13 @@ class _MorePanelState extends State<_MorePanel> {
                     Wrap(
                       spacing: 10, runSpacing: 12,
                       children: [
-                        _iconBtn(Icons.audiotrack_outlined, 'Audio seul', widget.audioOnly,
+                        _iconBtn(Broken.musicnote, 'Audio seul', widget.audioOnly,
                             () => widget.onAudioOnly(!widget.audioOnly)),
-                        _iconBtn(Icons.flip_outlined, 'Miroir', widget.mirrorMode,
+                        _iconBtn(Broken.mirror, 'Miroir', widget.mirrorMode,
                             () => widget.onMirror(!widget.mirrorMode)),
-                        _iconBtn(Icons.nights_stay_outlined, 'Nuit', widget.nightMode,
+                        _iconBtn(Broken.moon, 'Nuit', widget.nightMode,
                             () => widget.onNight(!widget.nightMode)),
-                        _iconBtn(Icons.picture_in_picture_alt_outlined, 'PiP', false, () {
+                        _iconBtn(Broken.mirroring_screen, 'PiP', false, () {
                           widget.onClose();
                         }),
                       ],
@@ -4467,9 +4469,9 @@ class _MorePanelState extends State<_MorePanel> {
                     Wrap(
                       spacing: 8,
                       children: [
-                        _iconBtn(Icons.repeat_one_rounded, 'Épisode', widget.loopOne,
+                        _iconBtn(Broken.repeate_one, 'Épisode', widget.loopOne,
                             () => widget.onLoopOne(!widget.loopOne)),
-                        _iconBtn(Icons.repeat_rounded, 'Tout', widget.loopAll,
+                        _iconBtn(Broken.repeate_music, 'Tout', widget.loopAll,
                             () => widget.onLoopAll(!widget.loopAll)),
                       ],
                     ),
@@ -4535,7 +4537,7 @@ class _MorePanelState extends State<_MorePanel> {
                               borderRadius: BorderRadius.circular(10),
                               border: widget.abRepeatOn ? Border.all(color: widget.accent, width: 1) : null,
                             ),
-                            child: Icon(Icons.repeat_rounded,
+                            child: Icon(Broken.repeate_music,
                                 color: widget.abRepeatOn ? widget.accent : Colors.white60, size: 18),
                           ),
                         ),
@@ -4579,7 +4581,7 @@ class _MorePanelState extends State<_MorePanel> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.brightness_low_rounded, color: Colors.white38, size: 16),
+                        const Icon(Broken.sun, color: Colors.white38, size: 16),
                         Expanded(
                           child: Slider(
                             value: _brightness,
@@ -4592,7 +4594,7 @@ class _MorePanelState extends State<_MorePanel> {
                             },
                           ),
                         ),
-                        const Icon(Icons.brightness_high_rounded, color: Colors.white70, size: 16),
+                        const Icon(Broken.sun, color: Colors.white70, size: 16),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -4691,7 +4693,7 @@ class _EpisodePanel extends StatelessWidget {
                                   child: Row(
                                     children: [
                                       if (isCur) ...[
-                                        Icon(Icons.play_arrow_rounded, color: accent, size: 16),
+                                        Icon(Broken.play, color: accent, size: 16),
                                         const SizedBox(width: 4),
                                       ] else
                                         const SizedBox(width: 20),
@@ -4763,7 +4765,7 @@ class _NextEpCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.skip_next_rounded, color: Colors.white70, size: 16),
+                const Icon(Broken.next, color: Colors.white70, size: 16),
                 const SizedBox(width: 6),
                 const Text(
                   'Épisode suivant dans',
@@ -4875,10 +4877,10 @@ class _GestureHintOverlay extends StatelessWidget {
               const SizedBox(height: 12),
               _hint(Icons.touch_app_outlined,       'Double tap → avancer / reculer'),
               _hint(Icons.swipe_right_alt_outlined,  'Swipe → seek (n\'importe où)'),
-              _hint(Icons.brightness_medium_outlined,'Swipe gauche → luminosité'),
-              _hint(Icons.volume_up_outlined,        'Swipe droite → volume'),
+              _hint(Broken.sun,'Swipe gauche → luminosité'),
+              _hint(Broken.volume_high,        'Swipe droite → volume'),
               _hint(Icons.speed_outlined,            'Maintenir droite → vitesse ×2'),
-              _hint(Icons.lock_outline_rounded,      'Cadenas → verrouiller écran'),
+              _hint(Broken.lock,      'Cadenas → verrouiller écran'),
               const SizedBox(height: 8),
               const Text(
                 'Ce tutoriel n\'apparaît qu\'une fois.',
@@ -5203,7 +5205,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                       builder: (_, snap) => GestureDetector(
                         onTap: () { _p.playOrPause(); _resetHideTimer(); },
                         child: Icon(
-                          (snap.data ?? false) ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          (snap.data ?? false) ? Broken.pause : Broken.play,
                           color: Colors.white,
                           size: 60,
                         ),
@@ -5224,7 +5226,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                     child: Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                          icon: const Icon(Broken.arrow_left, color: Colors.white, size: 20),
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                         Expanded(
@@ -5253,20 +5255,20 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                 child: Column(
                   children: [
                     _ReelActionButton(
-                      icon: Icons.file_download_outlined,
+                      icon: Broken.document_download,
                       label: 'Télécharger',
                       onTap: () {},
                     ),
                     const SizedBox(height: 18),
                     _ReelActionButton(
-                      icon: _bookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      icon: _bookmarked ? Broken.bookmark : Broken.bookmark_2,
                       iconColor: _bookmarked ? const Color(0xFFFFC107) : Colors.white,
                       label: '',
                       onTap: _toggleBookmark,
                     ),
                     const SizedBox(height: 18),
                     _ReelActionButton(
-                      icon: Icons.reply_rounded,
+                      icon: Broken.share,
                       label: 'Partager',
                       onTap: _share,
                     ),
@@ -5350,7 +5352,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                     style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white, size: 16),
+                                  const Icon(Broken.arrow_up_3, color: Colors.white, size: 16),
                                 ],
                               ),
                             ),
@@ -5400,7 +5402,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.speed_rounded, color: Colors.white70, size: 15),
+                                    const Icon(Broken.speedometer, color: Colors.white70, size: 15),
                                     const SizedBox(width: 4),
                                     Text('${_speed}x', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                                   ],
@@ -5418,7 +5420,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
-                                  Icon(Icons.subtitles_outlined, color: Colors.white70, size: 15),
+                                  Icon(Broken.subtitle, color: Colors.white70, size: 15),
                                   SizedBox(width: 4),
                                   Text('Langue', style: TextStyle(color: Colors.white70, fontSize: 12)),
                                 ],
