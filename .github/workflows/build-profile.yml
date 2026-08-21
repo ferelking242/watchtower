@@ -166,31 +166,16 @@ jobs:
           PYEOF
           echo "file=/tmp/changelog.md" >> "$GITHUB_OUTPUT"
 
-      - name: Cache signing keystore
-        id: keystore-cache
-        uses: actions/cache@v4
-        with:
-          path: android/app/watchtower-debug.keystore
-          key: signing-keystore-v2-${{ hashFiles('android/app/build.gradle') }}
-          restore-keys: signing-keystore-v2-
-
-      - name: Generate keystore with keytool (if not cached)
-        if: steps.keystore-cache.outputs.cache-hit != 'true'
+      - name: Decode keystore from secret
         run: |
-          keytool -genkeypair -v \
-            -keystore android/app/watchtower-debug.keystore \
-            -alias watchtower \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass watchtower -keypass watchtower \
-            -dname "CN=Watchtower, OU=Dev, O=Watchtower, L=Paris, S=IDF, C=FR" \
-            -storetype PKCS12
-          echo "Generated new keystore with keytool"
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
       - name: Verify keystore
         run: |
           KEYSTORE=android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < "$KEYSTORE") bytes"
-          keytool -list -keystore "$KEYSTORE" -storepass watchtower -alias watchtower 2>&1 | head -5
+          keytool -list -keystore "$KEYSTORE" -storepass watchtower2024 -alias watchtower 2>&1 | head -5
 
       - name: Free disk space
         run: |
