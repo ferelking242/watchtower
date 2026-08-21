@@ -101,7 +101,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     Widget build(BuildContext context) {
       final _topPad = MediaQuery.of(context).padding.top;
       _headerH = _topPad + 56 + 36; // +36 for pills row
-      _carouselH = _headerH + MediaQuery.sizeOf(context).height * 0.34;
+      _carouselH = _headerH + MediaQuery.sizeOf(context).height * 0.28;
       return Scaffold(
       body: ValueListenableBuilder<bool>(
         valueListenable: anilistOfflineNotifier,
@@ -179,6 +179,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                 tab: _tab,
                 onTabChanged: _onTabChanged,
                 headerOpacity: _headerOpacity,
+                scrollOffset: _scroll.hasClients ? _scroll.offset : 0,
                 onSearchTap: () => context.push('/globalSearch'),
                 onAvatarTap: () => showAccountSheet(context),
               ),

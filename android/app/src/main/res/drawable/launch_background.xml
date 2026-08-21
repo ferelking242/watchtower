@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Native launch screen — matches the Flutter WatchtowerSplashScreen so the
-     user perceives only one branded splash instead of a black flash followed
-     by the Flutter one. -->
+<!-- Native launch screen — plain black, no icon.
+     The Flutter app renders its own branded first frame instantly.
+     Showing an icon here just delays the real UI and confuses users
+     who already have the app icon on their home screen. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/black" />
-    <item android:gravity="center">
-        <bitmap
-            android:src="@mipmap/ic_launcher"
-            android:gravity="center" />
-    </item>
 </layer-list>

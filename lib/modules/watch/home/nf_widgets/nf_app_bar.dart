@@ -1,6 +1,12 @@
 // Source visuelle: github.com/namidaco/namida — NamidaAppBarIcon + _CustomAppBar (GPL-3.0)
 // Adapted for Watchtower watch home screen.
 // NfCircleIconButton → NamidaAppBarIcon (Broken icons, transparent backdrop on dark BG)
+//
+// Scroll behaviour: driven by a ValueNotifier so the screen never setState()s
+// while scrolling (the old per-pixel setState was the main jank source).
+// Visual: permanent top scrim for status-bar legibility + a solid backdrop
+// that fades in past ~90px — icons stay white at all times (fixes the
+// "bar turns black / icons clash" issue).
 import 'package:flutter/material.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/ui/widgets/namida_app_bar.dart';
@@ -38,20 +44,22 @@ class NfCircleIconButton extends StatelessWidget {
 }
 
 // ── NfWatchAppBarWidget ────────────────────────────────────────────────────────
-// Netflix-style transparent→black opacity as you scroll.
-// Uses Broken icon font via NamidaAppBarIcon.
+// Netflix-style: top scrim always on, solid #010101 backdrop fading in with
+// scroll offset, source title fading in once collapsed.
 
 class NfWatchAppBarWidget extends StatelessWidget {
   const NfWatchAppBarWidget({
     super.key,
-    required this.scrollOffset,
+    required this.scrollOffsetNotifier,
     required this.sourceName,
     this.onSearchTap,
     this.onBackTap,
     this.canPop = false,
   });
 
-  final double        scrollOffset;
+  /// Live scroll offset — listened via ValueListenableBuilder (no rebuilds
+  /// of the parent screen).
+  final ValueNotifier<double> scrollOffsetNotifier;
   final String        sourceName;
   final VoidCallback? onSearchTap;
   final VoidCallback? onBackTap;
@@ -59,52 +67,73 @@ class NfWatchAppBarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topPad   = MediaQuery.of(context).viewPadding.top;
-    final bgOpacity = (scrollOffset / 100).clamp(0.0, 0.85).toDouble();
-    final cs        = Theme.of(context).colorScheme;
+    final topPad = MediaQuery.of(context).viewPadding.top;
 
-    return Container(
-      color:   Colors.black.withValues(alpha: bgOpacity),
-      padding: EdgeInsets.only(top: topPad, left: 4, right: 4),
-      child: SizedBox(
-        height: kToolbarHeight,
-        child: Row(
-          children: [
-            if (canPop)
-              NfCircleIconButton(
-                icon:  Broken.arrow_left_2,
-                onTap: onBackTap ?? () => Navigator.of(context).pop(),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Text(
-                  sourceName,
-                  style: const TextStyle(
-                    color:         Colors.white,
-                    fontSize:      22,
-                    fontWeight:    FontWeight.w900,
-                    letterSpacing: -0.5,
+    return ValueListenableBuilder<double>(
+      valueListenable: scrollOffsetNotifier,
+      builder: (context, offset, _) {
+        // 0 → 1 across the first 90px of scroll.
+        final t = (offset / 90).clamp(0.0, 1.0);
+        final curved = Curves.easeOut.transform(t);
+
+        return Container(
+          padding: EdgeInsets.only(top: topPad, left: 4, right: 4),
+          decoration: BoxDecoration(
+            // Permanent scrim keeps the status bar readable over the hero…
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end:  Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.55 * (1 - curved)),
+                Colors.transparent,
+              ],
+            ),
+            // …and the solid backdrop fades in once content scrolls under.
+            color: Colors.black.withValues(alpha: 0.92 * curved),
+          ),
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Row(
+              children: [
+                if (canPop)
+                  NfCircleIconButton(
+                    icon:  Broken.arrow_left_2,
+                    onTap: onBackTap ?? () => Navigator.of(context).pop(),
+                  )
+                else
+                  // Title fades in as the bar collapses over the hero.
+                  Expanded(
+                    child: Opacity(
+                      opacity: curved,
+                      child: Text(
+                        sourceName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color:         Colors.white,
+                          fontSize:      20,
+                          fontWeight:    FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                NamidaAppBarIcon(
+                  icon:      Broken.search_normal_1,
+                  onPressed: onSearchTap ?? () {},
+                  // Always white — the backdrop is always dark.
+                  child: const Icon(
+                    Broken.search_normal_1,
+                    color: Colors.white,
+                    size:  22,
                   ),
                 ),
-              ),
-            const Spacer(),
-            // Search — NamidaAppBarIcon style
-            NamidaAppBarIcon(
-              icon:      Broken.search_normal_1,
-              onPressed: onSearchTap ?? () {},
-              // wrap in white colour so it's visible over dark poster bg
-              child: Icon(
-                Broken.search_normal_1,
-                color: bgOpacity > 0.3
-                    ? cs.onSurface
-                    : Colors.white,
-                size: 22,
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

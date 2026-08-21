@@ -227,7 +227,6 @@ dependencies:
   get_it: ^8.0.3
   file_selector: ^1.0.3
   flutter_sharing_intent: ^1.1.0
-  flutter_native_splash: ^2.4.3
   home_widget: ^0.7.0
   local_notifier: ^0.1.6
   tray_manager: ^0.5.0
@@ -388,14 +387,14 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/app_icons/icon-red.png"
+  image_path: "assets/app_icons/icon.png"
   min_sdk_android: 21
   windows:
     generate: true
-    image_path: "assets/app_icons/icon-red.png"
+    image_path: "assets/app_icons/icon.png"
   macos:
     generate: true
-    image_path: "assets/app_icons/icon-red.png"
+    image_path: "assets/app_icons/icon.png"
 inno_bundle:
   id: 6CB26FFA-E72B-42C3-91E8-594940031CA2
   publisher: ferelking242
@@ -409,22 +408,3 @@ inno_bundle:
     - german
   admin: false
 
-flutter_native_splash:
-  color: "#000000"
-  image: assets/app_icons/icon-red.png
-  color_dark: "#000000"
-  image_dark: assets/app_icons/icon-red.png
-  android_12:
-    color: "#000000"
-    image: assets/app_icons/icon-red.png
-    color_dark: "#000000"
-    image_dark: assets/app_icons/icon-red.png
-  android: true
-  ios: true
-  web: false
-  fullscreen: true
-  screenshots:
-    - image: assets/app_icons/icon-red.png
-      platforms:
-        - android
-        - ios

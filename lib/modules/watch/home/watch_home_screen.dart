@@ -27,6 +27,7 @@ import 'nf_widgets/nf_highlight_banner.dart';
 import 'nf_widgets/nf_movie_box.dart';
 import 'nf_widgets/nf_new_and_hot_tile.dart';
 import 'nf_widgets/nf_utils.dart';
+import 'nf_widgets/nf_watch_history_row.dart';
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/services/layout_registry.dart';
 
@@ -57,31 +58,28 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   bool _catalogueHasNext = true;
   bool _catalogueLoading = false;
 
-  // ── List-view state (search / filter / popular / latest) ──────────────────
+  // ── Search view state ──────────────────────────────────────────────────
   bool   _isSearching  = false;
-  bool   _isFiltering  = false;
   String _query        = '';
-  bool   _isListView   = false;
 
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
-  final List<MManga> _mangaList   = [];
-  bool _isLoadingMore  = false;
-  bool _hasNextPage    = true;
-  int  _page           = 1;
-
-  AsyncValue<MPages?>? _getManga;
+  // ── Search / suggestions ──────────────────────────────────────────────────
+  // _query        → live text in the field (drives debounced suggestions)
+  // _committedQuery → query actually submitted (drives the results grid)
   Timer? _suggestionTimer;
-  List<String> _suggestions = [];
+  List<MManga> _suggestions = [];
+  String _committedQuery = '';
 
   // ── Voice search ──────────────────────────────────────────────────────────
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechAvailable = false;
   bool _isListening     = false;
 
-  // ── Scroll offset (drives app bar opacity) ────────────────────────────────
-  double _scrollOffset = 0.0;
+  // ── Scroll offset (drives app bar scrim — NO setState, see app bar) ────────
+  final ValueNotifier<double> _scrollOffsetNotifier =
+      ValueNotifier<double>(0);
 
   // ── Extension data ────────────────────────────────────────────────────────
   List<Map<String, dynamic>> _customLists = const [];
@@ -100,7 +98,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       statusBarIconBrightness:  Brightness.light,
       statusBarBrightness:      Brightness.dark,
     ));
-    _scrollCtrl.addListener(_onScroll);
     _loadLayout();
     _initSpeech();
   }
@@ -110,7 +107,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   void dispose() {
     _suggestionTimer?.cancel();
     _speech.stop();
-    _scrollCtrl.removeListener(_onScroll);
+    _scrollOffsetNotifier.dispose();
     _scrollCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -181,22 +178,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     );
   }
 
-  void _onScroll() {
-    if (!_scrollCtrl.hasClients) return;
-    final offset = _scrollCtrl.offset;
-    // Update opacity value
-    if ((offset - _scrollOffset).abs() > 0.5) {
-      setState(() => _scrollOffset = offset);
-    }
-    // Trigger catalogue load near bottom
-    final pos = _scrollCtrl.position;
-    if (pos.pixels >= pos.maxScrollExtent - 400 &&
-        _catalogueHasNext &&
-        !_catalogueLoading) {
-      _loadCatalogue();
-    }
-  }
-
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
 
   Future<void> _onRefresh() async {
@@ -249,81 +230,75 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     if (mounted) setState(() => _catalogueLoading = false);
   }
 
-  // ── List-view (search / filter / popular) pagination ──────────────────────
-
-  Future<void> _loadMore() async {
-    if (_isLoadingMore || !_hasNextPage) return;
-    setState(() => _isLoadingMore = true);
-    try {
-      final next   = _page + 1;
-      MPages? result;
-      if (_isSearching && _query.isNotEmpty) {
-        result = await ref.read(searchProvider(
-          source: source, query: _query, page: next,
-          filterList: const []).future);
-      } else {
-        result = await ref.read(
-            getPopularProvider(source: source, page: next).future);
-      }
-      if (result != null && mounted) {
-        setState(() {
-          _page++;
-          _hasNextPage = result!.hasNextPage;
-          _mangaList.addAll(result.list);
-        });
-      }
-    } catch (_) {}
-    if (mounted) setState(() => _isLoadingMore = false);
-  }
-
   // ── Search ────────────────────────────────────────────────────────────────
 
+  /// Live typing → debounced suggestions only (fast). Results are committed
+  /// on keyboard "search" action or suggestion tap — no lag while typing.
   void _onQueryChanged(String q) {
     _suggestionTimer?.cancel();
     setState(() {
       _query = q;
       if (q.isEmpty) {
-        _suggestions = [];
-        _mangaList.clear();
+        _suggestions    = [];
+        _committedQuery = '';
       }
     });
-    if (q.isEmpty) return;
+    if (q.trim().isEmpty) return;
 
-    _suggestionTimer = Timer(const Duration(milliseconds: 350), () async {
-      if (!mounted) return;
-      setState(() { _mangaList.clear(); _page = 1; _hasNextPage = true; });
-
-      // Populate autocomplete suggestions
+    _suggestionTimer = Timer(const Duration(milliseconds: 250), () async {
       try {
         final snap = await ref.read(searchProvider(
-          source: source, query: q, page: 1, filterList: const [],
+          source: source, query: q.trim(), page: 1, filterList: const [],
         ).future);
         if (!mounted) return;
-        final titles = (snap?.list ?? [])
-            .map((m) => m.name ?? '')
-            .where((n) => n.isNotEmpty)
-            .toSet()
-            .take(6)
+        // Stale-response guard — the user may have kept typing.
+        if (_searchCtrl.text.trim() != q.trim()) return;
+        final items = (snap?.list ?? [])
+            .where((m) => (m.name ?? '').isNotEmpty)
             .toList();
-        setState(() => _suggestions = titles);
-      } catch (_) {}
+        // Dedupe by title, keep order, max 5.
+        final seen = <String>{};
+        final suggestions =
+            items.where((m) => seen.add(m.name!)).take(5).toList();
+        setState(() => _suggestions = suggestions);
+      } catch (_) {
+        if (mounted) setState(() => _suggestions = []);
+      }
     });
   }
 
-  void _onSuggestionTap(String title) {
+  /// Commits a query: closes the keyboard, hides suggestions, runs the search.
+  void _commitSearch(String q) {
+    _suggestionTimer?.cancel();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _query          = q;
+      _committedQuery = q.trim();
+      _suggestions    = [];
+    });
+  }
+
+  void _onSuggestionTap(MManga manga) {
+    final title = manga.name ?? '';
+    if (title.isEmpty) return;
     _searchCtrl.value = TextEditingValue(
       text: title,
       selection: TextSelection.collapsed(offset: title.length),
     );
+    _commitSearch(title);
+  }
+
+  void _clearSearch() {
     _suggestionTimer?.cancel();
     setState(() {
-      _query       = title;
-      _suggestions = [];
-      _mangaList.clear();
-      _page        = 1;
-      _hasNextPage = true;
+      _query          = '';
+      _committedQuery = '';
+      _suggestions    = [];
     });
+    _searchCtrl.clear();
   }
+
+
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -389,32 +364,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     final catalogueList =
         _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
 
-    // ── Hero banner is pinned above the scroll area so it never scrolls away
-    // during pull-to-refresh.
+    // ── Everything scrolls in ONE CustomScrollView: the hero is the first
+    // sliver, so content can never overlap it (fixes items-over-carousel)
+    // and it scrolls away naturally, Netflix / Disney+ style.
     return Stack(
       children: [
-        // ── Pinned hero banner (does NOT scroll) ───────────────────────────
-        Positioned(
-          top:   0,
-          left:  0,
-          right: 0,
-          child: _HeroBannerSection(
-            key:         ValueKey('hero_$_refreshKey'),
-            source:      source,
-            customLists: _customLists,
-            appBarH:     _appBarH,
-            onTap: (manga) {
-              if (_tryOpenReel(ctx, manga, source)) return;
-              pushToMangaReaderDetail(
-                ref:      ref, context: ctx, getManga: manga,
-                lang:     source.lang!, source: source.name!,
-                itemType: source.itemType, sourceId: source.id,
-              );
-            },
-          ),
-        ),
-
-        // ── Scrollable content (with pull-to-refresh) ──────────────────────
         RefreshIndicator(
           onRefresh:       _onRefresh,
           color:           Colors.white,
@@ -426,10 +380,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               if (n is ScrollUpdateNotification ||
                   n is ScrollEndNotification) {
                 final px = n.metrics.pixels;
-                if ((px - _scrollOffset).abs() > 0.5) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _scrollOffset = px);
-                  });
+                // ValueNotifier only — no setState per scroll frame (jank fix).
+                if ((px - _scrollOffsetNotifier.value).abs() > 0.5) {
+                  _scrollOffsetNotifier.value = px;
                 }
                 if (px >= n.metrics.maxScrollExtent - 400 &&
                     _catalogueHasNext &&
@@ -444,16 +397,27 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               physics:    const AlwaysScrollableScrollPhysics(
                               parent: ClampingScrollPhysics()),
               slivers: [
-                // ── Spacer that matches hero banner height ────────────────
-                // (hero is pinned in Stack above, scrollable area starts below)
+                // ── Hero carousel (first sliver — scrolls with content) ───
                 SliverToBoxAdapter(
-                  child: _HeroBannerSpacer(
-                    source:     source,
+                  child: _HeroSection(
+                    key: ValueKey('hero_$_refreshKey'),
+                    source:      source,
                     customLists: _customLists,
+                    onTapManga: (manga) {
+                      if (_tryOpenReel(ctx, manga, source)) return;
+                      pushToMangaReaderDetail(
+                        ref: ref, context: ctx, getManga: manga,
+                        lang: source.lang!, source: source.name!,
+                        itemType: source.itemType, sourceId: source.id,
+                      );
+                    },
                   ),
                 ),
 
-                // ── Category chips ────────────────────────────────────────
+                // ── Watch history (continue watching) ─────────────────────
+                SliverToBoxAdapter(child: NfWatchHistoryRow(source: source)),
+
+                // ── Category widgets ──────────────────────────────────────
                 if (categoryLists.isNotEmpty)
                   SliverToBoxAdapter(
                     child: _buildCategoryChips(ctx, categoryLists),
@@ -539,18 +503,37 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                   ]),
                 ],
 
-                // ── Catalogue header ──────────────────────────────────────
+                // ── Catalogue header — centred, spotlight treatment ───────
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                    child: Row(
+                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 14),
+                    child: Column(
                       children: [
-                        const Text('Catalogue',
-                            style: TextStyle(
-                                color:      Colors.white,
-                                fontSize:   18,
-                                fontWeight: FontWeight.bold)),
-                        const Spacer(),
+                        Row(
+                          children: [
+                            const Expanded(child: _CatalogueHairline()),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              child: ShaderMask(
+                                shaderCallback: (bounds) => const LinearGradient(
+                                  colors: [Color(0xFFFF4D57), nfRedColor],
+                                ).createShader(bounds),
+                                child: const Text(
+                                  'CATALOGUE',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 3.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const Expanded(child: _CatalogueHairline()),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
                         SeeAllButton(
                           color: Colors.white70,
                           onTap: () => Navigator.of(ctx).push(
@@ -601,7 +584,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           left:  0,
           right: 0,
           child: NfWatchAppBarWidget(
-            scrollOffset: _scrollOffset,
+            scrollOffsetNotifier: _scrollOffsetNotifier,
             sourceName:   source.name ?? source.lang ?? 'Anime',
             onSearchTap:  () => setState(() => _isSearching = true),
             canPop:       context.canPop(),
@@ -617,10 +600,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   Widget _buildCategoryChips(
       BuildContext ctx, List<Map<String, dynamic>> cats) {
     return SizedBox(
-      height: 76,
+      height: 88,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding:         const EdgeInsets.fromLTRB(14, 4, 14, 4),
+        padding:         const EdgeInsets.fromLTRB(14, 8, 14, 8),
         itemCount:       cats.length,
         itemBuilder: (_, i) {
           final cl       = cats[i];
@@ -661,49 +644,70 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                       orElse: () => '',
                     );
                   }
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(9),
-                    child: SizedBox(
-                      width: 120, height: 68,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          bgUrl.isNotEmpty
-                              ? Image.network(bgUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        ColoredBox(color: fallback))
-                              : ColoredBox(color: fallback),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin:  Alignment.topLeft,
-                                end:    Alignment.bottomRight,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.30),
-                                  Colors.black.withValues(alpha: 0.72),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              child: Text(
-                                listName,
-                                style: const TextStyle(
-                                  color:         Colors.white,
-                                  fontSize:      13,
-                                  fontWeight:    FontWeight.w800,
-                                  letterSpacing: 0.2,
+                  return Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.10),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(11),
+                      child: SizedBox(
+                        width: 132, height: 72,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            bgUrl.isNotEmpty
+                                ? Image.network(bgUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          ColoredBox(color: fallback))
+                                : ColoredBox(color: fallback),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin:  Alignment.topLeft,
+                                  end:    Alignment.bottomRight,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.30),
+                                    Colors.black.withValues(alpha: 0.72),
+                                  ],
                                 ),
-                                textAlign: TextAlign.center,
-                                maxLines:  2,
-                                overflow:  TextOverflow.ellipsis,
                               ),
                             ),
-                          ),
-                        ],
+                            Center(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 6),
+                                child: Text(
+                                  listName,
+                                  style: const TextStyle(
+                                    color:         Colors.white,
+                                    fontSize:      13,
+                                    fontWeight:    FontWeight.w800,
+                                    letterSpacing: 0.2,
+                                    shadows: [
+                                      Shadow(
+                                          color: Colors.black87,
+                                          blurRadius: 6),
+                                    ],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines:  2,
+                                  overflow:  TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -720,6 +724,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 
   Widget _buildSearchView(BuildContext ctx) {
     final topPad = MediaQuery.paddingOf(ctx).top;
+    final hasText = _query.trim().isNotEmpty;
 
     return Column(
       children: [
@@ -729,23 +734,29 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           padding: EdgeInsets.only(top: topPad + 4, left: 8, right: 8, bottom: 8),
           child: Row(
             children: [
-              // Back button — circular translucent backdrop
+              // Back — chevron "<" like every other screen
               NfCircleIconButton(
-                icon:  Icons.arrow_back_rounded,
-                onTap: () => setState(() {
-                  _isSearching = false;
-                  _query       = '';
+                icon: Icons.arrow_back_ios_new_rounded,
+                size: 20,
+                onTap: () {
+                  _suggestionTimer?.cancel();
+                  setState(() {
+                    _isSearching    = false;
+                    _query          = '';
+                    _committedQuery = '';
+                    _suggestions    = [];
+                  });
                   _searchCtrl.clear();
-                  _suggestions = [];
-                  _mangaList.clear();
-                }),
+                },
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
-                  controller:  _searchCtrl,
-                  autofocus:   true,
-                  style:       const TextStyle(color: Colors.white),
+                  controller:      _searchCtrl,
+                  autofocus:       true,
+                  style:           const TextStyle(color: Colors.white),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted:     (_) => _commitSearch(_query),
                   decoration:  InputDecoration(
                     hintText:  _isListening
                         ? 'Je vous écoute…'
@@ -755,66 +766,146 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                             ? Colors.redAccent.shade100
                             : Colors.white54),
                     border:    OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(24),
                       borderSide:   BorderSide.none,
                     ),
                     filled:      true,
                     fillColor:   Colors.white12,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                        horizontal: 18, vertical: 11),
+                    // Right side of the field: mic when empty, X once typing.
+                    suffixIcon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: _isListening
+                          ? IconButton(
+                              key: const ValueKey('stop'),
+                              icon: const Icon(Icons.stop_rounded,
+                                  size: 22, color: Colors.redAccent),
+                              onPressed: _startVoiceSearch,
+                            )
+                          : hasText
+                              ? IconButton(
+                                  key: const ValueKey('clear'),
+                                  icon: const Icon(Icons.close_rounded,
+                                      size: 20, color: Colors.white70),
+                                  onPressed: _clearSearch,
+                                )
+                              : IconButton(
+                                  key: const ValueKey('mic'),
+                                  icon: Icon(
+                                      _speechAvailable
+                                          ? Icons.mic_none_rounded
+                                          : Icons.mic_off_outlined,
+                                      size: 21,
+                                      color: Colors.white70),
+                                  onPressed: _startVoiceSearch,
+                                ),
+                    ),
                   ),
                   onChanged: _onQueryChanged,
                 ),
               ),
-              const SizedBox(width: 8),
-              // Voice search mic
-              NfCircleIconButton(
-                icon: _isListening
-                    ? Icons.mic_rounded
-                    : Icons.mic_none_rounded,
-                onTap: _startVoiceSearch,
-                size: 20,
-              ),
+              const SizedBox(width: 4),
             ],
           ),
         ),
 
         // ── Autocomplete suggestions ──────────────────────────────────────
-        if (_suggestions.isNotEmpty)
-          Container(
-            color: const Color(0xFF0D0D0D),
-            child: Column(
-              children: _suggestions.map((title) => InkWell(
-                onTap: () => _onSuggestionTap(title),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded,
-                          size: 16, color: Colors.white38),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14),
+        // ── Results ──────────────────────────────────────────────────────
+        // ── Results + floating suggestions overlay ────────────────────
+        Expanded(
+          child: Stack(
+            children: [
+              // Results grid (behind)
+              Positioned.fill(
+                child: _committedQuery.isEmpty
+                    ? _buildPopularGrid(ctx)
+                    : _buildSearchResults(ctx),
+              ),
+
+              // Suggestions — clean dropdown box attached under the field.
+              if (_suggestions.isNotEmpty)
+                Positioned(
+                  top: 6,
+                  left: 12,
+                  right: 12,
+                  child: Material(
+                    color: const Color(0xFF161616),
+                    elevation: 14,
+                    shadowColor: Colors.black87,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
                         ),
                       ),
-                    ],
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 5 * 58),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            padding:    EdgeInsets.zero,
+                            itemCount:  _suggestions.length,
+                            itemBuilder: (_, i) {
+                              final m = _suggestions[i];
+                              return InkWell(
+                                onTap: () => _onSuggestionTap(m),
+                                child: Container(
+                                  height: 58,
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: i == _suggestions.length - 1
+                                          ? BorderSide.none
+                                          : BorderSide(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.06)),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(5),
+                                        child: NfPosterImage(
+                                          imageUrl: m.imageUrl,
+                                          width:    32,
+                                          height:   46,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          m.name ?? '',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                      const Icon(
+                                          Icons.north_west_rounded,
+                                          size: 15,
+                                          color: Colors.white30),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              )).toList(),
-            ),
+            ],
           ),
-
-        // ── Results ──────────────────────────────────────────────────────
-        Expanded(
-          child: _query.isEmpty
-              ? _buildPopularGrid(ctx)
-              : _buildSearchResults(ctx),
         ),
       ],
     );
@@ -838,9 +929,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   Widget _buildSearchResults(BuildContext ctx) {
     return Consumer(
       builder: (c, r, _) {
-        if (_query.isEmpty) return const SizedBox.shrink();
+        if (_committedQuery.isEmpty) return const SizedBox.shrink();
         final snap = r.watch(
-            searchProvider(source: source, query: _query, page: 1,
+            searchProvider(source: source, query: _committedQuery, page: 1,
                 filterList: const []));
         return snap.when(
           data: (d) {
@@ -898,41 +989,20 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 }
 
 // ── Hero banner spacer ─────────────────────────────────────────────────────────
-// A transparent box that reserves the same vertical space as the pinned hero
-// banner so the scrollable list starts below it.
+// ── Hero section ────────────────────────────────────────────────────────────
+// Watches the 'banner' custom list (falls back to popular), feeds the first
+// few items to the auto-rotating NfHeroCarousel. Lives INSIDE the scroll view.
 
-class _HeroBannerSpacer extends ConsumerWidget {
+class _HeroSection extends ConsumerWidget {
   final Source                     source;
   final List<Map<String, dynamic>> customLists;
+  final void Function(MManga)      onTapManga;
 
-  const _HeroBannerSpacer({
-    required this.source,
-    required this.customLists,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final width = MediaQuery.of(context).size.width;
-    final height = width + (width * .6);
-    return SizedBox(width: width, height: height);
-  }
-}
-
-// ── Hero banner section ────────────────────────────────────────────────────────
-// Picks first item from 'banner' list, falls back to first popular item.
-
-class _HeroBannerSection extends ConsumerWidget {
-  final Source                 source;
-  final List<Map<String, dynamic>> customLists;
-  final double                 appBarH;
-  final void Function(MManga)  onTap;
-
-  const _HeroBannerSection({
+  const _HeroSection({
     super.key,
     required this.source,
     required this.customLists,
-    required this.appBarH,
-    required this.onTap,
+    required this.onTapManga,
   });
 
   @override
@@ -950,7 +1020,7 @@ class _HeroBannerSection extends ConsumerWidget {
         data: (d) {
           final items = d?.list ?? [];
           if (items.isEmpty) return _buildFallback(context, ref);
-          return _buildBanner(context, items.first);
+          return _buildCarousel(items);
         },
         loading: () => _buildShimmerHero(context),
         error:   (_, __) => _buildFallback(context, ref),
@@ -965,18 +1035,18 @@ class _HeroBannerSection extends ConsumerWidget {
       data: (d) {
         final items = d?.list ?? [];
         if (items.isEmpty) return _buildShimmerHero(ctx);
-        return _buildBanner(ctx, items.first);
+        return _buildCarousel(items);
       },
       loading: () => _buildShimmerHero(ctx),
       error:   (_, __) => _buildShimmerHero(ctx),
     );
   }
 
-  Widget _buildBanner(BuildContext ctx, MManga manga) {
-    return NfHighlightBanner(
-      manga:      manga,
-      onPlayTap:  () => onTap(manga),
-      onMyListTap: () {},
+  Widget _buildCarousel(List<MManga> items) {
+    return NfHeroCarousel(
+      items:     items.take(5).toList(),
+      source:    source,
+      onTapManga: onTapManga,
     );
   }
 
@@ -987,13 +1057,13 @@ class _HeroBannerSection extends ConsumerWidget {
       child: Container(
         color:  Colors.grey[900],
         width:  width,
-        height: width + (width * .6),
+        height: heroCarouselHeight(ctx),
       ),
     );
   }
 }
 
-// ── Horizontal content row ─────────────────────────────────────────────────────
+// ── Horizontal content row ───────────────────────────────────────────────────
 // One section: title + SeeAllButton + horizontal ListView of NfMovieBox.
 
 class _NfContentRow extends ConsumerWidget {
@@ -1042,23 +1112,6 @@ class _NfContentRow extends ConsumerWidget {
                   color:      Colors.white,
                   fontSize:   18.0,
                   fontWeight: FontWeight.bold,
-                ),
-              ),
-              // Item count badge
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color:        Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${items.length}',
-                  style: const TextStyle(
-                    color:      Colors.white60,
-                    fontSize:   11,
-                    fontWeight: FontWeight.w600,
-                  ),
                 ),
               ),
               const Spacer(),
@@ -1120,7 +1173,7 @@ class _NfShimmerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 180.0,
+      height: 200.0,
       child: Skeletonizer(
         enabled: true,
         child: ListView(
@@ -1241,42 +1294,92 @@ class _CatalogueSection extends ConsumerWidget {
         }
         return const SliverToBoxAdapter(child: SizedBox.shrink());
       },
-      loading: () => SliverGrid(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 140,
-          childAspectRatio:   0.65,
-          mainAxisSpacing:    8,
-          crossAxisSpacing:   8,
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (_, __) => _NfShimmerPosterTile(),
-          childCount: 12,
-        ),
-      ),
+      loading: () => _buildGrid(context, const [], shimmerOnly: true),
       error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
     );
   }
 
-  Widget _buildGrid(BuildContext ctx, List<MManga> list) {
-    final all = items.isNotEmpty ? items : list;
-    return SliverGrid(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 140,
-        childAspectRatio:   0.65,
-        mainAxisSpacing:    8,
-        crossAxisSpacing:   8,
+  /// Centred catalogue grid — gutters on both sides, rounded poster cards
+  /// with a subtle border + shadow (the "spotlight" effect), unlike the
+  /// edge-to-edge rows above.
+  Widget _buildGrid(BuildContext ctx, List<MManga> list,
+      {bool shimmerOnly = false}) {
+    final all = shimmerOnly ? const <MManga>[] : (items.isNotEmpty ? items : list);
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 122,
+          childAspectRatio:   0.66,
+          mainAxisSpacing:    14,
+          crossAxisSpacing:   12,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (c2, i) {
+            if (i >= all.length) return _NfShimmerPosterTile();
+            return _CatalogueCard(
+              child: MangaImageCardWidget(
+                getMangaDetail:    all[i],
+                source:            source,
+                itemType:          source.itemType,
+                isComfortableGrid: false,
+              ),
+            );
+          },
+          childCount: shimmerOnly
+              ? 12
+              : all.length + (loading ? 3 : 0),
+        ),
       ),
-      delegate: SliverChildBuilderDelegate(
-        (c2, i) {
-          if (i >= all.length) return _NfShimmerPosterTile();
-          return MangaImageCardWidget(
-            getMangaDetail:    all[i],
-            source:            source,
-            itemType:          source.itemType,
-            isComfortableGrid: false,
-          );
-        },
-        childCount: all.length + (loading ? 3 : 0),
+    );
+  }
+}
+
+// ── Catalogue poster card — rounded frame + soft shadow + hairline border ────
+
+class _CatalogueCard extends StatelessWidget {
+  final Widget child;
+  const _CatalogueCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: child,
+      ),
+    );
+  }
+}
+
+// ── Catalogue header hairline ───────────────────────────────────────────────
+// Decorative gradient line flanking the centred "CATALOGUE" title.
+
+class _CatalogueHairline extends StatelessWidget {
+  const _CatalogueHairline();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.0),
+            Colors.white.withValues(alpha: 0.25),
+          ],
+        ),
       ),
     );
   }
