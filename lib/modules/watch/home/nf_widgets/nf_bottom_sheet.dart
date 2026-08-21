@@ -13,6 +13,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart'
     show pushToMangaReaderDetail;
+import 'package:watchtower/services/get_detail.dart';
 import 'package:isar_community/isar.dart';
 import 'nf_bottom_sheet_button.dart';
 import 'nf_poster_image.dart';
@@ -35,6 +36,7 @@ class NfBottomSheet extends ConsumerStatefulWidget {
 class _NfBottomSheetState extends ConsumerState<NfBottomSheet>
     with SingleTickerProviderStateMixin {
   bool _added = false;
+  bool _descExpanded = false;
 
   late final AnimationController _bounceCtrl;
   late final Animation<double>   _bounceAnim;
@@ -142,6 +144,15 @@ class _NfBottomSheetState extends ConsumerState<NfBottomSheet>
     _bounceCtrl.forward(from: 0);
   }
 
+  String _statusLabel(Status s) => switch (s) {
+        Status.ongoing            => 'En cours',
+        Status.completed          => 'Terminé',
+        Status.onHiatus           => 'En pause',
+        Status.canceled           => 'Annulé',
+        Status.publishingFinished => 'Publication terminée',
+        _                         => 'Inconnu',
+      };
+
   // ── Partager ─────────────────────────────────────────────────────────────────
 
   void _share() {
@@ -158,6 +169,25 @@ class _NfBottomSheetState extends ConsumerState<NfBottomSheet>
   @override
   Widget build(BuildContext context) {
     final m = widget.manga;
+
+    // ── Full detail from the extension API ──────────────────────────────────
+    // List items often ship only name+poster; this pulls the complete record
+    // (synopsis, tags, author, status) once and caches it for the detail page.
+    final hasLink = m.link != null && m.link!.isNotEmpty;
+    final detail = hasLink
+        ? ref.watch(getDetailProvider(url: m.link!, source: widget.source))
+        : null;
+    final full = detail?.asData?.value ?? m;
+    final loadingDetail = detail?.isLoading ?? false;
+
+    // Prefer fetched data, fall back to whatever the list item carried.
+    final synopsis    = (full.description?.trim().isNotEmpty ?? false)
+        ? full.description!
+        : (m.description ?? '');
+    final tags        = (full.genre?.isNotEmpty ?? false)
+        ? full.genre!
+        : (m.genre ?? const []);
+
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.only(
@@ -224,18 +254,48 @@ class _NfBottomSheetState extends ConsumerState<NfBottomSheet>
                             ),
                           ],
                         ),
-                        // Description
-                        if (m.description?.isNotEmpty == true) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            m.description!,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color:    Colors.white.withValues(alpha: 0.65),
-                              fontSize: 12,
-                              height:   1.4,
-                            ),
+                        // Status / author quick facts
+                        if (full.author?.trim().isNotEmpty == true) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.person_rounded,
+                                  size: 13,
+                                  color: Colors.white.withValues(alpha: 0.45)),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  full.author!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.55),
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (full.status != null &&
+                            full.status != Status.unknown) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(Icons.radio_button_checked_rounded,
+                                  size: 12,
+                                  color: Colors.greenAccent.shade100),
+                              const SizedBox(width: 5),
+                              Text(
+                                _statusLabel(full.status!),
+                                style: TextStyle(
+                                  color:
+                                      Colors.white.withValues(alpha: 0.55),
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ],
@@ -245,14 +305,70 @@ class _NfBottomSheetState extends ConsumerState<NfBottomSheet>
               ),
             ),
 
+            // ── Synopsis — tap to expand/collapse ────────────────────────
+            if (synopsis.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () =>
+                      setState(() => _descExpanded = !_descExpanded),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        alignment: Alignment.topCenter,
+                        child: Text(
+                          synopsis,
+                          maxLines: _descExpanded ? null : 3,
+                          overflow: _descExpanded
+                              ? TextOverflow.visible
+                              : TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color:    Colors.white.withValues(alpha: 0.75),
+                            fontSize: 12.5,
+                            height:   1.45,
+                          ),
+                        ),
+                      ),
+                      if (!_descExpanded && synopsis.length > 140)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 3),
+                          child: Text(
+                            'Plus',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Loading hint while detail fetch is in flight
+            if (loadingDetail && synopsis.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: SizedBox(
+                  height: 14,
+                  width: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2,
+                      color: Colors.white24),
+                ),
+              ),
+
             // ── Genre / tag chips ────────────────────────────────────────────
-            if (m.genre?.isNotEmpty == true)
+            if (tags.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Wrap(
                   spacing:    6,
                   runSpacing: 6,
-                  children: m.genre!.take(6).map((g) {
+                  children: tags.map((g) {
                     return Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 9, vertical: 3),
