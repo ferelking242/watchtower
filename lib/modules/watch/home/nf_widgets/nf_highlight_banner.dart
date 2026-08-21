@@ -16,12 +16,13 @@ import 'nf_new_and_hot_tile_action.dart';
 import 'nf_poster_image.dart';
 import 'nf_utils.dart';
 
-/// Landscape hero height — fixes the old `width * 1.6` portrait monster.
-/// ~16:9-ish, clamped so it never eats more than 44% of the screen height.
+/// Landscape hero height — cinematic ~2:1.2 ratio, clamped so it never eats
+/// more than 52% of the screen height (leaves room for a peek of the next
+/// section, like the MovieBox / Disney+ mobile heroes).
 double heroCarouselHeight(BuildContext context) {
   final size = MediaQuery.of(context).size;
-  final h = size.width * 0.62;
-  return h.clamp(0.0, size.height * 0.44);
+  final h = size.width * 0.78;
+  return h.clamp(0.0, size.height * 0.52);
 }
 
 class NfHeroCarousel extends ConsumerStatefulWidget {
@@ -137,6 +138,7 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
             controller: _pageCtrl,
             itemCount: items.length,
             onPageChanged: _onPageChanged,
+            allowImplicitScrolling: true,
             itemBuilder: (ctx, i) {
               final manga = items[i];
               return GestureDetector(

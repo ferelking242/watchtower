@@ -1,15 +1,16 @@
 // Source visuelle: github.com/namidaco/namida — NamidaAppBarIcon + _CustomAppBar (GPL-3.0)
 // Adapted for Watchtower watch home screen.
-// NfCircleIconButton → NamidaAppBarIcon (Broken icons, transparent backdrop on dark BG)
 //
 // Scroll behaviour: driven by a ValueNotifier so the screen never setState()s
-// while scrolling (the old per-pixel setState was the main jank source).
-// Visual: permanent top scrim for status-bar legibility + a solid backdrop
-// that fades in past ~90px — icons stay white at all times (fixes the
-// "bar turns black / icons clash" issue).
+// while scrolling. Visual: while the hero is under the bar a soft top scrim
+// keeps the status bar legible; once content scrolls under, the bar becomes a
+// SOLID slab of the app background colour — it reads as "resting" on screen,
+// never as a translucent overlay. Extension icon + name sit centred.
 import 'package:flutter/material.dart';
+import 'package:extended_image/extended_image.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/ui/widgets/namida_app_bar.dart';
+import 'nf_utils.dart';
 
 // ── NfCircleIconButton — kept for transparent-poster contexts ─────────────────
 // (Namida-style: Broken icon, circular translucent backdrop)
@@ -44,14 +45,14 @@ class NfCircleIconButton extends StatelessWidget {
 }
 
 // ── NfWatchAppBarWidget ────────────────────────────────────────────────────────
-// Netflix-style: top scrim always on, solid #010101 backdrop fading in with
-// scroll offset, source title fading in once collapsed.
+// Collapsed state = solid nfBackgroundColor slab, centred icon + title.
 
 class NfWatchAppBarWidget extends StatelessWidget {
   const NfWatchAppBarWidget({
     super.key,
     required this.scrollOffsetNotifier,
     required this.sourceName,
+    this.sourceIconUrl,
     this.onSearchTap,
     this.onBackTap,
     this.canPop = false,
@@ -61,6 +62,7 @@ class NfWatchAppBarWidget extends StatelessWidget {
   /// of the parent screen).
   final ValueNotifier<double> scrollOffsetNotifier;
   final String        sourceName;
+  final String?       sourceIconUrl;
   final VoidCallback? onSearchTap;
   final VoidCallback? onBackTap;
   final bool          canPop;
@@ -79,54 +81,99 @@ class NfWatchAppBarWidget extends StatelessWidget {
         return Container(
           padding: EdgeInsets.only(top: topPad, left: 4, right: 4),
           decoration: BoxDecoration(
-            // Permanent scrim keeps the status bar readable over the hero…
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end:  Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.55 * (1 - curved)),
-                Colors.transparent,
-              ],
-            ),
-            // …and the solid backdrop fades in once content scrolls under.
-            color: Colors.black.withValues(alpha: 0.92 * curved),
+            // While expanded: soft scrim over the hero for status-bar
+            // legibility. Collapsed: solid app background — the bar feels
+            // physically resting on the screen, not floating above content.
+            gradient: curved < 0.02
+                ? LinearGradient(
+                    begin: Alignment.topCenter,
+                    end:  Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.55),
+                      Colors.transparent,
+                    ],
+                  )
+                : null,
+            color: curved < 0.02
+                ? Colors.transparent
+                : nfBackgroundColor.withValues(alpha: curved),
+            boxShadow: curved > 0.95
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: SizedBox(
             height: kToolbarHeight,
-            child: Row(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                if (canPop)
-                  NfCircleIconButton(
-                    icon:  Broken.arrow_left_2,
-                    onTap: onBackTap ?? () => Navigator.of(context).pop(),
-                  )
-                else
-                  // Title fades in as the bar collapses over the hero.
-                  Expanded(
-                    child: Opacity(
-                      opacity: curved,
-                      child: Text(
-                        sourceName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color:         Colors.white,
-                          fontSize:      20,
-                          fontWeight:    FontWeight.w900,
-                          letterSpacing: -0.5,
+                // ── Centre: extension icon + name (fades in on collapse) ──
+                Opacity(
+                  opacity: curved,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (sourceIconUrl != null && sourceIconUrl!.isNotEmpty) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: ExtendedImage.network(
+                            sourceIconUrl!,
+                            width: 26,
+                            height: 26,
+                            fit: BoxFit.cover,
+                            enableMemoryCache: true,
+                            loadStateChanged: (state) =>
+                                state.extendedImageLoadState ==
+                                        LoadState.failed
+                                    ? const ColoredBox(
+                                        color: Color(0xFF1A1A1A))
+                                    : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: Text(
+                          sourceName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color:         Colors.white,
+                            fontSize:      19,
+                            fontWeight:    FontWeight.w900,
+                            letterSpacing: -0.3,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                const Spacer(),
-                NamidaAppBarIcon(
-                  icon:      Broken.search_normal_1,
-                  onPressed: onSearchTap ?? () {},
-                  // Always white — the backdrop is always dark.
-                  child: const Icon(
-                    Broken.search_normal_1,
-                    color: Colors.white,
-                    size:  22,
+                ),
+                // ── Left: back ────────────────────────────────────────────
+                Positioned(
+                  left: 0,
+                  child: canPop
+                      ? NfCircleIconButton(
+                          icon:  Broken.arrow_left_2,
+                          onTap: onBackTap ?? () => Navigator.of(context).pop(),
+                        )
+                      : const SizedBox(width: 40),
+                ),
+                // ── Right: search ─────────────────────────────────────────
+                Positioned(
+                  right: 0,
+                  child: NamidaAppBarIcon(
+                    icon:      Broken.search_normal_1,
+                    onPressed: onSearchTap ?? () {},
+                    child: const Icon(
+                      Broken.search_normal_1,
+                      color: Colors.white,
+                      size:  22,
+                    ),
                   ),
                 ),
               ],

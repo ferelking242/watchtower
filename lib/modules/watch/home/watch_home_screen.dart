@@ -504,39 +504,40 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                   ]),
                 ],
 
-                // ── Catalogue header — centred, spotlight treatment ───────
+                // ── Catalogue header — golden-leaf divider + ALL at right ─
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 14),
-                    child: Column(
+                    padding: const EdgeInsets.fromLTRB(20, 32, 16, 14),
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            const Expanded(child: _CatalogueHairline()),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              child: ShaderMask(
-                                shaderCallback: (bounds) => const LinearGradient(
-                                  colors: [Color(0xFFFF4D57), nfRedColor],
-                                ).createShader(bounds),
-                                child: const Text(
-                                  'CATALOGUE',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 3.2,
-                                  ),
-                                ),
+                        const Expanded(child: _GoldenDivider()),
+                        Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          child: ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [
+                                Color(0xFFF6E27A),
+                                Color(0xFFCBA135),
+                                Color(0xFFF6E27A),
+                              ],
+                            ).createShader(bounds),
+                            child: const Text(
+                              'CATALOGUE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 4.0,
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
-                            const Expanded(child: _CatalogueHairline()),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 10),
+                        const Expanded(child: _GoldenDivider()),
+                        const SizedBox(width: 12),
                         SeeAllButton(
-                          color: Colors.white70,
+                          color: const Color(0xFFCBA135),
                           onTap: () => Navigator.of(ctx).push(
                             MaterialPageRoute(
                               builder: (_) => _WatchSectionPage(
@@ -587,6 +588,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           child: NfWatchAppBarWidget(
             scrollOffsetNotifier: _scrollOffsetNotifier,
             sourceName:   source.name ?? source.lang ?? 'Anime',
+            sourceIconUrl: source.iconUrl,
             onSearchTap:  () => setState(() => _isSearching = true),
             canPop:       context.canPop(),
             onBackTap:    () => context.pop(),
@@ -594,130 +596,165 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         ),
       ],
     );
-  }
-
-  // ── Category chips ─────────────────────────────────────────────────────────
+  }  // ── Category chips ─────────────────────────────────────────────────────────
 
   Widget _buildCategoryChips(
       BuildContext ctx, List<Map<String, dynamic>> cats) {
-    return SizedBox(
-      height: 88,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding:         const EdgeInsets.fromLTRB(14, 8, 14, 8),
-        itemCount:       cats.length,
-        itemBuilder: (_, i) {
-          final cl       = cats[i];
-          final listId   = cl['id']       as String;
-          final listName = cl['name']     as String? ?? listId;
-          final hexColor = cl['color']    as String? ?? '#1E2126';
-          final extImg   = cl['imageUrl'] as String? ?? '';
-
-          Color fallback;
-          try {
-            final h = hexColor.replaceAll('#', '');
-            fallback = h.length == 6
-                ? Color(int.parse('FF$h', radix: 16))
-                : const Color(0xFF1E2126);
-          } catch (_) {
-            fallback = const Color(0xFF1E2126);
-          }
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
-                builder: (_) => _WatchSectionPage(
-                  source:       source,
-                  title:        listName,
-                  type:         _SectionKind.custom,
-                  customListId: listId,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header — title + ALL (opens the 2-column category grid).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+          child: Row(
+            children: [
+              const Text(
+                'Catégories',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18.0,
+                  fontWeight: FontWeight.bold,
                 ),
-              )),
-              child: Consumer(
-                builder: (c, r, _) {
-                  String bgUrl = extImg;
-                  if (bgUrl.isEmpty) {
-                    final snap = r.watch(getCustomListProvider(
-                        source: source, listId: listId, page: 1));
-                    bgUrl = snap.maybeWhen(
-                      data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
-                      orElse: () => '',
-                    );
-                  }
-                  return Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.10),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
+              ),
+              const Spacer(),
+              SeeAllButton(
+                color: Colors.white70,
+                onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
+                  builder: (_) => _CategoryGridPage(
+                    source: source,
+                    categories: cats,
+                  ),
+                )),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 104,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding:         const EdgeInsets.fromLTRB(14, 4, 14, 8),
+            itemCount:       cats.length,
+            itemBuilder: (_, i) {
+              final cl       = cats[i];
+              final listId   = cl['id']       as String;
+              final listName = cl['name']     as String? ?? listId;
+              final hexColor = cl['color']    as String? ?? '#1E2126';
+              final extImg   = cl['imageUrl'] as String? ?? '';
+
+              Color fallback;
+              try {
+                final h = hexColor.replaceAll('#', '');
+                fallback = h.length == 6
+                    ? Color(int.parse('FF$h', radix: 16))
+                    : const Color(0xFF1E2126);
+              } catch (_) {
+                fallback = const Color(0xFF1E2126);
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: GestureDetector(
+                  onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
+                    builder: (_) => _WatchSectionPage(
+                      source:       source,
+                      title:        listName,
+                      type:         _SectionKind.custom,
+                      customListId: listId,
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(11),
-                      child: SizedBox(
-                        width: 132, height: 72,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            bgUrl.isNotEmpty
-                                ? Image.network(bgUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          ColoredBox(color: fallback))
-                                : ColoredBox(color: fallback),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin:  Alignment.topLeft,
-                                  end:    Alignment.bottomRight,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.30),
-                                    Colors.black.withValues(alpha: 0.72),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Center(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 6),
-                                child: Text(
-                                  listName,
-                                  style: const TextStyle(
-                                    color:         Colors.white,
-                                    fontSize:      13,
-                                    fontWeight:    FontWeight.w800,
-                                    letterSpacing: 0.2,
-                                    shadows: [
-                                      Shadow(
-                                          color: Colors.black87,
-                                          blurRadius: 6),
-                                    ],
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines:  2,
-                                  overflow:  TextOverflow.ellipsis,
-                                ),
-                              ),
+                  )),
+                  child: Consumer(
+                    builder: (c, r, _) {
+                      String bgUrl = extImg;
+
+                      if (bgUrl.isEmpty) {
+                        final snap = r.watch(getCustomListProvider(
+                            source: source, listId: listId, page: 1));
+                        bgUrl = snap.maybeWhen(
+                          data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
+                          orElse: () => '',
+                        );
+                      }
+                      return Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.10),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          );
-        },
-      ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: SizedBox(
+                            width: 168, height: 96,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                bgUrl.isNotEmpty
+                                    ? ExtendedImage.network(bgUrl,
+                                          fit: BoxFit.cover,
+                                          enableMemoryCache: true,
+                                          loadStateChanged: (state) =>
+                                              state.extendedImageLoadState ==
+                                                      LoadState.failed
+                                                  ? ColoredBox(
+                                                      color: fallback)
+                                                  : null)
+                                    : ColoredBox(color: fallback),
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin:  Alignment.topLeft,
+                                      end:    Alignment.bottomRight,
+                                      colors: [
+                                        Colors.black.withValues(alpha: 0.25),
+                                        Colors.black.withValues(alpha: 0.70),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8),
+                                    child: Text(
+                                      listName,
+                                      style: const TextStyle(
+                                        color:         Colors.white,
+                                        fontSize:      14,
+                                        fontWeight:    FontWeight.w800,
+                                        letterSpacing: 0.2,
+                                        shadows: [
+                                          Shadow(
+                                              color: Colors.black87,
+                                              blurRadius: 6),
+                                        ],
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines:  2,
+                                      overflow:  TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -1053,13 +1090,96 @@ class _HeroSection extends ConsumerWidget {
   }
 
   Widget _buildShimmerHero(BuildContext ctx) {
-    final width = MediaQuery.of(ctx).size.width;
-    return Skeletonizer(
-      enabled: true,
-      child: Container(
-        color:  Colors.grey[900],
-        width:  width,
-        height: heroCarouselHeight(ctx),
+    return NfHeroShimmerPlaceholder(
+      width: MediaQuery.of(ctx).size.width,
+      height: heroCarouselHeight(ctx),
+      iconUrl: source.iconUrl,
+    );
+  }
+}
+
+// ── Hero loading placeholder ─────────────────────────────────────────────────
+// Shimmer card with the extension icon pulsing dead-centre — every loading
+// state of this screen keeps the extension identity visible.
+
+class NfHeroShimmerPlaceholder extends StatefulWidget {
+  final double width;
+  final double height;
+  final String? iconUrl;
+
+  const NfHeroShimmerPlaceholder({
+    super.key,
+    required this.width,
+    required this.height,
+    this.iconUrl,
+  });
+
+  @override
+  State<NfHeroShimmerPlaceholder> createState() =>
+      _NfHeroShimmerPlaceholderState();
+}
+
+class _NfHeroShimmerPlaceholderState extends State<NfHeroShimmerPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Skeletonizer(
+            enabled: true,
+            child: Container(color: Colors.grey[900]),
+          ),
+          Center(
+            child: FadeTransition(
+              opacity: Tween<double>(begin: 0.35, end: 0.9).animate(
+                  CurvedAnimation(parent: _pulse, curve: Curves.easeInOut)),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.94, end: 1.06).animate(
+                    CurvedAnimation(parent: _pulse, curve: Curves.easeInOut)),
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withValues(alpha: 0.45),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.14),
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  child: (widget.iconUrl != null && widget.iconUrl!.isNotEmpty)
+                      ? ExtendedImage.network(
+                          widget.iconUrl!,
+                          fit: BoxFit.contain,
+                          enableMemoryCache: true,
+                          loadStateChanged: (state) =>
+                              state.extendedImageLoadState == LoadState.failed
+                                  ? const Icon(Icons.play_circle_fill_rounded,
+                                      color: Colors.white70, size: 40)
+                                  : null,
+                        )
+                      : const Icon(Icons.play_circle_fill_rounded,
+                          color: Colors.white70, size: 40),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1365,28 +1485,6 @@ class _CatalogueCard extends StatelessWidget {
   }
 }
 
-// ── Catalogue header hairline ───────────────────────────────────────────────
-// Decorative gradient line flanking the centred "CATALOGUE" title.
-
-class _CatalogueHairline extends StatelessWidget {
-  const _CatalogueHairline();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.0),
-            Colors.white.withValues(alpha: 0.25),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ── Reel helper ────────────────────────────────────────────────────────────────
 // Returns true if reel navigation was handled (skip pushToMangaReaderDetail).
 
@@ -1591,34 +1689,192 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
 
 // ── View-toggle button (filter sheet) ─────────────────────────────────────────
 
-class _ViewToggleBtn extends StatelessWidget {
-  final IconData  icon;
-  final bool      selected;
-  final VoidCallback onTap;
+// ── Golden catalogue divider ────────────────────────────────────────────────
+// Ornamental hairline with a small leaf/diamond flourish at the inner end.
+// Used to flank the gold-gradient CATALOGUE title.
 
-  const _ViewToggleBtn({
-    required this.icon,
-    required this.selected,
-    required this.onTap,
+class _GoldenDivider extends StatelessWidget {
+  const _GoldenDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 12,
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFCBA135).withValues(alpha: 0.0),
+                    const Color(0xFFCBA135).withValues(alpha: 0.75),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 5,
+            height: 5,
+            transform: Matrix4.rotationZ(0.785398), // 45° diamond
+            decoration: const BoxDecoration(
+              color: Color(0xFFE7C66B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Category grid page — ALL categories on a clean 2-column grid ────────────
+
+class _CategoryGridPage extends StatelessWidget {
+  final Source                     source;
+  final List<Map<String, dynamic>> categories;
+
+  const _CategoryGridPage({
+    required this.source,
+    required this.categories,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding:  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color:        selected ? cs.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
+    return Scaffold(
+      backgroundColor: nfBackgroundColor,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                NfCircleIconButton(
+                  icon:  Icons.arrow_back_ios_new_rounded,
+                  onTap: () => Navigator.of(context).pop(),
+                  size:  20,
+                ),
+                const Spacer(),
+                Text(
+                  'Catégories',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                const SizedBox(width: 40),
+              ],
+            ),
+          ),
         ),
-        child: Icon(icon,
-            size:  18,
-            color: selected
-                ? Colors.white
-                : cs.onSurface.withValues(alpha: 0.55)),
+      ),
+      body: GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          childAspectRatio: 1.85,
+        ),
+        itemCount: categories.length,
+        itemBuilder: (_, i) {
+          final cl       = categories[i];
+          final listId   = cl['id']       as String;
+          final listName = cl['name']     as String? ?? listId;
+          final hexColor = cl['color']    as String? ?? '#1E2126';
+          final extImg   = cl['imageUrl'] as String? ?? '';
+
+          Color fallback;
+          try {
+            final h = hexColor.replaceAll('#', '');
+            fallback = h.length == 6
+                ? Color(int.parse('FF$h', radix: 16))
+                : const Color(0xFF1E2126);
+          } catch (_) {
+            fallback = const Color(0xFF1E2126);
+          }
+
+          return GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => _WatchSectionPage(
+                source:       source,
+                title:        listName,
+                type:         _SectionKind.custom,
+                customListId: listId,
+              ),
+            )),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.10),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    extImg.isNotEmpty
+                        ? ExtendedImage.network(extImg,
+                              fit: BoxFit.cover,
+                              enableMemoryCache: true,
+                              loadStateChanged: (state) =>
+                                  state.extendedImageLoadState ==
+                                          LoadState.failed
+                                      ? ColoredBox(color: fallback)
+                                      : null)
+                        : ColoredBox(color: fallback),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin:  Alignment.topLeft,
+                          end:    Alignment.bottomRight,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.25),
+                            Colors.black.withValues(alpha: 0.70),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          listName,
+                          style: const TextStyle(
+                            color:         Colors.white,
+                            fontSize:      15,
+                            fontWeight:    FontWeight.w800,
+                            letterSpacing: 0.2,
+                            shadows: [
+                              Shadow(color: Colors.black87, blurRadius: 6),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines:  2,
+                          overflow:  TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
