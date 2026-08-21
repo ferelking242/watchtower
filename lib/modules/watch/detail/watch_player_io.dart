@@ -385,6 +385,7 @@ class WatchInlinePlayer {
       onSwitchQuality: switchQuality,
       selectedQuality: selectedQuality,
       controlsNotifier: controlsVisible,
+      currentChapterId: loadedChapterId,
       onPrevEpisode: onPrevEpisode,
       onNextEpisode: onNextEpisode,
       chapters: chapters,
@@ -416,6 +417,7 @@ class WatchInlinePlayer {
             loadedVideos: loadedVideos,
             onSwitchQuality: switchQuality,
             selectedQuality: selectedQuality,
+            currentChapterId: loadedChapterId,
             onPrevEpisode: onPrevEpisode,
             onNextEpisode: onNextEpisode,
             chapters: chapters,
@@ -433,6 +435,7 @@ class _FullscreenPlayerPage extends StatefulWidget {
   final VideoController controller;
   final Player player;
   final String title;
+  final int? currentChapterId;
   final List<wt.Video> loadedVideos;
   final Future<void> Function(wt.Video)? onSwitchQuality;
   final String? selectedQuality;
@@ -445,6 +448,7 @@ class _FullscreenPlayerPage extends StatefulWidget {
     required this.controller,
     required this.player,
     required this.title,
+    this.currentChapterId,
     this.loadedVideos = const [],
     this.onSwitchQuality,
     this.selectedQuality,
@@ -538,6 +542,7 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
               player: widget.player,
               controller: widget.controller,
               title: widget.title,
+              currentChapterId: widget.currentChapterId,
               showBackButton: true,
               fitNotifier: _fitNotifier,
               loadedVideos: widget.loadedVideos,
@@ -563,6 +568,7 @@ class _FullscreenControlsOverlay extends StatefulWidget {
   final VideoController controller;
   final String title;
   final bool showBackButton;
+  final int? currentChapterId;
   final List<wt.Video> loadedVideos;
   final Future<void> Function(wt.Video)? onSwitchQuality;
   final String? selectedQuality;
@@ -577,6 +583,7 @@ class _FullscreenControlsOverlay extends StatefulWidget {
     required this.controller,
     required this.title,
     required this.showBackButton,
+    this.currentChapterId,
     this.loadedVideos = const [],
     this.onSwitchQuality,
     this.selectedQuality,
@@ -1741,7 +1748,7 @@ class _FullscreenControlsOverlayState
           Positioned.fill(
             child: _EpisodePanel(
               chapters: widget.chapters,
-              currentChapterId: null,
+              currentChapterId: widget.currentChapterId,
               accent: Theme.of(context).primaryColor,
               onTap: (ch) {
                 setState(() => _showEpPanel = false);
