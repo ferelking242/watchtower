@@ -14,21 +14,31 @@ Manga? findExistingManga(Source source, MManga manga) {
   if (name == null || name.isEmpty) return null;
   if (source.lang == null || source.name == null) return null;
 
-  // isar_community 3.x: findAllSync requires a where-clause state
-  // (QAfterWhere), not QAfterFilterCondition, so we load all IDs and
-  // filter client-side for multi-field lookups.
-  final all = isar.mangas.where().anyId().findAllSync();
-  final candidates = all
-      .where((m) =>
-          m.lang == source.lang &&
-          m.name == name &&
-          m.source == source.name)
-      .toList();
-  if (candidates.isEmpty) return null;
-  return candidates.firstWhere(
-    (e) => e.sourceId == null ? true : e.sourceId == source.id,
-    orElse: () => candidates.first,
-  );
+  // isar_community 3.x: findFirstSync works on QAfterFilterCondition;
+  // findAllSync does not. The combination of lang+name+source is unique
+  // enough that the first match is the right one.
+  final match = isar.mangas
+      .filter()
+      .langEqualTo(source.lang)
+      .nameEqualTo(name)
+      .sourceEqualTo(source.name)
+      .findFirstSync();
+
+  if (match == null) return null;
+  // If there are multiple records with different sourceIds (rare), prefer
+  // the one matching our source; otherwise return the first hit.
+  if (match.sourceId != null && match.sourceId != source.id) {
+    // Try a second lookup with sourceId included
+    final exact = isar.mangas
+        .filter()
+        .langEqualTo(source.lang)
+        .nameEqualTo(name)
+        .sourceEqualTo(source.name)
+        .sourceIdEqualTo(source.id)
+        .findFirstSync();
+    if (exact != null) return exact;
+  }
+  return match;
 }
 
 /// Whether [manga] is currently flagged as favourite ("Ma liste").
