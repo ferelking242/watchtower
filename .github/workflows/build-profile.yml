@@ -166,19 +166,14 @@ jobs:
           PYEOF
           echo "file=/tmp/changelog.md" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare signing keystore
+      - name: Verify signing keystore
         run: |
           KEYSTORE=android/app/watchtower-debug.keystore
-          if [ -n "${{ secrets.KEYSTORE_B64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > "$KEYSTORE"
-            echo "Decoded keystore from KEYSTORE_B64 secret"
-          elif [ -f "$KEYSTORE" ]; then
-            echo "Using committed keystore from repo (all builds share the same key)"
-          else
-            echo "ERROR: No KEYSTORE_B64 secret and no committed keystore found"
+          if [ ! -f "$KEYSTORE" ]; then
+            echo "ERROR: Committed keystore not found at $KEYSTORE"
             exit 1
           fi
-          echo "Keystore size: $(wc -c < "$KEYSTORE") bytes"
+          echo "Keystore OK: $(wc -c < "$KEYSTORE") bytes — all 3 builds sign with this same key"
 
       - name: Free disk space
         run: |
