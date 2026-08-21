@@ -2,6 +2,7 @@
 // Mirrors the sourceId-aware disambiguation used by NfBottomSheet and
 // pushToMangaReaderDetail so the same record is always targeted.
 import 'package:flutter/services.dart';
+import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
