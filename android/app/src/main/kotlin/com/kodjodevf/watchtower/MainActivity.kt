@@ -373,7 +373,7 @@ package com.watchtower.app
                               .setShortLabel(label.take(25))
                               .setLongLabel(label)
                               .setIcon(android.graphics.drawable.Icon.createWithResource(
-                                  applicationContext, R.mipmap.ic_launcher))
+                                  applicationContext, R.mipmap.launcher_icon))
                               .setIntent(intent)
                               .build()
                           sm.requestPinShortcut(shortcutInfo, null)
