@@ -182,7 +182,7 @@ import 'dart:io';
                 return ListTile(
                   leading: _PluginLogo(
                     logoFile: snapshot.data,
-                    iconUrl: widget.iconUrl,
+                    iconUrl: iconUrl,
                     plugin: plugin,
                   ),
                   title: Text(plugin.name),
