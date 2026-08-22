@@ -152,6 +152,12 @@ String _qualityDigits(String raw) {
 /// list. Matching by normalized quality label instead works across episodes.
 final Map<int, String> chapterPreferredQuality = {};
 
+/// User-chosen language label (e.g. 'VF', 'VOSTFR', 'EN'), keyed by
+/// chapter.id. Applied by [downloadChapter] BEFORE quality matching so the
+/// language pick from the batch download sheet actually filters the video
+/// list of every selected episode.
+final Map<int, String> chapterPreferredLang = {};
+
 /// Show a dialog letting the user pick which quality to download for an
 /// anime episode, then enqueue and start the download with that pick.
 ///
@@ -992,17 +998,37 @@ Future<void> downloadChapter(
           // One-shot: clear so a future re-download asks again.
           chapterPreferredOriginalUrl.remove(chapter.id!);
         }
+        // Batch download sheet: language chosen by label (see
+        // [chapterPreferredLang]). Filter FIRST so a multi-lang source never
+        // silently downloads the wrong audio track.
+        final preferredLang =
+            chapter.id != null ? chapterPreferredLang[chapter.id!] : null;
+        if (preferredLang != null && videosUrls.length > 1) {
+          final langMatches = videosUrls
+              .where((v) =>
+                  v.quality.toUpperCase().contains(preferredLang.toUpperCase()))
+              .toList();
+          if (langMatches.isNotEmpty) videosUrls = langMatches;
+          // One-shot: clear so a future re-download asks again.
+          chapterPreferredLang.remove(chapter.id!);
+        }
         // Batch download sheet: quality chosen by label (see chapterPreferredQuality
         // doc) since it applies across many episodes that each have their own URLs.
+        // STRICT match: when the requested resolution exists in this episode's
+        // list we download ONLY it — previously a missing match silently fell
+        // back to the first entry (often 1080p/auto), so a user asking for
+        // 360p could end up with a 1 GB file.
         final preferredQuality =
             chapter.id != null ? chapterPreferredQuality[chapter.id!] : null;
         if (preferredQuality != null && videosUrls.isNotEmpty) {
-          final idx = videosUrls
-              .indexWhere((v) => _qualityDigits(v.quality) == preferredQuality);
-          if (idx > 0) {
-            final picked = videosUrls.removeAt(idx);
-            videosUrls = [picked, ...videosUrls];
+          final exactMatches = videosUrls
+              .where((v) => _qualityDigits(v.quality) == preferredQuality)
+              .toList();
+          if (exactMatches.isNotEmpty) {
+            videosUrls = exactMatches;
           }
+          // No exact match: keep the source order as fallback rather than
+          // guessing a different resolution.
           // One-shot: clear so a future re-download asks again.
           chapterPreferredQuality.remove(chapter.id!);
         }

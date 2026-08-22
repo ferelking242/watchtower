@@ -1325,26 +1325,39 @@ class _FullscreenControlsOverlayState
               ),
             ),
 
-          // Lock icon — always visible when locked, icon only (no text)
+          // Lock indicator — compact chip pinned top-right, clear of the
+          // video content and of every other control (which are hidden
+          // anyway while locked).
           if (_locked)
             Positioned(
-              left: 20, top: 0, bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _locked = false;
-                      _showControls = true;
-                    });
-                    _resetHideTimer();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Broken.lock, color: Colors.white, size: 22),
+              top: MediaQuery.of(context).padding.top + 10,
+              right: 14,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _locked = false;
+                    _showControls = true;
+                  });
+                  _resetHideTimer();
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Broken.lock, color: Colors.white, size: 16),
+                      SizedBox(width: 6),
+                      Text('Déverrouiller',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500)),
+                    ],
                   ),
                 ),
               ),
@@ -3444,6 +3457,7 @@ class _TrackTile extends StatelessWidget {
     final Future<void> Function(wt.Video)? onSwitchQuality;
     final String? selectedQuality;
     final ValueNotifier<bool>? controlsNotifier;
+    final int? currentChapterId;
     final VoidCallback? onPrevEpisode;
     final VoidCallback? onNextEpisode;
     final List<Chapter> chapters;
@@ -3459,6 +3473,7 @@ class _TrackTile extends StatelessWidget {
       this.onSwitchQuality,
       this.selectedQuality,
       this.controlsNotifier,
+      this.currentChapterId,
       this.onPrevEpisode,
       this.onNextEpisode,
       this.chapters = const [],

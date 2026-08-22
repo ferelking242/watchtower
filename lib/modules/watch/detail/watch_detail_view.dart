@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2755,6 +2756,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   final Set<Chapter> _selected = {};
   bool _selectAll = false;
 
+  /// Display format: false = compact grid (columns), true = list with covers.
+  bool _listMode = false;
+
   bool get _isFilm {
     if (widget.chapters.length != 1) return false;
     final name = widget.chapters.first.name ?? '';
@@ -2942,10 +2946,17 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
       for (final ch in chapters) {
         try {
           final result = await ref.read(getVideoListProvider(episode: ch).future);
-          final videos = result.$1;
+          var videos = result.$1;
           if (videos.isEmpty) {
             botToast('Aucun lien pour ${ch.name ?? '?'}');
             continue;
+          }
+          if (_selectedLang != null && _langs.length > 1) {
+            final lm = videos
+                .where((v) =>
+                    v.quality.toUpperCase().contains(_selectedLang!.toUpperCase()))
+                .toList();
+            if (lm.isNotEmpty) videos = lm;
           }
           Video best = videos.first;
           if (_selectedQuality != null) {
@@ -2968,6 +2979,15 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
         }
       }
     } else {
+      // Language preference — applied by downloadChapter() the same way as
+      // quality: each chapter re-fetches its own videos and the label is
+      // matched against them at actual download time.
+      if (_selectedLang != null && _langs.length > 1) {
+        for (final ch in chapters) {
+          if (ch.id == null) continue;
+          chapterPreferredLang[ch.id!] = _selectedLang!;
+        }
+      }
       if (_selectedQuality != null) {
         // Store the chosen quality LABEL, not a URL: `_videos` was only ever
         // loaded for widget.chapters.first, so its URLs are meaningless for
@@ -3025,21 +3045,31 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
           // ── Select all header ─────────────────────────────────────────────────
           _buildSelectAllHeader(displayed),
 
-          // ── Episode grid ──────────────────────────────────────────────────────
+          // ── Episode list / grid ───────────────────────────────────────────────
           Flexible(
-            child: GridView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 2.4,
-              ),
-              itemCount: displayed.length,
-              itemBuilder: (_, i) => _buildEpisodeCard(displayed[i], i),
-            ),
+            child: _listMode
+                ? ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    itemCount: displayed.length,
+                    itemBuilder: (_, i) => _buildEpisodeListTile(displayed[i], i),
+                  )
+                : GridView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 2.4,
+                    ),
+                    itemCount: displayed.length,
+                    itemBuilder: (_, i) => _buildEpisodeCard(displayed[i], i),
+                  ),
           ),
+
+          // ── Bottom-centered download CTA (MovieBox style) ─────────────────────
+          if (!_loading) _buildDownloadFooter(),
         ],
       ),
     );
@@ -3181,15 +3211,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   // The download CTA is the 3rd box — highlighted when episodes are selected.
   Widget _buildActionPillsRow(
       List<String> seasons, List<String> qualities, String totalSz) {
-    final empty = _selected.isEmpty;
-    final dlLabel = empty
-        ? 'Télécharger'
-        : totalSz.isNotEmpty
-            ? '${_selected.length} ep.  •  $totalSz'
-            : _isFilm
-                ? 'Film ↓'
-                : '${_selected.length} ep. ↓';
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Row(
@@ -3211,6 +3232,19 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             ),
             const SizedBox(width: 8),
           ],
+          // Langue pill — only when the source exposes several languages
+          if (_langs.length > 1) ...[
+            _buildPill(
+              label: _selectedLang ?? 'Langue',
+              onTap: () => _showPillSheet(
+                'Langue',
+                _langs,
+                _selectedLang ?? _langs.first,
+                (l) => setState(() => _selectedLang = l),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           // Quality pill — only when qualities loaded
           if (qualities.isNotEmpty) ...[
             _buildPill(
@@ -3224,37 +3258,66 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             ),
             const SizedBox(width: 8),
           ],
-          // Download CTA pill — always last, highlighted when episodes selected
-          GestureDetector(
-            onTap: empty ? null : _startDownload,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: empty ? Colors.transparent : _accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: empty ? _faint : _accent,
-                  width: empty ? 0.8 : 1.2,
-                ),
+        ],
+      ),
+    );
+  }
+
+  // ── Bottom-centered download CTA — full-width accent button, MovieBox style.
+  // The pills row above is selection-only; the action lives at the bottom so
+  // it never fights with Saison/Langue/Qualité for space. ──────────────────────
+  Widget _buildDownloadFooter() {
+    final empty = _selected.isEmpty;
+    final totalSz = _totalSizeLabel();
+    final label = empty
+        ? 'Télécharger'
+        : totalSz.isNotEmpty
+            ? 'Télécharger ${_selected.length} épisode${_selected.length > 1 ? 's' : ''} • $totalSz'
+            : _isFilm
+                ? 'Télécharger le film'
+                : 'Télécharger ${_selected.length} épisode${_selected.length > 1 ? 's' : ''}';
+
+    // Quality/lang recap line so the user always sees what will be downloaded.
+    final recap = [
+      if (_langs.length > 1 && _selectedLang != null) _selectedLang!,
+      if (qualities.isNotEmpty) _selectedQuality ?? qualities.first,
+    ].join(' • ');
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
+      decoration: BoxDecoration(
+        color: _bg,
+        border: Border(top: BorderSide(color: _faint, width: 0.8)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (recap.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(recap, style: TextStyle(color: _grey, fontSize: 11)),
+            ),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: empty ? null : _startDownload,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _accent,
+                disabledBackgroundColor: _card,
+                disabledForegroundColor: _grey,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.download_rounded,
-                      size: 15,
-                      color: empty ? _grey : _accent),
-                  const SizedBox(width: 6),
-                  Text(
-                    dlLabel,
-                    style: TextStyle(
-                      color: empty ? _grey : _accent,
-                      fontSize: 13,
-                      fontWeight: empty ? FontWeight.normal : FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+              icon: Icon(Icons.download_rounded, size: 18,
+                  color: empty ? _grey : Colors.white),
+              label: Text(label,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: empty ? _grey : Colors.white)),
             ),
           ),
         ],
@@ -3293,6 +3356,25 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             ),
           ),
           const Spacer(),
+          GestureDetector(
+            onTap: () => setState(() => _listMode = !_listMode),
+            child: Container(
+              width: 28,
+              height: 28,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: _card,
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Icon(
+                _listMode
+                    ? Icons.grid_view_rounded
+                    : Icons.view_list_rounded,
+                color: _grey,
+                size: 16,
+              ),
+            ),
+          ),
           Text(
             _isFilm
                 ? 'Film'
@@ -3364,6 +3446,150 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     );
   }
 
+  // ── Episode list tile — MovieBox style: 16:9 cover, ep badge, name,
+  // description and duration/size when the API provides them ────────────────────
+  Widget _buildEpisodeListTile(Chapter chapter, int index) {
+    final sel = _selected.contains(chapter);
+    final epLabel = _epLabel(chapter, index);
+    final name = (chapter.name ?? '').trim();
+    final desc = (chapter.description ?? '').trim();
+    final rawSize = chapter.downloadSize?.trim();
+    final duration = chapter.duration?.trim();
+
+    return GestureDetector(
+      onTap: () => setState(() {
+        sel ? _selected.remove(chapter) : _selected.add(chapter);
+        _selectAll = _selected.length == _displayChapters.length;
+      }),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: sel ? _accent.withValues(alpha: 0.10) : _card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: sel ? _accent.withValues(alpha: 0.55) : Colors.transparent,
+            width: 0.9,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Cover 16:9 with ep badge ──
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 110,
+                    height: 62,
+                    child: (chapter.thumbnailUrl?.isNotEmpty ?? false)
+                        ? CachedNetworkImage(
+                            imageUrl: chapter.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            fadeInDuration: Duration.zero,
+                            errorWidget: (_, __, ___) => Container(
+                              color: _bg,
+                              child: Center(
+                                child: Text(epLabel,
+                                    style: TextStyle(
+                                        color: _grey,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700)),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            color: _bg,
+                            child: Center(
+                              child: Text(epLabel,
+                                  style: TextStyle(
+                                      color: _grey,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700)),
+                            ),
+                          ),
+                  ),
+                ),
+                Positioned(
+                  left: 4,
+                  bottom: 4,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(epLabel,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            // ── Texts ──
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (name.isNotEmpty)
+                    Text(name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: sel ? _accent : _text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                  if (desc.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: _grey, fontSize: 11, height: 1.25)),
+                  ],
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (duration != null && duration.isNotEmpty)
+                        _badge(duration),
+                      if (rawSize != null && rawSize.isNotEmpty)
+                        _badge(rawSize),
+                      if (_langs.length > 1 && _selectedLang != null)
+                        _badge(_selectedLang!),
+                      if (qualities.isNotEmpty &&
+                          (_selectedQuality ?? qualities.first) != 'Auto')
+                        _badge(_selectedQuality ?? qualities.first),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            _ModernCheckbox(checked: sel, accent: _accent, faint: _faint),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _badge(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: _faint,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(text,
+          style: TextStyle(color: _text.withValues(alpha: 0.75), fontSize: 10)),
+    );
+  }
 }
 
 // ── Modern checkbox ────────────────────────────────────────────────────────────
