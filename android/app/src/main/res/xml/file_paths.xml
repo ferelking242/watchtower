@@ -2,4 +2,6 @@
 <paths>
     <external-path path="Android/data/com.watchtower.app/" name="files_root" />
     <external-path path="." name="external_storage_root" />
+    <!-- github_release_apk_updater package requires external-path for APK install -->
+    <external-path name="external_files" path="." />
 </paths>

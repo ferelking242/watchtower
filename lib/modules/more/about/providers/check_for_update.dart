@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/core/config/app_config.dart';
 import 'dart:developer';
@@ -9,14 +8,16 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/services/fetch_sources_list.dart';
-import 'package:watchtower/services/http/m_client.dart';
-import 'package:watchtower/utils/extensions/string_extensions.dart';
-import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/constant.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:watchtower/utils/constant.dart';
+import 'package:github_release_apk_updater/github_release_apk_updater.dart';
+
 part 'check_for_update.g.dart';
+
+/// Repository owner and name for GitHub releases.
+const _kOwner = 'ferelking242';
+const _kRepo = 'watchtower';
 
 @riverpod
 Future<void> checkForUpdate(
@@ -27,50 +28,86 @@ Future<void> checkForUpdate(
   manualUpdate = manualUpdate ?? false;
   final checkForUpdates = ref.read(checkForAppUpdatesProvider);
   if (!checkForUpdates && !manualUpdate) return;
-  final l10n = l10nLocalizations(context!)!;
 
   if (manualUpdate) {
-    botToast(l10n.searching_for_updates);
-  }
-  final info = await PackageInfo.fromPlatform();
-  if (kDebugMode) {
-    log(info.data.toString());
-  }
-  // Manual update bypasses the cache so the user always gets the freshest
-  // answer; automatic background checks honour the cache to avoid spam.
-  final updateAvailable = await checkLatestRelease(forceRefresh: manualUpdate);
-
-  // Sentinel '0.0.0' = no releases found or error → treat as up to date
-  if (updateAvailable.$1 == '0.0.0' || updateAvailable.$1.isEmpty) {
-    if (manualUpdate) {
-      botToast(l10n.no_new_updates_available);
-    }
-    return;
+    final l10n = l10nLocalizations(context!);
+    botToast(l10n!.searching_for_updates);
   }
 
-  if (compareVersions(info.version, updateAvailable.$1) < 0) {
-    // If user skipped this version and this is an automatic (non-manual) check, skip.
-    if (!manualUpdate && _skippedVersion != null && _skippedVersion == updateAvailable.$1) {
+  // Use github_release_apk_updater to fetch latest release
+  final updater = GithubReleaseApkUpdater();
+  final apiService = GithubApiService();
+
+  try {
+    final supportedAbis = await updater.getSupportedAbis();
+    final release = await apiService.getLatestGithubAPKRelease(
+      ownerGithub: _kOwner,
+      repositoryGithub: _kRepo,
+      apkKeyName: '', // no filter — accept any APK asset
+      supportedAbis: supportedAbis,
+      token: AppConfig.githubToken.isNotEmpty ? AppConfig.githubToken : null,
+    );
+
+    if (release == null) {
+      // No releases found or error → treat as up to date
+      if (manualUpdate && context != null && context.mounted) {
+        final l10n = l10nLocalizations(context);
+        botToast(l10n?.no_new_updates_available ?? 'Pas de mise à jour disponible');
+      }
       return;
     }
-    pendingUpdateBanner = updateAvailable.$1;
-    pendingUpdateData = updateAvailable;
-    if (manualUpdate) {
-      botToast(l10n.new_update_available);
+
+    final currentVersion = await updater.getCurrentAppVersion();
+    final isNewer = VersionComparator().isNewerVersion(
+      release.version,
+      currentVersion,
+    );
+
+    if (!isNewer) {
+      // Already up to date
+      pendingUpdateBanner = null;
+      if (manualUpdate && context != null && context.mounted) {
+        final l10n = l10nLocalizations(context);
+        botToast(l10n?.no_new_updates_available ?? 'Vous avez la dernière version');
+      }
+      return;
+    }
+
+    // New update available — check if user skipped this version
+    if (!manualUpdate && _skippedVersion != null && _skippedVersion == release.version) {
+      return;
+    }
+
+    // Store pending update data for the banner
+    pendingUpdateBanner = release.version;
+    pendingUpdateData = (
+      release.version,
+      release.body ?? '',
+      release.htmlUrl ?? '',
+      <String>[release.apkUrl ?? ''], // wrap single APK URL in list for compatibility
+    );
+
+    if (manualUpdate && context != null && context.mounted) {
+      final l10n = l10nLocalizations(context);
+      botToast(l10n?.new_update_available ?? 'Mise à jour disponible');
       await Future.delayed(const Duration(seconds: 1));
     }
-    if (context.mounted) {
+
+    if (context != null && context.mounted) {
       Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
           fullscreenDialog: true,
-          builder: (_) => DownloadFileScreen(updateAvailable: updateAvailable),
+          builder: (_) => DownloadFileScreen(updateAvailable: pendingUpdateData!),
         ),
       );
     }
-  } else {
-    pendingUpdateBanner = null;
-    if (manualUpdate) {
-      botToast(l10n.no_new_updates_available);
+  } catch (e, st) {
+    if (kDebugMode) {
+      log('checkForUpdate failed: $e\n$st');
+    }
+    if (manualUpdate && context != null && context.mounted) {
+      final l10n = l10nLocalizations(context);
+      botToast(l10n?.no_new_updates_available ?? 'Erreur lors de la vérification');
     }
   }
 }
@@ -108,8 +145,9 @@ void skipAppUpdate(String version) {
 const Duration _appUpdateCacheTtl = Duration(minutes: 5);
 (String, String, String, List<dynamic>)? _appUpdateCache;
 DateTime? _appUpdateCachedAt;
-Future<(String, String, String, List<dynamic>)>? _appUpdateInflight;
 
+/// Check for the latest release, using the cache when available.
+/// Used by the download screen to refresh in the background.
 Future<(String, String, String, List<dynamic>)> checkLatestRelease({
   bool forceRefresh = false,
 }) async {
@@ -120,60 +158,41 @@ Future<(String, String, String, List<dynamic>)> checkLatestRelease({
       now.difference(_appUpdateCachedAt!) < _appUpdateCacheTtl) {
     return _appUpdateCache!;
   }
-  if (_appUpdateInflight != null) return _appUpdateInflight!;
 
-  _appUpdateInflight = _fetchAppUpdate();
   try {
-    final result = await _appUpdateInflight!;
+    final updater = GithubReleaseApkUpdater();
+    final apiService = GithubApiService();
+    final supportedAbis = await updater.getSupportedAbis();
+    final release = await apiService.getLatestGithubAPKRelease(
+      ownerGithub: _kOwner,
+      repositoryGithub: _kRepo,
+      apkKeyName: '',
+      supportedAbis: supportedAbis,
+      token: AppConfig.githubToken.isNotEmpty ? AppConfig.githubToken : null,
+    );
+
+    if (release == null) {
+      final result = ('0.0.0', '', '', <String>[]);
+      _appUpdateCache = result;
+      _appUpdateCachedAt = DateTime.now();
+      return result;
+    }
+
+    final result = (
+      release.version,
+      release.body ?? '',
+      release.htmlUrl ?? '',
+      <String>[release.apkUrl ?? ''],
+    );
     _appUpdateCache = result;
     _appUpdateCachedAt = DateTime.now();
     return result;
-  } finally {
-    _appUpdateInflight = null;
-  }
-}
-
-Future<(String, String, String, List<dynamic>)> _fetchAppUpdate() async {
-  final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
-  try {
-    final res = await http.get(
-      Uri.parse(
-        "https://api.github.com/repos/ferelking242/watchtower/releases?page=1&per_page=10",
-      ),
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        if (AppConfig.githubToken.isNotEmpty)
-          'Authorization': 'token ${AppConfig.githubToken}',
-      },
-    ).timeout(const Duration(seconds: 12));
-    final json = jsonDecode(res.body);
-    if (json is! List) throw Exception('GitHub API: unexpected response ${res.statusCode}');
-    List resListJson = json;
-    // No releases published yet → treat as up to date
-    if (resListJson.isEmpty) {
-      return ('0.0.0', '', '', []);
-    }
-    return (
-      resListJson.first["tag_name"]
-          .toString()
-          .substringAfter('v')
-          .substringBefore('-'),
-      resListJson.first["body"].toString(),
-      resListJson.first["html_url"].toString(),
-      (resListJson.first["assets"] as List)
-          .map((asset) => asset["browser_download_url"])
-          .toList(),
-    );
   } catch (e, st) {
-    AppLogger.log(
-      'checkForUpdate fetch failed: $e\n$st',
-      logLevel: LogLevel.warning,
-      tag: LogTag.network,
-    );
-    // Surface the previous successful answer when available so the UI
-    // doesn't oscillate between "update available" and "up to date" on
-    // transient network blips.
-    return _appUpdateCache ?? ('0.0.0', '', '', []);
+    if (kDebugMode) {
+      log('checkLatestRelease failed: $e\n$st');
+    }
+    // Surface previous cache to avoid oscillation
+    return _appUpdateCache ?? ('0.0.0', '', '', <String>[]);
   }
 }
 
@@ -189,4 +208,3 @@ void setInstallReady(File file) {
 void clearInstallReady() {
   pendingInstallFile = null;
 }
-
