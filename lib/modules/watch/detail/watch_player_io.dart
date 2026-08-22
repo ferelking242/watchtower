@@ -422,7 +422,6 @@ class WatchInlinePlayer {
             title: title,
             showBackButton: false,
             fitNotifier: fitNotifier,
-            fallbackCoverUrl: widget.fallbackCoverUrl,
             loadedVideos: loadedVideos,
             onSwitchQuality: switchQuality,
             selectedQuality: selectedQuality,
@@ -1464,12 +1463,12 @@ class _FullscreenControlsOverlayState
                         // Choix d'orientation — se déplie vers la gauche
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 160),
-                          transitionBuilder: (c, t) => ClipRect(
+                          transitionBuilder: (c, anim) => ClipRect(
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              widthFactor: t,
+                              widthFactor: anim.value,
                               child: FadeTransition(
-                                  opacity: t, child: c),
+                                  opacity: anim, child: c),
                             ),
                           ),
                           child: !_showRotationPicker
@@ -4148,7 +4147,7 @@ class _TrackTile extends StatelessWidget {
                             onNextEpisode: widget.onNextEpisode,
                             chapters: widget.chapters,
                             onEpisodeTap: widget.onEpisodeTap,
-                            fallbackCoverUrl: widget.coverUrl,
+                            fallbackCoverUrl: widget.fallbackCoverUrl,
                           ),
                         ),
                       );
@@ -4185,6 +4184,7 @@ class _TrackTile extends StatelessWidget {
                     onNextEpisode: widget.onNextEpisode,
                     chapters: widget.chapters,
                     onEpisodeTap: widget.onEpisodeTap,
+                    fallbackCoverUrl: widget.fallbackCoverUrl,
                   ),
                 ),
               ),
@@ -4208,6 +4208,7 @@ class _InlineControls extends StatefulWidget {
   final VoidCallback? onNextEpisode;
   final List<Chapter> chapters;
   final void Function(Chapter)? onEpisodeTap;
+  final String? fallbackCoverUrl;
 
   const _InlineControls({
     required this.player,
@@ -4222,6 +4223,7 @@ class _InlineControls extends StatefulWidget {
     this.onNextEpisode,
     this.chapters = const [],
     this.onEpisodeTap,
+    this.fallbackCoverUrl,
   });
 
   @override
@@ -4262,7 +4264,7 @@ class _InlineControlsState extends State<_InlineControls> {
               onNextEpisode: widget.onNextEpisode,
               chapters: widget.chapters,
               onEpisodeTap: widget.onEpisodeTap,
-              fallbackCoverUrl: widget.coverUrl,
+              fallbackCoverUrl: widget.fallbackCoverUrl,
             ),
           ),
         );
@@ -4285,7 +4287,7 @@ class _InlineControlsState extends State<_InlineControls> {
           onNextEpisode: widget.onNextEpisode,
           chapters: widget.chapters,
           onEpisodeTap: widget.onEpisodeTap,
-          fallbackCoverUrl: widget.coverUrl,
+          fallbackCoverUrl: widget.fallbackCoverUrl,
         ),
       ),
     );
