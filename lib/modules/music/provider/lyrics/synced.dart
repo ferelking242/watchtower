@@ -38,7 +38,7 @@ class SyncedLyricsNotifier
       options: Options(
         headers: {
           "User-Agent":
-              "Watchtower v${packageInfo.version} (https://github.com/ferelking242/watchtower)"
+              "Spotube v${packageInfo.version} (https://github.com/KRTirtho/spotube)"
         },
         responseType: ResponseType.json,
       ),

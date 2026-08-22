@@ -48,7 +48,7 @@ abstract class AudioPlayerInterface {
   AudioPlayerInterface()
       : _mkPlayer = CustomPlayer(
           configuration: const mk.PlayerConfiguration(
-            title: "Watchtower",
+            title: "Spotube",
             logLevel: kDebugMode ? mk.MPVLogLevel.info : mk.MPVLogLevel.error,
             async: true,
           ),

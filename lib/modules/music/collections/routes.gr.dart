@@ -44,6 +44,7 @@ import 'package:watchtower/modules/music/pages/settings/about.dart' as _i1;
 import 'package:watchtower/modules/music/pages/settings/blacklist.dart' as _i4;
 import 'package:watchtower/modules/music/pages/settings/logs.dart' as _i14;
 import 'package:watchtower/modules/music/pages/settings/metadata/metadata_form.dart' as _i24;
+import 'package:watchtower/modules/music/pages/settings/metadata_plugins.dart' as _i25;
 import 'package:watchtower/modules/music/pages/settings/scrobbling/scrobbling.dart' as _i27;
 import 'package:watchtower/modules/music/pages/settings/settings.dart' as _i26;
 import 'package:watchtower/modules/music/pages/stats/albums/albums.dart' as _i28;
@@ -675,6 +676,22 @@ class SettingsMetadataProviderFormRouteArgs {
   String toString() {
     return 'SettingsMetadataProviderFormRouteArgs{key: $key, title: $title, fields: $fields}';
   }
+}
+
+/// generated route for
+/// [_i25.SettingsMetadataProviderPage]
+class SettingsMetadataProviderRoute extends _i41.PageRouteInfo<void> {
+  const SettingsMetadataProviderRoute({List<_i41.PageRouteInfo>? children})
+    : super(SettingsMetadataProviderRoute.name, initialChildren: children);
+
+  static const String name = 'SettingsMetadataProviderRoute';
+
+  static _i41.PageInfo page = _i41.PageInfo(
+    name,
+    builder: (data) {
+      return const _i25.SettingsMetadataProviderPage();
+    },
+  );
 }
 
 /// generated route for

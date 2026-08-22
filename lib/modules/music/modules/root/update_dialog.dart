@@ -14,11 +14,10 @@ class RootAppUpdateDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Téléchargements Watchtower (plus de lien vers spotube.krtirtho.dev)
-    const url = "https://github.com/ferelking242/watchtower/releases/latest";
-    const nightlyUrl = "https://github.com/ferelking242/watchtower/releases";
+    const url = "https://spotube.krtirtho.dev/downloads";
+    const nightlyUrl = "https://spotube.krtirtho.dev/downloads/nightly";
     return AlertDialog(
-      title: const Text("Watchtower — mise à jour disponible"),
+      title: Text(context.l10n.spotube_has_an_update),
       actions: [
         FilledButton(
           child: Text(context.l10n.download_now),
@@ -33,8 +32,8 @@ class RootAppUpdateDialog extends StatelessWidget {
         children: [
           Text(
             nightlyBuildNum != null
-                ? "Watchtower Nightly ($nightlyBuildNum) est sortie"
-                : "Watchtower v${version!} est sortie",
+                ? context.l10n.nightly_version(nightlyBuildNum!)
+                : context.l10n.release_version(version!),
           ),
           if (nightlyBuildNum == null)
             Row(

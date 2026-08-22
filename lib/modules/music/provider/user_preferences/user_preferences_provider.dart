@@ -67,14 +67,14 @@ class UserPreferencesNotifier extends Notifier<PreferencesTableData> {
   }
 
   Future<String> _getDefaultDownloadDirectory() async {
-    if (kIsAndroid) return "/storage/emulated/0/Download/Watchtower";
+    if (kIsAndroid) return "/storage/emulated/0/Download/Spotube";
 
     if (kIsMacOS) {
       return join((await paths.getLibraryDirectory()).path, "Caches");
     }
 
     return paths.getDownloadsDirectory().then((dir) {
-      return join(dir!.path, "Watchtower");
+      return join(dir!.path, "Spotube");
     });
   }
 

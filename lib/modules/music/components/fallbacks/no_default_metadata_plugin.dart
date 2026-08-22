@@ -1,8 +1,10 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/modules/music/collections/routes.gr.dart';
+import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
-import 'package:watchtower/modules/music/utils/open_marketplace.dart';
 
 class NoDefaultMetadataPlugin extends StatelessWidget {
   const NoDefaultMetadataPlugin({super.key});
@@ -27,7 +29,9 @@ class NoDefaultMetadataPlugin extends StatelessWidget {
           ),
           FilledButton(
             child: Text(context.l10n.manage_metadata_providers),
-            onPressed: () => openMarketplace(context),
+            onPressed: () {
+              context.pushRoute(const SettingsMetadataProviderRoute());
+            },
           ),
         ],
       ),

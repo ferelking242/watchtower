@@ -18,7 +18,6 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
-import 'package:watchtower/modules/music/modules/metadata_plugins/installed_plugin.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
 
@@ -777,6 +776,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _showNsfw = ref.watch(showNSFWStateProvider);
 
       return Scaffold(
+        backgroundColor: Colors.transparent,
         body: Stack(
           children: [
             if (_error != null && _all.isEmpty)
@@ -2258,11 +2258,6 @@ class _TypeTabState extends State<_TypeTab> {
               ),
             )
           else ...[
-            // Music tab : plugins metadata / audio-source installés
-            // (tags + boutons définir par défaut) — remplace l'ancienne page
-            // de gestion des plugins, désormais supprimée.
-            if (tab == _kTabMusic)
-              const SliverToBoxAdapter(child: _MusicInstalledSection()),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
@@ -6121,58 +6116,4 @@ class _BinaryTab extends StatelessWidget {
     );
   }
 }
-
-// ─── Music tab : extensions metadata / audio-source installées ────────────────
-// Remplace l'ancienne page dédiée de gestion des plugins (supprimée).
-// Chaque plugin affiche ses tags (Metadata / Audio Source) et les boutons
-// « définir par défaut » ; l'installation se fait depuis la liste du dessus.
-
-class _MusicInstalledSection extends ConsumerWidget {
-  const _MusicInstalledSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final pluginsAsync = ref.watch(metadataPluginsProvider);
-    final state = pluginsAsync.asData?.value;
-    final plugins = state?.plugins ?? const <PluginConfiguration>[];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-          child: Row(children: [
-            Icon(Icons.extension_rounded, size: 15, color: cs.primary),
-            const SizedBox(width: 6),
-            Text('Extensions installées',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800,
-                color: cs.onSurface)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text('${plugins.length}',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800,
-                  color: cs.primary)),
-            ),
-          ]),
-        ),
-        for (final plugin in plugins)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-            child: MetadataInstalledPluginItem(
-              plugin: plugin,
-              isDefaultMetadata:
-                  state?.defaultMetadataPluginConfig?.slug == plugin.slug,
-              isDefaultAudioSource:
-                  state?.defaultAudioSourcePluginConfig?.slug == plugin.slug,
-            ),
-          ),
-      ],
-    );
-  }
-}
+  

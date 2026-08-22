@@ -6,7 +6,6 @@ import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/scrobbler/scrobbler.dart';
-import 'package:watchtower/modules/music/utils/open_marketplace.dart';
 
 class SettingsAccountSection extends HookConsumerWidget {
   const SettingsAccountSection({super.key});
@@ -22,7 +21,9 @@ class SettingsAccountSection extends HookConsumerWidget {
         ListTile(
           title: Text(context.l10n.plugins),
           trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => openMarketplace(context),
+          onTap: () {
+            context.pushRoute(const SettingsMetadataProviderRoute());
+          },
         ),
         if (scrobbler.asData?.value == null)
           ListTile(

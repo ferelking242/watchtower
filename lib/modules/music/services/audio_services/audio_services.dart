@@ -33,10 +33,10 @@ class AudioServices with WidgetsBindingObserver {
                 (_, ReleaseChannel.stable) => "oss.krtirtho.spotube",
                 (_, ReleaseChannel.nightly) => "oss.krtirtho.spotube.nightly",
               },
-              androidNotificationChannelName: 'Watchtower',
+              androidNotificationChannelName: 'Spotube',
               androidNotificationOngoing: false,
               androidStopForegroundOnPause: false,
-              androidNotificationChannelDescription: "Watchtower Media Controls",
+              androidNotificationChannelDescription: "Spotube Media Controls",
             ),
           )
         : null;
