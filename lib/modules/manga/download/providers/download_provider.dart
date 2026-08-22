@@ -616,8 +616,8 @@ class _VideoListTileState extends State<_VideoListTile> {
 
 @riverpod
 Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
-  final download = isar.downloads.getSync(chapter.id!);
-  if (download == null) {
+  final existing = isar.downloads.getSync(chapter.id!);
+  if (existing == null) {
     // Use a sentinel value of 1 so the progress bar shows "waiting" (0/1)
     // without dividing by zero. setProgress will overwrite this with the
     // real page count (manga) or real byte total (anime) as soon as the
@@ -632,6 +632,22 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     );
     isar.writeTxnSync(() {
       isar.downloads.putSync(download..chapter.value = chapter);
+    });
+  } else if (!(existing.isDownload ?? false) &&
+      !(existing.isStartDownload ?? false)) {
+    // ROOT-CAUSE FIX ("le téléchargement ne fait rien") : une entrée
+    // échouée / annulée restait en base avec isStartDownload = false.
+    // addDownloadToQueue la voyait déjà existante et rendait la main sans
+    // rien changer, donc processDownloads (qui ne démarre QUE les entrées
+    // isStartDownload == true) ne la prenait jamais → file morte.
+    // On ré-arme l'entrée existante pour qu'elle reparte dans la queue.
+    existing.isDownload = false;
+    existing.isStartDownload = true;
+    existing.succeeded = 0;
+    existing.failed = 0;
+    existing.total = 1;
+    isar.writeTxnSync(() {
+      isar.downloads.putSync(existing..chapter.value = chapter);
     });
   }
 }

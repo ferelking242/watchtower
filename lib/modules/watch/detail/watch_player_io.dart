@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -105,6 +106,10 @@ class WatchInlinePlayer {
   /// Episode list + tap callback (set by the parent page in build()).
   List<Chapter> chapters = [];
   void Function(Chapter)? onEpisodeTap;
+
+  /// Cover de l'entrée (série/film) — fallback quand un épisode n'a pas sa
+  /// propre miniature dans le panneau d'épisodes.
+  String? coverUrl;
 
   WatchInlinePlayer() {
     _player = Player();
@@ -392,6 +397,7 @@ class WatchInlinePlayer {
       onNextEpisode: onNextEpisode,
       chapters: chapters,
       onEpisodeTap: onEpisodeTap,
+      coverUrl: coverUrl,
     );
   }
 
@@ -416,6 +422,7 @@ class WatchInlinePlayer {
             title: title,
             showBackButton: false,
             fitNotifier: fitNotifier,
+            fallbackCoverUrl: widget.fallbackCoverUrl,
             loadedVideos: loadedVideos,
             onSwitchQuality: switchQuality,
             selectedQuality: selectedQuality,
@@ -424,7 +431,8 @@ class WatchInlinePlayer {
             onNextEpisode: onNextEpisode,
             chapters: chapters,
             onEpisodeTap: onEpisodeTap,
-          ),
+            fallbackCoverUrl: coverUrl,
+          )
         ),
       ],
     );
@@ -445,6 +453,7 @@ class _FullscreenPlayerPage extends StatefulWidget {
   final VoidCallback? onNextEpisode;
   final List<Chapter> chapters;
   final void Function(Chapter)? onEpisodeTap;
+  final String? fallbackCoverUrl;
 
   const _FullscreenPlayerPage({
     required this.controller,
@@ -458,6 +467,7 @@ class _FullscreenPlayerPage extends StatefulWidget {
     this.onNextEpisode,
     this.chapters = const [],
     this.onEpisodeTap,
+    this.fallbackCoverUrl,
   });
 
   @override
@@ -485,9 +495,9 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
   @override
   void dispose() {
     _fitNotifier.dispose();
-    // Restore to system-default (all orientations) rather than hard-locking
-    // portraitUp, which would prevent the calling screen from rotating freely.
-    SystemChrome.setPreferredOrientations([]);
+    // Revenir en portrait : évite que l'écran détail reste coincé en paysage
+    // avec un layout cassé après la fermeture du plein écran.
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
@@ -579,6 +589,7 @@ class _FullscreenControlsOverlay extends StatefulWidget {
   final VoidCallback? onNextEpisode;
   final List<Chapter> chapters;
   final void Function(Chapter)? onEpisodeTap;
+  final String? fallbackCoverUrl;
 
   const _FullscreenControlsOverlay({
     required this.player,
@@ -594,6 +605,7 @@ class _FullscreenControlsOverlay extends StatefulWidget {
     this.onNextEpisode,
     this.chapters = const [],
     this.onEpisodeTap,
+    this.fallbackCoverUrl,
   });
 
   @override
@@ -696,6 +708,7 @@ class _FullscreenControlsOverlayState
 
     // ── Rotation lock mode: 0=auto 1=portrait 2=landscape-L 3=landscape-R ─────
     int _rotationMode = 2;
+    bool _showRotationPicker = false;
 
     // ── Pinch to zoom ─────────────────────────────────────────────────────────
     double _pinchScale   = 1.0;
@@ -898,8 +911,9 @@ class _FullscreenControlsOverlayState
       default: return 'Auto';
     }
   }
-  void _cycleRotationMode() {
-    setState(() => _rotationMode = (_rotationMode + 1) % 4);
+  void _setRotationMode(int mode) {
+    _showRotationPicker = false;
+    setState(() => _rotationMode = mode % 4);
     switch (_rotationMode) {
       case 0:
         SystemChrome.setPreferredOrientations([
@@ -919,6 +933,34 @@ class _FullscreenControlsOverlayState
     }
     _playerToast('Rotation : ${_rotationModeLabel()}');
     _resetHideTimer();
+  }
+
+  // Option compacte dans le sélecteur d'orientation dépliant
+  Widget _buildRotOption(int mode, IconData icn, String tip) {
+    final sel = _rotationMode == mode;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _setRotationMode(mode),
+      child: Tooltip(
+        message: tip,
+        child: Container(
+          width: 34,
+          height: 34,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: sel
+                ? Theme.of(context).primaryColor.withValues(alpha: 0.25)
+                : Colors.transparent,
+            border: Border.all(
+              color: sel ? Theme.of(context).primaryColor : Colors.white24,
+              width: sel ? 1.6 : 1,
+            ),
+          ),
+          child: Icon(icn, color: sel ? Colors.white : Colors.white60, size: 17),
+        ),
+      ),
+    );
   }
 
   // ── PiP (Picture-in-Picture) ─────────────────────────────────────────────
@@ -978,7 +1020,12 @@ class _FullscreenControlsOverlayState
   void _resetHideTimer() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _showControls = false);
+      if (mounted) {
+        setState(() {
+          _showControls = false;
+          _showRotationPicker = false;
+        });
+      }
     });
   }
 
@@ -1411,10 +1458,74 @@ class _FullscreenControlsOverlayState
                       },
                     ),
                     const SizedBox(height: 12),
-                    _buildIconCircle(
-                      icon: _rotationModeIcon(),
-                      tooltip: _rotationModeLabel(),
-                      onTap: _cycleRotationMode,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Choix d'orientation — se déplie vers la gauche
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 160),
+                          transitionBuilder: (c, t) => ClipRect(
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: t,
+                              child: FadeTransition(
+                                  opacity: t, child: c),
+                            ),
+                          ),
+                          child: !_showRotationPicker
+                              ? const SizedBox(width: 0, height: 40)
+                              : Container(
+                                  key: const ValueKey('rotOpts'),
+                                  height: 40,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6),
+                                  margin:
+                                      const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black
+                                        .withValues(alpha: 0.55),
+                                    borderRadius:
+                                        BorderRadius.circular(20),
+                                    border: Border.all(
+                                        color: Colors.white24,
+                                        width: 0.8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _buildRotOption(
+                                          0,
+                                          Icons.screen_rotation_rounded,
+                                          'Auto'),
+                                      _buildRotOption(
+                                          1,
+                                          Icons
+                                              .stay_current_portrait_outlined,
+                                          'Portrait'),
+                                      _buildRotOption(
+                                          2,
+                                          Icons
+                                              .stay_current_landscape_outlined,
+                                          'Paysage ←'),
+                                      _buildRotOption(
+                                          3,
+                                          Icons.screen_rotation_alt_outlined,
+                                          'Paysage →'),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                        _buildIconCircle(
+                          icon: _rotationModeIcon(),
+                          tooltip: 'Orientation',
+                          onTap: () {
+                            _hideTimer?.cancel();
+                            setState(() =>
+                                _showRotationPicker =
+                                    !_showRotationPicker);
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1550,45 +1661,41 @@ class _FullscreenControlsOverlayState
     }
   }
 
-  // ── Skip ripple — YouTube-style half-screen double-tap indicator ───────────
+  // ── Skip HUD double-tap — "+15 ›" propre et animé (pas de demi-arc) ──────
   Widget _buildSkipHUD({required bool isRight, required int seconds}) {
-    final arrows = (seconds >= 60 ? 3 : seconds >= 30 ? 2 : 1);
-    final label = '$seconds secondes';
+    final label = '${isRight ? '+' : '-'}${seconds.abs()}';
     return TweenAnimationBuilder<double>(
       key: ValueKey('skip_${isRight}_$seconds'),
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
-      builder: (_, t, child) => Opacity(opacity: t, child: child),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.horizontal(
-            left: isRight ? Radius.zero : const Radius.circular(400),
-            right: isRight ? const Radius.circular(400) : Radius.zero,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(isRight ? 16 * (1 - t) : -16 * (1 - t), 0),
+          child: Transform.scale(scale: 0.85 + 0.15 * t, child: child),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (int i = 0; i < arrows; i++)
-                  Icon(
-                    isRight ? Broken.forward : Broken.backward,
-                    color: Colors.white.withValues(alpha: 0.55 + i * 0.15),
-                    size: 40,
-                  ),
-              ],
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              isRight ? Broken.forward : Broken.backward,
+              color: Colors.white,
+              size: 22,
             ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1668,29 +1775,30 @@ class _FullscreenControlsOverlayState
     final dur = widget.player.state.duration;
     final clamped = pos < Duration.zero ? Duration.zero : (pos > dur ? dur : pos);
     final sign = _horizSeekDelta >= 0 ? '+' : '';
+    // Pilule minimale centrée au-dessus de la barre de progression
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.75),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             _horizSeekDelta >= 0 ? Broken.forward : Broken.backward,
-            color: Colors.white,
-            size: 26,
+            color: Colors.white70,
+            size: 15,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(width: 6),
           Text(
-            '${sign}${_horizSeekDelta}s',
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            '$sign${_horizSeekDelta}s',
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(width: 10),
           Text(
             _fmt(clamped),
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: const TextStyle(color: Colors.white60, fontSize: 13),
           ),
         ],
       ),
@@ -1699,11 +1807,22 @@ class _FullscreenControlsOverlayState
   // ── Miniature preview : flux courant + position demandée ───────────────────
   wt.Video? get _currentVideo {
     final vids = widget.loadedVideos;
-    if (vids.isEmpty) return null;
     for (final v in vids) {
       if (v.quality == (widget.selectedQuality ?? _currentQuality)) return v;
     }
-    return vids.first;
+    if (vids.isNotEmpty) return vids.first;
+    // Fallback : flux en cours de lecture quand loadedVideos est vide
+    // (sinon l'aperçu miniature ne s'affiche jamais).
+    try {
+      final medias = widget.player.state.playlist.medias;
+      if (medias.isNotEmpty) {
+        final uri = medias.first.uri.toString();
+        if (uri.isNotEmpty) {
+          return wt.Video(uri, widget.selectedQuality ?? 'auto', uri);
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   void _requestThumb(double fraction) {
@@ -1795,6 +1914,7 @@ class _FullscreenControlsOverlayState
             child: _EpisodePanel(
               chapters: widget.chapters,
               currentChapterId: widget.currentChapterId,
+              fallbackCoverUrl: widget.fallbackCoverUrl,
               accent: Theme.of(context).primaryColor,
               onTap: (ch) {
                 setState(() => _showEpPanel = false);
@@ -1955,57 +2075,47 @@ class _FullscreenControlsOverlayState
     );
   }
 
-  // Native-style skip button: number sits inside the arrow loop (same look
-  // as Android's built-in replay_10 / forward_10 icons), no bulky outer
-  // circle — matches the visual language of the rest of the control bar.
+  // Cercle ±15 façon MovieBox : arc tracé avec tête de flèche courbée et le
+  // chiffre centré À L'INTÉRIEUR — pas de fond, pas d'icône à côté.
   Widget _buildSkipButton({required bool isForward, required int seconds}) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         if (_locked) return;
         _seek(isForward ? seconds : -seconds);
       },
       child: SizedBox(
-        width: 52,
-        height: 52,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Icon(
-              isForward ? Broken.forward : Broken.backward,
-              color: Colors.white,
-              size: 44,
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Text(
-                '$seconds',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
+        width: 58,
+        height: 58,
+        child: CustomPaint(
+          painter: _SkipCirclePainter(isForward: isForward),
+          child: Center(
+            child: Text(
+              '$seconds',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCenterRow() {
-    // Pas de pause au centre (déjà en bas à gauche dans la toolbar) —
-    // uniquement -15 / +15 plaqués aux bords, texte dans l'icône, sans fond.
+    // Pas de pause au centre (déjà en bas à gauche dans la toolbar).
+    // -15 / +15 centrés à 25 % / 75 % de la largeur — pas aux bords.
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 28),
-          child: _buildSkipButton(isForward: false, seconds: 15),
+        Expanded(
+          child:
+              Center(child: _buildSkipButton(isForward: false, seconds: 15)),
         ),
-        Padding(
-          padding: const EdgeInsets.only(right: 28),
-          child: _buildSkipButton(isForward: true, seconds: 15),
+        Expanded(
+          child:
+              Center(child: _buildSkipButton(isForward: true, seconds: 15)),
         ),
       ],
     );
@@ -2017,6 +2127,7 @@ class _FullscreenControlsOverlayState
         setState(() {
           _locked = true;
           _showControls = false;
+          _showRotationPicker = false;
         });
         _hideTimer?.cancel();
       },
@@ -2559,6 +2670,70 @@ String _audioTrackLabel(AudioTrack t, int index) {
   if (mapped != null) return mapped;
   if (lang.isNotEmpty) return lang.toUpperCase();
   return 'Piste ${index + 1}';
+}
+
+// ─── Skip circle painter (arc + arrowhead + number inside) ────────────────────
+
+class _SkipCirclePainter extends CustomPainter {
+  final bool isForward;
+  _SkipCirclePainter({required this.isForward});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width / 2 - 2.5;
+    final stroke = 2.2;
+
+    final arcPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: 0.95);
+
+    // Gap en haut où vient se poser la tête de flèche.
+    const gap = 0.62; // radians
+    final double start;
+    final double sweep;
+    if (isForward) {
+      start = -math.pi / 2 + gap / 2;
+      sweep = 2 * math.pi - gap;
+    } else {
+      start = -math.pi / 2 - gap / 2;
+      sweep = -(2 * math.pi - gap);
+    }
+
+    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start,
+        sweep, false, arcPaint);
+
+    _drawArrowHead(canvas, center, radius, start + sweep, stroke);
+  }
+
+  void _drawArrowHead(
+      Canvas canvas, Offset c, double r, double angle, double stroke) {
+    final pos = Offset(c.dx + r * math.cos(angle), c.dy + r * math.sin(angle));
+    // Tangente dans le sens de l'arc.
+    final Offset tangent;
+    if (isForward) {
+      tangent = Offset(-math.sin(angle), math.cos(angle));
+    } else {
+      tangent = Offset(math.sin(angle), -math.cos(angle));
+    }
+    final tip = pos + tangent * (stroke * 4.0);
+    final back = -tangent;
+    final perp = Offset(-back.dy, back.dx);
+    final half = stroke * 3.4;
+
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(pos.dx + perp.dx * half, pos.dy + perp.dy * half)
+      ..lineTo(pos.dx - perp.dx * half, pos.dy - perp.dy * half)
+      ..close();
+    canvas.drawPath(path, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SkipCirclePainter oldDelegate) =>
+      oldDelegate.isForward != isForward;
 }
 
 // ─── Toolbar chip button ───────────────────────────────────────────────────────
@@ -3462,6 +3637,7 @@ class _TrackTile extends StatelessWidget {
     final VoidCallback? onNextEpisode;
     final List<Chapter> chapters;
     final void Function(Chapter)? onEpisodeTap;
+  final String? coverUrl;
 
     const _PortraitPlayerOverlay({
       required this.player,
@@ -3478,6 +3654,7 @@ class _TrackTile extends StatelessWidget {
       this.onNextEpisode,
       this.chapters = const [],
       this.onEpisodeTap,
+    this.coverUrl,
     });
 
     @override
@@ -3649,25 +3826,23 @@ class _TrackTile extends StatelessWidget {
       final dur = widget.player.state.duration;
       final clamped = pos < Duration.zero ? Duration.zero : (pos > dur ? dur : pos);
       final sign = _horizSeekDelta >= 0 ? '+' : '';
+      // Pilule minimale centrée au-dessus de la barre de progression
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.black.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              _horizSeekDelta >= 0 ? Broken.forward : Broken.backward,
-              color: Colors.white, size: 22,
-            ),
-            const SizedBox(height: 3),
-            Text('${sign}${_horizSeekDelta}s',
-                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 2),
-            Text(_fmtPos(clamped),
-                style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Icon(_horizSeekDelta >= 0 ? Broken.forward : Broken.backward,
+                color: Colors.white70, size: 15),
+            const SizedBox(width: 6),
+            Text('$sign${_horizSeekDelta}s',
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 10),
+            Text(_fmtPos(clamped), style: const TextStyle(color: Colors.white60, fontSize: 13)),
           ],
         ),
       );
@@ -3749,34 +3924,28 @@ class _TrackTile extends StatelessWidget {
       );
     }
 
-    // Skip ripple — YouTube-style half-screen double-tap indicator
+    // Skip HUD double-tap — "+15 ›" propre et animé (pas de demi-arc)
     Widget _buildSkipHUD({required bool isRight, required int seconds}) {
-      final arrows = seconds >= 60 ? 3 : seconds >= 30 ? 2 : 1;
-      final label  = '$seconds secondes';
+      final label = '${isRight ? '+' : '-'}${seconds.abs()}';
       return TweenAnimationBuilder<double>(
         key: ValueKey('fs_skip_${isRight}_$seconds'),
         tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 220),
+        duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        builder: (_, t, child) => Opacity(opacity: t, child: child),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.horizontal(
-              left: isRight ? Radius.zero : const Radius.circular(400),
-              right: isRight ? const Radius.circular(400) : Radius.zero,
-            ),
+        builder: (_, t, child) => Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(isRight ? 16 * (1 - t) : -16 * (1 - t), 0),
+            child: Transform.scale(scale: 0.85 + 0.15 * t, child: child),
           ),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              for (int i = 0; i < arrows; i++)
-                Icon(isRight ? Broken.forward : Broken.backward,
-                     color: Colors.white.withValues(alpha: 0.55 + i * 0.15), size: 36),
-            ]),
-            const SizedBox(height: 8),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-          ]),
         ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(isRight ? Broken.forward : Broken.backward, color: Colors.white, size: 22),
+          ),
+        ]),
       );
     }
 
@@ -3979,6 +4148,7 @@ class _TrackTile extends StatelessWidget {
                             onNextEpisode: widget.onNextEpisode,
                             chapters: widget.chapters,
                             onEpisodeTap: widget.onEpisodeTap,
+                            fallbackCoverUrl: widget.coverUrl,
                           ),
                         ),
                       );
@@ -4092,6 +4262,7 @@ class _InlineControlsState extends State<_InlineControls> {
               onNextEpisode: widget.onNextEpisode,
               chapters: widget.chapters,
               onEpisodeTap: widget.onEpisodeTap,
+              fallbackCoverUrl: widget.coverUrl,
             ),
           ),
         );
@@ -4114,6 +4285,7 @@ class _InlineControlsState extends State<_InlineControls> {
           onNextEpisode: widget.onNextEpisode,
           chapters: widget.chapters,
           onEpisodeTap: widget.onEpisodeTap,
+          fallbackCoverUrl: widget.coverUrl,
         ),
       ),
     );
@@ -4667,12 +4839,13 @@ class _MorePanelState extends State<_MorePanel> {
 
 // ─── Episode list panel ───────────────────────────────────────────────────────
 
-class _EpisodePanel extends StatelessWidget {
+class _EpisodePanel extends StatefulWidget {
   final List<Chapter> chapters;
   final int? currentChapterId;
   final Color accent;
   final void Function(Chapter) onTap;
   final VoidCallback onClose;
+  final String? fallbackCoverUrl;
 
   const _EpisodePanel({
     required this.chapters,
@@ -4680,16 +4853,89 @@ class _EpisodePanel extends StatelessWidget {
     required this.accent,
     required this.onTap,
     required this.onClose,
+    this.fallbackCoverUrl,
   });
+
+  @override
+  State<_EpisodePanel> createState() => _EpisodePanelState();
+}
+
+class _EpisodePanelState extends State<_EpisodePanel> {
+  final ScrollController _scroll = ScrollController();
+  bool _didAutoScroll = false;
+
+  static const _noSeasonSentinel = -999999;
+
+  // S1E12 / S01E02 / Season 3 … → saison ; E12/Ep.12/Episode 12 → numéro.
+  static final _seasonRe =
+      RegExp(r'(?:[sS]|season\s*)(\d{1,2})', caseSensitive: false);
+  static final _epRe =
+      RegExp(r'(?:[eE]|[eE]p\.?|[eE]pisode\s*)(\d{1,4})', caseSensitive: false);
+
+  int? _seasonOf(Chapter ch) {
+    final m = _seasonRe.firstMatch(ch.name ?? '');
+    return m == null ? null : int.tryParse(m.group(1)!);
+  }
+
+  int? _epNumOf(Chapter ch) {
+    final name = ch.name ?? '';
+    // Éviter que le "S" de "S1" soit consommé : chercher après le marqueur saison.
+    for (final m in _epRe.allMatches(name)) {
+      final before = name.substring(0, m.start);
+      if (!before.toUpperCase().endsWith('S')) {
+        return int.tryParse(m.group(1)!);
+      }
+    }
+    return null;
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final safeArea = MediaQuery.of(context).padding;
-    final panelW   = MediaQuery.of(context).size.width * 0.55;
+    final panelW = MediaQuery.of(context).size.width * 0.55;
+
+    // ── Regroupement par saison (ordre préservé) → liste plate de rows ──
+    final sections = <int?, List<Chapter>>{};
+    for (final ch in widget.chapters) {
+      sections.putIfAbsent(_seasonOf(ch), () => []).add(ch);
+    }
+    final rows = <_EpRow>[];
+    for (final entry in sections.entries) {
+      final s = entry.key;
+      // Entête affiché dès qu'on a une vraie saison, ou si mélange avec/sans saison.
+      if (s != null || sections.length > 1) {
+        rows.add(_EpRow(season: s));
+      }
+      for (final ch in entry.value) {
+        rows.add(_EpRow(chapter: ch));
+      }
+    }
+
+    // ── Auto-scroll vers l'épisode en cours ──
+    final curRowIdx = rows.indexWhere(
+        (r) => r.chapter?.id == widget.currentChapterId);
+    if (curRowIdx > 0 && !_didAutoScroll) {
+      _didAutoScroll = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scroll.hasClients) return;
+        double target = 0;
+        for (var i = 0; i < curRowIdx; i++) {
+          target += rows[i].chapter != null ? 86.0 : 40.0;
+        }
+        _scroll.jumpTo(
+            target.clamp(0.0, _scroll.position.maxScrollExtent));
+      });
+    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onClose,
+      onTap: widget.onClose,
       child: Container(
         color: Colors.black38,
         alignment: Alignment.centerRight,
@@ -4701,7 +4947,7 @@ class _EpisodePanel extends StatelessWidget {
             duration: const Duration(milliseconds: 240),
             curve: Curves.easeOutCubic,
             builder: (_, off, child) => Transform.translate(
-              offset: Offset(off.dx * panelW, 0), child: child),
+                offset: Offset(off.dx * panelW, 0), child: child),
             child: Container(
               width: panelW,
               height: double.infinity,
@@ -4714,11 +4960,15 @@ class _EpisodePanel extends StatelessWidget {
                     child: Row(
                       children: [
                         const Text('Épisodes',
-                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
                         const Spacer(),
                         GestureDetector(
-                          onTap: onClose,
-                          child: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                          onTap: widget.onClose,
+                          child: const Icon(Icons.close_rounded,
+                              color: Colors.white54, size: 20),
                         ),
                       ],
                     ),
@@ -4726,110 +4976,45 @@ class _EpisodePanel extends StatelessWidget {
                   const SizedBox(height: 6),
                   const Divider(color: Colors.white12, height: 1),
                   Expanded(
-                    child: chapters.isEmpty
-                        ? const Center(child: Text('Aucun épisode', style: TextStyle(color: Colors.white38)))
+                    child: rows.isEmpty
+                        ? const Center(
+                            child: Text('Aucun épisode',
+                                style: TextStyle(color: Colors.white38)))
                         : ListView.builder(
-                            padding: EdgeInsets.only(bottom: safeArea.bottom + 8),
-                            itemCount: chapters.length,
+                            controller: _scroll,
+                            padding:
+                                EdgeInsets.only(bottom: safeArea.bottom + 8),
+                            itemCount: rows.length,
                             itemBuilder: (_, i) {
-                              final ch = chapters[i];
-                              final isCur = ch.id == currentChapterId;
-                              return GestureDetector(
-                                onTap: () => onTap(ch),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 120),
-                                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: isCur ? accent.withValues(alpha: 0.14) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isCur
-                                          ? accent.withValues(alpha: 0.5)
-                                          : Colors.white.withValues(alpha: 0.06),
-                                      width: 1,
-                                    ),
-                                  ),
+                              final row = rows[i];
+                              if (row.season != _noSeasonSentinel) {
+                                return Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                      14, 14, 14, 6),
                                   child: Row(
                                     children: [
-                                      // ── Cover ──
-                                      Stack(
-                                        children: [
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Container(
-                                              width: 96,
-                                              height: 54,
-                                              color: Colors.white.withValues(alpha: 0.07),
-                                              child: (ch.thumbnailUrl?.isNotEmpty ?? false)
-                                                  ? CachedNetworkImage(
-                                                      imageUrl: ch.thumbnailUrl!,
-                                                      fit: BoxFit.cover,
-                                                      fadeInDuration: Duration.zero,
-                                                      errorWidget: (_, __, ___) => const Center(
-                                                        child: Icon(Broken.video, color: Colors.white24, size: 20),
-                                                      ),
-                                                    )
-                                                  : const Center(
-                                                      child: Icon(Broken.video, color: Colors.white24, size: 20),
-                                                    ),
-                                            ),
-                                          ),
-                                          if (isCur)
-                                            Positioned(
-                                              right: 4,
-                                              bottom: 4,
-                                              child: Container(
-                                                padding: const EdgeInsets.all(3),
-                                                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-                                                child: Icon(Broken.play, color: Colors.black87, size: 10),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 10),
-                                      // ── Name + meta ──
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              ch.name ?? 'Épisode ${i + 1}',
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: isCur ? accent : Colors.white,
-                                                fontSize: 13,
-                                                fontWeight: isCur ? FontWeight.w700 : FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 3),
-                                            Text(
-                                              ch.duration?.isNotEmpty == true
-                                                  ? ch.duration!
-                                                  : 'Épisode ${i + 1}',
-                                              style: TextStyle(
-                                                color: isCur
-                                                    ? accent.withValues(alpha: 0.8)
-                                                    : Colors.white38,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ],
+                                      Container(
+                                        width: 3,
+                                        height: 14,
+                                        decoration: BoxDecoration(
+                                          color: widget.accent,
+                                          borderRadius:
+                                              BorderRadius.circular(2),
                                         ),
                                       ),
-                                      if (!isCur)
-                                        Padding(
-                                          padding: const EdgeInsets.only(left: 6),
-                                          child: Text(
-                                            '#${i + 1}',
-                                            style: const TextStyle(color: Colors.white24, fontSize: 11),
-                                          ),
-                                        ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Saison ${row.season}',
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700),
+                                      ),
                                     ],
                                   ),
-                                ),
-                              );
+                                );
+                              }
+                              return _buildTile(row.chapter!);
                             },
                           ),
                   ),
@@ -4841,6 +5026,128 @@ class _EpisodePanel extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildTile(Chapter ch) {
+    final isCur = ch.id == widget.currentChapterId;
+    final epNum = _epNumOf(ch);
+    final hasThumb = ch.thumbnailUrl?.isNotEmpty ?? false;
+    final coverUrl = hasThumb ? ch.thumbnailUrl! : widget.fallbackCoverUrl;
+    return GestureDetector(
+      onTap: () => widget.onTap(ch),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isCur
+              ? widget.accent.withValues(alpha: 0.14)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isCur
+                ? widget.accent.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.06),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // ── Cover épisode, fallback cover de l'entrée ──
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 96,
+                    height: 54,
+                    color: Colors.white.withValues(alpha: 0.07),
+                    child: (coverUrl?.isNotEmpty ?? false)
+                        ? CachedNetworkImage(
+                            imageUrl: coverUrl!,
+                            fit: BoxFit.cover,
+                            fadeInDuration: Duration.zero,
+                            errorWidget: (_, __, ___) => const Center(
+                              child: Icon(Broken.video,
+                                  color: Colors.white24, size: 20),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(Broken.video,
+                                color: Colors.white24, size: 20),
+                          ),
+                  ),
+                ),
+                if (isCur)
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                          color: widget.accent, shape: BoxShape.circle),
+                      child: Icon(Broken.play,
+                          color: Colors.black87, size: 10),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            // ── Nom + meta ──
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ch.name ?? 'Épisode ${epNum ?? '?'}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isCur ? widget.accent : Colors.white,
+                      fontSize: 13,
+                      fontWeight:
+                          isCur ? FontWeight.w700 : FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    ch.duration?.isNotEmpty == true
+                        ? ch.duration!
+                        : 'Épisode ${epNum ?? '?'}',
+                    style: TextStyle(
+                      color: isCur
+                          ? widget.accent.withValues(alpha: 0.8)
+                          : Colors.white38,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Text(
+                'EP ${epNum ?? '?'}',
+                style: TextStyle(
+                  color: isCur ? widget.accent : Colors.white24,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+}
+
+/// Une ligne du panneau : entête de saison ou épisode.
+class _EpRow {
+  final Chapter? chapter;
+  final int season;
+  _EpRow({this.chapter, int? season})
+      : season = season ?? _EpisodePanelState._noSeasonSentinel;
 }
 
 // ─── Auto Next Episode Card (Netflix-style) ────────────────────────────────────

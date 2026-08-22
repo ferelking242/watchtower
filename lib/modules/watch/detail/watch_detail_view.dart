@@ -2560,7 +2560,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     child: OutlinedButton(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        Navigator.of(ctx).pushNamed('/downloadQueue');
+                        ctx.pushNamed('downloadQueue');
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _textPrimary,
