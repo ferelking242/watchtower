@@ -633,6 +633,24 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         final pluginConfig =
             await pluginsNotifier.downloadAndCachePlugin(repoUrl);
         await pluginsNotifier.addPlugin(pluginConfig);
+
+        // Auto-set as default if no default exists for this ability type.
+        final currentPlugins = ref.read(metadataPluginsProvider).valueOrNull;
+        if (currentPlugins != null) {
+          if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
+              currentPlugins.defaultMetadataPlugin < 0) {
+            try {
+              await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig);
+            } catch (_) {}
+          }
+          if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
+              currentPlugins.defaultAudioSourcePlugin < 0) {
+            try {
+              await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig);
+            } catch (_) {}
+          }
+        }
+
         await _refreshInstalled();
         if (mounted) {
           _showToast(context, '${entry.name} installé',

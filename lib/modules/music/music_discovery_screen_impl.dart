@@ -69,7 +69,7 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
     // fill all available space so child pages (e.g. the "no provider" fallback
     // with Center) can center vertically.
     return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: Theme.of(context).colorScheme.surface,
       child: SizedBox.expand(
         child: Router(
           routerDelegate: _routerDelegate,

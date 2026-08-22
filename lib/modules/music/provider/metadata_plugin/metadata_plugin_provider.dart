@@ -235,6 +235,10 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
           // auto-set block below can still repair a missing default selection.
           freshlyAdded = true;
         }
+        // Any other exception (API mismatch, invalid bytecode, stub, etc.)
+        // — skip this bundled plugin silently so the rest can still load.
+      } catch (_) {
+        // Unknown exception — skip this bundled plugin silently.
       }
 
       // Auto-set this bundled plugin as the default when:
