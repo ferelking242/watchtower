@@ -10,6 +10,7 @@ import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
+import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -248,6 +249,8 @@ class M3u8Downloader {
       concurrentDownloads: concurrentDownloads,
       headers: _buildEffectiveHeaders(),
       itemType: chapter.manga.value!.itemType,
+      writeMode: DownloadSettingsService.instance.downloadWriteMode,
+      speedLimitKBs: DownloadSettingsService.instance.speedLimitKBs,
       onProgress: (progress) {
         onProgress(progress);
       },
@@ -333,12 +336,28 @@ class M3u8Downloader {
         return aIndex.compareTo(bIndex);
       });
 
-      final outFile = File(fileName).openWrite();
-      for (var file in files) {
-        final inFile = File(file.path).openRead();
-        await outFile.addStream(inFile);
+      // Merge atomically: write to <name>.mp4.part, verify it is non-empty,
+      // then rename. A crash mid-merge can no longer leave a truncated file
+      // at the final path masquerading as a finished download.
+      final partFile = File('$fileName.part');
+      if (await partFile.exists()) await partFile.delete();
+      final outFile = partFile.openWrite();
+      try {
+        for (var file in files) {
+          final inFile = File(file.path).openRead();
+          await outFile.addStream(inFile);
+        }
+        await outFile.flush();
+      } finally {
+        await outFile.close();
       }
-      await outFile.close();
+      final mergedLen = await partFile.length();
+      if (mergedLen == 0) {
+        throw M3u8DownloaderException('Merged output is empty ($fileName)');
+      }
+      final out = File(fileName);
+      if (await out.exists()) await out.delete();
+      await partFile.rename(fileName);
     } catch (e) {
       throw M3u8DownloaderException('Failed to merge TS files', e);
     }

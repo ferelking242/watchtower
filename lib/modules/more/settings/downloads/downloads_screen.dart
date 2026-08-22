@@ -42,6 +42,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final localFolders = ref.watch(localFoldersStateProvider);
     final speedLimit = ref.watch(speedLimitKBsStateProvider);
     final concurrentDownloads = ref.watch(concurrentDownloadsStateProvider);
+    final writeMode = DownloadSettingsService.instance.downloadWriteMode;
 
     return Scaffold(
       appBar: AppBar(
@@ -110,6 +111,33 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 scheme: scheme,
               ),
               onTap: () => _showSpeedLimitDialog(context, speedLimit),
+            ),
+            ListTile(
+              leading: const Icon(Icons.save_outlined),
+              title: const Text('Mode d\'écriture disque'),
+              subtitle: Text(
+                switch (writeMode) {
+                  0 => '.part + reprise automatique (recommandé)',
+                  1 => 'Pré-allocation de l\'espace fichier',
+                  _ => 'Direct (risqué si interruption)',
+                },
+                style: TextStyle(fontSize: 11, color: context.secondaryColor),
+              ),
+              trailing: _BadgeChip(
+                label: switch (writeMode) {
+                  0 => 'PART',
+                  1 => 'PRE',
+                  _ => 'DIRECT',
+                },
+                scheme: scheme,
+              ),
+              onTap: () async {
+                final v = await _pickWriteMode(context, writeMode);
+                if (v != null) {
+                  await DownloadSettingsService.instance.setDownloadWriteMode(v);
+                  if (mounted) setState(() {});
+                }
+              },
             ),
 
             // ── Cartes & Gestes ───────────────────────────────────────────
@@ -361,6 +389,32 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   Navigator.pop(ctx);
                 }
               },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Future<int?> _pickWriteMode(BuildContext context, int current) {
+    const options = [
+      (0, '.part + reprise', 'Écrit dans un fichier .part puis renomme à la fin. Reprise automatique après interruption ; le partiel reste lisible.'),
+      (1, 'Pré-allocation', 'Réserve la taille finale du fichier avant de télécharger. Évite la fragmentation sur les gros fichiers.'),
+      (2, 'Direct', 'Écrit directement au chemin final (ancien comportement). Risque de fichier corrompu si interruption.'),
+    ];
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Mode d\'écriture disque'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options.map((o) {
+            return RadioListTile<int>(
+              title: Text(o.$2, style: const TextStyle(fontSize: 14)),
+              subtitle: Text(o.$3, style: const TextStyle(fontSize: 11)),
+              value: o.$1,
+              groupValue: current,
+              onChanged: (v) => Navigator.pop(ctx, v),
             );
           }).toList(),
         ),

@@ -8,6 +8,7 @@ import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
+import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:path/path.dart' as path;
 
@@ -126,6 +127,8 @@ class MDownloader {
       pageUrls: pageUrls,
       concurrentDownloads: concurrentDownloads,
       itemType: chapter.manga.value!.itemType,
+      writeMode: DownloadSettingsService.instance.downloadWriteMode,
+      speedLimitKBs: DownloadSettingsService.instance.speedLimitKBs,
       onProgress: (progress) {
         onProgress(progress);
       },

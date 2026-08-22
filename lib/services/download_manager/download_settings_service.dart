@@ -217,6 +217,16 @@ class DownloadSettingsService {
     await _save();
   }
 
+  // ── Disk write mode (Speed Master) ──────────────────────────────────────
+  // 0 = .part + atomic rename with Range resume (default, safest)
+  // 1 = pre-allocation of full file size before streaming
+  // 2 = direct legacy write to final path
+  int get downloadWriteMode => _data['downloadWriteMode'] as int? ?? 0;
+  Future<void> setDownloadWriteMode(int v) async {
+    _data['downloadWriteMode'] = v.clamp(0, 2);
+    await _save();
+  }
+
   // ── Speed limit (KB/s, 0 = unlimited) ────────────────────────────────────
 
   int get speedLimitKBs => _data['speedLimitKBs'] as int? ?? 0;

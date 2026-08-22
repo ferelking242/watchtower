@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:isolate';
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart';
@@ -82,6 +83,8 @@ class DownloadIsolatePool {
     required List<PageUrl> pageUrls,
     required int concurrentDownloads,
     required ItemType itemType,
+    int writeMode = 0,
+    int speedLimitKBs = 0,
     required void Function(DownloadProgress) onProgress,
     required void Function() onComplete,
     required void Function(Exception) onError,
@@ -102,6 +105,8 @@ class DownloadIsolatePool {
         pageUrls: pageUrls,
         concurrentDownloads: concurrentDownloads,
         itemType: itemType,
+        writeMode: writeMode,
+        speedLimitKBs: speedLimitKBs,
       ),
       sendPort: receivePort.sendPort,
     );
@@ -167,6 +172,8 @@ class DownloadIsolatePool {
     required int concurrentDownloads,
     required Map<String, String>? headers,
     required ItemType itemType,
+    int writeMode = 0,
+    int speedLimitKBs = 0,
     required void Function(DownloadProgress) onProgress,
     required void Function() onComplete,
     required void Function(Exception) onError,
@@ -191,6 +198,8 @@ class DownloadIsolatePool {
         concurrentDownloads: concurrentDownloads,
         headers: headers,
         itemType: itemType,
+        writeMode: writeMode,
+        speedLimitKBs: speedLimitKBs,
       ),
       sendPort: receivePort.sendPort,
     );
@@ -318,10 +327,21 @@ class FileDownloadParams {
   final int concurrentDownloads;
   final ItemType itemType;
 
+  /// Mode d'écriture disque :
+  /// 0 = .part + rename atomique (défaut, reprise Range possible)
+  /// 1 = pré-allocation de l'espace puis écriture
+  /// 2 = direct au chemin final (legacy, risqué sur interruption)
+  final int writeMode;
+
+  /// Limite de débit globale en KB/s (0 = illimité) — Speed Master.
+  final int speedLimitKBs;
+
   FileDownloadParams({
     required this.pageUrls,
     required this.concurrentDownloads,
     required this.itemType,
+    this.writeMode = 0,
+    this.speedLimitKBs = 0,
   });
 }
 
@@ -336,6 +356,12 @@ class M3u8DownloadParams {
   final Map<String, String>? headers;
   final ItemType itemType;
 
+  /// Voir [FileDownloadParams.writeMode] — appliqué au fichier fusionné final.
+  final int writeMode;
+
+  /// Limite de débit globale en KB/s (0 = illimité) — Speed Master.
+  final int speedLimitKBs;
+
   M3u8DownloadParams({
     required this.segments,
     required this.tempDir,
@@ -345,7 +371,43 @@ class M3u8DownloadParams {
     required this.concurrentDownloads,
     required this.headers,
     required this.itemType,
+    this.writeMode = 0,
+    this.speedLimitKBs = 0,
   });
+}
+
+/// Token-bucket partagé entre tous les slots d'une même tâche — implémente la
+/// limite de débit du Speed Master sans bloquer les autres téléchargements.
+class _Throttle {
+  final double bytesPerSec;
+  double _tokens;
+  DateTime _lastRefill;
+
+  _Throttle(this.bytesPerSec)
+      : _tokens = bytesPerSec, // burst initial = 1 s de budget
+        _lastRefill = DateTime.now();
+
+  void _refill() {
+    final now = DateTime.now();
+    final secs = now.difference(_lastRefill).inMicroseconds / 1e6;
+    if (secs <= 0) return;
+    // Burst cap à 2 s de budget pour rester réactif sans écraser la limite.
+    _tokens = math.min(bytesPerSec * 2, _tokens + bytesPerSec * secs);
+    _lastRefill = now;
+  }
+
+  Future<void> acquire(int n) async {
+    if (bytesPerSec <= 0 || n <= 0) return;
+    _refill();
+    if (_tokens >= n) {
+      _tokens -= n;
+      return;
+    }
+    final deficit = n - _tokens;
+    _tokens = 0;
+    await Future<void>.delayed(
+        Duration(milliseconds: (deficit / bytesPerSec * 1000).ceil()));
+  }
 }
 
 /// Pool worker that executes tasks in a persistent Isolate
@@ -578,6 +640,7 @@ Future<void> _processFileDownload(
   }
 
   try {
+    final throttle = _Throttle(params.speedLimitKBs.toDouble());
     final int concurrency = params.concurrentDownloads.clamp(1, 32);
     // Circular slot buffer: slot i is awaited before launching item i,
     // guaranteeing at most `concurrency` downloads in flight at once.
@@ -595,7 +658,8 @@ Future<void> _processFileDownload(
       await slots[slotIdx];
 
       final pageUrl = params.pageUrls[i];
-      slots[slotIdx] = _downloadFile(pageUrl, client, params.itemType, replyPort)
+      slots[slotIdx] = _downloadFile(pageUrl, client, params.itemType, replyPort,
+              writeMode: params.writeMode, throttle: throttle)
           .then((_) {
             if (params.itemType != ItemType.anime) {
               completed++;
@@ -625,58 +689,115 @@ Future<void> _processFileDownload(
   }
 }
 
-/// Download an individual file
+/// Download an individual file.
+///
+/// Disk-write safety ([writeMode]):
+///  0 = `.part` + atomic rename (default). A partially-written file stays
+///      as `<name>.part` and is **resumed** via HTTP Range on retry/restart,
+///      and remains playable if the user pauses (partial file readable).
+///  1 = Pre-allocation: reserve the full Content-Length up front (no resume).
+///  2 = Legacy direct write to final path (risky on interruption).
+///
+/// [throttle] implements the Speed Master per-task bandwidth cap.
 Future<void> _downloadFile(
   PageUrl pageUrl,
   Client client,
   ItemType itemType,
-  SendPort replyPort,
-) async {
+  SendPort replyPort, {
+  int writeMode = 0,
+  _Throttle? throttle,
+}) async {
   try {
     if (itemType != ItemType.anime) {
-        const imageTimeout = Duration(seconds: 30);
-        final response = await _withRetry(
-          () => client
-              .get(Uri.parse(pageUrl.url), headers: pageUrl.headers)
-              .timeout(
-                imageTimeout,
-                onTimeout: () => throw DownloadPoolException(
-                  'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
-                ),
+      const imageTimeout = Duration(seconds: 30);
+      final response = await _withRetry(
+        () => client
+            .get(Uri.parse(pageUrl.url), headers: pageUrl.headers)
+            .timeout(
+              imageTimeout,
+              onTimeout: () => throw DownloadPoolException(
+                'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
               ),
-          3,
+            ),
+        3,
+      );
+      if (response.statusCode != 200) {
+        throw DownloadPoolException(
+          'HTTP ${response.statusCode} for ${pageUrl.url}',
         );
-        if (response.statusCode != 200) {
-          throw DownloadPoolException(
-            'HTTP ${response.statusCode} for ${pageUrl.url}',
-          );
-        }
-        final file = File(pageUrl.fileName!);
-        await file.writeAsBytes(response.bodyBytes);
-        if (kDebugMode) {
-          debugPrint('[DLPool] ${path.basename(pageUrl.fileName!)} ok (${response.bodyBytes.length}B)');
-        }
+      }
+      final bytes = response.bodyBytes;
+      final finalPath = pageUrl.fileName!;
+      if (writeMode == 0 && bytes.isNotEmpty) {
+        // Atomic: write to a sibling .part then rename.
+        final part = File('$finalPath.part');
+        await part.writeAsBytes(bytes, flush: true);
+        final out = File(finalPath);
+        if (await out.exists()) await out.delete();
+        await part.rename(finalPath);
       } else {
+        await File(finalPath).writeAsBytes(bytes, flush: true);
+      }
+      if (kDebugMode) {
+        debugPrint('[DLPool] ${path.basename(finalPath)} ok (${bytes.length}B)');
+      }
+    } else {
       // Streaming for videos — reports real byte progress ("14 MB / 58 MB").
       await _withRetry(() async {
+        final finalPath = pageUrl.fileName!;
+        final partFile = File('$finalPath.part');
+
+        // Resume support (mode 0): start from what we already have on disk.
+        int startFrom = 0;
+        if (writeMode == 0 && await partFile.exists()) {
+          startFrom = await partFile.length();
+        }
+
         var request = Request('GET', Uri.parse(pageUrl.url));
         request.headers.addAll(pageUrl.headers ?? {});
+        if (startFrom > 0) {
+          request.headers['Range'] = 'bytes=$startFrom-';
+        }
         StreamedResponse response = await client.send(request);
-        if (response.statusCode != 200) {
+
+        final resumable = response.statusCode == 206;
+        if (response.statusCode != 200 && !resumable) {
           throw DownloadPoolException(
-            'Failed to download file: ${pageUrl.fileName!}',
+            'Failed to download file: $finalPath (HTTP ${response.statusCode})',
           );
         }
-        // Content-Length may be absent (chunked transfer). When present it
-        // drives the "X MB / Y MB" label; when absent we still show bytes
-        // received as "X MB" with no denominator.
-        final int contentLength = response.contentLength ?? 0;
-        int received = 0;
+        if (!resumable) startFrom = 0; // server ignored Range → restart clean
 
-        final file = File(pageUrl.fileName!);
-        final sink = file.openWrite();
+        // Content-Length may be absent (chunked transfer). For 206 responses
+        // it is the REMAINING length — add back what we resumed from so the
+        // UI denominator reflects the full file.
+        int contentLength = response.contentLength ?? 0;
+        if (resumable && contentLength > 0) contentLength += startFrom;
+        int received = startFrom;
+
+        IOSink sink;
+        switch (writeMode) {
+          case 0:
+            // Append only when actually resuming; otherwise truncate any
+            // stale .part so a non-Range server response can't corrupt it.
+            sink = partFile.openWrite(
+                mode: startFrom > 0 ? FileMode.append : FileMode.write);
+          case 1:
+            // Pre-allocate the space once (truncate to expected size), then
+            // stream into it. Resume not applicable in this mode.
+            if (contentLength > 0) {
+              final raf = await File(finalPath).open(mode: FileMode.write);
+              await raf.truncate(contentLength);
+              await raf.close();
+            }
+            sink = File(finalPath).openWrite(mode: FileMode.write);
+          default:
+            sink = File(finalPath).openWrite(mode: FileMode.write);
+        }
+
         try {
           await for (var chunk in response.stream) {
+            if (throttle != null) await throttle.acquire(chunk.length);
             sink.add(chunk);
             received += chunk.length;
             try {
@@ -695,6 +816,23 @@ Future<void> _downloadFile(
         } finally {
           await sink.flush();
           await sink.close();
+        }
+
+        // Finalize (mode 0): integrity check then atomic rename. The partial
+        // file only becomes the "real" download once complete.
+        if (writeMode == 0) {
+          final written = await partFile.length();
+          if (written == 0) {
+            throw DownloadPoolException('Downloaded file is empty: $finalPath');
+          }
+          if (contentLength > 0 && written < contentLength) {
+            throw DownloadPoolException(
+              'Incomplete download: $written/$contentLength bytes ($finalPath)',
+            );
+          }
+          final out = File(finalPath);
+          if (await out.exists()) await out.delete();
+          await partFile.rename(finalPath);
         }
       }, 3);
     }
@@ -766,6 +904,7 @@ Future<void> _processM3u8Download(
   }
 
   try {
+    final throttle = _Throttle(params.speedLimitKBs.toDouble());
     final int concurrency = params.concurrentDownloads.clamp(1, 32);
     final slots = List<Future<void>>.filled(concurrency, Future.value());
 
@@ -787,6 +926,7 @@ Future<void> _processM3u8Download(
       final capturedSlotIdx = slotIdx;
       slots[slotIdx] = _downloadSegment(
         segment, params, client,
+        throttle: throttle,
         onChunk: (bytes) {
           slotBytes[capturedSlotIdx] += bytes;
           _sendProgress(null); // throttled real-time update
@@ -862,6 +1002,7 @@ Future<void> _downloadSegment(
   M3u8DownloadParams params,
   Client client, {
   void Function(int bytes)? onChunk,
+  _Throttle? throttle,
 }) async {
   const segmentTimeout = Duration(seconds: 45);
   final file = File(path.join(params.tempDir, '${ts.name}.ts'));
@@ -902,17 +1043,16 @@ Future<void> _downloadSegment(
       try {
         // Per-chunk inactivity watchdog — if no bytes arrive for
         // segmentTimeout the stream is considered stalled.
-        await response.stream
-            .timeout(
-              segmentTimeout,
-              onTimeout: (_) => throw DownloadPoolException(
-                'Segment ${ts.name}: stream stalled for ${segmentTimeout.inSeconds}s',
-              ),
-            )
-            .forEach((chunk) {
-              sink.add(chunk);
-              onChunk?.call(chunk.length);
-            });
+        await for (final chunk
+            in response.stream.timeout(segmentTimeout, onTimeout: (_) {
+          throw DownloadPoolException(
+            'Segment ${ts.name}: stream stalled for ${segmentTimeout.inSeconds}s',
+          );
+        })) {
+          if (throttle != null) await throttle.acquire(chunk.length);
+          sink.add(chunk);
+          onChunk?.call(chunk.length);
+        }
       } finally {
         await sink.flush();
         await sink.close();
