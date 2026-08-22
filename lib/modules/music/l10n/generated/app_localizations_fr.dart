@@ -738,7 +738,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'Au fait, votre adresse IP peut être bloquée sur YouTube en raison d\'une demande excessive de téléchargements par rapport à la normale. Le blocage de l\'IP signifie que vous ne pourrez pas utiliser YouTube (même si vous êtes connecté) pendant au moins 2 à 3 mois à partir de cet appareil IP. Et Spotube ne peut être tenu responsable si cela se produit.';
+      'Au fait, votre adresse IP peut être bloquée sur YouTube en raison d\'une demande excessive de téléchargements par rapport à la normale. Le blocage de l\'IP signifie que vous ne pourrez pas utiliser YouTube (même si vous êtes connecté) pendant au moins 2 à 3 mois à partir de cet appareil IP. Et Watchtower ne peut être tenu responsable si cela se produit.';
 
   @override
   String get by_clicking_accept_terms =>
@@ -754,7 +754,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'Je suis parfaitement conscient(e) que mon adresse IP peut être bloquée sur YouTube et je ne tiens pas Spotube ni ses propriétaires/contributeurs responsables de tout accident causé par mon action actuelle.';
+      'Je suis parfaitement conscient(e) que mon adresse IP peut être bloquée sur YouTube et je ne tiens pas Watchtower ni ses propriétaires/contributeurs responsables de tout accident causé par mon action actuelle.';
 
   @override
   String get decline => 'Refuser';

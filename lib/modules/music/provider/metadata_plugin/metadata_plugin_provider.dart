@@ -57,7 +57,7 @@ class MetadataPluginState {
           .map((e) => PluginConfiguration.fromJson(e))
           .toList(),
       defaultMetadataPlugin: json["default_metadata_plugin"] ?? -1,
-      defaultAudioSourcePlugin: json['default_audio_source_plugin'],
+      defaultAudioSourcePlugin: json['default_audio_source_plugin'] ?? -1,
     );
   }
 
@@ -107,7 +107,13 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
 
     await _loadDefaultPlugins(pluginState);
 
-    return pluginState;
+    // _loadDefaultPlugins() may have inserted the bundled plugins, so the
+    // state computed before that call is stale (and could otherwise
+    // overwrite the DB-watch result with an empty plugin list — which is
+    // exactly the "no default metadata provider" bug after a fresh start).
+    // Re-read the table so the returned state always reflects reality.
+    final pluginsAfter = await database.pluginsTable.select().get();
+    return await toStatePlugins(pluginsAfter);
   }
 
   Future<MetadataPluginState> toStatePlugins(
@@ -178,7 +184,14 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
   }
 
   Future<void> _loadDefaultPlugins(MetadataPluginState pluginState) async {
-    const plugins = <String>[]; // plugins now installed from marketplace only
+    // Bundled plugins shipped with the app (real Hetu bytecode, API 2.0.0).
+    // They provide the out-of-the-box experience: YouTube Audio as the audio
+    // source and Musicbrainz/Listenbrainz as the metadata provider. The
+    // Marketplace stays the single place to install extra plugins.
+    const plugins = <String>[
+      'spotube-plugin-youtube-audio',
+      'spotube-plugin-musicbrainz-listenbrainz',
+    ];
 
     for (final plugin in plugins) {
       ByteData byteData;
@@ -351,6 +364,20 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         utf8.decode(pluginJson.content as List<int>),
       ) as Map<String, dynamic>,
     );
+
+    // Reject placeholder "stub" plugins (e.g. an entry published in a
+    // marketplace repo before its real implementation exists). Their
+    // plugin.out is a marker, not real Hetu bytecode, so installing them
+    // would silently break the "no default provider" screen afterwards.
+    final pluginOut = archive
+        .firstWhereOrNull((file) => file.isFile && file.name == "plugin.out");
+    if (pluginOut != null) {
+      final head = pluginOut.content as List<int>;
+      if (head.length >= 11 &&
+          String.fromCharCodes(head.take(11)) == "WTPLUG_STUB") {
+        throw MetadataPluginException.invalidPluginByteCode();
+      }
+    }
 
     final pluginDir = await _getPluginRootDir();
     await pluginDir.create(recursive: true);

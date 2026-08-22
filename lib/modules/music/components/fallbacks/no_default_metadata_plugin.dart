@@ -9,27 +9,31 @@ class NoDefaultMetadataPlugin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        spacing: 10,
-        children: [
-          Undraw(
-            height: 200 * 1.0,
-            illustration: UndrawIllustration.stars,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          AutoSizeText(
-            context.l10n.no_default_metadata_provider_selected,
-            style: Theme.of(context).textTheme.titleLarge!,
-            maxLines: 1,
-          ),
-          FilledButton(
-            child: Text(context.l10n.manage_metadata_providers),
-            onPressed: () => openMarketplace(context),
-          ),
-        ],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          spacing: 10,
+          children: [
+            Undraw(
+              height: 200,
+              illustration: UndrawIllustration.dreamer,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            AutoSizeText(
+              context.l10n.no_default_metadata_provider_selected,
+              style: Theme.of(context).textTheme.titleLarge!,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+            ),
+            FilledButton(
+              child: Text(context.l10n.manage_metadata_providers),
+              onPressed: () => openMarketplace(context),
+            ),
+          ],
+        ),
       ),
     );
   }
