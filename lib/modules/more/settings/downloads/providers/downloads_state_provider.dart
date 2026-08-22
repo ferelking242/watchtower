@@ -607,6 +607,15 @@ class DownloadQueueState extends _$DownloadQueueState {
     state = state.copyWith(speeds: map);
   }
 
+  /// Speed Master — queue priority (0 = normal, 1 = haute).
+  /// Consumed by [processDownloads] to order waiting downloads; a re-kick of
+  /// processDownloads after changing this makes it effective immediately.
+  void setPriority(int downloadId, int priority) {
+    final map = Map<int, int>.from(state.priorities);
+    map[downloadId] = priority.clamp(0, 1);
+    state = state.copyWith(priorities: map);
+  }
+
   void pauseAll(List<int> ids) {
     final set = Set<int>.from(state.pausedIds);
     for (final id in ids) {
@@ -631,12 +640,14 @@ class DownloadQueueStateData {
   final Map<int, String> engineMap;
   final Map<int, int> retryCounts;
   final Map<int, double> speeds;
+  final Map<int, int> priorities;
 
   const DownloadQueueStateData({
     this.pausedIds = const {},
     this.engineMap = const {},
     this.retryCounts = const {},
     this.speeds = const {},
+    this.priorities = const {},
   });
 
   DownloadQueueStateData copyWith({
@@ -644,12 +655,14 @@ class DownloadQueueStateData {
     Map<int, String>? engineMap,
     Map<int, int>? retryCounts,
     Map<int, double>? speeds,
+    Map<int, int>? priorities,
   }) {
     return DownloadQueueStateData(
       pausedIds: pausedIds ?? this.pausedIds,
       engineMap: engineMap ?? this.engineMap,
       retryCounts: retryCounts ?? this.retryCounts,
       speeds: speeds ?? this.speeds,
+      priorities: priorities ?? this.priorities,
     );
   }
 }

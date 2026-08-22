@@ -1274,6 +1274,10 @@ class _GroupedDownloadTabListState
             : 'HYDRA';
     final engine = widget.queueState.engineMap[element.id ?? -1] ?? defaultBadge;
     final retryCount = widget.queueState.retryCounts[element.id ?? -1] ?? 0;
+    // ── Speed Master ──
+    final priority = widget.queueState.priorities[element.id ?? -1] ?? 0;
+    final speedMbs =
+        (widget.queueState.speeds[element.id ?? -1] ?? 0.0).clamp(0.0, 9999.0);
 
     return Dismissible(
       key: ValueKey('dl_${element.id ?? 0}'),
@@ -1334,19 +1338,33 @@ class _GroupedDownloadTabListState
         widget.onDelete(element);
         return true;
       },
-      child: _DownloadCard(
-        download: element,
-        isPaused: isPaused,
-        engine: engine,
-        retryCount: retryCount,
-        swipeLeftAction: widget.swipeLeft,
-        swipeRightAction: widget.swipeRight,
-        onPauseResume: () => widget.onPauseResume(element),
-        onCancel: () => widget.onCancel(element),
-        onDelete: () => widget.onDelete(element),
-        onRetry: () => widget.onRetry(element),
-        onOpen: () => widget.onOpen(element),
-        entries: widget.allEntries,
+      child: GestureDetector(
+        // Long-press toggles Speed Master queue priority (haute ↔ normale).
+        onLongPress: () {
+          final newPrio = priority > 0 ? 0 : 1;
+          ref
+              .read(downloadQueueStateProvider.notifier)
+              .setPriority(element.id ?? -1, newPrio);
+          botToast(newPrio > 0
+              ? 'Priorité haute activée'
+              : 'Priorité normale');
+        },
+        child: _DownloadCard(
+          download: element,
+          isPaused: isPaused,
+          engine: engine,
+          retryCount: retryCount,
+          priority: priority,
+          speedMbs: speedMbs,
+          swipeLeftAction: widget.swipeLeft,
+          swipeRightAction: widget.swipeRight,
+          onPauseResume: () => widget.onPauseResume(element),
+          onCancel: () => widget.onCancel(element),
+          onDelete: () => widget.onDelete(element),
+          onRetry: () => widget.onRetry(element),
+          onOpen: () => widget.onOpen(element),
+          entries: widget.allEntries,
+        ),
       ),
     );
   }
@@ -1560,6 +1578,12 @@ class _DownloadCard extends ConsumerWidget {
   final bool isPaused;
   final String engine;
   final int retryCount;
+
+  /// Speed Master: queue priority (0 = normale, 1 = haute).
+  final int priority;
+
+  /// Speed Master: live download speed in MB/s (0 = unknown/idle).
+  final double speedMbs;
   final SwipeAction swipeLeftAction;
   final SwipeAction swipeRightAction;
   final VoidCallback onPauseResume;
@@ -1574,6 +1598,8 @@ class _DownloadCard extends ConsumerWidget {
     required this.isPaused,
     required this.engine,
     required this.retryCount,
+    this.priority = 0,
+    this.speedMbs = 0.0,
     required this.swipeLeftAction,
     required this.swipeRightAction,
     required this.onPauseResume,
@@ -1628,6 +1654,9 @@ class _DownloadCard extends ConsumerWidget {
     final isRetrievingMetadata = !isComplete && !hasFailed && !isPaused &&
         succeeded == 0 && total == 1;
 
+    final speedLabel = !isComplete && !hasFailed && !isPaused && speedMbs >= 0.05
+        ? ' · ${speedMbs >= 10 ? speedMbs.toStringAsFixed(0) : speedMbs.toStringAsFixed(1)} MB/s'
+        : '';
     final String statusText = isComplete
         ? 'Terminé'
         : hasFailed
@@ -1637,7 +1666,7 @@ class _DownloadCard extends ConsumerWidget {
                 : isRetrievingMetadata
                     ? 'Récupération…'
                     : progress > 0
-                        ? 'En cours…'
+                        ? 'En cours…$speedLabel'
                         : 'En attente';
     final Color statusColor = isComplete
         ? scheme.primary
@@ -1908,7 +1937,7 @@ class _DownloadCard extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: Text(
-                              engine,
+                              priority > 0 ? '⚡ $engine' : engine,
                               style: TextStyle(
                                 color: scheme.primary,
                                 fontSize: 9,
@@ -2016,7 +2045,7 @@ class _DownloadCard extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          engine,
+                          priority > 0 ? '⚡ $engine' : engine,
                           style: TextStyle(
                             color: scheme.primary,
                             fontSize: 10,

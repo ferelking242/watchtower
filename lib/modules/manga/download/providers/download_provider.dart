@@ -762,6 +762,13 @@ Future<void> downloadChapter(
     // backwards after a pause → resume.  -1 = not yet captured.
     var _resumeSucceededKbOffset = -1;
 
+    // ── Speed Master: live per-download speed (EMA, MB/s) ──────────────────
+    // Sampled from consecutive byte progress ticks; smoothed so the value in
+    // the queue UI stays readable instead of jumping on every segment done.
+    var _speedLastKb = -1;
+    var _speedLastMs = 0;
+    var _speedEmaMbs = 0.0;
+
     Future<void> setProgress(DownloadProgress progress) async {
       if (progress.total > 0 && AppLogger.isExtremeMode) {
         final pct = (progress.completed / progress.total * 100).toInt();
@@ -811,6 +818,39 @@ Future<void> downloadChapter(
       }
 
       final download = isar.downloads.getSync(chapter.id!);
+
+      // ── Speed Master: update the live speed shown in the download queue ──
+      {
+        final notifier = ref.read(downloadQueueStateProvider.notifier);
+        if (progress.isCompleted) {
+          if (_speedEmaMbs > 0 || _speedLastKb >= 0) {
+            _speedEmaMbs = 0;
+            _speedLastKb = -1;
+            notifier.setSpeed(chapter.id!, 0);
+          }
+        } else if (progress.itemType == ItemType.anime && !progress.isCompleted) {
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
+          final kbNow = isarSucceeded; // includes resume offset → cumulative
+          if (_speedLastKb < 0) {
+            _speedLastKb = kbNow;
+            _speedLastMs = nowMs;
+          } else {
+            final dtSec = (nowMs - _speedLastMs) / 1000.0;
+            // ≥0.5 s between samples keeps the EMA stable without flooding.
+            if (dtSec >= 0.5) {
+              final instMbs = ((kbNow - _speedLastKb) / 1024.0) / dtSec;
+              if (instMbs >= 0) {
+                _speedEmaMbs =
+                    _speedEmaMbs <= 0 ? instMbs : (_speedEmaMbs * 0.7 + instMbs * 0.3);
+                notifier.setSpeed(chapter.id!, _speedEmaMbs);
+              }
+              // Negative delta = a resume reset happened mid-session: re-seed.
+              _speedLastKb = kbNow;
+              _speedLastMs = nowMs;
+            }
+          }
+        }
+      }
 
       // ── First-tick: capture resume offset from Isar ──────────────────────
       // setProgress(0, 0, …) is called once before any real progress arrives.
@@ -1596,6 +1636,15 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         if (chId == null) return false; // orphaned record — skip
         return !pausedIds.contains(chId) && !ActiveDownloadRegistry.isActive(chId);
       }).toList();
+
+      // ── Speed Master: high-priority downloads start first ────────────────
+      // Stable sort: within the same priority the original (FIFO-ish) Isar
+      // order is preserved. Re-read every tick so toggling priority in the
+      // queue UI applies immediately without restarting the scheduler.
+      final prioMap = ref.read(downloadQueueStateProvider).priorities;
+      toStart.sort((a, b) =>
+          (prioMap[b.chapter.value?.id ?? -1] ?? 0)
+              .compareTo(prioMap[a.chapter.value?.id ?? -1] ?? 0));
 
       // Exit when nothing is waiting AND nothing is running.
       if (toStart.isEmpty && !ActiveDownloadRegistry.hasActive) {
