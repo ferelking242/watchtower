@@ -11,6 +11,7 @@ import 'package:auto_route/auto_route.dart';
       import 'package:watchtower/modules/music/provider/download_manager_provider.dart';
       import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
       import 'package:watchtower/modules/music/provider/metadata_plugin/core/user.dart';
+      import 'package:watchtower/modules/music/utils/open_marketplace.dart';
 
       class SidebarFooter extends HookConsumerWidget {
       const SidebarFooter({
@@ -58,8 +59,7 @@ import 'package:auto_route/auto_route.dart';
                 IconButton(
                   icon: const Icon(SpotubeIcons.login),
                   tooltip: 'Se connecter',
-                  onPressed: () =>
-                      context.navigateTo(const SettingsMetadataProviderRoute()),
+                  onPressed: () => openMarketplace(context),
                 ),
               // Music Hub settings (playback, comptes, etc.)
               IconButton(
@@ -146,7 +146,7 @@ import 'package:auto_route/auto_route.dart';
                       icon: const Icon(SpotubeIcons.login),
                       tooltip: 'Se connecter',
                       onPressed: () {
-                        context.navigateTo(const SettingsMetadataProviderRoute());
+                        openMarketplace(context);
                       },
                     ),
                   // Music Hub internal settings (playback, comptes, apparence…)

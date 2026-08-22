@@ -1,4 +1,4 @@
-import 'package:auto_route/auto_route.dart';
+    import 'package:auto_route/auto_route.dart';
     import 'package:flutter/material.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
     import 'package:watchtower/modules/music/collections/routes.gr.dart';
@@ -6,6 +6,7 @@ import 'package:auto_route/auto_route.dart';
     import 'package:watchtower/modules/music/modules/getting_started/blur_card.dart';
     import 'package:watchtower/modules/music/extensions/context.dart';
     import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
+    import 'package:watchtower/modules/music/utils/open_marketplace.dart';
 
     class GettingStartedScreenSupportSection extends HookConsumerWidget {
     const GettingStartedScreenSupportSection({super.key});
@@ -65,9 +66,9 @@ import 'package:auto_route/auto_route.dart';
                     onPressed: () async {
                       await KVStoreService.setDoneGettingStarted(true);
                       if (context.mounted) {
-                        context.router.replaceAll([
-                          RootAppRoute(children: [SettingsMetadataProviderRoute()]),
-                        ]);
+                        // La page plugins dédiée n'existe plus : toutes les
+                        // extensions vivent dans le Marketplace de l'app.
+                        openMarketplace(context);
                       }
                     },
                     child: Row(
