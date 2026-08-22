@@ -3246,13 +3246,13 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             const SizedBox(width: 8),
           ],
           // Quality pill — only when qualities loaded
-          if (qualities.isNotEmpty) ...[
+          if (_qualities.isNotEmpty) ...[
             _buildPill(
-              label: _selectedQuality ?? qualities.first,
+              label: _selectedQuality ?? _qualities.first,
               onTap: () => _showPillSheet(
                 'Résolution',
                 qualities,
-                _selectedQuality ?? qualities.first,
+                _selectedQuality ?? _qualities.first,
                 (q) => setState(() => _selectedQuality = q),
               ),
             ),
@@ -3280,7 +3280,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     // Quality/lang recap line so the user always sees what will be downloaded.
     final recap = [
       if (_langs.length > 1 && _selectedLang != null) _selectedLang!,
-      if (qualities.isNotEmpty) _selectedQuality ?? qualities.first,
+      if (_qualities.isNotEmpty) _selectedQuality ?? _qualities.first,
     ].join(' • ');
 
     return Container(
@@ -3563,9 +3563,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                         _badge(rawSize),
                       if (_langs.length > 1 && _selectedLang != null)
                         _badge(_selectedLang!),
-                      if (qualities.isNotEmpty &&
-                          (_selectedQuality ?? qualities.first) != 'Auto')
-                        _badge(_selectedQuality ?? qualities.first),
+                      if (_qualities.isNotEmpty &&
+                          (_selectedQuality ?? _qualities.first) != 'Auto')
+                        _badge(_selectedQuality ?? _qualities.first),
                     ],
                   ),
                 ],
