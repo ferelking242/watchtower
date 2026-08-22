@@ -493,7 +493,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       // drift DB, not in the Isar `sources` table — mark the marketplace
       // entries whose slug matches an installed plugin as installed too.
       final pluginSlugs =
-          (ref.read(metadataPluginsProvider).valueOrNull?.plugins ??
+          (ref.read(metadataPluginsProvider).value?.plugins ??
                   const <PluginConfiguration>[])
               .map((p) => p.slug)
               .toSet();
