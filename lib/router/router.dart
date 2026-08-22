@@ -60,7 +60,6 @@ import 'package:watchtower/modules/novel/novel_discovery_screen.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/music/pages/search/music_search_screen.dart';
 import 'package:watchtower/modules/game/game_discovery_screen.dart';
-import 'package:watchtower/modules/plugin/plugin_discovery_screen.dart';
 import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart' as nfile_home;
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
@@ -221,10 +220,9 @@ class RouterNotifier extends ChangeNotifier {
           name: "GameLibrary",
           child: const GameDiscoveryScreen(),
         ),
-        _genericRoute(
-          name: "PluginLibrary",
-          child: const PluginDiscoveryScreen(),
-        ),
+        // Page plugin dédiée supprimée : les extensions vivent dans le
+        // Marketplace (onglet Music pour metadata/audio-source, onglet
+        // Outils pour les outils natifs File Manager / Local Indexer).
         _genericRoute(
           name: "nfileHome",
           child: nfile_home.HomeScreen(toggleTheme: () {}),

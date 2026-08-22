@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
+
+  import 'package:flutter/material.dart';
   import 'package:hooks_riverpod/hooks_riverpod.dart';
   import 'package:watchtower/modules/music/collections/spotube_icons.dart';
   import 'package:watchtower/modules/music/components/markdown/markdown.dart';
@@ -107,11 +109,16 @@ import 'package:flutter/material.dart';
     final PluginConfiguration plugin;
     final bool isDefaultMetadata;
     final bool isDefaultAudioSource;
+    /// Optional brand icon (e.g. the marketplace entry's iconUrl). Used when
+    /// the plugin archive ships no logo.png so we never fall back to a
+    /// generic placeholder for known providers.
+    final String? iconUrl;
     const MetadataInstalledPluginItem({
       super.key,
       required this.plugin,
       required this.isDefaultMetadata,
       required this.isDefaultAudioSource,
+      this.iconUrl,
     });
 
     @override
@@ -173,25 +180,11 @@ import 'package:flutter/material.dart';
                     repoUrl?.host == "github.com" && repoOwner == "KRTirtho";
 
                 return ListTile(
-                  leading: snapshot.hasData
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            snapshot.data!,
-                            width: 36,
-                            height: 36,
-                          ),
-                        )
-                      : Container(
-                          height: 36,
-                          width: 36,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.secondary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(SpotubeIcons.plugin),
-                        ),
+                  leading: _PluginLogo(
+                    logoFile: snapshot.data,
+                    iconUrl: widget.iconUrl,
+                    plugin: plugin,
+                  ),
                   title: Text(plugin.name),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -470,4 +463,69 @@ import 'package:flutter/material.dart';
       );
     }
   }
+
+  /// Known music providers → brand icon URL (used when the plugin ships no
+  /// logo.png so the installed list still shows the real brand icon, in its
+  /// real brand colors).
+  String _brandIconUrlFor(PluginConfiguration plugin) {
+    const brands = <String, String>{
+      'spotify': 'https://img.icons8.com/color/128/spotify.png',
+      'youtube-audio': 'https://img.icons8.com/color/128/youtube.png',
+      'youtube-music': 'https://img.icons8.com/color/128/youtube-music.png',
+      'apple-music': 'https://img.icons8.com/color/128/apple-music.png',
+      'deezer': 'https://img.icons8.com/color/128/deezer.png',
+      'musicbrainz':
+          'https://www.google.com/s2/favicons?domain=musicbrainz.org&sz=128',
+      'flac': 'https://img.icons8.com/color/128/audio-wave.png',
+    };
+    return brands[plugin.slug] ??
+        'https://img.icons8.com/color/128/${plugin.slug}.png';
+  }
+
+  class _PluginLogo extends StatelessWidget {
+    final File? logoFile;
+    final String? iconUrl;
+    final PluginConfiguration plugin;
+    const _PluginLogo({
+      this.logoFile,
+      this.iconUrl,
+      required this.plugin,
+    });
+
+    Widget _placeholder(BuildContext context) => Container(
+          height: 36,
+          width: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.secondary,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(SpotubeIcons.plugin, size: 20),
+        );
+
+    @override
+    Widget build(BuildContext context) {
+      if (logoFile != null) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(logoFile!, width: 36, height: 36),
+        );
+      }
+      final url = iconUrl ?? _brandIconUrlFor(plugin);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          url,
+          width: 36,
+          height: 36,
+          fit: BoxFit.cover,
+          loadingBuilder: (_, child, progress) => progress == null
+              ? child
+              : _placeholder(context),
+          errorBuilder: (_, __, ___) => _placeholder(context),
+        ),
+      );
+    }
+  }
+
   

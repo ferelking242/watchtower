@@ -454,7 +454,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                     } else if (destination == "_disableLibrarySwitch") {
                                       setState(() => isLibrarySwitch = false);
                                     } else if (destination == "_nfileBack") {
-                                      route.go('/plugins');
+                                      route.go('/marketplace');
                                     } else {
                                       route.go(destination);
                                     }
@@ -487,7 +487,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                       ref.read(menuOpenProvider.notifier).state =
                                           !ref.read(menuOpenProvider);
                                     } else if (destination == "_nfileBack") {
-                                      route.go('/plugins');
+                                      route.go('/marketplace');
                                     } else {
                                       route.go(destination);
                                     }
@@ -856,13 +856,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: 'Schedule',
       );
     }
-    if (dest.contains('/plugins')) {
-      destMap['/plugins'] = const NavigationDestination(
-        selectedIcon: Icon(Broken.element_4),
-        icon: Icon(Broken.element_3),
-        label: 'Plugins',
-      );
-    }
     // ── Routes absents du destMap → dock classique n'affichait que 2 éléments ─
     if (dest.contains('/discover')) {
       destMap['/discover'] = const NavigationDestination(
@@ -1046,7 +1039,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
     '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
     '/updates', '/browse', '/settings', '/trackerLibrary', '/globalSearch',
-    '/marketplace', '/discover', '/plugins', '/nfileHome',
+    '/marketplace', '/discover', '/nfileHome',
   };
 
   static const _mainItems = [
@@ -1061,7 +1054,6 @@ class _TabletLayoutState extends State<_TabletLayout> {
     (route: '/globalSearch',   icon: Broken.search_normal_1,  activeIcon: Broken.search_normal,   tooltip: 'Recherche'),
     (route: '/browse',         icon: Broken.global_search,    activeIcon: Broken.global,          tooltip: 'Browse'),
     (route: '/marketplace',    icon: Broken.shopping_cart,    activeIcon: Broken.shop,            tooltip: 'Marketplace'),
-    (route: '/plugins',        icon: Broken.element_3,        activeIcon: Broken.element_4,       tooltip: 'Plugins'),
   ];
 
   static const _footerItems = [
@@ -1662,7 +1654,6 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/marketplace',
     '/schedule',
     '/discover',
-    '/plugins',
     '/nfileHome',
   };
 

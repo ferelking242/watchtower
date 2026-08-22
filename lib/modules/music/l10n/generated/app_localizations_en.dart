@@ -730,7 +730,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'BTW, your IP can get blocked on YouTube due excessive download requests than usual. IP block means you can\'t use YouTube (even if you\'re logged in) for at least 2-3 months from that IP device. And Spotube doesn\'t hold any responsibility if this ever happens';
+      'BTW, your IP can get blocked on YouTube due excessive download requests than usual. IP block means you can\'t use YouTube (even if you\'re logged in) for at least 2-3 months from that IP device. And Watchtower doesn\'t hold any responsibility if this ever happens';
 
   @override
   String get by_clicking_accept_terms =>
@@ -745,7 +745,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'I\'m completely aware that my IP can get blocked on YouTube & I don\'t hold Spotube or his owners/contributors responsible for any accidents caused by my current action';
+      'I\'m completely aware that my IP can get blocked on YouTube & I don\'t hold Watchtower or its owners/contributors responsible for any accidents caused by my current action';
 
   @override
   String get decline => 'Decline';
@@ -1006,7 +1006,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'This will help Spotube show you the right content\nfor your location.';
+      'This will help Watchtower show you the right content\nfor your location.';
 
   @override
   String get choose_your_language => 'Choose your language';
@@ -1016,7 +1016,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube is an open-source project. You can help this project grow by contributing to the project, reporting bugs, or suggesting new features.';
+      'Watchtower is an open-source project. You can help this project grow by contributing to the project, reporting bugs, or suggesting new features.';
 
   @override
   String get contribute_on_github => 'Contribute on GitHub';
