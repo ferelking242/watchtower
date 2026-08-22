@@ -12,7 +12,7 @@ import 'package:window_manager/window_manager.dart';
 final closeNotification = !kIsDesktop
     ? null
     : (LocalNotification(
-        title: 'Spotube',
+        title: 'Watchtower',
         body: 'Running in background. Minimized to System Tray',
         actions: [
           LocalNotificationAction(text: 'Close The App'),

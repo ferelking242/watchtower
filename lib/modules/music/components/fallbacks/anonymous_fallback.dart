@@ -2,9 +2,9 @@ import 'package:auto_route/auto_route.dart';
     import 'package:flutter/material.dart' as mat;
     import 'package:flutter_riverpod/flutter_riverpod.dart';
     import 'package:flutter/material.dart';
-    import 'package:watchtower/modules/music/collections/routes.gr.dart';
     import 'package:watchtower/modules/music/extensions/context.dart';
     import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
+    import 'package:watchtower/modules/music/utils/open_marketplace.dart';
 
     class AnonymousFallback extends ConsumerWidget {
     final Widget? child;
@@ -25,7 +25,7 @@ import 'package:auto_route/auto_route.dart';
             Text(context.l10n.not_logged_in),
             FilledButton(
               child: Text(context.l10n.login),
-              onPressed: () => context.pushRoute(const SettingsMetadataProviderRoute()),
+              onPressed: () => openMarketplace(context),
             ),
           ],
         ),

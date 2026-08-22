@@ -67,7 +67,8 @@ class SpotubeAppRouter extends RootStackRouter {
             AutoRoute(page: HomeBrowseSectionItemsRoute.page),
             AutoRoute(page: LocalLibraryRoute.page),
             AutoRoute(page: ConnectControlRoute.page),
-            AutoRoute(page: SettingsMetadataProviderRoute.page),
+            // SettingsMetadataProviderRoute supprimée : la gestion des
+            // extensions/plugins vit désormais dans le Marketplace de l'app.
             AutoRoute(page: SettingsMetadataProviderFormRoute.page),
             AutoRoute(page: SettingsScrobblingRoute.page),
             AutoRoute(page: AboutSpotubeRoute.page),
