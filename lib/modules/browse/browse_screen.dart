@@ -13,7 +13,6 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
-import 'package:watchtower/modules/plugin/plugin_discovery_screen.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -45,7 +44,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           if (!hideItems.contains("/NovelLibrary")) ItemType.novel,
           if (!hideItems.contains("/MusicLibrary")) ItemType.music,
           if (!hideItems.contains("/GameLibrary")) ItemType.game,
-          if (!hideItems.contains("/PluginLibrary")) ItemType.plugin,
+          // L'onglet Plugins dédié a été supprimé : toutes les extensions
+          // (manga/anime/novel/music) se gèrent depuis le Marketplace.
         ];
 
     static bool _typesEqual(List<ItemType> a, List<ItemType> b) {
@@ -567,9 +567,8 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
           onShowExtensions: () => context.push('/marketplace'),
         );
       }
-      if (widget.itemType == ItemType.plugin) {
-        return const PluginDiscoveryScreen();
-      }
+      // (ItemType.plugin n'est plus listé dans Browse : les extensions et
+      // outils natifs vivent dans le Marketplace.)
       return SourcesScreen(
         itemType: widget.itemType,
         onShowExtensions: () => context.push('/marketplace'),

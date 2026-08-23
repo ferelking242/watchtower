@@ -38,6 +38,39 @@ const _kFeaturedNames = {
 
 enum _CompatF { all, js }
 
+// Rewrites icon URLs so brand icons keep their REAL colors:
+//  • cdn.simpleicons.org is a free community CDN that rate-limits
+//    aggressively and only serves SVG — the marketplace SVG path applies a
+//    monochrome tint that makes Spotify/YouTube/Deezer look like generic
+//    blue placeholders.
+//  • We map known music brands to PNG sources with the brand color baked in
+//    (icons8 color set / Google favicons), so they render through the
+//    untinted Image.network path instead.
+const _kMktBrandIcons = <String, String>{
+  'spotify': 'https://img.icons8.com/color/128/spotify.png',
+  'youtubemusic': 'https://img.icons8.com/color/128/youtube-music.png',
+  'applemusic': 'https://img.icons8.com/color/128/apple-music.png',
+  'deezer': 'https://img.icons8.com/color/128/deezer.png',
+  'musicbrainz':
+      'https://www.google.com/s2/favicons?domain=musicbrainz.org&sz=128',
+  'flac': 'https://img.icons8.com/color/128/audio-wave.png',
+};
+
+String? _mktIconUrl(String? raw) {
+  if (raw == null || raw.isEmpty) return raw;
+  final m = RegExp(r'^https?://cdn\.simpleicons\.org/([a-z0-9-]+)$')
+      .firstMatch(raw);
+  if (m != null) {
+    return _kMktBrandIcons[m.group(1)] ?? raw;
+  }
+  return raw;
+}
+
+String _mktSlugify(String name) => name
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+    .replaceAll(RegExp(r'^-+|-+$'), '');
+
 // ─── Data model ────────────────────────────────────────────────────────────────
 
 class _ExtEntry {
@@ -105,7 +138,7 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       final sources = e['sources'] as List;
       if (sources.isEmpty) continue;
       final repoBase = url.replaceFirst('/index.min.json', '');
-      final iconUrl = '$repoBase/icon/${e['pkg']}.png';
+      final iconUrl = _mktIconUrl('$repoBase/icon/${e['pkg']}.png');
       final isAnime = (e['pkg'] as String)
           .startsWith('eu.kanade.tachiyomi.animeextension');
       final firstSrc = sources[0] as Map<dynamic, dynamic>;
@@ -128,7 +161,7 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       results.add({
         'id': (e['id'] as num).toInt(),
         'name': (e['name'] ?? '?') as String,
-        'iconUrl': e['iconUrl'] as String?,
+        'iconUrl': _mktIconUrl(e['iconUrl'] as String?),
         'lang': (e['lang'] as String? ?? 'all').toLowerCase(),
         'version': (e['version'] ?? '?') as String,
         'contentType': itemTypeIdx,
@@ -175,6 +208,141 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
         ))
     .toList();
 
+// ─── Outils natifs (ancienne « page plugin », désormais dans le Marketplace) ──
+
+class _NativeToolsTab extends StatelessWidget {
+  const _NativeToolsTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
+      children: [
+        Text(
+          'Outils natifs',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.55),
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+        ),
+        const SizedBox(height: 12),
+        _NativeToolCard(
+          label: 'File Manager',
+          subtitle: 'Explorateur de fichiers avancé avec lecteurs',
+          icon: Icons.folder_rounded,
+          color: const Color(0xFFFFA726),
+          onTap: () => context.push('/nfileHome'),
+        ),
+        const SizedBox(height: 12),
+        _NativeToolCard(
+          label: 'Local Indexer',
+          subtitle: 'Bibliothèque locale — Anime, Manga, Novel…',
+          icon: Icons.collections_bookmark_rounded,
+          color: const Color(0xFF5C6BC0),
+          onTap: () => context.push('/localSources', extra: ItemType.anime),
+        ),
+      ],
+    );
+  }
+}
+
+class _NativeToolCard extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _NativeToolCard({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? cs.surfaceContainerHigh : cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.07)
+                : Colors.black.withValues(alpha: 0.05),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [color, color.withValues(alpha: 0.6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.30),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: Colors.white, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.55),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded,
+                color: cs.onSurface.withValues(alpha: 0.35)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
 class MarketplaceScreen extends ConsumerStatefulWidget {
@@ -193,6 +361,7 @@ const _kTabMusic   = 5;
 const _kTabBinary  = 6;
 const _kTabMihon   = 7;
 const _kTabAniyomi = 8;
+const _kTabTools   = 9;
 
 // Mihon / Aniyomi community APK repo index URLs
 const _kMihonMangaRepos = [
@@ -288,7 +457,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 9, vsync: this);
+    _tabCtrl = TabController(length: 10, vsync: this);
     if (_cachedAll != null && _cacheTime != null &&
         DateTime.now().difference(_cacheTime!) < const Duration(seconds: 30)) {
       _all = _cachedAll!;
@@ -319,9 +488,24 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     try {
       final allSrcs = await isar.sources.buildQuery<Source>().findAll();
       final sources = allSrcs.where((s) => s.isAdded == true).toList();
+      // Music plugins (metadata/audio-source) live in the music module's
+      // drift DB, not in the Isar `sources` table — mark the marketplace
+      // entries whose slug matches an installed plugin as installed too.
+      final pluginSlugs =
+          (ref.read(metadataPluginsProvider).value?.plugins ??
+                  const <PluginConfiguration>[])
+              .map((p) => p.slug)
+              .toSet();
+      final musicPluginIds = _all
+          .where((e) => pluginSlugs.contains(_mktSlugify(e.name)))
+          .map((e) => e.id)
+          .toSet();
       if (mounted) {
         setState(() {
-          _installed = sources.map((s) => s.id).whereType<int>().toSet();
+          _installed = {
+            ...sources.map((s) => s.id).whereType<int>(),
+            ...musicPluginIds,
+          };
           _installedVersions = {
             for (final s in sources)
               if (s.id != null && s.version != null) s.id!: s.version!,
@@ -448,6 +632,25 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         final pluginConfig =
             await pluginsNotifier.downloadAndCachePlugin(repoUrl);
         await pluginsNotifier.addPlugin(pluginConfig);
+
+        // Auto-set as default if no default exists for this ability type.
+        final currentPlugins = ref.read(metadataPluginsProvider).valueOrNull;
+        if (currentPlugins != null) {
+          if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
+              currentPlugins.defaultMetadataPlugin < 0) {
+            try {
+              await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig);
+            } catch (_) {}
+          }
+          if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
+              currentPlugins.defaultAudioSourcePlugin < 0) {
+            try {
+              await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig);
+            } catch (_) {}
+          }
+        }
+
+        await _refreshInstalled();
         if (mounted) {
           _showToast(context, '${entry.name} installé',
               icon: Icons.check_circle_rounded);
@@ -609,6 +812,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       case _kTabGames:   return _all.where((e) => e.contentType == ItemType.game).toList();
       case _kTabMusic:   return _all.where((e) => e.contentType == ItemType.music).toList();
       case _kTabBinary:  return [];
+      case _kTabTools:   return [];
       case _kTabMihon:   return _mihonEntries;
       case _kTabAniyomi: return _aniyomiEntries;
       default:           return [..._all, ..._mihonEntries, ..._aniyomiEntries];
@@ -626,7 +830,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _kTabNovel,   // 5 Novel
       _kTabGames,   // 6 Game
       _kTabMusic,   // 7 Music
-      _kTabBinary,  // 9 Binary
+      _kTabTools,   // 8 Outils natifs
+      _kTabBinary,  // 9 Binaires
     ];
     return visual < m.length ? m[visual] : _kTabHome;
   }
@@ -637,7 +842,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _kTabHome: 0,    _kTabAnime: 1,   _kTabManga: 2,
       _kTabMihon: 3,   _kTabAniyomi: 4, _kTabNovel: 5,
       _kTabGames: 6,   _kTabMusic: 7,
-      _kTabBinary: 8,
+      _kTabTools: 8,   _kTabBinary: 9,
     };
     return m[tabConst] ?? 0;
   }
@@ -800,7 +1005,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         _TypeTab(state: this, tab: _kTabNovel),   // 5 Novel
                         _TypeTab(state: this, tab: _kTabGames),   // 6 Game
                         _TypeTab(state: this, tab: _kTabMusic),   // 7 Music
-                        const _BinaryTab(),                       // 9 Binary
+                        const _NativeToolsTab(),                  // 8 Outils
+                        const _BinaryTab(),                       // 9 Binaires
                       ],
                     ),
                   ),

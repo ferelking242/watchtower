@@ -28,7 +28,6 @@ const _kRouteIcon = <String, IconData>{
   '/more':           Broken.setting,
   '/schedule':       Broken.calendar,
   '/marketplace':    Broken.shop,
-  '/plugins':        Broken.element_plus,
 };
 
 // ── WatchDiscoverDrawer ────────────────────────────────────────────────────────
@@ -174,7 +173,6 @@ const _kFrDrawerLabels = <String, String>{
   '/more':           'Paramètres',
   '/schedule':       'Planning',
   '/marketplace':    'Marché',
-  '/plugins':        'Plugins',
 };
 
 // ── Theme mode toggle box ──────────────────────────────────────────────────────

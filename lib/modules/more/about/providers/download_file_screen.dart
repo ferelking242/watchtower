@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -18,163 +17,8 @@ import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/services/http/m_client.dart';
-
-// ── System DownloadManager task (Android-only) ────────────────────────────────
-// Delegates the APK download to Android's DownloadManager system service.
-// The download runs in a separate system process and survives:
-//   • App going to background or being killed
-//   • Network interruptions (DownloadManager auto-resumes)
-//   • Battery optimiser — DownloadManager is exempt by design
-// The Dart side polls progress every second via MethodChannel.
-
-class _SysDlManager {
-  static _SysDlManager? _current;
-  static _SysDlManager? get current => _current;
-  static const _kChannel = MethodChannel('com.watchtower.app.download_manager');
-
-  final String version;
-  int _downloadId = -1;
-  int received    = 0;
-  int total       = 0;
-  bool _done      = false;
-  bool _cancelled = false;
-  bool get isDone      => _done;
-  bool get isCancelled => _cancelled;
-  File? completedFile;
-  String? errorMsg;
-  Timer? _pollTimer;
-
-  void Function(int r, int t)? onProgress;
-  void Function(File f)?       onDone;
-  void Function(String e)?     onError;
-  void Function(bool paused)?  onPauseChanged;
-
-  // ── Global (persistent) callbacks — survive DownloadFileScreen disposal ────
-  /// Fires when download completes even if the screen has been popped.
-  static void Function(File file, String version)? _onGlobalDone;
-  static void Function(String error)? _onGlobalError;
-
-  static void setGlobalCallbacks({
-    void Function(File file, String version)? onDone,
-    void Function(String error)? onError,
-  }) {
-    _onGlobalDone = onDone;
-    _onGlobalError = onError;
-  }
-
-  _SysDlManager._({required this.version});
-
-  static _SysDlManager start({required String version}) {
-    _current?._stop();
-    final task = _SysDlManager._(version: version);
-    _current = task;
-    return task;
-  }
-
-  static void clear() {
-    _current?._stop();
-    _current = null;
-  }
-
-  // ── Enqueue via Android DownloadManager ───────────────────────────────────
-
-  Future<void> run(String url, String fileName) async {
-    try {
-      final id = await _kChannel.invokeMethod<int>('startDownload', {
-        'url':      url,
-        'fileName': fileName,
-        'title':    'Watchtower $version',
-      });
-      _downloadId = id ?? -1;
-      if (_downloadId < 0) {
-        errorMsg = 'Impossible de démarrer le téléchargement.';
-        onError?.call(errorMsg!);
-        return;
-      }
-      _startPolling();
-    } catch (e) {
-      errorMsg = 'Erreur au lancement : $e';
-      onError?.call(errorMsg!);
-    }
-  }
-
-  // ── Poll DownloadManager every second ─────────────────────────────────────
-
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) => _poll());
-  }
-
-  Future<void> _poll() async {
-    if (_cancelled || _done || _downloadId < 0) return;
-    try {
-      final res = await _kChannel.invokeMapMethod<String, dynamic>(
-          'queryProgress', {'downloadId': _downloadId});
-      if (res == null) return;
-
-      final status = (res['status'] as int?) ?? 0;
-      received = (res['received'] as int?) ?? received;
-      total    = (res['total']    as int?) ?? total;
-      onProgress?.call(received, total);
-
-      if (status == 8) {                        // STATUS_SUCCESSFUL
-        _stop();
-        _done = true;
-        final raw  = (res['localPath'] as String?) ?? '';
-        final path = raw.startsWith('file://') ? raw.substring(7) : raw;
-        final file = File(Uri.decodeFull(path));
-        completedFile = file;
-        onPauseChanged?.call(false);
-        onDone?.call(file);
-        _SysDlManager._onGlobalDone?.call(file, version);
-      } else if (status == 16) {               // STATUS_FAILED
-        _stop();
-        final reason = (res['reason'] as int?) ?? 0;
-        errorMsg = _friendlyError(reason);
-        onPauseChanged?.call(false);
-        onError?.call(errorMsg!);
-        _SysDlManager._onGlobalError?.call(errorMsg!);
-      } else if (status == 4) {               // STATUS_PAUSED (no network)
-        onPauseChanged?.call(true);
-      } else {                                 // PENDING or RUNNING
-        onPauseChanged?.call(false);
-      }
-    } catch (_) {}
-  }
-
-  void _stop() {
-    _pollTimer?.cancel();
-    _pollTimer = null;
-  }
-
-  void cancel() {
-    _cancelled = true;
-    _stop();
-    if (_downloadId >= 0) {
-      _kChannel.invokeMethod('cancelDownload', {'downloadId': _downloadId})
-          .catchError((_) {});
-      _downloadId = -1;
-    }
-  }
-
-  // ── DownloadManager reason codes → French messages ─────────────────────────
-  // https://developer.android.com/reference/android/app/DownloadManager#COLUMN_REASON
-
-  static String _friendlyError(int reason) {
-    switch (reason) {
-      case 1001: return 'Erreur inconnue. Vérifiez votre connexion et réessayez.';
-      case 1002: return 'Erreur réseau. Vérifiez votre connexion et réessayez.';
-      case 1004: return 'Erreur HTTP. Réessayez plus tard.';
-      case 1005: return 'Lien de téléchargement invalide.';
-      case 1006: return 'Destination de téléchargement introuvable.';
-      case 1007:
-      case 1008: return 'Espace insuffisant sur l\'appareil.';
-      case 1009: return 'Type de fichier non supporté.';
-      case 1010: return 'URL invalide.';
-      default:   return 'Téléchargement échoué (code $reason). Réessayez.';
-    }
-  }
-}
+import 'package:github_release_apk_updater/github_release_apk_updater.dart';
+import 'package:watchtower/core/config/app_config.dart';
 
 // ── Visual constants ──────────────────────────────────────────────────────────
 
@@ -200,85 +44,28 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   String? _errorMsg;
   File? _completedFile;
   String _currentVersion = '';
+  double? _downloadProgress;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentVersion();
-    final task = _SysDlManager.current;
-    if (task != null && task.version == widget.updateAvailable.$1) {
-      if (task.isDone && task.completedFile != null) {
-        _completedFile = task.completedFile;
-      } else if (task.errorMsg != null) {
-        // Previous attempt errored — show error so user can retry.
-        _errorMsg = task.errorMsg;
-      } else if (!task.isDone && !task.isCancelled) {
-        // Still in progress — reconnect callbacks and show progress.
-        _isDownloading = true;
-        _total = task.total;
-        _received = task.received;
-        _attachCallbacks(task);
-      }
-    }
   }
 
   Future<void> _loadCurrentVersion() async {
     try {
-      final info = await PackageInfo.fromPlatform();
-      if (mounted) setState(() => _currentVersion = info.version);
-    } catch (_) {}
-  }
-
-  @override
-  void dispose() {
-    final task = _SysDlManager.current;
-    if (task != null) {
-      task.onProgress     = null;
-      task.onDone         = null;
-      task.onError        = null;
-      task.onPauseChanged = null;
-    }
-    super.dispose();
-  }
-
-  void _attachCallbacks(_SysDlManager task) {
-    task.onProgress = (r, t) {
-      if (mounted) setState(() { _received = r; _total = t; });
-    };
-    task.onDone = (f) {
-      if (mounted) setState(() {
-        _isDownloading           = false;
-        _isPausedForConnectivity = false;
-        _completedFile           = f;
-      });
-      _tryAutoInstall(f);
-    };
-    task.onError = (e) {
-      if (mounted) setState(() {
-        _isDownloading           = false;
-        _isPausedForConnectivity = false;
-        _errorMsg                = e;
-      });
-    };
-    task.onPauseChanged = (paused) {
-      if (mounted) setState(() => _isPausedForConnectivity = paused);
-    };
-  }
-
-    Future<void> _tryAutoInstall(File file) async {
+      final updater = GithubReleaseApkUpdater();
+      final version = await updater.getCurrentAppVersion();
+      if (mounted) setState(() => _currentVersion = version);
+    } catch (_) {
       try {
-        final status = await SilentInstallerService.instance.checkStatus();
-        if (status == SilentInstallStatus.active) {
-          final ok = await SilentInstallerService.instance.installFile(file.path);
-          if (ok && mounted) {
-            _SysDlManager.clear();
-            Navigator.pop(context);
-          }
-        }
+        final info = await PackageInfo.fromPlatform();
+        if (mounted) setState(() => _currentVersion = info.version);
       } catch (_) {}
     }
+  }
 
-    // ── Build ────────────────────────────────────────────────────────────────────
+  // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +101,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    
                     // Download icon
                     Container(
                       width: 56, height: 56,
@@ -382,34 +168,34 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // What's New — Mihon-style inline (no card)
-                    if (upd.$2.trim().isNotEmpty) ...[
-                      _ChangelogWidget(body: upd.$2, cs: cs),
-                      const SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(upd.$3),
-                            mode: LaunchMode.externalApplication),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.open_in_new_rounded,
-                                size: 13,
-                                color: cs.primary.withValues(alpha: 0.65)),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Ouvrir sur GitHub',
-                              style: TextStyle(
-                                color: cs.primary.withValues(alpha: 0.65),
-                                fontSize: 13,
-                                decoration: TextDecoration.none,
-                              ),
+                  if (upd.$2.trim().isNotEmpty) ...[
+                    _ChangelogWidget(body: upd.$2, cs: cs),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () => launchUrl(Uri.parse(upd.$3),
+                          mode: LaunchMode.externalApplication),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.open_in_new_rounded,
+                              size: 13,
+                              color: cs.primary.withValues(alpha: 0.65)),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Ouvrir sur GitHub',
+                            style: TextStyle(
+                              color: cs.primary.withValues(alpha: 0.65),
+                              fontSize: 13,
+                              decoration: TextDecoration.none,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                    ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
 
-                    // Progress indicator
+                  // Progress indicator
                   if (_isDownloading) ...[
                     const SizedBox(height: 16),
                     _buildProgress(cs),
@@ -458,7 +244,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   }
 
   Widget _buildProgress(ColorScheme cs) {
-    final pct = _total > 0 ? (_received / _total) : null;
+    final pct = _downloadProgress;
     final label = _total > 0
         ? '${(_received / 1048576).toStringAsFixed(1)} / '
           '${(_total / 1048576).toStringAsFixed(1)} MB'
@@ -522,7 +308,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(
-            value: _isPausedForConnectivity ? pct : pct,
+            value: pct,
             minHeight: 6,
             backgroundColor: cs.primary.withValues(alpha: 0.12),
             valueColor: AlwaysStoppedAnimation<Color>(
@@ -597,10 +383,8 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               onPressed: () async {
                 final fileToDelete = _completedFile;
                 await _installApk(_completedFile!);
-                _SysDlManager.clear();
                 if (mounted) Navigator.pop(context);
                 // Supprimer l'APK 5 s après le lancement de l'intent.
-                // PackageInstaller a déjà copié le fichier via FileProvider à ce stade.
                 if (fileToDelete != null) {
                   Future.delayed(const Duration(seconds: 5), () async {
                     try { await fileToDelete.delete(); } catch (_) {}
@@ -631,8 +415,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               style: _BtnStyle.ghost,
               cs: cs,
               onPressed: () {
-                _SysDlManager.current?.cancel();
-                _SysDlManager.clear();
+                _cancelDownload();
                 if (mounted) setState(() { _isDownloading = false; });
               },
             ),
@@ -645,17 +428,14 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
                   ? null
                   : () async {
                       if (!kIsWeb && Platform.isAndroid) {
-                        // Start download via DownloadManager then close
-                        // the screen immediately — download runs in background.
-                        await _startAndroidDownload(upd);
-                        if (mounted) Navigator.pop(context);
+                        await _startDownload(upd);
                       } else if (!kIsWeb && Platform.isIOS) {
                         await _openTrollStoreUrl(upd);
-                        if (mounted) Navigator.pop(context);
                       } else {
                         launchUrl(Uri.parse(upd.$3),
                             mode: LaunchMode.externalApplication);
                       }
+                      if (mounted) Navigator.pop(context);
                     },
             ),
             const SizedBox(height: 10),
@@ -672,27 +452,15 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     );
   }
 
-  // ── Android download logic ──────────────────────────────────────────────────
+  // ── Download logic via github_release_apk_updater ───────────────────────────
 
-  Future<void> _startAndroidDownload(
+  String? _currentDownloadUrl;
+
+  Future<void> _startDownload(
     (String, String, String, List<dynamic>) upd,
   ) async {
-    final deviceInfo = DeviceInfoPlugin();
-    final androidInfo = await deviceInfo.androidInfo;
-
-    final assets = upd.$4.map((a) => a.toString()).toList();
-    String apkUrl = '';
-
-    for (final abi in androidInfo.supportedAbis) {
-      final url = assets.firstWhereOrNull((a) => a.contains(abi));
-      if (url != null) { apkUrl = url; break; }
-    }
-    if (apkUrl.isEmpty) {
-      apkUrl = assets.firstWhereOrNull(
-              (a) => a.toLowerCase().endsWith('.apk')) ??
-          '';
-    }
-    if (apkUrl.isEmpty) {
+    final apkUrl = _resolveApkUrl(upd);
+    if (apkUrl == null || apkUrl.isEmpty) {
       log('[DOWNLOAD] No APK asset found — opening browser');
       launchUrl(Uri.parse(upd.$3), mode: LaunchMode.externalApplication);
       return;
@@ -701,6 +469,25 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     await _downloadApk(apkUrl, upd.$1);
   }
 
+  String? _resolveApkUrl(
+    (String, String, String, List<dynamic>) upd,
+  ) {
+    final assets = upd.$4.map((a) => a.toString()).toList();
+    // Try to find an APK matching the current ABI
+    for (final abi in _currentAbis) {
+      final match = assets.firstWhereOrNull(
+        (a) => a.toLowerCase().contains(abi.toLowerCase()),
+      );
+      if (match != null) return match;
+    }
+    // Fallback: find any .apk
+    return assets.firstWhereOrNull(
+      (a) => a.toLowerCase().endsWith('.apk'),
+    );
+  }
+
+  List<String> _currentAbis = [];
+
   Future<void> _downloadApk(String url, String version) async {
     if (url.isEmpty || !Uri.parse(url).hasAuthority) return;
 
@@ -708,14 +495,23 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       await Permission.storage.request();
     }
 
-    // APKs stockés dans : /storage/emulated/0/Download/Watchtower-X.X.X-bXXX-arm64.apk
+    // Detect supported ABIs for asset matching
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      _currentAbis = androidInfo.supportedAbis.toList();
+    } catch (_) {
+      _currentAbis = ['arm64-v8a'];
+    }
+
+    // APKs stored in Downloads
     Directory? dir = Directory('/storage/emulated/0/Download');
     if (!await dir.exists()) dir = await getExternalStorageDirectory();
 
     final file = File(
         '${dir!.path}/${url.split("/").lastOrNull ?? "Watchtower.apk"}');
 
-    // Nettoyer les anciens APKs Watchtower (versions précédentes) dans Downloads.
+    // Clean old APKs
     try {
       final dlDir = Directory('/storage/emulated/0/Download');
       if (await dlDir.exists()) {
@@ -731,14 +527,17 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       }
     } catch (_) {}
 
-    // Already downloaded — validate before reusing to avoid installing a
-    // corrupted or partial file (which would cause "parse package" error).
+    // Already downloaded — validate
     if (await file.exists()) {
       if (await _isValidApk(file)) {
         if (mounted) setState(() => _completedFile = file);
+        setInstallReady(file);
+        WatchtowerNotificationService.instance.showDownloadComplete(
+          version: version,
+          filePath: file.path,
+        );
         return;
       }
-      // Corrupted / partial download — delete and re-download.
       await file.delete();
     }
 
@@ -748,26 +547,82 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
         _total = 0;
         _received = 0;
         _errorMsg = null;
+        _downloadProgress = 0;
+        _currentDownloadUrl = url;
       });
     }
 
-    final fileName = url.split('/').lastOrNull ?? 'Watchtower.apk';
-    final task = _SysDlManager.start(version: version);
-    _attachCallbacks(task);
+    try {
+      final downloader = ApkDownloaderService();
+      final filePath = await downloader.downloadAPK(
+        url,
+        AppConfig.githubToken.isNotEmpty ? AppConfig.githubToken : null,
+        (received, total) {
+          if (mounted) {
+            setState(() {
+              _received = received;
+              _total = total;
+              _downloadProgress = total > 0 ? received / total : null;
+            });
+          }
+          // Update notification progress
+          WatchtowerNotificationService.instance.showDownloadProgress(
+            received,
+            total,
+          );
+        },
+      );
 
-    // Persistent global callbacks — fire even after screen is popped.
-    _SysDlManager.setGlobalCallbacks(
-      onDone: (file, ver) {
-        setInstallReady(file);
+      if (filePath != null && mounted) {
+        final downloadedFile = File(filePath);
+        setState(() {
+          _isDownloading = false;
+          _isPausedForConnectivity = false;
+          _completedFile = downloadedFile;
+          _downloadProgress = 1.0;
+        });
+        setInstallReady(downloadedFile);
+
+        // Show install notification popup
         WatchtowerNotificationService.instance.showDownloadComplete(
-          version: ver,
-          filePath: file.path,
+          version: version,
+          filePath: filePath,
         );
-      },
-      onError: (_) => clearInstallReady(),
-    );
 
-    unawaited(task.run(url, fileName));
+        // Auto-install if silent install is active
+        _tryAutoInstall(downloadedFile);
+      } else if (mounted) {
+        setState(() {
+          _isDownloading = false;
+          _errorMsg = 'Téléchargement annulé ou échoué.';
+        });
+      }
+    } catch (e) {
+      log('[DOWNLOAD] Error: $e');
+      if (mounted) {
+        setState(() {
+          _isDownloading = false;
+          _errorMsg = 'Erreur lors du téléchargement : $e';
+        });
+      }
+    }
+  }
+
+  void _cancelDownload() {
+    _currentDownloadUrl = null;
+    clearInstallReady();
+  }
+
+  Future<void> _tryAutoInstall(File file) async {
+    try {
+      final status = await SilentInstallerService.instance.checkStatus();
+      if (status == SilentInstallStatus.active) {
+        final ok = await SilentInstallerService.instance.installFile(file.path);
+        if (ok && mounted) {
+          Navigator.pop(context);
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _installApk(File file) async {
@@ -792,22 +647,14 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   }
 
   /// Opens TrollStore (via URL scheme) to install the IPA directly.
-  ///
-  /// Strategy:
-  ///   1. Look for a .ipa in the current release assets.
-  ///   2. If none found, fetch the dedicated `ios-latest` GitHub release.
-  ///   3. Open `apple-magnifier://install?url=<ipa-url>` for TrollStore.
-  ///   4. Fall back to the GitHub release page when TrollStore is not installed.
   Future<void> _openTrollStoreUrl(
     (String, String, String, List<dynamic>) upd,
   ) async {
-    // 1. Check current release assets first (may contain IPA in future).
     final assets = upd.$4.map((a) => a.toString()).toList();
     var ipaUrl = assets.firstWhereOrNull(
       (a) => a.toLowerCase().endsWith('.ipa'),
     );
 
-    // 2. If not found, fetch ios-latest tag from GitHub API.
     if (ipaUrl == null || ipaUrl.isEmpty) {
       try {
         final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
@@ -830,23 +677,18 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     }
 
     if (ipaUrl == null || ipaUrl.isEmpty) {
-      // Nothing found — open GitHub release page
       launchUrl(Uri.parse(upd.$3), mode: LaunchMode.externalApplication);
       return;
     }
 
-    // 3. Open TrollStore URL scheme — TrollStore downloads + installs the IPA.
     final encoded = Uri.encodeComponent(ipaUrl);
     final trollUri = Uri.parse('apple-magnifier://install?url=$encoded');
     if (!await launchUrl(trollUri, mode: LaunchMode.externalApplication)) {
-      // TrollStore not installed — open GitHub release page
       launchUrl(Uri.parse(upd.$3), mode: LaunchMode.externalApplication);
     }
   }
 
-  /// Returns true if [file] looks like a valid APK:
-  ///   • size > 1 MB (a real APK is never smaller)
-  ///   • first two bytes are the ZIP magic "PK" (0x50 0x4B)
+  /// Returns true if [file] looks like a valid APK
   static Future<bool> _isValidApk(File file) async {
     try {
       final stat = await file.stat();
@@ -862,179 +704,161 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
 
 // ── Changelog widget (Mihon-style) ──────────────────────────────────────────
 
-  /// Renders a GitHub release body in Mihon-style sections without a card.
-  /// Strips installation instructions and maps commit-type headers to emoji sections.
-  class _ChangelogWidget extends StatelessWidget {
-    final String body;
-    final ColorScheme cs;
-    const _ChangelogWidget({required this.body, required this.cs});
+/// Renders a GitHub release body in Mihon-style sections without a card.
+class _ChangelogWidget extends StatelessWidget {
+  final String body;
+  final ColorScheme cs;
+  const _ChangelogWidget({required this.body, required this.cs});
 
-    static const _kSectionOrder = [
-      ('feat', '✨', 'New Features'),
-      ('change', '⚙️', 'Changes'),
-      ('improve', '🚀', 'Improvements'),
-      ('fix', '🐛', 'Fixes'),
-      ('remove', '🗑️', 'Removals'),
-    ];
+  static const _kSectionOrder = [
+    ('feat', '✨', 'New Features'),
+    ('change', '⚙️', 'Changes'),
+    ('improve', '🚀', 'Improvements'),
+    ('fix', '🐛', 'Fixes'),
+    ('remove', '🗑️', 'Removals'),
+  ];
 
-    /// Capitalise the first letter and strip trailing period/space.
-    static String _cleanItem(String raw) {
-      if (raw.isEmpty) return raw;
-      final s = raw.trim();
-      return s[0].toUpperCase() + s.substring(1);
-    }
+  static String _cleanItem(String raw) {
+    if (raw.isEmpty) return raw;
+    final s = raw.trim();
+    return s[0].toUpperCase() + s.substring(1);
+  }
 
-    /// Returns true for lines that are just dashes/separators or too short to
-    /// be meaningful (avoids "--", "---", "-", single chars leaking in).
-    static bool _isSeparator(String s) {
-      final t = s.trim();
-      return t.isEmpty ||
-          RegExp(r'^-{1,}$').hasMatch(t) ||
-          RegExp(r'^\*{1,}$').hasMatch(t) ||
-          t.length <= 2;
-    }
+  static bool _isSeparator(String s) {
+    final t = s.trim();
+    return t.isEmpty ||
+        RegExp(r'^-{1,}$').hasMatch(t) ||
+        RegExp(r'^\*{1,}$').hasMatch(t) ||
+        t.length <= 2;
+  }
 
-    Map<String, List<String>> _parse(String raw) {
-      // Remove installation instructions block (after ---)
-      final parts = raw.split(RegExp(r'\n---+\n'));
-      final cleaned = parts.first.trim();
+  Map<String, List<String>> _parse(String raw) {
+    final parts = raw.split(RegExp(r'\n---+\n'));
+    final cleaned = parts.first.trim();
 
-      final sections = <String, List<String>>{};
-      String currentSection = 'change';
+    final sections = <String, List<String>>{};
+    String currentSection = 'change';
 
-      for (final line in cleaned.split('\n')) {
-        final trimmed = line.trim();
-        if (trimmed.isEmpty) continue;
+    for (final line in cleaned.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
 
-        // Markdown header → detect section type
-        if (trimmed.startsWith('#')) {
-          final lower = trimmed.toLowerCase();
-          if (lower.contains('feat') || lower.contains('new') || lower.contains('ajout')) {
-            currentSection = 'feat';
-          } else if (lower.contains('remov') || lower.contains('supprim')) {
-            currentSection = 'remove';
-          } else if (lower.contains('improv') || lower.contains('améliora') || lower.contains('perf')) {
-            currentSection = 'improve';
-          } else if (lower.contains('fix') || lower.contains('correct') || lower.contains('bug')) {
-            currentSection = 'fix';
-          } else {
-            currentSection = 'change';
-          }
-          continue;
+      if (trimmed.startsWith('#')) {
+        final lower = trimmed.toLowerCase();
+        if (lower.contains('feat') || lower.contains('new') || lower.contains('ajout')) {
+          currentSection = 'feat';
+        } else if (lower.contains('remov') || lower.contains('supprim')) {
+          currentSection = 'remove';
+        } else if (lower.contains('improv') || lower.contains('améliora') || lower.contains('perf')) {
+          currentSection = 'improve';
+        } else if (lower.contains('fix') || lower.contains('correct') || lower.contains('bug')) {
+          currentSection = 'fix';
+        } else {
+          currentSection = 'change';
         }
+        continue;
+      }
 
-        // Bullet point
-        if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•')) {
-          final item = trimmed.substring(1).trim();
+      if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•')) {
+        final item = trimmed.substring(1).trim();
+        if (item.isNotEmpty && !_isSeparator(item)) {
+          sections.putIfAbsent(currentSection, () => []).add(_cleanItem(item));
+        }
+        continue;
+      }
+
+      for (final (type, _, _) in _kSectionOrder) {
+        if (trimmed.toLowerCase().startsWith('$type:')) {
+          final item = trimmed.substring(type.length + 1).trim();
           if (item.isNotEmpty && !_isSeparator(item)) {
-            sections.putIfAbsent(currentSection, () => []).add(_cleanItem(item));
+            sections.putIfAbsent(type, () => []).add(_cleanItem(item));
           }
-          continue;
-        }
-
-        // Commit-type prefix: "feat: desc" / "fix: desc" / etc.
-        for (final (type, _, _) in _kSectionOrder) {
-          if (trimmed.toLowerCase().startsWith('$type:')) {
-            final item = trimmed.substring(type.length + 1).trim();
-            if (item.isNotEmpty && !_isSeparator(item)) {
-              sections.putIfAbsent(type, () => []).add(_cleanItem(item));
-            }
-            break;
-          }
-        }
-
-        // Plain text line (not a header, bullet, or commit prefix) — add to
-        // current section if it looks like prose (≥ 8 chars, no leading dashes).
-        if (!trimmed.startsWith('-') && !trimmed.startsWith('#') &&
-            trimmed.length >= 8 && !_isSeparator(trimmed)) {
-          // Only add if not already covered by the bullet/prefix branches above.
-          // (This branch only runs when no `continue` was hit above.)
-          // We intentionally do NOT add plain text here to keep output clean.
+          break;
         }
       }
-      return sections;
+    }
+    return sections;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sections = _parse(body);
+    if (sections.isEmpty) {
+      return Text(
+        body.trim(),
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.80),
+          fontSize: 13.5,
+          height: 1.65,
+          decoration: TextDecoration.none,
+        ),
+      );
     }
 
-    @override
-    Widget build(BuildContext context) {
-      final sections = _parse(body);
-      if (sections.isEmpty) {
-        // Fallback: show raw body without card
-        return Text(
-          body.trim(),
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.80),
-            fontSize: 13.5,
-            height: 1.65,
-            decoration: TextDecoration.none,
-          ),
-        );
-      }
-
-      final widgets = <Widget>[];
-      for (final (key, emoji, label) in _kSectionOrder) {
-        final items = sections[key];
-        if (items == null || items.isEmpty) continue;
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    final widgets = <Widget>[];
+    for (final (key, emoji, label) in _kSectionOrder) {
+      final items = sections[key];
+      if (items == null || items.isEmpty) continue;
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 17, decoration: TextDecoration.none)),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(emoji, style: const TextStyle(fontSize: 17, decoration: TextDecoration.none)),
-                    const SizedBox(width: 8),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.none,
+                    Text('• ', style: TextStyle(
+                      color: cs.primary.withValues(alpha: 0.80),
+                      fontSize: 13.5,
+                      decoration: TextDecoration.none,
+                    )),
+                    Expanded(
+                      child: Text(
+                        item,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.80),
+                          fontSize: 13.5,
+                          height: 1.5,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                ...items.map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('• ', style: TextStyle(
-                        color: cs.primary.withValues(alpha: 0.80),
-                        fontSize: 13.5,
-                        decoration: TextDecoration.none,
-                      )),
-                      Expanded(
-                        child: Text(
-                          item,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.80),
-                            fontSize: 13.5,
-                            height: 1.5,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-              ],
-            ),
+              )),
+            ],
           ),
-        );
-      }
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: widgets,
+        ),
       );
     }
-  }
 
-  // ── Button variants ───────────────────────────────────────────────────────────
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+}
+
+// ── Button variants ───────────────────────────────────────────────────────────
 
 enum _BtnStyle { filled, outlined, ghost }
 

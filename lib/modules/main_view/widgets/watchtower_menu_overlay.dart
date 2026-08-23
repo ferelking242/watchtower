@@ -35,7 +35,6 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/trackerLibrary':  ('Tracking',   Icons.account_tree),
   '/schedule':        ('Schedule',   Icons.calendar_month_rounded),
   '/marketplace':     ('Market',     Icons.storefront_rounded),
-  '/plugins':         ('Plugins',    Icons.extension_rounded),
   '/downloadQueue':   ('Downloads',  Icons.download_rounded),
   '_enableLibSwitch': ('Hub',        Icons.grid_view_rounded),
 };
@@ -49,11 +48,11 @@ const kWtDefaultNavOrder = [
 
 const kWtDefaultHideItems = [
   '/trackerLibrary', '/updates', '/history', '/WatchtowerHome',
-  '/discover', '/plugins',
+  '/discover',
 ];
 
 const kWtStaticRoutes = [
-  '/browse', '/marketplace', '/plugins', '/schedule', '/updates', '/history',
+  '/browse', '/marketplace', '/schedule', '/updates', '/history',
   '/downloadQueue',
 ];
 
