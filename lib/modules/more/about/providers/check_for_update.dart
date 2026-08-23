@@ -81,9 +81,9 @@ Future<void> checkForUpdate(
     pendingUpdateBanner = release.version;
     pendingUpdateData = (
       release.version,
-      release.body ?? '',
-      release.htmlUrl ?? '',
-      <String>[release.apkUrl ?? ''], // wrap single APK URL in list for compatibility
+      release.releaseNote,
+      'https://github.com/ferelking242/watchtower/releases/tag/v${release.version}',
+      <String>[release.apkUrl], // wrap single APK URL in list for compatibility
     );
 
     if (manualUpdate && context != null && context.mounted) {
@@ -178,9 +178,9 @@ Future<(String, String, String, List<dynamic>)> checkLatestRelease({
 
     final result = (
       release.version,
-      release.body ?? '',
-      release.htmlUrl ?? '',
-      <String>[release.apkUrl ?? ''],
+      release.releaseNote,
+      'https://github.com/ferelking242/watchtower/releases/tag/v${release.version}',
+      <String>[release.apkUrl],
     );
     _appUpdateCache = result;
     _appUpdateCachedAt = DateTime.now();
