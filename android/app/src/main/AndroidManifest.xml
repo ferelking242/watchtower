@@ -103,10 +103,12 @@
         android:name="androidx.core.content.FileProvider"
         android:authorities="com.watchtower.app.fileprovider"
         android:exported="false"
-        android:grantUriPermissions="true">
+        android:grantUriPermissions="true"
+        tools:node="replace">
         <meta-data
         android:name="android.support.FILE_PROVIDER_PATHS"
-        android:resource="@xml/file_paths" />
+        android:resource="@xml/file_paths"
+        tools:replace="android:resource" />
         </provider>
         
         <meta-data
