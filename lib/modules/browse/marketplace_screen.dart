@@ -634,7 +634,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         await pluginsNotifier.addPlugin(pluginConfig);
 
         // Auto-set as default if no default exists for this ability type.
-        final currentPlugins = ref.read(metadataPluginsProvider).valueOrNull;
+        final currentPlugins = ref.read(metadataPluginsProvider).value;
         if (currentPlugins != null) {
           if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
               currentPlugins.defaultMetadataPlugin < 0) {
