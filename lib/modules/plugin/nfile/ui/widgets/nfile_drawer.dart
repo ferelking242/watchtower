@@ -55,7 +55,6 @@ class NFileDrawer extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSectionTitle(context, 'Navigation'),
                     _buildDrawerTile(
                       context,
                       icon: Broken.home,
@@ -120,7 +119,6 @@ class NFileDrawer extends StatelessWidget {
                       },
                     ),
 
-                    _buildDivider(context),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
                       child: Theme(
@@ -268,50 +266,49 @@ class NFileDrawer extends StatelessWidget {
                       ),
                     ),
 
-                    _buildDivider(context),
-                    _buildSectionTitle(context, 'Customization & Settings'),
-                    _buildDrawerTile(
-                      context,
-                      icon: isDark ? Broken.sun_1 : Broken.moon,
-                      title: isDark ? 'Light Mode' : 'Dark Mode',
-                      trailing: Transform.scale(
-                        scale: 0.85,
-                        child: Switch(
-                          value: isDark,
-                          activeColor: theme.colorScheme.primary,
-                          onChanged: (_) => toggleTheme(),
-                        ),
-                      ),
-                      onTap: toggleTheme,
-                    ),
-
-                    _buildDrawerTile(
-                      context,
-                      icon: Broken.setting_2,
-                      title: 'More Settings',
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const MoreSettingsScreen()));
-                      },
-                    ),
-                    _buildDrawerTile(
-                      context,
-                      icon: Broken.info_circle,
-                      title: 'About NFile',
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const AboutNFileScreen()),
-                        );
-                      },
-                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
 
+            // Theme toggle + Settings + About (at bottom of drawer)
+            _buildDrawerTile(
+              context,
+              icon: isDark ? Broken.sun_1 : Broken.moon,
+              title: isDark ? 'Light Mode' : 'Dark Mode',
+              trailing: Transform.scale(
+                scale: 0.85,
+                child: Switch(
+                  value: isDark,
+                  activeColor: theme.colorScheme.primary,
+                  onChanged: (_) => toggleTheme(),
+                ),
+              ),
+              onTap: toggleTheme,
+            ),
+            _buildDrawerTile(
+              context,
+              icon: Broken.setting_2,
+              title: 'More Settings',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const MoreSettingsScreen()));
+              },
+            ),
+            _buildDrawerTile(
+              context,
+              icon: Broken.info_circle,
+              title: 'About NFile',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AboutNFileScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
             // Footer Version Info
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12.0),

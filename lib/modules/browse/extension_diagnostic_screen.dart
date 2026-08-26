@@ -415,7 +415,7 @@ class _ExtensionDiagnosticScreenState
                 onReset: _running ? null : _resetDiagnostics,
                 itemType: widget.itemType,
                 typeLabelShort: _typeLabelShort(),
-                onBack: () => context.pop(),
+                onBack: () { if (context.canPop()) context.pop(); else context.go('/browse'); },
               ),
             ),
 
@@ -516,40 +516,57 @@ class _LeftPanel extends StatelessWidget {
 
     return Column(
       children: [
-        // ── Header ───────────────────────────────────────────────────────
+        // ── Compact Header ─────────────────────────────────────────────────
         Container(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
           decoration: BoxDecoration(
             color: cs.surfaceContainerHigh,
-            border: Border(bottom: BorderSide(color: cs.outlineVariant)),
+            border: Border(bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
           ),
           child: Row(children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
               onPressed: onBack,
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 2),
             Expanded(
               child: Text(
-                'Diagnostic $typeLabelShort',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                'Diag $typeLabelShort',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
                 color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 '${filtered.length}',
                 style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: cs.onPrimaryContainer),
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Compact Run button in header
+            GestureDetector(
+              onTap: running ? null : onStart,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  running ? Icons.hourglass_empty_rounded : Icons.play_arrow_rounded,
+                  size: 14,
+                  color: cs.onPrimaryContainer,
+                ),
               ),
             ),
           ]),
@@ -635,50 +652,7 @@ class _LeftPanel extends StatelessWidget {
                 ),
         ),
 
-        // ── Action buttons ────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            border: Border(top: BorderSide(color: cs.outlineVariant)),
-          ),
-          child: Row(children: [
-            if (started)
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: const Text('Reset', style: TextStyle(fontSize: 12)),
-                  onPressed: running ? null : onReset,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ),
-            if (started) const SizedBox(width: 8),
-            Expanded(
-              flex: started ? 2 : 1,
-              child: FilledButton.icon(
-                icon: Icon(running
-                    ? Icons.hourglass_empty_rounded
-                    : Icons.play_arrow_rounded, size: 16),
-                label: Text(
-                  running
-                      ? 'En cours…'
-                      : started ? 'Relancer' : 'Lancer',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                onPressed: running ? null : onStart,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
-          ]),
-        ),
+
       ],
     );
   }

@@ -26,9 +26,9 @@ import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/global_style.dart';
 
-// ─── Design tokens ───────────────────────────────────────────────────────────
-const _kBorder        = Color(0xFF333333);
-const _kTextSecondary = Color(0xFF999999);
+// ─── Design tokens (resolved from theme at build time) ─────────────────────
+// cs.outlineVariant and _kTextSecondary replaced with cs.outlineVariant / cs.onSurfaceVariant
+// in each build method to respect the active theme.
 
 // ─── Type order ──────────────────────────────────────────────────────────────
 const _kTypes = <ItemType>[
@@ -77,8 +77,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   int _selectedCatIndex = 0;
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
-  late final PageController _arcPageCtrl = PageController(
-    viewportFraction: 0.28,
+  late final PageController _arcPageCtrl = PageController(      viewportFraction: 0.25,
     initialPage: _typeIndex,
   );
 
@@ -140,7 +139,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           final diff = (i - _typeIndex).abs().toDouble();
           final scale = (1.0 - diff * 0.12).clamp(0.76, 1.0);
           final opacity = (1.0 - diff * 0.30).clamp(0.40, 1.0);
-          final blur = diff > 0.5 ? (diff * 1.8).clamp(0.0, 2.5) : 0.0;
+          final blur = diff > 1.0 ? (diff * 1.0).clamp(0.0, 1.5) : 0.0;
 
           return Center(
             child: AnimatedScale(
@@ -216,7 +215,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                             color: selected
                                 ? cs.primary
-                                : (isDark ? _kTextSecondary : cs.onSurface.withValues(alpha: 0.45)),
+                                : cs.onSurfaceVariant.withValues(alpha: 0.70),
                           ),
                         ),
                       ],
@@ -642,7 +641,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           style: TextStyle(
             color: selected
                 ? cs.primary
-                : (isDark ? _kTextSecondary : cs.onSurface.withValues(alpha: 0.55)),
+                : cs.onSurfaceVariant.withValues(alpha: 0.65),
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             fontSize: 13,
           ),

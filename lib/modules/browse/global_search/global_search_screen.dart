@@ -172,40 +172,63 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: Container(),
-        actions: [
-          SeachFormTextField(
-            onChanged: (value) {},
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            onFieldSubmitted: (value) async {
-              if (!(_query == _textEditingController.text)) {
-                setState(() {
-                  _query = "";
-                });
-                await WidgetsBinding.instance.endOfFrame;
-                AppLogger.log(
-                  'Global search started | type=${widget.itemType.name} '
-                  '| sources=${filtered.length} | query="$value"',
-                  logLevel: LogLevel.info,
-                  tag: LogTag.search,
-                );
-                setState(() {
-                  _query = value;
-                });
-              }
-            },
-            onSuffixPressed: () {
-              _textEditingController.clear();
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: SeachFormTextField(
+          onChanged: (value) {},
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          onFieldSubmitted: (value) async {
+            if (!(_query == _textEditingController.text)) {
               setState(() {
                 _query = "";
               });
+              await WidgetsBinding.instance.endOfFrame;
+              AppLogger.log(
+                'Global search started | type=${widget.itemType.name} '
+                '| sources=${filtered.length} | query="$value"',
+                logLevel: LogLevel.info,
+                tag: LogTag.search,
+              );
+              setState(() {
+                _query = value;
+              });
+            }
+          },
+          onSuffixPressed: () {
+            _textEditingController.clear();
+            setState(() {
+              _query = "";
+            });
+          },
+          controller: _textEditingController,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list_rounded, size: 20),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => _FilterSheet(
+                  availableLangs: _availableLangs,
+                  availableTypes: _availableTypes,
+                  selectedLang: _selectedLang,
+                  selectedType: _selectedType,
+                  pinnedOnly: _pinnedOnly,
+                  cs: cs,
+                  onLangSelected: (lang) => setState(() => _selectedLang = lang == _selectedLang ? null : lang),
+                  onTypeSelected: (type) => setState(() => _selectedType = type == _selectedType ? null : type),
+                  onPinnedToggled: () => setState(() => _pinnedOnly = !_pinnedOnly),
+                  onClearAll: _clearFilters,
+                ),
+              );
             },
-            controller: _textEditingController,
           ),
         ],
-      ),
       body: Column(
         children: [
           // ── Filter chips row ─────────────────────────────────────────────
@@ -1011,4 +1034,98 @@ class _MangaGlobalImageCardState extends ConsumerState<MangaGlobalImageCard>
 
   @override
   bool get wantKeepAlive => true;
+}
+
+// ─── Filter bottom sheet ─────────────────────────────────────────────────────
+
+class _FilterSheet extends StatelessWidget {
+  final List<String> availableLangs;
+  final List<SourceCodeLanguage> availableTypes;
+  final String? selectedLang;
+  final SourceCodeLanguage? selectedType;
+  final bool pinnedOnly;
+  final ColorScheme cs;
+  final ValueChanged<String?> onLangSelected;
+  final ValueChanged<SourceCodeLanguage?> onTypeSelected;
+  final VoidCallback onPinnedToggled;
+  final VoidCallback onClearAll;
+
+  const _FilterSheet({
+    required this.availableLangs,
+    required this.availableTypes,
+    this.selectedLang,
+    this.selectedType,
+    this.pinnedOnly = false,
+    required this.cs,
+    required this.onLangSelected,
+    required this.onTypeSelected,
+    required this.onPinnedToggled,
+    required this.onClearAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('Filtres', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                const Spacer(),
+                if (selectedLang != null || selectedType != null || pinnedOnly)
+                  TextButton(onPressed: onClearAll, child: const Text('Effacer tout')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (availableLangs.isNotEmpty) ...[
+              Text('Langue', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final lang in availableLangs)
+                    FilterChip(
+                      label: Text(lang.toUpperCase(), style: const TextStyle(fontSize: 11)),
+                      selected: selectedLang == lang,
+                      onSelected: (_) => onLangSelected(lang),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (availableTypes.isNotEmpty) ...[
+              Text('Type de source', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final type in availableTypes)
+                    FilterChip(
+                      label: Text(type.name, style: const TextStyle(fontSize: 11)),
+                      selected: selectedType == type,
+                      onSelected: (_) => onTypeSelected(type),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Favoris uniquement', style: TextStyle(fontSize: 13)),
+              value: pinnedOnly,
+              onChanged: (_) => onPinnedToggled(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
