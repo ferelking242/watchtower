@@ -8,112 +8,178 @@ part of 'local_indexer_provider.dart';
 
 // ignore_for_file: type=lint, type=warning
 
-@ProviderFor(localIndexerEngine)
-final localIndexerEngineProvider =
-    AutoDisposeProvider<IndexerEngine>.internal(
-  localIndexerEngine,
-  name: r'localIndexerEngineProvider',
-  debugGetCreateSourceHash: null,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+// ── localIndexerEngine (sync, no params) ─────────────────────────────────────
 
-typedef LocalIndexerEngineRef = AutoDisposeProviderRef<IndexerEngine>;
+@ProviderFor(localIndexerEngine)
+final localIndexerEngineProvider = LocalIndexerEngineProvider._();
+
+final class LocalIndexerEngineProvider
+    extends $FunctionalProvider<IndexerEngine, IndexerEngine, IndexerEngine>
+    with $Provider<IndexerEngine> {
+  LocalIndexerEngineProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'localIndexerEngineProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$localIndexerEngineHash();
+
+  @$internal
+  @override
+  $ProviderElement<IndexerEngine> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  IndexerEngine create(Ref ref) {
+    return localIndexerEngine(ref);
+  }
+}
+
+String _$localIndexerEngineHash() => r'localIndexerEngine';
+
+// ── indexerStatus (stream, no params) ────────────────────────────────────────
 
 @ProviderFor(indexerStatus)
-final indexerStatusProvider =
-    AutoDisposeStreamProvider<IndexerStatus>.internal(
-  indexerStatus,
-  name: r'indexerStatusProvider',
-  debugGetCreateSourceHash: null,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final indexerStatusProvider = IndexerStatusProvider._();
 
-typedef IndexerStatusRef = AutoDisposeStreamProviderRef<IndexerStatus>;
+final class IndexerStatusProvider
+    extends $FunctionalProvider<
+        AsyncValue<IndexerStatus>,
+        IndexerStatus,
+        Stream<IndexerStatus>>
+    with $FutureModifier<IndexerStatus>, $StreamProvider<IndexerStatus> {
+  IndexerStatusProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'indexerStatusProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$indexerStatusHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<IndexerStatus> $createElement(
+          $ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<IndexerStatus> create(Ref ref) {
+    return indexerStatus(ref);
+  }
+}
+
+String _$indexerStatusHash() => r'indexerStatus';
+
+// ── LocalIndexerScan (class notifier, no params) ────────────────────────────
 
 @ProviderFor(LocalIndexerScan)
-final localIndexerScanProvider =
-    AutoDisposeNotifierProvider<LocalIndexerScan, AsyncValue<IndexerStats?>>.internal(
-  LocalIndexerScan.new,
-  name: r'localIndexerScanProvider',
-  debugGetCreateSourceHash: null,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final localIndexerScanProvider = LocalIndexerScanProvider._();
 
-typedef _$LocalIndexerScan
-    = AutoDisposeNotifier<AsyncValue<IndexerStats?>>;
+final class LocalIndexerScanProvider
+    extends $NotifierProvider<LocalIndexerScan, AsyncValue<IndexerStats?>> {
+  LocalIndexerScanProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'localIndexerScanProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$localIndexerScanHash();
+
+  @$internal
+  @override
+  LocalIndexerScan create() => LocalIndexerScan();
+}
+
+String _$localIndexerScanHash() => r'localIndexerScan';
+
+abstract class _$LocalIndexerScan extends $Notifier<AsyncValue<IndexerStats?>> {
+  AsyncValue<IndexerStats?> build() => const AsyncValue.data(null);
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<IndexerStats?>, AsyncValue<IndexerStats?>>;
+    final element = ref.element
+        as $ClassProviderElement<
+            AnyNotifier<AsyncValue<IndexerStats?>, AsyncValue<IndexerStats?>>,
+            AsyncValue<IndexerStats?>,
+            Object?,
+            Object?>;
+    element.handleCreate(ref, build);
+  }
+}
+
+// ── localSearch (family: String query) ──────────────────────────────────────
 
 @ProviderFor(localSearch)
 const localSearchProvider = LocalSearchFamily();
 
-final class LocalSearchFamily extends Family {
-  const LocalSearchFamily();
+final class LocalSearchFamily extends $Family
+    with $FunctionalFamilyOverride<List<LocalSearchResult>, String> {
+  LocalSearchFamily._()
+      : super(
+          retry: null,
+          name: r'localSearchProvider',
+          dependencies: null,
+          $allTransitiveDependencies: null,
+          isAutoDispose: true,
+        );
 
-  LocalSearchProvider call(String query) {
-    return LocalSearchProvider(query);
-  }
-
-  @override
-  LocalSearchProvider getProviderOverride(
-      covariant LocalSearchProvider provider) {
-    return call(provider.argument as String);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+  LocalSearchProvider call(String query) =>
+      LocalSearchProvider._(argument: query, from: this);
 
   @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'localSearchProvider';
+  String toString() => r'localSearchProvider';
 }
 
 final class LocalSearchProvider
-    extends AutoDisposeProvider<List<LocalSearchResult>> {
-  const LocalSearchProvider(String query)
-      : this._internal(
-          (ref) => localSearch(ref as LocalSearchRef, query),
-          from: localSearchProvider,
+    extends $FunctionalProvider<List<LocalSearchResult>,
+        List<LocalSearchResult>, List<LocalSearchResult>>
+    with $Provider<List<LocalSearchResult>> {
+  LocalSearchProvider._({
+    required LocalSearchFamily super.from,
+    required String super.argument,
+  }) : super(
+          retry: null,
           name: r'localSearchProvider',
-          debugGetCreateSourceHash: null,
-          dependencies: LocalSearchFamily._dependencies,
-          allTransitiveDependencies:
-              LocalSearchFamily._allTransitiveDependencies,
-          argument: query,
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
         );
 
-  LocalSearchProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required super.argument,
-  }) : super.internal();
+  @override
+  String debugGetCreateSourceHash() => _$localSearchHash();
 
   @override
-  AutoDisposeProvider<List<LocalSearchResult>> copyWithCreate(
-    Create<List<LocalSearchResult>, AutoDisposeProviderRef<List<LocalSearchResult>>>
-        create,
-  ) {
-    return LocalSearchProvider._internal(
-      create,
-      name: name,
-      dependencies: dependencies,
-      allTransitiveDependencies: allTransitiveDependencies,
-      debugGetCreateSourceHash: debugGetCreateSourceHash,
-      from: from,
-      argument: argument,
-    );
+  String toString() => r'localSearchProvider($argument)';
+
+  @$internal
+  @override
+  $ProviderElement<List<LocalSearchResult>> $createElement(
+          $ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  List<LocalSearchResult> create(Ref ref) {
+    final argument = this.argument as String;
+    return localSearch(ref, argument);
   }
 
   @override
@@ -122,86 +188,65 @@ final class LocalSearchProvider
   }
 
   @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, argument.hashCode);
-    return _SystemHash.finish(hash);
-  }
+  int get hashCode => argument.hashCode;
 }
 
-typedef LocalSearchRef
-    = AutoDisposeProviderRef<List<LocalSearchResult>>;
+String _$localSearchHash() => r'localSearch';
+
+// ── localItemsByKind (family: LocalMediaKind kind) ──────────────────────────
 
 @ProviderFor(localItemsByKind)
 const localItemsByKindProvider = LocalItemsByKindFamily();
 
-final class LocalItemsByKindFamily extends Family {
-  const LocalItemsByKindFamily();
+final class LocalItemsByKindFamily extends $Family
+    with $FunctionalFamilyOverride<List<LocalIndexedItem>, LocalMediaKind> {
+  LocalItemsByKindFamily._()
+      : super(
+          retry: null,
+          name: r'localItemsByKindProvider',
+          dependencies: null,
+          $allTransitiveDependencies: null,
+          isAutoDispose: true,
+        );
 
-  LocalItemsByKindProvider call(LocalMediaKind kind) {
-    return LocalItemsByKindProvider(kind);
-  }
-
-  @override
-  LocalItemsByKindProvider getProviderOverride(
-      covariant LocalItemsByKindProvider provider) {
-    return call(provider.argument as LocalMediaKind);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+  LocalItemsByKindProvider call(LocalMediaKind kind) =>
+      LocalItemsByKindProvider._(argument: kind, from: this);
 
   @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'localItemsByKindProvider';
+  String toString() => r'localItemsByKindProvider';
 }
 
 final class LocalItemsByKindProvider
-    extends AutoDisposeProvider<List<LocalIndexedItem>> {
-  const LocalItemsByKindProvider(LocalMediaKind kind)
-      : this._internal(
-          (ref) => localItemsByKind(ref as LocalItemsByKindRef, kind),
-          from: localItemsByKindProvider,
+    extends $FunctionalProvider<List<LocalIndexedItem>,
+        List<LocalIndexedItem>, List<LocalIndexedItem>>
+    with $Provider<List<LocalIndexedItem>> {
+  LocalItemsByKindProvider._({
+    required LocalItemsByKindFamily super.from,
+    required LocalMediaKind super.argument,
+  }) : super(
+          retry: null,
           name: r'localItemsByKindProvider',
-          debugGetCreateSourceHash: null,
-          dependencies: LocalItemsByKindFamily._dependencies,
-          allTransitiveDependencies:
-              LocalItemsByKindFamily._allTransitiveDependencies,
-          argument: kind,
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
         );
 
-  LocalItemsByKindProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required super.argument,
-  }) : super.internal();
+  @override
+  String debugGetCreateSourceHash() => _$localItemsByKindHash();
 
   @override
-  AutoDisposeProvider<List<LocalIndexedItem>> copyWithCreate(
-    Create<List<LocalIndexedItem>,
-            AutoDisposeProviderRef<List<LocalIndexedItem>>>
-        create,
-  ) {
-    return LocalItemsByKindProvider._internal(
-      create,
-      name: name,
-      dependencies: dependencies,
-      allTransitiveDependencies: allTransitiveDependencies,
-      debugGetCreateSourceHash: debugGetCreateSourceHash,
-      from: from,
-      argument: argument,
-    );
+  String toString() => r'localItemsByKindProvider($argument)';
+
+  @$internal
+  @override
+  $ProviderElement<List<LocalIndexedItem>> $createElement(
+          $ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  List<LocalIndexedItem> create(Ref ref) {
+    final argument = this.argument as LocalMediaKind;
+    return localItemsByKind(ref, argument);
   }
 
   @override
@@ -210,85 +255,65 @@ final class LocalItemsByKindProvider
   }
 
   @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, argument.hashCode);
-    return _SystemHash.finish(hash);
-  }
+  int get hashCode => argument.hashCode;
 }
 
-typedef LocalItemsByKindRef = AutoDisposeProviderRef<List<LocalIndexedItem>>;
+String _$localItemsByKindHash() => r'localItemsByKind';
+
+// ── localItemVariants (family: String canonicalKey) ─────────────────────────
 
 @ProviderFor(localItemVariants)
 const localItemVariantsProvider = LocalItemVariantsFamily();
 
-final class LocalItemVariantsFamily extends Family {
-  const LocalItemVariantsFamily();
+final class LocalItemVariantsFamily extends $Family
+    with $FunctionalFamilyOverride<List<LocalIndexedItem>, String> {
+  LocalItemVariantsFamily._()
+      : super(
+          retry: null,
+          name: r'localItemVariantsProvider',
+          dependencies: null,
+          $allTransitiveDependencies: null,
+          isAutoDispose: true,
+        );
 
-  LocalItemVariantsProvider call(String canonicalKey) {
-    return LocalItemVariantsProvider(canonicalKey);
-  }
-
-  @override
-  LocalItemVariantsProvider getProviderOverride(
-      covariant LocalItemVariantsProvider provider) {
-    return call(provider.argument as String);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+  LocalItemVariantsProvider call(String canonicalKey) =>
+      LocalItemVariantsProvider._(argument: canonicalKey, from: this);
 
   @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'localItemVariantsProvider';
+  String toString() => r'localItemVariantsProvider';
 }
 
 final class LocalItemVariantsProvider
-    extends AutoDisposeProvider<List<LocalIndexedItem>> {
-  const LocalItemVariantsProvider(String canonicalKey)
-      : this._internal(
-          (ref) => localItemVariants(ref as LocalItemVariantsRef, canonicalKey),
-          from: localItemVariantsProvider,
+    extends $FunctionalProvider<List<LocalIndexedItem>,
+        List<LocalIndexedItem>, List<LocalIndexedItem>>
+    with $Provider<List<LocalIndexedItem>> {
+  LocalItemVariantsProvider._({
+    required LocalItemVariantsFamily super.from,
+    required String super.argument,
+  }) : super(
+          retry: null,
           name: r'localItemVariantsProvider',
-          debugGetCreateSourceHash: null,
-          dependencies: LocalItemVariantsFamily._dependencies,
-          allTransitiveDependencies:
-              LocalItemVariantsFamily._allTransitiveDependencies,
-          argument: canonicalKey,
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
         );
 
-  LocalItemVariantsProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required super.argument,
-  }) : super.internal();
+  @override
+  String debugGetCreateSourceHash() => _$localItemVariantsHash();
 
   @override
-  AutoDisposeProvider<List<LocalIndexedItem>> copyWithCreate(
-    Create<List<LocalIndexedItem>,
-            AutoDisposeProviderRef<List<LocalIndexedItem>>>
-        create,
-  ) {
-    return LocalItemVariantsProvider._internal(
-      create,
-      name: name,
-      dependencies: dependencies,
-      allTransitiveDependencies: allTransitiveDependencies,
-      debugGetCreateSourceHash: debugGetCreateSourceHash,
-      from: from,
-      argument: argument,
-    );
+  String toString() => r'localItemVariantsProvider($argument)';
+
+  @$internal
+  @override
+  $ProviderElement<List<LocalIndexedItem>> $createElement(
+          $ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  List<LocalIndexedItem> create(Ref ref) {
+    final argument = this.argument as String;
+    return localItemVariants(ref, argument);
   }
 
   @override
@@ -297,122 +322,176 @@ final class LocalItemVariantsProvider
   }
 
   @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, argument.hashCode);
-    return _SystemHash.finish(hash);
+  int get hashCode => argument.hashCode;
+}
+
+String _$localItemVariantsHash() => r'localItemVariants';
+
+// ── localIndexedCount (Future, no params) ───────────────────────────────────
+
+@ProviderFor(localIndexedCount)
+final localIndexedCountProvider = LocalIndexedCountProvider._();
+
+final class LocalIndexedCountProvider
+    extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
+    with $FutureModifier<int>, $FutureProvider<int> {
+  LocalIndexedCountProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'localIndexedCountProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$localIndexedCountHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<int> create(Ref ref) {
+    return localIndexedCount(ref);
   }
 }
 
-typedef LocalItemVariantsRef = AutoDisposeProviderRef<List<LocalIndexedItem>>;
+String _$localIndexedCountHash() => r'localIndexedCount';
 
-@ProviderFor(localIndexedCount)
-final localIndexedCountProvider = AutoDisposeFutureProvider<int>.internal(
-  localIndexedCount,
-  name: r'localIndexedCountProvider',
-  debugGetCreateSourceHash: null,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-typedef LocalIndexedCountRef = AutoDisposeFutureProviderRef<int>;
+// ── localIndexedCountByKind (Future, no params) ─────────────────────────────
 
 @ProviderFor(localIndexedCountByKind)
-final localIndexedCountByKindProvider =
-    AutoDisposeFutureProvider<Map<LocalMediaKind, int>>.internal(
-  localIndexedCountByKind,
-  name: r'localIndexedCountByKindProvider',
-  debugGetCreateSourceHash: null,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final localIndexedCountByKindProvider = LocalIndexedCountByKindProvider._();
 
-typedef LocalIndexedCountByKindRef
-    = AutoDisposeFutureProviderRef<Map<LocalMediaKind, int>>;
+final class LocalIndexedCountByKindProvider
+    extends $FunctionalProvider<AsyncValue<Map<LocalMediaKind, int>>,
+        Map<LocalMediaKind, int>, FutureOr<Map<LocalMediaKind, int>>>
+    with $FutureModifier<Map<LocalMediaKind, int>>, $FutureProvider<Map<LocalMediaKind, int>> {
+  LocalIndexedCountByKindProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'localIndexedCountByKindProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$localIndexedCountByKindHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<Map<LocalMediaKind, int>> $createElement(
+          $ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<Map<LocalMediaKind, int>> create(Ref ref) {
+    return localIndexedCountByKind(ref);
+  }
+}
+
+String _$localIndexedCountByKindHash() => r'localIndexedCountByKind';
+
+// ── recentlyIndexed (Future, no params) ─────────────────────────────────────
 
 @ProviderFor(recentlyIndexed)
-final recentlyIndexedProvider =
-    AutoDisposeFutureProvider<List<LocalIndexedItem>>.internal(
-  recentlyIndexed,
-  name: r'recentlyIndexedProvider',
-  debugGetCreateSourceHash: null,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final recentlyIndexedProvider = RecentlyIndexedProvider._();
 
-typedef RecentlyIndexedRef
-    = AutoDisposeFutureProviderRef<List<LocalIndexedItem>>;
+final class RecentlyIndexedProvider
+    extends $FunctionalProvider<AsyncValue<List<LocalIndexedItem>>,
+        List<LocalIndexedItem>, FutureOr<List<LocalIndexedItem>>>
+    with
+        $FutureModifier<List<LocalIndexedItem>>,
+        $FutureProvider<List<LocalIndexedItem>> {
+  RecentlyIndexedProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'recentlyIndexedProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$recentlyIndexedHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<List<LocalIndexedItem>> $createElement(
+          $ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<LocalIndexedItem>> create(Ref ref) {
+    return recentlyIndexed(ref);
+  }
+}
+
+String _$recentlyIndexedHash() => r'recentlyIndexed';
+
+// ── localItemByPath (family: String path) ───────────────────────────────────
 
 @ProviderFor(localItemByPath)
 const localItemByPathProvider = LocalItemByPathFamily();
 
-final class LocalItemByPathFamily extends Family {
-  const LocalItemByPathFamily();
+final class LocalItemByPathFamily extends $Family
+    with $FunctionalFamilyOverride<LocalIndexedItem?, String> {
+  LocalItemByPathFamily._()
+      : super(
+          retry: null,
+          name: r'localItemByPathProvider',
+          dependencies: null,
+          $allTransitiveDependencies: null,
+          isAutoDispose: true,
+        );
 
-  LocalItemByPathProvider call(String path) {
-    return LocalItemByPathProvider(path);
-  }
-
-  @override
-  LocalItemByPathProvider getProviderOverride(
-      covariant LocalItemByPathProvider provider) {
-    return call(provider.argument as String);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+  LocalItemByPathProvider call(String path) =>
+      LocalItemByPathProvider._(argument: path, from: this);
 
   @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'localItemByPathProvider';
+  String toString() => r'localItemByPathProvider';
 }
 
 final class LocalItemByPathProvider
-    extends AutoDisposeFutureProvider<LocalIndexedItem?> {
-  const LocalItemByPathProvider(String path)
-      : this._internal(
-          (ref) => localItemByPath(ref as LocalItemByPathRef, path),
-          from: localItemByPathProvider,
+    extends $FunctionalProvider<AsyncValue<LocalIndexedItem?>,
+        LocalIndexedItem?, FutureOr<LocalIndexedItem?>>
+    with $FutureModifier<LocalIndexedItem?>, $FutureProvider<LocalIndexedItem?> {
+  LocalItemByPathProvider._({
+    required LocalItemByPathFamily super.from,
+    required String super.argument,
+  }) : super(
+          retry: null,
           name: r'localItemByPathProvider',
-          debugGetCreateSourceHash: null,
-          dependencies: LocalItemByPathFamily._dependencies,
-          allTransitiveDependencies:
-              LocalItemByPathFamily._allTransitiveDependencies,
-          argument: path,
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
         );
 
-  LocalItemByPathProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required super.argument,
-  }) : super.internal();
+  @override
+  String debugGetCreateSourceHash() => _$localItemByPathHash();
 
   @override
-  AutoDisposeFutureProvider<LocalIndexedItem?> copyWithCreate(
-    Create<Future<LocalIndexedItem?>,
-            AutoDisposeFutureProviderRef<LocalIndexedItem?>>
-        create,
-  ) {
-    return LocalItemByPathProvider._internal(
-      create,
-      name: name,
-      dependencies: dependencies,
-      allTransitiveDependencies: allTransitiveDependencies,
-      debugGetCreateSourceHash: debugGetCreateSourceHash,
-      from: from,
-      argument: argument,
-    );
+  String toString() => r'localItemByPathProvider($argument)';
+
+  @$internal
+  @override
+  $FutureProviderElement<LocalIndexedItem?> $createElement(
+          $ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<LocalIndexedItem?> create(Ref ref) {
+    final argument = this.argument as String;
+    return localItemByPath(ref, argument);
   }
 
   @override
@@ -421,34 +500,7 @@ final class LocalItemByPathProvider
   }
 
   @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, argument.hashCode);
-    return _SystemHash.finish(hash);
-  }
+  int get hashCode => argument.hashCode;
 }
 
-typedef LocalItemByPathRef = AutoDisposeFutureProviderRef<LocalIndexedItem?>;
-
-// ignore: unused_element
-mixin _$LocalIndexerScan on AutoDisposeNotifier<AsyncValue<IndexerStats?>> {
-  @override
-  AsyncValue<IndexerStats?> build() {
-    throw UnimplementedError();
-  }
-}
-
-class _SystemHash {
-  _SystemHash._();
-  static int combine(int hash, int value) {
-    hash = 0x1fffffff & (hash + value);
-    hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-    return hash ^ (hash >> 6);
-  }
-
-  static int finish(int hash) {
-    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
-    hash = hash ^ (hash >> 11);
-    return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
-  }
-}
+String _$localItemByPathHash() => r'localItemByPath';
