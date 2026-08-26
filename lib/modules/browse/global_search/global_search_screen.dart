@@ -1,3 +1,4 @@
+import 'package:speech_to_text/speech_to_text.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -207,6 +208,35 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           controller: _textEditingController,
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.mic_rounded, size: 20),
+            tooltip: 'Recherche vocale',
+            onPressed: () async {
+              try {
+                final speech = SpeechToText();
+                final available = await speech.initialize();
+                if (!available || !context.mounted) return;
+                await speech.listen(
+                  onResult: (result) {
+                    if (result.recognizedWords.isNotEmpty) {
+                      _textEditingController.text = result.recognizedWords;
+                      setState(() => _query = result.recognizedWords);
+                    }
+                  },
+                  listenFor: const Duration(seconds: 8),
+                );
+                // Auto-stop after timeout
+                await Future.delayed(const Duration(seconds: 9));
+                await speech.stop();
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Recherche vocale indisponible'), duration: Duration(seconds: 1)),
+                  );
+                }
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list_rounded, size: 20),
             onPressed: () {

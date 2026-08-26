@@ -184,7 +184,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             color: selected
                                 ? null
                                 : (isDark
-                                    ? Colors.white.withValues(alpha: 0.06)
+                                    ? cs.onSurface.withValues(alpha: 0.06)
                                     : cs.onSurface.withValues(alpha: 0.06)),
                             boxShadow: selected
                                 ? [
@@ -199,9 +199,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                           child: Icon(
                             _kTypeIcons[_kTypes[i]]!,
                             color: selected
-                                ? Colors.white
+                                ? cs.onSurface
                                 : (isDark
-                                    ? Colors.white54
+                                    ? cs.onSurface.withValues(alpha: 0.54)
                                     : cs.onSurface.withValues(alpha: 0.50)),
                             size: selected ? 20 : 17,
                           ),
@@ -252,15 +252,15 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             color: active
                 ? cs.primary.withValues(alpha: 0.90)
                 : (isDark
-                    ? Colors.white.withValues(alpha: 0.08)
+                    ? cs.onSurface.withValues(alpha: 0.08)
                     : cs.onSurface.withValues(alpha: 0.06)),
           ),
           child: Icon(
             icon,
             color: active
-                ? Colors.white
+                ? cs.onSurface
                 : (isDark
-                    ? Colors.white60
+                    ? cs.onSurface.withValues(alpha: 0.60)
                     : cs.onSurface.withValues(alpha: 0.55)),
             size: 17,
           ),
@@ -442,7 +442,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           color: focused
               ? cs.primary.withValues(alpha: 0.50)
               : (isDark
-                  ? Colors.white.withValues(alpha: 0.06)
+                  ? cs.onSurface.withValues(alpha: 0.06)
                   : cs.outline.withValues(alpha: 0.12)),
           width: focused ? 1.4 : 1.0,
         ),
@@ -559,7 +559,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isDark
-                      ? Colors.white.withValues(alpha: 0.12)
+                      ? cs.onSurface.withValues(alpha: 0.12)
                       : cs.outline.withValues(alpha: 0.18),
                   width: 1,
                 ),
@@ -568,7 +568,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 Broken.setting_2,
                 size: 15,
                 color: isDark
-                    ? Colors.white38
+                    ? cs.onSurface.withValues(alpha: 0.38)
                     : cs.onSurface.withValues(alpha: 0.38),
               ),
             ),
@@ -581,7 +581,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               width: 1,
               height: 18,
               color: isDark
-                  ? Colors.white.withValues(alpha: 0.10)
+                  ? cs.onSurface.withValues(alpha: 0.10)
                   : cs.outline.withValues(alpha: 0.14),
             ),
           ),
@@ -631,7 +631,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             color: selected
                 ? cs.primary.withValues(alpha: 0.60)
                 : (isDark
-                    ? Colors.white.withValues(alpha: 0.15)
+                    ? cs.onSurface.withValues(alpha: 0.15)
                     : cs.outline.withValues(alpha: 0.25)),
             width: selected ? 1.2 : 1.0,
           ),
@@ -665,14 +665,14 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
+              ? cs.onSurface.withValues(alpha: 0.08)
               : cs.onSurface.withValues(alpha: 0.06),
         ),
         child: ClipOval(
           child: ArrowPopupMenuButton<int>(
             icon: Icon(
               Broken.more_2,
-              color: isDark ? Colors.white60 : cs.onSurface.withValues(alpha: 0.55),
+              color: isDark ? cs.onSurface.withValues(alpha: 0.60) : cs.onSurface.withValues(alpha: 0.55),
               size: 17,
             ),
             padding: EdgeInsets.zero,
@@ -1014,7 +1014,7 @@ class _ManageCategoriesSheetState
                         child: const Text(
                           'Save',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: cs.onSurface,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1183,7 +1183,7 @@ class _ManageCategoriesSheetState
                             ),
                             child: const Icon(
                               Broken.element_plus,
-                              color: Colors.white,
+                              color: cs.onSurface,
                               size: 20,
                             ),
                           ),
@@ -1273,12 +1273,12 @@ class _CatRow extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.04)
+            ? cs.onSurface.withValues(alpha: 0.04)
             : cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
+              ? cs.onSurface.withValues(alpha: 0.06)
               : cs.outline.withValues(alpha: 0.08),
         ),
       ),
@@ -1572,7 +1572,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                       child: Text(
                         'Apply',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: cs.onSurface,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),

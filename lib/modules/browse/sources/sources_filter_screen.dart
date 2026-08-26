@@ -23,6 +23,19 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
   final Map<String, bool> _collapsed = {};
   _NsfwFilter _nsfwFilter = _NsfwFilter.all;
   bool _showOnlyActive = false;
+  String? _selectedLang;
+
+  List<String> get _availableLangs {
+    final sources = isar.sources
+        .filter()
+        .idIsNotNull()
+        .and()
+        .sourceCodeIsNotEmpty()
+        .itemTypeEqualTo(widget.itemType)
+        .isAddedEqualTo(true)
+        .findAllSync();
+    return sources.map((s) => s.lang ?? '').where((l) => l.isNotEmpty).toSet().toList()..sort();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +48,11 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
           _FilterBar(
             nsfwFilter: _nsfwFilter,
             showOnlyActive: _showOnlyActive,
+            selectedLang: _selectedLang,
+            availableLangs: _availableLangs,
             onNsfwChanged: (v) => setState(() => _nsfwFilter = v),
             onActiveChanged: (v) => setState(() => _showOnlyActive = v),
+            onLangChanged: (v) => setState(() => _selectedLang = v),
           ),
           const Divider(height: 1),
           Expanded(
@@ -48,6 +64,7 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
               .idIsNotNull()
               .and()
               .sourceCodeIsNotEmpty()
+              .optional(_selectedLang != null, (q) => q.langEqualTo(_selectedLang!))
               .and()
               .itemTypeEqualTo(widget.itemType)
               .watch(fireImmediately: true),
@@ -294,14 +311,20 @@ class _CountBadge extends StatelessWidget {
   class _FilterBar extends StatelessWidget {
     final _NsfwFilter nsfwFilter;
     final bool showOnlyActive;
+    final String? selectedLang;
+    final List<String> availableLangs;
     final void Function(_NsfwFilter) onNsfwChanged;
     final void Function(bool) onActiveChanged;
+    final void Function(String?) onLangChanged;
 
     const _FilterBar({
       required this.nsfwFilter,
       required this.showOnlyActive,
+      this.selectedLang,
+      this.availableLangs = const [],
       required this.onNsfwChanged,
       required this.onActiveChanged,
+      required this.onLangChanged,
     });
 
     @override
@@ -337,6 +360,29 @@ class _CountBadge extends StatelessWidget {
                 _FChip(label: 'Actives seulement', selected: showOnlyActive, onTap: () => onActiveChanged(!showOnlyActive), color: Colors.green.shade400),
               ],
             ),
+            if (availableLangs.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.language_rounded, size: 14),
+                  const SizedBox(width: 6),
+                  const Text('Langue', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _FChip(label: 'Toutes', selected: selectedLang == null, onTap: () => onLangChanged(null)),
+                        for (final lang in availableLangs.take(12))
+                          _FChip(label: lang.toUpperCase(), selected: selectedLang == lang, onTap: () => onLangChanged(lang == selectedLang ? null : lang)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       );

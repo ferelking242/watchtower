@@ -322,7 +322,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               }
 
               // ── Library sub-dock mode ───────────────────────────────────────
-              // When isLibrarySwitch is on, show [Back, /Library, /MusicLibraryPage].
+              // When isLibrarySwitch is on, show [Back, /Library].
               // Otherwise, if /Library is in dest, replace it with
               // _enableLibrarySwitch so tapping opens the sub-dock instead of
               // navigating directly to the library page.
@@ -869,13 +869,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         selectedIcon: const Icon(Broken.arrow_left_2),
         icon: const Icon(Broken.arrow_left_2),
         label: l10n.go_back,
-      );
-    }
-    if (dest.contains('/MusicLibraryPage')) {
-      destMap['/MusicLibraryPage'] = const NavigationDestination(
-        selectedIcon: Icon(Broken.music_library_2),
-        icon: Icon(Broken.music_library_2),
-        label: 'Music Lib',
       );
     }
 
@@ -1636,7 +1629,6 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/NovelLibrary',
     '/MusicLibrary',
     '/MusicSearch',
-    '/MusicLibraryPage',
     '/GameLibrary',
     '/WatchtowerHome',
     '/history',
@@ -1813,13 +1805,6 @@ class _FloatingDockState extends State<_FloatingDock> {
             label: l10n.go_back,
             icon: Broken.arrow_left_2,
             activeIcon: Broken.arrow_left_2,
-          ));
-        case '/MusicLibraryPage':
-          items.add(const _DockItemData(
-            route: '/MusicLibraryPage',
-            label: 'Music Lib',
-            icon: Broken.music_library_2,
-            activeIcon: Broken.music_library_2,
           ));
         case '/MusicSearch':
           items.add(const _DockItemData(

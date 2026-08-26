@@ -138,31 +138,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                           ),
                         ),
                       ],
-                      if (isPinnedEntries.isNotEmpty) ...[
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                                left: 12, right: 12, bottom: 2),
-                            child: Row(children: [
-                              Text(l10n.pinned,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13)),
-                              const SizedBox(width: 6),
-                              _CountBadge(count: isPinnedEntries.length),
-                            ]),
-                          ),
-                        ),
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (_, i) => SourceListTile(
-                              source: isPinnedEntries[i],
-                              itemType: widget.itemType,
-                            ),
-                            childCount: isPinnedEntries.length,
-                          ),
-                        ),
-                      ],
+
                       for (final lang in sortedLangs) ...[
                         _CollapsibleLanguageHeader(
                           lang: lang,
@@ -194,30 +170,28 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
           ),
         ),
 
-        // ── Source locale — toujours visible, même sans extensions ───────
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 12, top: 10, bottom: 2),
-              child: Text(
-                l10n.other,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
+        // ── Source locale — integrated at end of main list ────────────
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12, top: 10, bottom: 2),
+            child: Text(
+              l10n.other,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
               ),
             ),
-            SourceListTile(
-              source: Source(
-                name: "local",
-                lang: "",
-                itemType: widget.itemType,
-              ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: SourceListTile(
+            source: Source(
+              name: "local",
+              lang: "",
               itemType: widget.itemType,
             ),
-            const SizedBox(height: 8),
-          ],
+            itemType: widget.itemType,
+          ),
         ),
       ],
     );
