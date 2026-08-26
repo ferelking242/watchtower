@@ -41,6 +41,7 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/m_extension_server.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
+import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/src/rust/frb_generated.dart';
 import 'package:watchtower/utils/discord_rpc.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -330,7 +331,11 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
     final cores = Platform.numberOfProcessors;
     final poolSize = (cores * 2).clamp(8, 32);
     debugPrint('[main] device has $cores CPU cores → isolate pool size = $poolSize');
-    unawaited(MDownloader.initializeIsolatePool(poolSize: poolSize));
+    // Lazy init: configure the pool size now but defer isolate creation to
+    // the first actual download.  The pool's submit methods already call
+    // initialize() on first use — this avoids spawning 8–32 isolates at
+    // startup when the user may not download anything in this session.
+    DownloadIsolatePool.configure(poolSize: poolSize);
   }
   // Hive is already initialized + nav_display opened in main() before runApp.
   // Nothing more to do here for Hive setup.

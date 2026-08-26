@@ -13,6 +13,12 @@ Player get musicKitPlayer => _player;
 
 class MusicPlayerNotifier extends Notifier<MusicPlayerState> {
   late final List<StreamSubscription> _subs;
+  // Throttle timers: position + buffer fire on every media_kit frame (~60fps).
+  // Without throttling, every tick rebuilds all consumers (mini-player, seekbar,
+  // etc.) causing continuous jank. 250 ms keeps the seekbar smooth while
+  // reducing rebuilds by ~95%.
+  int _lastPosUpdateMs = 0;
+  int _lastBufUpdateMs = 0;
 
   @override
   MusicPlayerState build() {
@@ -24,10 +30,20 @@ class MusicPlayerNotifier extends Notifier<MusicPlayerState> {
         (v) => state = state.copyWith(isBuffering: v),
       ),
       _player.stream.position.listen(
-        (v) => state = state.copyWith(position: v),
+        (v) {
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (now - _lastPosUpdateMs < 250) return;
+          _lastPosUpdateMs = now;
+          state = state.copyWith(position: v);
+        },
       ),
       _player.stream.buffer.listen(
-        (v) => state = state.copyWith(buffered: v),
+        (v) {
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (now - _lastBufUpdateMs < 500) return;
+          _lastBufUpdateMs = now;
+          state = state.copyWith(buffered: v);
+        },
       ),
       _player.stream.completed.listen((completed) {
         if (!completed) return;
@@ -119,10 +135,15 @@ class MusicPlayerNotifier extends Notifier<MusicPlayerState> {
   }
 
   void removeFromQueue(int index) {
+    if (index < 0 || index >= state.queue.length) return;
     final q = [...state.queue]..removeAt(index);
     int newIdx = state.currentIndex;
     if (index < newIdx) newIdx--;
-    state = state.copyWith(queue: q, currentIndex: newIdx.clamp(0, q.length - 1));
+    // Guard against an empty queue: clamp(0, -1) throws an ArgumentError.
+    state = state.copyWith(
+      queue: q,
+      currentIndex: q.isEmpty ? 0 : newIdx.clamp(0, q.length - 1),
+    );
   }
 
   void clearQueue() {

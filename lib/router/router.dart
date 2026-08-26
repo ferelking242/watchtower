@@ -440,22 +440,31 @@ class RouterNotifier extends ChangeNotifier {
     Widget Function(T extra)? builder,
     Widget? child,
   }) {
+    // Crash-safe builder: state.extra can be null if a route is opened via
+    // context.go('/routeName') without passing extra. The unchecked cast
+    // `state.extra as T` throws TypeError for non-nullable T (int, Source, …).
+    // We guard against null-extra and return a fallback widget (SizedBox) so
+    // the app at least renders instead of crashing.
+    Widget _safeBuild(BuildContext context, GoRouterState state) {
+      if (builder != null) {
+        final extra = state.extra;
+        if (extra == null) {
+          // Non-nullable T receives null → show empty instead of crashing.
+          return const SizedBox.shrink();
+        }
+        return builder(extra as T);
+      } else {
+        return child!;
+      }
+    }
+
     return GoRoute(
       path: path ?? (name != null ? "/$name" : "/"),
       name: name,
-      builder: (context, state) {
-        if (builder != null) {
-          final id = state.extra as T;
-          return builder(id);
-        } else {
-          return child!;
-        }
-      },
+      builder: _safeBuild,
       pageBuilder: (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
           ? (context, state) {
-              final pageChild = builder != null
-                  ? builder(state.extra as T)
-                  : child!;
+              final pageChild = _safeBuild(context, state);
               return transitionPage(key: state.pageKey, child: pageChild);
             }
           : null,

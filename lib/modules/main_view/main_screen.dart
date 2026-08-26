@@ -21,7 +21,6 @@ import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.d
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/widgets/loading_icon.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
-import 'package:watchtower/modules/main_view/providers/migration.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/auto_backup.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -239,10 +238,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final dockStyle = ref.watch(navDockStyleProvider);
     final location = ref.watch(routerCurrentLocationStateProvider);
 
-    return ref
-        .watch(migrationProvider)
-        .when(
-          data: (_) => Consumer(
+    return Consumer(
             builder: (context, ref, child) {
               final isReadingScreen = _isReadingScreen(location);
               bool uniqueSwitch = false;
@@ -549,10 +545,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               );
 
             },
-          ),
-          error: (error, _) => const LoadingIcon(),
-          loading: () => const LoadingIcon(),
-        );
+          );
   }
 
   static bool _isReadingScreen(String? location) {

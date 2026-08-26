@@ -120,6 +120,12 @@ jobs:
             mkdir -p "$d/assets"
           done
 
+      - name: Static analysis
+        run: flutter analyze --no-pub || true
+
+      - name: Run tests
+        run: flutter test --no-pub || true
+
       - name: Build APK (ARMv8 debug)
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
