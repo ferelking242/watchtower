@@ -1011,7 +1011,7 @@ class _ManageCategoriesSheetState
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Save',
                           style: TextStyle(
                             color: cs.onSurface,
@@ -1181,7 +1181,7 @@ class _ManageCategoriesSheetState
                               color: cs.primary,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Broken.element_plus,
                               color: cs.onSurface,
                               size: 20,
