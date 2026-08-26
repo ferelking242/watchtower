@@ -229,6 +229,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             },
           ),
         ],
+      ),
       body: Column(
         children: [
           // ── Filter chips row ─────────────────────────────────────────────
