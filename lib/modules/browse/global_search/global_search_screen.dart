@@ -601,29 +601,7 @@ class _IdleSourcesList extends StatelessWidget {
     }
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Row(
-            children: [
-              Icon(
-                Icons.search_rounded,
-                size: 16,
-                color: cs.onSurface.withValues(alpha: 0.45),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Tapez un titre pour chercher dans '
-                  '${sources.length} source${sources.length > 1 ? 's' : ''}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: cs.onSurface.withValues(alpha: 0.55),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: 8),
         Expanded(
           child: SuperListView.builder(
             itemCount: sources.length,
