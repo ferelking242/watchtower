@@ -3042,11 +3042,25 @@ class _PlayStoreCard extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
+            color: installed
+                ? cs.primaryContainer.withValues(alpha: 0.08)
+                : cs.surfaceContainerLow,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.35),
+              color: installed
+                  ? cs.primary.withValues(alpha: 0.30)
+                  : cs.outlineVariant.withValues(alpha: 0.25),
+              width: installed ? 1.2 : 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: installed
+                    ? cs.primary.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3061,15 +3075,39 @@ class _PlayStoreCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          entry.name,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: cs.onSurface,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                entry.name,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (installed) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: cs.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle_rounded, size: 12, color: cs.primary),
+                                    const SizedBox(width: 3),
+                                    Text('Install\u00e9', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: cs.primary)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -3153,16 +3191,34 @@ class _PlayStoreCard extends StatelessWidget {
     final String label;
     final ColorScheme cs;
     final Color? color;
-    const _TagChip({required this.label, required this.cs, this.color});
+    final bool filled;
+    const _TagChip({required this.label, required this.cs, this.color, this.filled = false});
 
     @override
     Widget build(BuildContext context) {
       final fg = color ?? cs.onSurfaceVariant;
+      if (filled) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: fg.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        );
+      }
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: fg.withValues(alpha: 0.45)),
+          border: Border.all(color: fg.withValues(alpha: 0.35)),
         ),
         child: Text(
           label,
@@ -3210,8 +3266,12 @@ class _CardAction extends StatelessWidget {
             onTap: onInstall,
             child: Container(
               width: 36, height: 36, alignment: Alignment.center,
-              decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.download_rounded, size: 20, color: cs.onSurfaceVariant),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: 0.20), blurRadius: 6, offset: const Offset(0, 2))],
+              ),
+              child: Icon(Icons.download_rounded, size: 20, color: cs.onPrimaryContainer),
             ),
           );
         }
@@ -3348,13 +3408,25 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerLow,
+          color: isInstalled
+              ? cs.primaryContainer.withValues(alpha: 0.08)
+              : cs.surfaceContainerLow,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isInstalled
-                ? cs.primary.withValues(alpha: 0.35)
-                : cs.outlineVariant.withValues(alpha: 0.35),
+                ? cs.primary.withValues(alpha: 0.30)
+                : cs.outlineVariant.withValues(alpha: 0.25),
+            width: isInstalled ? 1.2 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: isInstalled
+                  ? cs.primary.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3905,13 +3977,24 @@ class _MiniCard extends StatelessWidget {
       margin: const EdgeInsets.only(right: 10, bottom: 2),
       padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        color: installed
+            ? cs.primaryContainer.withValues(alpha: 0.08)
+            : cs.surfaceContainerLow.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: installed
               ? cs.primary.withValues(alpha: 0.35)
-              : cs.outline.withValues(alpha: 0.18),
+              : cs.outlineVariant.withValues(alpha: 0.20),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: installed
+                ? cs.primary.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
