@@ -634,6 +634,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         await pluginsNotifier.addPlugin(pluginConfig);
 
         // Auto-set as default if no default exists for this ability type.
+        // Wait one frame for the provider to reflect the newly added plugin.
+        await Future<void>.delayed(Duration.zero);
         final currentPlugins = ref.read(metadataPluginsProvider).value;
         if (currentPlugins != null) {
           if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
@@ -1810,8 +1812,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               child: Row(
                 children: [
                   Text('Recommandations', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
-                  const Spacer(),
-                  Icon(Icons.more_vert_rounded, size: 20, color: cs.onSurfaceVariant),
                 ],
               ),
             ),
@@ -3285,48 +3285,17 @@ class _CardAction extends StatelessWidget {
             ),
           );
         }
-        // Installed, no update → vertical: ⋮ menu, <> code, settings
-        Widget iconBtn(IconData icon, VoidCallback? onTap, {Color? color}) => GestureDetector(
-          onTap: onTap,
+        // Installed, no update → settings only
+        return GestureDetector(
+          onTap: onSettings,
           child: Container(
-            width: 30, height: 30, alignment: Alignment.center,
-            decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, size: 15, color: color ?? cs.onSurfaceVariant),
-          ),
-        );
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PopupMenuButton<String>(
-              padding: EdgeInsets.zero,
-              tooltip: '',
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              onSelected: (v) async {
-                if (v == 'update') onInstall();
-                else if (v == 'uninstall') onUninstall?.call();
-                else if (v == 'code') onCode?.call();
-              },
-              itemBuilder: (_) => [
-                if (onUninstall != null) PopupMenuItem(value: 'uninstall', child: Row(children: [
-                  Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red.shade400),
-                  const SizedBox(width: 10), Text('Désinstaller', style: TextStyle(color: Colors.red.shade400)),
-])),
-                PopupMenuItem(value: 'code', child: Row(children: [
-                  Icon(Icons.code_rounded, size: 16, color: cs.onSurfaceVariant),
-                  const SizedBox(width: 10), const Text('Code source'),
-                ])),
-              ],
-              child: Container(
-                width: 30, height: 30, alignment: Alignment.center,
-                decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(8)),
-                child: Icon(Icons.more_vert_rounded, size: 15, color: cs.onSurfaceVariant),
-              ),
+            width: 36, height: 36, alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(height: 5),
-            iconBtn(Icons.code_rounded, onCode),
-            const SizedBox(height: 5),
-            iconBtn(Icons.settings_outlined, onSettings),
-          ],
+            child: Icon(Icons.settings_outlined, size: 18, color: cs.onSurfaceVariant),
+          ),
         );
       }
     }
@@ -3532,6 +3501,19 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                             await pluginsNotifier.addPlugin(pluginConfig);
                           }
                         }
+                        // Auto-set as default provider when first installed
+                        await Future<void>.delayed(Duration.zero);
+                        final currentPlugins = ref.read(metadataPluginsProvider).value;
+                        if (currentPlugins != null) {
+                          if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
+                              currentPlugins.defaultMetadataPlugin < 0) {
+                            try { await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig); } catch (_) {}
+                          }
+                          if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
+                              currentPlugins.defaultAudioSourcePlugin < 0) {
+                            try { await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig); } catch (_) {}
+                          }
+                        }
                       } catch (_) {
                         // ignore install errors silently
                       } finally {
@@ -3551,16 +3533,19 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                     ),
                   )
                 else
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(10),
+                  GestureDetector(
+                    onTap: () => context.push('/settings'),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.settings_outlined,
+                          size: 18, color: cs.primary),
                     ),
-                    child: Icon(Icons.check_rounded,
-                        size: 20, color: cs.primary),
                   ),
               ],
             ),
@@ -4017,86 +4002,21 @@ class _MiniCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              // <> view code button
-              GestureDetector(
-                onTap: () async {
-                  final url = Uri.parse(_codeUrl);
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                },
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(8),
+              // Settings button
+              if (installed && onSettings != null)
+                GestureDetector(
+                  onTap: onSettings,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.settings_outlined, size: 15, color: cs.onSurfaceVariant),
                   ),
-                  child: Icon(Icons.code_rounded, size: 15, color: cs.onSurfaceVariant),
                 ),
-              ),
-              const SizedBox(width: 4),
-              // ⋮ three-dot menu
-              PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                tooltip: '',
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                onSelected: (value) async {
-                  if (value == 'install') onInstall();
-                  else if (value == 'update') onInstall();
-                  else if (value == 'settings') onSettings?.call();
-                  else if (value == 'code') {
-                    await launchUrl(Uri.parse(_codeUrl), mode: LaunchMode.externalApplication);
-                  }
-                },
-                itemBuilder: (ctx) => [
-                  if (!installed)
-                    PopupMenuItem(
-                      value: 'install',
-                      child: Row(children: [
-                        Icon(Icons.download_rounded, size: 16, color: cs.primary),
-                        const SizedBox(width: 10),
-                        const Text('Installer'),
-                      ]),
-                    ),
-                  if (installed && hasUpdate)
-                    PopupMenuItem(
-                      value: 'update',
-                      child: Row(children: [
-                        Icon(Icons.system_update_alt_rounded, size: 16, color: Colors.orange.shade700),
-                        const SizedBox(width: 10),
-                        const Text('Mettre à jour'),
-                      ]),
-                    ),
-                  if (installed && onSettings != null)
-                    PopupMenuItem(
-                      value: 'settings',
-                      child: Row(children: [
-                        Icon(Icons.settings_outlined, size: 16, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 10),
-                        const Text('Paramètres'),
-                      ]),
-                    ),
-                  PopupMenuItem(
-                    value: 'code',
-                    child: Row(children: [
-                      Icon(Icons.code_rounded, size: 16, color: cs.onSurfaceVariant),
-                      const SizedBox(width: 10),
-                      const Text('Voir le code'),
-                    ]),
-                  ),
-                ],
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.more_vert_rounded, size: 15, color: cs.onSurfaceVariant),
-                ),
-              ),
-              const SizedBox(width: 5),
               // Install / Update / Installed button
               Expanded(
                 child: SizedBox(

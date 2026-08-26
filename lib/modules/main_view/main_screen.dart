@@ -327,7 +327,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               // _enableLibrarySwitch so tapping opens the sub-dock instead of
               // navigating directly to the library page.
               if (isLibrarySwitch) {
-                dest = ['_disableLibrarySwitch', '/Library', '/MusicLibraryPage']
+                dest = ['_disableLibrarySwitch', '/Library']
                     .where((nav) => !hideItems.contains(nav))
                     .toList();
               } else if (dest.contains('/Library') && !isLibSwitch) {

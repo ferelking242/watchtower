@@ -87,7 +87,6 @@ import 'package:watchtower/modules/more/settings/security/security_screen.dart';
 import 'package:watchtower/modules/more/settings/advanced/advanced_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
-import 'package:watchtower/modules/splash/splash_screen.dart';
 import 'package:watchtower/modules/transfer/transfer_screen.dart';
 import 'package:watchtower/modules/browse/local_how_to_screen.dart';
 import 'package:watchtower/modules/search/watchtower_discover_screen.dart';
@@ -113,21 +112,11 @@ GoRouter router(Ref ref) {
 
   return GoRouter(
     observers: [],
-    // Show the in-Flutter splash screen first so the user sees the logo
-    // immediately instead of a black screen while providers warm up.
-    // The splash navigates to `destination` once preloading is done.
-    initialLocation: '/splash',
+    initialLocation: destination,
     debugLogDiagnostics: kDebugMode,
     refreshListenable: router,
     routes: [
       ...router._routes,
-      // Splash is declared here (not inside RouterNotifier) so it can close
-      // over `destination`, which is only in scope in this router() function.
-      GoRoute(
-        path: '/splash',
-        builder: (context, state) =>
-            WatchtowerSplashScreen(destination: destination),
-      ),
     ],
     navigatorKey: navigatorKey,
     onException: (context, state, router) => router.go(mainLocation),
