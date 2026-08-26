@@ -33,7 +33,7 @@ class PlayPauseAction extends Action<PlayPauseIntent> {
 }
 
 class NavigationIntent extends Intent {
-  final SpotubeAppRouter router;
+  final MusicAppRouter router;
   final String path;
   const NavigationIntent(this.router, this.path);
 }
@@ -59,7 +59,7 @@ enum HomeTabs {
 }
 
 class HomeTabIntent extends Intent {
-  final SpotubeAppRouter router;
+  final MusicAppRouter router;
   final HomeTabs tab;
   const HomeTabIntent(this.router, {required this.tab});
 }

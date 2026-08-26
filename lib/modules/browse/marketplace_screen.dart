@@ -621,7 +621,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (_busy[entry.id] == true) return;
     setState(() => _busy[entry.id] = true);
     try {
-      // Entrées music (ItemType.music) → plugin Spotube (.smplug) via metadata
+      // Entrées music (ItemType.music) → plugin music (.smplug) via metadata
       // plugin provider, pas via fetchSourcesList (JS extensions).
       if (entry.contentType == ItemType.music) {
         final repoUrl = entry.upstream.isNotEmpty
@@ -3304,7 +3304,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
   bool get _isOfficial => _repo.owner == 'ferelking242';
 
   String _topicLabel(String topic) => switch (topic) {
-        'spotube-metadata-plugin' => 'Métadata',
+        'spotube-metadata-plugin' => 'Metadata',
         'spotube-audio-source-plugin' => 'Source Audio',
         _ => topic,
       };

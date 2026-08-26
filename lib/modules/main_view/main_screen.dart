@@ -499,21 +499,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     // Music mini-player — shown above the dock when a track is active
                     // Music mini-player — shown on ALL pages above the dock when
                     // music is playing, except inside the music module itself
-                    // where the Spotube BottomPlayer/PlayerOverlay already shows.
+                    // where the music module's BottomPlayer/PlayerOverlay already shows.
                     if (!isReadingScreen &&
                         location != '/MusicLibrary')
                       Consumer(
                         builder: (ctx, r, _) {
-                          // Check both the custom player and the Spotube player
+                          // Check both the custom player and the music module player
                           final hasCustomTrack = r.watch(
                             musicPlayerProvider
                                 .select((s) => s.activeTrack != null),
                           );
-                          final hasSpotubeTrack = r.watch(
+                          final hasMusicTrack = r.watch(
                             audioPlayerProvider
                                 .select((s) => s.activeTrack != null),
                           );
-                          if (!hasCustomTrack && !hasSpotubeTrack) {
+                          if (!hasCustomTrack && !hasMusicTrack) {
                             return const SizedBox.shrink();
                           }
                           final bottomInset =

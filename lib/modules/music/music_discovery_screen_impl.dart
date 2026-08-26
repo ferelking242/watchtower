@@ -14,8 +14,8 @@ class MusicDiscoveryScreen extends StatefulWidget {
 }
 
 class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
-  final _navKey = GlobalKey<NavigatorState>(debugLabel: 'spotube_music');
-  late final SpotubeAppRouter _router;
+  final _navKey = GlobalKey<NavigatorState>(debugLabel: 'music');
+  late final MusicAppRouter _router;
   late final RouterDelegate<Object?> _routerDelegate;
 
   bool _doneGettingStarted() {
@@ -44,7 +44,7 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
   void initState() {
     super.initState();
     try { music_log.AppLogger.initialize(false); } catch (_) {}
-    _router = SpotubeAppRouter(navigatorKey: _navKey);
+    _router = MusicAppRouter(navigatorKey: _navKey);
     _routerDelegate = _router.delegate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

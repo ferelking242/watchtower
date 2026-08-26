@@ -4,7 +4,7 @@ import 'package:watchtower/modules/music/collections/routes.dart'
     show rootNavigatorKey;
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 
-/// Auto-route router for the embedded Spotube music module.
+/// Auto-route router for the embedded music module.
 ///
 /// Route tree mirrors the original Spotube app structure:
 ///   - GettingStartedRoute  → shown on first launch (plugin setup wizard)
@@ -23,11 +23,11 @@ import 'package:watchtower/modules/music/collections/routes.gr.dart';
 ///       ├ ConnectRoute
 ///       ├ SettingsRoute
 ///       └ … pushed-overlay routes (Album, Artist, Track, Playlist, …)
-class SpotubeAppRouter extends RootStackRouter {
+class MusicAppRouter extends RootStackRouter {
   /// Each [MusicDiscoveryScreen] instance must pass its own [navigatorKey]
   /// so simultaneous embeddings (Discover + Hub + Library) don't fight over
   /// the same GlobalKey and produce blank screens.
-  SpotubeAppRouter({GlobalKey<NavigatorState>? navigatorKey})
+  MusicAppRouter({GlobalKey<NavigatorState>? navigatorKey})
       : super(navigatorKey: navigatorKey ?? rootNavigatorKey);
 
   @override

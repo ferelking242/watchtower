@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
@@ -51,8 +53,32 @@ class HomePageBrowseSection extends HookConsumerWidget {
           errorCode: MetadataPluginErrorCode.noDefaultMetadataPlugin,
           message: _,
         )) {
-      return const SliverFillRemaining(
-        child: Center(child: NoDefaultMetadataPlugin()),
+      // Auto-retry once: the bundled plugins may still be installing on
+      // first launch.  Give them a moment, then re-check instead of
+      // immediately showing the "no provider" dead-end.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        Future.delayed(const Duration(seconds: 2), () {
+          if (!context.mounted) return;
+          ref.invalidate(metadataPluginBrowseSectionsProvider);
+        });
+      });
+      return SliverFillRemaining(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 16,
+            children: [
+              const CircularProgressIndicator(),
+              Text(
+                'Setting up music providers…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
 

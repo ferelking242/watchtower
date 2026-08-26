@@ -76,7 +76,7 @@ import 'package:watchtower/modules/plugin/nfile/services/pin_service.dart' as nf
 import 'package:watchtower/modules/plugin/nfile/services/network_connections_service.dart' as nfile_network;
 import 'package:watchtower/modules/plugin/nfile/services/recycle_bin_service.dart' as nfile_recycle;
 import 'package:watchtower/modules/music/l10n/generated/app_localizations.dart'
-    as spotube_l10n;
+    as music_l10n;
 
 
 late Isar isar;
@@ -243,7 +243,7 @@ void main(List<String> args) async {
       await Hive.openBox('nav_display');
       await Hive.openBox('ui_prefs');
 
-      // --- Music module init (Spotube) ---
+      // --- Music module init ---
       await KVStoreService.initialize();
       if (!kIsWeb) {
         await EncryptedKvStoreService.initialize();
@@ -496,11 +496,11 @@ class _MyAppState extends ConsumerState<MyApp>
       locale: locale,
       localizationsDelegates: [
         ...AppLocalizations.localizationsDelegates,
-        spotube_l10n.AppLocalizations.delegate,
+        music_l10n.AppLocalizations.delegate,
       ],
       supportedLocales: {
           ...AppLocalizations.supportedLocales,
-          ...spotube_l10n.AppLocalizations.supportedLocales,
+          ...music_l10n.AppLocalizations.supportedLocales,
         }.toList(),
       builder: (context, child) {
         if (!kIsWeb && !Platform.isLinux) {
