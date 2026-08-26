@@ -268,6 +268,8 @@ void main(List<String> args) async {
           child: ProviderScope(child: MyApp(), retry: (retryCount, error) => null),
         ),
       );
+      // Remove the native splash immediately — the app renders its own first frame.
+      FlutterNativeSplash.remove();
       unawaited(_postLaunchInit(storage));
     },
     (Object error, StackTrace stack) {
