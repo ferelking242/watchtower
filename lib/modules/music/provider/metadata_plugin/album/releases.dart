@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/paginated.dart';
 
 class MetadataPluginAlbumReleasesNotifier
@@ -18,6 +19,7 @@ class MetadataPluginAlbumReleasesNotifier
   @override
   build() async {
     ref.watch(metadataPluginAuthenticatedProvider);
+    ref.watch(metadataPluginsProvider);
     return await fetch(0, 20);
   }
 }

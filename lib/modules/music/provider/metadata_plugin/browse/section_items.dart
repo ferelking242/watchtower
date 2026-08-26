@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/family_paginated.dart';
 
 class MetadataPluginBrowseSectionItemsNotifier
@@ -20,6 +21,7 @@ class MetadataPluginBrowseSectionItemsNotifier
   @override
   build() async {
     ref.watch(metadataPluginAuthenticatedProvider);
+    ref.watch(metadataPluginsProvider);
     return await fetch(0, 20);
   }
 }

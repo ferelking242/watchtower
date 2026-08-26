@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/paginated.dart';
 
 class MetadataPluginBrowseSectionsNotifier
@@ -19,7 +20,12 @@ class MetadataPluginBrowseSectionsNotifier
 
   @override
   build() async {
+    // Watch both providers: metadataPluginAuthenticatedProvider alone is not
+    // enough because it returns `false` in both "no plugin" and "plugin
+    // without auth" states — so the value never changes and downstream
+    // providers never re-evaluate after bundled plugins finish installing.
     ref.watch(metadataPluginAuthenticatedProvider);
+    ref.watch(metadataPluginsProvider);
     return await fetch(0, 20);
   }
 }

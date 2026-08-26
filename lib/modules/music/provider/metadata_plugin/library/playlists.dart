@@ -23,6 +23,7 @@ class MetadataPluginSavedPlaylistsNotifier
   @override
   build() async {
     await ref.watch(metadataPluginAuthenticatedProvider.future);
+    ref.watch(metadataPluginsProvider);
 
     final playlists = await fetch(0, 20);
 
