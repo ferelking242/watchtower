@@ -331,92 +331,90 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             : null);
     final int extCatId = selectedCatId == null ? -1 : selectedCatId;
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Row 1: arc type selector + action icons ────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-              child: Row(
-                children: [
-                  // ── Arc carousel type selector ─────────────────────────
-                  Expanded(
-                    child: SizedBox(
-                      height: 56,
-                      child: _buildArcTypeSelector(cs, isDark),
-                    ),
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Row 1: arc type selector + action icons ────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            child: Row(
+              children: [
+                // ── Arc carousel type selector ─────────────────────────
+                Expanded(
+                  child: SizedBox(
+                    height: 56,
+                    child: _buildArcTypeSelector(cs, isDark),
                   ),
-                  const SizedBox(width: 8),
-
-                  // ── Actions: Search → Notifications → 3-dots ─────────
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // 1. Search toggle
-                      _iconBtn(
-                        icon: Broken.search_normal_1,
-                        onTap: _toggleSearch,
-                        active: _showSearch,
-                        tooltip: l10n.search,
-                      ),
-                      const SizedBox(width: 6),
-
-                      // 2. Notifications
-                      _iconBtn(
-                        icon: Broken.notification,
-                        onTap: () => context.push('/updates'),
-                        tooltip: l10n.updates,
-                      ),
-                      const SizedBox(width: 6),
-
-                      // 3. Three-dots menu
-                      _buildThreeDotsBtn(context, l10n, mangaList),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Search bar (animated slide-in) ───────────────────────────
-            ClipRect(
-              child: AnimatedAlign(
-                duration: const Duration(milliseconds: 140),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                heightFactor: _showSearch ? 1.0 : 0.0,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                  child: _buildSearchBar(cs, isDark),
                 ),
+                const SizedBox(width: 8),
+
+                // ── Actions: Search → Notifications → 3-dots ─────────
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 1. Search toggle
+                    _iconBtn(
+                      icon: Broken.search_normal_1,
+                      onTap: _toggleSearch,
+                      active: _showSearch,
+                      tooltip: l10n.search,
+                    ),
+                    const SizedBox(width: 6),
+
+                    // 2. Notifications
+                    _iconBtn(
+                      icon: Broken.notification,
+                      onTap: () => context.push('/updates'),
+                      tooltip: l10n.updates,
+                    ),
+                    const SizedBox(width: 6),
+
+                    // 3. Three-dots menu
+                    _buildThreeDotsBtn(context, l10n, mangaList),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── Search bar (animated slide-in) ───────────────────────────
+          ClipRect(
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              heightFactor: _showSearch ? 1.0 : 0.0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                child: _buildSearchBar(cs, isDark),
               ),
             ),
+          ),
 
-            // ── Category bar ─────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-              child: _buildCategoryBar(context, cats, cs, isDark),
-            ),
+          // ── Category bar ─────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: _buildCategoryBar(context, cats, cs, isDark),
+          ),
 
-            const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-            // ── Library content ──────────────────────────────────────────
-            Expanded(
-              child: _currentType == ItemType.music
-                  ? const MusicDiscoveryScreen()
-                  : LibraryScreen(
-                      key: ValueKey('lib_${_typeIndex}_$extCatId'),
-                      itemType: _currentType,
-                      presetInput: null,
-                      hideOwnAppBar: true,
-                      externalSearchQuery:
-                          _showSearch ? _searchController.text : null,
-                      externalCategoryId: extCatId,
-                    ),
-            ),
+          // ── Library content ──────────────────────────────────────────
+          Expanded(
+            child: _currentType == ItemType.music
+                ? const MusicDiscoveryScreen()
+                : LibraryScreen(
+                    key: ValueKey('lib_${_typeIndex}_$extCatId'),
+                    itemType: _currentType,
+                    presetInput: null,
+                    hideOwnAppBar: true,
+                    externalSearchQuery:
+                        _showSearch ? _searchController.text : null,
+                    externalCategoryId: extCatId,
+                  ),
+          ),
           ],
         ),
       ),
