@@ -68,6 +68,26 @@ class SearchPage extends HookConsumerWidget {
       child: SafeArea(
         bottom: false,
         child: Builder(builder: (context) {
+          if (searchChipSnapshot.isLoading) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 12),
+                  Text(
+                    context.l10n.loading,
+                    style: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
           if (searchChipSnapshot.error
               case MetadataPluginException(
                 errorCode: MetadataPluginErrorCode.noDefaultMetadataPlugin,

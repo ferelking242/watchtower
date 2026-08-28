@@ -204,8 +204,14 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         // install plugins manually from the plugin repository page.
         continue;
       }
-      final pluginConfig =
-          await extractPluginArchive(byteData.buffer.asUint8List());
+      PluginConfiguration pluginConfig;
+      try {
+        pluginConfig =
+            await extractPluginArchive(byteData.buffer.asUint8List());
+      } catch (_) {
+        // Corrupt or incompatible bundled plugin — skip silently.
+        continue;
+      }
       bool freshlyAdded = false;
       try {
         await addPlugin(pluginConfig);
@@ -707,17 +713,17 @@ final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
       return null;
     }
 
-    final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
-    final pluginByteCode =
-        await pluginsNotifier.getPluginByteCode(defaultPlugin);
-
     try {
+      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
+      final pluginByteCode =
+          await pluginsNotifier.getPluginByteCode(defaultPlugin);
+
       return await MetadataPlugin.create(
         youtubeEngine,
         defaultPlugin,
         pluginByteCode,
       );
-    } on MetadataPluginException catch (error, stack) {
+    } catch (error, stack) {
       AppLogger.log.w(
         "Metadata plugin '${defaultPlugin.slug}' could not be loaded",
         error: error,
@@ -740,17 +746,17 @@ final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
       return null;
     }
 
-    final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
-    final pluginByteCode =
-        await pluginsNotifier.getPluginByteCode(defaultPlugin);
-
     try {
+      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
+      final pluginByteCode =
+          await pluginsNotifier.getPluginByteCode(defaultPlugin);
+
       return await MetadataPlugin.create(
         youtubeEngine,
         defaultPlugin,
         pluginByteCode,
       );
-    } on MetadataPluginException catch (error, stack) {
+    } catch (error, stack) {
       AppLogger.log.w(
         "Audio source plugin '${defaultPlugin.slug}' could not be loaded",
         error: error,

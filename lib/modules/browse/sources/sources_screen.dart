@@ -58,7 +58,24 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   .watch(fireImmediately: true),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const SizedBox.shrink();
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Chargement…',
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 final showNSFW = ref.watch(showNSFWStateProvider);
                 List<Source> sources = snapshot.data!
@@ -221,36 +238,40 @@ class _EmptyState extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'ヽ(°〇°)ﾉ',
-                    style: TextStyle(
-                      fontSize: 52,
-                      color: Theme.of(context)
-                          .hintColor
-                          .withValues(alpha: 0.55),
-                    ),
+                  Icon(
+                    Icons.extension_off_rounded,
+                    size: 56,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    "Nothing here",
+                    context.l10n.no_sources_installed,
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
                         ?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).hintColor,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.7),
                         ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    context.l10n.no_sources_installed,
+                    'Installe une extension depuis le Marketplace',
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
                         ?.copyWith(
                           color: Theme.of(context)
-                              .hintColor
-                              .withValues(alpha: 0.7),
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.45),
                         ),
                     textAlign: TextAlign.center,
                   ),
