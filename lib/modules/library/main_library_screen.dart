@@ -417,8 +417,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   // ── Animated search bar with filter overlay ────────────────────────────────
