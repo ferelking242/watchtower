@@ -1858,9 +1858,112 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       .length;
 
   void _openSettings(int id) {
+    // First: try Isar sources (JS/Dart/APK extensions)
     final source = _installedSources[id];
-    if (source == null) return;
-    context.push('/extension_detail', extra: source);
+    if (source != null) {
+      context.push('/extension_detail', extra: source);
+      return;
+    }
+    // Music extensions live in the drift DB, not Isar sources.
+    final entry = _all.where((e) => e.id == id).firstOrNull;
+    if (entry == null || entry.contentType != ItemType.music) return;
+    final slug = _mktSlugify(entry.name);
+    final pluginsData = ref.read(metadataPluginsProvider).value;
+    if (pluginsData == null) return;
+    final plugin = pluginsData.plugins.where((p) => p.slug == slug).firstOrNull;
+    if (plugin == null) return;
+    _showMusicPluginConfigSheet(plugin);
+  }
+
+  void _showMusicPluginConfigSheet(PluginConfiguration config) {
+    final cs = Theme.of(context).colorScheme;
+    final notifier = ref.read(metadataPluginsProvider.notifier);
+    final pluginsData = ref.read(metadataPluginsProvider).value;
+    if (pluginsData == null) return;
+    final isDefaultMetadata = pluginsData.defaultMetadataPluginConfig?.slug == config.slug;
+    final isDefaultAudioSource = pluginsData.defaultAudioSourcePluginConfig?.slug == config.slug;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(config.name, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface)),
+              const SizedBox(height: 4),
+              Text(config.author, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+              const SizedBox(height: 16),
+              if (config.abilities.contains(PluginAbilities.metadata))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    isDefaultMetadata ? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: isDefaultMetadata ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                  title: const Text('Provider par défaut (métadonnées)'),
+                  subtitle: Text(
+                    isDefaultMetadata ? 'Actuellement par défaut' : 'Définir comme provider par défaut',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  onTap: isDefaultMetadata ? null : () async {
+                    await notifier.setDefaultMetadataPlugin(config);
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      setState(() {});
+                    }
+                  },
+                ),
+              if (config.abilities.contains(PluginAbilities.audioSource))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    isDefaultAudioSource ? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: isDefaultAudioSource ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                  title: const Text('Source audio par défaut'),
+                  subtitle: Text(
+                    isDefaultAudioSource ? 'Actuellement par défaut' : 'Définir comme source audio par défaut',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  onTap: isDefaultAudioSource ? null : () async {
+                    await notifier.setDefaultAudioSourcePlugin(config);
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      setState(() {});
+                    }
+                  },
+                ),
+              const Divider(height: 24),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.delete_outline, color: cs.error),
+                title: Text('Désinstaller', style: TextStyle(color: cs.error)),
+                onTap: () async {
+                  await notifier.removePlugin(config);
+                  await _refreshInstalled();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ── Compat filter strip ────────────────────────────────────────────────────────
