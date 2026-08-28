@@ -724,12 +724,17 @@ final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
         pluginByteCode,
       );
     } catch (error, stack) {
-      AppLogger.log.w(
-        "Metadata plugin '${defaultPlugin.slug}' could not be loaded",
+      AppLogger.log.e(
+        "Metadata plugin '${defaultPlugin.slug}' failed to load",
         error: error,
         stackTrace: stack,
       );
-      return null;
+      // Propagate the error so downstream providers/UI can show a
+      // "plugin failed to load" message instead of "no provider set".
+      throw MetadataPluginException.pluginFailedToLoad(
+        defaultPlugin.slug,
+        error.toString(),
+      );
     }
   },
 );
@@ -757,12 +762,15 @@ final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
         pluginByteCode,
       );
     } catch (error, stack) {
-      AppLogger.log.w(
-        "Audio source plugin '${defaultPlugin.slug}' could not be loaded",
+      AppLogger.log.e(
+        "Audio source plugin '${defaultPlugin.slug}' failed to load",
         error: error,
         stackTrace: stack,
       );
-      return null;
+      throw MetadataPluginException.pluginFailedToLoad(
+        defaultPlugin.slug,
+        error.toString(),
+      );
     }
   },
 );

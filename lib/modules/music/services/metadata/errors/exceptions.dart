@@ -11,6 +11,7 @@ enum MetadataPluginErrorCode {
   pluginByteCodeFileNotFound,
   invalidPluginByteCode,
   noDefaultMetadataPlugin,
+  pluginFailedToLoad,
   noDefaultAudiSourcePlugin,
 }
 
@@ -75,9 +76,14 @@ class MetadataPluginException implements Exception {
           'The plugin bytecode is invalid or incompatible with this app.',
           errorCode: MetadataPluginErrorCode.invalidPluginByteCode,
         );
+  MetadataPluginException.pluginFailedToLoad(String pluginSlug, String error)
+      : this._(
+          'Plugin \'$pluginSlug\' failed to load: $error',
+          errorCode: MetadataPluginErrorCode.pluginFailedToLoad,
+        );
   MetadataPluginException.noDefaultMetadataPlugin()
       : this._(
-          'No default metadata plugin is set. Please set a default plugin in the settings.',
+          'No default metadata plugin is set. Please install a plugin from the Marketplace and set it as default.',
           errorCode: MetadataPluginErrorCode.noDefaultMetadataPlugin,
         );
   MetadataPluginException.noDefaultAudioSourcePlugin()
