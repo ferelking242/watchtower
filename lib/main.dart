@@ -56,7 +56,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
@@ -87,10 +86,6 @@ void main(List<String> args) async {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      // Preserve the native splash screen while Flutter initializes.
-      // The native splash (black bg + icon) stays visible until we call
-      // FlutterNativeSplash.remove() after the animated W intro starts.
-      final splashController = FlutterNativeSplash.preserve(widgetsBinding: WidgetsBinding.instance);
       // Detect real device RAM and apply adaptive image-cache limits.
       // Must run before any other init so the cache is sized correctly from
       // the very first image load. Safe to await — it is a single fast
@@ -269,7 +264,6 @@ void main(List<String> args) async {
         ),
       );
       // Remove the native splash immediately — the app renders its own first frame.
-      FlutterNativeSplash.remove();
       unawaited(_postLaunchInit(storage));
     },
     (Object error, StackTrace stack) {

@@ -332,7 +332,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     final int extCatId = selectedCatId == null ? -1 : selectedCatId;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(

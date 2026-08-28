@@ -634,21 +634,23 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         await pluginsNotifier.addPlugin(pluginConfig);
 
         // Auto-set as default if no default exists for this ability type.
-        // Wait one frame for the provider to reflect the newly added plugin.
-        await Future<void>.delayed(Duration.zero);
-        final currentPlugins = ref.read(metadataPluginsProvider).value;
-        if (currentPlugins != null) {
-          if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
-              currentPlugins.defaultMetadataPlugin < 0) {
-            try {
-              await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig);
-            } catch (_) {}
-          }
-          if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
-              currentPlugins.defaultAudioSourcePlugin < 0) {
-            try {
-              await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig);
-            } catch (_) {}
+        // The addPlugin() DB insert already sets selectedForMetadata / selectedForAudioSource
+        // when no other plugin of that type exists, but we also explicitly call setDefault
+        // here as a safety net in case the DB watch hasn't fired yet.
+        // Give the DB watch stream time to propagate the state change.
+        for (int attempt = 0; attempt < 5; attempt++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          final cp = ref.read(metadataPluginsProvider).value;
+          if (cp != null) {
+            if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
+                cp.defaultMetadataPlugin < 0) {
+              try { await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig); } catch (_) {}
+            }
+            if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
+                cp.defaultAudioSourcePlugin < 0) {
+              try { await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig); } catch (_) {}
+            }
+            break;
           }
         }
 
@@ -3502,16 +3504,19 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                           }
                         }
                         // Auto-set as default provider when first installed
-                        await Future<void>.delayed(Duration.zero);
-                        final currentPlugins = ref.read(metadataPluginsProvider).value;
-                        if (currentPlugins != null) {
-                          if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
-                              currentPlugins.defaultMetadataPlugin < 0) {
-                            try { await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig); } catch (_) {}
-                          }
-                          if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
-                              currentPlugins.defaultAudioSourcePlugin < 0) {
-                            try { await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig); } catch (_) {}
+                        for (int _attempt = 0; _attempt < 5; _attempt++) {
+                          await Future<void>.delayed(const Duration(milliseconds: 50));
+                          final _cp = ref.read(metadataPluginsProvider).value;
+                          if (_cp != null) {
+                            if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
+                                _cp.defaultMetadataPlugin < 0) {
+                              try { await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig); } catch (_) {}
+                            }
+                            if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
+                                _cp.defaultAudioSourcePlugin < 0) {
+                              try { await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig); } catch (_) {}
+                            }
+                            break;
                           }
                         }
                       } catch (_) {
@@ -3534,7 +3539,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                   )
                 else
                   GestureDetector(
-                    onTap: () => context.push('/settings'),
+                    onTap: () => _showPluginConfigSheet(context, ref, plugins, installedConfig!),
                     child: Container(
                       width: 36,
                       height: 36,
@@ -3919,6 +3924,114 @@ class _BannerCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showPluginConfigSheet(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<MetadataPluginState> plugins,
+    PluginConfiguration config,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final notifier = ref.read(metadataPluginsProvider.notifier);
+    final isDefaultMetadata =
+        plugins.asData?.value.defaultMetadataPluginConfig?.slug == config.slug;
+    final isDefaultAudioSource =
+        plugins.asData?.value.defaultAudioSourcePluginConfig?.slug == config.slug;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _displayName,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _repo.owner,
+                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 16),
+              // Set as default metadata provider
+              if (config.abilities.contains(PluginAbilities.metadata))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    isDefaultMetadata ? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: isDefaultMetadata ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                  title: const Text('Provider par défaut (métadonnées)'),
+                  subtitle: Text(
+                    isDefaultMetadata ? 'Actuellement par défaut' : 'Définir comme provider par défaut',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  onTap: isDefaultMetadata
+                      ? null
+                      : () async {
+                          await notifier.setDefaultMetadataPlugin(config);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        },
+                ),
+              // Set as default audio source
+              if (config.abilities.contains(PluginAbilities.audioSource))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    isDefaultAudioSource ? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: isDefaultAudioSource ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                  title: const Text('Source audio par défaut'),
+                  subtitle: Text(
+                    isDefaultAudioSource ? 'Actuellement par défaut' : 'Définir comme source audio par défaut',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  onTap: isDefaultAudioSource
+                      ? null
+                      : () async {
+                          await notifier.setDefaultAudioSourcePlugin(config);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        },
+                ),
+              const Divider(height: 24),
+              // Uninstall
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.delete_outline, color: cs.error),
+                title: Text('Désinstaller', style: TextStyle(color: cs.error)),
+                onTap: () async {
+                  await notifier.removePlugin(config);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

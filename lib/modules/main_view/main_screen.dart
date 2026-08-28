@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:collection/collection.dart';
 import 'dart:math' as math;
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui' show ImageFilter;
@@ -122,7 +123,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     _defaultLocation = _navigationOrder
         .where((e) => !hiddenItems.contains(e))
-        .first;
+        .firstOrNull ?? '/WatchtowerHome';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {

@@ -510,6 +510,14 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       throw MetadataPluginException.duplicatePlugin();
     }
 
+    // Query DB directly for existing plugins of each type (state may be stale)
+    final existingMetadataCount = await (database.pluginsTable.select()
+          ..where((tbl) => tbl.abilities.contains('metadata')))
+        .get();
+    final existingAudioSourceCount = await (database.pluginsTable.select()
+          ..where((tbl) => tbl.abilities.contains('audioSource')))
+        .get();
+
     await database.pluginsTable.insertOne(
       PluginsTableCompanion.insert(
         name: plugin.name,
@@ -521,21 +529,13 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         abilities: plugin.abilities.map((e) => e.name).toList(),
         pluginApiVersion: Value(plugin.pluginApiVersion),
         repository: Value(plugin.repository),
-        // Setting the very first plugin as the default plugin
+        // Auto-set as default if no existing plugin of this type
         selectedForMetadata: Value(
-          (state.valueOrNull?.plugins
-                      .where(
-                          (d) => d.abilities.contains(PluginAbilities.metadata))
-                      .isEmpty ??
-                  true) &&
+          existingMetadataCount.isEmpty &&
               plugin.abilities.contains(PluginAbilities.metadata),
         ),
         selectedForAudioSource: Value(
-          (state.valueOrNull?.plugins
-                      .where((d) =>
-                          d.abilities.contains(PluginAbilities.audioSource))
-                      .isEmpty ??
-                  true) &&
+          existingAudioSourceCount.isEmpty &&
               plugin.abilities.contains(PluginAbilities.audioSource),
         ),
       ),

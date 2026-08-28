@@ -342,7 +342,7 @@ class _ExtensionListTileWidgetState
         icon: const Icon(Icons.download_outlined, size: 20),
       );
     }
-    // Installed — encircled more_vert → directly to extension settings
+    // Installed — settings gear → directly to extension settings
     return GestureDetector(
       onTap: () => context.push('/extension_detail', extra: widget.source),
       child: Stack(
@@ -356,8 +356,8 @@ class _ExtensionListTileWidgetState
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
             ),
             child: Icon(
-              Icons.more_vert,
-              size: 18,
+              Icons.settings_outlined,
+              size: 17,
               color: _updateAvailable
                   ? Colors.orange.shade400
                   : Theme.of(context).colorScheme.primary,

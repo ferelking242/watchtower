@@ -474,7 +474,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        backgroundColor: Colors.transparent,
+        backgroundColor: theme.scaffoldBackgroundColor,
         title: Text(l10n.browse, style: TextStyle(color: theme.hintColor)),
         actions: _appBarActions(context),
         bottom: _buildTabBar(context, theme, l10n),

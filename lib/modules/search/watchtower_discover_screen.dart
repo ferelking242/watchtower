@@ -2607,7 +2607,7 @@ class _ModePill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: selected
-              ? cs.primary
+              ? cs.primaryContainer
               : (isDark
                   ? Colors.white.withValues(alpha: 0.06)
                   : cs.onSurface.withValues(alpha: 0.05)),
@@ -2624,7 +2624,7 @@ class _ModePill extends StatelessWidget {
                 icon,
                 size: sz,
                 color: selected
-                    ? cs.onPrimary
+                    ? cs.onPrimaryContainer
                     : cs.onSurface.withValues(alpha: 0.55),
               );
             }),
@@ -2635,7 +2635,7 @@ class _ModePill extends StatelessWidget {
                 fontSize: 12.5,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected
-                    ? cs.onPrimary
+                    ? cs.onPrimaryContainer
                     : cs.onSurface.withValues(alpha: 0.65),
               ),
             ),
