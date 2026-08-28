@@ -633,21 +633,16 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             await pluginsNotifier.downloadAndCachePlugin(repoUrl);
         await pluginsNotifier.addPlugin(pluginConfig);
 
-        // Auto-set as default if no default exists for this ability type.
-        // The addPlugin() DB insert already sets selectedForMetadata / selectedForAudioSource
-        // when no other plugin of that type exists, but we also explicitly call setDefault
-        // here as a safety net in case the DB watch hasn't fired yet.
+        // Always set the newly installed plugin as default for its ability type.
         // Give the DB watch stream time to propagate the state change.
         for (int attempt = 0; attempt < 5; attempt++) {
           await Future<void>.delayed(const Duration(milliseconds: 50));
           final cp = ref.read(metadataPluginsProvider).value;
           if (cp != null) {
-            if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
-                cp.defaultMetadataPlugin < 0) {
+            if (pluginConfig.abilities.contains(PluginAbilities.metadata)) {
               try { await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig); } catch (_) {}
             }
-            if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
-                cp.defaultAudioSourcePlugin < 0) {
+            if (pluginConfig.abilities.contains(PluginAbilities.audioSource)) {
               try { await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig); } catch (_) {}
             }
             break;
@@ -3611,12 +3606,10 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                           await Future<void>.delayed(const Duration(milliseconds: 50));
                           final _cp = ref.read(metadataPluginsProvider).value;
                           if (_cp != null) {
-                            if (pluginConfig.abilities.contains(PluginAbilities.metadata) &&
-                                _cp.defaultMetadataPlugin < 0) {
+                            if (pluginConfig.abilities.contains(PluginAbilities.metadata)) {
                               try { await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig); } catch (_) {}
                             }
-                            if (pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
-                                _cp.defaultAudioSourcePlugin < 0) {
+                            if (pluginConfig.abilities.contains(PluginAbilities.audioSource)) {
                               try { await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig); } catch (_) {}
                             }
                             break;

@@ -91,27 +91,22 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
   build() async {
     final database = ref.watch(databaseProvider);
 
+    // Run bundled-plugin installation first, BEFORE subscribing to changes,
+    // so the subscription callback never fires with intermediate data that
+    // overwrites the correct default selection.
+    final plugins = await database.pluginsTable.select().get();
+    final pluginState = await toStatePlugins(plugins);
+    await _loadDefaultPlugins(pluginState);
+
+    // Now subscribe — only future DB mutations will update state.
     final subscription = database.pluginsTable.select().watch().listen(
       (event) async {
         state = AsyncValue.data(await toStatePlugins(event));
       },
     );
+    ref.onDispose(() => subscription.cancel());
 
-    ref.onDispose(() {
-      subscription.cancel();
-    });
-
-    final plugins = await database.pluginsTable.select().get();
-
-    final pluginState = await toStatePlugins(plugins);
-
-    await _loadDefaultPlugins(pluginState);
-
-    // _loadDefaultPlugins() may have inserted the bundled plugins, so the
-    // state computed before that call is stale (and could otherwise
-    // overwrite the DB-watch result with an empty plugin list — which is
-    // exactly the "no default metadata provider" bug after a fresh start).
-    // Re-read the table so the returned state always reflects reality.
+    // Re-read so the returned state reflects any bundled-plugin inserts.
     final pluginsAfter = await database.pluginsTable.select().get();
     return await toStatePlugins(pluginsAfter);
   }
@@ -703,11 +698,29 @@ final metadataPluginsProvider =
 
 final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
   (ref) async {
-    final defaultPlugin = await ref.watch(
+    final pluginsState = await ref.watch(
       metadataPluginsProvider
-          .selectAsync((data) => data.defaultMetadataPluginConfig),
+          .selectAsync((data) => data),
     );
     final youtubeEngine = ref.read(youtubeEngineProvider);
+
+    var defaultPlugin = pluginsState.defaultMetadataPluginConfig;
+
+    // Auto-select first available metadata plugin when no default is set
+    if (defaultPlugin == null && pluginsState.plugins.isNotEmpty) {
+      final firstMetadata = pluginsState.plugins.firstWhere(
+        (p) => p.abilities.contains(PluginAbilities.metadata),
+        orElse: () => pluginsState.plugins.first,
+      );
+      if (firstMetadata.abilities.contains(PluginAbilities.metadata)) {
+        defaultPlugin = firstMetadata;
+        // Persist the auto-selection so it sticks across rebuilds
+        try {
+          final notifier = ref.read(metadataPluginsProvider.notifier);
+          await notifier.setDefaultMetadataPlugin(firstMetadata);
+        } catch (_) {}
+      }
+    }
 
     if (defaultPlugin == null) {
       return null;
@@ -741,11 +754,28 @@ final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
 
 final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
   (ref) async {
-    final defaultPlugin = await ref.watch(
+    final pluginsState = await ref.watch(
       metadataPluginsProvider
-          .selectAsync((data) => data.defaultAudioSourcePluginConfig),
+          .selectAsync((data) => data),
     );
     final youtubeEngine = ref.watch(youtubeEngineProvider);
+
+    var defaultPlugin = pluginsState.defaultAudioSourcePluginConfig;
+
+    // Auto-select first available audio source plugin when no default is set
+    if (defaultPlugin == null && pluginsState.plugins.isNotEmpty) {
+      final firstAudioSource = pluginsState.plugins.firstWhere(
+        (p) => p.abilities.contains(PluginAbilities.audioSource),
+        orElse: () => pluginsState.plugins.first,
+      );
+      if (firstAudioSource.abilities.contains(PluginAbilities.audioSource)) {
+        defaultPlugin = firstAudioSource;
+        try {
+          final notifier = ref.read(metadataPluginsProvider.notifier);
+          await notifier.setDefaultAudioSourcePlugin(firstAudioSource);
+        } catch (_) {}
+      }
+    }
 
     if (defaultPlugin == null) {
       return null;
