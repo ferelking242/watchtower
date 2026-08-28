@@ -102,6 +102,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     final settingsStream = ref.watch(getSettingsStreamProvider);
     return settingsStream.when(
       data: (settingsList) {
+        if (settingsList.isEmpty) {
+          return const ProgressCenter();
+        }
         final settings = settingsList.first;
         return _buildWithSettings(settings);
       },

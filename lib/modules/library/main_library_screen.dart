@@ -331,9 +331,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             : null);
     final int extCatId = selectedCatId == null ? -1 : selectedCatId;
 
-    return SafeArea(
-      bottom: false,
-      child: Column(
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Row 1: arc type selector + action icons ────────────────
@@ -417,7 +419,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           ),
           ],
         ),
-      );
+      ),
+    );
   }
 
   // ── Animated search bar with filter overlay ────────────────────────────────
