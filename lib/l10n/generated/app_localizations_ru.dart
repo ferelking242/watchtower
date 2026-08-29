@@ -2337,45 +2337,46 @@ class AppLocalizationsRu extends AppLocalizations {
   String get webview => 'Веб-просмотр';
 
   @override
-  String get tts => 'Text-to-Speech';
+  String get tts => 'Синтез речи';
 
   @override
-  String get tts_speed => 'Speed';
+  String get tts_speed => 'Скорость';
 
   @override
-  String get tts_pitch => 'Pitch';
+  String get tts_pitch => 'Тон';
 
   @override
-  String get tts_language => 'Language';
+  String get tts_language => 'Язык';
 
   @override
-  String get tts_voice => 'Voice';
+  String get tts_voice => 'Голос';
 
   @override
-  String get tts_stop => 'Stop';
+  String get tts_stop => 'Стоп';
 
   @override
-  String get tts_play => 'Play';
+  String get tts_play => 'Воспроизвести';
 
   @override
-  String get tts_pause => 'Pause';
+  String get tts_pause => 'Пауза';
 
   @override
-  String get tts_previous => 'Previous paragraph';
+  String get tts_previous => 'Предыдущий абзац';
 
   @override
-  String get tts_next => 'Next paragraph';
+  String get tts_next => 'Следующий абзац';
 
   @override
   String tts_paragraph_progress(Object current, Object total) {
-    return 'Paragraph $current of $total';
+    return 'Абзац $current из $total';
   }
 
   @override
-  String get tts_settings => 'TTS Settings';
+  String get tts_settings => 'Настройки TTS';
 
   @override
-  String get tts_default => 'Default';
+  String get tts_default => 'По умолчанию';
+
   @override
   String get view_all => 'View all';
 

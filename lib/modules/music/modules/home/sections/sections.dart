@@ -51,19 +51,15 @@ class HomePageBrowseSection extends HookConsumerWidget {
           errorCode: MetadataPluginErrorCode.noDefaultMetadataPlugin,
           message: _,
         )) {
+      // Show the actionable fallback with force-reset button instead of a
+      // perpetual spinner that makes the whole music screen appear black.
       return SliverFillRemaining(
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             spacing: 16,
             children: [
-              const CircularProgressIndicator(),
-              Text(
-                'Setting up music providers…',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
+              const NoDefaultMetadataPlugin(),
             ],
           ),
         ),

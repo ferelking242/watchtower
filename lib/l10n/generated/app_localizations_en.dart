@@ -2337,6 +2337,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tts_default => 'Default';
+
   @override
   String get view_all => 'View all';
 

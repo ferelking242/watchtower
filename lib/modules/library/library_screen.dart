@@ -103,6 +103,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     return settingsStream.when(
       data: (settingsList) {
         if (settingsList.isEmpty) {
+          // Settings row (id=227) not yet created — auto-create defaults
+          // so the library screen doesn't stay stuck on a black screen.
+          _ensureDefaultSettings(ref);
           return const ProgressCenter();
         }
         final settings = settingsList.first;
@@ -547,6 +550,28 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     ref.invalidate(
       getAllMangaStreamProvider(categoryId: null, itemType: widget.itemType),
     );
+  }
+
+  /// Auto-create the default Settings row (id=227) when it doesn't exist yet.
+  /// This prevents the library from staying stuck on a black screen on first
+  /// launch or after a DB wipe.
+  static bool _settingsInitAttempted = false;
+  static void _ensureDefaultSettings(WidgetRef ref) {
+    if (_settingsInitAttempted) return;
+    _settingsInitAttempted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final existing = isar.settings.getSync(227);
+        if (existing == null) {
+          isar.writeTxnSync(() {
+            isar.settings.putSync(Settings());
+          });
+        }
+      } catch (e) {
+        debugPrint('[LibraryScreen] _ensureDefaultSettings failed: $e');
+        _settingsInitAttempted = false; // allow retry
+      }
+    });
   }
 }
 

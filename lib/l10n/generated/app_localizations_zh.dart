@@ -2231,45 +2231,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webview => 'Webview';
 
   @override
-  String get tts => 'Text-to-Speech';
+  String get tts => '文字转语音';
 
   @override
-  String get tts_speed => 'Speed';
+  String get tts_speed => '速度';
 
   @override
-  String get tts_pitch => 'Pitch';
+  String get tts_pitch => '音调';
 
   @override
-  String get tts_language => 'Language';
+  String get tts_language => '语言';
 
   @override
-  String get tts_voice => 'Voice';
+  String get tts_voice => '语音';
 
   @override
-  String get tts_stop => 'Stop';
+  String get tts_stop => '停止';
 
   @override
-  String get tts_play => 'Play';
+  String get tts_play => '播放';
 
   @override
-  String get tts_pause => 'Pause';
+  String get tts_pause => '暂停';
 
   @override
-  String get tts_previous => 'Previous paragraph';
+  String get tts_previous => '上一段';
 
   @override
-  String get tts_next => 'Next paragraph';
+  String get tts_next => '下一段';
 
   @override
   String tts_paragraph_progress(Object current, Object total) {
-    return 'Paragraph $current of $total';
+    return '第 $current 段，共 $total 段';
   }
 
   @override
-  String get tts_settings => 'TTS Settings';
+  String get tts_settings => 'TTS 设置';
 
   @override
-  String get tts_default => 'Default';
+  String get tts_default => '默认';
+
   @override
   String get view_all => 'View all';
 

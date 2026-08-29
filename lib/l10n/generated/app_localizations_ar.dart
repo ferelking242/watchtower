@@ -2306,45 +2306,46 @@ class AppLocalizationsAr extends AppLocalizations {
   String get webview => 'عرض الويب';
 
   @override
-  String get tts => 'Text-to-Speech';
+  String get tts => 'النص إلى كلام';
 
   @override
-  String get tts_speed => 'Speed';
+  String get tts_speed => 'السرعة';
 
   @override
-  String get tts_pitch => 'Pitch';
+  String get tts_pitch => 'النبرة';
 
   @override
-  String get tts_language => 'Language';
+  String get tts_language => 'اللغة';
 
   @override
-  String get tts_voice => 'Voice';
+  String get tts_voice => 'الصوت';
 
   @override
-  String get tts_stop => 'Stop';
+  String get tts_stop => 'إيقاف';
 
   @override
-  String get tts_play => 'Play';
+  String get tts_play => 'تشغيل';
 
   @override
-  String get tts_pause => 'Pause';
+  String get tts_pause => 'إيقاف مؤقت';
 
   @override
-  String get tts_previous => 'Previous paragraph';
+  String get tts_previous => 'الفقرة السابقة';
 
   @override
-  String get tts_next => 'Next paragraph';
+  String get tts_next => 'الفقرة التالية';
 
   @override
   String tts_paragraph_progress(Object current, Object total) {
-    return 'Paragraph $current of $total';
+    return 'الفقرة $current من $total';
   }
 
   @override
-  String get tts_settings => 'TTS Settings';
+  String get tts_settings => 'إعدادات القراءة';
 
   @override
-  String get tts_default => 'Default';
+  String get tts_default => 'افتراضي';
+
   @override
   String get view_all => 'View all';
 

@@ -2298,45 +2298,46 @@ class AppLocalizationsTh extends AppLocalizations {
   String get webview => 'Webview';
 
   @override
-  String get tts => 'Text-to-Speech';
+  String get tts => 'ข้อความเป็นเสียง';
 
   @override
-  String get tts_speed => 'Speed';
+  String get tts_speed => 'ความเร็ว';
 
   @override
-  String get tts_pitch => 'Pitch';
+  String get tts_pitch => 'ระดับเสียง';
 
   @override
-  String get tts_language => 'Language';
+  String get tts_language => 'ภาษา';
 
   @override
-  String get tts_voice => 'Voice';
+  String get tts_voice => 'เสียง';
 
   @override
-  String get tts_stop => 'Stop';
+  String get tts_stop => 'หยุด';
 
   @override
-  String get tts_play => 'Play';
+  String get tts_play => 'เล่น';
 
   @override
-  String get tts_pause => 'Pause';
+  String get tts_pause => 'หยุดชั่วคราว';
 
   @override
-  String get tts_previous => 'Previous paragraph';
+  String get tts_previous => 'ย่อหน้าก่อนหน้า';
 
   @override
-  String get tts_next => 'Next paragraph';
+  String get tts_next => 'ย่อหน้าถัดไป';
 
   @override
   String tts_paragraph_progress(Object current, Object total) {
-    return 'Paragraph $current of $total';
+    return 'ย่อหน้า $current จาก $total';
   }
 
   @override
-  String get tts_settings => 'TTS Settings';
+  String get tts_settings => 'ตั้งค่า TTS';
 
   @override
-  String get tts_default => 'Default';
+  String get tts_default => 'ค่าเริ่มต้น';
+
   @override
   String get view_all => 'View all';
 

@@ -2368,6 +2368,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tts_default => 'Par défaut';
+
   @override
   String get view_all => 'Voir tout';
 

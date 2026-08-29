@@ -2305,45 +2305,46 @@ class AppLocalizationsAs extends AppLocalizations {
   String get webview => 'Webview';
 
   @override
-  String get tts => 'Text-to-Speech';
+  String get tts => 'লিখা-পৰা-কথা';
 
   @override
-  String get tts_speed => 'Speed';
+  String get tts_speed => 'গতি';
 
   @override
-  String get tts_pitch => 'Pitch';
+  String get tts_pitch => 'পিচ';
 
   @override
-  String get tts_language => 'Language';
+  String get tts_language => 'ভাষা';
 
   @override
-  String get tts_voice => 'Voice';
+  String get tts_voice => 'কণ্ঠ';
 
   @override
-  String get tts_stop => 'Stop';
+  String get tts_stop => 'বন্ধ কৰক';
 
   @override
-  String get tts_play => 'Play';
+  String get tts_play => 'বজাওক';
 
   @override
-  String get tts_pause => 'Pause';
+  String get tts_pause => 'বিৰতি';
 
   @override
-  String get tts_previous => 'Previous paragraph';
+  String get tts_previous => 'আগৰ অনুচ্ছেদ';
 
   @override
-  String get tts_next => 'Next paragraph';
+  String get tts_next => 'পৰৱৰ্তী অনুচ্ছেদ';
 
   @override
   String tts_paragraph_progress(Object current, Object total) {
-    return 'Paragraph $current of $total';
+    return 'অনুচ্ছেদ $current / $total';
   }
 
   @override
-  String get tts_settings => 'TTS Settings';
+  String get tts_settings => 'TTS সংহতি';
 
   @override
-  String get tts_default => 'Default';
+  String get tts_default => 'ডিফল্ট';
+
   @override
   String get view_all => 'View all';
 

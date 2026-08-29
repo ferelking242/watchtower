@@ -54,12 +54,18 @@ class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
             ),
           );
 
+      // Use getSingleOrNull — the insert above may fail (disk full, DB
+      // locked) which would cause getSingle() to throw StateError.
       playerState =
-          await database.select(database.audioPlayerStateTable).getSingle();
+          await database.select(database.audioPlayerStateTable).getSingleOrNull();
     } else {
       await audioPlayer.setLoopMode(playerState.loopMode);
       await audioPlayer.setShuffle(playerState.shuffled);
     }
+
+    // If the DB is corrupted or the insert failed, playerState is still null.
+    // Return early instead of crashing on playerState.tracks below.
+    if (playerState == null) return;
 
     final tracks = playerState.tracks;
     final currentIndex = playerState.currentIndex;

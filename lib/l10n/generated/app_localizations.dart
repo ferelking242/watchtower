@@ -4336,12 +4336,29 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Default'**
   String get tts_default;
+
+  /// No description provided for @view_all.
+  ///
+  /// In en, this message translates to:
+  /// **'View all'**
   String get view_all;
 
+  /// No description provided for @for_you.
+  ///
+  /// In en, this message translates to:
+  /// **'For you'**
   String get for_you;
 
+  /// No description provided for @following_tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
   String get following_tab;
 
+  /// No description provided for @explore_tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore'**
   String get explore_tab;
 }
 

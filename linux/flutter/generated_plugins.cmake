@@ -3,14 +3,32 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  desktop_webview_window
+  dynamic_color
+  file_selector_linux
+  flutter_new_pipe_extractor
+  flutter_qjs
+  flutter_secure_storage_linux
+  flutter_timezone
   gtk
   isar_community_flutter_libs
+  local_notifier
   m_extension_server
+  media_kit_libs_linux
+  media_kit_video
+  screen_retriever_linux
+  sqlite3_flutter_libs
+  syncfusion_pdfviewer_linux
+  tray_manager
   url_launcher_linux
+  volume_controller
+  window_manager
   window_to_front
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  flutter_discord_rpc_fork
+  metadata_god
   rust_lib_watchtower
 )
 

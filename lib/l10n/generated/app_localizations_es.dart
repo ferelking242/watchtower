@@ -2329,45 +2329,46 @@ class AppLocalizationsEs extends AppLocalizations {
   String get webview => 'Webview';
 
   @override
-  String get tts => 'Text-to-Speech';
+  String get tts => 'Texto a voz';
 
   @override
-  String get tts_speed => 'Speed';
+  String get tts_speed => 'Velocidad';
 
   @override
-  String get tts_pitch => 'Pitch';
+  String get tts_pitch => 'Tono';
 
   @override
-  String get tts_language => 'Language';
+  String get tts_language => 'Idioma';
 
   @override
-  String get tts_voice => 'Voice';
+  String get tts_voice => 'Voz';
 
   @override
-  String get tts_stop => 'Stop';
+  String get tts_stop => 'Detener';
 
   @override
-  String get tts_play => 'Play';
+  String get tts_play => 'Reproducir';
 
   @override
-  String get tts_pause => 'Pause';
+  String get tts_pause => 'Pausar';
 
   @override
-  String get tts_previous => 'Previous paragraph';
+  String get tts_previous => 'Párrafo anterior';
 
   @override
-  String get tts_next => 'Next paragraph';
+  String get tts_next => 'Párrafo siguiente';
 
   @override
   String tts_paragraph_progress(Object current, Object total) {
-    return 'Paragraph $current of $total';
+    return 'Párrafo $current de $total';
   }
 
   @override
-  String get tts_settings => 'TTS Settings';
+  String get tts_settings => 'Configuración TTS';
 
   @override
-  String get tts_default => 'Default';
+  String get tts_default => 'Predeterminado';
+
   @override
   String get view_all => 'View all';
 
@@ -4704,4 +4705,45 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get webview => 'Webview';
+
+  @override
+  String get tts => 'Texto a voz';
+
+  @override
+  String get tts_speed => 'Velocidad';
+
+  @override
+  String get tts_pitch => 'Tono';
+
+  @override
+  String get tts_language => 'Idioma';
+
+  @override
+  String get tts_voice => 'Voz';
+
+  @override
+  String get tts_stop => 'Detener';
+
+  @override
+  String get tts_play => 'Reproducir';
+
+  @override
+  String get tts_pause => 'Pausar';
+
+  @override
+  String get tts_previous => 'Párrafo anterior';
+
+  @override
+  String get tts_next => 'Párrafo siguiente';
+
+  @override
+  String tts_paragraph_progress(Object current, Object total) {
+    return 'Párrafo $current de $total';
+  }
+
+  @override
+  String get tts_settings => 'Configuración TTS';
+
+  @override
+  String get tts_default => 'Predeterminado';
 }

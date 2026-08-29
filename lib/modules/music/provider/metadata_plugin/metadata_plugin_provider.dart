@@ -99,9 +99,16 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     await _loadDefaultPlugins(pluginState);
 
     // Now subscribe — only future DB mutations will update state.
-    final subscription = database.pluginsTable.select().watch().listen(
-      (event) async {
-        state = AsyncValue.data(await toStatePlugins(event));
+    // Use asyncMap to serialize: setDefaultMetadataPlugin does two DB writes
+    // (clear all → set target). A plain async listener races: the first
+    // event (no-default) can overwrite the second (correct-default).
+    final subscription = database.pluginsTable
+        .select()
+        .watch()
+        .asyncMap((event) => toStatePlugins(event))
+        .listen(
+      (newState) {
+        state = AsyncValue.data(newState);
       },
     );
     ref.onDispose(() => subscription.cancel());
