@@ -113,8 +113,7 @@ class NoDefaultMetadataPlugin extends ConsumerWidget {
                 }
                 return const SizedBox.shrink();
               },
-              orElse: () => const SizedBox.shrink(),
-            ),
+            ) ?? const SizedBox.shrink(),
             FilledButton(
               child: Text(context.l10n.manage_metadata_providers),
               onPressed: () => openMarketplace(context),
