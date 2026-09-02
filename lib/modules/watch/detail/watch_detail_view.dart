@@ -33,6 +33,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/services/recommendation.dart';
 import 'package:watchtower/modules/watch/detail/language_display.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
@@ -284,8 +285,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       child: Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            // Même style que le bouton retour du lecteur paysage
+                            icon: const Icon(Broken.arrow_left, color: Colors.white, size: 22),
                             onPressed: () => Navigator.of(context).pop(),
+                            padding: const EdgeInsets.all(8),
                           ),
                           Expanded(
                             child: ValueListenableBuilder<double>(
@@ -306,9 +309,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                               ),
                             ),
                           ),
-                          _AideButton(
-                              onTap: () =>
-                                  _showOptionsSheet(context, chapters)),
                           const SizedBox(width: 4),
                         ],
                       ),
@@ -2677,33 +2677,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               },
             ),
             const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── AIDE BUTTON ────────────────────────────────────────────────────────────
-
-class _AideButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _AideButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.help_outline_rounded, color: Colors.white, size: 18),
-            SizedBox(height: 1),
-            Text('Aide',
-                style: TextStyle(color: Colors.white, fontSize: 9.5)),
           ],
         ),
       ),

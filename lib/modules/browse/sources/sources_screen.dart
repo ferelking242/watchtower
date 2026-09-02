@@ -203,6 +203,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                           itemType: widget.itemType,
                         ),
                       ),
+                      // Espace en bas : remonte la source locale au-dessus du dock
+                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
                     ],
                   ),
                 );

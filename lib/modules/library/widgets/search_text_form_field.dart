@@ -92,11 +92,9 @@ class _SeachFormTextFieldState extends State<SeachFormTextField>
           )!;
           final shadowColor = cs.primary.withValues(alpha: t * 0.18);
           final fillColor = isDark
-              ? Color.lerp(
-                  cs.surfaceContainerHigh,
-                  cs.surfaceContainerHighest,
-                  t * 0.4,
-                )!
+              ? Colors.white.withValues(
+                  alpha: 0.06 + t * 0.08,
+                )
               : Color.lerp(
                   cs.surfaceContainerHigh,
                   cs.surface,

@@ -177,7 +177,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
-        title: SeachFormTextField(
+        title: Row(children: [SeachFormTextField(
           onChanged: (value) {},
           onPressed: () {
             Navigator.pop(context);
@@ -205,7 +205,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               _query = "";
             });
           },
-          controller: _textEditingController,
+              controller: _textEditingController,
+            ),
+          ],
         ),
         actions: [
           IconButton(

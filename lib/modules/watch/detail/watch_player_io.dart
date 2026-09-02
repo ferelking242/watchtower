@@ -53,17 +53,21 @@ const _kFitNames = <BoxFit, String>{
 void _playerToast(String message) {
   final context = navigatorKey.currentState?.context;
   if (context == null) return;
-  MunchToast.show(
-    context,
-    message: message,
-    type: MunchToastType.info,
-    position: MunchToastPosition.bottom,
-    duration: const Duration(seconds: 2),
-    textStyle: const TextStyle(fontSize: 14, color: Colors.white),
-    margin: const EdgeInsets.only(bottom: 8, right: 12, left: 12),
-    borderRadius: 12,
-    elevation: 4,
-  );
+  try {
+    MunchToast.show(
+      context,
+      message: message,
+      type: MunchToastType.info,
+      position: MunchToastPosition.bottom,
+      duration: const Duration(seconds: 2),
+      textStyle: const TextStyle(fontSize: 14, color: Colors.white),
+      margin: const EdgeInsets.only(bottom: 8, right: 12, left: 12),
+      borderRadius: 12,
+      elevation: 4,
+    );
+  } catch (_) {
+    // Ne jamais crasher si l'Overlay n'est pas disponible (ex: navigation).
+  }
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────
@@ -689,6 +693,7 @@ class _FullscreenControlsOverlayState
     // ── Buffering indicator debounce ──────────────────────────────────────────
     bool _showBuffering = false;
     Timer? _bufDebounce;
+    Duration _bufAnchor = Duration.zero;
     StreamSubscription<bool>? _bufferingSub;
     StreamSubscription<bool>? _completedSub;
 
@@ -749,6 +754,7 @@ class _FullscreenControlsOverlayState
       if (!mounted) return;
       _bufDebounce?.cancel();
       if (buf) {
+        _bufAnchor = widget.player.state.position;
         _bufDebounce = Timer(const Duration(milliseconds: 800), () {
           if (!mounted) return;
           final st = widget.player.state;
@@ -781,6 +787,13 @@ class _FullscreenControlsOverlayState
       if (!mounted) return;
       final dur = widget.player.state.duration;
       if (dur <= Duration.zero) return;
+
+      // Sécurité: mpv n'émet parfois jamais buffering=false → on masque les
+      // points de chargement dès que la lecture a repris (position avance).
+      if (_showBuffering && widget.player.state.playing &&
+          pos > _bufAnchor + const Duration(milliseconds: 800)) {
+        setState(() => _showBuffering = false);
+      }
 
       // Auto Next Episode: show card 20s before end
       final remaining = dur - pos;
@@ -993,7 +1006,7 @@ class _FullscreenControlsOverlayState
 
     // Debounce: one real seek fires 350 ms after the last tap in a burst
     _seekDebounceTimer?.cancel();
-    _seekDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+    _seekDebounceTimer = Timer(const Duration(milliseconds: 120), () {
       if (!mounted) return;
       _seek(_accumulatedSeekDelta);
       _accumulatedSeekDelta = 0;
@@ -1618,9 +1631,9 @@ class _FullscreenControlsOverlayState
                 ),
 
               // Seek swipe HUD — juste au-dessus de la barre de progression
-              if (_showSeekSwipeHUD)
-                Positioned(
-                  bottom: 118, left: 0, right: 0,
+          if (_showSeekSwipeHUD)
+            Positioned(
+              bottom: 84, left: 0, right: 0,
                   child: IgnorePointer(
                     child: Center(
                       child: _buildSeekSwipeHUD(),
@@ -3677,11 +3690,10 @@ class _TrackTile extends StatelessWidget {
     int   _doubleTapCount = 0;
     bool? _doubleTapRight;
     Timer? _doubleTapResetTimer;
-    // Portrait: badge haut-centre (pas d'animation ripple)
-    bool   _showSkipBadge  = false;
-    String _skipBadgeText  = '';
-    Timer? _skipBadgeTimer;
-    Timer? _skipHudTimer; // kept for compatibility
+    // Portrait: HUD flèches latérales animées (style YouTube)
+    bool _showLeftSkipHUD  = false;
+    bool _showRightSkipHUD = false;
+    Timer? _skipHudTimer;
     Timer? _seekDebounceTimer;
     int   _accumulatedSeekDelta = 0;
     int  _skipHudSeconds   = 15;
@@ -3716,7 +3728,6 @@ class _TrackTile extends StatelessWidget {
       _hideTimer?.cancel();
       _hudTimer?.cancel();
       _doubleTapResetTimer?.cancel();
-      _skipBadgeTimer?.cancel();
       _skipHudTimer?.cancel();
       _seekDebounceTimer?.cancel();
       super.dispose();
@@ -3761,19 +3772,20 @@ class _TrackTile extends StatelessWidget {
 
       // Debounce: one seek per tap burst, prevents mpv RAM spikes
       _seekDebounceTimer?.cancel();
-      _seekDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+      _seekDebounceTimer = Timer(const Duration(milliseconds: 120), () {
         if (mounted) { _seek(_accumulatedSeekDelta); _accumulatedSeekDelta = 0; }
       });
 
-      // Portrait: badge haut-centre discret au lieu du ripple plein-écran
-      final sign = isRight ? '+' : '-';
-      _skipBadgeTimer?.cancel();
+      // Portrait: flèches latérales animées (style YouTube)
+      _skipHudTimer?.cancel();
       setState(() {
-        _showSkipBadge = true;
-        _skipBadgeText = '${sign}${_skipHudSeconds}s';
+        _showLeftSkipHUD  = !isRight;
+        _showRightSkipHUD = isRight;
       });
-      _skipBadgeTimer = Timer(const Duration(milliseconds: 900), () {
-        if (mounted) setState(() => _showSkipBadge = false);
+      _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          setState(() { _showLeftSkipHUD = false; _showRightSkipHUD = false; });
+        }
       });
 
       _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
@@ -3949,33 +3961,6 @@ class _TrackTile extends StatelessWidget {
       );
     }
 
-    // Portrait: play/pause uniquement au centre (pas de boutons -15/+15)
-    Widget _buildCenterRow() {
-      return StreamBuilder<bool>(
-        stream: widget.player.stream.playing,
-        initialData: widget.player.state.playing,
-        builder: (_, snap) => GestureDetector(
-          onTap: () {
-            widget.player.playOrPause();
-            _resetHideTimer();
-          },
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.45),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              (snap.data ?? false) ? Broken.pause : Broken.play,
-              color: Colors.white,
-              size: 38,
-            ),
-          ),
-        ),
-      );
-    }
-
     @override
     Widget build(BuildContext context) {
       final size = MediaQuery.of(context).size;
@@ -4057,33 +4042,24 @@ class _TrackTile extends StatelessWidget {
                 onTap: _onTap,
               ),
             ),
-            // ── Skip badge haut-centre (remplace le ripple plein-écran) ────────
-            if (_showSkipBadge)
+            // ── Skip HUD double-tap — flèches latérales animées (style YouTube)
+            if (_showLeftSkipHUD)
               Positioned(
-                top: safeTop + 8,
-                left: 0, right: 0,
+                left: 0, top: 0, bottom: 0,
+                width: size.width * 0.3,
                 child: IgnorePointer(
                   child: Center(
-                    child: AnimatedOpacity(
-                      opacity: _showSkipBadge ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 180),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.50),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white24, width: 0.8),
-                        ),
-                        child: Text(
-                          _skipBadgeText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
+                    child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds),
+                  ),
+                ),
+              ),
+            if (_showRightSkipHUD)
+              Positioned(
+                right: 0, top: 0, bottom: 0,
+                width: size.width * 0.3,
+                child: IgnorePointer(
+                  child: Center(
+                    child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
                   ),
                 ),
               ),
@@ -4108,21 +4084,11 @@ class _TrackTile extends StatelessWidget {
             // ── Seek swipe HUD — juste au-dessus de la barre de progression ──
             if (_showSeekSwipeHUD)
               Positioned(
-                bottom: 96, left: 0, right: 0,
+                bottom: 52, left: 0, right: 0,
                 child: IgnorePointer(
                   child: Center(child: _buildSeekSwipeHUD()),
                 ),
               ),
-            // ── Play/Pause centre — visible quand _showControls ───────────────
-            IgnorePointer(
-              ignoring: !_showControls,
-              child: AnimatedOpacity(
-                opacity: _showControls ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                child: Center(child: _buildCenterRow()),
-              ),
-            ),
             // ── Icône Paramètres haut-droite (portrait only) ─────────────────
             if (_showControls)
               Positioned(
@@ -4485,6 +4451,8 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
   StreamSubscription<Duration>? _durSub;
   StreamSubscription<bool>? _bufSub;
   StreamSubscription<bool>? _completedSub;
+  StreamSubscription<Duration>? _posSub;
+  Duration? _bufStartPos;
 
   @override
   void initState() {
@@ -4506,6 +4474,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
       if (_successShown) {
         _bufDebounce?.cancel();
         if (buf) {
+          _bufStartPos = widget.player.state.position;
           _bufDebounce = Timer(const Duration(milliseconds: 800), () {
             if (mounted) setState(() => _anim = 'loading');
           });
@@ -4523,6 +4492,16 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
       _bufDebounce?.cancel();
       setState(() => _anim = null);
     });
+    // Sécurité: si la position avance pendant l'affichage du buffering, c'est
+    // que mpv n'a pas émis buffering=false → on masque les points de suite.
+    _posSub = widget.player.stream.position.listen((pos) {
+      if (!mounted) return;
+      if (_anim == 'loading' && widget.player.state.playing &&
+          _bufStartPos != null &&
+          pos > _bufStartPos! + const Duration(milliseconds: 800)) {
+        setState(() => _anim = null);
+      }
+    });
   }
 
   @override
@@ -4531,6 +4510,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
     _durSub?.cancel();
     _bufSub?.cancel();
     _completedSub?.cancel();
+    _posSub?.cancel();
     super.dispose();
   }
 
