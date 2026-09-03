@@ -168,6 +168,22 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         continue;
       }
 
+      // Purge stub/marker plugins (e.g. placeholders published in the
+      // marketplace repo whose plugin.out is a "WTPLUG_STUB" marker, not real
+      // Hetu bytecode). Keeping them would poison the default selection and
+      // every load attempt would fail with "plugin bytecode is invalid".
+      final binaryBytes = await pluginBinaryFile.readAsBytes();
+      final isStub = binaryBytes.length < 100 ||
+          (binaryBytes.length >= 11 &&
+              String.fromCharCodes(binaryBytes.take(11)) == "WTPLUG_STUB");
+      if (isStub) {
+        try {
+          await pluginExtractionDir.delete(recursive: true);
+        } catch (_) {}
+        await database.pluginsTable.deleteOne(plugin);
+        continue;
+      }
+
       pluginConfigs.add(pluginConfig);
 
       if (plugin.selectedForMetadata) {
@@ -752,7 +768,29 @@ final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
       // Degrade gracefully instead of rethrowing: consumers await
       // `metadataPluginProvider.future`, so a throw escapes the provider
       // as an unhandled zone error and crashes the app (watchtower ntfy
-      // reports). Returning null shows the existing "no plugin" fallback UI.
+      // reports). First try the next usable metadata plugin so metadata
+      // still works even if the configured plugin is stub/incompatible.
+      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
+      for (final candidate in pluginsState.plugins) {
+        if (identical(candidate, defaultPlugin)) continue;
+        if (!candidate.abilities.contains(PluginAbilities.metadata)) continue;
+        try {
+          final candidateByteCode =
+              await pluginsNotifier.getPluginByteCode(candidate);
+          final plugin = await MetadataPlugin.create(
+            youtubeEngine,
+            candidate,
+            candidateByteCode,
+          );
+          // Persist the working fallback so it sticks across rebuilds.
+          try {
+            await pluginsNotifier.setDefaultMetadataPlugin(candidate);
+          } catch (_) {}
+          return plugin;
+        } catch (_) {
+          // try the next candidate
+        }
+      }
       return null;
     }
   },
@@ -804,6 +842,29 @@ final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
         stackTrace: stack,
       );
       // Degrade gracefully instead of rethrowing (see metadataPluginProvider).
+      // Try the next usable audio-source plugin so playback still works.
+      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
+      for (final candidate in pluginsState.plugins) {
+        if (identical(candidate, defaultPlugin)) continue;
+        if (!candidate.abilities.contains(PluginAbilities.audioSource)) {
+          continue;
+        }
+        try {
+          final candidateByteCode =
+              await pluginsNotifier.getPluginByteCode(candidate);
+          final plugin = await MetadataPlugin.create(
+            youtubeEngine,
+            candidate,
+            candidateByteCode,
+          );
+          try {
+            await pluginsNotifier.setDefaultAudioSourcePlugin(candidate);
+          } catch (_) {}
+          return plugin;
+        } catch (_) {
+          // try the next candidate
+        }
+      }
       return null;
     }
   },
