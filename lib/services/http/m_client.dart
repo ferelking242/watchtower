@@ -380,23 +380,28 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
       try {
         botToast('❌ Résolution échouée — résolvez manuellement', second: 8);
       } catch (_) {}
-      // Open bypass WebView for manual resolution — minimal bottom sheet
-      final ctx = navigatorKey.currentContext;
-      if (ctx != null) {
-        showModalBottomSheet<void>(
-          context: ctx,
-          isScrollControlled: true,
-          useSafeArea: true,
-          backgroundColor: Colors.transparent,
-          builder: (bCtx) => ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            child: SizedBox(
-              height: MediaQuery.of(ctx).size.height * 0.92,
-              child: BypassWebViewSheet(url: url),
+      // Open bypass WebView for manual resolution — minimal bottom sheet.
+      // Guarded: retries can run on background isolates where the widget
+      // binding / navigatorKey.currentContext is unavailable (Null check
+      // crash in GlobalKey.currentContext — watchtower ntfy reports).
+      try {
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null) {
+          showModalBottomSheet<void>(
+            context: ctx,
+            isScrollControlled: true,
+            useSafeArea: true,
+            backgroundColor: Colors.transparent,
+            builder: (bCtx) => ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: SizedBox(
+                height: MediaQuery.of(ctx).size.height * 0.92,
+                child: BypassWebViewSheet(url: url),
+              ),
             ),
-          ),
-        );
-      }
+          );
+        }
+      } catch (_) {}
     }
 
   @override
