@@ -25,16 +25,52 @@ class MetadataPluginRepositoriesNotifier
   static final Map<int, _PageCache> _cache = {};
 
   // ── Hardcoded plugin repositories ─────────────────────────────────────────
-  // All Watchtower music plugins live in ferelking242/watchtower-extensions.
+  // Each plugin is forked into its own repo (ferelking242/spotube-plugin-*)
+  // and publishes a real .smplug in its GitHub release via CI. The marketplace
+  // installs the plugin straight from the latest release asset — no stubs.
   // Using a hardcoded list completely avoids GitHub API rate-limiting (60 req/h
   // unauthenticated) with zero network calls for repository discovery.
   static const _kKnownRepos = [
     (
-      name: "watchtower-extensions",
+      name: "spotube-plugin-spotify",
       owner: "ferelking242",
-      description:
-          "Official Watchtower music plugins: Spotify, Deezer, Apple Music, YouTube Music, FLAC, MusicBrainz.",
-      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      description: "Spotify — métadonnées complètes + lecture (auth ARL).",
+      repoUrl: "https://github.com/ferelking242/spotube-plugin-spotify",
+      topics: <String>["spotube-plugin", "watchtower"],
+    ),
+    (
+      name: "spotube-plugin-deezer",
+      owner: "ferelking242",
+      description: "Deezer — métadonnées + lecture (auth ARL).",
+      repoUrl: "https://github.com/ferelking242/spotube-plugin-deezer",
+      topics: <String>["spotube-plugin", "watchtower"],
+    ),
+    (
+      name: "spotube-plugin-applemusic",
+      owner: "ferelking242",
+      description: "Apple Music — métadonnées (titres, albums, playlists).",
+      repoUrl: "https://github.com/ferelking242/spotube-plugin-applemusic",
+      topics: <String>["spotube-plugin", "watchtower"],
+    ),
+    (
+      name: "spotube-plugin-youtube-music",
+      owner: "ferelking242",
+      description: "YouTube Music — métadonnées du catalogue YT Music.",
+      repoUrl: "https://github.com/ferelking242/spotube-plugin-youtube-music",
+      topics: <String>["spotube-plugin", "watchtower"],
+    ),
+    (
+      name: "spotube-plugin-flac-audio",
+      owner: "ferelking242",
+      description: "FLAC — source audio hi-fi (jusqu'à 24-bit/96kHz).",
+      repoUrl: "https://github.com/ferelking242/spotube-plugin-flac-audio",
+      topics: <String>["spotube-plugin", "watchtower"],
+    ),
+    (
+      name: "spotube-plugin-musicbrainz-listenbrainz",
+      owner: "ferelking242",
+      description: "MusicBrainz + ListenBrainz — métadonnées & scrobbling.",
+      repoUrl: "https://github.com/ferelking242/spotube-plugin-musicbrainz-listenbrainz",
       topics: <String>["spotube-plugin", "watchtower"],
     ),
   ];
