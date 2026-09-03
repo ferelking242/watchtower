@@ -179,6 +179,7 @@ class RouterNotifier extends ChangeNotifier {
       routes: [
         _genericRoute<String?>(
           name: "Library",
+          allowNullExtra: true, // opened from the dock without extra → presetInput=null is the normal state
           builder: (id) => MainLibraryScreen(presetInput: id),
         ),
         _genericRoute(
@@ -222,6 +223,7 @@ class RouterNotifier extends ChangeNotifier {
         ),
         _genericRoute<String?>(
           name: "trackerLibrary",
+          allowNullExtra: true, // opened from the dock / home header without extra
           builder: (id) => TrackerLibraryScreen(presetInput: id),
         ),
         _genericRoute(name: "history", child: const HistoryScreen()),
@@ -296,6 +298,7 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute<(String?, ItemType)?>(
       name: "globalSearch",
+      allowNullExtra: true, // opened without extra from the home search bar
       builder: (data) => GlobalSearchScreen(
         search: data?.$1,
         itemType: data?.$2 ?? ItemType.manga,
@@ -380,6 +383,7 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute<ItemType?>(
       name: "calendarScreen",
+      allowNullExtra: true, // opened without extra from the More menu
       builder: (itemType) => CalendarScreen(itemType: itemType),
     ),
     _genericRoute(name: "schedule", child: const ScheduleScreen()),
@@ -428,16 +432,23 @@ class RouterNotifier extends ChangeNotifier {
     String? path,
     Widget Function(T extra)? builder,
     Widget? child,
+    // Routes whose type T is nullable and which are legitimately opened
+    // WITHOUT extra (e.g. dock tabs like /Library, /trackerLibrary,
+    // /globalSearch, /calendarScreen) must receive `null` so their builders
+    // run with their default state. Without this, the null guard below
+    // returns SizedBox.shrink() and the tab renders as a black/empty page.
+    bool allowNullExtra = false,
   }) {
     // Crash-safe builder: state.extra can be null if a route is opened via
     // context.go('/routeName') without passing extra. The unchecked cast
     // `state.extra as T` throws TypeError for non-nullable T (int, Source, …).
-    // We guard against null-extra and return a fallback widget (SizedBox) so
+    // We guard against null-extra (unless the route opts in via
+    // allowNullExtra) and return a fallback widget (SizedBox) so
     // the app at least renders instead of crashing.
     Widget _safeBuild(BuildContext context, GoRouterState state) {
       if (builder != null) {
         final extra = state.extra;
-        if (extra == null) {
+        if (extra == null && !allowNullExtra) {
           // Non-nullable T receives null → show empty instead of crashing.
           return const SizedBox.shrink();
         }
