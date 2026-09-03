@@ -67,6 +67,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   final _textEditingController = TextEditingController();
   TabController? tabBarController;
   int _tabIndex = 0;
+  bool _useFallbackSettings = false;
 
   @override
   void initState() {
@@ -103,10 +104,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     return settingsStream.when(
       data: (settingsList) {
         if (settingsList.isEmpty) {
-          // Settings row (id=227) not yet created — auto-create defaults
-          // so the library screen doesn't stay stuck on a black screen.
+          // Settings row (id=227) pas encore créée — auto-créer les défauts
+          // pour ne jamais rester bloqué sur un écran noir.
           _ensureDefaultSettings(ref);
-          return const ProgressCenter();
+          if (!_useFallbackSettings) {
+            _scheduleFallbackSettings();
+          }
+          return _useFallbackSettings
+              ? _buildWithSettings(Settings())
+              : const ProgressCenter();
         }
         final settings = settingsList.first;
         return _buildWithSettings(settings);
@@ -559,7 +565,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   static void _ensureDefaultSettings(WidgetRef ref) {
     if (_settingsInitAttempted) return;
     _settingsInitAttempted = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         final existing = isar.settings.getSync(227);
         if (existing == null) {
@@ -567,9 +573,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
             isar.settings.putSync(Settings());
           });
         }
+        // Force un nouvel abonnement au stream : il peut être resté sur
+        // « vide » après l'écriture (écran noir sinon).
+        ref.invalidate(getSettingsStreamProvider);
       } catch (e) {
         debugPrint('[LibraryScreen] _ensureDefaultSettings failed: $e');
         _settingsInitAttempted = false; // allow retry
+      }
+    });
+  }
+
+  /// Après 2 s sans ligne de settings, on affiche quand même la bibliothèque
+  /// avec les valeurs par défaut plutôt qu'un écran noir infini.
+  void _scheduleFallbackSettings() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      final stillEmpty =
+          ref.read(getSettingsStreamProvider).asData?.value?.isEmpty ?? true;
+      if (stillEmpty && !_useFallbackSettings) {
+        setState(() => _useFallbackSettings = true);
       }
     });
   }

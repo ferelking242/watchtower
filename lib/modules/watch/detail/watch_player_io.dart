@@ -25,6 +25,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/chapter.dart';
   import 'package:watchtower/models/video.dart' as wt;
+import 'package:watchtower/modules/more/settings/player/player_overview_screen.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/widgets/watchtower_loader.dart';
@@ -1244,6 +1245,13 @@ class _FullscreenControlsOverlayState
               (widget.player.state.duration.inSeconds / 4).clamp(20.0, 900.0);
           _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
           setState(() => _showSeekSwipeHUD = true);
+          // Vignette position cible (style YouTube)
+          final full = widget.player.state.duration;
+          final target = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+          if (full > Duration.zero) {
+            _requestThumb(
+                (target.inMilliseconds / full.inMilliseconds).clamp(0.0, 1.0));
+          }
         },
         onHorizontalDragEnd: (_) {
           if (_horizDragStartX != null && !_holdSpeedActive && _horizSeekDelta != 0) {
@@ -1255,6 +1263,7 @@ class _FullscreenControlsOverlayState
           _horizDragStartX = null;
           _horizSeekDelta = 0;
           setState(() => _showSeekSwipeHUD = false);
+          _thumbPreview.clearRequest();
           _resetHideTimer();
         },
         onVerticalDragStart: (d) {
@@ -1636,7 +1645,36 @@ class _FullscreenControlsOverlayState
               bottom: 84, left: 0, right: 0,
                   child: IgnorePointer(
                     child: Center(
-                      child: _buildSeekSwipeHUD(),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Vignette position cible (style YouTube)
+                          ValueListenableBuilder<Uint8List?>(
+                            valueListenable: _thumbPreview.frame,
+                            builder: (_, frame, __) => frame == null
+                                ? const SizedBox.shrink()
+                                : Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: Colors.white24, width: 0.8),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(7),
+                                      child: Image.memory(
+                                        frame,
+                                        width: 180,
+                                        height: 101,
+                                        fit: BoxFit.cover,
+                                        gaplessPlayback: true,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          _buildSeekSwipeHUD(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1715,8 +1753,8 @@ class _FullscreenControlsOverlayState
 
   // ── Pilule Luminosité/Volume — horizontale, en haut au centre ────────────
   Widget _buildTopMediaHud({required IconData icon, required double value}) {
-    final clamped = value.clamp(0.0, 2.0);
-    final fill    = (clamped / 2).clamp(0.0, 1.0); // 0→200% sur la largeur
+    final base  = value.clamp(0.0, 1.0);         // 0→100 % : remplissage blanc
+    final extra = (value - 1.0).clamp(0.0, 1.0);  // >100 % : 2e couche jaune
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 180),
@@ -1732,7 +1770,7 @@ class _FullscreenControlsOverlayState
         child: Row(
           children: [
             Icon(icon,
-                color: clamped > 1.0 ? Colors.orangeAccent : Colors.white,
+                color: extra > 0 ? Colors.amber : Colors.white,
                 size: 20),
             const SizedBox(width: 12),
             Expanded(
@@ -1744,21 +1782,17 @@ class _FullscreenControlsOverlayState
                     children: [
                       Container(color: Colors.white24),
                       FractionallySizedBox(
-                        widthFactor: fill,
+                        widthFactor: base,
                         alignment: Alignment.centerLeft,
-                        child: Container(
-                            color:
-                                clamped > 1.0 ? Colors.orangeAccent : Colors.white),
+                        child: Container(color: Colors.white),
                       ),
-                      // Repère du seuil 100 %
-                      const Align(
-                        alignment: Alignment.center,
-                        child: SizedBox(
-                          width: 1,
-                          height: 8,
-                          child: ColoredBox(color: Colors.black38),
+                      // 2e remplissage jaune par-dessus (volume > 100 %)
+                      if (extra > 0)
+                        FractionallySizedBox(
+                          widthFactor: extra,
+                          alignment: Alignment.centerLeft,
+                          child: Container(color: Colors.amber),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -1771,7 +1805,7 @@ class _FullscreenControlsOverlayState
                 '${(value * 100).round()}%',
                 textAlign: TextAlign.right,
                 style: TextStyle(
-                  color: clamped > 1.0 ? Colors.orangeAccent : Colors.white70,
+                  color: extra > 0 ? Colors.amber : Colors.white70,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -3703,6 +3737,7 @@ class _TrackTile extends StatelessWidget {
     Duration _horizSeekStartPos = Duration.zero;
     int _horizSeekDelta = 0;
     bool _showSeekSwipeHUD = false;
+    final _SeekThumbPreview _thumbPreview = _SeekThumbPreview();
 
     @override
     void initState() {
@@ -3730,6 +3765,7 @@ class _TrackTile extends StatelessWidget {
       _doubleTapResetTimer?.cancel();
       _skipHudTimer?.cancel();
       _seekDebounceTimer?.cancel();
+      _thumbPreview.dispose();
       super.dispose();
     }
 
@@ -3811,6 +3847,13 @@ class _TrackTile extends StatelessWidget {
           (widget.player.state.duration.inSeconds / 4).clamp(20.0, 900.0);
       _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
       setState(() => _showSeekSwipeHUD = true);
+      // Vignette de la position cible (style YouTube)
+      final full = widget.player.state.duration;
+      final target = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+      if (full > Duration.zero) {
+        _requestThumb(
+            (target.inMilliseconds / full.inMilliseconds).clamp(0.0, 1.0));
+      }
     }
 
     void _onHorizDragEnd(DragEndDetails _) {
@@ -3823,6 +3866,7 @@ class _TrackTile extends StatelessWidget {
       _horizDragStartX = null;
       _horizSeekDelta = 0;
       setState(() => _showSeekSwipeHUD = false);
+      _thumbPreview.clearRequest();
       _resetHideTimer();
     }
 
@@ -3831,6 +3875,37 @@ class _TrackTile extends StatelessWidget {
       final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
       final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
       return h > 0 ? '$h:$m:$s' : '$m:$s';
+    }
+
+    // ── Miniature preview (YouTube-style) : flux courant + position ─────
+    wt.Video? get _previewVideo {
+      final vids = widget.loadedVideos;
+      for (final v in vids) {
+        if (v.quality == widget.selectedQuality) return v;
+      }
+      if (vids.isNotEmpty) return vids.first;
+      // Fallback : flux en cours de lecture quand loadedVideos est vide
+      try {
+        final medias = widget.player.state.playlist.medias;
+        if (medias.isNotEmpty) {
+          final uri = medias.first.uri.toString();
+          if (uri.isNotEmpty) {
+            return wt.Video(uri, widget.selectedQuality ?? 'auto', uri);
+          }
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    void _requestThumb(double fraction) {
+      final dur = widget.player.state.duration;
+      final v = _previewVideo;
+      if (v == null || dur <= Duration.zero) return;
+      _thumbPreview.request(
+        url: v.url,
+        headers: v.headers,
+        position: Duration(milliseconds: (fraction * dur.inMilliseconds).round()),
+      );
     }
 
     Widget _buildSeekSwipeHUD() {
@@ -3889,8 +3964,8 @@ class _TrackTile extends StatelessWidget {
 
     // ── Pilule Luminosité/Volume — horizontale, en haut au centre ────────────
     Widget _buildTopMediaHud({required IconData icon, required double value}) {
-      final clamped = value.clamp(0.0, 2.0);
-      final fill    = (clamped / 2).clamp(0.0, 1.0);
+      final base  = value.clamp(0.0, 1.0);        // 0→100 % : remplissage blanc
+      final extra = (value - 1.0).clamp(0.0, 1.0); // >100 % : 2e couche jaune
       return TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.0, end: 1.0),
         duration: const Duration(milliseconds: 180),
@@ -3905,7 +3980,7 @@ class _TrackTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, color: clamped > 1.0 ? Colors.orangeAccent : Colors.white, size: 18),
+              Icon(icon, color: extra > 0 ? Colors.amber : Colors.white, size: 18),
               const SizedBox(width: 10),
               Expanded(
                 child: ClipRRect(
@@ -3915,10 +3990,17 @@ class _TrackTile extends StatelessWidget {
                     child: Stack(children: [
                       Container(color: Colors.white24),
                       FractionallySizedBox(
-                        widthFactor: fill,
+                        widthFactor: base,
                         alignment: Alignment.centerLeft,
-                        child: Container(color: clamped > 1.0 ? Colors.orangeAccent : Colors.white),
+                        child: Container(color: Colors.white),
                       ),
+                      // 2e remplissage jaune par-dessus (volume > 100 %)
+                      if (extra > 0)
+                        FractionallySizedBox(
+                          widthFactor: extra,
+                          alignment: Alignment.centerLeft,
+                          child: Container(color: Colors.amber),
+                        ),
                     ]),
                   ),
                 ),
@@ -3926,7 +4008,7 @@ class _TrackTile extends StatelessWidget {
               const SizedBox(width: 10),
               Text('${(value * 100).round()}%',
                   style: TextStyle(
-                    color: clamped > 1.0 ? Colors.orangeAccent : Colors.white70,
+                    color: extra > 0 ? Colors.amber : Colors.white70,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   )),
@@ -4086,7 +4168,38 @@ class _TrackTile extends StatelessWidget {
               Positioned(
                 bottom: 52, left: 0, right: 0,
                 child: IgnorePointer(
-                  child: Center(child: _buildSeekSwipeHUD()),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Vignette position cible (style YouTube)
+                        ValueListenableBuilder<Uint8List?>(
+                          valueListenable: _thumbPreview.frame,
+                          builder: (_, frame, __) => frame == null
+                              ? const SizedBox.shrink()
+                              : Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: Colors.white24, width: 0.8),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(7),
+                                    child: Image.memory(
+                                      frame,
+                                      width: 160,
+                                      height: 90,
+                                      fit: BoxFit.cover,
+                                      gaplessPlayback: true,
+                                    ),
+                                  ),
+                                ),
+                        ),
+                        _buildSeekSwipeHUD(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             // ── Icône Paramètres haut-droite (portrait only) ─────────────────
@@ -4097,37 +4210,19 @@ class _TrackTile extends StatelessWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    // Ouvre le lecteur plein-écran (paramètres complets)
+                    // Ouvre les paramètres « Lecteur Vidéo » de l'app
+                    // (le bouton retour ramène sur la vidéo).
                     if (context.mounted) {
-                      Navigator.push(
-                        context,
+                      Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => _FullscreenPlayerPage(
-                            controller: widget.controller,
-                            player: widget.player,
-                            title: widget.title,
-                            currentChapterId: widget.currentChapterId,
-                            loadedVideos: widget.loadedVideos,
-                            onSwitchQuality: widget.onSwitchQuality,
-                            selectedQuality: widget.selectedQuality,
-                            onPrevEpisode: widget.onPrevEpisode,
-                            onNextEpisode: widget.onNextEpisode,
-                            chapters: widget.chapters,
-                            onEpisodeTap: widget.onEpisodeTap,
-                            fallbackCoverUrl: widget.coverUrl,
-                          ),
+                          builder: (_) => const PlayerOverviewScreen(),
                         ),
                       );
                     }
                   },
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.40),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Broken.setting_2, color: Colors.white70, size: 20),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Broken.setting_2, color: Colors.white, size: 20),
                   ),
                 ),
               ),
@@ -4200,6 +4295,7 @@ class _InlineControls extends StatefulWidget {
 class _InlineControlsState extends State<_InlineControls> {
   bool _dragActive = false;
   double _dragValue = 0.0;
+  final _SeekThumbPreview _thumbPreview = _SeekThumbPreview();
 
   Player get _p => widget.player;
   VideoController get _c => widget.controller;
@@ -4209,6 +4305,43 @@ class _InlineControlsState extends State<_InlineControls> {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+
+  @override
+  void dispose() {
+    _thumbPreview.dispose();
+    super.dispose();
+  }
+
+  // ── Miniature preview (YouTube-style) ────────────────────────────────
+  wt.Video? get _currentVideo {
+    final vids = widget.loadedVideos;
+    for (final v in vids) {
+      if (v.quality == widget.selectedQuality) return v;
+    }
+    if (vids.isNotEmpty) return vids.first;
+    // Fallback : flux en cours de lecture quand loadedVideos est vide
+    try {
+      final medias = _p.state.playlist.medias;
+      if (medias.isNotEmpty) {
+        final uri = medias.first.uri.toString();
+        if (uri.isNotEmpty) {
+          return wt.Video(uri, widget.selectedQuality ?? 'auto', uri);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  void _requestThumb(double fraction) {
+    final dur = _p.state.duration;
+    final v = _currentVideo;
+    if (v == null || dur <= Duration.zero) return;
+    _thumbPreview.request(
+      url: v.url,
+      headers: v.headers,
+      position: Duration(milliseconds: (fraction * dur.inMilliseconds).round()),
+    );
   }
 
   Future<void> _enterPiP() async {
@@ -4332,9 +4465,14 @@ class _InlineControlsState extends State<_InlineControls> {
                             onChangeStart: (v) {
                               setState(() { _dragActive = true; _dragValue = v; });
                               widget.seekingNotifier.value = true;
+                              _requestThumb(v);
                             },
-                            onChanged: (v) => setState(() => _dragValue = v),
+                            onChanged: (v) {
+                              setState(() => _dragValue = v);
+                              _requestThumb(v);
+                            },
                             onChangeEnd: (v) {
+                              _thumbPreview.clearRequest();
                               if (dur.inMilliseconds > 0) {
                                 _p.seek(Duration(
                                     milliseconds: (v * dur.inMilliseconds).round()));
@@ -4346,20 +4484,48 @@ class _InlineControlsState extends State<_InlineControls> {
                         ),
                         if (_dragActive)
                           Positioned(
-                            left: (thumbX - 26).clamp(0.0, constraints.maxWidth - 52),
-                            bottom: 30,
+                            left: (thumbX - 70)
+                                .clamp(0.0, (constraints.maxWidth - 150).clamp(0.0, double.infinity)),
+                            bottom: 34,
                             child: IgnorePointer(
-                              child: Container(
-                                width: 52,
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.85),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  _fmt(previewDur),
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                              child: ValueListenableBuilder<Uint8List?>(
+                                valueListenable: _thumbPreview.frame,
+                                builder: (_, frame, __) => Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    if (frame != null)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 6),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.white24, width: 0.8),
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(7),
+                                          child: Image.memory(
+                                            frame,
+                                            width: 140,
+                                            height: 79,
+                                            fit: BoxFit.cover,
+                                            gaplessPlayback: true,
+                                          ),
+                                        ),
+                                      ),
+                                    Container(
+                                      width: 56,
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.85),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        _fmt(previewDur),
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -4413,7 +4579,7 @@ class _InlineControlsState extends State<_InlineControls> {
               padding:
                   EdgeInsets.symmetric(horizontal: 5, vertical: 6),
               child: Icon(
-                Icons.fullscreen,
+                Broken.maximize,
                 color: Colors.white,
                 size: 22,
               ),
