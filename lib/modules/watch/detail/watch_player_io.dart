@@ -694,6 +694,7 @@ class _FullscreenControlsOverlayState
     // ── Buffering indicator debounce ──────────────────────────────────────────
     bool _showBuffering = false;
     Timer? _bufDebounce;
+    Timer? _bufWatchdog;
     Duration _bufAnchor = Duration.zero;
     StreamSubscription<bool>? _bufferingSub;
     StreamSubscription<bool>? _completedSub;
@@ -778,6 +779,19 @@ class _FullscreenControlsOverlayState
       _bufDebounce?.cancel();
       setState(() => _showBuffering = false);
     });
+    // Fallback watchdog — mpv/media_kit sometimes never emits buffering=false
+    // once playback resumes.  Poll the live PlayerState every 250ms: if we're
+    // no longer buffering, or the position has moved past the stall point, the
+    // video IS really playing → drop the dots immediately instead of leaving
+    // them stuck over the picture.
+    _bufWatchdog = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (!mounted || !_showBuffering) return;
+      final st = widget.player.state;
+      if (!st.buffering ||
+          st.position > _bufAnchor + const Duration(milliseconds: 250)) {
+        setState(() => _showBuffering = false);
+      }
+    });
   }
 
   // ── Position watcher: auto-next + save progress ───────────────────────────
@@ -789,10 +803,10 @@ class _FullscreenControlsOverlayState
       final dur = widget.player.state.duration;
       if (dur <= Duration.zero) return;
 
-      // Sécurité: mpv n'émet parfois jamais buffering=false → on masque les
-      // points de chargement dès que la lecture a repris (position avance).
-      if (_showBuffering && widget.player.state.playing &&
-          pos > _bufAnchor + const Duration(milliseconds: 800)) {
+      // Sécurité: mpv n'émet parfois jamais buffering=false → dès que la
+      // position avance au-delà du point de mise en tampon, la lecture a repris
+      // (pas besoin d'attendre l'état "playing") → on masque les points.
+      if (_showBuffering && pos > _bufAnchor + const Duration(milliseconds: 250)) {
         setState(() => _showBuffering = false);
       }
 
@@ -901,6 +915,7 @@ class _FullscreenControlsOverlayState
     _bufferingSub?.cancel();
     _completedSub?.cancel();
     _bufDebounce?.cancel();
+    _bufWatchdog?.cancel();
     _thumbPreview.dispose();
     super.dispose();
   }
@@ -4619,19 +4634,33 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<Duration>? _posSub;
   Duration? _bufStartPos;
+  Timer? _watchdog;
 
   @override
   void initState() {
     super.initState();
     _anim = 'loading';
+
+    // If the player is already loaded / playing when this overlay mounts
+    // (returning from fullscreen, resuming "continue watching", fast episode
+    // switch…) then stream.duration will never re-emit and the loading dots
+    // would stay stuck on screen forever while the video plays.  Seed the
+    // finished state straight from the live PlayerState instead.
+    if (widget.player.state.duration > Duration.zero) {
+      _firstDuration = false;
+      _successShown  = true;
+      _bufStartPos   = widget.player.state.position;
+      _anim          = null;
+    }
+
     _durSub = widget.player.stream.duration.listen((dur) {
       if (!mounted) return;
       if (_firstDuration && dur > Duration.zero) {
         _firstDuration = false;
+        _successShown  = true;
         setState(() => _anim = 'success');
         Future.delayed(const Duration(milliseconds: 900), () {
-          if (mounted) setState(() => _anim = null);
-          _successShown = true;
+          if (mounted && _anim == 'success') setState(() => _anim = null);
         });
       }
     });
@@ -4642,7 +4671,16 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
         if (buf) {
           _bufStartPos = widget.player.state.position;
           _bufDebounce = Timer(const Duration(milliseconds: 800), () {
-            if (mounted) setState(() => _anim = 'loading');
+            if (!mounted) return;
+            final st = widget.player.state;
+            final anchor = _bufStartPos;
+            // Only show if we are STILL stalled — never while the position is
+            // already moving again (video playing).
+            if (st.buffering &&
+                (anchor == null ||
+                    st.position <= anchor + const Duration(milliseconds: 250))) {
+              setState(() => _anim = 'loading');
+            }
           });
         } else {
           // Short delay avoids flicker on very brief rebuffers
@@ -4658,13 +4696,36 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
       _bufDebounce?.cancel();
       setState(() => _anim = null);
     });
-    // Sécurité: si la position avance pendant l'affichage du buffering, c'est
-    // que mpv n'a pas émis buffering=false → on masque les points de suite.
+
+    // Watchdog — mpv/media_kit sometimes never emits buffering=false once
+    // playback resumes (or the media reports no duration at all).  As soon as
+    // the position is actually moving while "playing", or the live state says
+    // we're no longer buffering, the video IS playing → drop the dots.
     _posSub = widget.player.stream.position.listen((pos) {
-      if (!mounted) return;
-      if (_anim == 'loading' && widget.player.state.playing &&
-          _bufStartPos != null &&
-          pos > _bufStartPos! + const Duration(milliseconds: 800)) {
+      if (!mounted || _anim != 'loading') return;
+      final st = widget.player.state;
+      final anchor = _bufStartPos;
+      final playing = st.playing || pos > Duration.zero;
+      final resumed = !st.buffering ||
+          (anchor != null && pos > anchor + const Duration(milliseconds: 250));
+      if (playing && resumed) {
+        _bufDebounce?.cancel();
+        _firstDuration = false;
+        _successShown  = true;
+        setState(() => _anim = null);
+      }
+    });
+
+    // Same watchdog, but polled: some sinks deliver sparse/no position events,
+    // whereas reading PlayerState directly always reflects reality.
+    _watchdog = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (!mounted || _anim != 'loading' || !_successShown) return;
+      final st = widget.player.state;
+      final anchor = _bufStartPos;
+      if (!st.buffering ||
+          (anchor != null &&
+              st.position > anchor + const Duration(milliseconds: 250))) {
+        _bufDebounce?.cancel();
         setState(() => _anim = null);
       }
     });
@@ -4673,6 +4734,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
   @override
   void dispose() {
     _bufDebounce?.cancel();
+    _watchdog?.cancel();
     _durSub?.cancel();
     _bufSub?.cancel();
     _completedSub?.cancel();
