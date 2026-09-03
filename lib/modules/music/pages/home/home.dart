@@ -28,7 +28,7 @@ import 'package:auto_route/auto_route.dart';
       return SafeArea(
         bottom: false,
         child: Scaffold(
-          backgroundColor: theme.colorScheme.surface,
+          backgroundColor: theme.scaffoldBackgroundColor,
           body: CustomScrollView(
             controller: controller,
             slivers: [
@@ -36,7 +36,7 @@ import 'package:auto_route/auto_route.dart';
                 SliverAppBar(
                   floating: true,
                   snap: true,
-                  backgroundColor: theme.colorScheme.surface,
+                  backgroundColor: theme.scaffoldBackgroundColor,
                   foregroundColor: theme.colorScheme.onSurface,
                   title: Text(
                     "Music Hub",

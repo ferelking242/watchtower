@@ -484,20 +484,56 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Data load ─────────────────────────────────────────────────────────────────
 
+  static String _normCompact(String s) =>
+      s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  /// Finds the installed music plugin matching a marketplace entry.
+  /// Matching by exact slug fails for entries like "MusicBrainz" vs the
+  /// plugin "Musicbrainz and Listenbrainz" (slug `musicbrainz-and-listenbrainz`)
+  /// or "FLAC Music" vs a plugin named "FLAC", so we also compare compact
+  /// names and the repository URLs stored on both sides.
+  PluginConfiguration? _musicPluginFor(_ExtEntry entry) {
+    if (entry.contentType != ItemType.music) return null;
+    final plugins =
+        ref.read(metadataPluginsProvider).value?.plugins ?? const [];
+    if (plugins.isEmpty) return null;
+    final entryName = _normCompact(entry.name);
+    final urls = <String>{
+      entry.repoUrl,
+      if (entry.upstream.isNotEmpty) entry.upstream,
+    }.where((u) => u.isNotEmpty).map((u) => u.replaceAll(RegExp(r'/+$'), '')).toSet();
+    for (final p in plugins) {
+      final repo = p.repository?.replaceAll(RegExp(r'/+$'), '');
+      if (repo != null && repo.isNotEmpty && urls.contains(repo)) return p;
+      final pn = _normCompact(p.name);
+      if (pn == entryName) return p;
+      // Shared compact root ("MusicBrainz" / "Musicbrainz and Listenbrainz",
+      // "FLAC Music" / "Flac Downloader Audio").
+      if (pn.contains(entryName) || entryName.contains(pn)) {
+        if (entryName.length >= 4) return p;
+        continue;
+      }
+      // Shared leading prefix (>= 4 chars) — covers names that only agree on
+      // their first brand word.
+      var i = 0;
+      final maxLen = entryName.length < pn.length ? entryName.length : pn.length;
+      while (i < maxLen && entryName.codeUnitAt(i) == pn.codeUnitAt(i)) {
+        i++;
+      }
+      if (i >= 4) return p;
+    }
+    return null;
+  }
+
   Future<void> _refreshInstalled() async {
     try {
       final allSrcs = await isar.sources.buildQuery<Source>().findAll();
       final sources = allSrcs.where((s) => s.isAdded == true).toList();
       // Music plugins (metadata/audio-source) live in the music module's
       // drift DB, not in the Isar `sources` table — mark the marketplace
-      // entries whose slug matches an installed plugin as installed too.
-      final pluginSlugs =
-          (ref.read(metadataPluginsProvider).value?.plugins ??
-                  const <PluginConfiguration>[])
-              .map((p) => p.slug)
-              .toSet();
+      // entries matching an installed plugin as installed too.
       final musicPluginIds = _all
-          .where((e) => pluginSlugs.contains(_mktSlugify(e.name)))
+          .where((e) => e.contentType == ItemType.music && _musicPluginFor(e) != null)
           .map((e) => e.id)
           .toSet();
       if (mounted) {
@@ -586,6 +622,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _refreshing = false;
           _error = null;
         });
+        // Entries are loaded now — recompute the installed set (music
+        // plugins included) so cards show their real state on first paint.
+        _refreshInstalled();
       } catch (e) {
         if (mounted) setState(() {
           _error = e.toString();
@@ -978,6 +1017,17 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       final cs = Theme.of(context).colorScheme;
       final theme = Theme.of(context);
       _showNsfw = ref.watch(showNSFWStateProvider);
+
+      // Keep the installed markers in sync when the music plugin DB changes
+      // (install/uninstall from the Music section while the marketplace is open).
+      ref.listen<AsyncValue<MetadataPluginState>>(
+        metadataPluginsProvider,
+        (prev, next) {
+          final a = prev?.value?.plugins.length;
+          final b = next.value?.plugins.length;
+          if (a != b) _refreshInstalled();
+        },
+      );
 
       return Scaffold(
         backgroundColor: Colors.transparent,
@@ -1862,10 +1912,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     // Music extensions live in the drift DB, not Isar sources.
     final entry = _all.where((e) => e.id == id).firstOrNull;
     if (entry == null || entry.contentType != ItemType.music) return;
-    final slug = _mktSlugify(entry.name);
-    final pluginsData = ref.read(metadataPluginsProvider).value;
-    if (pluginsData == null) return;
-    final plugin = pluginsData.plugins.where((p) => p.slug == slug).firstOrNull;
+    final plugin = _musicPluginFor(entry);
     if (plugin == null) return;
     _showMusicPluginConfigSheet(plugin);
   }

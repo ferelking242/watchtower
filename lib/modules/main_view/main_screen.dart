@@ -2045,13 +2045,10 @@ class _DockPill extends StatelessWidget {
           );
 
     final decoration = BoxDecoration(
-      // Always use Material 3 theme tokens — no hardcoded hex colours so custom
-      // themes look clean. Glass mode overlays a transparent tint instead.
-      color: isGlass
-          ? (isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.05))
-          : cs.surfaceContainerHigh,
+      // Floating pill is TRANSPARENT — only a subtle border + shadow + blur.
+      // No gray fill box behind the dock (the old surfaceContainerHigh / white
+      // tint made it look like a solid gray bar over the content).
+      color: isGlass ? Colors.transparent : cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(26),
       border: Border.all(
         color: isDark
@@ -2133,12 +2130,8 @@ class _UnifiedSubDockPill extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     final decoration = BoxDecoration(
-      // Always theme-aware — no hardcoded colours, custom themes stay clean.
-      color: isGlass
-          ? (isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.05))
-          : cs.surfaceContainerHigh,
+      // Floating pill is TRANSPARENT — only a subtle border + shadow + blur.
+      color: isGlass ? Colors.transparent : cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(26),
       border: Border.all(
         color: isDark

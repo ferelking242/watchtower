@@ -64,16 +64,28 @@ class CustomPlayer extends Player {
     });
     if (kIsAndroid) {
       _androidAudioManager = AndroidAudioManager();
-      AudioSession.instance.then((s) async {
-        _androidAudioSessionId =
-            await _androidAudioManager!.generateAudioSessionId();
-        notifyAudioSessionUpdate(true);
+      AudioSession.instance.then((session) async {
+        try {
+          // Configure + activate the session like Spotube upstream does.
+          // Without this the player never requests audio focus, so on many
+          // devices playback stays silent while mpv reports "playing" (e.g.
+          // right after a video played and still holds the focus).
+          await session.configure(const AudioSessionConfiguration.music());
+          await session.setActive(true);
 
-        await nativePlayer.setProperty(
-          "audiotrack-session-id",
-          _androidAudioSessionId.toString(),
-        );
-        await nativePlayer.setProperty("ao", "audiotrack,opensles,");
+          _androidAudioSessionId =
+              await _androidAudioManager!.generateAudioSessionId();
+          notifyAudioSessionUpdate(true);
+
+          await nativePlayer.setProperty(
+            "audiotrack-session-id",
+            _androidAudioSessionId.toString(),
+          );
+          await nativePlayer.setProperty("ao", "audiotrack,opensles,");
+        } catch (e, st) {
+          // Audio session is best-effort — never let it break playback.
+          AppLogger.reportError(e, st);
+        }
       });
     }
   }

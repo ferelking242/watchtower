@@ -1,6 +1,29 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:collection/collection.dart';
+
+/// Maps the YouTube CDN `c=` client param to the matching user-agent.
+/// Sending a mismatched UA makes the CDN answer 403 on the redirected stream.
+const _kClientUas = {
+  'ANDROID': 'com.google.android.youtube/19.09.37 (Linux; U; Android 13) gzip',
+  'IOS':
+      'com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 15_6_1 like Mac OS X)',
+  'MWEB':
+      'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0 Mobile Safari/537.36',
+  'SAFARI':
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15',
+};
+
+String? _userAgentForUrl(String url) {
+  try {
+    final c = Uri.parse(url).queryParameters['c']?.toUpperCase();
+    if (c != null && _kClientUas.containsKey(c)) {
+      return _kClientUas[c];
+    }
+  } catch (_) {}
+  return null;
+}
 import 'package:drift/drift.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -389,6 +412,16 @@ class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
       collections: [],
     );
 
+    // Match libmpv's user-agent to the resolved stream URL while the playlist
+    // opens. The local proxy answers /stream/<id> with a 302 to the YouTube
+    // CDN, and mpv follows it using its own UA — if the URL's c= client doesn't
+    // match, the CDN answers 403 and playback stays silent while state says
+    // "playing". Best-effort, in parallel, never delays playback: on
+    // timeout/error we keep the previous UA (Android client).
+    if (intendedActiveTrack.track is SpotubeFullTrackObject) {
+      unawaited(_matchUserAgentFor(intendedActiveTrack));
+    }
+
     await audioPlayer.openPlaylist(
       medias,
       initialIndex: initialIndex,
@@ -401,6 +434,27 @@ class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
         currentIndex: Value(max(state.currentIndex, 0)),
       ),
     );
+  }
+
+  Future<void> _matchUserAgentFor(SpotubeMedia media) async {
+    if (media.track is! SpotubeFullTrackObject) return;
+    try {
+      final src = await ref
+          .read(
+            sourcedTrackProvider(
+              media.track as SpotubeFullTrackObject,
+            ).future,
+          )
+          .timeout(const Duration(seconds: 6));
+      final url = src.url;
+      if (url == null) return;
+      final ua = _userAgentForUrl(url);
+      if (ua != null) {
+        await audioPlayer.setUserAgent(ua);
+      }
+    } catch (_) {
+      // Resolution failed/timed out — playback proceeds with the previous UA.
+    }
   }
 
   Future<void> swapActiveSource() async {

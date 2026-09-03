@@ -30,6 +30,14 @@ class SpotubeAudioPlayer extends AudioPlayerInterface
     await _mkPlayer.setRate(speed);
   }
 
+  /// Overrides the user-agent used by libmpv when following the CDN redirect.
+  /// YouTube's CDN rejects requests whose UA client type (c= query param)
+  /// doesn't match the UA — a mismatch makes the stream 403 and playback
+  /// stays silent while mpv reports "playing".
+  Future<void> setUserAgent(String ua) async {
+    await _mkPlayer.nativePlayer.setProperty('user-agent', ua);
+  }
+
   Future<void> setAudioDevice(mk.AudioDevice device) async {
     await _mkPlayer.setAudioDevice(device);
   }

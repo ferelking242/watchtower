@@ -16,7 +16,7 @@ class RootAppPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final theme = Theme.of(context);
-    final backgroundColor = theme.colorScheme.surface;
+    final backgroundColor = theme.scaffoldBackgroundColor;
     final brightness = theme.brightness;
 
     ref.listen(glanceProvider, (_, __) {});
@@ -42,7 +42,7 @@ class RootAppPage extends HookConsumerWidget {
       child: SafeArea(
         top: false,
         child: Scaffold(
-          backgroundColor: theme.colorScheme.surface,
+          backgroundColor: theme.scaffoldBackgroundColor,
           body: Stack(
             children: [
               Sidebar(
