@@ -749,12 +749,11 @@ final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
         error: error,
         stackTrace: stack,
       );
-      // Propagate the error so downstream providers/UI can show a
-      // "plugin failed to load" message instead of "no provider set".
-      throw MetadataPluginException.pluginFailedToLoad(
-        defaultPlugin.slug,
-        error.toString(),
-      );
+      // Degrade gracefully instead of rethrowing: consumers await
+      // `metadataPluginProvider.future`, so a throw escapes the provider
+      // as an unhandled zone error and crashes the app (watchtower ntfy
+      // reports). Returning null shows the existing "no plugin" fallback UI.
+      return null;
     }
   },
 );
@@ -804,10 +803,8 @@ final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
         error: error,
         stackTrace: stack,
       );
-      throw MetadataPluginException.pluginFailedToLoad(
-        defaultPlugin.slug,
-        error.toString(),
-      );
+      // Degrade gracefully instead of rethrowing (see metadataPluginProvider).
+      return null;
     }
   },
 );
