@@ -31,9 +31,11 @@ import 'package:watchtower/utils/global_style.dart';
 // in each build method to respect the active theme.
 
 // ─── Type order ──────────────────────────────────────────────────────────────
+// Manga first so the coverflow opens as [Manga] [Watch] [Novel] — Watch
+// centered, neighbors peeking at the edges (user request).
 const _kTypes = <ItemType>[
-  ItemType.anime,
   ItemType.manga,
+  ItemType.anime,
   ItemType.novel,
   ItemType.music,
   ItemType.game,
@@ -70,14 +72,15 @@ class MainLibraryScreen extends ConsumerStatefulWidget {
 
 class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     with TickerProviderStateMixin {
-  int _typeIndex = 0;
+  int _typeIndex = 1; // default = Watch (index of ItemType.anime in _kTypes)
   bool _showSearch = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   int _selectedCatIndex = 0;
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
-  late final PageController _arcPageCtrl = PageController(      viewportFraction: 0.25,
+  late final PageController _arcPageCtrl = PageController(
+    viewportFraction: 0.56, // ~3 tabs visible: center + one edge on each side
     initialPage: _typeIndex,
   );
 
@@ -137,9 +140,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         itemBuilder: (_, i) {
           final selected = i == _typeIndex;
           final diff = (i - _typeIndex).abs().toDouble();
-          final scale = (1.0 - diff * 0.12).clamp(0.76, 1.0);
-          final opacity = (1.0 - diff * 0.30).clamp(0.40, 1.0);
-          final blur = diff > 1.0 ? (diff * 1.0).clamp(0.0, 1.5) : 0.0;
+          // Coverflow: neighbors shrink & recede so only 3 tabs are readable
+          final scale = (1.0 - diff * 0.16).clamp(0.72, 1.0);
+          final opacity = (1.0 - diff * 0.40).clamp(0.40, 1.0);
+          final blur = diff > 0.4 ? (diff * 1.8).clamp(0.4, 2.0) : 0.0;
 
           return Center(
             child: AnimatedScale(
@@ -184,8 +188,18 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             color: selected
                                 ? null
                                 : (isDark
-                                    ? cs.onSurface.withValues(alpha: 0.06)
-                                    : cs.onSurface.withValues(alpha: 0.06)),
+                                    ? cs.onSurface.withValues(alpha: 0.05)
+                                    : cs.onSurface.withValues(alpha: 0.05)),
+                            // Outlined tab bar (user request): every tab gets
+                            // a visible outline, selected keeps a bright one
+                            border: Border.all(
+                              color: selected
+                                  ? cs.primary.withValues(alpha: 0.85)
+                                  : (isDark
+                                      ? cs.onSurface.withValues(alpha: 0.22)
+                                      : cs.outline.withValues(alpha: 0.35)),
+                              width: selected ? 1.5 : 1.0,
+                            ),
                             boxShadow: selected
                                 ? [
                                     BoxShadow(
@@ -393,10 +407,22 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
           ),
 
-          // ── Category bar ─────────────────────────────────────────────
+          // ── Category bar (outlined container — user request) ─────────
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: _buildCategoryBar(context, cats, cs, isDark),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark
+                      ? cs.onSurface.withValues(alpha: 0.14)
+                      : cs.outline.withValues(alpha: 0.22),
+                  width: 1,
+                ),
+              ),
+              child: _buildCategoryBar(context, cats, cs, isDark),
+            ),
           ),
 
           const SizedBox(height: 8),
