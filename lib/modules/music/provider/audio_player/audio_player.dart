@@ -2,6 +2,19 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:collection/collection.dart';
+import 'package:drift/drift.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:watchtower/modules/music/extensions/list.dart';
+import 'package:watchtower/modules/music/models/database/database.dart';
+import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/provider/audio_player/state.dart';
+import 'package:watchtower/modules/music/provider/blacklist_provider.dart';
+import 'package:watchtower/modules/music/provider/database/database.dart';
+import 'package:watchtower/modules/music/provider/discord_provider.dart';
+import 'package:watchtower/modules/music/provider/server/sourced_track_provider.dart';
+import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
+import 'package:watchtower/modules/music/services/logger/logger.dart';
 
 /// Maps the YouTube CDN `c=` client param to the matching user-agent.
 /// Sending a mismatched UA makes the CDN answer 403 on the redirected stream.
@@ -24,19 +37,6 @@ String? _userAgentForUrl(String url) {
   } catch (_) {}
   return null;
 }
-import 'package:drift/drift.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:watchtower/modules/music/extensions/list.dart';
-import 'package:watchtower/modules/music/models/database/database.dart';
-import 'package:watchtower/modules/music/models/metadata/metadata.dart';
-import 'package:watchtower/modules/music/provider/audio_player/state.dart';
-import 'package:watchtower/modules/music/provider/blacklist_provider.dart';
-import 'package:watchtower/modules/music/provider/database/database.dart';
-import 'package:watchtower/modules/music/provider/discord_provider.dart';
-import 'package:watchtower/modules/music/provider/server/sourced_track_provider.dart';
-import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
-import 'package:watchtower/modules/music/services/logger/logger.dart';
 
 class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
   BlackListNotifier get _blacklist => ref.read(blacklistProvider.notifier);
