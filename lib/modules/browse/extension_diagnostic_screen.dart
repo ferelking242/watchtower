@@ -1,95 +1,33 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:flutter/foundation.dart';
+
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/browse/diag_video_preview.dart';
+import 'package:watchtower/modules/browse/diag_detail_widgets.dart';
+import 'package:watchtower/modules/browse/diag_ui_widgets.dart';
+import 'package:watchtower/services/diag_notification_service.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 import 'package:watchtower/utils/language.dart';
 
-// ─── Notification helper ──────────────────────────────────────────────────────
+// ─── View model enums ─────────────────────────────────────────────────────────
 
-class _DiagNotifService {
-  _DiagNotifService._();
-  static const _kChannelId = 'watchtower_diagnostic';
-  static const _kChannelName = 'Diagnostic extensions';
-  static const _kNotifId = 9902;
-  static final _plugin = FlutterLocalNotificationsPlugin();
-  static bool _initialized = false;
+/// The three main pages of the diagnostic screen (navigation, not drawers).
+enum _DiagView { diag, extensions, results }
 
-  static Future<void> _init() async {
-    if (_initialized || kIsWeb) return;
-    if (!Platform.isAndroid && !Platform.isIOS) { _initialized = true; return; }
-    try {
-      const initSettings = InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/launcher_icon'),
-        iOS: DarwinInitializationSettings(
-          requestAlertPermission: false,
-          requestBadgePermission: false,
-          requestSoundPermission: false,
-        ),
-      );
-      await _plugin.initialize(initSettings);
-      if (Platform.isAndroid) {
-        await _plugin
-            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-            ?.createNotificationChannel(const AndroidNotificationChannel(
-          _kChannelId, _kChannelName,
-          description: 'Progression du diagnostic des extensions',
-          importance: Importance.low,
-          playSound: false,
-          enableVibration: false,
-        ));
-      }
-      _initialized = true;
-    } catch (_) {}
-  }
+/// ExtStatus & ReportFormat are declared in diag_ui_widgets.dart.
 
-  static Future<void> showProgress({
-    required int done, required int total,
-    required String title, String? body,
-  }) async {
-    await _init();
-    if (!_initialized || kIsWeb) return;
-    if (!Platform.isAndroid && !Platform.isIOS) return;
-    try {
-      final android = AndroidNotificationDetails(
-        _kChannelId, _kChannelName,
-        channelDescription: 'Progression du diagnostic',
-        importance: Importance.low, priority: Priority.low,
-        onlyAlertOnce: true, showProgress: true,
-        maxProgress: total, progress: done,
-        ongoing: done < total, autoCancel: done >= total,
-        icon: '@mipmap/launcher_icon',
-      );
-      await _plugin.show(_kNotifId, title,
-          body ?? '$done / $total extensions testées',
-          NotificationDetails(android: android));
-    } catch (_) {}
-  }
+/// Filter presets over the extension list.
+enum _StatusFilter { all, ok, failed, running, idle }
 
-  static Future<void> dismiss() async {
-    if (kIsWeb) return;
-    if (!Platform.isAndroid && !Platform.isIOS) return;
-    try { await _plugin.cancel(_kNotifId); } catch (_) {}
-  }
-}
+/// Sorting applied to the visible extension list.
+enum _SortMode { name, status, duration }
 
-// ─── Extension status ─────────────────────────────────────────────────────────
-
-enum _ExtStatus { idle, running, done, failed }
-
-// ─── Concurrency pool label ───────────────────────────────────────────────────
-
-const _kDefaultPool = 6;
-
-// ─── Main screen ─────────────────────────────────────────────────────────────
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 class ExtensionDiagnosticScreen extends StatefulWidget {
   final ItemType itemType;
@@ -100,58 +38,71 @@ class ExtensionDiagnosticScreen extends StatefulWidget {
       _ExtensionDiagnosticScreenState();
 }
 
-class _ExtensionDiagnosticScreenState
-    extends State<ExtensionDiagnosticScreen> {
-  // ── Sources ────────────────────────────────────────────────────────────────
+class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
+  // ── Sources & selection scope ──────────────────────────────────────────────
   List<Source> _allSources = [];
+  final Set<int> _scopeIds = {};
 
-  // ── Filters ────────────────────────────────────────────────────────────────
+  // ── Filters / sort ─────────────────────────────────────────────────────────
   String _search = '';
   String? _filterLangCode;
   SourceCodeLanguage? _filterType;
   bool? _filterNsfw;
+  _StatusFilter _statusFilter = _StatusFilter.all;
+  _SortMode _sortMode = _SortMode.name;
+  bool _onlyErrors = false;
+  bool _onlyTested = false;
 
-  // ── Responsive 3-pane layout (Replit-style) ───────────────────────────────
-  static const double _kFiltersWidth = 290;
-  static const double _kListWidth = 320;
+  // ── Layout ─────────────────────────────────────────────────────────────────
   bool _wide = false;
-  bool _filtersOpen = false;
-  bool _listOpen = false;
+  bool _panelOpen = false; // narrow: bottom sheet · wide: side panel
+  bool _detailVisible = false;
+  _DiagView _view = _DiagView.diag;
 
   // ── Run state ──────────────────────────────────────────────────────────────
   bool _running = false;
+  bool _paused = false;
+  bool _cancelling = false;
   bool _started = false;
   int _done = 0;
   int _total = 0;
-  final Map<int, _ExtStatus> _statusMap = {};
+  List<Source> _runSnapshot = [];
+  final Map<int, ExtStatus> _statusMap = {};
   final Map<int, ExtDiagResult> _resultMap = {};
   final List<String> _logLines = [];
   DateTime? _startTime;
   Timer? _elapsedTimer;
   String _elapsedLabel = '0s';
-  String? _savedPath;
-  String? _fullReport;
+  DiagRunControls? _controls;
 
-  // ── Selection & view ───────────────────────────────────────────────────────
+  // ── Detail / selection ─────────────────────────────────────────────────────
   Source? _selectedSource;
-  bool _markdownMode = false;
 
-  // ── Log scroll ─────────────────────────────────────────────────────────────
+  // ── Reports (multi-format) ─────────────────────────────────────────────────
+  final Map<ReportFormat, String> _reports = {};
+  List<String> _savedPaths = const [];
+  ReportFormat _format = ReportFormat.markdown;
+  bool _rawReport = false;
+
   final ScrollController _logScroll = ScrollController();
 
-  // ── Getters ────────────────────────────────────────────────────────────────
+  // ── Filtering / sorting ────────────────────────────────────────────────────
 
-  List<Source> get _filtered {
+  List<Source> get _filteredByCriterias {
     var list = _allSources;
     if (_search.isNotEmpty) {
       final q = _search.toLowerCase();
-      list = list.where((s) =>
-          (s.name ?? '').toLowerCase().contains(q) ||
-          (s.lang ?? '').toLowerCase().contains(q)).toList();
+      list = list
+          .where((s) =>
+              (s.name ?? '').toLowerCase().contains(q) ||
+              (s.lang ?? '').toLowerCase().contains(q) ||
+              (s.baseUrl ?? '').toLowerCase().contains(q))
+          .toList();
     }
     if (_filterLangCode != null) {
-      list = list.where((s) =>
-          s.lang?.toLowerCase() == _filterLangCode).toList();
+      list = list
+          .where((s) => s.lang?.toLowerCase() == _filterLangCode)
+          .toList();
     }
     if (_filterType != null) {
       list = list.where((s) => s.sourceCodeLanguage == _filterType).toList();
@@ -162,21 +113,118 @@ class _ExtensionDiagnosticScreenState
     return list;
   }
 
-  List<String> get _availableLangCodes {
-    return _allSources
-        .map((s) => s.lang?.toLowerCase() ?? '')
-        .where((l) => l.isNotEmpty)
-        .toSet()
-        .toList()..sort();
+  List<Source> get _visibleSources {
+    var list = _filteredByCriterias;
+    switch (_statusFilter) {
+      case _StatusFilter.all:
+        break;
+      case _StatusFilter.ok:
+        list = list.where((s) => _resultMap[s.id!]?.allOk == true).toList();
+        break;
+      case _StatusFilter.failed:
+        list = list.where((s) => _resultMap[s.id!]?.anyFailed == true).toList();
+        break;
+      case _StatusFilter.running:
+        list = list
+            .where((s) =>
+                (_statusMap[s.id] ?? ExtStatus.idle) == ExtStatus.running)
+            .toList();
+        break;
+      case _StatusFilter.idle:
+        list = list
+            .where((s) =>
+                _statusMap[s.id] == null || _statusMap[s.id] == ExtStatus.idle)
+            .toList();
+        break;
+    }
+    if (_onlyErrors) {
+      list = list.where((s) => _resultMap[s.id!]?.anyFailed == true).toList();
+    }
+    if (_onlyTested) {
+      list = list.where((s) => _resultMap.containsKey(s.id)).toList();
+    }
+
+    int statusPriority(Source s) {
+      switch (_statusOf(s)) {
+        case ExtStatus.running:
+          return 0;
+        case ExtStatus.failed:
+          return 1;
+        case ExtStatus.skipped:
+          return 2;
+        case ExtStatus.done:
+          return 3;
+        case ExtStatus.idle:
+          return 4;
+      }
+    }
+
+    switch (_sortMode) {
+      case _SortMode.name:
+        list.sort((a, b) => (a.name ?? '')
+            .toLowerCase()
+            .compareTo((b.name ?? '').toLowerCase()));
+        break;
+      case _SortMode.status:
+        list.sort((a, b) {
+          final c = statusPriority(a).compareTo(statusPriority(b));
+          return c != 0
+              ? c
+              : (a.name ?? '')
+                  .toLowerCase()
+                  .compareTo((b.name ?? '').toLowerCase());
+        });
+        break;
+      case _SortMode.duration:
+        list.sort((a, b) {
+          final ra = _resultMap[a.id];
+          final rb = _resultMap[b.id];
+          if (ra == null && rb == null) {
+            return (a.name ?? '').compareTo(b.name ?? '');
+          }
+          if (ra == null) return 1;
+          if (rb == null) return -1;
+          final c = rb.totalMs.compareTo(ra.totalMs);
+          return c != 0
+              ? c
+              : (a.name ?? '')
+                  .toLowerCase()
+                  .compareTo((b.name ?? '').toLowerCase());
+        });
+        break;
+    }
+    return list;
   }
+
+  List<String> get _availableLangCodes => _allSources
+      .map((s) => s.lang?.toLowerCase() ?? '')
+      .where((l) => l.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+
+  List<Source> get _runSources =>
+      _filteredByCriterias.where((s) => _scopeIds.contains(s.id)).toList();
+
+  int get _selectedScopeCountOfAll() =>
+      _allSources.where((s) => _scopeIds.contains(s.id)).length;
 
   int get _okCount => _resultMap.values.where((r) => r.allOk).length;
   int get _failCount => _resultMap.values.where((r) => r.anyFailed).length;
-  double get _progress => _total == 0 ? 0.0 : _done / _total;
-  bool get _isComplete => _started && !_running && _done == _total && _total > 0;
+  double get _progress => _total == 0 ? 0 : _done / _total;
+  bool get _isComplete =>
+      _started &&
+      !_running &&
+      !_cancelling &&
+      _total > 0 &&
+      (_controls?.isCancelled ?? false) == false;
+  bool get _isInterrupted =>
+      _started && _total > 0 && (_controls?.isCancelled ?? false);
 
   String get _scopeLabel {
-    if (_filterLangCode != null) return 'Langue: ${completeLanguageName(_filterLangCode!)}';
+    if (_filterLangCode != null) {
+      return 'Langue: ${completeLanguageName(_filterLangCode!)}';
+    }
     if (_filterType != null) return 'Type: ${_filterType!.name}';
     if (_filterNsfw == true) return 'NSFW seulement';
     if (_filterNsfw == false) return 'SFW seulement';
@@ -186,21 +234,39 @@ class _ExtensionDiagnosticScreenState
   ExtDiagResult? get _selectedResult =>
       _selectedSource != null ? _resultMap[_selectedSource!.id] : null;
 
-  // ── Selection & navigation ─────────────────────────────────────────────────
+  String get _typeLabel => switch (widget.itemType) {
+        ItemType.anime => 'Anime',
+        ItemType.manga => 'Manga',
+        ItemType.novel => 'Novel',
+        _ => widget.itemType.name,
+      };
 
-  void _selectSource(Source s) {
-    setState(() {
-      _selectedSource = s;
-      if (!_wide) _listOpen = false;
-    });
+  String get _title => 'Diagnostic $_typeLabel';
+
+  // ── Status helpers ─────────────────────────────────────────────────────────
+
+  ExtStatus _statusOf(Source s) => _statusMap[s.id] ?? ExtStatus.idle;
+
+  bool _inCurrentRun(Source s) =>
+      _started && _runSnapshot.any((r) => r.id == s.id);
+
+  ExtStatus _displayStatus(Source s) {
+    final st = _statusOf(s);
+    if (st == ExtStatus.idle &&
+        _isInterrupted &&
+        _inCurrentRun(s) &&
+        _resultMap[s.id!] == null) {
+      return ExtStatus.skipped;
+    }
+    return st;
   }
 
-  void _handleBack() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/browse');
-    }
+  String _fmtDuration(int ms) {
+    if (ms <= 0) return '';
+    if (ms < 1000) return '${ms}ms';
+    final s = ms ~/ 1000;
+    if (s < 60) return '${s}.${((ms % 1000) ~/ 100)}s';
+    return '${s ~/ 60}m${(s % 60).toString().padLeft(2, "0")}s';
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -230,29 +296,90 @@ class _ExtensionDiagnosticScreenState
         .where((s) => !(s.name == 'local' && (s.lang?.isEmpty ?? true)))
         .toList()
       ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
-    setState(() => _allSources = sources);
+    setState(() {
+      _allSources = sources;
+      for (final s in sources) {
+        if (s.id != null) _scopeIds.add(s.id!);
+      }
+    });
   }
 
-  // ── Start / Stop ───────────────────────────────────────────────────────────
+  // ── Navigation / selection ─────────────────────────────────────────────────
+
+  void _handleBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/browse');
+    }
+  }
+
+  void _switchView(_DiagView v) {
+    setState(() {
+      _view = v;
+      if (v == _DiagView.diag) _detailVisible = _selectedSource != null;
+    });
+  }
+
+  void _selectSource(Source s) {
+    setState(() {
+      _selectedSource = s;
+      _detailVisible = true;
+      _view = _DiagView.diag;
+    });
+  }
+
+  void _toggleScope(int id) {
+    setState(() {
+      if (!_scopeIds.remove(id)) _scopeIds.add(id);
+    });
+  }
+
+  void _setAllScope(bool selected) {
+    setState(() {
+      if (selected) {
+        for (final s in _allSources) {
+          if (s.id != null) _scopeIds.add(s.id!);
+        }
+      } else {
+        _scopeIds.clear();
+      }
+    });
+  }
+
+  void _togglePanel() => setState(() => _panelOpen = !_panelOpen);
+
+  // ── Run control ────────────────────────────────────────────────────────────
 
   Future<void> _startDiagnostics() async {
-    final sources = _filtered;
+    final sources = _runSources;
     if (sources.isEmpty) {
-      _showSnack('Aucune extension pour ce filtre.');
+      _showSnack(_allSources.isNotEmpty
+          ? 'Aucune extension sélectionnée — activez-en au moins une.'
+          : 'Aucune extension pour ce filtre.');
       return;
     }
+    if (_running) return;
+
+    final controls = DiagRunControls();
+
     setState(() {
       _running = true;
+      _paused = false;
+      _cancelling = false;
       _started = true;
       _done = 0;
       _total = sources.length;
-      _logLines.clear();
+      _runSnapshot = List.of(sources);
+      _statusMap.clear();
       _resultMap.clear();
-      _savedPath = null;
-      _fullReport = null;
-      _markdownMode = false;
+      _reports.clear();
+      _savedPaths = const [];
+      _format = ReportFormat.markdown;
+      _rawReport = false;
+      _controls = controls;
       for (final s in sources) {
-        _statusMap[s.id!] = _ExtStatus.idle;
+        if (s.id != null) _statusMap[s.id!] = ExtStatus.idle;
       }
       _startTime = DateTime.now();
       _elapsedLabel = '0s';
@@ -260,136 +387,272 @@ class _ExtensionDiagnosticScreenState
 
     _elapsedTimer?.cancel();
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
+      if (!mounted || !_running) return;
       final el = DateTime.now().difference(_startTime!);
       setState(() => _elapsedLabel = _fmtDuration(el.inMilliseconds));
     });
 
-    await _DiagNotifService.showProgress(
-      done: 0, total: sources.length,
-      title: 'Diagnostic ${_typeLabelShort()} en cours…',
-    );
+    unawaited(DiagNotificationService.instance.showProgress(
+      done: 0,
+      total: sources.length,
+      title: 'Diagnostic $_typeLabel en cours…',
+      force: true,
+    ));
 
     await runDiagnosticsForSources(
       sources,
       widget.itemType,
-      concurrency: _kDefaultPool,
+      concurrency: 6,
+      controls: controls,
       onResult: (result) {
-        if (!mounted) return;
+        if (!mounted || result.source.id == null) return;
+        final status = result.cancelled
+            ? ExtStatus.skipped
+            : result.allOk
+                ? ExtStatus.done
+                : ExtStatus.failed;
         setState(() {
           _resultMap[result.source.id!] = result;
-          _statusMap[result.source.id!] =
-              result.allOk ? _ExtStatus.done : _ExtStatus.failed;
+          _statusMap[result.source.id!] = status;
           _done++;
-          if (_selectedSource?.id == result.source.id) {
-            // refresh workspace
-          }
         });
-        _DiagNotifService.showProgress(
-          done: _done, total: _total,
-          title: 'Diagnostic ${_typeLabelShort()}',
-          body: '$_done / $_total — ${result.source.name}',
-        );
+        DiagNotificationService.instance
+            .showProgress(
+              done: _done,
+              total: _total,
+              title: 'Diagnostic $_typeLabel',
+              body: '$_done / $_total — ${result.source.name}',
+            )
+            .ignore();
       },
-      onLog: (line) {
-        if (!mounted) return;
-        setState(() {
-          _logLines.add(line);
-          // mark running
-          for (final s in sources) {
-            if (line.contains('"${s.name}"') && line.contains('[RUN]')) {
-              _statusMap[s.id!] = _ExtStatus.running;
-            }
-          }
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_logScroll.hasClients && _logScroll.position.maxScrollExtent > 0) {
-            _logScroll.animateTo(_logScroll.position.maxScrollExtent,
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOut);
-          }
-        });
-      },
+      onLog: _appendRunLog,
     );
 
     _elapsedTimer?.cancel();
 
-    final savedPath = await saveDiagnosticReport(
-      results: _resultMap.values.toList(),
-      itemType: widget.itemType,
-      scopeLabel: _scopeLabel,
-    );
-    final report = generateMarkdownReport(
-      results: _resultMap.values.toList(),
-      itemType: widget.itemType,
-      scopeLabel: _scopeLabel,
-    );
+    if (controls.isCancelled) {
+      await DiagNotificationService.instance.dismiss();
+      await DiagNotificationService.instance
+          .showInterrupted(done: _done, total: _total);
+      if (mounted) {
+        setState(() {
+          _running = false;
+          _paused = false;
+          _cancelling = false;
+        });
+        _showSnack('Diagnostic annulé — $_done / $_total analysée(s).');
+      }
+      return;
+    }
 
+    // Completed run → build + save every export format.
     final ok = _okCount;
     final failed = _failCount;
-    await _DiagNotifService.dismiss();
-    await _DiagNotifService.showProgress(
-      done: _resultMap.length, total: _resultMap.length,
-      title: 'Diagnostic terminé',
-      body: '$ok OK · $failed échec(s) sur ${_resultMap.length}',
-    );
+    final resultsList = _resultMap.values.toList();
+    final ms = resultsList.fold<int>(0, (a, r) => a + r.totalMs);
+
+    String? md;
+    String? json;
+    String? txt;
+    String? csv;
+    List<String> saved = const [];
+    try {
+      md = generateMarkdownReport(
+        results: resultsList,
+        itemType: widget.itemType,
+        scopeLabel: _scopeLabel,
+      );
+      json = generateJsonReport(
+        results: resultsList,
+        itemType: widget.itemType,
+        scopeLabel: _scopeLabel,
+      );
+      txt = generateTextReport(
+        results: resultsList,
+        itemType: widget.itemType,
+        scopeLabel: _scopeLabel,
+      );
+      csv = generateCsvReport(
+        results: resultsList,
+        itemType: widget.itemType,
+        scopeLabel: _scopeLabel,
+      );
+      saved = await saveDiagnosticReports(
+        results: resultsList,
+        itemType: widget.itemType,
+        scopeLabel: _scopeLabel,
+      );
+    } catch (_) {}
+
+    await DiagNotificationService.instance.dismiss();
+    if (md != null) {
+      await DiagNotificationService.instance.showSummary(
+        ok: ok,
+        failed: failed,
+        total: resultsList.length,
+        ms: ms,
+      );
+    }
 
     if (mounted) {
       setState(() {
         _running = false;
-        _savedPath = savedPath;
-        _fullReport = report;
+        _paused = false;
+        _cancelling = false;
+        if (md != null) _reports[ReportFormat.markdown] = md;
+        if (json != null) _reports[ReportFormat.json] = json;
+        if (txt != null) _reports[ReportFormat.text] = txt;
+        if (csv != null) _reports[ReportFormat.csv] = csv;
+        _savedPaths = saved;
       });
+      _showSnack('Diagnostic terminé — $ok OK · $failed échec(s).');
     }
   }
 
-  void _resetDiagnostics() {
+  void _togglePause() {
+    final c = _controls;
+    if (c == null) return;
     setState(() {
-      _running = false;
-      _started = false;
-      _done = 0;
-      _total = 0;
-      _logLines.clear();
-      _resultMap.clear();
-      _statusMap.clear();
-      _savedPath = null;
-      _fullReport = null;
-      _selectedSource = null;
-      _markdownMode = false;
+      _paused = !_paused;
+      if (_paused) {
+        c.pause();
+      } else {
+        c.resume();
+      }
     });
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  String _typeLabelShort() => switch (widget.itemType) {
-        ItemType.anime => 'Anime',
-        ItemType.manga => 'Manga',
-        ItemType.novel => 'Novel',
-        _ => widget.itemType.name,
-      };
-
-  String _fmtDuration(int ms) {
-    if (ms < 1000) return '${ms}ms';
-    final s = ms ~/ 1000;
-    if (s < 60) return '${s}s';
-    return '${s ~/ 60}m${(s % 60).toString().padLeft(2, "0")}s';
+  void _cancelDiagnostics() {
+    final c = _controls;
+    if (c == null) return;
+    setState(() => _cancelling = true);
+    c.cancel();
+    _showSnack('Annulation du diagnostic…');
   }
+
+  /// Retries a single extension (manual retry or post-Cloudflare).
+  Future<void> _retrySource(Source s) async {
+    if (_running || s.id == null) return;
+    setState(() => _statusMap[s.id!] = ExtStatus.running);
+    final result = await diagnoseSource(
+      s,
+      widget.itemType,
+      onLog: _appendRunLog,
+    );
+    if (!mounted) return;
+    setState(() {
+      if (result != null) {
+        _resultMap[s.id!] = result;
+        _statusMap[s.id!] = result.cancelled
+            ? ExtStatus.skipped
+            : result.allOk
+                ? ExtStatus.done
+                : ExtStatus.failed;
+      } else {
+        _statusMap[s.id!] = ExtStatus.failed;
+      }
+    });
+    if (result == null) {
+      _showSnack('Retest annulé pour ${s.name}.');
+    } else if (result.allOk) {
+      _showSnack('✅ ${s.name} répond correctement maintenant.');
+    } else {
+      _showSnack('❌ ${s.name} échoue toujours — voir les logs de l’étape.');
+    }
+  }
+
+  void _appendRunLog(String line) {
+    if (!mounted) return;
+    for (final s in _runSnapshot) {
+      if (line.contains('"${s.name}"') && line.contains('[RUN]')) {
+        if (s.id != null && _statusMap[s.id] != ExtStatus.running) {
+          _statusMap[s.id!] = ExtStatus.running;
+        }
+      }
+    }
+    setState(() {
+      _logLines.add(line);
+      if (_logLines.length > 2000) {
+        _logLines.removeRange(0, _logLines.length - 1500);
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_logScroll.hasClients && _logScroll.position.maxScrollExtent > 0) {
+        _logScroll.animateTo(
+          _logScroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _resetDiagnostics() {
+    if (_running) return;
+    setState(() {
+      _started = false;
+      _done = 0;
+      _total = 0;
+      _runSnapshot = [];
+      _logLines.clear();
+      _resultMap.clear();
+      _statusMap.clear();
+      _savedPaths = const [];
+      _reports.clear();
+      _selectedSource = null;
+      _detailVisible = false;
+      _controls = null;
+    });
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _search = '';
+      _filterLangCode = null;
+      _filterType = null;
+      _filterNsfw = null;
+      _statusFilter = _StatusFilter.all;
+      _sortMode = _SortMode.name;
+      _onlyErrors = false;
+      _onlyTested = false;
+    });
+  }
+
+  // ── Misc helpers ───────────────────────────────────────────────────────────
 
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
-      content: Text(msg),
+      content: Text(msg, maxLines: 2, overflow: TextOverflow.ellipsis),
       duration: const Duration(seconds: 2),
     ));
   }
 
-  Future<void> _copyReport() async {
-    final report = _fullReport;
-    if (report == null) { _showSnack('Aucun rapport disponible.'); return; }
-    await Clipboard.setData(ClipboardData(text: report));
-    _showSnack('Rapport copié dans le presse-papiers ✓');
+  Future<void> _copyActiveReport() async {
+    final content = _reports[_format];
+    if (content == null) {
+      _showSnack('Aucun rapport disponible — lancez un diagnostic.');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: content));
+    _showSnack('Rapport ${_formatLabel(_format)} copié ✓');
   }
+
+  String _formatLabel(ReportFormat f) => switch (f) {
+        ReportFormat.markdown => 'Markdown',
+        ReportFormat.json => 'JSON',
+        ReportFormat.text => 'TXT',
+        ReportFormat.csv => 'CSV',
+      };
+
+  String _statusFilterLabel(_StatusFilter f) => switch (f) {
+        _StatusFilter.all => 'Toutes',
+        _StatusFilter.ok => 'OK',
+        _StatusFilter.failed => 'Erreurs',
+        _StatusFilter.running => 'En cours',
+        _StatusFilter.idle => 'En attente',
+      };
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -402,2109 +665,1404 @@ class _ExtensionDiagnosticScreenState
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            _wide = constraints.maxWidth >= 800;
-            return _wide ? _buildWide(cs) : _buildNarrow(cs);
+            _wide = constraints.maxWidth >= 860;
+            return Column(
+              children: [
+                _buildTopBar(cs),
+                _NavBar(
+                  view: _view,
+                  panelOpen: _panelOpen,
+                  diagCount: _visibleSources.length,
+                  extCount: _allSources.length,
+                  resCount: _resultMap.length,
+                  cs: cs,
+                  onPanel: _togglePanel,
+                  onView: _switchView,
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child:
+                      _wide ? _buildWideContent(cs) : _buildNarrowContent(cs),
+                ),
+              ],
+            );
           },
         ),
       ),
     );
   }
 
-  // Shared workspace pane (center)
+  // ── Toolbar ────────────────────────────────────────────────────────────────
 
-  Widget _workspacePanel(ColorScheme cs) {
-    return _WorkspacePanel(
-      running: _running,
-      started: _started,
-      isComplete: _isComplete,
-      done: _done,
-      total: _total,
-      okCount: _okCount,
-      failCount: _failCount,
-      progress: _progress,
-      elapsedLabel: _elapsedLabel,
-      savedPath: _savedPath,
-      fullReport: _fullReport,
-      markdownMode: _markdownMode,
-      selectedSource: _selectedSource,
-      selectedResult: _selectedResult,
-      logLines: _logLines,
-      logScroll: _logScroll,
-      itemType: widget.itemType,
-      cs: cs,
-      onToggleMarkdown: () => setState(() => _markdownMode = !_markdownMode),
-      onCopyReport: _copyReport,
+  Widget _buildTopBar(ColorScheme cs) {
+    final canReset = !_running && _started;
+    final showStart = _allSources.isNotEmpty && !_running;
+
+    return Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(color: cs.surface),
+      child: Row(children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 17),
+          onPressed: _handleBack,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _title,
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                    letterSpacing: -0.2),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                _running
+                    ? (_paused
+                        ? 'En pause — $_done / $_total'
+                        : 'En cours — $_done / $_total')
+                    : _isInterrupted
+                        ? 'Interrompu — $_done / $_total'
+                        : _isComplete
+                            ? 'Terminé · $_okCount OK · $_failCount erreur(s)'
+                            : '${_allSources.length} extensions · ${_selectedScopeCountOfAll()} sélectionnées',
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        if (_running)
+          Padding(
+            padding: const EdgeInsets.only(right: 2),
+            child: _paused
+                ? Icon(Icons.pause_circle_outline_rounded,
+                    size: 18, color: Colors.amber.shade700)
+                : SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: cs.primary)),
+          ),
+        PopupMenuButton<_ToolAction>(
+          tooltip: 'Actions',
+          icon: const Icon(Icons.more_vert_rounded, size: 20),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          onSelected: _onToolAction,
+          itemBuilder: (_) => [
+            if (showStart && !_started)
+              const PopupMenuItem(
+                  value: _ToolAction.start,
+                  child: _MenuTile('Lancer le diagnostic', Icons.play_arrow_rounded)),
+            if (_running) ...[
+              PopupMenuItem(
+                  value: _ToolAction.pause,
+                  child: _MenuTile(
+                      _paused ? 'Reprendre' : 'Mettre en pause',
+                      _paused
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded)),
+              const PopupMenuItem(
+                  value: _ToolAction.cancel,
+                  child:
+                      _MenuTile('Annuler / interrompre', Icons.stop_circle_outlined)),
+            ],
+            if (canReset)
+              const PopupMenuItem(
+                  value: _ToolAction.reset,
+                  child: _MenuTile('Réinitialiser', Icons.restart_alt_rounded)),
+            if (showStart && _started)
+              PopupMenuItem(
+                  value: _ToolAction.relaunch,
+                  child: _MenuTile('Relancer le diagnostic', Icons.replay_rounded)),
+            if (_reports.isNotEmpty) ...[
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                  value: _ToolAction.copy,
+                  child: _MenuTile(
+                      'Copier le rapport ${_formatLabel(_format)}', Icons.copy_rounded)),
+            ],
+          ],
+        ),
+      ]),
     );
   }
 
-  // ── Wide layout — 3 panes: filters | workspace | extensions ───────────────
+  void _onToolAction(_ToolAction a) {
+    switch (a) {
+      case _ToolAction.start:
+        unawaited(_startDiagnostics());
+        break;
+      case _ToolAction.relaunch:
+        unawaited(_startDiagnostics());
+        break;
+      case _ToolAction.pause:
+        _togglePause();
+        break;
+      case _ToolAction.cancel:
+        _cancelDiagnostics();
+        break;
+      case _ToolAction.reset:
+        _resetDiagnostics();
+        break;
+      case _ToolAction.copy:
+        unawaited(_copyActiveReport());
+        break;
+    }
+  }
 
-  Widget _buildWide(ColorScheme cs) {
+  // ── Layouts ────────────────────────────────────────────────────────────────
+
+  Widget _buildWideContent(ColorScheme cs) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 250,
-          child: _FiltersPanel(
-            title: 'Diag ${_typeLabelShort()}',
-            count: _filtered.length,
-            search: _search,
-            filterLangCode: _filterLangCode,
-            filterType: _filterType,
-            filterNsfw: _filterNsfw,
-            availableLangCodes: _availableLangCodes,
-            scopeLabel: _scopeLabel,
-            running: _running,
-            cs: cs,
-            onSearchChanged: (v) => setState(() => _search = v),
-            onLangCodeFilter: (v) => setState(() => _filterLangCode = v),
-            onTypeFilter: (v) => setState(() => _filterType = v),
-            onNsfwFilter: (v) => setState(() => _filterNsfw = v),
-            onStart: _running ? null : _startDiagnostics,
-            onReset: _running ? null : _resetDiagnostics,
-            onBack: _handleBack,
-          ),
-        ),
-        VerticalDivider(width: 1, thickness: 1, color: cs.outlineVariant),
-        Expanded(child: _workspacePanel(cs)),
-        VerticalDivider(width: 1, thickness: 1, color: cs.outlineVariant),
-        SizedBox(
-          width: 280,
-          child: _ExtensionsPanel(
-            filtered: _filtered,
-            statusMap: _statusMap,
-            selectedSource: _selectedSource,
-            cs: cs,
-            onSelectSource: _selectSource,
-          ),
-        ),
+        if (_panelOpen) ...[SizedBox(width: 292, child: _PanelView(cs)),
+          VerticalDivider(width: 1, thickness: 1, color: cs.outlineVariant),
+        ],
+        Expanded(child: _pageContent(cs)),
       ],
     );
   }
 
-  // ── Narrow layout — workspace + sliding drawers (Replit mobile style) ─────
-
-  Widget _buildNarrow(ColorScheme cs) {
-    final anyOpen = _filtersOpen || _listOpen;
-
+  Widget _buildNarrowContent(ColorScheme cs) {
     return Stack(
       children: [
-        // Main workspace
-        Positioned.fill(
-          child: Column(
-            children: [
-              _PortraitToolbar(
-                title: 'Diag ${_typeLabelShort()}',
-                running: _running,
-                filtersOpen: _filtersOpen,
-                listOpen: _listOpen,
-                cs: cs,
-                onBack: _handleBack,
-                onStart: _running ? null : _startDiagnostics,
-                onToggleFilters: () =>
-                    setState(() => _filtersOpen = !_filtersOpen),
-                onToggleList: () => setState(() => _listOpen = !_listOpen),
-              ),
-              Expanded(child: _workspacePanel(cs)),
-            ],
-          ),
-        ),
-
+        Positioned.fill(child: _pageContent(cs)),
         // Scrim
         Positioned.fill(
           child: IgnorePointer(
-            ignoring: !anyOpen,
+            ignoring: !_panelOpen,
             child: AnimatedOpacity(
-              opacity: anyOpen ? 1 : 0,
-              duration: const Duration(milliseconds: 220),
+              opacity: _panelOpen ? 1 : 0,
+              duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
               child: GestureDetector(
-                onTap: () => setState(() {
-                  _filtersOpen = false;
-                  _listOpen = false;
-                }),
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.5),
-                ),
+                onTap: () => setState(() => _panelOpen = false),
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.45)),
               ),
             ),
           ),
         ),
-
-        // Filters drawer (slides from the left)
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          left: _filtersOpen ? 0 : -_kFiltersWidth - 24,
-          top: 0,
-          bottom: 0,
-          width: _kFiltersWidth,
-          child: Material(
-            elevation: 16,
-            shadowColor: Colors.black54,
-            color: cs.surface,
-            child: _FiltersPanel(
-              title: 'Diag ${_typeLabelShort()}',
-              count: _filtered.length,
-              search: _search,
-              filterLangCode: _filterLangCode,
-              filterType: _filterType,
-              filterNsfw: _filterNsfw,
-              availableLangCodes: _availableLangCodes,
-              scopeLabel: _scopeLabel,
-              running: _running,
-              cs: cs,
-              onSearchChanged: (v) => setState(() => _search = v),
-              onLangCodeFilter: (v) => setState(() => _filterLangCode = v),
-              onTypeFilter: (v) => setState(() => _filterType = v),
-              onNsfwFilter: (v) => setState(() => _filterNsfw = v),
-              onStart: _running ? null : _startDiagnostics,
-              onReset: _running ? null : _resetDiagnostics,
-              onBack: _handleBack,
-              onClose: () => setState(() => _filtersOpen = false),
-            ),
-          ),
-        ),
-
-        // Extensions drawer (slides from the right)
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          right: _listOpen ? 0 : -_kListWidth - 24,
-          top: 0,
-          bottom: 0,
-          width: _kListWidth,
-          child: Material(
-            elevation: 16,
-            shadowColor: Colors.black54,
-            color: cs.surface,
-            child: _ExtensionsPanel(
-              filtered: _filtered,
-              statusMap: _statusMap,
-              selectedSource: _selectedSource,
-              cs: cs,
-              onSelectSource: _selectSource,
-              onClose: () => setState(() => _listOpen = false),
+        // Bottom control sheet
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: IgnorePointer(
+            ignoring: !_panelOpen,
+            child: AnimatedSlide(
+              offset: _panelOpen ? Offset.zero : const Offset(0, 1),
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              child: AnimatedOpacity(
+                opacity: _panelOpen ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: _narrowPanel(cs),
+              ),
             ),
           ),
         ),
       ],
     );
   }
-}
 
-// ─── FILTERS PANEL (left) ────────────────────────────────────────────────────
-
-class _FiltersPanel extends StatelessWidget {
-  final String title;
-  final int count;
-  final String search;
-  final String? filterLangCode;
-  final SourceCodeLanguage? filterType;
-  final bool? filterNsfw;
-  final List<String> availableLangCodes;
-  final String scopeLabel;
-  final bool running;
-  final ColorScheme cs;
-  final ValueChanged<String> onSearchChanged;
-  final ValueChanged<String?> onLangCodeFilter;
-  final ValueChanged<SourceCodeLanguage?> onTypeFilter;
-  final ValueChanged<bool?> onNsfwFilter;
-  final VoidCallback? onStart;
-  final VoidCallback? onReset;
-  final VoidCallback onBack;
-  final VoidCallback? onClose;
-
-  const _FiltersPanel({
-    required this.title,
-    required this.count,
-    required this.search,
-    required this.filterLangCode,
-    required this.filterType,
-    required this.filterNsfw,
-    required this.availableLangCodes,
-    required this.scopeLabel,
-    required this.running,
-    required this.cs,
-    required this.onSearchChanged,
-    required this.onLangCodeFilter,
-    required this.onTypeFilter,
-    required this.onNsfwFilter,
-    required this.onStart,
-    required this.onReset,
-    required this.onBack,
-    this.onClose,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // ── Header ─────────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            border: Border(
-                bottom: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.5))),
+  Widget _narrowPanel(ColorScheme cs) {
+    final insets = MediaQuery.of(context).viewInsets;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      clipBehavior: Clip.antiAlias,
+      elevation: 12,
+      shadowColor: Colors.black45,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.86,
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: insets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: cs.outlineVariant,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+              Expanded(child: _PanelView(cs)),
+            ],
           ),
-          child: Row(children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
-              onPressed: onBack,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            const SizedBox(width: 2),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 13),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '$count',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: cs.onPrimaryContainer),
-              ),
-            ),
-            if (onClose != null) ...[const SizedBox(width: 2),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, size: 18),
-                onPressed: onClose,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        ),
+      ),
+    );
+  }
+
+  Widget _pageContent(ColorScheme cs) {
+    final child = switch (_view) {
+      _DiagView.diag => _diagPage(cs),
+      _DiagView.extensions => _extensionsPage(cs),
+      _DiagView.results => _resultsPage(cs),
+    };
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.012),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(key: ValueKey(_view), child: child),
+    );
+  }
+
+  // ── Diagnostic page ────────────────────────────────────────────────────────
+
+  Widget _diagPage(ColorScheme cs) {
+    final hasDetail = _selectedSource != null && _detailVisible;
+    final statusCard = _allSources.isNotEmpty
+        ? _StatusCard(
+            key: const ValueKey('status-card'),
+            running: _running,
+            paused: _paused,
+            cancelling: _cancelling,
+            started: _started,
+            interrupted: _isInterrupted,
+            complete: _isComplete,
+            done: _done,
+            total: _total,
+            okCount: _okCount,
+            failCount: _failCount,
+            progress: _progress,
+            elapsedLabel: _elapsedLabel,
+            cs: cs,
+            onStart: _running || _runSources.isEmpty
+                ? null
+                : _startDiagnostics,
+            onPause: _running ? _togglePause : null,
+            onCancel: _running ? _cancelDiagnostics : null,
+          )
+        : const SizedBox.shrink();
+
+    if (_wide && _allSources.isNotEmpty) {
+      // Master-detail: list + workspace side by side.
+      return Column(children: [
+        statusCard,
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: 316, child: _buildSourceList(cs, forDiagnostic: true)),
+              VerticalDivider(width: 1, thickness: 1, color: cs.outlineVariant),
+              Expanded(
+                child: hasDetail
+                    ? _detailPane(cs, showBack: false)
+                    : _detailEmpty(cs),
               ),
             ],
-          ]),
+          ),
         ),
+      ]);
+    }
 
-        // ── Search ─────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-          child: SizedBox(
-            height: 38,
-            child: TextField(
-              onChanged: onSearchChanged,
+    return Column(children: [
+      statusCard,
+      Expanded(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: hasDetail
+              ? KeyedSubtree(
+                  key: ValueKey('detail-${_selectedSource!.id}'),
+                  child: _detailPane(cs, showBack: true))
+              : KeyedSubtree(
+                  key: const ValueKey('list'),
+                  child: _buildSourceList(cs, forDiagnostic: true)),
+        ),
+      ),
+    ]);
+  }
+
+  // ── Extensions page ────────────────────────────────────────────────────────
+
+  Widget _extensionsPage(ColorScheme cs) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _StatusLegend(
+        tested: _resultMap.length,
+        ok: _okCount,
+        fail: _failCount,
+        scopeSelected: _selectedScopeCountOfAll(),
+        cs: cs,
+      ),
+      Expanded(child: _buildSourceList(cs, forDiagnostic: false)),
+    ]);
+  }
+
+  // ── Shared source list ────────────────────────────────────────────────────
+
+  Widget _buildSourceList(ColorScheme cs, {required bool forDiagnostic}) {
+    final list = _visibleSources;
+    final showScope = !forDiagnostic;
+
+    if (_allSources.isEmpty) {
+      return EmptyHero(
+        icon: Icons.extension_off_outlined,
+        title: 'Aucune extension installée',
+        subtitle:
+            'Ajoutez des extensions depuis le Marketplace avant de lancer un diagnostic.',
+        actionLabel: 'Retour',
+        onAction: _handleBack,
+        cs: cs,
+      );
+    }
+    if (list.isEmpty) {
+      return EmptyHero(
+        icon: Icons.filter_alt_off_outlined,
+        title: forDiagnostic
+            ? 'Aucune extension pour ces filtres'
+            : 'Aucun résultat',
+        subtitle: 'Modifiez la recherche ou les filtres depuis le panneau Panel.',
+        actionLabel: 'Ouvrir le Panel',
+        onAction: () => setState(() => _panelOpen = true),
+        cs: cs,
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
+      itemCount: list.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 4),
+      itemBuilder: (_, i) {
+        final s = list[i];
+        final status = _displayStatus(s);
+        final selected = _selectedSource?.id == s.id;
+        final scopeSelected = _scopeIds.contains(s.id);
+        final r = _resultMap[s.id];
+
+        String? subtitle;
+        if (r != null) {
+          final dur = _fmtDuration(r.totalMs);
+          subtitle = r.cancelled
+              ? 'Interrompu'
+              : '${r.okCount}/${r.steps.length} étapes OK'
+                  '${r.failCount > 0 ? ' · ${r.failCount} erreur(s)' : ''}'
+                  '${dur.isNotEmpty ? ' · $dur' : ''}';
+        } else if (_running && _inCurrentRun(s)) {
+          subtitle = status == ExtStatus.running
+              ? 'Analyse en cours…'
+              : 'En attente…';
+        } else {
+          final parts = <String>[];
+          if (s.sourceCodeLanguage != null) {
+            parts.add(s.sourceCodeLanguage!.name);
+          }
+          if (s.isNsfw == true) parts.add('NSFW');
+          if (s.hasCloudflare == true) parts.add('Cloudflare');
+          subtitle = parts.join(' · ');
+        }
+
+        return SourceRow(
+          source: s,
+          status: status,
+          selected: selected,
+          dimmed: !scopeSelected && showScope,
+          subtitle: subtitle,
+          cs: cs,
+          trailing: _rowTrailing(s, showScope, scopeSelected, cs),
+          onTap: showScope
+              ? () => _toggleScope(s.id!)
+              : () => _selectSource(s),
+          onOpenDetail: showScope && !_running
+              ? () => _selectSource(s)
+              : null,
+        );
+      },
+    );
+  }
+
+  Widget _rowTrailing(
+      Source s, bool showScope, bool scopeSelected, ColorScheme cs) {
+    final r = _resultMap[s.id];
+    final dur = r != null ? _fmtDuration(r.totalMs) : '';
+
+    if (showScope) {
+      return Row(mainAxisSize: MainAxisSize.min, children: [
+        if (dur.isNotEmpty)
+          Text(dur,
+              style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant)),
+        const SizedBox(width: 6),
+        MiniCheck(checked: scopeSelected, cs: cs),
+      ]);
+    }
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      if (dur.isNotEmpty)
+        Text(
+          dur,
+          style: TextStyle(
+              fontSize: 10.5,
+              color: cs.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()]),
+        ),
+      const SizedBox(width: 8),
+      StatusDot(status: _displayStatus(s), cs: cs, size: 9),
+    ]);
+  }
+
+  // ── Detail pane ────────────────────────────────────────────────────────────
+
+  Widget _detailPane(ColorScheme cs, {required bool showBack}) {
+    final s = _selectedSource;
+    if (s == null) return _detailEmpty(cs);
+
+    return Column(children: [
+      if (showBack)
+        DetailBar(
+          source: s,
+          cs: cs,
+          onBack: () => setState(() => _detailVisible = false),
+        ),
+      Expanded(
+        child: ExtensionDetail(
+          key: ValueKey('ext-detail-${s.id}'),
+          source: s,
+          result: _selectedResult,
+          status: _displayStatus(s),
+          running: _running,
+          itemType: widget.itemType,
+          cs: cs,
+          onRetry: _running ? null : () => _retrySource(s),
+          onResolveCloudflare: _running ? null : () => _retrySource(s),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _detailEmpty(ColorScheme cs) {
+    return EmptyHero(
+      icon: Icons.touch_app_outlined,
+      title: 'Aucune extension sélectionnée',
+      subtitle:
+          'Touchez une extension dans la liste pour afficher ses étapes, logs et erreurs détaillées.',
+      actionLabel: 'Voir les extensions',
+      onAction: () => _switchView(_DiagView.extensions),
+      cs: cs,
+    );
+  }
+
+  // ── Results page ───────────────────────────────────────────────────────────
+
+  Widget _resultsPage(ColorScheme cs) {
+    if (_resultMap.isEmpty) {
+      return EmptyHero(
+        icon: Icons.assessment_outlined,
+        title: _started ? 'Pas encore de résultats' : 'Aucun rapport',
+        subtitle: _started
+            ? 'Les extensions analysées apparaîtront ici avec leurs étapes et logs.'
+            : 'Lancez un diagnostic pour obtenir un rapport détaillé exportable (Markdown, JSON, TXT, CSV).',
+        actionLabel: _started ? null : 'Lancer le diagnostic',
+        onAction: _started ? null : () => unawaited(_startDiagnostics()),
+        cs: cs,
+      );
+    }
+
+    final results = _resultMap.values.toList();
+    final sorted = [
+      ...results.where((r) => r.anyFailed),
+      ...results.where((r) => r.allOk),
+    ];
+
+    return Column(children: [
+      ExportBar(
+        formats: ReportFormat.values,
+        active: _format,
+        rawReport: _rawReport,
+        canCopy: _reports.isNotEmpty,
+        savedCount: _savedPaths.length,
+        cs: cs,
+        onFormat: (f) => setState(() {
+          _format = f;
+          _rawReport = false;
+        }),
+        onToggleRaw: () => setState(() => _rawReport = !_rawReport),
+        onCopy: _copyActiveReport,
+      ),
+      Expanded(
+        child: _rawReport && _reports[_format] != null
+            ? RawReportView(
+                content: _reports[_format]!,
+                format: _formatLabel(_format),
+                cs: cs,
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
+                itemCount: sorted.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (_, i) {
+                  final r = sorted[i];
+                  return ResultCard(
+                    result: r,
+                    itemType: widget.itemType,
+                    cs: cs,
+                    onOpen: () => _selectSource(r.source),
+                  );
+                },
+              ),
+      ),
+    ]);
+  }
+
+  // ── Panel content (shared narrow bottom sheet / wide side panel) ──────────
+
+  Widget _PanelView(ColorScheme cs) {
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          border: Border(
+              bottom: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.5))),
+        ),
+        child: Row(children: [
+          Icon(Icons.tune_rounded, size: 17, color: cs.primary),
+          const SizedBox(width: 8),
+          const Text('Panel de contrôle',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 18),
+            onPressed: () => setState(() => _panelOpen = false),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          children: [
+            _panelSectionTitle(cs, 'Recherche'),
+            TextField(
+              onChanged: (v) => setState(() => _search = v),
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Rechercher…',
+                hintText: 'Rechercher une extension…',
                 hintStyle: const TextStyle(fontSize: 13),
                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                suffixIcon: _search.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 16),
+                        onPressed: () => setState(() => _search = ''),
+                      ),
+                isDense: true,
                 filled: true,
                 fillColor: cs.surfaceContainerHighest,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                contentPadding: EdgeInsets.zero,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
                 ),
-                isDense: true,
               ),
             ),
-          ),
-        ),
-
-        // ── Filters (always visible) ───────────────────────────────────
-        Flexible(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _FilterPanel(
-              availableLangCodes: availableLangCodes,
-              filterLangCode: filterLangCode,
-              filterType: filterType,
-              filterNsfw: filterNsfw,
-              cs: cs,
-              onLangCode: onLangCodeFilter,
-              onType: onTypeFilter,
-              onNsfw: onNsfwFilter,
+            const SizedBox(height: 14),
+            _panelSectionTitle(cs, 'Statut'),
+            _statusChips(cs),
+            const SizedBox(height: 14),
+            _panelSectionTitle(cs, 'Trier'),
+            _sortChips(cs),
+            const SizedBox(height: 14),
+            if (_availableLangCodes.isNotEmpty) ...[_panelSectionTitle(cs, 'Langue'),
+              SizedBox(
+                height: 30,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    MiniChip(
+                        label: 'Toutes',
+                        selected: _filterLangCode == null,
+                        cs: cs,
+                        onTap: () => setState(() => _filterLangCode = null)),
+                    ..._availableLangCodes.map((l) => MiniChip(
+                          label: l.toUpperCase(),
+                          selected: _filterLangCode == l,
+                          cs: cs,
+                          onTap: () => setState(() => _filterLangCode =
+                              _filterLangCode == l ? null : l),
+                        )),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            _panelSectionTitle(cs, 'Type'),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                MiniChip(
+                    label: 'Tout',
+                    selected: _filterType == null,
+                    cs: cs,
+                    onTap: () => setState(() => _filterType = null)),
+                for (final t in SourceCodeLanguage.values)
+                  MiniChip(
+                      label: t.name,
+                      selected: _filterType == t,
+                      cs: cs,
+                      onTap: () => setState(
+                          () => _filterType = _filterType == t ? null : t)),
+              ],
             ),
-          ),
-        ),
-
-        // ── Footer actions ─────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh.withValues(alpha: 0.6),
-            border: Border(
-                top: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.5))),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+            const SizedBox(height: 14),
+            _panelSectionTitle(cs, 'Contenu'),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                MiniChip(
+                    label: 'Tout',
+                    selected: _filterNsfw == null,
+                    cs: cs,
+                    onTap: () => setState(() => _filterNsfw = null)),
+                MiniChip(
+                    label: 'SFW',
+                    selected: _filterNsfw == false,
+                    cs: cs,
+                    onTap: () => setState(
+                        () => _filterNsfw = _filterNsfw == false ? null : false)),
+                MiniChip(
+                    label: 'NSFW',
+                    selected: _filterNsfw == true,
+                    cs: cs,
+                    danger: true,
+                    onTap: () => setState(
+                        () => _filterNsfw = _filterNsfw == true ? null : true)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _panelSectionTitle(cs, 'Options'),
+            SwitchListTile.adaptive(
+              value: _onlyErrors,
+              onChanged: (v) => setState(() => _onlyErrors = v),
+              title: const Text('Afficher uniquement les erreurs',
+                  style: TextStyle(fontSize: 12.5)),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+            ),
+            SwitchListTile.adaptive(
+              value: _onlyTested,
+              onChanged: (v) => setState(() => _onlyTested = v),
+              title: const Text('Afficher uniquement les extensions testées',
+                  style: TextStyle(fontSize: 12.5)),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${_selectedScopeCountOfAll()} / ${_allSources.length} extensions sélectionnées pour le diagnostic',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 14),
+            _panelSectionTitle(cs, 'Actions'),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _running ? null : () => _setAllScope(true),
+                  icon: const Icon(Icons.done_all_rounded, size: 15),
+                  label: const Text('Tout sélectionner',
+                      style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _running ? null : () => _setAllScope(false),
+                  icon: const Icon(Icons.deselect_rounded, size: 15),
+                  label: const Text('Tout désélectionner',
+                      style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: _running ? null : _startDiagnostics,
+              icon: Icon(
+                  _isComplete
+                      ? Icons.replay_rounded
+                      : Icons.play_arrow_rounded,
+                  size: 17),
+              label: Text(
+                  _isComplete
+                      ? 'Relancer le diagnostic'
+                      : 'Lancer le diagnostic',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(40),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11)),
+              ),
+            ),
+            if (_running) ...[const SizedBox(height: 6),
               Row(children: [
-                Icon(Icons.filter_alt_outlined,
-                    size: 13, color: cs.onSurfaceVariant),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _togglePause,
+                    icon: Icon(
+                        _paused
+                            ? Icons.play_arrow_rounded
+                            : Icons.pause_rounded,
+                        size: 16),
+                    label: Text(_paused ? 'Reprendre' : 'Pause',
+                        style: const TextStyle(fontSize: 12.5)),
+                    style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact),
+                  ),
+                ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
-                    scopeLabel,
-                    style:
-                        TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
-                    overflow: TextOverflow.ellipsis,
+                  child: OutlinedButton.icon(
+                    onPressed: _cancelling ? null : _cancelDiagnostics,
+                    icon: const Icon(Icons.stop_rounded, size: 16),
+                    label: Text(_cancelling ? 'Annulation…' : 'Annuler',
+                        style: const TextStyle(fontSize: 12.5)),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: cs.error,
+                        visualDensity: VisualDensity.compact),
                   ),
                 ),
               ]),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: running ? null : onStart,
-                icon: Icon(
-                    running
-                        ? Icons.hourglass_top_rounded
-                        : Icons.play_arrow_rounded,
-                    size: 17),
-                label: Text(
-                    running ? 'Diagnostic en cours…' : 'Lancer le diagnostic'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(42),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(11)),
-                  textStyle: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13.5),
-                ),
-              ),
-              const SizedBox(height: 4),
-              TextButton.icon(
-                onPressed: running ? null : onReset,
-                icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                label: const Text('Réinitialiser'),
-                style: TextButton.styleFrom(
-                  foregroundColor: cs.onSurfaceVariant,
-                  minimumSize: const Size.fromHeight(36),
-                ),
-              ),
             ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── EXTENSIONS PANEL (right) ─────────────────────────────────────────────────
-
-class _ExtensionsPanel extends StatelessWidget {
-  final List<Source> filtered;
-  final Map<int, _ExtStatus> statusMap;
-  final Source? selectedSource;
-  final ColorScheme cs;
-  final ValueChanged<Source> onSelectSource;
-  final VoidCallback? onClose;
-
-  const _ExtensionsPanel({
-    required this.filtered,
-    required this.statusMap,
-    required this.selectedSource,
-    required this.cs,
-    required this.onSelectSource,
-    this.onClose,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // ── Header ─────────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            border: Border(
-                bottom: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.5))),
-          ),
-          child: Row(children: [
-            Icon(Icons.extension_rounded, size: 16, color: cs.primary),
-            const SizedBox(width: 7),
-            const Text('Extensions',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '${filtered.length}',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: cs.onPrimaryContainer),
-              ),
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: _running ? null : _resetFilters,
+              icon: const Icon(Icons.restart_alt_rounded, size: 15),
+              label: const Text('Réinitialiser les filtres'),
+              style: TextButton.styleFrom(
+                  foregroundColor: cs.onSurfaceVariant,
+                  visualDensity: VisualDensity.compact),
             ),
-            const Spacer(),
-            if (onClose != null)
-              IconButton(
-                icon: const Icon(Icons.close_rounded, size: 18),
-                onPressed: onClose,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-          ]),
+          ],
         ),
+      ),
+    ]);
+  }
 
-        // ── List ───────────────────────────────────────────────────────
-        Expanded(
-          child: filtered.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.extension_off_rounded,
-                          size: 34, color: cs.outlineVariant),
-                      const SizedBox(height: 8),
-                      Text('Aucune extension',
-                          style: TextStyle(
-                              color: cs.onSurfaceVariant, fontSize: 13)),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                  itemCount: filtered.length,
-                  itemBuilder: (_, i) {
-                    final src = filtered[i];
-                    final status = statusMap[src.id] ?? _ExtStatus.idle;
-                    final selected = selectedSource?.id == src.id;
-                    return _ExtListItem(
-                      source: src,
-                      status: status,
-                      selected: selected,
-                      cs: cs,
-                      onTap: () => onSelectSource(src),
-                    );
-                  },
-                ),
-        ),
+  Widget _panelSectionTitle(ColorScheme cs, String label) => Padding(
+        padding: const EdgeInsets.only(bottom: 7),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+                color: cs.onSurfaceVariant)),
+      );
+
+  Widget _statusChips(ColorScheme cs) {
+    final counts = <_StatusFilter, int>{
+      _StatusFilter.all: _allSources.length,
+      _StatusFilter.ok: _okCount,
+      _StatusFilter.failed: _failCount,
+      _StatusFilter.running:
+          _statusMap.values.where((s) => s == ExtStatus.running).length,
+      _StatusFilter.idle: _allSources
+          .where((s) =>
+              _statusMap[s.id] == null || _statusMap[s.id] == ExtStatus.idle)
+          .length,
+    };
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (final f in _StatusFilter.values)
+          MiniChip(
+            label:
+                '${_statusFilterLabel(f)}${counts[f]! > 0 ? ' (${counts[f]})' : ''}',
+            selected: _statusFilter == f && !_onlyErrors,
+            cs: cs,
+            danger: f == _StatusFilter.failed,
+            onTap: () => setState(() {
+              _statusFilter = f;
+              _onlyErrors = false;
+            }),
+          ),
       ],
     );
   }
+
+  Widget _sortChips(ColorScheme cs) {
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (final m in _SortMode.values)
+          MiniChip(
+            label: switch (m) {
+              _SortMode.name => 'Nom',
+              _SortMode.status => 'Statut',
+              _SortMode.duration => 'Durée',
+            },
+            selected: _sortMode == m,
+            cs: cs,
+            onTap: () => setState(() => _sortMode = m),
+          ),
+      ],
+    );
+  }
+
 }
 
-// ─── PORTRAIT TOOLBAR ─────────────────────────────────────────────────────────
+enum _ToolAction { start, pause, cancel, reset, copy, relaunch }
 
-class _PortraitToolbar extends StatelessWidget {
-  final String title;
-  final bool running;
-  final bool filtersOpen;
-  final bool listOpen;
+// ─── Page navigation bar ─────────────────────────────────────────────────────
+
+class _NavBar extends StatelessWidget {
+  final _DiagView view;
+  final bool panelOpen;
+  final int diagCount;
+  final int extCount;
+  final int resCount;
   final ColorScheme cs;
-  final VoidCallback onBack;
-  final VoidCallback? onStart;
-  final VoidCallback onToggleFilters;
-  final VoidCallback onToggleList;
+  final VoidCallback onPanel;
+  final ValueChanged<_DiagView> onView;
 
-  const _PortraitToolbar({
-    required this.title,
-    required this.running,
-    required this.filtersOpen,
-    required this.listOpen,
+  const _NavBar({
+    required this.view,
+    required this.panelOpen,
+    required this.diagCount,
+    required this.extCount,
+    required this.resCount,
     required this.cs,
-    required this.onBack,
-    required this.onStart,
-    required this.onToggleFilters,
-    required this.onToggleList,
+    required this.onPanel,
+    required this.onView,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+      height: 42,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
+        color: cs.surface,
         border: Border(
-            bottom: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.6))),
+            bottom:
+                BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4))),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: onBack,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+        // Panel opener — controls only, never a page.
+        _NavPill(
+          icon: Icons.tune_rounded,
+          label: 'Panel',
+          active: panelOpen,
+          cs: cs,
+          onTap: onPanel,
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
+        Container(
+            width: 1,
+            height: 18,
+            color: cs.outlineVariant.withValues(alpha: 0.6)),
+        const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            overflow: TextOverflow.ellipsis,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(children: [
+              _NavPill(
+                icon: Icons.science_outlined,
+                label: 'Diagnostic',
+                count: diagCount,
+                active: view == _DiagView.diag,
+                cs: cs,
+                onTap: () => onView(_DiagView.diag),
+              ),
+              const SizedBox(width: 6),
+              _NavPill(
+                icon: Icons.extension_outlined,
+                label: 'Extensions',
+                count: extCount,
+                active: view == _DiagView.extensions,
+                cs: cs,
+                onTap: () => onView(_DiagView.extensions),
+              ),
+              const SizedBox(width: 6),
+              _NavPill(
+                icon: Icons.assessment_outlined,
+                label: 'Résultats',
+                count: resCount,
+                active: view == _DiagView.results,
+                cs: cs,
+                onTap: () => onView(_DiagView.results),
+              ),
+            ]),
           ),
-        ),
-        // Run
-        GestureDetector(
-          onTap: onStart,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: onStart == null
-                  ? cs.surfaceContainerHighest
-                  : cs.primaryContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              running
-                  ? Icons.hourglass_empty_rounded
-                  : Icons.play_arrow_rounded,
-              size: 16,
-              color: onStart == null ? cs.outlineVariant : cs.onPrimaryContainer,
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        IconButton(
-          icon: Icon(Icons.tune_rounded,
-              size: 19,
-              color: filtersOpen ? cs.primary : cs.onSurfaceVariant),
-          onPressed: onToggleFilters,
-          tooltip: 'Filtres',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-        ),
-        IconButton(
-          icon: Icon(Icons.format_list_bulleted_rounded,
-              size: 19,
-              color: listOpen ? cs.primary : cs.onSurfaceVariant),
-          onPressed: onToggleList,
-          tooltip: 'Extensions',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
         ),
       ]),
     );
   }
 }
 
-// ─── Filter panel ─────────────────────────────────────────────────────────────
-
-class _FilterPanel extends StatelessWidget {
-  final List<String> availableLangCodes;
-  final String? filterLangCode;
-  final SourceCodeLanguage? filterType;
-  final bool? filterNsfw;
-  final ColorScheme cs;
-  final ValueChanged<String?> onLangCode;
-  final ValueChanged<SourceCodeLanguage?> onType;
-  final ValueChanged<bool?> onNsfw;
-
-  const _FilterPanel({
-    required this.availableLangCodes,
-    required this.filterLangCode,
-    required this.filterType,
-    required this.filterNsfw,
-    required this.cs,
-    required this.onLangCode,
-    required this.onType,
-    required this.onNsfw,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Langue
-          if (availableLangCodes.isNotEmpty) ...[
-            Text('Langue', style: TextStyle(
-                fontSize: 10, fontWeight: FontWeight.bold,
-                color: cs.onSurfaceVariant, letterSpacing: 0.5)),
-            const SizedBox(height: 5),
-            SizedBox(
-              height: 28,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _MiniChip(
-                    label: 'Toutes',
-                    selected: filterLangCode == null,
-                    cs: cs,
-                    onTap: () => onLangCode(null),
-                  ),
-                  ...availableLangCodes.map((l) => _MiniChip(
-                        label: l.toUpperCase(),
-                        selected: filterLangCode == l,
-                        cs: cs,
-                        onTap: () => onLangCode(filterLangCode == l ? null : l),
-                      )),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-
-          // Type de source
-          Text('Type', style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.bold,
-              color: cs.onSurfaceVariant, letterSpacing: 0.5)),
-          const SizedBox(height: 5),
-          Wrap(
-            spacing: 4, runSpacing: 4,
-            children: [
-              _MiniChip(label: 'Tout', selected: filterType == null, cs: cs,
-                  onTap: () => onType(null)),
-              _MiniChip(label: 'Dart', selected: filterType == SourceCodeLanguage.dart, cs: cs,
-                  onTap: () => onType(filterType == SourceCodeLanguage.dart ? null : SourceCodeLanguage.dart)),
-              _MiniChip(label: 'JS', selected: filterType == SourceCodeLanguage.javascript, cs: cs,
-                  onTap: () => onType(filterType == SourceCodeLanguage.javascript ? null : SourceCodeLanguage.javascript)),
-              _MiniChip(label: 'Mihon', selected: filterType == SourceCodeLanguage.mihon, cs: cs,
-                  onTap: () => onType(filterType == SourceCodeLanguage.mihon ? null : SourceCodeLanguage.mihon)),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // NSFW
-          Text('Contenu', style: TextStyle(
-              fontSize: 10, fontWeight: FontWeight.bold,
-              color: cs.onSurfaceVariant, letterSpacing: 0.5)),
-          const SizedBox(height: 5),
-          Row(children: [
-            _MiniChip(label: 'Tout', selected: filterNsfw == null, cs: cs,
-                onTap: () => onNsfw(null)),
-            const SizedBox(width: 4),
-            _MiniChip(label: 'SFW', selected: filterNsfw == false, cs: cs,
-                onTap: () => onNsfw(filterNsfw == false ? null : false)),
-            const SizedBox(width: 4),
-            _MiniChip(label: 'NSFW', selected: filterNsfw == true, cs: cs,
-                onTap: () => onNsfw(filterNsfw == true ? null : true),
-                danger: true),
-          ]),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Mini chip ────────────────────────────────────────────────────────────────
-
-class _MiniChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final ColorScheme cs;
-  final VoidCallback onTap;
-  final bool danger;
-
-  const _MiniChip({
-    required this.label,
-    required this.selected,
-    required this.cs,
-    required this.onTap,
-    this.danger = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = selected
-        ? (danger ? cs.errorContainer : cs.primaryContainer)
-        : cs.surfaceContainerHigh;
-    final fg = selected
-        ? (danger ? cs.onErrorContainer : cs.onPrimaryContainer)
-        : cs.onSurfaceVariant;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: selected
-                ? (danger ? cs.error : cs.primary)
-                : cs.outlineVariant,
-            width: selected ? 1 : 0.5,
-          ),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                color: fg)),
-      ),
-    );
-  }
-}
-
-// ─── Extension list item ──────────────────────────────────────────────────────
-
-class _ExtListItem extends StatefulWidget {
-  final Source source;
-  final _ExtStatus status;
-  final bool selected;
-  final ColorScheme cs;
-  final VoidCallback onTap;
-
-  const _ExtListItem({
-    required this.source,
-    required this.status,
-    required this.selected,
-    required this.cs,
-    required this.onTap,
-  });
-
-  @override
-  State<_ExtListItem> createState() => _ExtListItemState();
-}
-
-class _ExtListItemState extends State<_ExtListItem>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulse;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 800))
-      ..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final src = widget.source;
-    final status = widget.status;
-
-    Color badgeColor;
-    IconData badgeIcon;
-    bool animate = false;
-
-    switch (status) {
-      case _ExtStatus.idle:
-        badgeColor = cs.outlineVariant;
-        badgeIcon = Icons.circle_outlined;
-        break;
-      case _ExtStatus.running:
-        badgeColor = Colors.amber.shade400;
-        badgeIcon = Icons.pending_rounded;
-        animate = true;
-        break;
-      case _ExtStatus.done:
-        badgeColor = Colors.green.shade500;
-        badgeIcon = Icons.check_circle_rounded;
-        break;
-      case _ExtStatus.failed:
-        badgeColor = cs.error;
-        badgeIcon = Icons.cancel_rounded;
-        break;
-    }
-
-    final bg = widget.selected
-        ? cs.primaryContainer.withValues(alpha: 0.35)
-        : Colors.transparent;
-
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(children: [
-            // Status indicator
-            animate
-                ? AnimatedBuilder(
-                    animation: _pulse,
-                    builder: (_, __) => Icon(badgeIcon,
-                        size: 14,
-                        color: badgeColor.withValues(alpha: 0.4 + 0.6 * _pulse.value)),
-                  )
-                : Icon(badgeIcon, size: 14, color: badgeColor),
-            const SizedBox(width: 8),
-
-            // Icon
-            if ((src.iconUrl ?? '').isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Image.network(
-                  src.iconUrl!,
-                  width: 22, height: 22, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      Icon(Icons.extension_rounded,
-                          size: 22, color: cs.onSurfaceVariant),
-                ),
-              )
-            else
-              Icon(Icons.extension_rounded,
-                  size: 22, color: cs.onSurfaceVariant),
-            const SizedBox(width: 8),
-
-            // Name
-            Expanded(
-              child: Text(
-                src.name ?? '?',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: widget.selected
-                      ? FontWeight.w700
-                      : FontWeight.w500,
-                  color: widget.selected ? cs.primary : cs.onSurface,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-
-            // Lang badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                (src.lang ?? '?').toUpperCase(),
-                style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                    color: cs.onSurfaceVariant,
-                    letterSpacing: 0.5),
-              ),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── WORKSPACE PANEL (center) ─────────────────────────────────────────────────
-
-class _WorkspacePanel extends StatelessWidget {
-  final bool running;
-  final bool started;
-  final bool isComplete;
-  final int done;
-  final int total;
-  final int okCount;
-  final int failCount;
-  final double progress;
-  final String elapsedLabel;
-  final String? savedPath;
-  final String? fullReport;
-  final bool markdownMode;
-  final Source? selectedSource;
-  final ExtDiagResult? selectedResult;
-  final List<String> logLines;
-  final ScrollController logScroll;
-  final ItemType itemType;
-  final ColorScheme cs;
-  final VoidCallback onToggleMarkdown;
-  final VoidCallback onCopyReport;
-
-  const _WorkspacePanel({
-    required this.running,
-    required this.started,
-    required this.isComplete,
-    required this.done,
-    required this.total,
-    required this.okCount,
-    required this.failCount,
-    required this.progress,
-    required this.elapsedLabel,
-    required this.savedPath,
-    required this.fullReport,
-    required this.markdownMode,
-    required this.selectedSource,
-    required this.selectedResult,
-    required this.logLines,
-    required this.logScroll,
-    required this.itemType,
-    required this.cs,
-    required this.onToggleMarkdown,
-    required this.onCopyReport,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // ── Progress header ───────────────────────────────────────────
-        _ProgressHeader(
-          running: running,
-          started: started,
-          isComplete: isComplete,
-          done: done,
-          total: total,
-          okCount: okCount,
-          failCount: failCount,
-          progress: progress,
-          elapsedLabel: elapsedLabel,
-          savedPath: savedPath,
-          fullReport: fullReport,
-          markdownMode: markdownMode,
-          cs: cs,
-          onToggleMarkdown: onToggleMarkdown,
-          onCopyReport: onCopyReport,
-        ),
-
-        // ── Content area (animated between states) ────────────────────
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 280),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.03),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
-              ),
-            ),
-            child: _buildContent(context),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContent(BuildContext context) {
-    // Markdown view (full report)
-    if (markdownMode && fullReport != null) {
-      return _MarkdownView(
-        key: const ValueKey('markdown'),
-        content: fullReport!,
-        cs: cs,
-      );
-    }
-
-    // Not started yet
-    if (!started) {
-      return _EmptyState(
-        key: const ValueKey('ready'),
-        icon: Icons.science_outlined,
-        title: 'Prêt à diagnostiquer',
-        subtitle: 'Sélectionnez vos filtres puis lancez le diagnostic.',
-        cs: cs,
-      );
-    }
-
-    // Nothing selected
-    if (selectedSource == null) {
-      return _EmptyState(
-        key: const ValueKey('pick'),
-        icon: Icons.touch_app_outlined,
-        title: 'Sélectionnez une extension',
-        subtitle: 'Touchez une extension dans la liste pour voir ses résultats.',
-        cs: cs,
-      );
-    }
-
-    // Selected but not yet diagnosed
-    if (selectedResult == null) {
-      return Center(
-        key: const ValueKey('waiting'),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (running)
-              const SizedBox(
-                  width: 28, height: 28,
-                  child: CircularProgressIndicator(strokeWidth: 2.5)),
-            const SizedBox(height: 12),
-            Text(
-              running ? 'Diagnostic en cours…' : 'En attente',
-              style: TextStyle(color: cs.onSurfaceVariant),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Show result detail
-    return _ExtDetailView(
-      key: ValueKey('detail-${selectedResult!.source.id}'),
-      result: selectedResult!,
-      itemType: itemType,
-      cs: cs,
-    );
-  }
-}
-
-// ─── Progress header ──────────────────────────────────────────────────────────
-
-class _ProgressHeader extends StatelessWidget {
-  final bool running;
-  final bool started;
-  final bool isComplete;
-  final int done;
-  final int total;
-  final int okCount;
-  final int failCount;
-  final double progress;
-  final String elapsedLabel;
-  final String? savedPath;
-  final String? fullReport;
-  final bool markdownMode;
-  final ColorScheme cs;
-  final VoidCallback onToggleMarkdown;
-  final VoidCallback onCopyReport;
-
-  const _ProgressHeader({
-    required this.running,
-    required this.started,
-    required this.isComplete,
-    required this.done,
-    required this.total,
-    required this.okCount,
-    required this.failCount,
-    required this.progress,
-    required this.elapsedLabel,
-    required this.savedPath,
-    required this.fullReport,
-    required this.markdownMode,
-    required this.cs,
-    required this.onToggleMarkdown,
-    required this.onCopyReport,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = total == 0 ? 0 : (progress * 100).round();
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        border: Border(bottom: BorderSide(color: cs.outlineVariant)),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final narrow = constraints.maxWidth < 560;
-          return narrow ? _narrowLayout(pct) : _wideLayout(pct);
-        },
-      ),
-    );
-  }
-
-  // ── Shared pieces ───────────────────────────────────────────────────────
-
-  Widget _statusIcon() {
-    if (running) {
-      return SizedBox(
-          width: 14, height: 14,
-          child: CircularProgressIndicator(
-              strokeWidth: 2, color: cs.primary));
-    }
-    if (isComplete) {
-      return Icon(
-        failCount == 0
-            ? Icons.check_circle_rounded
-            : Icons.warning_amber_rounded,
-        size: 16,
-        color: failCount == 0 ? Colors.green : cs.error,
-      );
-    }
-    return Icon(Icons.science_outlined, size: 16, color: cs.onSurfaceVariant);
-  }
-
-  String _statusLabel(int pct) {
-    if (!started) return 'En attente';
-    if (running) return 'En cours — $done / $total ($pct%)';
-    return 'Terminé — $done extensions';
-  }
-
-  Widget _statBadges() {
-    if (!started || done == 0) return const SizedBox.shrink();
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      _StatBadge(label: '✅ $okCount', color: Colors.green.shade600, bg: Colors.green.withValues(alpha: 0.1)),
-      const SizedBox(width: 4),
-      _StatBadge(label: '❌ $failCount', color: cs.error, bg: cs.errorContainer.withValues(alpha: 0.3)),
-      const SizedBox(width: 4),
-      _StatBadge(label: '⏱ $elapsedLabel', color: cs.onSurfaceVariant, bg: cs.surfaceContainerHighest),
-    ]);
-  }
-
-  Widget _elapsedBadge() {
-    return _StatBadge(
-        label: '⏱ $elapsedLabel',
-        color: cs.onSurfaceVariant,
-        bg: cs.surfaceContainerHighest);
-  }
-
-  Widget _actions() {
-    if (fullReport == null) return const SizedBox.shrink();
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      _ActionBtn(
-        icon: markdownMode ? Icons.view_agenda_outlined : Icons.code_rounded,
-        label: markdownMode ? 'Résultats' : 'Markdown',
-        active: markdownMode,
-        cs: cs,
-        onTap: onToggleMarkdown,
-      ),
-      const SizedBox(width: 6),
-      _ActionBtn(
-        icon: Icons.copy_rounded,
-        label: 'Copier MD',
-        cs: cs,
-        onTap: onCopyReport,
-      ),
-    ]);
-  }
-
-  Widget _progressBar() {
-    if (!started) return const SizedBox.shrink();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: LinearProgressIndicator(
-        value: progress,
-        minHeight: 4,
-        backgroundColor: cs.surfaceContainerHighest,
-        valueColor: AlwaysStoppedAnimation(
-            running ? cs.primary : (failCount == 0 ? Colors.green : cs.error)),
-      ),
-    );
-  }
-
-  // ── Wide header (single row) ────────────────────────────────────────────
-
-  Widget _wideLayout(int pct) {
-    return Column(
-      children: [
-        Row(children: [
-          _statusIcon(),
-          const SizedBox(width: 8),
-          Text(
-            _statusLabel(pct),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-          ),
-          const SizedBox(width: 10),
-          _statBadges(),
-          const Spacer(),
-          _actions(),
-        ]),
-        if (started) ...[const SizedBox(height: 6), _progressBar()],
-      ],
-    );
-  }
-
-  // ── Narrow header (two rows) ────────────────────────────────────────────
-
-  Widget _narrowLayout(int pct) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [
-          _statusIcon(),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _statusLabel(pct),
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (started) _elapsedBadge(),
-        ]),
-        if (started && (done > 0 || fullReport != null)) ...[const SizedBox(height: 8),
-          Row(children: [
-            if (done > 0) ...[
-              _StatBadge(label: '✅ $okCount', color: Colors.green.shade600, bg: Colors.green.withValues(alpha: 0.1)),
-              const SizedBox(width: 4),
-              _StatBadge(label: '❌ $failCount', color: cs.error, bg: cs.errorContainer.withValues(alpha: 0.3)),
-            ],
-            const Spacer(),
-            _actions(),
-          ]),
-        ],
-        if (started) ...[const SizedBox(height: 8), _progressBar()],
-      ],
-    );
-  }
-}
-
-class _StatBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Color bg;
-  const _StatBadge({required this.label, required this.color, required this.bg});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-          color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-    );
-  }
-}
-
-class _ActionBtn extends StatelessWidget {
+class _NavPill extends StatelessWidget {
   final IconData icon;
   final String label;
+  final int? count;
   final bool active;
   final ColorScheme cs;
   final VoidCallback onTap;
 
-  const _ActionBtn({
+  const _NavPill({
     required this.icon,
     required this.label,
+    required this.active,
     required this.cs,
     required this.onTap,
-    this.active = false,
+    this.count,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: active ? cs.primaryContainer : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: active ? cs.primary : cs.outlineVariant),
+    final bg = active ? cs.primaryContainer : cs.surfaceContainerHigh;
+    final fg = active ? cs.onPrimaryContainer : cs.onSurfaceVariant;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: fg),
+            const SizedBox(width: 5),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color: fg)),
+            if (count != null && count! > 0) ...[const SizedBox(width: 5),
+              Text('$count',
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: active
+                          ? cs.onPrimaryContainer.withValues(alpha: 0.75)
+                          : cs.onSurfaceVariant.withValues(alpha: 0.75))),
+            ],
+          ]),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 14,
-              color: active ? cs.primary : cs.onSurfaceVariant),
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: active ? cs.primary : cs.onSurfaceVariant)),
-        ]),
       ),
     );
   }
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
+class _MenuTile extends StatelessWidget {
+  final String label;
   final IconData icon;
-  final String title;
-  final String subtitle;
-  final ColorScheme cs;
-
-  const _EmptyState({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.cs,
-  });
+  const _MenuTile(this.label, this.icon);
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48, color: cs.outlineVariant),
-          const SizedBox(height: 12),
-          Text(title,
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: cs.onSurface)),
-          const SizedBox(height: 6),
-          Text(subtitle,
-              style: TextStyle(
-                  fontSize: 12, color: cs.onSurfaceVariant),
-              textAlign: TextAlign.center),
-        ],
-      ),
-    );
+    return Row(children: [
+      Icon(icon, size: 17),
+      const SizedBox(width: 10),
+      Text(label, style: const TextStyle(fontSize: 13)),
+    ]);
   }
 }
 
-// ─── Extension detail view ────────────────────────────────────────────────────
+// ─── Run status card (compact dashboard) ─────────────────────────────────────
 
-class _ExtDetailView extends StatelessWidget {
-  final ExtDiagResult result;
-  final ItemType itemType;
+class _StatusCard extends StatelessWidget {
+  final bool running;
+  final bool paused;
+  final bool cancelling;
+  final bool started;
+  final bool interrupted;
+  final bool complete;
+  final int done;
+  final int total;
+  final int okCount;
+  final int failCount;
+  final double progress;
+  final String elapsedLabel;
   final ColorScheme cs;
+  final VoidCallback? onStart;
+  final VoidCallback? onPause;
+  final VoidCallback? onCancel;
 
-  const _ExtDetailView({
+  const _StatusCard({
     super.key,
-    required this.result,
-    required this.itemType,
+    required this.running,
+    required this.paused,
+    required this.cancelling,
+    required this.started,
+    required this.interrupted,
+    required this.complete,
+    required this.done,
+    required this.total,
+    required this.okCount,
+    required this.failCount,
+    required this.progress,
+    required this.elapsedLabel,
     required this.cs,
+    required this.onStart,
+    required this.onPause,
+    required this.onCancel,
   });
 
-  String _fmtMs(int ms) {
-    if (ms == 0) return '—';
-    if (ms < 1000) return '${ms}ms';
-    final s = ms ~/ 1000;
-    return '${s}.${((ms % 1000) ~/ 100)}s';
+  String get _stateLabel {
+    if (!started) return 'Prêt à diagnostiquer';
+    if (cancelling) return 'Annulation…';
+    if (paused) return 'En pause';
+    if (running) return 'Diagnostic en cours';
+    if (interrupted) return 'Interrompu';
+    if (complete) {
+      return failCount == 0 ? 'Diagnostic terminé' : 'Terminé avec erreurs';
+    }
+    return 'Prêt';
   }
+
+  int get _pct => total == 0 ? 0 : (progress * 100).round();
 
   @override
   Widget build(BuildContext context) {
-    final src = result.source;
-    final allOk = result.allOk;
+    final showProgress = started && total > 0;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Extension header ─────────────────────────────────────────
-          Row(children: [
-            if ((src.iconUrl ?? '').isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  src.iconUrl!,
-                  width: 40, height: 40, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      Icon(Icons.extension_rounded, size: 40,
-                          color: cs.onSurfaceVariant),
-                ),
-              )
-            else
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.extension_rounded,
-                    size: 22, color: cs.onSurfaceVariant),
-              ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(src.name ?? 'Unknown',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 17)),
-                  const SizedBox(height: 2),
-                  Row(children: [
-                    _TagBadge(
-                        label: (src.lang ?? '?').toUpperCase(), cs: cs),
-                    const SizedBox(width: 4),
-                    if (src.sourceCodeLanguage != null)
-                      _TagBadge(
-                          label: src.sourceCodeLanguage!.name, cs: cs,
-                          color: cs.secondaryContainer,
-                          textColor: cs.onSecondaryContainer),
-                    if (src.isNsfw == true) ...[
-                      const SizedBox(width: 4),
-                      _TagBadge(label: 'NSFW', cs: cs,
-                          color: cs.errorContainer.withValues(alpha: 0.6),
-                          textColor: cs.onErrorContainer),
-                    ],
-                  ]),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          _statusOrb(cs),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: allOk
-                        ? Colors.green.withValues(alpha: 0.12)
-                        : cs.errorContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(10),
+                Row(children: [
+                  Flexible(
+                    child: Text(_stateLabel,
+                        style: const TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis),
                   ),
-                  child: Text(
-                    allOk ? '✅ Tout OK' : '❌ ${result.failCount} échec(s)',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: allOk
-                            ? Colors.green.shade700
-                            : cs.onErrorContainer),
+                  if (showProgress) ...[const SizedBox(width: 8),
+                    Text('$_pct%',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: running ? cs.primary : cs.onSurfaceVariant,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ])),
+                  ],
+                ]),
+                if (showProgress) ...[const SizedBox(height: 2),
+                  Text(
+                    '$done / $total extensions analysées · $elapsedLabel',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(_fmtMs(result.totalMs),
-                    style: TextStyle(
-                        fontSize: 11, color: cs.onSurfaceVariant)),
+                ] else
+                  Text(
+                    'Lancez l’analyse pour tester chaque étape (Popular · Latest · Détail · Médias).',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
               ],
             ),
-          ]),
-
-          const SizedBox(height: 16),
-
-          // ── Step cards grid ──────────────────────────────────────────
-          Text('Étapes du diagnostic',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: cs.onSurface)),
-          const SizedBox(height: 8),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.8,
-            children: DiagStep.values.map((step) {
-              final stepResult = result.steps[step];
-              return _StepCard(
-                  step: step,
-                  result: stepResult,
-                  cs: cs,
-                  itemType: itemType);
-            }).toList(),
           ),
-
-          // ── Error details ─────────────────────────────────────────
-          if (result.anyFailed) ...[
-            const SizedBox(height: 16),
-            Text('Erreurs détaillées',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: cs.error)),
-            const SizedBox(height: 8),
-            ...result.steps.entries
-                .where((e) => !e.value.ok && e.value.error != null)
-                .map((e) => _ErrorRow(
-                    step: e.key,
-                    error: e.value.error!,
-                    cs: cs,
-                    itemType: itemType)),
-          ],
-
-          // ── Media preview ─────────────────────────────────────────
-          if (result.steps[DiagStep.media]?.ok == true &&
-              result.previewUrls.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _MediaPreviewSection(
-              previewUrls: result.previewUrls,
-              mediaCount: result.steps[DiagStep.media]?.count ?? 0,
-              itemType: itemType,
-              cs: cs,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TagBadge extends StatelessWidget {
-  final String label;
-  final ColorScheme cs;
-  final Color? color;
-  final Color? textColor;
-
-  const _TagBadge({
-    required this.label,
-    required this.cs,
-    this.color,
-    this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color ?? cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-              color: textColor ?? cs.onSurfaceVariant,
-              letterSpacing: 0.3)),
-    );
-  }
-}
-
-// ─── Step card ────────────────────────────────────────────────────────────────
-
-class _StepCard extends StatelessWidget {
-  final DiagStep step;
-  final DiagStepResult? result;
-  final ColorScheme cs;
-  final ItemType itemType;
-
-  const _StepCard({
-    required this.step,
-    required this.result,
-    required this.cs,
-    required this.itemType,
-  });
-
-  String get _stepName => switch (step) {
-        DiagStep.popular => 'Popular',
-        DiagStep.latest  => 'Latest',
-        DiagStep.detail  => 'Détail',
-        DiagStep.media   => itemType == ItemType.anime ? 'Vidéos' : 'Pages',
-      };
-
-  IconData get _stepIcon => switch (step) {
-        DiagStep.popular => Icons.list_alt_rounded,
-        DiagStep.latest  => Icons.update_rounded,
-        DiagStep.detail  => Icons.info_outline_rounded,
-        DiagStep.media   => itemType == ItemType.anime
-            ? Icons.play_circle_outline_rounded
-            : Icons.auto_stories_rounded,
-      };
-
-  String _fmtMs(int ms) {
-    if (ms == 0) return '—';
-    if (ms < 1000) return '${ms}ms';
-    final s = ms ~/ 1000;
-    return '${s}.${((ms % 1000) ~/ 100)}s';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (result == null) {
-      return _cardShell(
-        bg: cs.surfaceContainerHighest,
-        border: cs.outlineVariant,
-        child: Row(children: [
-          Icon(_stepIcon, size: 18, color: cs.outlineVariant),
-          const SizedBox(width: 8),
-          Text(_stepName,
-              style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: cs.outlineVariant)),
-          const Spacer(),
-          Icon(Icons.hourglass_empty_rounded,
-              size: 14, color: cs.outlineVariant),
         ]),
-      );
-    }
-
-    final ok = result!.ok;
-    final bg = ok
-        ? Colors.green.withValues(alpha: 0.08)
-        : cs.errorContainer.withValues(alpha: 0.25);
-    final border = ok
-        ? Colors.green.withValues(alpha: 0.3)
-        : cs.error.withValues(alpha: 0.4);
-    final fg = ok ? Colors.green.shade700 : cs.error;
-
-    return _cardShell(
-      bg: bg,
-      border: border,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(children: [
-            Icon(_stepIcon, size: 16, color: fg),
-            const SizedBox(width: 6),
-            Text(_stepName,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: fg)),
-            const Spacer(),
-            Icon(
-                ok ? Icons.check_rounded : Icons.close_rounded,
-                size: 14, color: fg),
-          ]),
-          const SizedBox(height: 4),
-          Row(children: [
-            if (result!.count != null)
-              Text('${result!.count} résultats',
-                  style: TextStyle(
-                      fontSize: 10.5, color: fg.withValues(alpha: 0.85)))
-            else if (result!.error != null)
-              Expanded(
-                child: Text(
-                  result!.error!,
-                  style: TextStyle(
-                      fontSize: 9.5,
-                      color: fg.withValues(alpha: 0.85),
-                      fontFamily: 'monospace'),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-            const Spacer(),
-            Text(_fmtMs(result!.ms),
-                style: TextStyle(
-                    fontSize: 10,
-                    color: fg.withValues(alpha: 0.7))),
-          ]),
-        ],
-      ),
-    );
-  }
-
-  Widget _cardShell({
-    required Color bg,
-    required Color border,
-    required Widget child,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border),
-      ),
-      child: child,
-    );
-  }
-}
-
-// ─── Error row ────────────────────────────────────────────────────────────────
-
-class _ErrorRow extends StatelessWidget {
-  final DiagStep step;
-  final String error;
-  final ColorScheme cs;
-  final ItemType itemType;
-
-  const _ErrorRow({
-    required this.step,
-    required this.error,
-    required this.cs,
-    required this.itemType,
-  });
-
-  String get _stepName => switch (step) {
-        DiagStep.popular => 'Popular',
-        DiagStep.latest  => 'Latest',
-        DiagStep.detail  => 'Détail',
-        DiagStep.media   => itemType == ItemType.anime ? 'Vidéos' : 'Pages',
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cs.errorContainer.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.error.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.warning_amber_rounded,
-              size: 14, color: cs.error),
-          const SizedBox(width: 8),
-          Text('[$_stepName] ',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11.5,
-                  color: cs.error)),
-          Expanded(
-            child: SelectableText(
-              error,
-              style: TextStyle(
-                  fontSize: 11.5,
-                  fontFamily: 'monospace',
-                  color: cs.onSurface),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Media preview section ────────────────────────────────────────────────────
-
-class _MediaPreviewSection extends StatefulWidget {
-  final List<DiagMediaUrl> previewUrls;
-  final int mediaCount;
-  final ItemType itemType;
-  final ColorScheme cs;
-
-  const _MediaPreviewSection({
-    required this.previewUrls,
-    required this.mediaCount,
-    required this.itemType,
-    required this.cs,
-  });
-
-  @override
-  State<_MediaPreviewSection> createState() => _MediaPreviewSectionState();
-}
-
-class _MediaPreviewSectionState extends State<_MediaPreviewSection> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final isAnime = widget.itemType == ItemType.anime;
-    final urls = widget.previewUrls;
-    final count = widget.mediaCount;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-              child: Row(children: [
-                Icon(
-                  isAnime
-                      ? Icons.play_circle_outline_rounded
-                      : Icons.auto_stories_rounded,
-                  size: 18, color: cs.primary),
-                const SizedBox(width: 8),
-                Text(
-                  isAnime ? 'Prévisualisation vidéo' : 'Prévisualisation pages',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: cs.onSurface)),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text('$count sources',
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onPrimaryContainer)),
-                ),
-                const Spacer(),
-                Text(
-                  _expanded ? 'Masquer' : 'Afficher',
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      color: cs.primary,
-                      fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                Icon(
-                  _expanded
-                      ? Icons.expand_less_rounded
-                      : Icons.expand_more_rounded,
-                  size: 18, color: cs.primary),
-              ]),
-            ),
-          ),
-          if (_expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: isAnime
-                  ? DiagVideoPreview(urls: urls, cs: cs)
-                  : _PagePreview(urls: urls, cs: cs),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Page preview (manga) — placeholder to keep file compiling ────────────────
-
-class _FakeVideoPreviewPlaceholder {
-  // _VideoPreview removed — now handled by DiagVideoPreview (conditional import)
-  // See diag_video_preview.dart / diag_video_preview_io.dart / diag_video_preview_web.dart
-}
-
-// ─── Page preview (manga) ─────────────────────────────────────────────────────
-
-class _PagePreview extends StatefulWidget {
-  final List<DiagMediaUrl> urls;
-  final ColorScheme cs;
-
-  const _PagePreview({required this.urls, required this.cs});
-
-  @override
-  State<_PagePreview> createState() => _PagePreviewState();
-}
-
-class _PagePreviewState extends State<_PagePreview> {
-  final PageController _pageCtrl = PageController();
-  int _currentPage = 0;
-
-  @override
-  void dispose() {
-    _pageCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final urls = widget.urls;
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left_rounded),
-              onPressed: _currentPage > 0
-                  ? () {
-                      _pageCtrl.previousPage(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut);
-                    }
-                  : null,
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            Text(
-              'Page ${_currentPage + 1} / ${urls.length}',
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurface),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right_rounded),
-              onPressed: _currentPage < urls.length - 1
-                  ? () {
-                      _pageCtrl.nextPage(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut);
-                    }
-                  : null,
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 300,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: PageView.builder(
-              controller: _pageCtrl,
-              itemCount: urls.length,
-              onPageChanged: (i) => setState(() => _currentPage = i),
-              itemBuilder: (_, i) {
-                final url = urls[i];
-                return Image.network(
-                  url.url,
-                  headers: url.headers,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (_, child, progress) {
-                    if (progress == null) return child;
-                    return Center(
-                      child: CircularProgressIndicator(
-                        value: progress.expectedTotalBytes != null
-                            ? progress.cumulativeBytesLoaded /
-                                progress.expectedTotalBytes!
-                            : null,
-                        color: cs.primary,
-                        strokeWidth: 2,
+        // Thin rounded animated progress bar
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          child: showProgress
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 9),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: progress),
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeOutCubic,
+                      builder: (_, v, __) => LinearProgressIndicator(
+                        value: v,
+                        minHeight: 3,
+                        backgroundColor: cs.surfaceContainerHighest,
+                        valueColor: AlwaysStoppedAnimation(paused
+                            ? Colors.amber.shade600
+                            : cancelling || interrupted
+                                ? cs.error
+                                : complete && failCount == 0
+                                    ? Colors.green.shade500
+                                    : cs.primary),
                       ),
-                    );
-                  },
-                  errorBuilder: (_, __, ___) => Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.broken_image_rounded,
-                            size: 40, color: cs.outlineVariant),
-                        const SizedBox(height: 8),
-                        Text('Image inaccessible',
-                            style: TextStyle(
-                                color: cs.onSurfaceVariant, fontSize: 12)),
-                      ],
                     ),
                   ),
-                );
-              },
-            ),
-          ),
+                )
+              : const SizedBox.shrink(),
         ),
-      ],
-    );
-  }
-}
-
-// ─── Markdown view ────────────────────────────────────────────────────────────
-
-class _MarkdownView extends StatelessWidget {
-  final String content;
-  final ColorScheme cs;
-
-  const _MarkdownView({super.key, required this.content, required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = content.split('\n');
-
-    return Container(
-      color: cs.surfaceContainerLowest,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: lines.length,
-        itemBuilder: (_, i) {
-          final line = lines[i];
-          return _MarkdownLine(line: line, cs: cs);
-        },
-      ),
-    );
-  }
-}
-
-class _MarkdownLine extends StatelessWidget {
-  final String line;
-  final ColorScheme cs;
-
-  const _MarkdownLine({required this.line, required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    if (line.isEmpty) return const SizedBox(height: 4);
-
-    // H1
-    if (line.startsWith('# ')) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8, top: 4),
-        child: SelectableText(
-          line.substring(2),
-          style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-              color: cs.onSurface),
-        ),
-      );
-    }
-    // H2
-    if (line.startsWith('## ')) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 6, top: 8),
-        child: SelectableText(
-          line.substring(3),
-          style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-              color: cs.primary),
-        ),
-      );
-    }
-    // H3
-    if (line.startsWith('### ')) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 4, top: 6),
-        child: SelectableText(
-          line.substring(4),
-          style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: cs.onSurface),
-        ),
-      );
-    }
-    // Table separator
-    if (RegExp(r'^\|[-|: ]+\|$').hasMatch(line)) {
-      return Divider(height: 1, color: cs.outlineVariant);
-    }
-    // Table row
-    if (line.startsWith('|') && line.endsWith('|')) {
-      final cells = line
-          .split('|')
-          .where((c) => c.isNotEmpty)
-          .map((c) => c.trim())
-          .toList();
-      return Container(
-        decoration: BoxDecoration(
-          border: Border(
-              bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
-        ),
-        child: Row(
-          children: cells.map((c) {
-            final bold = c.startsWith('**') && c.endsWith('**');
-            final text = bold ? c.substring(2, c.length - 2) : c;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 5, horizontal: 8),
-                child: SelectableText(
-                  text,
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight:
-                          bold ? FontWeight.bold : FontWeight.normal,
-                      color: cs.onSurface),
+        if (started && total > 0) ...[const SizedBox(height: 9),
+          Row(children: [
+            _StatPill(
+                icon: Icons.check_rounded,
+                value: okCount,
+                color: Colors.green.shade600,
+                cs: cs),
+            const SizedBox(width: 6),
+            _StatPill(
+                icon: Icons.close_rounded,
+                value: failCount,
+                color: cs.error,
+                cs: cs),
+            const Spacer(),
+            if (complete && okCount == total)
+              Text('Toutes les sources répondent ✓',
+                  style:
+                      TextStyle(fontSize: 10.5, color: Colors.green.shade700))
+            else if (interrupted)
+              Text('${total - done} non analysée(s)',
+                  style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant))
+            else
+              Text('${(done - okCount - failCount).clamp(0, 999)} restantes',
+                  style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant)),
+          ]),
+        ],
+        // Run / pause / cancel / relaunch
+        if (!started || complete || running || interrupted) ...[const SizedBox(height: 10),
+          if (running)
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onPause,
+                  icon: Icon(
+                      paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                      size: 16),
+                  label: Text(paused ? 'Reprendre' : 'Pause',
+                      style: const TextStyle(fontSize: 12.5)),
+                  style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
                 ),
               ),
-            );
-          }).toList(),
-        ),
-      );
-    }
-    // Code block delimiter
-    if (line.trim() == '```') {
-      return Divider(color: cs.outlineVariant, height: 4);
-    }
-    // Horizontal rule
-    if (line.trim() == '---') {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Divider(color: cs.outlineVariant, thickness: 1),
-      );
-    }
-    // Summary / details tags (raw)
-    if (line.startsWith('<')) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 1),
-        child: SelectableText(
-          line,
-          style: TextStyle(
-              fontSize: 10.5,
-              fontFamily: 'monospace',
-              color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
-        ),
-      );
-    }
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: cancelling ? null : onCancel,
+                  icon: const Icon(Icons.stop_rounded, size: 16),
+                  label: Text(cancelling ? 'Annulation…' : 'Annuler',
+                      style: const TextStyle(fontSize: 12.5)),
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: cs.error,
+                      visualDensity: VisualDensity.compact),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: onStart,
+                  icon: const Icon(Icons.replay_rounded, size: 16),
+                  label: Text(interrupted ? 'Relancer' : 'Relancer',
+                      style: const TextStyle(fontSize: 12.5)),
+                  style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                ),
+              ),
+            ])
+          else
+            FilledButton.icon(
+              onPressed: onStart,
+              icon: const Icon(Icons.play_arrow_rounded, size: 17),
+              label: Text(
+                  started ? 'Relancer le diagnostic' : 'Lancer le diagnostic',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(38),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11)),
+              ),
+            ),
+        ],
+      ]),
+    );
+  }
 
-    // Default text
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1.5),
-      child: SelectableText(
-        line,
-        style: TextStyle(fontSize: 12.5, color: cs.onSurface),
+  Widget _statusOrb(ColorScheme cs) {
+    final (icon, color, spin) = (!started)
+        ? (Icons.science_outlined, cs.onSurfaceVariant, false)
+        : cancelling
+            ? (Icons.stop_circle_outlined, cs.error, false)
+            : paused
+                ? (Icons.pause_circle_outline_rounded, Colors.amber.shade700, false)
+                : running
+                    ? (Icons.radar_rounded, cs.primary, true)
+                    : interrupted
+                        ? (Icons.error_outline_rounded, cs.error, false)
+                        : complete && failCount == 0
+                            ? (Icons.check_circle_rounded, Colors.green.shade600, false)
+                            : (Icons.warning_amber_rounded, cs.error, false);
+
+    Widget inner = Icon(icon, size: 20, color: color);
+    if (spin) {
+      inner = SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: color));
+    }
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        shape: BoxShape.circle,
       ),
+      child: Center(child: inner),
     );
   }
 }
+
+class _StatPill extends StatelessWidget {
+  final IconData icon;
+  final int value;
+  final Color color;
+  final ColorScheme cs;
+
+  const _StatPill({
+    required this.icon,
+    required this.value,
+    required this.color,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 13, color: color),
+        const SizedBox(width: 4),
+        Text('$value',
+            style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: color,
+                fontFeatures: const [FontFeature.tabularFigures()])),
+      ]),
+    );
+  }
+}
+
+// ─── Status legend (extensions page) ─────────────────────────────────────────
+
+class _StatusLegend extends StatelessWidget {
+  final int tested;
+  final int ok;
+  final int fail;
+  final int scopeSelected;
+  final ColorScheme cs;
+
+  const _StatusLegend({
+    required this.tested,
+    required this.ok,
+    required this.fail,
+    required this.scopeSelected,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        border: Border(
+            bottom:
+                BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Text(
+            'Cochez les extensions à tester · $scopeSelected sélectionnées',
+            style: const TextStyle(fontSize: 11.5),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        _DotLegend(label: 'OK', color: Colors.green.shade500, value: ok, cs: cs),
+        const SizedBox(width: 8),
+        _DotLegend(label: 'Err.', color: cs.error, value: fail, cs: cs),
+        const SizedBox(width: 8),
+        _DotLegend(
+            label: 'Testées', color: cs.onSurfaceVariant, value: tested, cs: cs),
+      ]),
+    );
+  }
+}
+
+class _DotLegend extends StatelessWidget {
+  final String label;
+  final Color color;
+  final int value;
+  final ColorScheme cs;
+
+  const _DotLegend({
+    required this.label,
+    required this.color,
+    required this.value,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 3),
+      Text('$value',
+          style: TextStyle(
+              fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+      const SizedBox(width: 3),
+      Text(label, style: TextStyle(fontSize: 9.5, color: cs.onSurfaceVariant)),
+    ]);
+  }
+}
+
+// __PART_F_END__

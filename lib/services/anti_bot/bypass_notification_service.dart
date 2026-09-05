@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -126,6 +127,17 @@ class BypassNotificationService {
     );
   }
 
+  /// Burst coalescing: several sources can be blocked at once (a refresh
+  /// hitting many anti-bot hosts), so notifications are batched per ~700 ms
+  /// window and the same host is never re-notified twice within 20 s.
+  final Map<String, List<String>> _pending = {}; // host -> urls
+  final Map<String, DateTime> _lastNotified = {};
+  Timer? _flushTimer;
+  DateTime? _lastVibrate;
+
+  static const _kMinHostInterval = Duration(seconds: 20);
+  static const _kVibrateInterval = Duration(seconds: 12);
+
   Future<void> notifyChallengeDetected({
     required String url,
     int id = 9900,
@@ -133,17 +145,68 @@ class BypassNotificationService {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
     if (!_initialized) await init();
     final host = _hostFrom(url);
+
+    // Suppress repeats of the same host while a notification is still fresh.
+    final last = _lastNotified[host];
+    if (last != null &&
+        DateTime.now().difference(last) < _kMinHostInterval) {
+      return;
+    }
+
+    _pending.putIfAbsent(host, () => []).add(url);
+    _flushTimer ??= Timer(const Duration(milliseconds: 700), () {
+      _flushTimer = null;
+      unawaited(_flushBatch(id));
+    });
+  }
+
+  Future<void> _flushBatch(int id) async {
+    if (_pending.isEmpty) return;
+    final snapshot = Map<String, List<String>>.from(_pending);
+    _pending.clear();
+    final now = DateTime.now();
+
+    for (final host in snapshot.keys) {
+      _lastNotified[host] = now;
+    }
+    // Bound the map so long sessions don't grow forever.
+    while (_lastNotified.length > 40) {
+      final oldest = _lastNotified.entries
+          .reduce((a, b) => a.value.isBefore(b.value) ? a : b);
+      _lastNotified.remove(oldest.key);
+    }
+
+    final vibrate = _lastVibrate == null ||
+        now.difference(_lastVibrate!) >= _kVibrateInterval;
+    if (vibrate) _lastVibrate = now;
+
+    var firstUrl = '';
+    for (final list in snapshot.values) {
+      if (list.isNotEmpty) {
+        firstUrl = list.first;
+        break;
+      }
+    }
+    final total = snapshot.values.fold<int>(0, (a, l) => a + l.length);
+    final title = total == 1
+        ? '🛡 Source bloquée — ${snapshot.keys.first}'
+        : '🛡 $total sources bloquées par un anti-bot';
+    final body = total == 1
+        ? 'Touche pour résoudre le challenge Cloudflare'
+        : '${snapshot.keys.take(3).join(', ')}${snapshot.length > 3 ? '…' : ''} — touche pour résoudre';
+
     try {
-      const androidDetails = AndroidNotificationDetails(
+      final androidDetails = AndroidNotificationDetails(
         _kChannelId,
         _kChannelName,
         channelDescription: _kChannelDesc,
         importance: Importance.high,
         priority: Priority.high,
         ticker: 'Source bloquée',
-        styleInformation: BigTextStyleInformation(''),
+        styleInformation: BigTextStyleInformation(body),
         playSound: false,
-        enableVibration: true,
+        enableVibration: vibrate && total <= 3,
+        groupKey: 'watchtower_antibot',
       );
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
@@ -156,10 +219,10 @@ class BypassNotificationService {
       );
       await _plugin.show(
         id,
-        '🛡 Source bloquée — $host',
-        'Touche pour résoudre le challenge Cloudflare',
+        title,
+        body,
         details,
-        payload: url,
+        payload: firstUrl,
       );
     } catch (e) {
       AppLogger.log(
