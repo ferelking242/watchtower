@@ -1,5 +1,5 @@
 // Watch hero carousel — evolution of the flutter_netflix highlight banner.
-// Design refs: Netflix / Disney+ mobile heroes — landscape ~16:9-ish backdrop,
+// Design refs: Netflix / Disney+ mobile heroes — landscape backdrop,
 // gradient scrims (never a solid black bar), auto-rotation with dot indicator,
 // action row: Ma liste (library toggle) • Lecture (play) • Info (bottom sheet).
 import 'dart:async';
@@ -12,17 +12,16 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart'
     show pushToMangaReaderDetail;
 import 'nf_bottom_sheet.dart';
 import 'nf_favorite.dart';
-import 'nf_new_and_hot_tile_action.dart';
 import 'nf_poster_image.dart';
 import 'nf_utils.dart';
 
-/// Landscape hero height — cinematic ~2:1.2 ratio, clamped so it never eats
-/// more than 52% of the screen height (leaves room for a peek of the next
-/// section, like the MovieBox / Disney+ mobile heroes).
+/// Landscape hero height — generous cinematic frame so the artwork feels like
+/// a proper spotlight, clamped so it never eats more than 60% of the screen
+/// height (leaves a peek of the next section below).
 double heroCarouselHeight(BuildContext context) {
   final size = MediaQuery.of(context).size;
-  final h = size.width * 0.78;
-  return h.clamp(0.0, size.height * 0.52);
+  final h = size.width * 0.92;
+  return h.clamp(0.0, size.height * 0.60);
 }
 
 class NfHeroCarousel extends ConsumerStatefulWidget {
@@ -90,9 +89,11 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
     _armTimer(); // restart countdown after manual swipe
   }
 
+  MManga get _current =>
+      widget.items[_page.clamp(0, widget.items.length - 1)];
+
   void _toggleList() {
-    final current = widget.items[_page.clamp(0, widget.items.length - 1)];
-    setState(() => _inList = toggleMangaInList(widget.source, current));
+    setState(() => _inList = toggleMangaInList(widget.source, _current));
   }
 
   void _play(MManga manga) => pushToMangaReaderDetail(
@@ -126,6 +127,13 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
     if (items.isEmpty) return const SizedBox.shrink();
     final width = MediaQuery.of(context).size.width;
     final height = heroCarouselHeight(context);
+    final topPad = MediaQuery.paddingOf(context).top;
+
+    final current = _current;
+    final genres = (current.genre ?? const <String>[])
+        .where((g) => g.trim().isNotEmpty)
+        .take(3)
+        .toList();
 
     return SizedBox(
       width: width,
@@ -175,13 +183,13 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
             bottom: 0,
             left: 0,
             right: 0,
-            height: height * 0.72,
+            height: height * 0.68,
             child: const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  stops: [0.0, 0.55, 1.0],
+                  stops: [0.0, 0.45, 1.0],
                   colors: [
                     Colors.transparent,
                     Colors.black54,
@@ -192,6 +200,23 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
             ),
           ),
 
+          // ── Genre badge — corner chip under the app bar ─────────────────
+          if (genres.isNotEmpty)
+            Positioned(
+              top: topPad + kToolbarHeight + 10,
+              left: 16,
+              child: IgnorePointer(
+                child: Row(
+                  children: [
+                    for (var i = 0; i < genres.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 6),
+                      _HeroGenreChip(genre: genres[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
           // ── Bottom content: title, dots, actions ─────────────────────────
           Positioned(
             bottom: 0,
@@ -201,24 +226,24 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
               top: false,
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Title
                     Text(
-                      items[_page.clamp(0, items.length - 1)].name ?? '',
+                      current.name ?? '',
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: 25,
                         fontWeight: FontWeight.w900,
-                        height: 1.15,
+                        height: 1.12,
                         letterSpacing: -0.3,
                         shadows: [
-                          Shadow(color: Colors.black87, blurRadius: 14),
+                          Shadow(color: Colors.black87, blurRadius: 16),
                         ],
                       ),
                     ),
@@ -247,42 +272,36 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
                       const SizedBox(height: 12),
                     ],
 
-                    // Action row — Ma liste • Lecture • Info
+                    // Action trio — Ma liste • Lecture • Info (equal weight,
+                    // fluid thirds so it never overflows on narrow screens)
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        NfNewAndHotTileAction(
-                          icon: _inList
-                              ? Icons.check_rounded
-                              : Icons.add_rounded,
-                          label: _inList ? 'Ajouté' : 'Ma liste',
-                          onTap: _toggleList,
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 22.0, vertical: 6.0),
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            elevation: 4,
-                            shadowColor: Colors.black54,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          onPressed: () =>
-                              _play(items[_page.clamp(0, items.length - 1)]),
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text(
-                            'Lecture',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                        Expanded(
+                          child: _HeroAction(
+                            icon: _inList
+                                ? Icons.check_rounded
+                                : Icons.add_rounded,
+                            label: _inList ? 'Ajouté' : 'Ma liste',
+                            onTap: _toggleList,
+                            filled: false,
                           ),
                         ),
-                        NfNewAndHotTileAction(
-                          icon: Icons.info_outline_rounded,
-                          label: 'Info',
-                          onTap: () =>
-                              _info(items[_page.clamp(0, items.length - 1)]),
+                        Expanded(
+                          child: _HeroAction(
+                            icon: Icons.play_arrow_rounded,
+                            label: 'Lecture',
+                            onTap: () => _play(_current),
+                            filled: true,
+                          ),
+                        ),
+                        Expanded(
+                          child: _HeroAction(
+                            icon: Icons.info_outline_rounded,
+                            label: 'Info',
+                            onTap: () => _info(_current),
+                            filled: false,
+                          ),
                         ),
                       ],
                     ),
@@ -292,6 +311,113 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Small frosted genre chip (hero corner) ────────────────────────────────────
+
+class _HeroGenreChip extends StatelessWidget {
+  const _HeroGenreChip({required this.genre});
+
+  final String genre;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Text(
+        genre,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Hero action — circular icon + caption, Netflix-style ──────────────────────
+
+class _HeroAction extends StatelessWidget {
+  const _HeroAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.filled,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: filled ? 58 : 50,
+              height: filled ? 58 : 50,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: filled
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.13),
+                border: filled
+                    ? null
+                    : Border.all(
+                        color: Colors.white.withValues(alpha: 0.40),
+                        width: 1.2,
+                      ),
+                boxShadow: filled
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                icon,
+                color: filled ? Colors.black : Colors.white,
+                size: filled ? 27 : 21,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                shadows: [Shadow(color: Colors.black87, blurRadius: 8)],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -24,8 +24,10 @@ import 'package:watchtower/services/search.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/ui/widgets/see_all_button.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'nf_widgets/nf_app_bar.dart';
 import 'nf_widgets/nf_highlight_banner.dart';
+import 'nf_widgets/nf_menu_panel.dart';
 import 'nf_widgets/nf_movie_box.dart';
 import 'nf_widgets/nf_new_and_hot_tile.dart';
 import 'nf_widgets/nf_utils.dart';
@@ -63,6 +65,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   // ── Search view state ──────────────────────────────────────────────────
   bool   _isSearching  = false;
   String _query        = '';
+
+  // ── Sidebar menu (hamburger, right edge) ────────────────────────────────
+  bool _menuOpen = false;
 
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
@@ -351,6 +356,208 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     _searchCtrl.clear();
   }
 
+  // ── Sidebar menu ────────────────────────────────────────────────────────────
+
+  void _openMenu() {
+    HapticFeedback.selectionClick();
+    if (!_menuOpen) setState(() => _menuOpen = true);
+  }
+
+  void _closeMenu() {
+    if (_menuOpen) setState(() => _menuOpen = false);
+  }
+
+  void _menuGoHome() {
+    _closeMenu();
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        0,
+        duration: const Duration(milliseconds: 420),
+        curve:    Curves.easeOutCubic,
+      );
+    }
+  }
+
+  /// Search lives inside the menu → full-page search view (same one the old
+  /// top-right magnifier opened).
+  void _menuOpenSearch() {
+    _suggestionTimer?.cancel();
+    setState(() {
+      _menuOpen       = false;
+      _isSearching    = true;
+      _query          = '';
+      _committedQuery = '';
+      _suggestions    = [];
+      _selectedType   = null;
+    });
+    _searchCtrl.clear();
+  }
+
+  void _menuOpenSection({
+    required String      title,
+    required _SectionKind kind,
+    String?              customListId,
+  }) {
+    _closeMenu();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => _WatchSectionPage(
+        source:       source,
+        title:        title,
+        type:         kind,
+        customListId: customListId,
+      ),
+    ));
+  }
+
+  void _menuOpenCategories(List<Map<String, dynamic>> cats) {
+    _closeMenu();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => _CategoryGridPage(source: source, categories: cats),
+    ));
+  }
+
+  /// Builds the ordered list of menu groups from the extension's home layout:
+  /// Explorer (Accueil / Recherche / Catégories) → playlists (each content
+  /// row) → Nouveau & Populaire → Catalogue.
+  List<NfMenuGroup> _menuGroups() {
+    final cats = _customLists
+        .where((cl) => cl['layout'] == 'category')
+        .toList();
+    final regulars = _customLists
+        .where((cl) =>
+            cl['id'] != 'carousel' &&
+            cl['layout'] != 'category' &&
+            cl['id'] != 'catalogue' &&
+            cl['layout'] != '__tab__')
+        .toList();
+    final newHot = regulars
+        .where((cl) => (cl['layout'] as String? ?? '') == 'new_hot')
+        .toList();
+    final seenTitles = <String>{};
+    final rows = regulars
+        .where((cl) => (cl['layout'] as String? ?? '') != 'new_hot')
+        .where((cl) => seenTitles
+            .add((cl['name'] as String? ?? cl['id'] as String).trim()))
+        .toList();
+    final catalogueList =
+        _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+
+    final groups = <NfMenuGroup>[];
+
+    final explorer = <NfMenuTile>[
+      NfMenuTile(
+        icon:  Broken.home_1,
+        label: 'Accueil',
+        onTap: _menuGoHome,
+      ),
+      NfMenuTile(
+        icon:  Broken.search_normal_1,
+        label: 'Recherche',
+        onTap: _menuOpenSearch,
+        accent: true,
+      ),
+    ];
+    if (cats.isNotEmpty) {
+      explorer.add(NfMenuTile(
+        icon:  Broken.category_2,
+        label: 'Catégories',
+        onTap: () => _menuOpenCategories(cats),
+      ));
+    }
+    groups.add(NfMenuGroup(title: 'Explorer', tiles: explorer));
+
+    final playlists = <NfMenuTile>[
+      for (final row in rows)
+        NfMenuTile(
+          icon:  Broken.play_circle,
+          label: row['name'] as String? ?? row['id'] as String,
+          onTap: () => _menuOpenSection(
+            title:        row['name'] as String? ?? row['id'] as String,
+            kind:         _SectionKind.custom,
+            customListId: row['id'] as String,
+          ),
+        ),
+    ];
+    if (newHot.isNotEmpty) {
+      playlists.add(NfMenuTile(
+        icon:  Broken.diamonds,
+        label: 'Nouveau & Populaire',
+        onTap: () => _menuOpenSection(
+          title:        'Nouveau & Populaire',
+          kind:         _SectionKind.custom,
+          customListId: newHot.first['id'] as String,
+        ),
+      ));
+    }
+    if (playlists.isNotEmpty) {
+      groups.add(NfMenuGroup(title: 'Playlists', tiles: playlists));
+    }
+
+    groups.add(NfMenuGroup(
+      title: 'Catalogue',
+      tiles: [
+        NfMenuTile(
+          icon:  Broken.grid_1,
+          label: 'Tout le catalogue',
+          onTap: () => _menuOpenSection(
+            title:        'Catalogue',
+            kind:         catalogueList != null
+                ? _SectionKind.custom
+                : _SectionKind.popular,
+            customListId: catalogueList?['id'] as String?,
+          ),
+        ),
+      ],
+    ));
+
+    return groups;
+  }
+
+  /// Right-edge menu overlay: dim barrier + frosted panel that slides in.
+  Widget _buildMenuOverlay() {
+    final screenW = MediaQuery.sizeOf(context).width;
+    final panelW = (screenW * 0.86).clamp(280.0, 372.0).toDouble();
+
+    return IgnorePointer(
+      ignoring: !_menuOpen,
+      child: Stack(
+        fit:        StackFit.expand,
+        clipBehavior: Clip.hardEdge,
+        children: [
+          // ── Dim barrier ────────────────────────────────────────────────
+          AnimatedOpacity(
+            opacity: _menuOpen ? 1 : 0,
+            duration: const Duration(milliseconds: 220),
+            curve:    Curves.easeOut,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap:    _closeMenu,
+              child:    ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.62)),
+            ),
+          ),
+          // ── Panel ──────────────────────────────────────────────────────
+          Positioned(
+            top:    0,
+            bottom: 0,
+            right:  0,
+            width:  panelW,
+            child: AnimatedSlide(
+              offset:  _menuOpen ? Offset.zero : const Offset(1, 0),
+              duration: const Duration(milliseconds: 320),
+              curve:    Curves.easeOutCubic,
+              child: NfWatchMenuPanel(
+                source:  source,
+                groups:  _menuGroups(),
+                onClose: _closeMenu,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -360,28 +567,36 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     final topPad = MediaQuery.of(context).viewPadding.top;
     _appBarH = topPad + kToolbarHeight;
 
-    return Scaffold(
-      backgroundColor: nfBackgroundColor,
-      extendBody:      true,
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        transitionBuilder: (child, anim) {
-          final slide = Tween<Offset>(
-            begin: const Offset(0, -0.06),
-            end:   Offset.zero,
-          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
-          return FadeTransition(
-            opacity: anim,
-            child:   SlideTransition(position: slide, child: child),
-          );
-        },
-        child: _isSearching
-            ? KeyedSubtree(
-                key: const ValueKey('search'),
-                child: _buildSearchView(context))
-            : KeyedSubtree(
-                key: const ValueKey('home'),
-                child: _buildNetflixHome(context)),
+    // While the sidebar menu is open the system back gesture only closes the
+    // menu instead of popping the whole extension screen.
+    return PopScope(
+      canPop: !_menuOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _menuOpen) _closeMenu();
+      },
+      child: Scaffold(
+        backgroundColor: nfBackgroundColor,
+        extendBody:      true,
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          transitionBuilder: (child, anim) {
+            final slide = Tween<Offset>(
+              begin: const Offset(0, -0.06),
+              end:   Offset.zero,
+            ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+            return FadeTransition(
+              opacity: anim,
+              child:   SlideTransition(position: slide, child: child),
+            );
+          },
+          child: _isSearching
+              ? KeyedSubtree(
+                  key: const ValueKey('search'),
+                  child: _buildSearchView(context))
+              : KeyedSubtree(
+                  key: const ValueKey('home'),
+                  child: _buildNetflixHome(context)),
+        ),
       ),
     );
   }
@@ -641,11 +856,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             scrollOffsetNotifier: _scrollOffsetNotifier,
             sourceName:   source.name ?? source.lang ?? 'Anime',
             sourceIconUrl: source.iconUrl,
-            onSearchTap:  () => setState(() => _isSearching = true),
+            onMenuTap:    _openMenu,
             canPop:       context.canPop(),
             onBackTap:    () => context.pop(),
           ),
         ),
+
+        // ── Sidebar menu (hamburger) overlay ─────────────────────────────
+        Positioned.fill(child: _buildMenuOverlay()),
       ],
     );
   }  // ── Category chips ─────────────────────────────────────────────────────────
@@ -1163,94 +1381,34 @@ class _HeroSection extends ConsumerWidget {
 
   Widget _buildShimmerHero(BuildContext ctx) {
     return NfHeroShimmerPlaceholder(
-      width: MediaQuery.of(ctx).size.width,
+      width:  MediaQuery.of(ctx).size.width,
       height: heroCarouselHeight(ctx),
-      iconUrl: source.iconUrl,
     );
   }
 }
 
 // ── Hero loading placeholder ─────────────────────────────────────────────────
-// Shimmer card with the extension icon pulsing dead-centre — every loading
-// state of this screen keeps the extension identity visible.
+// Pure shimmer matching the carousel frame — no logo, no icon: the content
+// rows below also shimmer so the whole screen reads as one loading skeleton.
 
-class NfHeroShimmerPlaceholder extends StatefulWidget {
+class NfHeroShimmerPlaceholder extends StatelessWidget {
   final double width;
   final double height;
-  final String? iconUrl;
 
   const NfHeroShimmerPlaceholder({
     super.key,
     required this.width,
     required this.height,
-    this.iconUrl,
   });
 
   @override
-  State<NfHeroShimmerPlaceholder> createState() =>
-      _NfHeroShimmerPlaceholderState();
-}
-
-class _NfHeroShimmerPlaceholderState extends State<NfHeroShimmerPlaceholder>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Skeletonizer(
-            enabled: true,
-            child: Container(color: Colors.grey[900]),
-          ),
-          Center(
-            child: FadeTransition(
-              opacity: Tween<double>(begin: 0.35, end: 0.9).animate(
-                  CurvedAnimation(parent: _pulse, curve: Curves.easeInOut)),
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.94, end: 1.06).animate(
-                    CurvedAnimation(parent: _pulse, curve: Curves.easeInOut)),
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.black.withValues(alpha: 0.45),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(14),
-                  child: (widget.iconUrl != null && widget.iconUrl!.isNotEmpty)
-                      ? ExtendedImage.network(
-                          widget.iconUrl!,
-                          fit: BoxFit.contain,
-                          loadStateChanged: (state) =>
-                              state.extendedImageLoadState == LoadState.failed
-                                  ? const Icon(Icons.play_circle_fill_rounded,
-                                      color: Colors.white70, size: 40)
-                                  : null,
-                        )
-                      : const Icon(Icons.play_circle_fill_rounded,
-                          color: Colors.white70, size: 40),
-                ),
-              ),
-            ),
-          ),
-        ],
+    return Skeletonizer(
+      enabled: true,
+      child: Container(
+        width:  width,
+        height: height,
+        color:  Colors.grey[900],
       ),
     );
   }

@@ -6,10 +6,13 @@
 // keeps the status bar legible; once content scrolls under, the bar becomes a
 // SOLID slab of the app background colour — it reads as "resting" on screen,
 // never as a translucent overlay. Extension icon + name sit centred.
+//
+// Layout: back chevron (left) • extension brand (centre) • hamburger menu
+// (right). The search affordance lives inside the sidebar that the hamburger
+// opens.
 import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/ui/widgets/namida_app_bar.dart';
 import 'nf_utils.dart';
 
 // ── NfCircleIconButton — kept for transparent-poster contexts ─────────────────
@@ -37,6 +40,9 @@ class NfCircleIconButton extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.black.withValues(alpha: 0.45),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.10),
+          ),
         ),
         child: Icon(icon, color: Colors.white, size: size),
       ),
@@ -46,14 +52,14 @@ class NfCircleIconButton extends StatelessWidget {
 
 // ── NfWatchAppBarWidget ────────────────────────────────────────────────────────
 // Collapsed state = solid nfBackgroundColor slab, centred icon + title.
-
+// Expanded state = gradient scrim + back + hamburger, all white.
 class NfWatchAppBarWidget extends StatelessWidget {
   const NfWatchAppBarWidget({
     super.key,
     required this.scrollOffsetNotifier,
     required this.sourceName,
     this.sourceIconUrl,
-    this.onSearchTap,
+    this.onMenuTap,
     this.onBackTap,
     this.canPop = false,
   });
@@ -63,7 +69,7 @@ class NfWatchAppBarWidget extends StatelessWidget {
   final ValueNotifier<double> scrollOffsetNotifier;
   final String        sourceName;
   final String?       sourceIconUrl;
-  final VoidCallback? onSearchTap;
+  final VoidCallback? onMenuTap;
   final VoidCallback? onBackTap;
   final bool          canPop;
 
@@ -77,32 +83,67 @@ class NfWatchAppBarWidget extends StatelessWidget {
         // 0 → 1 across the first 90px of scroll.
         final t = (offset / 90).clamp(0.0, 1.0);
         final curved = Curves.easeOut.transform(t);
+        final expanded = curved < 0.02;
+
+        // Round buttons melt into the solid bar once scrolled: over the hero
+        // they are dark glass, on the resting bar they become subtle frost.
+        final btnColor =
+            Colors.black.withValues(alpha: 0.08 + 0.32 * (1 - curved));
+        final btnBorder =
+            Colors.white.withValues(alpha: 0.05 + 0.12 * (1 - curved));
+
+        Widget roundIcon({required IconData icon, VoidCallback? onTap}) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: btnColor,
+                border: Border.all(color: btnBorder),
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+          );
+        }
 
         return Container(
-          padding: EdgeInsets.only(top: topPad, left: 4, right: 4),
+          padding: EdgeInsets.only(top: topPad, left: 6, right: 6),
           decoration: BoxDecoration(
             // While expanded: soft scrim over the hero for status-bar
             // legibility. Collapsed: solid app background — the bar feels
             // physically resting on the screen, not floating above content.
-            gradient: curved < 0.02
-                ? LinearGradient(
+            gradient: expanded
+                ? const LinearGradient(
                     begin: Alignment.topCenter,
-                    end:  Alignment.bottomCenter,
+                    end:   Alignment.bottomCenter,
+                    stops: [0.0, 0.6, 1.0],
                     colors: [
-                      Colors.black.withValues(alpha: 0.55),
+                      Colors.black87,
+                      Colors.black45,
                       Colors.transparent,
                     ],
                   )
                 : null,
-            color: curved < 0.02
+            color: expanded
                 ? Colors.transparent
                 : nfBackgroundColor.withValues(alpha: curved),
+            border: curved > 0.98
+                ? Border(
+                    bottom: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.07),
+                    ),
+                  )
+                : null,
             boxShadow: curved > 0.95
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: Colors.black.withValues(alpha: 0.55),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
                   ]
                 : null,
@@ -120,11 +161,11 @@ class NfWatchAppBarWidget extends StatelessWidget {
                     children: [
                       if (sourceIconUrl != null && sourceIconUrl!.isNotEmpty) ...[
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(7),
                           child: ExtendedImage.network(
                             sourceIconUrl!,
-                            width: 26,
-                            height: 26,
+                            width: 24,
+                            height: 24,
                             fit: BoxFit.cover,
                             loadStateChanged: (state) =>
                                 state.extendedImageLoadState ==
@@ -134,7 +175,7 @@ class NfWatchAppBarWidget extends StatelessWidget {
                                     : null,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 9),
                       ],
                       Flexible(
                         child: Text(
@@ -143,7 +184,7 @@ class NfWatchAppBarWidget extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color:         Colors.white,
-                            fontSize:      19,
+                            fontSize:      18,
                             fontWeight:    FontWeight.w900,
                             letterSpacing: -0.3,
                           ),
@@ -156,23 +197,19 @@ class NfWatchAppBarWidget extends StatelessWidget {
                 Positioned(
                   left: 0,
                   child: canPop
-                      ? NfCircleIconButton(
+                      ? roundIcon(
                           icon:  Broken.arrow_left_2,
-                          onTap: onBackTap ?? () => Navigator.of(context).pop(),
+                          onTap: onBackTap ??
+                              () => Navigator.of(context).pop(),
                         )
-                      : const SizedBox(width: 40),
+                      : const SizedBox(width: 42),
                 ),
-                // ── Right: search ─────────────────────────────────────────
+                // ── Right: hamburger → opens the sidebar menu ─────────────
                 Positioned(
                   right: 0,
-                  child: NamidaAppBarIcon(
-                    icon:      Broken.search_normal_1,
-                    onPressed: onSearchTap ?? () {},
-                    child: const Icon(
-                      Broken.search_normal_1,
-                      color: Colors.white,
-                      size:  22,
-                    ),
+                  child: roundIcon(
+                    icon:  Broken.menu_1,
+                    onTap: onMenuTap,
                   ),
                 ),
               ],
