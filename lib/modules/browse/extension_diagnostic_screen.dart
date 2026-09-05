@@ -206,7 +206,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
   List<Source> get _runSources =>
       _filteredByCriterias.where((s) => _scopeIds.contains(s.id)).toList();
 
-  int get _selectedScopeCountOfAll() =>
+  int get _selectedScopeCountOfAll =>
       _allSources.where((s) => _scopeIds.contains(s.id)).length;
 
   int get _okCount => _resultMap.values.where((r) => r.allOk).length;
@@ -733,7 +733,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                         ? 'Interrompu — $_done / $_total'
                         : _isComplete
                             ? 'Terminé · $_okCount OK · $_failCount erreur(s)'
-                            : '${_allSources.length} extensions · ${_selectedScopeCountOfAll()} sélectionnées',
+                            : '${_allSources.length} extensions · ${_selectedScopeCountOfAll} sélectionnées',
                 style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1005,7 +1005,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
         tested: _resultMap.length,
         ok: _okCount,
         fail: _failCount,
-        scopeSelected: _selectedScopeCountOfAll(),
+        scopeSelected: _selectedScopeCountOfAll,
         cs: cs,
       ),
       Expanded(child: _buildSourceList(cs, forDiagnostic: false)),
@@ -1376,7 +1376,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${_selectedScopeCountOfAll()} / ${_allSources.length} extensions sélectionnées pour le diagnostic',
+              '${_selectedScopeCountOfAll} / ${_allSources.length} extensions sélectionnées pour le diagnostic',
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 14),
