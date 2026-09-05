@@ -186,7 +186,8 @@ class WatchtowerDiscoverScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchtowerDiscoverScreenState
-    extends ConsumerState<WatchtowerDiscoverScreen> {
+    extends ConsumerState<WatchtowerDiscoverScreen>
+    with SingleTickerProviderStateMixin {
   final _drawerKey = GlobalKey<NamidaInnerDrawerState>();
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
@@ -214,6 +215,11 @@ class _WatchtowerDiscoverScreenState
   final List<_DiscoverItem> _items = [];
   final ScrollController _scrollCtrl = ScrollController();
 
+  // ONE shared animation drives every skeleton on screen (cheap wave sweep
+  // instead of one AnimationController per loading box).
+  late final AnimationController _shimmerCtrl;
+  late final Animation<double> _shimmer;
+
   // Scroll-aware state
   bool _searchCollapsed = false;
   bool _showFab = false;
@@ -229,12 +235,18 @@ class _WatchtowerDiscoverScreenState
   @override
   void initState() {
     super.initState();
+    _shimmerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    )..repeat();
+    _shimmer = CurvedAnimation(parent: _shimmerCtrl, curve: Curves.linear);
     _fetchResults(reset: true);
     _scrollCtrl.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _shimmerCtrl.dispose();
     _searchCtrl.dispose();
     _searchFocus.dispose();
     _scrollCtrl.dispose();
@@ -1311,9 +1323,13 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
           sliver: SliverGrid(
             delegate: SliverChildBuilderDelegate(
               (_, i) {
+                // Virtualized: only the visible range + one row cache gets
+                // built, spreads image fetches across frames (lazy row by row
+                // instead of 20+ simultaneous decodes).
                 if (i >= _items.length) {
                   return _isLoading
-                      ? _ShimmerBox(isDark: isDark, cs: cs)
+                      ? _SkeletonBox(isDark: isDark, cs: cs,
+                          shimmer: _shimmer)
                       : const SizedBox.shrink();
                 }
                 final item = _items[i];
@@ -1327,9 +1343,14 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 };
               },
               childCount: _items.isEmpty && _isLoading
-                  ? 20
+                  ? cols * 4
                   : _items.length + (_isLoading ? cols : 0),
+              addAutomaticKeepAlives: false,
+              addRepaintBoundaries: true,
             ),
+            // One grid viewport of lookahead cache at most — images further
+            // off-screen are not decoded until scrolled near.
+            cacheExtent: 420,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: cols,
               childAspectRatio: aspectRatio,
@@ -1356,19 +1377,18 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     return ListView.builder(
       controller: _scrollCtrl,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+      cacheExtent: 420, // scroll-stride: only build visible rows + small cache
       itemCount: _items.length + (_isLoading ? 4 : 0),
       itemBuilder: (_, i) {
         if (i >= _items.length) {
           return _isLoading
-              ? Container(
+              ? _SkeletonBox(
+                  isDark: isDark,
+                  cs: cs,
+                  shimmer: _shimmer,
                   height: 76,
+                  borderRadius: 12,
                   margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF2C2C2E)
-                        : cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 )
               : const SizedBox.shrink();
         }
@@ -2769,69 +2789,57 @@ class _FilterDropdown extends StatelessWidget {
 }
 
 
-// ── Shimmer loading box ────────────────────────────────────────────────────────
 
-class _ShimmerBox extends StatefulWidget {
+// ── Lightweight skeleton shimmer (single shared wave) ─────────────────────────
+
+/// Pure-shimmer tile with NO per-widget animation controller: every skeleton on
+/// screen reuses the single [shimmer] animation owned by the screen, so loading
+/// stays cheap (one fast wave sweep) even across a full grid of placeholders.
+class _SkeletonBox extends StatelessWidget {
   final bool isDark;
   final ColorScheme cs;
-  const _ShimmerBox({required this.isDark, required this.cs});
+  final Animation<double> shimmer;
+  final double? height;
+  final double borderRadius;
+  final EdgeInsetsGeometry? margin;
 
-  @override
-  State<_ShimmerBox> createState() => _ShimmerBoxState();
-}
-
-class _ShimmerBoxState extends State<_ShimmerBox>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  const _SkeletonBox({
+    required this.isDark,
+    required this.cs,
+    required this.shimmer,
+    this.height,
+    this.borderRadius = 10,
+    this.margin,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final base = isDark ? const Color(0xFF26262A) : cs.surfaceContainerHigh;
+    final glow = isDark ? const Color(0xFF3A3A43) : cs.surfaceContainerHighest;
     return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) => Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          gradient: LinearGradient(
-            colors: widget.isDark
-                ? [
-                    const Color(0xFF2C2C2E),
-                    Color.lerp(
-                        const Color(0xFF2C2C2E),
-                        const Color(0xFF3C3C3E),
-                        _anim.value)!,
-                    const Color(0xFF2C2C2E),
-                  ]
-                : [
-                    widget.cs.surfaceContainerHigh,
-                    Color.lerp(
-                        widget.cs.surfaceContainerHigh,
-                        widget.cs.surfaceContainerHighest,
-                        _anim.value)!,
-                    widget.cs.surfaceContainerHigh,
-                  ],
-            stops: const [0.0, 0.5, 1.0],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+      animation: shimmer,
+      builder: (_, child) {
+        final t = shimmer.value;
+        // Sweep the highlight band across the tile: fast, light, wave-like.
+        final shift = 3 * t - 1.5; // -1.5 -> +1.5 alignment shift per tick
+        return Container(
+          height: height,
+          margin: margin,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            gradient: LinearGradient(
+              colors: [
+                base,
+                Color.lerp(base, glow, 0.35 + 0.65 * t)!,
+                base,
+              ],
+              stops: const [0.0, 0.5, 1.0],
+              begin: Alignment.centerLeft + Alignment(shift, 0),
+              end: Alignment.centerRight + Alignment(shift, 0),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

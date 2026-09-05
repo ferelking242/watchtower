@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
+import 'package:watchtower/utils/log/logger.dart' show LogTag;
 import 'package:media_kit/media_kit.dart';
 import 'package:flutter_broadcasts/flutter_broadcasts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -57,6 +58,23 @@ class CustomPlayer extends Player {
       }),
       stream.error.listen((event) {
         AppLogger.reportError('[MediaKitError] \n$event', StackTrace.current);
+      }),
+      // Guard: stale local-proxy media is never mandatory. If the stream URL
+      // is unreachable (port-0 race, server disposed during a pause), log once
+      // and keep the app alive instead of throwing.
+      stream.completed.listen((event) {
+        if (!event) return;
+        try {
+          final current = state.playlist.media;
+          if (current != null &&
+              (current.uri.startsWith('http://127.0.0.1') ||
+                  current.uri.startsWith('http://localhost'))) {
+            AppLogger.log(
+              'MediaKit completed on local proxy URI: ${current.uri}',
+              tag: LogTag.music,
+            );
+          }
+        } catch (_) {}
       }),
     ];
     PackageInfo.fromPlatform().then((packageInfo) {
