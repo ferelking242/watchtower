@@ -21,7 +21,7 @@ import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
-
+import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
@@ -125,58 +125,29 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               ),
             ),
             actions: [
-              // ── Gérer button ───────────────────────────────────────────
-              GestureDetector(
-                onTap: () => _showGererSheet(context, entries, ref),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: scheme.secondaryContainer.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: scheme.outlineVariant, width: 1),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.construction, color: scheme.onSecondaryContainer, size: 15),
-                      const SizedBox(width: 5),
-                      Text(
-                        'Gérer',
-                        style: TextStyle(
-                          color: scheme.onSecondaryContainer,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // ── Transfert pill — solid gradient, MovieBox style ─────────
               GestureDetector(
                 onTap: () => context.push('/transfer'),
                 child: Container(
                   margin: const EdgeInsets.only(right: 12),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.12),
+                    gradient: const LinearGradient(colors: [mbTeal, mbGreen]),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: scheme.primary.withValues(alpha: 0.35), width: 1),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.swap_horiz_rounded,
-                          color: scheme.primary, size: 15),
-                      const SizedBox(width: 5),
+                          color: Colors.white, size: 15),
+                      SizedBox(width: 5),
                       Text(
                         'Transfert',
                         style: TextStyle(
-                          color: scheme.primary,
+                          color: Colors.white,
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -189,9 +160,37 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Count + Gérer — MovieBox section row ──────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'Téléchargement (${entries.length})',
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => _showGererSheet(context, entries, ref),
+                      child: Text(
+                        'Gérer',
+                        style: TextStyle(
+                          color: mbTeal,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                 child: Row(
                   children: [
                     Flexible(
@@ -1678,6 +1677,23 @@ class _DownloadCard extends ConsumerWidget {
 
     final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
+    // MovieBox-style computed labels: ETA (video rows in byte-mode),
+    // episode tag extracted from the chapter name and a source badge.
+    final remainingKb = math.max(total - succeeded, 0);
+    String? etaText;
+    if (!isComplete && !hasFailed && !isPaused && speedMbs >= 0.05 && total > 500 && remainingKb > 0) {
+      final etaSec = (remainingKb / 1024) / speedMbs;
+      if (etaSec.isFinite && etaSec > 0 && etaSec < 86400) {
+        final m = etaSec ~/ 60;
+        final s = (etaSec % 60).round();
+        etaText = m > 0 ? '$m min ${s.toString().padLeft(2, '0')} sec gauche' : '$s sec gauche';
+      }
+    }
+    final epMatch = RegExp(r'S\s?\d{1,3}\s?[ExXÉ]\s?\d{1,3}', caseSensitive: false).firstMatch(chapter?.name ?? '');
+    final epTag = epMatch?.group(0)?.replaceAll(RegExp(r'\s'), '');
+    var srcBadge = (manga?.source ?? '').replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+    if (srcBadge.length > 10) srcBadge = srcBadge.substring(0, 10);
+
     // Progress bar — no TweenAnimationBuilder so progress never "resets to 0"
     // on each Isar stream rebuild (the regression bug). Direct value is correct.
     final progressBar = progress > 0 && !isComplete
@@ -2087,61 +2103,112 @@ class _DownloadCard extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
-          _CoverThumbnail(
+          MbThumb(
             imageUrl: manga?.imageUrl,
             customBytes: manga?.customCoverImage?.cast<int>(),
             itemType: itemType,
+            badge: srcBadge,
+            isVideo: itemType == ItemType.anime,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  manga?.name ?? 'Inconnu',
-                  style: TextStyle(color: scheme.onSurface, fontSize: 14, fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  chapter?.name ?? '',
-                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      isComplete
-                          ? 'Terminé'
-                          : _buildProgressLabel(itemType, succeeded, total, failed),
-                      style: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: 0.7), fontSize: 11),
+                    if (priority > 0) ...[
+                      const Icon(Icons.bolt_rounded, size: 13, color: mbAmber),
+                      const SizedBox(width: 2),
+                    ],
+                    Expanded(
+                      child: Text(
+                        manga?.name ?? 'Inconnu',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (epTag != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        epTag,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 7),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: progress > 0 ? progress.clamp(0.0, 1.0) : 0,
+                    minHeight: 3,
+                    backgroundColor: scheme.onSurface.withValues(alpha: 0.10),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      hasFailed ? mbRed : isPaused ? mbAmber : mbGreen,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        isComplete
+                            ? 'Terminé'
+                            : (total > 500
+                                ? '${_formatSize(succeeded)} / ${_formatSize(total)}'
+                                : _buildProgressLabel(itemType, succeeded, total, failed)),
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      statusText,
-                      style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w500),
+                      hasFailed
+                          ? 'Échec'
+                          : isPaused
+                              ? 'En pause'
+                              : isRetrievingMetadata
+                                  ? 'Récupération…'
+                                  : (etaText ?? statusText),
+                      style: TextStyle(
+                        color: hasFailed
+                            ? mbRed
+                            : isPaused
+                                ? mbAmber
+                                : (etaText != null ? mbGreen : scheme.onSurfaceVariant),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
-                if (progressBar != null) ...[
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Expanded(child: progressBar),
-                      const SizedBox(width: 6),
-                      actionBtn,
-                    ],
-                  ),
-                ] else ...[
-                  const SizedBox(height: 4),
-                  Align(alignment: Alignment.centerRight, child: actionBtn),
-                ],
               ],
             ),
+          ),
+          const SizedBox(width: 6),
+          MbRowActions(
+            isComplete: isComplete,
+            hasFailed: hasFailed,
+            isPaused: isPaused,
+            onPauseResume: onPauseResume,
+            onCancel: onCancel,
+            onDelete: onDelete,
+            onRetry: onRetry,
+            onOpen: onOpen,
           ),
         ],
       ),
