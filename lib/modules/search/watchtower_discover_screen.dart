@@ -1317,6 +1317,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
     return CustomScrollView(
       controller: _scrollCtrl,
+      // One grid viewport of lookahead cache at most — images further
+      // off-screen are not decoded until scrolled near.
+      cacheExtent: 420,
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -1348,9 +1351,6 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               addAutomaticKeepAlives: false,
               addRepaintBoundaries: true,
             ),
-            // One grid viewport of lookahead cache at most — images further
-            // off-screen are not decoded until scrolled near.
-            cacheExtent: 420,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: cols,
               childAspectRatio: aspectRatio,

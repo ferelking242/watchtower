@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
-import 'package:watchtower/utils/log/logger.dart' show LogTag;
 import 'package:media_kit/media_kit.dart';
 import 'package:flutter_broadcasts/flutter_broadcasts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -65,13 +64,15 @@ class CustomPlayer extends Player {
       stream.completed.listen((event) {
         if (!event) return;
         try {
-          final current = state.playlist.media;
+          final medias = state.playlist.medias;
+          final index = state.playlist.index;
+          final current =
+              (index >= 0 && index < medias.length) ? medias[index] : null;
           if (current != null &&
               (current.uri.startsWith('http://127.0.0.1') ||
                   current.uri.startsWith('http://localhost'))) {
-            AppLogger.log(
+            AppLogger.log.w(
               'MediaKit completed on local proxy URI: ${current.uri}',
-              tag: LogTag.music,
             );
           }
         } catch (_) {}
