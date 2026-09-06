@@ -250,33 +250,12 @@ class M3u8Downloader {
         onProgress(progress);
       },
        onComplete: () async {
-         Object? mergeError;
-         StackTrace? mergeStack;
          try {
-           await _mergeSegments(fileName, tempDir, onProgress);
+           await _mergeSegmentsAndCleanTemp(fileName, tempDir, onProgress);
+           if (!completer.isCompleted) completer.complete();
          } catch (e, st) {
            _log('Merge failed: $e\n$st');
-           mergeError = e;
-           mergeStack = st;
-         } finally {
-           // A successful merge must never leave TS files visible beside the
-           // final video. Failed downloads keep their valid segments so retry
-           // can resume instead of starting from zero.
-           if (await File(fileName).exists() &&
-               await Directory(tempDir).exists()) {
-             try {
-               await Directory(tempDir).delete(recursive: true);
-             } catch (e) {
-               _log('Warning: failed to clean temporary directory: $e');
-             }
-           }
-         }
-         if (!completer.isCompleted) {
-           if (mergeError != null) {
-             completer.completeError(mergeError!, mergeStack);
-           } else {
-             completer.complete();
-           }
+           if (!completer.isCompleted) completer.completeError(e, st);
          }
        },
       onError: (error) {
@@ -293,6 +272,36 @@ class M3u8Downloader {
 
     return completer.future;
   }
+
+  /// Merges the downloaded fragments and removes the resumable working
+  /// directory only after a successful merge.
+  Future<void> _mergeSegmentsAndCleanTemp(
+    String outputFile,
+    String tempDir,
+    void Function(DownloadProgress) onProgress,
+  ) async {
+    await _mergeSegments(outputFile, tempDir, onProgress);
+
+    // A failed merge must preserve valid fragments so a retry can resume.
+    // Cleanup is deliberately after _mergeSegments succeeds, rather than in
+    // a finally block, so a stale output file cannot hide a failed merge.
+    if (await File(outputFile).exists() &&
+        await Directory(tempDir).exists()) {
+      try {
+        await Directory(tempDir).delete(recursive: true);
+      } catch (e) {
+        _log('Warning: failed to clean temporary directory: $e');
+      }
+    }
+  }
+
+  @visibleForTesting
+  Future<void> mergeSegmentsAndCleanTempForTesting(
+    String outputFile,
+    String tempDir,
+    void Function(DownloadProgress) onProgress,
+  ) =>
+      _mergeSegmentsAndCleanTemp(outputFile, tempDir, onProgress);
 
   Future<void> _mergeSegments(
     String outputFile,
@@ -409,7 +418,11 @@ class M3u8Downloader {
 
   /// Parse a master playlist and return the absolute URL of the variant
   /// stream with the highest BANDWIDTH (best quality available).
-  String? _pickBestVariant(String baseUrl, String body) {
+  @visibleForTesting
+  static String? pickBestVariantForTesting(String baseUrl, String body) =>
+      _pickBestVariant(baseUrl, body);
+
+  static String? _pickBestVariant(String baseUrl, String body) {
     final lines = body.split('\n');
     int bestBw = -1;
     String? bestUrl;
@@ -437,7 +450,11 @@ class M3u8Downloader {
     return bestUrl;
   }
 
-  List<TsInfo> _parseTsList(String baseUrl, String body) {
+  @visibleForTesting
+  static List<TsInfo> parseTsListForTesting(String baseUrl, String body) =>
+      _parseTsList(baseUrl, body);
+
+  static List<TsInfo> _parseTsList(String baseUrl, String body) {
     final lines = body.split('\n');
     final tsList = <TsInfo>[];
     var index = 1;
@@ -500,7 +517,17 @@ class M3u8Downloader {
     }
   }
 
-  (String?, Uint8List?) _extractKeyAttributes(String content, String baseUrl) {
+  @visibleForTesting
+  static (String?, Uint8List?) extractKeyAttributesForTesting(
+    String content,
+    String baseUrl,
+  ) =>
+      _extractKeyAttributes(content, baseUrl);
+
+  static (String?, Uint8List?) _extractKeyAttributes(
+    String content,
+    String baseUrl,
+  ) {
     final keyPattern = RegExp(
       r'#EXT-X-KEY:METHOD=AES-128(?:,URI="([^"]+)")?(?:,IV=0x([A-F0-9]+))?',
       caseSensitive: false,

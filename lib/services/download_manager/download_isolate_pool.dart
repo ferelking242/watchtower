@@ -865,6 +865,23 @@ Future<void> _downloadFile(
 /// actual size and accumulate it. HLS playlists do not carry the final MP4
 /// size, so this worker intentionally does not manufacture a denominator.
 /// The exact total is emitted by the merge step after the final file exists.
+@visibleForTesting
+DownloadProgress m3u8ProgressForTesting({
+  required TsInfo? segment,
+  required int completed,
+  required int total,
+  required ItemType itemType,
+  required int downloadedBytes,
+}) =>
+    DownloadProgress(
+      completed,
+      total,
+      itemType,
+      segment: segment,
+      downloadedBytes: downloadedBytes,
+      totalBytes: null,
+    );
+
 Future<void> _processM3u8Download(
   String taskId,
   M3u8DownloadParams params,
@@ -896,13 +913,12 @@ Future<void> _processM3u8Download(
     final totalDownloaded = completedBytes + inFlight;
     if (totalDownloaded - _lastReportedBytes >= kProgressThrottleBytes || segment != null) {
       _lastReportedBytes = totalDownloaded;
-      replyPort.send(DownloadProgress(
+      replyPort.send(m3u8ProgressForTesting(
         segment: segment,
-        completed,
-        total,
-        params.itemType,
+        completed: completed,
+        total: total,
+        itemType: params.itemType,
         downloadedBytes: totalDownloaded,
-        totalBytes: null,
       ));
     }
   }
