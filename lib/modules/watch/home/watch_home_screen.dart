@@ -32,6 +32,7 @@ import 'nf_widgets/nf_highlight_banner.dart';
 import 'nf_widgets/nf_menu_panel.dart';
 import 'nf_widgets/nf_movie_box.dart';
 import 'nf_widgets/nf_new_and_hot_tile.dart';
+import 'nf_widgets/nf_poster_image.dart';
 import 'nf_widgets/nf_utils.dart';
 import 'nf_widgets/nf_watch_history_row.dart';
 import 'package:watchtower/models/ui_layout.dart';
@@ -468,6 +469,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         .toList();
     final catalogueList =
         _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+    final hasCustomHistory =
+        _customLists.any((cl) => cl['id'] == 'history');
     final hasCustomHistory =
         _customLists.any((cl) => cl['id'] == 'history');
 

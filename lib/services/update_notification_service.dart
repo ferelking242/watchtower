@@ -133,7 +133,7 @@ const String _kActionPlay = 'action_play';
         if ((actionId == null || actionId == _kActionInstall) && _pendingInstallPath != null) {
           _installPending();
         } else if (actionId == null || actionId == _kActionPlay) {
-          _openMediaPending(response.id);
+          _openMediaPending(response.id ?? -1);
         } else if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
           _downloadOrOpen(_pendingDownloadUrl!);
         } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {

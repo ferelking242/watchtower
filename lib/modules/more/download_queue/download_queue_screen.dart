@@ -1652,11 +1652,12 @@ class _DownloadCard extends ConsumerWidget {
 
     final liveDownloadedBytes = liveProgress?.downloadedBytes;
     final liveTotalBytes = liveProgress?.totalBytes;
-    final progress = liveProgress != null
+    final live = liveProgress;
+    final progress = live != null
         ? liveTotalBytes != null && liveTotalBytes > 0
             ? liveDownloadedBytes! / liveTotalBytes
-            : liveProgress!.totalUnits > 0
-                ? liveProgress.completedUnits / liveProgress.totalUnits
+            : live.totalUnits > 0
+                ? live.completedUnits / live.totalUnits
                 : 0.0
         : total > 0
             ? succeeded / total
