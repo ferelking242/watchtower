@@ -7,8 +7,9 @@ import 'package:ffi/ffi.dart';
 import 'generated_bindings.dart';
 
 Future<int> start(String mcfg) async {
+  final bindings = TorrentLibrary(_openLibrary());
   var completer = Completer<int>();
-  var res = _bindings.Start(mcfg.toNativeUtf8().cast());
+  var res = bindings.Start(mcfg.toNativeUtf8().cast());
   if (res.r1 != nullptr) {
     completer.completeError(Exception(res.r1.cast<Utf8>().toDartString()));
   } else {
@@ -19,7 +20,7 @@ Future<int> start(String mcfg) async {
 
 const String _libName = 'libmtorrentserver';
 
-final DynamicLibrary _dylib = () {
+DynamicLibrary _openLibrary() {
   if (Platform.isMacOS) {
     return DynamicLibrary.open('$_libName.dylib');
   }
@@ -30,6 +31,4 @@ final DynamicLibrary _dylib = () {
     return DynamicLibrary.open('$_libName.dll');
   }
   throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
-}();
-
-final TorrentLibrary _bindings = TorrentLibrary(_dylib);
+}
