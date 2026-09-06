@@ -113,8 +113,6 @@ class M3u8Downloader {
     try {
       var effectiveUrl = m3u8Url;
       var uri = Uri.parse(effectiveUrl);
-      var m3u8Host = "${uri.scheme}://${uri.host}${path.dirname(uri.path)}";
-
       // Fetch with full headers (anti-403)
       var m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
 
@@ -123,22 +121,21 @@ class M3u8Downloader {
       // otherwise we'd "download" the variant playlist URLs as if they were
       // TS segments (which produced a few-KB invalid mp4 file).
       if (m3u8Body.contains('#EXT-X-STREAM-INF')) {
-        final variantUrl = _pickBestVariant(m3u8Host, m3u8Body);
+           final variantUrl = _pickBestVariant(effectiveUrl, m3u8Body);
         if (variantUrl != null) {
           _log('Master playlist detected, switching to variant: $variantUrl');
           effectiveUrl = variantUrl;
           uri = Uri.parse(effectiveUrl);
-          m3u8Host = "${uri.scheme}://${uri.host}${path.dirname(uri.path)}";
           m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
         }
       }
 
-      final tsList = _parseTsList(m3u8Host, m3u8Body);
+       final tsList = _parseTsList(effectiveUrl, m3u8Body);
       final mediaSequence = _extractMediaSequence(m3u8Body);
 
       _log("Total TS files to download: ${tsList.length}");
 
-      final (key, iv) = await _getM3u8KeyAndIv(m3u8Body);
+       final (key, iv) = await _getM3u8KeyAndIv(m3u8Body, effectiveUrl);
       if (key != null) _log("TS Key found");
       if (iv != null) _log("TS IV found");
       if (mediaSequence != null) _log("Media sequence: $mediaSequence");
@@ -161,14 +158,14 @@ class M3u8Downloader {
       final tsListToDownload = await _filterExistingSegments(tsList, tempDir);
       _log('Downloading ${tsListToDownload.length} segments...');
 
-      await _downloadSegmentsWithProgress(
-        tsListToDownload,
-        tempDir,
-        key,
-        iv,
-        mediaSequence,
-        onProgress,
-      );
+       await _downloadSegmentsWithProgress(
+         tsListToDownload,
+         tempDir,
+         key,
+         iv,
+         mediaSequence,
+         onProgress,
+       );
 
       for (var element in subtitles ?? <Track>[]) {
         final subtitleFile = File(
@@ -254,19 +251,27 @@ class M3u8Downloader {
       onProgress: (progress) {
         onProgress(progress);
       },
-      onComplete: () async {
-        await _mergeSegments(fileName, tempDir, onProgress);
-        if (await Directory(tempDir).exists()) {
-          try {
-            await Directory(tempDir).delete(recursive: true);
-          } catch (e) {
-            _log('Warning: Failed to clean up temporary directory: $e');
-          }
-        }
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
+       onComplete: () async {
+         try {
+           await _mergeSegments(fileName, tempDir, onProgress);
+           if (!completer.isCompleted) completer.complete();
+         } catch (e, st) {
+           _log('Merge failed: $e\n$st');
+           if (!completer.isCompleted) completer.completeError(e, st);
+         } finally {
+           // A successful merge must never leave TS files visible beside the
+           // final video. Failed downloads keep their valid segments so retry
+           // can resume instead of starting from zero.
+           if (await File(fileName).exists() &&
+               await Directory(tempDir).exists()) {
+             try {
+               await Directory(tempDir).delete(recursive: true);
+             } catch (e) {
+               _log('Warning: failed to clean temporary directory: $e');
+             }
+           }
+         }
+       },
       onError: (error) {
         if (!completer.isCompleted) {
           completer.completeError(error);
@@ -397,7 +402,7 @@ class M3u8Downloader {
 
   /// Parse a master playlist and return the absolute URL of the variant
   /// stream with the highest BANDWIDTH (best quality available).
-  String? _pickBestVariant(String host, String body) {
+  String? _pickBestVariant(String baseUrl, String body) {
     final lines = body.split('\n');
     int bestBw = -1;
     String? bestUrl;
@@ -416,9 +421,7 @@ class M3u8Downloader {
         break;
       }
       if (variant == null) continue;
-      final absolute = variant.startsWith('http')
-          ? variant
-          : '$host/${variant.replaceFirst(RegExp(r'^/'), '')}';
+       final absolute = Uri.parse(baseUrl).resolve(variant).toString();
       if (bw > bestBw) {
         bestBw = bw;
         bestUrl = absolute;
@@ -427,7 +430,7 @@ class M3u8Downloader {
     return bestUrl;
   }
 
-  List<TsInfo> _parseTsList(String host, String body) {
+  List<TsInfo> _parseTsList(String baseUrl, String body) {
     final lines = body.split('\n');
     final tsList = <TsInfo>[];
     var index = 0;
@@ -435,23 +438,21 @@ class M3u8Downloader {
     for (final line in lines) {
       if (line.isEmpty || line.startsWith('#')) continue;
       index++;
-      final tsUrl = line.trim().startsWith('http')
-          ? line.trim()
-          : '$host/${line.trim().replaceFirst(RegExp(r'^/'), '')}';
+       final tsUrl = Uri.parse(baseUrl).resolve(line.trim()).toString();
       tsList.add(TsInfo('TS_$index', tsUrl));
     }
     return tsList;
   }
 
-  Future<(Uint8List?, Uint8List?)> _getM3u8KeyAndIv(String m3u8Body) async {
+  Future<(Uint8List?, Uint8List?)> _getM3u8KeyAndIv(
+    String m3u8Body,
+    String playlistUrl,
+  ) async {
     try {
-      final uri = Uri.parse(m3u8Url);
-      final m3u8Host = '${uri.scheme}://${uri.host}${path.dirname(uri.path)}';
-
       for (final line in m3u8Body.split('\n')) {
         if (!line.contains('#EXT-X-KEY')) continue;
 
-        final (keyUrl, iv) = _extractKeyAttributes(line, m3u8Host);
+        final (keyUrl, iv) = _extractKeyAttributes(line, playlistUrl);
         if (keyUrl == null) break;
 
         final response = await _withRetry(
@@ -470,7 +471,7 @@ class M3u8Downloader {
     }
   }
 
-  (String?, Uint8List?) _extractKeyAttributes(String content, String host) {
+  (String?, Uint8List?) _extractKeyAttributes(String content, String baseUrl) {
     final keyPattern = RegExp(
       r'#EXT-X-KEY:METHOD=AES-128(?:,URI="([^"]+)")?(?:,IV=0x([A-F0-9]+))?',
       caseSensitive: false,
@@ -479,8 +480,8 @@ class M3u8Downloader {
     if (match == null) return (null, null);
 
     String? uri = match.group(1);
-    if (uri != null && !uri.contains('http')) {
-      uri = '$host$uri';
+     if (uri != null) {
+       uri = Uri.parse(baseUrl).resolve(uri).toString();
     }
 
     final ivStr = match.group(2);

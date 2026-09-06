@@ -30,8 +30,10 @@ class MbThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    const w = 116.0;
-    const h = 66.0;
+    // Keep the poster compact like MovieBox: the queue is a list first, not
+    // a gallery. This leaves room for the real byte progress and actions.
+    const w = 96.0;
+    const h = 54.0;
     final placeholder = Container(
       width: w,
       height: h,

@@ -607,6 +607,25 @@ class DownloadQueueState extends _$DownloadQueueState {
     state = state.copyWith(speeds: map);
   }
 
+  /// Progression volatile du téléchargement courant.
+  ///
+  /// Le poids final d'une playlist HLS n'est connu qu'après la fusion. On ne
+  /// doit donc pas écrire une estimation dans le modèle Isar et la présenter
+  /// comme une taille réelle. Cette valeur sert uniquement à rendre la carte
+  /// fluide pendant le téléchargement.
+  void setLiveProgress(int downloadId, DownloadLiveProgress progress) {
+    final map = Map<int, DownloadLiveProgress>.from(state.liveProgress);
+    map[downloadId] = progress;
+    state = state.copyWith(liveProgress: map);
+  }
+
+  void clearLiveProgress(int downloadId) {
+    if (!state.liveProgress.containsKey(downloadId)) return;
+    final map = Map<int, DownloadLiveProgress>.from(state.liveProgress)
+      ..remove(downloadId);
+    state = state.copyWith(liveProgress: map);
+  }
+
   /// Speed Master — queue priority (0 = normal, 1 = haute).
   /// Consumed by [processDownloads] to order waiting downloads; a re-kick of
   /// processDownloads after changing this makes it effective immediately.
@@ -641,6 +660,7 @@ class DownloadQueueStateData {
   final Map<int, int> retryCounts;
   final Map<int, double> speeds;
   final Map<int, int> priorities;
+  final Map<int, DownloadLiveProgress> liveProgress;
 
   const DownloadQueueStateData({
     this.pausedIds = const {},
@@ -648,6 +668,7 @@ class DownloadQueueStateData {
     this.retryCounts = const {},
     this.speeds = const {},
     this.priorities = const {},
+    this.liveProgress = const {},
   });
 
   DownloadQueueStateData copyWith({
@@ -656,6 +677,7 @@ class DownloadQueueStateData {
     Map<int, int>? retryCounts,
     Map<int, double>? speeds,
     Map<int, int>? priorities,
+    Map<int, DownloadLiveProgress>? liveProgress,
   }) {
     return DownloadQueueStateData(
       pausedIds: pausedIds ?? this.pausedIds,
@@ -663,6 +685,23 @@ class DownloadQueueStateData {
       retryCounts: retryCounts ?? this.retryCounts,
       speeds: speeds ?? this.speeds,
       priorities: priorities ?? this.priorities,
+      liveProgress: liveProgress ?? this.liveProgress,
     );
   }
+}
+
+/// Byte/segment progress that is only valid for the current app session.
+/// [totalBytes] is null until the server gives a trustworthy final length.
+class DownloadLiveProgress {
+  final int downloadedBytes;
+  final int? totalBytes;
+  final int completedUnits;
+  final int totalUnits;
+
+  const DownloadLiveProgress({
+    required this.downloadedBytes,
+    required this.totalBytes,
+    required this.completedUnits,
+    required this.totalUnits,
+  });
 }

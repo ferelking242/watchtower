@@ -86,7 +86,7 @@ class DownloadIsolatePool {
     int writeMode = 0,
     int speedLimitKBs = 0,
     required void Function(DownloadProgress) onProgress,
-    required void Function() onComplete,
+    required FutureOr<void> Function() onComplete,
     required void Function(Exception) onError,
     void Function()? onCancelled,
   }) async {
@@ -147,7 +147,12 @@ class DownloadIsolatePool {
         if (wasCancelled) {
           onCancelled?.call();
         } else {
-          onComplete();
+          Future.sync(onComplete).catchError((error, stack) {
+            final exception = error is Exception
+                ? error
+                : Exception(error.toString());
+            onError(exception);
+          });
         }
       } else if (message is Exception) {
         if (wasCancelled) {
@@ -175,7 +180,7 @@ class DownloadIsolatePool {
     int writeMode = 0,
     int speedLimitKBs = 0,
     required void Function(DownloadProgress) onProgress,
-    required void Function() onComplete,
+    required FutureOr<void> Function() onComplete,
     required void Function(Exception) onError,
     void Function()? onCancelled,
   }) async {
@@ -227,7 +232,12 @@ class DownloadIsolatePool {
         if (wasCancelled) {
           onCancelled?.call();
         } else {
-          onComplete();
+          Future.sync(onComplete).catchError((error, stack) {
+            final exception = error is Exception
+                ? error
+                : Exception(error.toString());
+            onError(exception);
+          });
         }
       } else if (message is Exception) {
         if (wasCancelled) {
@@ -852,9 +862,9 @@ Future<void> _downloadFile(
 /// starts immediately.
 ///
 /// Byte-level progress: after each segment is written to disk we read its
-/// actual size and accumulate it. The first batch of segments also seeds a
-/// per-segment average that lets us estimate the remaining total — giving
-/// the UI a "14 MB / 58 MB" label instead of a raw count or percentage.
+/// actual size and accumulate it. HLS playlists do not carry the final MP4
+/// size, so this worker intentionally does not manufacture a denominator.
+/// The exact total is emitted by the merge step after the final file exists.
 Future<void> _processM3u8Download(
   String taskId,
   M3u8DownloadParams params,
@@ -875,12 +885,6 @@ Future<void> _processM3u8Download(
   int completedBytes = 0;
   final slotBytes = List<int>.filled(params.concurrentDownloads.clamp(1, 32), 0);
 
-  // Total estimate — locked after kLockAfterSegments complete segments so the
-  // denominator in "14 MB / 58 MB" never jumps around during a session.
-  int estimatedTotalBytes = 0;
-  bool _totalLocked = false;
-  const int kLockAfterSegments = 8;
-
   // Throttle: only send a real-time progress update when at least this many
   // bytes of new data have arrived since the last send. 256 KB keeps the UI
   // smooth without flooding the main isolate with tiny messages.
@@ -898,7 +902,7 @@ Future<void> _processM3u8Download(
         total,
         params.itemType,
         downloadedBytes: totalDownloaded,
-        totalBytes: estimatedTotalBytes > 0 ? estimatedTotalBytes : null,
+        totalBytes: null,
       ));
     }
   }
@@ -946,16 +950,6 @@ Future<void> _processM3u8Download(
               completedBytes += slotBytes[capturedSlotIdx];
             }
             slotBytes[capturedSlotIdx] = 0;
-
-            // Lock the total estimate after enough segments so the denominator
-            // stops changing.
-            if (!_totalLocked && completed > 0) {
-              final avgBytesPerSegment = completedBytes ~/ completed;
-              estimatedTotalBytes = avgBytesPerSegment * total;
-              if (completed >= kLockAfterSegments) {
-                _totalLocked = true;
-              }
-            }
 
             // Always send an update on segment completion (threshold bypassed).
             _lastReportedBytes = 0;

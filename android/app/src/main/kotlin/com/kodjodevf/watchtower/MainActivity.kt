@@ -645,12 +645,25 @@ package com.watchtower.app
                       "start"  -> { DownloadForegroundService.start(applicationContext, count, title, subtitle, progress);  result.success(null) }
                       "update" -> { DownloadForegroundService.update(applicationContext, count, title, subtitle, progress); result.success(null) }
                       "stop"   -> { DownloadForegroundService.stop(applicationContext);                                     result.success(null) }
+                      "openFile" -> { openDownloadedFile(call.argument("filePath")); result.success(null) }
                       else     -> result.notImplemented()
                   }
               } catch (e: Exception) {
                   result.error("SVC_ERR", e.message, null)
               }
           }
+      }
+
+      private fun openDownloadedFile(filePath: String?) {
+          if (filePath.isNullOrBlank()) return
+          val file = File(filePath)
+          if (!file.exists()) return
+          val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+          val intent = Intent(Intent.ACTION_VIEW).apply {
+              setDataAndType(uri, contentResolver.getType(uri) ?: "video/*")
+              addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          }
+          startActivity(Intent.createChooser(intent, "Lire avec…"))
       }
 
       private fun pluginJsonToMap(json: org.json.JSONObject): Map<String, Any?> {

@@ -1277,6 +1277,7 @@ class _GroupedDownloadTabListState
     final priority = widget.queueState.priorities[element.id ?? -1] ?? 0;
     final speedMbs =
         (widget.queueState.speeds[element.id ?? -1] ?? 0.0).clamp(0.0, 9999.0);
+    final liveProgress = widget.queueState.liveProgress[element.id ?? -1];
 
     return Dismissible(
       key: ValueKey('dl_${element.id ?? 0}'),
@@ -1355,6 +1356,7 @@ class _GroupedDownloadTabListState
           retryCount: retryCount,
           priority: priority,
           speedMbs: speedMbs,
+           liveProgress: liveProgress,
           swipeLeftAction: widget.swipeLeft,
           swipeRightAction: widget.swipeRight,
           onPauseResume: () => widget.onPauseResume(element),
@@ -1583,6 +1585,7 @@ class _DownloadCard extends ConsumerWidget {
 
   /// Speed Master: live download speed in MB/s (0 = unknown/idle).
   final double speedMbs;
+  final DownloadLiveProgress? liveProgress;
   final SwipeAction swipeLeftAction;
   final SwipeAction swipeRightAction;
   final VoidCallback onPauseResume;
@@ -1599,6 +1602,7 @@ class _DownloadCard extends ConsumerWidget {
     required this.retryCount,
     this.priority = 0,
     this.speedMbs = 0.0,
+    this.liveProgress,
     required this.swipeLeftAction,
     required this.swipeRightAction,
     required this.onPauseResume,
@@ -1640,10 +1644,21 @@ class _DownloadCard extends ConsumerWidget {
     final succeeded = download.succeeded ?? 0;
     final total = download.total ?? 100;
     final failed = download.failed ?? 0;
-    final progress = total > 0 ? succeeded / total : 0.0;
     final isComplete = download.isDownload ?? false;
     final hasFailed = failed > 0 && !isComplete;
     final isPaused = this.isPaused;
+
+    final liveDownloadedBytes = liveProgress?.downloadedBytes;
+    final liveTotalBytes = liveProgress?.totalBytes;
+    final progress = liveProgress != null
+        ? liveTotalBytes != null && liveTotalBytes > 0
+            ? liveDownloadedBytes! / liveTotalBytes
+            : liveProgress!.totalUnits > 0
+                ? liveProgress.completedUnits / liveProgress.totalUnits
+                : 0.0
+        : total > 0
+            ? succeeded / total
+            : 0.0;
 
     final scheme = Theme.of(context).colorScheme;
 
@@ -1677,18 +1692,9 @@ class _DownloadCard extends ConsumerWidget {
 
     final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
-    // MovieBox-style computed labels: ETA (video rows in byte-mode),
-    // episode tag extracted from the chapter name and a source badge.
-    final remainingKb = math.max(total - succeeded, 0);
-    String? etaText;
-    if (!isComplete && !hasFailed && !isPaused && speedMbs >= 0.05 && total > 500 && remainingKb > 0) {
-      final etaSec = (remainingKb / 1024) / speedMbs;
-      if (etaSec.isFinite && etaSec > 0 && etaSec < 86400) {
-        final m = etaSec ~/ 60;
-        final s = (etaSec % 60).round();
-        etaText = m > 0 ? '$m min ${s.toString().padLeft(2, '0')} sec gauche' : '$s sec gauche';
-      }
-    }
+    // The queue shows "En cours… · vitesse" while downloading. An ETA based
+    // on a guessed HLS denominator is deliberately not shown: it was the
+    // source of misleading values when the playlist size was unknown.
     final epMatch = RegExp(r'S\s?\d{1,3}\s?[ExXÉ]\s?\d{1,3}', caseSensitive: false).firstMatch(chapter?.name ?? '');
     final epTag = epMatch?.group(0)?.replaceAll(RegExp(r'\s'), '');
     var srcBadge = (manga?.source ?? '').replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
@@ -1696,11 +1702,11 @@ class _DownloadCard extends ConsumerWidget {
 
     // Progress bar — no TweenAnimationBuilder so progress never "resets to 0"
     // on each Isar stream rebuild (the regression bug). Direct value is correct.
-    final progressBar = progress > 0 && !isComplete
+    final progressBar = !isComplete && (progress > 0 || isRetrievingMetadata)
         ? ClipRRect(
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
+              value: isRetrievingMetadata ? null : progress.clamp(0.0, 1.0),
               minHeight: (layout == DownloadCardLayout.minimal || layout == DownloadCardLayout.compact) ? 2 : 4,
               backgroundColor: scheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation<Color>(
@@ -2165,10 +2171,11 @@ class _DownloadCard extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         isComplete
-                            ? 'Terminé'
-                            : (total > 500
-                                ? '${_formatSize(succeeded)} / ${_formatSize(total)}'
-                                : _buildProgressLabel(itemType, succeeded, total, failed)),
+                            ? (itemType == ItemType.anime &&
+                                    liveProgress?.totalBytes != null
+                                ? '${_formatBytes(liveProgress!.totalBytes!)}'
+                                : 'Terminé')
+                            : _buildProgressLabel(itemType, succeeded, total, failed),
                         style: TextStyle(
                           color: scheme.onSurfaceVariant,
                           fontSize: 11,
@@ -2183,13 +2190,13 @@ class _DownloadCard extends ConsumerWidget {
                               ? 'En pause'
                               : isRetrievingMetadata
                                   ? 'Récupération…'
-                                  : (etaText ?? statusText),
+                            : statusText,
                       style: TextStyle(
                         color: hasFailed
                             ? mbRed
                             : isPaused
                                 ? mbAmber
-                                : (etaText != null ? mbGreen : scheme.onSurfaceVariant),
+                                : scheme.onSurfaceVariant,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),
@@ -2230,6 +2237,17 @@ class _DownloadCard extends ConsumerWidget {
         if (succeeded == 0) return '';
         return '';
       case ItemType.anime:
+        if (liveProgress != null) {
+          final downloaded = liveProgress!.downloadedBytes;
+          final knownTotal = liveProgress!.totalBytes;
+          if (knownTotal != null && knownTotal > 0) {
+            return '${_formatBytes(downloaded)} / ${_formatBytes(knownTotal)}';
+          }
+          if (downloaded > 0) {
+            return '${_formatBytes(downloaded)} téléchargés · taille finale…';
+          }
+          return 'Préparation du flux…';
+        }
         // Two sub-cases depending on what's stored in Isar:
         //
         // A) HLS/direct with real byte data → succeeded & total are in KB
@@ -2269,6 +2287,19 @@ class _DownloadCard extends ConsumerWidget {
       return '${(kb / 1024).toStringAsFixed(1)} MB';
     }
     return '$kb KB';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    if (bytes >= 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '$bytes B';
   }
 }
 

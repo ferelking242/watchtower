@@ -46,6 +46,7 @@ import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/services/download_manager/background_keep_alive.dart';
+import 'package:watchtower/services/update_notification_service.dart';
 part 'download_provider.g.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -768,6 +769,7 @@ Future<void> downloadChapter(
     var _speedLastKb = -1;
     var _speedLastMs = 0;
     var _speedEmaMbs = 0.0;
+    var mediaCompletionNotified = false;
 
     Future<void> setProgress(DownloadProgress progress) async {
       if (progress.total > 0 && AppLogger.isExtremeMode) {
@@ -797,14 +799,15 @@ Future<void> downloadChapter(
         final dBytes = progress.downloadedBytes;
         final tBytes = progress.totalBytes;
         if (dBytes != null && tBytes != null && tBytes > 0) {
-          // Convert bytes → KB (integer, minimum 1 to avoid 0/0)
+          // Persist a denominator only when the source supplied a real size.
           isarSucceeded = (dBytes / 1024).ceil();
           isarTotal = (tBytes / 1024).ceil();
         } else if (dBytes != null && dBytes > 0) {
-          // Total unknown (chunked transfer) — store downloaded KB only,
-          // set total = downloaded+1 so progress bar stays < 100%.
+          // HLS normally has no final Content-Length. Keep Isar in its
+          // sentinel state and render the live byte/segment progress from
+          // DownloadQueueState instead of inventing a fake total.
           isarSucceeded = (dBytes / 1024).ceil();
-          isarTotal = isarSucceeded + 1;
+          isarTotal = progress.isCompleted ? isarSucceeded : 1;
         } else {
           // Fallback to segment count (rare — occurs during first segment
           // before any bytes have landed yet).
@@ -818,6 +821,19 @@ Future<void> downloadChapter(
       }
 
       final download = isar.downloads.getSync(chapter.id!);
+
+      if (chapter.id != null) {
+        ref.read(downloadQueueStateProvider.notifier).setLiveProgress(
+          chapter.id!,
+          DownloadLiveProgress(
+            downloadedBytes: progress.downloadedBytes ??
+                (itemType == ItemType.anime ? isarSucceeded * 1024 : 0),
+            totalBytes: progress.totalBytes,
+            completedUnits: progress.completed,
+            totalUnits: progress.total,
+          ),
+        );
+      }
 
       // ── Speed Master: update the live speed shown in the download queue ──
       {
@@ -865,7 +881,7 @@ Future<void> downloadChapter(
         _resumeSucceededKbOffset = stored > threshold ? stored : 0;
       }
 
-      // ── Resume-safe corrections (anime AND manga) ─────────────────────────
+      // ── Resume-safe corrections (manga and known-size files) ──────────────
       // On pause → resume, the fresh downloader only sees remaining items:
       //   • isarTotal  may be re-estimated from remaining items → differs from original.
       //   • isarSucceeded restarts from 0                       → appears to go backwards.
@@ -882,7 +898,11 @@ Future<void> downloadChapter(
       if (download != null) {
         final storedTotal = download.total ?? 0;
         final freezeThreshold = progress.itemType == ItemType.anime ? 500 : 1;
-        if (storedTotal > freezeThreshold && !progress.isCompleted) {
+        final hasTrustworthyAnimeTotal = progress.itemType != ItemType.anime ||
+            progress.totalBytes != null;
+        if (storedTotal > freezeThreshold &&
+            !progress.isCompleted &&
+            hasTrustworthyAnimeTotal) {
           // Freeze: use stored total regardless of new estimate direction.
           isarTotal = storedTotal;
         }
@@ -946,7 +966,10 @@ Future<void> downloadChapter(
       // ── Android notification: real chapter name + progress bar ───────────
       // Only update for anime downloads where we have meaningful byte progress.
       if (progress.itemType == ItemType.anime && progress.total > 0 && isarTotal > 0) {
-        final pct = (isarSucceeded * 100 ~/ isarTotal).clamp(0, 100);
+        final hasKnownSize = progress.totalBytes != null;
+        final pct = hasKnownSize
+            ? (isarSucceeded * 100 ~/ isarTotal).clamp(0, 100)
+            : -1;
         final activeCount = ActiveDownloadRegistry.activeCountForType(ItemType.anime);
         final notifTitle = chapter.name ?? 'Téléchargement en cours…';
         final notifSub = '$activeCount téléchargement${activeCount > 1 ? 's' : ''} actif${activeCount > 1 ? 's' : ''}';
@@ -956,6 +979,22 @@ Future<void> downloadChapter(
           progress: pct,
           subtitle: notifSub,
         ));
+      }
+
+      if (progress.isCompleted &&
+          itemType == ItemType.anime &&
+          !mediaCompletionNotified) {
+        mediaCompletionNotified = true;
+        final finalPath = m3u8Downloader?.fileName ??
+            p.join(mangaMainDirectory!.path, '$chapterName.mp4');
+        if (await File(finalPath).exists()) {
+          unawaited(
+            WatchtowerNotificationService.instance.showMediaDownloadComplete(
+              title: chapter.name ?? 'Vidéo téléchargée',
+              filePath: finalPath,
+            ),
+          );
+        }
       }
     }
 

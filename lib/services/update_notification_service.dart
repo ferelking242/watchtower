@@ -15,15 +15,19 @@ import 'package:flutter/widgets.dart';
   const int _kUpdateNotifId = 9910;
   const int _kReminderNotifId = 9911;
   const int _kProgressNotifId = 9912;
+int _nextMediaNotifId = 10000;
 
   const String _kUpdateChannelId = 'watchtower_updates';
   const String _kUpdateChannelName = 'Mises à jour';
   const String _kReminderChannelId = 'watchtower_reminders';
   const String _kReminderChannelName = 'Rappels';
+const String _kDownloadChannelId = 'watchtower_downloads';
+const String _kDownloadChannelName = 'Téléchargements';
 
   const String _kActionDownload = 'action_download';
   const String _kActionWhatsNew = 'action_whats_new';
 const String _kActionInstall = 'action_install';
+const String _kActionPlay = 'action_play';
 
   class WatchtowerNotificationService {
     WatchtowerNotificationService._();
@@ -38,6 +42,7 @@ const String _kActionInstall = 'action_install';
     String? _pendingDownloadUrl;
     String? _pendingReleaseUrl;
     String? _pendingInstallPath;
+    String? _pendingMediaPath;
 
     bool get _supported =>
         !kIsWeb && (Platform.isAndroid || Platform.isIOS);
@@ -90,6 +95,17 @@ const String _kActionInstall = 'action_install';
             ),
           );
 
+          await androidPlugin?.createNotificationChannel(
+            const AndroidNotificationChannel(
+              _kDownloadChannelId,
+              _kDownloadChannelName,
+              description: 'Résultats des téléchargements Watchtower',
+              importance: Importance.defaultImportance,
+              playSound: false,
+              enableVibration: false,
+            ),
+          );
+
           _requestAndroidPermissionWhenReady(androidPlugin);
         } else if (Platform.isIOS) {
           await _plugin
@@ -116,12 +132,30 @@ const String _kActionInstall = 'action_install';
         // Tapping the notification body (no action id) when install is pending
         if ((actionId == null || actionId == _kActionInstall) && _pendingInstallPath != null) {
           _installPending();
+        } else if ((actionId == null || actionId == _kActionPlay) &&
+            _pendingMediaPath != null) {
+          _openMediaPending();
         } else if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
           _downloadOrOpen(_pendingDownloadUrl!);
         } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {
           launchUrl(
             Uri.parse(_pendingReleaseUrl!),
             mode: LaunchMode.externalApplication,
+          );
+        }
+      }
+
+      Future<void> _openMediaPending() async {
+        final path = _pendingMediaPath;
+        if (path == null) return;
+        try {
+          const channel = MethodChannel('watchtower/download_service');
+          await channel.invokeMethod<void>('openFile', {'filePath': path});
+        } catch (e) {
+          AppLogger.log(
+            'Unable to open completed media: $e',
+            logLevel: LogLevel.warning,
+            tag: LogTag.network,
           );
         }
       }
@@ -420,6 +454,53 @@ const String _kActionInstall = 'action_install';
     } catch (e) {
       AppLogger.log(
         'showDownloadComplete failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  /// Notification shown once a video has been merged into its final file.
+  /// It uses its own channel, rather than the update channel, so Android does
+  /// not group media results with APK/update notifications.
+  Future<void> showMediaDownloadComplete({
+    required String title,
+    required String filePath,
+  }) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    _pendingMediaPath = filePath;
+    final id = _nextMediaNotifId++;
+    try {
+      final androidDetails = AndroidNotificationDetails(
+        _kDownloadChannelId,
+        _kDownloadChannelName,
+        channelDescription: 'Résultats des téléchargements Watchtower',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        ticker: 'Téléchargement réussi',
+        styleInformation: BigTextStyleInformation(
+          title,
+          contentTitle: 'Téléchargement réussi',
+        ),
+        actions: const [
+          AndroidNotificationAction(
+            _kActionPlay,
+            'Jouer',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+        ],
+      );
+      await _plugin.show(
+        id,
+        'Téléchargement réussi',
+        title,
+        NotificationDetails(android: androidDetails),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showMediaDownloadComplete failed: $e',
         logLevel: LogLevel.warning,
         tag: LogTag.network,
       );
