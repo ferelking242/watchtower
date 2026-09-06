@@ -147,6 +147,11 @@ class UiSection {
   /// 'primary' | 'secondary' | 'tertiary' | 'error' | '#RRGGBB' hint
   final String? accent;
 
+  /// Optional presentation hints consumed by the generic home renderer.
+  /// The extension chooses these values; Flutter only maps them to widgets.
+  final int? columns;
+  final String? cardStyle;
+
   final bool seeAll;
   final bool paginated;
   final bool requiresAuth;
@@ -157,6 +162,8 @@ class UiSection {
     this.title,
     this.icon,
     this.accent,
+    this.columns,
+    this.cardStyle,
     this.seeAll = false,
     this.paginated = false,
     this.requiresAuth = false,
@@ -168,6 +175,8 @@ class UiSection {
         title: json['title'] as String?,
         icon: json['icon'] as String?,
         accent: json['accent'] as String?,
+        columns: (json['columns'] as num?)?.toInt(),
+        cardStyle: json['cardStyle'] as String?,
         seeAll: json['seeAll'] as bool? ?? false,
         paginated: json['paginated'] as bool? ?? false,
         requiresAuth: json['requiresAuth'] as bool? ?? false,
@@ -178,10 +187,13 @@ class UiSection {
   // internally. This bridge lets us wire the new system with zero widget changes.
   Map<String, dynamic> toLegacyMap() => {
         'id': id,
+        'component': component,
         'layout': _toLegacyLayout(component),
         'name': title,
         'icon': icon,
         'color': accent,
+        if (columns != null) 'columns': columns,
+        if (cardStyle != null) 'cardStyle': cardStyle,
         if (seeAll) 'seeAll': id,
       };
 
@@ -200,6 +212,7 @@ class UiSection {
         'newHot'        => 'new_hot',
         'new_hot'       => 'new_hot',
         'feed'          => 'spotlight',
+        'masonry'       => 'masonry',
         'creatorRow'    => 'ranked',
         _               => 'spotlight',
       };

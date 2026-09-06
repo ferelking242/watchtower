@@ -59,6 +59,7 @@ class NfWatchAppBarWidget extends StatelessWidget {
     required this.scrollOffsetNotifier,
     required this.sourceName,
     this.sourceIconUrl,
+    this.onSourceTap,
     this.onMenuTap,
     this.onBackTap,
     this.canPop = false,
@@ -69,6 +70,7 @@ class NfWatchAppBarWidget extends StatelessWidget {
   final ValueNotifier<double> scrollOffsetNotifier;
   final String        sourceName;
   final String?       sourceIconUrl;
+  final VoidCallback? onSourceTap;
   final VoidCallback? onMenuTap;
   final VoidCallback? onBackTap;
   final bool          canPop;
@@ -154,11 +156,14 @@ class NfWatchAppBarWidget extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 // ── Centre: extension icon + name (fades in on collapse) ──
-                Opacity(
-                  opacity: curved,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+                 Opacity(
+                   opacity: curved,
+                   child: GestureDetector(
+                     behavior: HitTestBehavior.opaque,
+                     onTap: onSourceTap,
+                     child: Row(
+                       mainAxisSize: MainAxisSize.min,
+                       children: [
                       if (sourceIconUrl != null && sourceIconUrl!.isNotEmpty) ...[
                         ClipRRect(
                           borderRadius: BorderRadius.circular(7),
@@ -190,7 +195,8 @@ class NfWatchAppBarWidget extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ],
+                       ],
+                     ),
                   ),
                 ),
                 // ── Left: back ────────────────────────────────────────────

@@ -20,8 +20,10 @@ import 'nf_utils.dart';
 /// height (leaves a peek of the next section below).
 double heroCarouselHeight(BuildContext context) {
   final size = MediaQuery.of(context).size;
-  final h = size.width * 0.92;
-  return h.clamp(0.0, size.height * 0.60);
+  // Keep enough vertical room for landscape thumbnails and the action row.
+  // The previous frame was short enough to crop the artwork and its footer.
+  final h = size.width * 1.08;
+  return h.clamp(0.0, size.height * 0.68);
 }
 
 class NfHeroCarousel extends ConsumerStatefulWidget {
@@ -151,14 +153,34 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
               final manga = items[i];
               return GestureDetector(
                 onTap: () => widget.onTapManga(manga),
-                child: NfPosterImage(
-                  imageUrl: manga.imageUrl,
-                  original: true,
-                  borderRadius: BorderRadius.zero,
-                  width: width,
-                  height: height,
-                  alignment: Alignment.topCenter,
-                ),
+                 child: Stack(
+                   fit: StackFit.expand,
+                   children: [
+                     // A muted cover keeps the taller frame cinematic.
+                     Opacity(
+                       opacity: 0.30,
+                       child: NfPosterImage(
+                         imageUrl: manga.imageUrl,
+                         original: true,
+                         borderRadius: BorderRadius.zero,
+                         width: width,
+                         height: height,
+                         fit: BoxFit.cover,
+                         alignment: Alignment.center,
+                       ),
+                     ),
+                     // Contain the real thumbnail so its edges are never cut.
+                     NfPosterImage(
+                       imageUrl: manga.imageUrl,
+                       original: true,
+                       borderRadius: BorderRadius.zero,
+                       width: width,
+                       height: height,
+                       fit: BoxFit.contain,
+                       alignment: Alignment.center,
+                     ),
+                   ],
+                 ),
               );
             },
           ),

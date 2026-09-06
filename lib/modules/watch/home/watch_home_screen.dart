@@ -8,12 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:isar_community/isar.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:extended_image/extended_image.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
+import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -367,6 +369,31 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     if (_menuOpen) setState(() => _menuOpen = false);
   }
 
+  void _openSourcePicker() {
+    showModalBottomSheet<Source>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _WatchSourcePickerSheet(current: source),
+    ).then((next) {
+      if (!mounted || next == null || next.id == source.id) return;
+      isar.writeTxnSync(() {
+        final sources = isar.sources
+            .filter()
+            .idIsNotNull()
+            .itemTypeEqualTo(source.itemType)
+            .findAllSync();
+        for (final candidate in sources) {
+          isar.sources.putSync(candidate
+            ..lastUsed = candidate.id == next.id
+            ..updatedAt = DateTime.now().millisecondsSinceEpoch);
+        }
+      });
+      context.pushReplacement('/watchHome', extra: (next, false));
+    });
+  }
+
   void _menuGoHome() {
     _closeMenu();
     if (_scrollCtrl.hasClients) {
@@ -441,6 +468,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         .toList();
     final catalogueList =
         _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+    final hasCustomHistory =
+        _customLists.any((cl) => cl['id'] == 'history');
 
     final groups = <NfMenuGroup>[];
 
@@ -612,6 +641,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         .where((cl) =>
             cl['id'] != 'carousel' &&
             cl['layout'] != 'category' &&
+            cl['layout'] != 'banner' &&
             cl['id'] != 'catalogue' &&
             cl['layout'] != '__tab__')
         .toList();
@@ -682,8 +712,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                   ),
                 ),
 
-                // ── Watch history (continue watching) ─────────────────────
-                SliverToBoxAdapter(child: NfWatchHistoryRow(source: source)),
+                // Keep the built-in continue-watching row only when the
+                // extension has not declared its own history section.
+                if (!hasCustomHistory)
+                  SliverToBoxAdapter(
+                      child: NfWatchHistoryRow(source: source)),
 
                 // ── Category widgets ──────────────────────────────────────
                 if (categoryLists.isNotEmpty)
@@ -697,6 +730,11 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                     source:  source,
                     listId:  cl['id'] as String,
                     title:   cl['name'] as String? ?? cl['id'] as String,
+                    component: cl['component'] as String? ??
+                        cl['layout'] as String? ??
+                        'spotlight',
+                    columns: cl['columns'] as int?,
+                    cardStyle: cl['cardStyle'] as String?,
                     onSeeAll: () => Navigator.of(ctx).push(MaterialPageRoute(
                       builder: (_) => _WatchSectionPage(
                         source:       source,
@@ -856,6 +894,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             scrollOffsetNotifier: _scrollOffsetNotifier,
             sourceName:   source.name ?? source.lang ?? 'Anime',
             sourceIconUrl: source.iconUrl,
+            onSourceTap:  _openSourcePicker,
             onMenuTap:    _openMenu,
             canPop:       context.canPop(),
             onBackTap:    () => context.pop(),
@@ -938,84 +977,20 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                       String bgUrl = extImg;
 
                       if (bgUrl.isEmpty) {
-                        final snap = r.watch(getCustomListProvider(
+                         final snap = r.watch(getCustomListProvider(
                             source: source, listId: listId, page: 1));
                         bgUrl = snap.maybeWhen(
                           data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
                           orElse: () => '',
                         );
                       }
-                      return Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.10),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.45),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
-                          child: SizedBox(
-                            width: 168, height: 96,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                bgUrl.isNotEmpty
-                                    ? ExtendedImage.network(bgUrl,
-                                          fit: BoxFit.cover,
-                                          loadStateChanged: (state) =>
-                                              state.extendedImageLoadState ==
-                                                      LoadState.failed
-                                                  ? ColoredBox(
-                                                      color: fallback)
-                                                  : null)
-                                    : ColoredBox(color: fallback),
-                                DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin:  Alignment.topLeft,
-                                      end:    Alignment.bottomRight,
-                                      colors: [
-                                        Colors.black.withValues(alpha: 0.25),
-                                        Colors.black.withValues(alpha: 0.70),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8),
-                                    child: Text(
-                                      listName,
-                                      style: const TextStyle(
-                                        color:         Colors.white,
-                                        fontSize:      14,
-                                        fontWeight:    FontWeight.w800,
-                                        letterSpacing: 0.2,
-                                        shadows: [
-                                          Shadow(
-                                              color: Colors.black87,
-                                              blurRadius: 6),
-                                        ],
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      maxLines:  2,
-                                      overflow:  TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
+                       return _CategoryCard(
+                         name: listName,
+                         imageUrl: bgUrl,
+                         fallback: fallback,
+                         width: 182,
+                         height: 104,
+                       );
                     },
                   ),
                 ),
@@ -1421,6 +1396,9 @@ class _NfContentRow extends ConsumerWidget {
   final Source                 source;
   final String                 listId;
   final String                 title;
+  final String                 component;
+  final int?                   columns;
+  final String?                cardStyle;
   final VoidCallback?          onSeeAll;
   final void Function(MManga)? onTapManga;
 
@@ -1428,6 +1406,9 @@ class _NfContentRow extends ConsumerWidget {
     required this.source,
     required this.listId,
     required this.title,
+    this.component = 'spotlight',
+    this.columns,
+    this.cardStyle,
     this.onSeeAll,
     this.onTapManga,
   });
@@ -1441,6 +1422,35 @@ class _NfContentRow extends ConsumerWidget {
       data: (d) {
         final items = d?.list ?? [];
         if (items.isEmpty) return const SizedBox.shrink();
+        if (component == 'masonry') {
+          return _NfMasonryRow(
+            title: title,
+            items: items,
+            columns: columns ?? 2,
+            cardStyle: cardStyle,
+            onSeeAll: onSeeAll,
+            onTapManga: onTapManga,
+          );
+        }
+        if (component == 'grid' || component == 'catalogue') {
+          return _NfInlineGrid(
+            title: title,
+            items: items,
+            columns: columns ?? 3,
+            source: source,
+            onSeeAll: onSeeAll,
+            onTapManga: onTapManga,
+          );
+        }
+        if (component == 'ranked') {
+          return _NfRankedRow(
+            title: title,
+            items: items,
+            source: source,
+            onSeeAll: onSeeAll,
+            onTapManga: onTapManga,
+          );
+        }
         return _buildRow(context, items);
       },
       loading: () => _buildShimmerRow(context),
@@ -1475,18 +1485,21 @@ class _NfContentRow extends ConsumerWidget {
           ),
         ),
 
-        // Horizontal card list — exact flutter_netflix home.dart row height
+         // The JSON chooses the presentation: compact rows stay dense while
+         // spotlight/carousel rows get larger cards.
         SizedBox(
-          height: 200.0,
+           height: component == 'compact' ? 166.0 : 220.0,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding:         const EdgeInsets.only(left: 8, right: 8),
             itemCount:       items.length,
             itemBuilder: (_, i) => GestureDetector(
               onTap: () => onTapManga?.call(items[i]),
-              child: NfMovieBox(
+               child: NfMovieBox(
                 manga:  items[i],
                 source: source,
+                 compact: component == 'compact',
+                 cardStyle: cardStyle,
               ),
             ),
           ),
@@ -1513,6 +1526,302 @@ class _NfContentRow extends ConsumerWidget {
           ),
         ),
         _NfShimmerRow(),
+      ],
+    );
+  }
+}
+
+/// Declarative masonry presentation used by layouts such as XNXX Tags.
+/// It deliberately has no extension-specific drawing logic: the JSON selects
+/// the component and the generic card only consumes MManga data.
+class _NfMasonryRow extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final int columns;
+  final String? cardStyle;
+  final VoidCallback? onSeeAll;
+  final void Function(MManga)? onTapManga;
+
+  const _NfMasonryRow({
+    required this.title,
+    required this.items,
+    required this.columns,
+    required this.cardStyle,
+    required this.onSeeAll,
+    required this.onTapManga,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final count = columns.clamp(2, 3).toInt();
+    final buckets = List.generate(count, (_) => <MManga>[]);
+    for (var i = 0; i < items.length; i++) {
+      buckets[i % count].add(items[i]);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 4, 8),
+          child: Row(
+            children: [
+              Text(title, style: const TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold,
+              )),
+              const Spacer(),
+              if (onSeeAll != null)
+                SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var column = 0; column < count; column++)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: column == 0 ? 0 : 4),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < buckets[column].length; i++)
+                          _NfMasonryCard(
+                            manga: buckets[column][i],
+                            height: 82.0 + ((i + column) % 3) * 24.0,
+                            accent: cardStyle == 'tag'
+                                ? const Color(0xFF00B8D4)
+                                : nfRedColor,
+                            onTap: () =>
+                                onTapManga?.call(buckets[column][i]),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NfMasonryCard extends StatelessWidget {
+  final MManga manga;
+  final double height;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _NfMasonryCard({
+    required this.manga,
+    required this.height,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: height,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if ((manga.imageUrl ?? '').isNotEmpty)
+                  NfPosterImage(
+                    imageUrl: manga.imageUrl,
+                    width: double.infinity,
+                    height: height,
+                    fit: BoxFit.cover,
+                  )
+                else
+                  ColoredBox(color: accent.withValues(alpha: 0.16)),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.78),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 10,
+                  right: 10,
+                  bottom: 9,
+                  child: Text(
+                    manga.name ?? '',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NfInlineGrid extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final int columns;
+  final Source source;
+  final VoidCallback? onSeeAll;
+  final void Function(MManga)? onTapManga;
+
+  const _NfInlineGrid({
+    required this.title,
+    required this.items,
+    required this.columns,
+    required this.source,
+    required this.onSeeAll,
+    required this.onTapManga,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final count = columns.clamp(2, 4).toInt();
+    final visible = items.take(6).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 4, 8),
+          child: Row(
+            children: [
+              Text(title, style: const TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold,
+              )),
+              const Spacer(),
+              if (onSeeAll != null)
+                SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
+            ],
+          ),
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          itemCount: visible.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: count,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 0.66,
+          ),
+          itemBuilder: (_, i) => GestureDetector(
+            onTap: () => onTapManga?.call(visible[i]),
+            child: MangaImageCardWidget(
+              getMangaDetail: visible[i],
+              source: source,
+              itemType: source.itemType,
+              isComfortableGrid: false,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NfRankedRow extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final Source source;
+  final VoidCallback? onSeeAll;
+  final void Function(MManga)? onTapManga;
+
+  const _NfRankedRow({
+    required this.title,
+    required this.items,
+    required this.source,
+    required this.onSeeAll,
+    required this.onTapManga,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 4, 8),
+          child: Row(
+            children: [
+              Text(title, style: const TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold,
+              )),
+              const Spacer(),
+              if (onSeeAll != null)
+                SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 220,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            itemCount: items.length,
+            itemBuilder: (_, i) => SizedBox(
+              width: 128,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () => onTapManga?.call(items[i]),
+                      child: NfMovieBox(
+                        manga: items[i],
+                        source: source,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 2,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: nfRedColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 4),
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -2027,82 +2336,290 @@ class _CategoryGridPage extends StatelessWidget {
             fallback = const Color(0xFF1E2126);
           }
 
-          return GestureDetector(
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => _WatchSectionPage(
-                source:       source,
-                title:        listName,
-                type:         _SectionKind.custom,
-                customListId: listId,
-              ),
-            )),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.10),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+          return Consumer(
+            builder: (context, ref, _) {
+              var imageUrl = extImg;
+              if (imageUrl.isEmpty) {
+                final snap = ref.watch(getCustomListProvider(
+                    source: source, listId: listId, page: 1));
+                imageUrl = snap.maybeWhen(
+                  data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
+                  orElse: () => '',
+                );
+              }
+              return GestureDetector(
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => _WatchSectionPage(
+                    source: source,
+                    title: listName,
+                    type: _SectionKind.custom,
+                    customListId: listId,
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(13),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    extImg.isNotEmpty
-                        ? ExtendedImage.network(extImg,
-                              fit: BoxFit.cover,
-                              loadStateChanged: (state) =>
-                                  state.extendedImageLoadState ==
-                                          LoadState.failed
-                                      ? ColoredBox(color: fallback)
-                                      : null)
-                        : ColoredBox(color: fallback),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin:  Alignment.topLeft,
-                          end:    Alignment.bottomRight,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.25),
-                            Colors.black.withValues(alpha: 0.70),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(
-                          listName,
-                          style: const TextStyle(
-                            color:         Colors.white,
-                            fontSize:      15,
-                            fontWeight:    FontWeight.w800,
-                            letterSpacing: 0.2,
-                            shadows: [
-                              Shadow(color: Colors.black87, blurRadius: 6),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines:  2,
-                          overflow:  TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
+                )),
+                child: _CategoryCard(
+                  name: listName,
+                  imageUrl: imageUrl,
+                  fallback: fallback,
+                  width: double.infinity,
+                  height: double.infinity,
+                  large: true,
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Shared category tile. When an extension does not provide an explicit image,
+/// callers pass the first item from its list as [imageUrl].
+class _CategoryCard extends StatelessWidget {
+  final String name;
+  final String imageUrl;
+  final Color fallback;
+  final double width;
+  final double height;
+  final bool large;
+
+  const _CategoryCard({
+    required this.name,
+    required this.imageUrl,
+    required this.fallback,
+    required this.width,
+    required this.height,
+    this.large = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width.isFinite ? width : null,
+      height: height.isFinite ? height : null,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: large ? 14 : 9,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            imageUrl.isNotEmpty
+                ? ExtendedImage.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    loadStateChanged: (state) =>
+                        state.extendedImageLoadState == LoadState.failed
+                            ? ColoredBox(color: fallback)
+                            : null,
+                  )
+                : ColoredBox(color: fallback),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.82),
                   ],
                 ),
               ),
             ),
-          );
-        },
+            Positioned(
+              left: large ? 14 : 10,
+              right: large ? 14 : 10,
+              bottom: large ? 14 : 10,
+              child: Text(
+                name,
+                textAlign: TextAlign.center,
+                maxLines: large ? 3 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: large ? 15 : 14,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                  shadows: const [
+                    Shadow(color: Colors.black87, blurRadius: 7),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WatchSourcePickerSheet extends StatelessWidget {
+  final Source current;
+
+  const _WatchSourcePickerSheet({required this.current});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final sources = isar.sources
+        .filter()
+        .idIsNotNull()
+        .isAddedEqualTo(true)
+        .isActiveEqualTo(true)
+        .itemTypeEqualTo(current.itemType)
+        .findAllSync()
+        .where((s) => s.name != 'local')
+        .toList()
+      ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+
+    return SafeArea(
+      top: false,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.52,
+        minChildSize: 0.34,
+        maxChildSize: 0.86,
+        expand: false,
+        builder: (_, controller) => Material(
+          color: nfBottomSheetColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.swap_horiz_rounded,
+                        color: Colors.white70, size: 20),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Changer d’extension',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${sources.length}',
+                      style: const TextStyle(color: Colors.white54),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: sources.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Aucune autre extension disponible',
+                          style: TextStyle(color: Colors.white60),
+                        ),
+                      )
+                    : ListView.separated(
+                        controller: controller,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        itemCount: sources.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 6),
+                        itemBuilder: (_, i) {
+                          final candidate = sources[i];
+                          final selected = candidate.id == current.id;
+                          return Material(
+                            color: selected
+                                ? cs.primary.withValues(alpha: 0.18)
+                                : Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () => Navigator.of(context).pop(candidate),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(11),
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: (candidate.iconUrl ?? '').isEmpty
+                                          ? const Icon(Icons.extension_rounded,
+                                              color: Colors.white70)
+                                          : ExtendedImage.network(
+                                              candidate.iconUrl!,
+                                              fit: BoxFit.cover,
+                                              loadStateChanged: (state) =>
+                                                  state.extendedImageLoadState ==
+                                                          LoadState.failed
+                                                      ? const Icon(
+                                                          Icons.extension_rounded,
+                                                          color: Colors.white70)
+                                                      : null,
+                                            ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            candidate.name ?? 'Extension',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            (candidate.lang ?? '').toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 11,
+                                              letterSpacing: 0.8,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (selected)
+                                      Icon(Icons.check_circle_rounded,
+                                          color: cs.primary, size: 21),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

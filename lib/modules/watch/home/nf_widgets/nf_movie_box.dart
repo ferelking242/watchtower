@@ -15,12 +15,16 @@ class NfMovieBox extends StatelessWidget {
     required this.source,
     this.padding,
     this.fill = false,
+    this.compact = false,
+    this.cardStyle,
   });
 
   final MManga      manga;
   final Source      source;
   final EdgeInsets? padding;
   final bool        fill;
+  final bool        compact;
+  final String?     cardStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +45,8 @@ class NfMovieBox extends StatelessWidget {
           builder: (ctx) => NfBottomSheet(manga: manga, source: source),
         ),
         child: SizedBox(
-          width:  110.0,
-          height: 220.0,
+           width:  compact ? 92.0 : 110.0,
+           height: compact ? 174.0 : 220.0,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -51,14 +55,14 @@ class NfMovieBox extends StatelessWidget {
                   ? Positioned.fill(
                       child: NfPosterImage(
                         imageUrl: manga.imageUrl,
-                        width:    110.0,
-                        height:   220.0,
+                         width:    compact ? 92.0 : 110.0,
+                         height:   compact ? 174.0 : 220.0,
                       ),
                     )
                   : NfPosterImage(
                       imageUrl: manga.imageUrl,
-                      width:    110.0,
-                      height:   220.0,
+                       width:    compact ? 92.0 : 110.0,
+                       height:   compact ? 174.0 : 220.0,
                     ),
 
               // Bottom gradient + title — "tu rajoute juste le nom dessus"
@@ -68,20 +72,23 @@ class NfMovieBox extends StatelessWidget {
                 right:  0,
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(8.0),
-                    ),
+                     borderRadius: const BorderRadius.vertical(
+                       bottom: Radius.circular(8.0),
+                     ),
                     gradient: LinearGradient(
                       begin:  Alignment.bottomCenter,
                       end:    Alignment.topCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.88),
+                         Colors.black.withValues(
+                             alpha: cardStyle == 'thumbnail' ? 0.78 : 0.88),
                         Colors.transparent,
                       ],
                       stops: const [0.0, 1.0],
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(6, 18, 6, 7),
+                   padding: EdgeInsets.fromLTRB(
+                     6, compact ? 14 : 18, 6, compact ? 6 : 7,
+                   ),
                   child: Text(
                     manga.name ?? '',
                     maxLines:  2,
