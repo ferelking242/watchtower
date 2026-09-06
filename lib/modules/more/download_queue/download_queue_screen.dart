@@ -310,6 +310,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         for (final e in entries) {
           if ((e.failed ?? 0) > 0 && e.chapter.value != null) {
             ref.read(downloadQueueStateProvider.notifier).incrementRetry(e.id ?? -1);
+            ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(e.id ?? -1);
             ref.read(downloadChapterProvider(chapter: e.chapter.value!));
           }
         }
@@ -360,6 +361,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       final id = element.id ?? -1;
       ref.read(downloadQueueStateProvider.notifier).incrementRetry(id);
       ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
+      ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
       ActiveDownloadRegistry.cancel(id);
       DownloadIsolatePool.instance.cancelTask('$id');
       DownloadIsolatePool.instance.cancelTask('m3u8_$id');

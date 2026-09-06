@@ -42,7 +42,7 @@ const String _kActionPlay = 'action_play';
     String? _pendingDownloadUrl;
     String? _pendingReleaseUrl;
     String? _pendingInstallPath;
-    String? _pendingMediaPath;
+    final Map<int, String> _pendingMediaPaths = {};
 
     bool get _supported =>
         !kIsWeb && (Platform.isAndroid || Platform.isIOS);
@@ -132,9 +132,8 @@ const String _kActionPlay = 'action_play';
         // Tapping the notification body (no action id) when install is pending
         if ((actionId == null || actionId == _kActionInstall) && _pendingInstallPath != null) {
           _installPending();
-        } else if ((actionId == null || actionId == _kActionPlay) &&
-            _pendingMediaPath != null) {
-          _openMediaPending();
+        } else if (actionId == null || actionId == _kActionPlay) {
+          _openMediaPending(response.id);
         } else if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
           _downloadOrOpen(_pendingDownloadUrl!);
         } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {
@@ -145,8 +144,8 @@ const String _kActionPlay = 'action_play';
         }
       }
 
-      Future<void> _openMediaPending() async {
-        final path = _pendingMediaPath;
+      Future<void> _openMediaPending(int notificationId) async {
+        final path = _pendingMediaPaths[notificationId];
         if (path == null) return;
         try {
           const channel = MethodChannel('watchtower/download_service');
@@ -468,9 +467,13 @@ const String _kActionPlay = 'action_play';
     required String filePath,
   }) async {
     if (!_supported) return;
-    if (!_initialized) await init();
-    _pendingMediaPath = filePath;
+    try {
+      if (!_initialized) await init();
+    } catch (_) {
+      return;
+    }
     final id = _nextMediaNotifId++;
+    _pendingMediaPaths[id] = filePath;
     try {
       final androidDetails = AndroidNotificationDetails(
         _kDownloadChannelId,

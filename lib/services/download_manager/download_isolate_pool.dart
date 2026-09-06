@@ -1056,7 +1056,7 @@ Future<void> _downloadSegment(
     // Decrypt if necessary (outside the retry: a successful download
     // followed by an AES failure is not transient and shouldn't be
     // re-downloaded).
-    if (params.key != null) {
+    if (params.key != null && !ts.isInitialization) {
       final bytes = await file.readAsBytes();
       final index = int.parse(ts.name.substringAfter("TS_"));
       final decrypted = _aesDecrypt(

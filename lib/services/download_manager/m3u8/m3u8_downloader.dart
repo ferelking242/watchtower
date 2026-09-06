@@ -112,7 +112,6 @@ class M3u8Downloader {
   Future<(List<TsInfo>, Uint8List?, Uint8List?, int?)> _getTsList() async {
     try {
       var effectiveUrl = m3u8Url;
-      var uri = Uri.parse(effectiveUrl);
       // Fetch with full headers (anti-403)
       var m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
 
@@ -125,7 +124,6 @@ class M3u8Downloader {
         if (variantUrl != null) {
           _log('Master playlist detected, switching to variant: $variantUrl');
           effectiveUrl = variantUrl;
-          uri = Uri.parse(effectiveUrl);
           m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
         }
       }
@@ -252,12 +250,14 @@ class M3u8Downloader {
         onProgress(progress);
       },
        onComplete: () async {
+         Object? mergeError;
+         StackTrace? mergeStack;
          try {
            await _mergeSegments(fileName, tempDir, onProgress);
-           if (!completer.isCompleted) completer.complete();
          } catch (e, st) {
            _log('Merge failed: $e\n$st');
-           if (!completer.isCompleted) completer.completeError(e, st);
+           mergeError = e;
+           mergeStack = st;
          } finally {
            // A successful merge must never leave TS files visible beside the
            // final video. Failed downloads keep their valid segments so retry
@@ -269,6 +269,13 @@ class M3u8Downloader {
              } catch (e) {
                _log('Warning: failed to clean temporary directory: $e');
              }
+           }
+         }
+         if (!completer.isCompleted) {
+           if (mergeError != null) {
+             completer.completeError(mergeError!, mergeStack);
+           } else {
+             completer.complete();
            }
          }
        },
@@ -433,13 +440,35 @@ class M3u8Downloader {
   List<TsInfo> _parseTsList(String baseUrl, String body) {
     final lines = body.split('\n');
     final tsList = <TsInfo>[];
-    var index = 0;
+    var index = 1;
+
+    // fMP4 playlists need their initialization fragment before all media
+    // fragments. Dropping EXT-X-MAP produces files that may play briefly but
+    // fail when seeking.
+    String? initRef;
+    for (final line in lines) {
+      if (!line.trim().startsWith('#EXT-X-MAP')) continue;
+      initRef = RegExp(r'URI="([^"]+)"', caseSensitive: false)
+          .firstMatch(line)
+          ?.group(1);
+      if (initRef != null && initRef!.isNotEmpty) break;
+    }
+    if (initRef != null && initRef!.isNotEmpty) {
+      tsList.add(
+        TsInfo(
+          'TS_0',
+          Uri.parse(baseUrl).resolve(initRef!).toString(),
+          isInitialization: true,
+        ),
+      );
+    }
 
     for (final line in lines) {
-      if (line.isEmpty || line.startsWith('#')) continue;
-      index++;
-       final tsUrl = Uri.parse(baseUrl).resolve(line.trim()).toString();
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+      final tsUrl = Uri.parse(baseUrl).resolve(trimmed).toString();
       tsList.add(TsInfo('TS_$index', tsUrl));
+      index++;
     }
     return tsList;
   }
