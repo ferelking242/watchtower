@@ -1,0 +1,9 @@
+name: open_filex
+version: 4.4.0
+description: Web stub for open_filex.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'
+dependencies:
+  flutter:
+    sdk: flutter

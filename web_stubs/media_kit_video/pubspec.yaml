@@ -1,0 +1,14 @@
+name: media_kit_video
+description: Web stub for media_kit_video - no native dependencies
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  media_kit:
+    path: ../media_kit
+  web: ">=1.0.0 <2.0.0"

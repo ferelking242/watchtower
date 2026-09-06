@@ -1,0 +1,11 @@
+name: flutter_qjs
+description: Web stub for flutter_qjs - no FFI dependencies
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter

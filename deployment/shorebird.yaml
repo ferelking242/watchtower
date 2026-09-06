@@ -1,0 +1,7 @@
+# Shorebird a annoncé la fermeture de son service le 8 août 2026.
+# Les nouvelles inscriptions sont fermées.
+# Ce fichier est conservé pour référence historique uniquement.
+# Pour les mises à jour OTA Flutter, voir les alternatives :
+#   - Play Store in-app updates (package: in_app_update)
+#   - GitHub Releases auto-update
+app_id: deprecated

@@ -1,0 +1,6 @@
+name: excel2003
+version: 1.0.0
+description: Web stub for excel2003 — no-op on Flutter Web.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'

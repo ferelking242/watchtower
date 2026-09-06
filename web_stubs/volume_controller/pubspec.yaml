@@ -1,0 +1,9 @@
+name: volume_controller
+description: Web stub for volume_controller
+version: 0.0.1
+publish_to: none
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter

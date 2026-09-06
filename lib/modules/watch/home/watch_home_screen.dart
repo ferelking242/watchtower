@@ -1,0 +1,2553 @@
+// WatchHomeScreen — Netflix-styled source home screen.
+// Layout inspired by flutter_netflix (angjelkom/flutter_netflix).
+// Data: extension providers (getCustomLists / getCustomListProvider).
+// Widgets: nf_widgets/ folder — direct adaptations of flutter_netflix originals.
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:extended_image/extended_image.dart';
+import 'package:watchtower/eval/model/filter.dart';
+import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/eval/model/m_pages.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/get_custom_list.dart';
+import 'package:watchtower/services/get_latest_updates.dart';
+import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/search.dart';
+import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/ui/widgets/see_all_button.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'nf_widgets/nf_app_bar.dart';
+import 'nf_widgets/nf_highlight_banner.dart';
+import 'nf_widgets/nf_menu_panel.dart';
+import 'nf_widgets/nf_movie_box.dart';
+import 'nf_widgets/nf_new_and_hot_tile.dart';
+import 'nf_widgets/nf_utils.dart';
+import 'nf_widgets/nf_watch_history_row.dart';
+import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/services/layout_registry.dart';
+
+// ── WatchHomeScreen ───────────────────────────────────────────────────────────
+
+class WatchHomeScreen extends ConsumerStatefulWidget {
+  final Source source;
+  final bool isLatest;
+
+  const WatchHomeScreen({
+    required this.source,
+    this.isLatest = false,
+    super.key,
+  });
+
+  @override
+  ConsumerState<WatchHomeScreen> createState() => _WatchHomeScreenState();
+}
+
+class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
+  late Source _source = widget.source;
+  Source get source => _source;
+  bool get isLocal => source.name == 'local' && source.lang == '';
+
+  // ── Catalogue state ───────────────────────────────────────────────────────
+  final List<MManga> _catalogueItems  = [];
+  int  _cataloguePage    = 1;
+  bool _catalogueHasNext = true;
+  bool _catalogueLoading = false;
+
+  // ── Search view state ──────────────────────────────────────────────────
+  bool   _isSearching  = false;
+  String _query        = '';
+
+  // ── Sidebar menu (hamburger, right edge) ────────────────────────────────
+  bool _menuOpen = false;
+
+  final _searchCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
+
+  // ── Search / suggestions ──────────────────────────────────────────────────
+  // _query        → live text in the field (drives debounced suggestions)
+  // _committedQuery → query actually submitted (drives the results grid)
+  Timer? _suggestionTimer;
+  List<MManga> _suggestions = [];
+  String _committedQuery = '';
+
+  // ── Search content-type tabs ───────────────────────────────────────────────
+  // Tabs come from the extension manifest (contentSubtype: movie/series/reel…).
+  // null = "Tout" — no type filter sent to the extension.
+  String? _selectedType;
+  List<SelectFilter> _extensionFilters = [];
+
+  // ── Voice search ──────────────────────────────────────────────────────────
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
+  bool _isListening     = false;
+
+  // ── Scroll offset (drives app bar scrim — NO setState, see app bar) ────────
+  final ValueNotifier<double> _scrollOffsetNotifier =
+      ValueNotifier<double>(0);
+
+  // ── Extension data ────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _customLists = const [];
+  // ── App-bar height (filled in build, used for padding) ────────────────────
+  double _appBarH = kToolbarHeight;
+
+  // ── Refresh key — incremented on each pull-to-refresh to force hero rebuild
+  int _refreshKey = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor:           Colors.transparent,
+      statusBarIconBrightness:  Brightness.light,
+      statusBarBrightness:      Brightness.dark,
+    ));
+    _loadLayout();
+    _initSpeech();
+  }
+
+  @override
+
+  void dispose() {
+    _suggestionTimer?.cancel();
+    _speech.stop();
+    _scrollOffsetNotifier.dispose();
+    _scrollCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadLayout() async {
+    if (isLocal) return;
+    await LayoutRegistry.instance.load(source);
+    if (!mounted) return;
+    try {
+      _extensionFilters = source.getFilterList()?.filters
+              .whereType<SelectFilter>()
+              .toList() ??
+          [];
+    } catch (_) {
+      _extensionFilters = [];
+    }
+    setState(() {
+      _customLists = LayoutRegistry.instance
+          .get(source)
+          .home
+          .sections
+          .map((s) => s.toLegacyMap())
+          .toList();
+    });
+  }
+
+
+  // ── Voice search helpers ──────────────────────────────────────────────────
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onError: (_) {
+          if (mounted) setState(() => _isListening = false);
+        },
+        onStatus: (status) {
+          if (status == stt.SpeechToText.notListeningStatus) {
+            if (mounted) setState(() => _isListening = false);
+          }
+        },
+      );
+    } catch (_) {
+      _speechAvailable = false;
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _startVoiceSearch() async {
+    if (!_speechAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reconnaissance vocale indisponible')),
+      );
+      return;
+    }
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
+      return;
+    }
+    setState(() => _isListening = true);
+    await _speech.listen(
+      onResult: (result) {
+        final words = result.recognizedWords;
+        if (words.isNotEmpty) {
+          _searchCtrl.value = TextEditingValue(
+            text: words,
+            selection: TextSelection.collapsed(offset: words.length),
+          );
+          _onQueryChanged(words);
+        }
+      },
+      listenFor:         const Duration(seconds: 10),
+      pauseFor:          const Duration(seconds: 3),
+      localeId:          'fr_FR',
+    );
+  }
+
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
+
+  Future<void> _onRefresh() async {
+    ref.invalidate(getPopularProvider(source: source, page: 1));
+    ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
+    for (final cl in _customLists) {
+      ref.invalidate(getCustomListProvider(
+          source: source, listId: cl['id'] as String, page: 1));
+    }
+    if (mounted) {
+      setState(() {
+        _catalogueItems.clear();
+        _cataloguePage    = 1;
+        _catalogueHasNext = true;
+        _catalogueLoading = false;
+        _refreshKey++;
+      });
+    }
+    // Allow providers to start rebuilding
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+  }
+
+  // ── Catalogue pagination ──────────────────────────────────────────────────
+
+  Future<void> _loadCatalogue() async {
+    if (_catalogueLoading || !_catalogueHasNext) return;
+    setState(() => _catalogueLoading = true);
+    try {
+      final hasCatList =
+          _customLists.any((cl) => cl['id'] == 'catalogue');
+      MPages? result;
+      if (hasCatList) {
+        result = await ref.read(getCustomListProvider(
+            source: source,
+            listId: 'catalogue',
+            page:   _cataloguePage)
+            .future);
+      } else {
+        result = await ref.read(
+            getPopularProvider(source: source, page: _cataloguePage).future);
+      }
+      if (result != null) {
+        _cataloguePage++;
+        _catalogueHasNext = result.hasNextPage;
+        _catalogueItems.addAll(result.list);
+      }
+    } catch (_) {
+      setState(() => _catalogueHasNext = false);
+    }
+    if (mounted) setState(() => _catalogueLoading = false);
+  }
+
+  // ── Search ────────────────────────────────────────────────────────────────
+
+  /// Live typing → debounced suggestions only (fast). Results are committed
+  /// on keyboard "search" action or suggestion tap — no lag while typing.
+  void _onQueryChanged(String q) {
+    _suggestionTimer?.cancel();
+    setState(() {
+      _query = q;
+      if (q.isEmpty) {
+        _suggestions    = [];
+        _committedQuery = '';
+      }
+    });
+    if (q.trim().isEmpty) return;
+
+    _suggestionTimer = Timer(const Duration(milliseconds: 250), () async {
+      try {
+        final snap = await ref.read(searchProvider(
+          source: source, query: q.trim(), page: 1, filterList: const [],
+        ).future);
+        if (!mounted) return;
+        // Stale-response guard — the user may have kept typing.
+        if (_searchCtrl.text.trim() != q.trim()) return;
+        final items = (snap?.list ?? [])
+            .where((m) => (m.name ?? '').isNotEmpty)
+            .toList();
+        // Dedupe by title, keep order, max 5.
+        final seen = <String>{};
+        final suggestions =
+            items.where((m) => seen.add(m.name!)).take(5).toList();
+        setState(() => _suggestions = suggestions);
+      } catch (_) {
+        if (mounted) setState(() => _suggestions = []);
+      }
+    });
+  }
+
+  /// Commits a query: closes the keyboard, hides suggestions, runs the search.
+  void _commitSearch(String q) {
+    _suggestionTimer?.cancel();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _query          = q;
+      _committedQuery = q.trim();
+      _suggestions    = [];
+    });
+  }
+
+  /// Content types declared by this extension (movie / series / reel …).
+  List<String> get _contentTypes => source.contentSubtype ?? const [];
+
+  /// Filter payload sent to the extension when a type tab is active.
+  /// Extensions that support filters receive a SelectFilter whose value is the
+  /// raw subtype string; unsupported extensions simply ignore it.
+  /// Memoized: Riverpod families key providers by argument identity, so a
+  /// freshly-built list per call would re-create the provider every rebuild.
+  List<dynamic> _searchFiltersCache = const [];
+  String? _searchFiltersKey;
+
+  List<dynamic> get _searchFilters {
+    final filterKey =
+        '${_selectedType ?? ''}|${_extensionFilters.map((f) => f.state).join(',')}';
+    if (_searchFiltersKey != filterKey) {
+      final type = _selectedType;
+      _searchFiltersKey = filterKey;
+      _searchFiltersCache = [
+        ..._extensionFilters,
+        if (type != null && _contentTypes.contains(type))
+          SelectFilter(
+            'content_type',
+            'Type',
+            _contentTypes.indexOf(type),
+            _contentTypes
+                .map((t) => SelectFilterOption(t.capitalize(), t, null))
+                .toList(),
+            null,
+          ),
+      ];
+    }
+    return _searchFiltersCache;
+  }
+
+  void _onTypeTabTap(String? type) {
+    if (_selectedType == type) return;
+    setState(() => _selectedType = type);
+    // Re-run the current query under the new type filter.
+    if (_committedQuery.isNotEmpty) {
+      ref.invalidate(searchProvider(
+        source:     source,
+        query:      _committedQuery,
+        page:       1,
+        filterList: _searchFilters,
+      ));
+    }
+  }
+
+  void _onExtensionFilterTap(SelectFilter filter, int state) {
+    if (filter.state == state) return;
+    setState(() {
+      filter.state = state;
+      _searchFiltersKey = null;
+    });
+    if (_committedQuery.isNotEmpty) {
+      ref.invalidate(searchProvider(
+        source: source,
+        query: _committedQuery,
+        page: 1,
+        filterList: _searchFilters,
+      ));
+    }
+  }
+
+  void _onSuggestionTap(MManga manga) {
+    final title = manga.name ?? '';
+    if (title.isEmpty) return;
+    _searchCtrl.value = TextEditingValue(
+      text: title,
+      selection: TextSelection.collapsed(offset: title.length),
+    );
+    _commitSearch(title);
+  }
+
+  void _clearSearch() {
+    _suggestionTimer?.cancel();
+    setState(() {
+      _query          = '';
+      _committedQuery = '';
+      _suggestions    = [];
+    });
+    _searchCtrl.clear();
+  }
+
+  // ── Sidebar menu ────────────────────────────────────────────────────────────
+
+  void _openMenu() {
+    HapticFeedback.selectionClick();
+    if (!_menuOpen) setState(() => _menuOpen = true);
+  }
+
+  void _closeMenu() {
+    if (_menuOpen) setState(() => _menuOpen = false);
+  }
+
+  void _menuGoHome() {
+    _closeMenu();
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        0,
+        duration: const Duration(milliseconds: 420),
+        curve:    Curves.easeOutCubic,
+      );
+    }
+  }
+
+  /// Search lives inside the menu → full-page search view (same one the old
+  /// top-right magnifier opened).
+  void _menuOpenSearch() {
+    _suggestionTimer?.cancel();
+    setState(() {
+      _menuOpen       = false;
+      _isSearching    = true;
+      _query          = '';
+      _committedQuery = '';
+      _suggestions    = [];
+      _selectedType   = null;
+    });
+    _searchCtrl.clear();
+  }
+
+  void _menuOpenSection({
+    required String      title,
+    required _SectionKind kind,
+    String?              customListId,
+  }) {
+    _closeMenu();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => _WatchSectionPage(
+        source:       source,
+        title:        title,
+        type:         kind,
+        customListId: customListId,
+      ),
+    ));
+  }
+
+  void _menuOpenCategories(List<Map<String, dynamic>> cats) {
+    _closeMenu();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => _CategoryGridPage(source: source, categories: cats),
+    ));
+  }
+
+  /// Builds the ordered list of menu groups from the extension's home layout:
+  /// Explorer (Accueil / Recherche / Catégories) → playlists (each content
+  /// row) → Nouveau & Populaire → Catalogue.
+  List<NfMenuGroup> _menuGroups() {
+    final cats = _customLists
+        .where((cl) => cl['layout'] == 'category')
+        .toList();
+    final regulars = _customLists
+        .where((cl) =>
+            cl['id'] != 'carousel' &&
+            cl['layout'] != 'category' &&
+            cl['id'] != 'catalogue' &&
+            cl['layout'] != '__tab__')
+        .toList();
+    final newHot = regulars
+        .where((cl) => (cl['layout'] as String? ?? '') == 'new_hot')
+        .toList();
+    final seenTitles = <String>{};
+    final rows = regulars
+        .where((cl) => (cl['layout'] as String? ?? '') != 'new_hot')
+        .where((cl) => seenTitles
+            .add((cl['name'] as String? ?? cl['id'] as String).trim()))
+        .toList();
+    final catalogueList =
+        _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+
+    final groups = <NfMenuGroup>[];
+
+    final explorer = <NfMenuTile>[
+      NfMenuTile(
+        icon:  Broken.home_1,
+        label: 'Accueil',
+        onTap: _menuGoHome,
+      ),
+      NfMenuTile(
+        icon:  Broken.search_normal_1,
+        label: 'Recherche',
+        onTap: _menuOpenSearch,
+        accent: true,
+      ),
+    ];
+    if (cats.isNotEmpty) {
+      explorer.add(NfMenuTile(
+        icon:  Broken.category_2,
+        label: 'Catégories',
+        onTap: () => _menuOpenCategories(cats),
+      ));
+    }
+    groups.add(NfMenuGroup(title: 'Explorer', tiles: explorer));
+
+    final playlists = <NfMenuTile>[
+      for (final row in rows)
+        NfMenuTile(
+          icon:  Broken.play_circle,
+          label: row['name'] as String? ?? row['id'] as String,
+          onTap: () => _menuOpenSection(
+            title:        row['name'] as String? ?? row['id'] as String,
+            kind:         _SectionKind.custom,
+            customListId: row['id'] as String,
+          ),
+        ),
+    ];
+    if (newHot.isNotEmpty) {
+      playlists.add(NfMenuTile(
+        icon:  Broken.diamonds,
+        label: 'Nouveau & Populaire',
+        onTap: () => _menuOpenSection(
+          title:        'Nouveau & Populaire',
+          kind:         _SectionKind.custom,
+          customListId: newHot.first['id'] as String,
+        ),
+      ));
+    }
+    if (playlists.isNotEmpty) {
+      groups.add(NfMenuGroup(title: 'Playlists', tiles: playlists));
+    }
+
+    groups.add(NfMenuGroup(
+      title: 'Catalogue',
+      tiles: [
+        NfMenuTile(
+          icon:  Broken.grid_1,
+          label: 'Tout le catalogue',
+          onTap: () => _menuOpenSection(
+            title:        'Catalogue',
+            kind:         catalogueList != null
+                ? _SectionKind.custom
+                : _SectionKind.popular,
+            customListId: catalogueList?['id'] as String?,
+          ),
+        ),
+      ],
+    ));
+
+    return groups;
+  }
+
+  /// Right-edge menu overlay: dim barrier + frosted panel that slides in.
+  Widget _buildMenuOverlay() {
+    final screenW = MediaQuery.sizeOf(context).width;
+    final panelW = (screenW * 0.86).clamp(280.0, 372.0).toDouble();
+
+    return IgnorePointer(
+      ignoring: !_menuOpen,
+      child: Stack(
+        fit:        StackFit.expand,
+        clipBehavior: Clip.hardEdge,
+        children: [
+          // ── Dim barrier ────────────────────────────────────────────────
+          AnimatedOpacity(
+            opacity: _menuOpen ? 1 : 0,
+            duration: const Duration(milliseconds: 220),
+            curve:    Curves.easeOut,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap:    _closeMenu,
+              child:    ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.62)),
+            ),
+          ),
+          // ── Panel ──────────────────────────────────────────────────────
+          Positioned(
+            top:    0,
+            bottom: 0,
+            right:  0,
+            width:  panelW,
+            child: AnimatedSlide(
+              offset:  _menuOpen ? Offset.zero : const Offset(1, 0),
+              duration: const Duration(milliseconds: 320),
+              curve:    Curves.easeOutCubic,
+              child: NfWatchMenuPanel(
+                source:  source,
+                groups:  _menuGroups(),
+                onClose: _closeMenu,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).viewPadding.top;
+    _appBarH = topPad + kToolbarHeight;
+
+    // While the sidebar menu is open the system back gesture only closes the
+    // menu instead of popping the whole extension screen.
+    return PopScope(
+      canPop: !_menuOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _menuOpen) _closeMenu();
+      },
+      child: Scaffold(
+        backgroundColor: nfBackgroundColor,
+        extendBody:      true,
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          transitionBuilder: (child, anim) {
+            final slide = Tween<Offset>(
+              begin: const Offset(0, -0.06),
+              end:   Offset.zero,
+            ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
+            return FadeTransition(
+              opacity: anim,
+              child:   SlideTransition(position: slide, child: child),
+            );
+          },
+          child: _isSearching
+              ? KeyedSubtree(
+                  key: const ValueKey('search'),
+                  child: _buildSearchView(context))
+              : KeyedSubtree(
+                  key: const ValueKey('home'),
+                  child: _buildNetflixHome(context)),
+        ),
+      ),
+    );
+  }
+
+  // ── Netflix home view ──────────────────────────────────────────────────────
+
+  Widget _buildNetflixHome(BuildContext ctx) {
+    // Partition custom lists
+    final categoryLists = _customLists
+        .where((cl) => cl['layout'] == 'category')
+        .toList();
+    final regularLists = _customLists
+        .where((cl) =>
+            cl['id'] != 'carousel' &&
+            cl['layout'] != 'category' &&
+            cl['id'] != 'catalogue' &&
+            cl['layout'] != '__tab__')
+        .toList();
+    final newHotLists = regularLists
+        .where((cl) => (cl['layout'] as String? ?? '') == 'new_hot')
+        .toList();
+
+    // De-duplicate content rows by display title
+    final seenTitles = <String>{};
+    final contentLists = regularLists
+        .where((cl) => (cl['layout'] as String? ?? '') != 'new_hot')
+        .where((cl) {
+          final title = (cl['name'] as String? ?? cl['id'] as String).trim();
+          return seenTitles.add(title);
+        })
+        .toList();
+
+    final catalogueList =
+        _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+
+    // ── Everything scrolls in ONE CustomScrollView: the hero is the first
+    // sliver, so content can never overlap it (fixes items-over-carousel)
+    // and it scrolls away naturally, Netflix / Disney+ style.
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh:       _onRefresh,
+          color:           Colors.white,
+          backgroundColor: const Color(0xFF1A1A1A),
+          // displacement pushes the spinner below status bar
+          displacement:    _appBarH + 8,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n is ScrollUpdateNotification ||
+                  n is ScrollEndNotification) {
+                final px = n.metrics.pixels;
+                // ValueNotifier only — no setState per scroll frame (jank fix).
+                if ((px - _scrollOffsetNotifier.value).abs() > 0.5) {
+                  _scrollOffsetNotifier.value = px;
+                }
+                if (px >= n.metrics.maxScrollExtent - 400 &&
+                    _catalogueHasNext &&
+                    !_catalogueLoading) {
+                  _loadCatalogue();
+                }
+              }
+              return false;
+            },
+            child: CustomScrollView(
+              controller: _scrollCtrl,
+              physics:    const AlwaysScrollableScrollPhysics(
+                              parent: ClampingScrollPhysics()),
+              slivers: [
+                // ── Hero carousel (first sliver — scrolls with content) ───
+                SliverToBoxAdapter(
+                  child: _HeroSection(
+                    key: ValueKey('hero_$_refreshKey'),
+                    source:      source,
+                    customLists: _customLists,
+                    onTapManga: (manga) {
+                      if (_tryOpenReel(ctx, manga, source)) return;
+                      pushToMangaReaderDetail(
+                        ref: ref, context: ctx, getManga: manga,
+                        lang: source.lang!, source: source.name!,
+                        itemType: source.itemType, sourceId: source.id,
+                      );
+                    },
+                  ),
+                ),
+
+                // ── Watch history (continue watching) ─────────────────────
+                SliverToBoxAdapter(child: NfWatchHistoryRow(source: source)),
+
+                // ── Category widgets ──────────────────────────────────────
+                if (categoryLists.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: _buildCategoryChips(ctx, categoryLists),
+                  ),
+
+                // ── Content rows (spotlight / ranked / compact / masonry) ─
+                ...contentLists.map((cl) => SliverToBoxAdapter(
+                  child: cl['layout'] == 'masonry'
+                      ? _NfMasonryRow(
+                          source: source,
+                          listId: cl['id'] as String,
+                          title: cl['name'] as String? ?? cl['id'] as String,
+                          columns: (cl['columns'] as num?)?.toInt() ?? 2,
+                          cardStyle: cl['cardStyle'] as String? ?? 'default',
+                          onSeeAll: () => Navigator.of(ctx).push(
+                            MaterialPageRoute(
+                              builder: (_) => _WatchSectionPage(
+                                source: source,
+                                title: cl['name'] as String? ?? '',
+                                type: _SectionKind.custom,
+                                customListId: cl['id'] as String,
+                                presentation: 'masonry',
+                              ),
+                            ),
+                          ),
+                          onTapManga: (manga) {
+                            if (_tryOpenReel(ctx, manga, source)) return;
+                            pushToMangaReaderDetail(
+                              ref: ref, context: ctx, getManga: manga,
+                              lang: source.lang!, source: source.name!,
+                              itemType: source.itemType, sourceId: source.id,
+                            );
+                          },
+                        )
+                      : _NfContentRow(
+                          source:  source,
+                          listId:  cl['id'] as String,
+                          title:   cl['name'] as String? ?? cl['id'] as String,
+                          onSeeAll: () => Navigator.of(ctx).push(MaterialPageRoute(
+                            builder: (_) => _WatchSectionPage(
+                              source:       source,
+                              title:        cl['name'] as String? ?? '',
+                              type:         _SectionKind.custom,
+                              customListId: cl['id'] as String,
+                            ),
+                          )),
+                          onTapManga: (manga) {
+                            if (_tryOpenReel(ctx, manga, source)) return;
+                            pushToMangaReaderDetail(
+                              ref: ref, context: ctx, getManga: manga,
+                              lang: source.lang!, source: source.name!,
+                              itemType: source.itemType, sourceId: source.id,
+                            );
+                          },
+                        ),
+                )),
+
+                // ── New & Hot section ─────────────────────────────────────
+                if (newHotLists.isNotEmpty) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                      child: Row(
+                        children: [
+                          const Text('Nouveau & Populaire',
+                              style: TextStyle(
+                                  color:      Colors.white,
+                                  fontSize:   18,
+                                  fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          SeeAllButton(
+                            color: Colors.white70,
+                            onTap: () => Navigator.of(ctx).push(
+                              MaterialPageRoute(
+                                builder: (_) => _WatchSectionPage(
+                                  source:       source,
+                                  title:        'Nouveau & Populaire',
+                                  type:         _SectionKind.custom,
+                                  customListId: newHotLists.first['id'] as String,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ...newHotLists.expand((cl) => [
+                    SliverToBoxAdapter(
+                      child: Consumer(builder: (c, r, _) {
+                        final data = r.watch(getCustomListProvider(
+                            source: source,
+                            listId: cl['id'] as String,
+                            page:   1));
+                        return data.when(
+                          data: (d) {
+                            final items = d?.list ?? [];
+                            if (items.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              children: items.take(5).map((m) =>
+                                NfNewAndHotTile(manga: m, source: source),
+                              ).toList(),
+                            );
+                          },
+                          loading: () => _NfShimmerNewHot(),
+                          error:   (_, __) => const SizedBox.shrink(),
+                        );
+                      }),
+                    ),
+                  ]),
+                ],
+
+                // ── Catalogue header — golden-leaf divider + ALL at right ─
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 32, 16, 14),
+                    child: Row(
+                      children: [
+                        const Expanded(child: _GoldenDivider()),
+                        Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          child: ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [
+                                Color(0xFFF6E27A),
+                                Color(0xFFCBA135),
+                                Color(0xFFF6E27A),
+                              ],
+                            ).createShader(bounds),
+                            child: const Text(
+                              'CATALOGUE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 4.0,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Expanded(child: _GoldenDivider()),
+                        const SizedBox(width: 12),
+                        SeeAllButton(
+                          color: const Color(0xFFCBA135),
+                          onTap: () => Navigator.of(ctx).push(
+                            MaterialPageRoute(
+                              builder: (_) => _WatchSectionPage(
+                                source:       source,
+                                title:        'Catalogue',
+                                type:         catalogueList != null
+                                    ? _SectionKind.custom
+                                    : _SectionKind.popular,
+                                customListId: catalogueList?['id'] as String?,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Catalogue grid ────────────────────────────────────────
+                _CatalogueSection(
+                  source:         source,
+                  items:          _catalogueItems,
+                  loading:        _catalogueLoading,
+                  hasNext:        _catalogueHasNext,
+                  catalogueList:  catalogueList,
+                  onFirstLoad: (items, hasNext) {
+                    if (mounted && _catalogueItems.isEmpty) {
+                      setState(() {
+                        _catalogueItems.addAll(items);
+                        _cataloguePage    = 2;
+                        _catalogueHasNext = hasNext;
+                      });
+                    }
+                  },
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Floating app bar overlay ────────────────────────────────────
+        Positioned(
+          top:   0,
+          left:  0,
+          right: 0,
+          child: NfWatchAppBarWidget(
+            scrollOffsetNotifier: _scrollOffsetNotifier,
+            sourceName:   source.name ?? source.lang ?? 'Anime',
+            sourceIconUrl: source.iconUrl,
+            onMenuTap:    _openMenu,
+            canPop:       context.canPop(),
+            onBackTap:    () => context.pop(),
+          ),
+        ),
+
+        // ── Sidebar menu (hamburger) overlay ─────────────────────────────
+        Positioned.fill(child: _buildMenuOverlay()),
+      ],
+    );
+  }  // ── Category chips ─────────────────────────────────────────────────────────
+
+  Widget _buildCategoryChips(
+      BuildContext ctx, List<Map<String, dynamic>> cats) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header — title + ALL (opens the 2-column category grid).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+          child: Row(
+            children: [
+              const Text(
+                'Catégories',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              SeeAllButton(
+                color: Colors.white70,
+                onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
+                  builder: (_) => _CategoryGridPage(
+                    source: source,
+                    categories: cats,
+                  ),
+                )),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 104,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding:         const EdgeInsets.fromLTRB(14, 4, 14, 8),
+            itemCount:       cats.length,
+            itemBuilder: (_, i) {
+              final cl       = cats[i];
+              final listId   = cl['id']       as String;
+              final listName = cl['name']     as String? ?? listId;
+              final hexColor = cl['color']    as String? ?? '#1E2126';
+              final extImg   = cl['imageUrl'] as String? ?? '';
+
+              Color fallback;
+              try {
+                final h = hexColor.replaceAll('#', '');
+                fallback = h.length == 6
+                    ? Color(int.parse('FF$h', radix: 16))
+                    : const Color(0xFF1E2126);
+              } catch (_) {
+                fallback = const Color(0xFF1E2126);
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: GestureDetector(
+                  onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
+                    builder: (_) => _WatchSectionPage(
+                      source:       source,
+                      title:        listName,
+                      type:         _SectionKind.custom,
+                      customListId: listId,
+                    ),
+                  )),
+                  child: Consumer(
+                    builder: (c, r, _) {
+                      String bgUrl = extImg;
+
+                      if (bgUrl.isEmpty) {
+                        final snap = r.watch(getCustomListProvider(
+                            source: source, listId: listId, page: 1));
+                        bgUrl = snap.maybeWhen(
+                          data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
+                          orElse: () => '',
+                        );
+                      }
+                      return Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.10),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: SizedBox(
+                            width: 168, height: 96,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                bgUrl.isNotEmpty
+                                    ? ExtendedImage.network(bgUrl,
+                                          fit: BoxFit.cover,
+                                          loadStateChanged: (state) =>
+                                              state.extendedImageLoadState ==
+                                                      LoadState.failed
+                                                  ? ColoredBox(
+                                                      color: fallback)
+                                                  : null)
+                                    : ColoredBox(color: fallback),
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin:  Alignment.topLeft,
+                                      end:    Alignment.bottomRight,
+                                      colors: [
+                                        Colors.black.withValues(alpha: 0.25),
+                                        Colors.black.withValues(alpha: 0.70),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8),
+                                    child: Text(
+                                      listName,
+                                      style: const TextStyle(
+                                        color:         Colors.white,
+                                        fontSize:      14,
+                                        fontWeight:    FontWeight.w800,
+                                        letterSpacing: 0.2,
+                                        shadows: [
+                                          Shadow(
+                                              color: Colors.black87,
+                                              blurRadius: 6),
+                                        ],
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines:  2,
+                                      overflow:  TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Search view ────────────────────────────────────────────────────────────
+
+  Widget _buildSearchView(BuildContext ctx) {
+    final topPad = MediaQuery.paddingOf(ctx).top;
+    final hasText = _query.trim().isNotEmpty;
+
+    return Column(
+      children: [
+        // ── Search bar ───────────────────────────────────────────────────
+        Container(
+          color:   Colors.black,
+          padding: EdgeInsets.only(top: topPad + 4, left: 8, right: 8, bottom: 8),
+          child: Row(
+            children: [
+              // Back — chevron "<" like every other screen
+              NfCircleIconButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                size: 20,
+                onTap: () {
+                  _suggestionTimer?.cancel();
+                  setState(() {
+                    _isSearching    = false;
+                    _query          = '';
+                    _committedQuery = '';
+                    _suggestions    = [];
+                  });
+                  _searchCtrl.clear();
+                },
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller:      _searchCtrl,
+                  autofocus:       true,
+                  style:           const TextStyle(color: Colors.white),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted:     (_) => _commitSearch(_query),
+                  decoration:  InputDecoration(
+                    hintText:  _isListening
+                        ? 'Je vous écoute…'
+                        : 'Rechercher…',
+                    hintStyle: TextStyle(
+                        color: _isListening
+                            ? Colors.redAccent.shade100
+                            : Colors.white54),
+                    border:    OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide:   BorderSide.none,
+                    ),
+                    filled:      true,
+                    fillColor:   Colors.white12,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 11),
+                    // Right side of the field: mic when empty, X once typing.
+                    suffixIcon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: _isListening
+                          ? IconButton(
+                              key: const ValueKey('stop'),
+                              icon: const Icon(Icons.stop_rounded,
+                                  size: 22, color: Colors.redAccent),
+                              onPressed: _startVoiceSearch,
+                            )
+                          : hasText
+                              ? IconButton(
+                                  key: const ValueKey('clear'),
+                                  icon: const Icon(Icons.close_rounded,
+                                      size: 20, color: Colors.white70),
+                                  onPressed: _clearSearch,
+                                )
+                              : IconButton(
+                                  key: const ValueKey('mic'),
+                                  icon: Icon(
+                                      _speechAvailable
+                                          ? Icons.mic_none_rounded
+                                          : Icons.mic_off_outlined,
+                                      size: 21,
+                                      color: Colors.white70),
+                                  onPressed: _startVoiceSearch,
+                                ),
+                    ),
+                  ),
+                  onChanged: _onQueryChanged,
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+        ),
+
+        // ── Content-type tabs (movie / series / reel … from the ext) ──────
+        if (_contentTypes.isNotEmpty)
+          SizedBox(
+            height: 46,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding:         const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              children: [
+                _SearchTypeTab(
+                  label:    'Tout',
+                  selected: _selectedType == null,
+                  onTap:    () => _onTypeTabTap(null),
+                ),
+                for (final t in _contentTypes)
+                  _SearchTypeTab(
+                    label:    t.capitalize(),
+                    selected: _selectedType == t,
+                    onTap:    () => _onTypeTabTap(t),
+                  ),
+              ],
+            ),
+          ),
+        if (_extensionFilters.isNotEmpty) _buildExtensionFilterChips(),
+
+        // ── Results + floating suggestions overlay ────────────────────
+        Expanded(
+          child: Stack(
+            children: [
+              // Results grid (behind)
+              Positioned.fill(
+                child: _committedQuery.isEmpty
+                    ? _buildPopularGrid(ctx)
+                    : _buildSearchResults(ctx),
+              ),
+
+              // Suggestions — clean dropdown box attached under the field.
+              if (_suggestions.isNotEmpty)
+                Positioned(
+                  top: 6,
+                  left: 12,
+                  right: 12,
+                  child: Material(
+                    color: const Color(0xFF161616),
+                    elevation: 14,
+                    shadowColor: Colors.black87,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 5 * 58),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            padding:    EdgeInsets.zero,
+                            itemCount:  _suggestions.length,
+                            itemBuilder: (_, i) {
+                              final m = _suggestions[i];
+                              return InkWell(
+                                onTap: () => _onSuggestionTap(m),
+                                child: Container(
+                                  height: 58,
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: i == _suggestions.length - 1
+                                          ? BorderSide.none
+                                          : BorderSide(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.06)),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(5),
+                                        child: ExtendedImage.network(
+                                          m.imageUrl ?? '',
+                                          width:    32,
+                                          height:   46,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          m.name ?? '',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                      const Icon(
+                                          Icons.north_west_rounded,
+                                          size: 15,
+                                          color: Colors.white30),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExtensionFilterChips() {
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+        children: [
+          for (final filter in _extensionFilters) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: 8, top: 7),
+              child: Text(
+                '${filter.name}:',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            for (var i = 0; i < filter.values.length; i++)
+              if (filter.values[i] is SelectFilterOption)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: _SearchTypeTab(
+                    label: (filter.values[i] as SelectFilterOption).name,
+                    selected: filter.state == i,
+                    onTap: () => _onExtensionFilterTap(filter, i),
+                  ),
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPopularGrid(BuildContext ctx) {
+    return Consumer(
+      builder: (c, r, _) {
+        final pop = r.watch(getPopularProvider(source: source, page: 1));
+        return pop.when(
+          data: (d) => _buildGrid(ctx, d?.list ?? []),
+          loading: () => _buildShimmerGrid(),
+          error:   (e, _) => Center(
+            child: Text(e.toString(),
+                style: const TextStyle(color: Colors.white60))),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchResults(BuildContext ctx) {
+    return Consumer(
+      builder: (c, r, _) {
+        if (_committedQuery.isEmpty) return const SizedBox.shrink();
+        final snap = r.watch(
+            searchProvider(source: source, query: _committedQuery, page: 1,
+                filterList: _searchFilters));
+        return snap.when(
+          data: (d) {
+            final items = d?.list ?? [];
+            if (items.isEmpty) {
+              return Center(
+                child: Text(ctx.l10n.no_result,
+                    style: const TextStyle(color: Colors.white60)),
+              );
+            }
+            return _buildGrid(ctx, items);
+          },
+          loading: () => _buildShimmerGrid(),
+          error:   (e, _) => Center(
+            child: Text(e.toString(),
+                style: const TextStyle(color: Colors.white60))),
+        );
+      },
+    );
+  }
+
+  /// Shimmer grid for search/popular loading states — replaces plain spinner.
+  Widget _buildShimmerGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 140,
+        childAspectRatio:   0.65,
+        mainAxisSpacing:    8,
+        crossAxisSpacing:   8,
+      ),
+      itemCount: 12,
+      itemBuilder: (_, __) => _NfShimmerPosterTile(),
+    );
+  }
+
+  Widget _buildGrid(BuildContext ctx, List<MManga> items) {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 140,
+        childAspectRatio:   0.65,
+        mainAxisSpacing:    8,
+        crossAxisSpacing:   8,
+      ),
+      itemCount: items.length,
+      itemBuilder: (c, i) => MangaImageCardWidget(
+        getMangaDetail: items[i],
+        source:         source,
+        itemType:       source.itemType,
+        isComfortableGrid: false,
+      ),
+    );
+  }
+}
+
+// ── Hero banner spacer ─────────────────────────────────────────────────────────
+// ── Hero section ────────────────────────────────────────────────────────────
+// Watches the 'banner' custom list (falls back to popular), feeds the first
+// few items to the auto-rotating NfHeroCarousel. Lives INSIDE the scroll view.
+
+class _HeroSection extends ConsumerWidget {
+  final Source                     source;
+  final List<Map<String, dynamic>> customLists;
+  final void Function(MManga)      onTapManga;
+
+  const _HeroSection({
+    super.key,
+    required this.source,
+    required this.customLists,
+    required this.onTapManga,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bannerDef = customLists
+        .where((cl) => cl['layout'] == 'banner' || cl['id'] == 'banner')
+        .firstOrNull;
+
+    if (bannerDef != null) {
+      final data = ref.watch(getCustomListProvider(
+          source: source,
+          listId: bannerDef['id'] as String,
+          page:   1));
+      return data.when(
+        data: (d) {
+          final items = d?.list ?? [];
+          if (items.isEmpty) return _buildFallback(context, ref);
+          return _buildCarousel(items);
+        },
+        loading: () => _buildShimmerHero(context),
+        error:   (_, __) => _buildFallback(context, ref),
+      );
+    }
+    return _buildFallback(context, ref);
+  }
+
+  Widget _buildFallback(BuildContext ctx, WidgetRef ref) {
+    final pop = ref.watch(getPopularProvider(source: source, page: 1));
+    return pop.when(
+      data: (d) {
+        final items = d?.list ?? [];
+        if (items.isEmpty) return _buildShimmerHero(ctx);
+        return _buildCarousel(items);
+      },
+      loading: () => _buildShimmerHero(ctx),
+      error:   (_, __) => _buildShimmerHero(ctx),
+    );
+  }
+
+  Widget _buildCarousel(List<MManga> items) {
+    return NfHeroCarousel(
+      items:     items.take(5).toList(),
+      source:    source,
+      onTapManga: onTapManga,
+    );
+  }
+
+  Widget _buildShimmerHero(BuildContext ctx) {
+    return NfHeroShimmerPlaceholder(
+      width:  MediaQuery.of(ctx).size.width,
+      height: heroCarouselHeight(ctx),
+    );
+  }
+}
+
+// ── Hero loading placeholder ─────────────────────────────────────────────────
+// Pure shimmer matching the carousel frame — no logo, no icon: the content
+// rows below also shimmer so the whole screen reads as one loading skeleton.
+
+class NfHeroShimmerPlaceholder extends StatelessWidget {
+  final double width;
+  final double height;
+
+  const NfHeroShimmerPlaceholder({
+    super.key,
+    required this.width,
+    required this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      enabled: true,
+      child: Container(
+        width:  width,
+        height: height,
+        color:  Colors.grey[900],
+      ),
+    );
+  }
+}
+
+// ── Horizontal content row ───────────────────────────────────────────────────
+// One section: title + SeeAllButton + horizontal ListView of NfMovieBox.
+
+class _NfContentRow extends ConsumerWidget {
+  final Source                 source;
+  final String                 listId;
+  final String                 title;
+  final VoidCallback?          onSeeAll;
+  final void Function(MManga)? onTapManga;
+
+  const _NfContentRow({
+    required this.source,
+    required this.listId,
+    required this.title,
+    this.onSeeAll,
+    this.onTapManga,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(
+        getCustomListProvider(source: source, listId: listId, page: 1));
+
+    return data.when(
+      data: (d) {
+        final items = d?.list ?? [];
+        if (items.isEmpty) return const SizedBox.shrink();
+        return _buildRow(context, items);
+      },
+      loading: () => _buildShimmerRow(context),
+      error:   (_, __) => _buildShimmerRow(context),
+    );
+  }
+
+  Widget _buildRow(BuildContext ctx, List<MManga> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 4, 4),
+          child: Row(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color:      Colors.white,
+                  fontSize:   18.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (onSeeAll != null)
+                SeeAllButton(
+                  color: Colors.white70,
+                  onTap: onSeeAll!,
+                ),
+            ],
+          ),
+        ),
+
+        // Horizontal card list — exact flutter_netflix home.dart row height
+        SizedBox(
+          height: 200.0,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding:         const EdgeInsets.only(left: 8, right: 8),
+            itemCount:       items.length,
+            itemBuilder: (_, i) => GestureDetector(
+              onTap: () => onTapManga?.call(items[i]),
+              child: NfMovieBox(
+                manga:  items[i],
+                source: source,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShimmerRow(BuildContext ctx) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Skeletonizer(
+            enabled: true,
+            child: Container(
+              width:  140, height: 16,
+              decoration: BoxDecoration(
+                color:        Colors.grey[900],
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ),
+        _NfShimmerRow(),
+      ],
+    );
+  }
+}
+
+// ── Declarative masonry section ──────────────────────────────────────────────
+// This widget is selected by ui-layouts/<source>.json. The extension only
+// supplies items; it never contains Flutter/UI code. A small two-column
+// staggered layout keeps tag cards readable without adding a third-party
+// masonry dependency to the app.
+
+class _NfMasonryRow extends ConsumerWidget {
+  final Source source;
+  final String listId;
+  final String title;
+  final int columns;
+  final String cardStyle;
+  final VoidCallback? onSeeAll;
+  final void Function(MManga)? onTapManga;
+
+  const _NfMasonryRow({
+    required this.source,
+    required this.listId,
+    required this.title,
+    this.columns = 2,
+    this.cardStyle = 'default',
+    this.onSeeAll,
+    this.onTapManga,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(
+      getCustomListProvider(source: source, listId: listId, page: 1),
+    );
+    return data.when(
+      data: (d) {
+        final items = d?.list ?? [];
+        if (items.isEmpty) return const SizedBox.shrink();
+        return _buildSection(context, items);
+      },
+      loading: () => _buildLoading(),
+      error: (_, __) => _buildLoading(),
+    );
+  }
+
+  Widget _buildSection(BuildContext context, List<MManga> items) {
+    final count = columns.clamp(2, 4).toInt();
+    final lanes = List.generate(count, (_) => <MManga>[]);
+    for (var i = 0; i < items.length; i++) {
+      lanes[i % count].add(items[i]);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 4, 10),
+          child: Row(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (onSeeAll != null)
+                SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var lane = 0; lane < lanes.length; lane++) ...[
+                if (lane > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    children: [
+                      for (final item in lanes[lane])
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _NfMasonryCard(
+                            item: item,
+                            cardStyle: cardStyle,
+                            onTap: () => onTapManga?.call(item),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoading() => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 20, 12, 10),
+        child: Row(
+          children: List.generate(
+            columns.clamp(2, 4).toInt(),
+            (_) => const Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 5),
+                child: _NfShimmerMasonryCard(),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+class _NfMasonryCard extends StatelessWidget {
+  final MManga item;
+  final String cardStyle;
+  final VoidCallback onTap;
+
+  const _NfMasonryCard({
+    required this.item,
+    required this.cardStyle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final name = item.name ?? 'Untitled';
+    final isTag = cardStyle == 'tag';
+    final height = isTag ? 108.0 + (name.length % 4) * 22.0 : 190.0;
+    final imageUrl = item.imageUrl ?? '';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFF17191F),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (imageUrl.isNotEmpty)
+              ExtendedImage.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadStateChanged: (state) =>
+                    state.extendedImageLoadState == LoadState.failed
+                        ? const ColoredBox(color: Color(0xFF272A33))
+                        : null,
+              )
+            else
+              const ColoredBox(color: Color(0xFF20242E)),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.82),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isTag)
+                    const Icon(Icons.local_offer_outlined,
+                        color: Colors.white70, size: 18),
+                  const SizedBox(height: 5),
+                  Text(
+                    name,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                  if ((item.description ?? '').isNotEmpty)
+                    Text(
+                      item.description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NfShimmerMasonryCard extends StatelessWidget {
+  const _NfShimmerMasonryCard();
+
+  @override
+  Widget build(BuildContext context) => Skeletonizer(
+        enabled: true,
+        child: Container(
+          height: 150,
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      );
+}
+
+// ── Shimmer loading row ────────────────────────────────────────────────────────
+
+class _NfShimmerRow extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 200.0,
+      child: Skeletonizer(
+        enabled: true,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          physics:         const NeverScrollableScrollPhysics(),
+          padding:         const EdgeInsets.symmetric(horizontal: 8),
+          children: List.generate(
+            6,
+            (_) => Container(
+              width:  110,
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8.0),
+                color:        Colors.grey[900],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shimmer new & hot placeholder ──────────────────────────────────────────────
+
+class _NfShimmerNewHot extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    return Skeletonizer(
+      enabled: true,
+      child: Column(
+        children: List.generate(
+          2,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(color: Colors.black, width: width, height: width * 0.56),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    width:  200, height: 18,
+                    decoration: BoxDecoration(
+                      color:        Colors.black,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shimmer poster tile (catalogue & section-page loading cells) ───────────────
+
+class _NfShimmerPosterTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      enabled: true,
+      child: Container(
+        decoration: BoxDecoration(
+          color:        Colors.grey[900],
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Catalogue sliver section ───────────────────────────────────────────────────
+
+class _CatalogueSection extends ConsumerWidget {
+  final Source               source;
+  final List<MManga>         items;
+  final bool                 loading;
+  final bool                 hasNext;
+  final Map<String, dynamic>? catalogueList;
+  final void Function(List<MManga> items, bool hasNext) onFirstLoad;
+
+  const _CatalogueSection({
+    required this.source,
+    required this.items,
+    required this.loading,
+    required this.hasNext,
+    required this.catalogueList,
+    required this.onFirstLoad,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // If catalogue items already loaded by parent, use them.
+    if (items.isNotEmpty) return _buildGrid(context, items);
+
+    // Initial load via provider — hand off to parent state
+    final snap = catalogueList != null
+        ? ref.watch(getCustomListProvider(
+            source: source,
+            listId: catalogueList!['id'] as String,
+            page:   1))
+        : ref.watch(getPopularProvider(source: source, page: 1));
+
+    return snap.when(
+      data: (d) {
+        final list = d?.list ?? [];
+        if (list.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            onFirstLoad(list, d?.hasNextPage ?? false);
+          });
+          return _buildGrid(context, list);
+        }
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      },
+      loading: () => _buildGrid(context, const [], shimmerOnly: true),
+      error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+    );
+  }
+
+  /// Centred catalogue grid — gutters on both sides, rounded poster cards
+  /// with a subtle border + shadow (the "spotlight" effect), unlike the
+  /// edge-to-edge rows above.
+  Widget _buildGrid(BuildContext ctx, List<MManga> list,
+      {bool shimmerOnly = false}) {
+    final all = shimmerOnly ? const <MManga>[] : (items.isNotEmpty ? items : list);
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 122,
+          childAspectRatio:   0.66,
+          mainAxisSpacing:    14,
+          crossAxisSpacing:   12,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (c2, i) {
+            if (i >= all.length) return _NfShimmerPosterTile();
+            return _CatalogueCard(
+              child: MangaImageCardWidget(
+                getMangaDetail:    all[i],
+                source:            source,
+                itemType:          source.itemType,
+                isComfortableGrid: false,
+              ),
+            );
+          },
+          childCount: shimmerOnly
+              ? 12
+              : all.length + (loading ? 3 : 0),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Catalogue poster card — rounded frame + soft shadow + hairline border ────
+
+class _CatalogueCard extends StatelessWidget {
+  final Widget child;
+  const _CatalogueCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: child,
+      ),
+    );
+  }
+}
+
+// ── Reel helper ────────────────────────────────────────────────────────────────
+// Returns true if reel navigation was handled (skip pushToMangaReaderDetail).
+
+bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
+  final link = manga.link;
+  if (link == null || !link.startsWith('{')) return false;
+  try {
+    final data = jsonDecode(link) as Map<String, dynamic>;
+    if (data['type'] != 'reel') return false;
+    context.pushNamed('reel', extra: {
+      'source':      source,
+      'listId':      (data['listId'] as String?) ?? 'trending',
+      'startGifId':  data['gifId'] as String?,
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// ── Section kind ───────────────────────────────────────────────────────────────
+
+enum _SectionKind { popular, latest, custom }
+
+// ── Full-page section drill-down ───────────────────────────────────────────────
+
+class _WatchSectionPage extends ConsumerStatefulWidget {
+  final Source        source;
+  final String        title;
+  final _SectionKind  type;
+  final String?       customListId;
+  final String?       presentation;
+
+  const _WatchSectionPage({
+    required this.source,
+    required this.title,
+    required this.type,
+    this.customListId,
+    this.presentation,
+  });
+
+  @override
+  ConsumerState<_WatchSectionPage> createState() => _WatchSectionPageState();
+}
+
+class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
+  final List<MManga> _items    = [];
+  int  _page     = 1;
+  bool _loading  = true;
+  bool _hasNext  = true;
+  Object? _error;
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPage();
+    _scroll.addListener(() {
+      if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 400 &&
+          _hasNext && !_loading) {
+        _loadPage();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPage() async {
+    if (_loading && _items.isNotEmpty) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      MPages? result;
+      switch (widget.type) {
+        case _SectionKind.custom:
+          result = await ref.read(getCustomListProvider(
+            source: widget.source,
+            listId: widget.customListId!,
+            page:   _page,
+          ).future);
+          break;
+        case _SectionKind.popular:
+          result = await ref.read(
+              getPopularProvider(source: widget.source, page: _page).future);
+          break;
+        case _SectionKind.latest:
+          result = await ref.read(
+              getLatestUpdatesProvider(source: widget.source, page: _page).future);
+          break;
+      }
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(result?.list ?? []);
+        _hasNext = result?.hasNextPage ?? false;
+        _page++;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _error = e; _loading = false; });
+    }
+  }
+
+  Widget _buildMasonryPage() {
+    if (_items.isEmpty && _loading) {
+      return const SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(12, 12, 12, 100),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _NfShimmerMasonryCard()),
+            SizedBox(width: 10),
+            Expanded(child: _NfShimmerMasonryCard()),
+          ],
+        ),
+      );
+    }
+    if (_items.isEmpty && _error != null) {
+      return Center(
+        child: Text(
+          _error.toString(),
+          style: const TextStyle(color: Colors.white60),
+        ),
+      );
+    }
+
+    final lanes = [<MManga>[], <MManga>[]];
+    for (var i = 0; i < _items.length; i++) {
+      lanes[i.isEven ? 0 : 1].add(_items[i]);
+    }
+    return SingleChildScrollView(
+      controller: _scroll,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var lane = 0; lane < lanes.length; lane++) ...[
+            if (lane > 0) const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                children: [
+                  for (final item in lanes[lane])
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _NfMasonryCard(
+                        item: item,
+                        cardStyle: 'tag',
+                        onTap: () => pushToMangaReaderDetail(
+                          ref: ref,
+                          context: context,
+                          getManga: item,
+                          lang: widget.source.lang!,
+                          source: widget.source.name!,
+                          itemType: widget.source.itemType,
+                          sourceId: widget.source.id,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).viewPadding.top;
+    return Scaffold(
+      backgroundColor: nfBackgroundColor,
+      // ── Redesigned header: pill title + filter icon ──────────────────
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                NfCircleIconButton(
+                  icon:  Icons.arrow_back_ios_new_rounded,
+                  onTap: () => Navigator.of(context).pop(),
+                  size:  20,
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 7),
+                  decoration: BoxDecoration(
+                    color:        Colors.white.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color:      Colors.white,
+                      fontSize:   14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                NfCircleIconButton(
+                  icon:  Icons.tune_rounded,
+                  onTap: () {},
+                  size:  20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: widget.presentation == 'masonry'
+          ? _buildMasonryPage()
+          : _items.isEmpty && _loading
+          ? GridView.builder(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 140,
+                childAspectRatio:   0.65,
+                mainAxisSpacing:    8,
+                crossAxisSpacing:   8,
+              ),
+              itemCount: 12,
+              itemBuilder: (_, __) => _NfShimmerPosterTile(),
+            )
+          : _items.isEmpty && _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_error.toString(),
+                          style: const TextStyle(color: Colors.white60)),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                          onPressed: _loadPage,
+                          child: const Text('Réessayer')),
+                    ],
+                  ),
+                )
+              : GridView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
+                  gridDelegate:
+                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 140,
+                    childAspectRatio:   0.65,
+                    mainAxisSpacing:    8,
+                    crossAxisSpacing:   8,
+                  ),
+                  itemCount: _items.length + (_loading ? 3 : 0),
+                  itemBuilder: (c, i) {
+                    if (i >= _items.length) return _NfShimmerPosterTile();
+                    return MangaImageCardWidget(
+                      getMangaDetail:    _items[i],
+                      source:            widget.source,
+                      itemType:          widget.source.itemType,
+                      isComfortableGrid: false,
+                    );
+                  },
+                ),
+    );
+  }
+}
+
+// ── View-toggle button (filter sheet) ─────────────────────────────────────────
+
+// ── Golden catalogue divider ────────────────────────────────────────────────
+// Ornamental hairline with a small leaf/diamond flourish at the inner end.
+// Used to flank the gold-gradient CATALOGUE title.
+
+class _GoldenDivider extends StatelessWidget {
+  const _GoldenDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 12,
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFCBA135).withValues(alpha: 0.0),
+                    const Color(0xFFCBA135).withValues(alpha: 0.75),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 5,
+            height: 5,
+            transform: Matrix4.rotationZ(0.785398), // 45° diamond
+            decoration: const BoxDecoration(
+              color: Color(0xFFE7C66B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Category grid page — ALL categories on a clean 2-column grid ────────────
+
+class _CategoryGridPage extends StatelessWidget {
+  final Source                     source;
+  final List<Map<String, dynamic>> categories;
+
+  const _CategoryGridPage({
+    required this.source,
+    required this.categories,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: nfBackgroundColor,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                NfCircleIconButton(
+                  icon:  Icons.arrow_back_ios_new_rounded,
+                  onTap: () => Navigator.of(context).pop(),
+                  size:  20,
+                ),
+                const Spacer(),
+                Text(
+                  'Catégories',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                const SizedBox(width: 40),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          childAspectRatio: 1.85,
+        ),
+        itemCount: categories.length,
+        itemBuilder: (_, i) {
+          final cl       = categories[i];
+          final listId   = cl['id']       as String;
+          final listName = cl['name']     as String? ?? listId;
+          final hexColor = cl['color']    as String? ?? '#1E2126';
+          final extImg   = cl['imageUrl'] as String? ?? '';
+
+          Color fallback;
+          try {
+            final h = hexColor.replaceAll('#', '');
+            fallback = h.length == 6
+                ? Color(int.parse('FF$h', radix: 16))
+                : const Color(0xFF1E2126);
+          } catch (_) {
+            fallback = const Color(0xFF1E2126);
+          }
+
+          return GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => _WatchSectionPage(
+                source:       source,
+                title:        listName,
+                type:         _SectionKind.custom,
+                customListId: listId,
+              ),
+            )),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.10),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    extImg.isNotEmpty
+                        ? ExtendedImage.network(extImg,
+                              fit: BoxFit.cover,
+                              loadStateChanged: (state) =>
+                                  state.extendedImageLoadState ==
+                                          LoadState.failed
+                                      ? ColoredBox(color: fallback)
+                                      : null)
+                        : ColoredBox(color: fallback),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin:  Alignment.topLeft,
+                          end:    Alignment.bottomRight,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.25),
+                            Colors.black.withValues(alpha: 0.70),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          listName,
+                          style: const TextStyle(
+                            color:         Colors.white,
+                            fontSize:      15,
+                            fontWeight:    FontWeight.w800,
+                            letterSpacing: 0.2,
+                            shadows: [
+                              Shadow(color: Colors.black87, blurRadius: 6),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines:  2,
+                          overflow:  TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Search content-type tab pill ───────────────────────────────────────────────
+// Netflix-style segmented pills under the search bar. Values come from the
+// extension manifest's contentSubtype list.
+
+class _SearchTypeTab extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SearchTypeTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.white12,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.black : Colors.white70,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+extension _StringCasing on String {
+  String capitalize() =>
+      isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
+}

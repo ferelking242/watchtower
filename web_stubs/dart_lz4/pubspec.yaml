@@ -1,0 +1,6 @@
+name: dart_lz4
+version: 1.0.0
+description: Web stub for dart_lz4 — no FFI on Flutter Web.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'
