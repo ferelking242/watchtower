@@ -469,10 +469,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         .toList();
     final catalogueList =
         _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
-    final hasCustomHistory =
-        _customLists.any((cl) => cl['id'] == 'history');
-    final hasCustomHistory =
-        _customLists.any((cl) => cl['id'] == 'history');
 
     final groups = <NfMenuGroup>[];
 
@@ -664,6 +660,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 
     final catalogueList =
         _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+    final hasCustomHistory =
+        _customLists.any((cl) => cl['id'] == 'history');
 
     // ── Everything scrolls in ONE CustomScrollView: the hero is the first
     // sliver, so content can never overlap it (fixes items-over-carousel)
