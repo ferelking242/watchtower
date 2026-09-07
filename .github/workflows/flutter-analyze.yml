@@ -59,6 +59,16 @@ jobs:
           set -o pipefail
           flutter pub get 2>&1 | tee ci-reports/pub-get.txt
 
+      - name: Verify resolved dependency graph
+        run: |
+          flutter pub deps --json > ci-reports/pub-deps.json
+          python3 .github/scripts/check_pub_graph.py ci-reports/pub-deps.json
+
+      - name: Record outdated package report
+        if: always()
+        run: |
+          flutter pub outdated --json > ci-reports/pub-outdated.json || true
+
       - name: Analyze Dart code
         id: analyze
         run: |

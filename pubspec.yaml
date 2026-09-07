@@ -40,7 +40,7 @@ dependencies:
   path_provider: ^2.1.5
   scrollable_positioned_list: ^0.3.8
   munchtoast: ^0.1.2
-  flutter_web_auth_2: 3.1.2
+  flutter_web_auth_2: ^5.1.0
   numberpicker: ^2.1.2
   encrypt: ^5.0.3
   media_kit: 1.2.2
