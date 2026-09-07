@@ -25,8 +25,8 @@ class SettingsPlaybackEditInstanceUrlDialog extends HookConsumerWidget {
     );
     final formKey = useMemoized(() => GlobalKey<FormBuilderState>(), []);
 
-    return Alert(
-      title: Text(title).h4(),
+    return AlertDialog(
+      title: Text(title),
       content: FormBuilder(
         key: formKey,
         child: Column(

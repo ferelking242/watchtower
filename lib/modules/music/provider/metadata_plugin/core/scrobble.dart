@@ -12,10 +12,12 @@ class MetadataPluginScrobbleNotifier
     final metadataPlugin = ref.watch(metadataPluginProvider);
     final pluginConfig = ref
         .watch(metadataPluginsProvider)
-        .valueOrNull
+        .asData
+        ?.value
         ?.defaultMetadataPluginConfig;
 
-    if (metadataPlugin.valueOrNull == null ||
+    final plugin = metadataPlugin.asData?.value;
+    if (plugin == null ||
         pluginConfig == null ||
         !pluginConfig.abilities.contains(PluginAbilities.scrobbling)) {
       return null;
@@ -25,7 +27,7 @@ class MetadataPluginScrobbleNotifier
 
     final subscription = controller.stream.listen((event) async {
       try {
-        await metadataPlugin.valueOrNull?.core.scrobble({
+        await plugin.core.scrobble({
           "id": event.id,
           "title": event.name,
           "artists": event.artists

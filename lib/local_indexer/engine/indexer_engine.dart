@@ -230,7 +230,7 @@ class IndexerEngine {
     final maps = await Future.wait(futures);
     return [
       for (var i = 0; i < files.length; i++)
-        AnalysisResult.fromMap(maps[i], files[i]),
+        AnalysisStage.fromMap(maps[i], files[i]),
     ];
   }
 

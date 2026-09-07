@@ -184,11 +184,9 @@ class M3u8Downloader {
         iv,
         mediaSequence,
         onProgress,
-        {
-          totalSegments: tsList.length,
-          initialCompletedSegments: completedSegments,
-          initialDownloadedBytes: downloadedBytes,
-        },
+        totalSegments: tsList.length,
+        initialCompletedSegments: completedSegments,
+        initialDownloadedBytes: downloadedBytes,
       );
 
       for (var element in subtitles ?? <Track>[]) {

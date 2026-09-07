@@ -129,7 +129,7 @@ abstract class _$LocalIndexerScan extends $Notifier<AsyncValue<IndexerStats?>> {
 // ── localSearch (family: String query) ──────────────────────────────────────
 
 @ProviderFor(localSearch)
-const localSearchProvider = LocalSearchFamily();
+final localSearchProvider = LocalSearchFamily._();
 
 final class LocalSearchFamily extends $Family
     with $FunctionalFamilyOverride<List<LocalSearchResult>, String> {
@@ -196,7 +196,7 @@ String _$localSearchHash() => r'localSearch';
 // ── localItemsByKind (family: LocalMediaKind kind) ──────────────────────────
 
 @ProviderFor(localItemsByKind)
-const localItemsByKindProvider = LocalItemsByKindFamily();
+final localItemsByKindProvider = LocalItemsByKindFamily._();
 
 final class LocalItemsByKindFamily extends $Family
     with $FunctionalFamilyOverride<List<LocalIndexedItem>, LocalMediaKind> {
@@ -263,7 +263,7 @@ String _$localItemsByKindHash() => r'localItemsByKind';
 // ── localItemVariants (family: String canonicalKey) ─────────────────────────
 
 @ProviderFor(localItemVariants)
-const localItemVariantsProvider = LocalItemVariantsFamily();
+final localItemVariantsProvider = LocalItemVariantsFamily._();
 
 final class LocalItemVariantsFamily extends $Family
     with $FunctionalFamilyOverride<List<LocalIndexedItem>, String> {
@@ -441,7 +441,7 @@ String _$recentlyIndexedHash() => r'recentlyIndexed';
 // ── localItemByPath (family: String path) ───────────────────────────────────
 
 @ProviderFor(localItemByPath)
-const localItemByPathProvider = LocalItemByPathFamily();
+final localItemByPathProvider = LocalItemByPathFamily._();
 
 final class LocalItemByPathFamily extends $Family
     with $FunctionalFamilyOverride<LocalIndexedItem?, String> {

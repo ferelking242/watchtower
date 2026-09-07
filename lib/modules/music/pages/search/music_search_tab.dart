@@ -90,7 +90,8 @@ class _MusicSearchTabState extends ConsumerState<MusicSearchTab> {
                     ref.read(musicSearchTermProvider.notifier).state = '';
                   },
                 ),
-              )border: OutlineInputBorder(
+              ),
+              border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
               ),

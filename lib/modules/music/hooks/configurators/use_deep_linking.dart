@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
+import 'package:watchtower/modules/music/router/music_app_router.dart';
 import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:flutter_sharing_intent/model/sharing_file.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
@@ -15,7 +16,7 @@ final linkStream = appLinks.stringLinkStream.asBroadcastStream();
 
 @Deprecated(
     "Deeplinking is deprecated. Later a custom API for metadata provider will be created.")
-void useDeepLinking(WidgetRef ref, AppRouter router) {
+void useDeepLinking(WidgetRef ref, MusicAppRouter router) {
   // // single instance no worries
   // final spotify = ref.watch(spotifyProvider);
 

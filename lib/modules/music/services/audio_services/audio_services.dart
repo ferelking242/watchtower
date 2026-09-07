@@ -32,6 +32,7 @@ class AudioServices with WidgetsBindingObserver {
                 (true, _) => "spotube",
                 (_, ReleaseChannel.stable) => "oss.krtirtho.spotube",
                 (_, ReleaseChannel.nightly) => "oss.krtirtho.spotube.nightly",
+                (_, ReleaseChannel.beta) => "oss.krtirtho.spotube.beta",
               },
               androidNotificationChannelName: 'Spotube',
               androidNotificationOngoing: false,
