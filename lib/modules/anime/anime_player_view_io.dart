@@ -237,59 +237,7 @@ class _AnimeStreamPageState extends riv.ConsumerState<AnimeStreamPage>
   late final Player _player = Player(
     configuration: PlayerConfiguration(
       libass: useLibass,
-      config: true,
-      configDir: useMpvConfig ? widget.mpvDirectory?.path ?? "" : "",
-      options: {
-        if (debandingType == DebandingType.cpu) "vf": "gradfun=radius=12",
-        if (debandingType == DebandingType.gpu) "deband": "yes",
-        if (useYUV420P) "vf": "format=yuv420p",
-        if (audioPreferredLang.isNotEmpty) "alang": audioPreferredLang,
-        if (enableAudioPitchCorrection) "audio-pitch-correction": "yes",
-        "volume-max": "${volumeBoostCap + 100}",
-        // ── Buffering / network optimisation ─────────────────────────────
-        // Buffer 30 s ahead so stalls only appear on very slow connections.
-        "demuxer-readahead-secs": "30",
-        // Allow up to 150 MiB of in-memory demuxer cache (streams + HLS).
-        "demuxer-max-bytes": "157286400",
-        // Keep 50 MiB of already-played content so seeks backward are instant.
-        "demuxer-max-back-bytes": "52428800",
-        // Abort a stalled HTTP connection faster (default is no timeout).
-        "network-timeout": "15",
-        if (audioChannel != AudioChannel.reverseStereo)
-          "audio-channels": audioChannel.mpvName,
-        if (audioChannel == AudioChannel.reverseStereo)
-          "af": audioChannel.mpvName,
-      },
-      observeProperties: {
-        "user-data/aniyomi/show_text": generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/toggle_ui": generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/show_panel": generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/software_keyboard":
-            generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/set_button_title":
-            generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/reset_button_title":
-            generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/toggle_button": generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/switch_episode":
-            generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/pause": generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/seek_by": generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/seek_to": generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/seek_by_with_text":
-            generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/seek_to_with_text":
-            generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/aniyomi/launch_int_picker":
-            generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/watchtower/chapter_titles":
-            generated.mpv_format.MPV_FORMAT_NODE,
-        "user-data/watchtower/current_chapter":
-            generated.mpv_format.MPV_FORMAT_INT64,
-        "user-data/watchtower/selected_shader":
-            generated.mpv_format.MPV_FORMAT_NODE,
-      },
-      eventHandler: _handleMpvEvents,
+      ready: () => unawaited(_configureNativePlayer()),
     ),
   );
   late final hwdecMode = ref.read(hwdecModeStateProvider());
@@ -299,6 +247,156 @@ class _AnimeStreamPageState extends riv.ConsumerState<AnimeStreamPage>
     animeStreamControllerProvider(episode: widget.episode).notifier,
   );
   final Stopwatch _watchStopwatch = Stopwatch();
+
+  Future<void> _configureNativePlayer() async {
+    final nativePlayer = _player.platform as NativePlayer;
+    final options = <String, String>{
+      if (debandingType == DebandingType.cpu) "vf": "gradfun=radius=12",
+      if (debandingType == DebandingType.gpu) "deband": "yes",
+      if (useYUV420P) "vf": "format=yuv420p",
+      if (audioPreferredLang.isNotEmpty) "alang": audioPreferredLang,
+      if (enableAudioPitchCorrection) "audio-pitch-correction": "yes",
+      "volume-max": "${volumeBoostCap + 100}",
+      "demuxer-readahead-secs": "30",
+      "demuxer-max-bytes": "157286400",
+      "demuxer-max-back-bytes": "52428800",
+      "network-timeout": "15",
+      if (audioChannel != AudioChannel.reverseStereo)
+        "audio-channels": audioChannel.mpvName,
+      if (audioChannel == AudioChannel.reverseStereo)
+        "af": audioChannel.mpvName,
+    };
+    for (final entry in options.entries) {
+      await nativePlayer.setProperty(entry.key, entry.value);
+    }
+
+    const properties = [
+      "user-data/aniyomi/show_text",
+      "user-data/aniyomi/toggle_ui",
+      "user-data/aniyomi/show_panel",
+      "user-data/aniyomi/software_keyboard",
+      "user-data/aniyomi/set_button_title",
+      "user-data/aniyomi/reset_button_title",
+      "user-data/aniyomi/toggle_button",
+      "user-data/aniyomi/switch_episode",
+      "user-data/aniyomi/pause",
+      "user-data/aniyomi/seek_by",
+      "user-data/aniyomi/seek_to",
+      "user-data/aniyomi/seek_by_with_text",
+      "user-data/aniyomi/seek_to_with_text",
+      "user-data/aniyomi/launch_int_picker",
+      "user-data/watchtower/chapter_titles",
+      "user-data/watchtower/current_chapter",
+      "user-data/watchtower/selected_shader",
+    ];
+    for (final property in properties) {
+      await nativePlayer.observeProperty(
+        property,
+        (value) => _handleMpvPropertyChange(property, value),
+      );
+    }
+  }
+
+  Future<void> _handleMpvPropertyChange(String property, String value) async {
+    if (value.isEmpty) return;
+    final nativePlayer = _player.platform as NativePlayer;
+    final command = property.substring("user-data/".length);
+    try {
+      switch (command) {
+        case "aniyomi/show_text":
+          botToast(
+            value,
+            alignY: -0.99,
+            second: 2,
+            dismissDirections: const [
+              DismissDirection.vertical,
+              DismissDirection.horizontal,
+            ],
+            showIcon: false,
+          );
+          await nativePlayer.setProperty(property, "");
+          break;
+        case "aniyomi/set_button_title":
+          final button = _customButton.value;
+          if (button != null) {
+            _customButton.value = button..currentTitle = value;
+          }
+          await nativePlayer.setProperty(property, "");
+          break;
+        case "aniyomi/reset_button_title":
+          final button = _customButton.value;
+          if (button != null) {
+            _customButton.value = button..currentTitle = button.button.title ?? "";
+          }
+          await nativePlayer.setProperty(property, "");
+          break;
+        case "aniyomi/toggle_button":
+          final button = _customButton.value;
+          if (button != null) {
+            _customButton.value = button
+              ..visible = value == "show"
+                  ? true
+                  : value == "hide"
+                      ? false
+                      : !button.visible;
+          }
+          await nativePlayer.setProperty(property, "");
+          break;
+        case "aniyomi/switch_episode":
+          if (value == "n") {
+            pushToNewEpisode(context, _streamController.getNextEpisode());
+          } else if (value == "p") {
+            pushToNewEpisode(context, _streamController.getPrevEpisode());
+          }
+          await nativePlayer.setProperty(property, "");
+          break;
+        case "aniyomi/pause":
+          if (value == "pause") {
+            await _player.pause();
+          } else if (value == "unpause") {
+            await _player.play();
+          } else if (value == "pauseunpause") {
+            await _player.playOrPause();
+          }
+          await nativePlayer.setProperty(property, "");
+          break;
+        case "aniyomi/seek_by":
+        case "aniyomi/seek_to":
+          final seconds = int.tryParse(value.replaceAll('"', ''));
+          if (seconds != null) {
+            final position = command.endsWith("seek_by")
+                ? _currentPosition.value.inSeconds + seconds
+                : seconds;
+            _tempPosition.value = Duration(seconds: position);
+            await _player.seek(Duration(seconds: position));
+            _tempPosition.value = null;
+          }
+          await nativePlayer.setProperty(property, "");
+          break;
+        case "watchtower/chapter_titles":
+          final data = jsonDecode(value) as List<dynamic>;
+          _chapterMarks.value = data
+              .map(
+                (entry) => (
+                  entry["title"] as String,
+                  entry["timestamp"] is double
+                      ? (entry["timestamp"] as double).toInt() * 1000
+                      : (entry["timestamp"] as int) * 1000,
+                ),
+              )
+              .toList();
+          break;
+        case "watchtower/current_chapter":
+          _currentChapterMark.value = max(int.tryParse(value) ?? 0, 0);
+          break;
+        case "watchtower/selected_shader":
+          _selectedShader.value = value;
+          break;
+      }
+    } catch (error) {
+      if (kDebugMode) debugPrint(error.toString());
+    }
+  }
   late final _firstVid = widget.videos.first;
   late final ValueNotifier<VideoPrefs?> _video = ValueNotifier(
     VideoPrefs(
