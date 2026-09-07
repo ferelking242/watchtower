@@ -69,12 +69,7 @@ dependencies:
   pseudom: ^1.0.1
   path: ^1.9.0
   freezed_annotation: ^3.0.0
-  # Keep this source aligned with hetu_spotube_plugin. Pub rejects the same
-  # package when one dependency resolves it from Git and another from Pub.dev.
-  desktop_webview_window:
-    git:
-      path: packages/desktop_webview_window
-      url: https://github.com/KRTirtho/flutter-plugins.git
+  desktop_webview_window: ^0.3.0
   volume_controller: ^3.4.4
   screen_brightness: ^2.1.1
   flutter_html: ^3.0.0
@@ -249,6 +244,13 @@ dependency_overrides:
   web: ^1.1.0
   archive: ^4.0.9
   protobuf: ^5.0.0
+  # flutter_web_auth_2 requires the hosted package, while
+  # hetu_spotube_plugin requires this maintained fork. Override the package
+  # globally so every feature resolves one implementation and one source.
+  desktop_webview_window:
+    git:
+      path: packages/desktop_webview_window
+      url: https://github.com/KRTirtho/flutter-plugins.git
   excel:
     path: packages/excel
 flutter:

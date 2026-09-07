@@ -490,7 +490,7 @@ packages:
     source: hosted
     version: "0.7.12"
   desktop_webview_window:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       path: packages/desktop_webview_window
       ref: HEAD
