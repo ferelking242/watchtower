@@ -250,6 +250,7 @@ dependency_overrides:
   desktop_webview_window:
     git:
       path: packages/desktop_webview_window
+      ref: f261ff20e310d05713249b21c199a9fe17a3de6f
       url: https://github.com/KRTirtho/flutter-plugins.git
   excel:
     path: packages/excel
