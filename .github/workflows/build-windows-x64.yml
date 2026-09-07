@@ -10,7 +10,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Flutter 3.47.2
         uses: subosito/flutter-action@v2
@@ -20,7 +20,7 @@ jobs:
           cache: true
 
       - name: Cache pub packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.pub-cache
@@ -316,7 +316,7 @@ jobs:
           Write-Host "Installer ready: $out ($sizeMB MB)"
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: watchtower-windows-setup-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}
           path: watchtower-setup-${{ steps.ver.outputs.name }}.exe

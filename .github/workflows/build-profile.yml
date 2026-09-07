@@ -22,14 +22,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           # 50 commits suffisent pour le changelog (le tag précédent est rarement plus loin)
           fetch-depth: 50
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -42,7 +42,7 @@ jobs:
           cache: true
 
       - name: Cache pub packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.pub-cache
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
@@ -51,7 +51,7 @@ jobs:
       # Cache Gradle — timeout + continue-on-error so a hanging restore never
       # kills the entire run; a cold Gradle build is slow but correct.
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -63,7 +63,7 @@ jobs:
 
       # Cache Rust — rust_lib_watchtower compile aarch64-linux-android (~150-200s sans cache)
       - name: Cache Rust (Android arm64)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -75,7 +75,7 @@ jobs:
 
       # Cache Android NDK 27 + CMake 3.22.1 — telecharges par Gradle a chaque run
       - name: Cache Android SDK extras (NDK 27, CMake)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             /usr/local/lib/android/sdk/ndk/27.0.12077973
@@ -85,7 +85,7 @@ jobs:
       # Cache .dart_tool/flutter_build uniquement (pas tout .dart_tool — évite les stale metadata).
       # Clé exacte: OS + Flutter version + mode + sources Dart. Sans restore-keys → zéro stale kernel.
       - name: Cache Flutter build intermediates (profile only)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .dart_tool/flutter_build
           key: flutter-profile-${{ runner.os }}-${{ hashFiles('lib/**/*.dart', 'pubspec.lock') }}
@@ -200,7 +200,7 @@ jobs:
 
       - name: Cache launcher icons (skip regen if assets unchanged)
         id: icons-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             android/app/src/main/res
@@ -254,7 +254,7 @@ jobs:
           ls -lh Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.7z
 
       - name: Upload raw APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile-raw
           path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.apk
@@ -262,7 +262,7 @@ jobs:
           retention-days: 30
 
       - name: Upload 7z compressed artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile-7z
           path: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-profile.7z
