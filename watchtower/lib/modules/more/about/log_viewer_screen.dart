@@ -11,7 +11,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
-import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -57,55 +56,26 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   Future<void> _loadLogs() async {
     setState(() => _loading = true);
     try {
-      final storage = StorageProvider();
-      final dir = await storage.getDefaultDirectory();
-
-      // 1. Prefer per-session files written by AppLogger (logs_sessions/).
-      if (dir != null) {
-        final sessionsDir =
-            Directory(path.join(dir.path, 'log'));
-        if (await sessionsDir.exists()) {
-          final files = await sessionsDir
-              .list()
-              .where((e) => e is File && e.path.endsWith('.log'))
-              .cast<File>()
-              .toList();
-          if (files.isNotEmpty) {
-            files.sort((a, b) => b.path.compareTo(a.path));
-            final content = await files.first.readAsString();
-            _rawContent = content;
-            _lines = _parse(content);
-            _applyFilter();
-            setState(() => _loading = false);
-            if (_autoScroll) _scrollToBottom();
-            return;
-          }
-        }
-
-        // 2. Legacy fallback: old flat logs.txt file.
-        final legacy = File(path.join(dir.path, 'logs.txt'));
-        if (await legacy.exists()) {
-          final content = await legacy.readAsString();
-          _rawContent = content;
-          _lines = _parse(content);
-          _applyFilter();
-          setState(() => _loading = false);
-          if (_autoScroll) _scrollToBottom();
-          return;
-        }
-      }
-
-      // 3. No file at all — use the in-memory ring buffer (works even when
-      //    file logging is disabled; always populated by AppLogger.log()).
-      final recent = AppLogger.recentEntries();
-      if (recent.isNotEmpty) {
-        final content = recent.join('\n');
+      // AppLogger knows the canonical shared directory and its app-scoped
+      // fallback, and reads all daily files (including legacy .dev logs).
+      final content = await AppLogger.readAllLogs();
+      if (content != null && content.isNotEmpty) {
         _rawContent = content;
         _lines = _parse(content);
         _applyFilter();
       } else {
-        _lines = [];
-        _filtered = [];
+        // No file at all — use the in-memory ring buffer. This also works
+        // during the short window before file logging has finished starting.
+        final recent = AppLogger.recentEntries();
+        if (recent.isNotEmpty) {
+          final content = recent.join('\n');
+          _rawContent = content;
+          _lines = _parse(content);
+          _applyFilter();
+        } else {
+          _lines = [];
+          _filtered = [];
+        }
       }
     } catch (e) {
       _lines = [];
@@ -242,10 +212,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   Future<void> _downloadAs(String ext) async {
     try {
-      final storage = StorageProvider();
-      final dir = await storage.getDefaultDirectory();
-      final src = File(path.join(dir!.path, 'logs.txt'));
-      if (!await src.exists()) {
+      final content = await AppLogger.readAllLogs();
+      if (content == null || content.isEmpty) {
         botToast('Aucun fichier log trouvé');
         return;
       }
@@ -255,9 +223,9 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           .split('.')
           .first;
       final fileName = 'watchtower_logs_$ts.$ext';
-      String content = await src.readAsString();
+      var exportContent = content;
       if (ext == 'md') {
-        content = '# Watchtower logs — $ts\n\n```\n$content\n```\n';
+        exportContent = '# Watchtower logs — $ts\n\n```\n$content\n```\n';
       }
 
       Directory? target;
@@ -280,7 +248,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       target ??= await getApplicationDocumentsDirectory();
 
       final outFile = File(path.join(target.path, fileName));
-      await outFile.writeAsString(content);
+      await outFile.writeAsString(exportContent);
 
       botToast('Enregistré : ${outFile.path}');
 
@@ -303,15 +271,26 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Future<void> _share() async {
-    final storage = StorageProvider();
-    final dir = await storage.getDefaultDirectory();
-    final file = File(path.join(dir!.path, 'logs.txt'));
-    if (await file.exists() && context.mounted) {
+    File? file;
+    final currentPath = AppLogger.currentSessionPath;
+    if (currentPath != null) {
+      final candidate = File(currentPath);
+      if (await candidate.exists()) file = candidate;
+    }
+    if (file == null) {
+      final content = await AppLogger.readAllLogs();
+      if (content != null && content.isNotEmpty) {
+        final tempDir = await getTemporaryDirectory();
+        file = File(path.join(tempDir.path, 'watchtower_logs.txt'));
+        await file.writeAsString(content);
+      }
+    }
+    if (file != null && context.mounted) {
       final box = context.findRenderObject() as RenderBox?;
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
-          text: 'logs.txt',
+          text: 'watchtower_logs.txt',
           sharePositionOrigin:
               box != null ? box.localToGlobal(Offset.zero) & box.size : null,
         ),

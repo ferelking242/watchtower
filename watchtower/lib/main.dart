@@ -130,7 +130,6 @@ void main(List<String> args) async {
         return true; // handled — prevent app termination
       };
 
-      MediaKit.ensureInitialized();
       if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
         await windowManager.ensureInitialized();
         // Hide the window immediately so it doesn't flash a blank white frame
@@ -198,10 +197,6 @@ void main(List<String> args) async {
         // malloc on the main thread while memory is tight on iPhone 7 (2 GB).
         // iOS frees background-app RAM only after the foreground app becomes
         // visible — deferring past runApp() gives the system time to do that.
-      }
-      // Start the background isolate AFTER the DB is open and isar is assigned.
-      if (!kIsWeb) {
-        await getIsolateService.start();
       }
 
       // Init Hive BEFORE runApp so nav_display providers read persisted values
@@ -293,8 +288,34 @@ void _ensureLocalSources() {
 Future<void> _postLaunchInit(StorageProvider storage) async {
   // Deferred from main() — see comment there. Runs after runApp() so iOS has
   // freed background-app memory before the first Isar Rust FFI string alloc.
-  if (!kIsWeb) _ensureLocalSources();
+  if (!kIsWeb) {
+    try {
+      _ensureLocalSources();
+    } catch (e, st) {
+      AppLogger.log(
+        'Local source initialization failed: $e\n$st',
+        logLevel: LogLevel.error,
+        tag: LogTag.maintenance,
+      );
+    }
+  }
   await AppLogger.init();
+  // Let Flutter paint the first frame before loading optional native code.
+  // These services are not needed to display the home screen, and starting
+  // them while the OS is reclaiming memory from the previous app was a common
+  // source of launch-time crashes on low-memory phones.
+  await WidgetsBinding.instance.endOfFrame;
+  if (!kIsWeb) {
+    await _safeOptionalInit('MediaKit', () async {
+      MediaKit.ensureInitialized();
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await _safeOptionalInit('RustLib', () => RustLib.init());
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await _safeOptionalInit('image crop isolate', () => imgCropIsolate.start());
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await _safeOptionalInit('background isolate', () => getIsolateService.start());
+  }
   if (!kIsWeb) {
     // Auto-tune the isolate pool size to the device's CPU count.
     // Use 2× logical-core count so IO-bound work can overlap on each core,
@@ -354,6 +375,22 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   }
 }
 
+Future<void> _safeOptionalInit(
+  String name,
+  Future<void> Function() initializer,
+) async {
+  try {
+    await initializer();
+  } catch (e, st) {
+    debugPrint('[main] optional $name initialization failed: $e\n$st');
+    AppLogger.log(
+      'Optional $name initialization failed: $e\n$st',
+      logLevel: LogLevel.error,
+      tag: LogTag.maintenance,
+    );
+  }
+}
+
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
@@ -378,8 +415,6 @@ class _MyAppState extends ConsumerState<MyApp>
     customDns = ref.read(customDnsStateProvider);
     if (!kIsWeb) _checkTrackerRefresh();
     if (!kIsWeb) _initDeepLinks();
-    if (!kIsWeb) _setupMpvConfig().catchError((_) {});
-    unawaited(ref.read(scanLocalLibraryProvider.future));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Show desktop window after the first real Flutter frame to avoid the
@@ -389,7 +424,9 @@ class _MyAppState extends ConsumerState<MyApp>
         unawaited(windowManager.show());
         unawaited(windowManager.focus());
       }
-      unawaited(_startExtensionServerAndSync());
+      // Stagger optional work so the first navigation is responsive and a
+      // single failing component cannot take down the whole app.
+      unawaited(_startDeferredOptionalWork());
       if (ref.read(clearChapterCacheOnAppLaunchStateProvider)) {
         // Watch before calling clearcache to keep it alive, so that _getTotalDiskSpace completes safely
         ref.watch(totalChapterCacheSizeStateProvider);
@@ -398,6 +435,24 @@ class _MyAppState extends ConsumerState<MyApp>
             .clearCache(showToast: false);
       }
     });
+  }
+
+  Future<void> _startDeferredOptionalWork() async {
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
+    await _safeOptionalInit('MPV configuration', _setupMpvConfig);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
+    await _safeOptionalInit(
+      'local library scan',
+      () => ref.read(scanLocalLibraryProvider.future),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
+    await _safeOptionalInit(
+      'extension server',
+      _startExtensionServerAndSync,
+    );
   }
 
   @override

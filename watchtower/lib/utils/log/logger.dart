@@ -224,6 +224,12 @@ class AppLogger {
     // creating any file. StorageProvider already falls back to an app-scoped
     // directory when shared storage is unavailable.
     final candidates = <Directory>[];
+    // Try the user-visible shared folder first. This is the canonical Android
+    // location requested by the app; when Android refuses access, the
+    // app-scoped candidate below still preserves every log entry.
+    if (Platform.isAndroid) {
+      candidates.add(const Directory('/storage/emulated/0/watchtower/logs'));
+    }
     try {
       final directory = await StorageProvider().getDefaultDirectory();
       if (directory != null) {

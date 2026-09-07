@@ -26,6 +26,7 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/utils/constant.dart';
@@ -352,16 +353,32 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                     ),
                                   ),
                                   onTap: () async {
-                                    final storage = StorageProvider();
-                                    final directory = await storage
-                                        .getDefaultDirectory();
-                                    final file = File(
-                                      path.join(directory!.path, 'logs.txt'),
-                                    );
-                                    if (await file.exists()) {
+                                    File? file;
+                                    final currentPath =
+                                        AppLogger.currentSessionPath;
+                                    if (currentPath != null) {
+                                      final candidate = File(currentPath);
+                                      if (await candidate.exists()) {
+                                        file = candidate;
+                                      }
+                                    }
+                                    if (file == null) {
+                                      final content =
+                                          await AppLogger.readAllLogs();
+                                      if (content != null && content.isNotEmpty) {
+                                        final directory =
+                                            await getTemporaryDirectory();
+                                        file = File(path.join(
+                                          directory.path,
+                                          'watchtower_logs.txt',
+                                        ));
+                                        await file.writeAsString(content);
+                                      }
+                                    }
+                                    if (file != null) {
                                       if (!kIsWeb && Platform.isLinux) {
                                         await Clipboard.setData(
-                                          ClipboardData(text: file.path),
+                                          ClipboardData(text: file!.path),
                                         );
                                       }
                                       if (context.mounted) {
@@ -369,8 +386,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                             .findRenderObject() as RenderBox?;
                                         SharePlus.instance.share(
                                           ShareParams(
-                                            files: [XFile(file.path)],
-                                            text: 'log.txt',
+                                            files: [XFile(file!.path)],
+                                            text: 'watchtower_logs.txt',
                                             sharePositionOrigin:
                                                 box!.localToGlobal(
                                                       Offset.zero,

@@ -207,7 +207,10 @@ class WatchInlinePlayer {
           tag: LogTag.watch,
         );
 
-        // Completer: blocks until the video plays OR errors OR watchdog fires
+        // Completer: blocks until the video plays OR errors OR watchdog fires.
+        // A failed stream is recovered by stopping it before the next quality
+        // is attempted; otherwise a silent HLS connection can keep libmpv
+        // alive while the UI appears frozen.
         final completer = Completer<bool>(); // true=success false=fail
         StreamSubscription<Duration>? durSub;
         StreamSubscription<String>?   errSub;
@@ -219,9 +222,13 @@ class WatchInlinePlayer {
           AppLogger.log(
             '[PLAYER] WATCHDOG 30s  qualité="${v.quality}"  url=$vUrl'
             '  ← Causes: codec, DRM, URL expirée, serveur silencieux',
-            logLevel: LogLevel.error,
+            logLevel: LogLevel.warning,
             tag: LogTag.watch,
           );
+          // Do not leave a dead network session running while the fallback
+          // quality is opened. Stopping is best-effort because the native
+          // player may already be disposing during navigation.
+          unawaited(_player.stop().catchError((_) {}));
           completer.complete(false);
         });
 
