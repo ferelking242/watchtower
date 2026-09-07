@@ -22,6 +22,8 @@ analyzer:
     # They have their own dependency graphs and are not part of the app package.
     - rust_builder/**
     - web_stubs/**
+    # A second checkout is vendored for reference and is not this package.
+    - watchtower/**
 include: package:flutter_lints/flutter.yaml
 
 linter:
