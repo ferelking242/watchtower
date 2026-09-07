@@ -1301,16 +1301,24 @@ Future<void> _downloadSegment(
 }) async {
   const segmentTimeout = Duration(seconds: 45);
   final file = File(path.join(params.tempDir, '${ts.name}.ts'));
+  final partFile = File('${file.path}.part');
+  final doneFile = File('${file.path}.done');
+  final decryptFile = File('${file.path}.decrypt.part');
 
   try {
     await _withRetry(() async {
-      // Make sure each retry starts from a clean .ts file — otherwise a
-      // partially-written segment from a failed attempt would be appended
-      // to and produce a corrupted .mp4 after merge.
-      if (await file.exists()) {
-        try {
-          await file.delete();
-        } catch (_) {}
+      // A segment is committed in three steps:
+      //   1. stream into .part,
+      //   2. verify it is non-empty and atomically rename it to .ts,
+      //   3. create .done only after the final file is durable.
+      // This prevents an interrupted stream from becoming a valid-looking
+      // zero-byte segment that later gets merged into an unreadable video.
+      for (final stale in [partFile, decryptFile, file, doneFile]) {
+        if (await stale.exists()) {
+          try {
+            await stale.delete();
+          } catch (_) {}
+        }
       }
 
       // Streaming keeps memory low even for 4K segments.
@@ -1336,7 +1344,7 @@ Future<void> _downloadSegment(
         );
       }
 
-      final sink = file.openWrite();
+      final sink = partFile.openWrite();
       try {
         // Per-chunk inactivity watchdog — if no bytes arrive for
         // segmentTimeout the stream is considered stalled.
@@ -1356,6 +1364,15 @@ Future<void> _downloadSegment(
         await sink.flush();
         await sink.close();
       }
+
+      final partLength = await partFile.length();
+      if (partLength <= 0) {
+        throw DownloadPoolException(
+          'Segment ${ts.name}: server returned an empty body',
+        );
+      }
+
+      await partFile.rename(file.path);
     }, 5);
 
     // Decrypt if necessary (outside the retry: a successful download
@@ -1363,6 +1380,11 @@ Future<void> _downloadSegment(
     // re-downloaded).
     if (params.key != null && !ts.isInitialization) {
       final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) {
+        throw DownloadPoolException(
+          'Segment ${ts.name}: downloaded file is empty before decrypt',
+        );
+      }
       final index = int.parse(ts.name.substringAfter("TS_"));
       final decrypted = _aesDecrypt(
         (params.mediaSequence ?? 1) + (index - 1),
@@ -1370,15 +1392,30 @@ Future<void> _downloadSegment(
         params.key!,
         iv: params.iv,
       );
-      await file.writeAsBytes(decrypted);
+      if (decrypted.isEmpty) {
+        throw DownloadPoolException(
+          'Segment ${ts.name}: decryption produced an empty file',
+        );
+      }
+      await decryptFile.writeAsBytes(decrypted, flush: true);
+      await file.delete();
+      await decryptFile.rename(file.path);
     }
 
-    // Write a zero-byte marker so _filterExistingSegments can distinguish
-    // a fully-written segment from a partially-written one left by an
-    // interrupted download. The marker is deleted together with the temp
-    // directory after merging.
-    await File('${file.path}.done').writeAsBytes(const []);
+    if (await file.length() <= 0) {
+      throw DownloadPoolException(
+        'Segment ${ts.name}: final file is empty',
+      );
+    }
+
+    // The marker is deleted together with the temp directory after merging.
+    await doneFile.writeAsBytes(const [], flush: true);
   } catch (e) {
+    for (final stale in [partFile, decryptFile, doneFile]) {
+      try {
+        if (await stale.exists()) await stale.delete();
+      } catch (_) {}
+    }
     throw DownloadPoolException('Failed to process segment: ${ts.name}', e);
   }
 }

@@ -241,15 +241,17 @@ class M3u8Downloader {
     for (final segment in tsList) {
       final tsFile = File(path.join(tempDir, '${segment.name}.ts'));
       final doneFile = File('${tsFile.path}.done');
-      if (tsFile.existsSync() &&
-          doneFile.existsSync() &&
-          tsFile.lengthSync() > 0) {
-        completedSegments++;
+      if (tsFile.existsSync() && doneFile.existsSync()) {
         try {
-          downloadedBytes += await tsFile.length();
+          final size = await tsFile.length();
+          if (size <= 0) {
+            pending.add(segment);
+            continue;
+          }
+          completedSegments++;
+          downloadedBytes += size;
         } catch (_) {
-          // Keep the segment counted; the worker will report the remaining
-          // bytes as soon as the next segment completes.
+          pending.add(segment);
         }
       } else {
         pending.add(segment);
@@ -394,7 +396,12 @@ class M3u8Downloader {
       final dir = Directory(directory);
       final files = await dir
           .list()
-          .where((entity) => entity.path.endsWith('.ts'))
+          .where((entity) {
+            if (!entity.path.endsWith('.ts')) return false;
+            final file = File(entity.path);
+            final marker = File('${entity.path}.done');
+            return marker.existsSync() && file.lengthSync() > 0;
+          })
           .toList();
 
       files.sort((a, b) {

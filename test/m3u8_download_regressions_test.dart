@@ -182,7 +182,9 @@ segments/0002.m4s
     test('removes temporary fragments after a successful merge', () async {
       final tempDir = Directory('${sandbox.path}/temp')..createSync();
       await File('${tempDir.path}/TS_1.ts').writeAsBytes([3, 4]);
+      await File('${tempDir.path}/TS_1.ts.done').writeAsBytes(const []);
       await File('${tempDir.path}/TS_2.ts').writeAsBytes([5, 6]);
+      await File('${tempDir.path}/TS_2.ts.done').writeAsBytes(const []);
       final progress = <DownloadProgress>[];
 
       await downloader.mergeSegmentsAndCleanTempForTesting(
