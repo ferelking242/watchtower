@@ -1,21 +1,17 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-  import 'package:path_provider/path_provider.dart';
   import 'package:permission_handler/permission_handler.dart';
+  import 'package:watchtower/providers/storage_provider.dart';
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Watchtower — dossiers de téléchargement structurés
+  // Watchtower — dossier de téléchargement unique
   //
   // Structure Android:
-  //   /storage/emulated/0/Watchtower/
-  //     ├── video/downloads/
-  //     ├── music/downloads/
-  //     ├── manga/downloads/
-  //     └── novels/downloads/
+  //   /storage/emulated/0/watchtower/
+  //     └── download/
   // ─────────────────────────────────────────────────────────────────────────────
 
   class WatchtowerFolderService {
-    static const _androidBase = '/storage/emulated/0/Watchtower';
-    static const mediaFolders = ['video', 'music', 'manga', 'novels'];
+    static const mediaFolders = ['download'];
 
     static WatchtowerFolderService? _instance;
     static WatchtowerFolderService get instance =>
@@ -47,21 +43,12 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     Future<void> initialize() async {
       if (_initialized) return;
       try {
-        final useExternal = Platform.isAndroid && await hasPermissions();
-        String base;
-        if (useExternal) {
-          base = _androidBase;
-        } else {
-          final appDir = await getApplicationDocumentsDirectory();
-          // On iOS the documents dir IS the app root — appending /Watchtower
-          // would create a nested Documents/Watchtower/ that doesn't match
-          // StorageProvider.getDirectory() which returns the documents dir directly.
-          base = Platform.isIOS ? appDir.path : '${appDir.path}/Watchtower';
-        }
-        _baseDir = base;
+        final baseDirectory = await StorageProvider().getDefaultDirectory();
+        if (baseDirectory == null) return;
+        _baseDir = baseDirectory.path;
 
         for (final media in mediaFolders) {
-          final dlPath = '$base/$media/downloads';
+          final dlPath = '$baseDir/$media';
           await Directory(dlPath).create(recursive: true);
           _downloadDirs[media] = dlPath;
         }
@@ -73,7 +60,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
     Future<String?> getDownloadDir(String mediaType) async {
       if (!_initialized) await initialize();
-      return _downloadDirs[mediaType.toLowerCase()];
+      // Keep the old API compatible while all media now share one folder.
+      return _downloadDirs['download'];
     }
 
     Future<List<WatchtowerFolderInfo>> getFolderInfoList() async {
@@ -134,20 +122,14 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
     String get iconLabel {
       return switch (mediaType) {
-        'video'  => '🎬',
-        'music'  => '🎵',
-        'manga'  => '📖',
-        'novels' => '📚',
+        'download' => '📁',
         _        => '📁',
       };
     }
 
     String get displayName {
       return switch (mediaType) {
-        'video'  => 'Vidéo',
-        'music'  => 'Musique',
-        'manga'  => 'Manga',
-        'novels' => 'Romans',
+        'download' => 'Téléchargements',
         _        => mediaType,
       };
     }

@@ -345,9 +345,7 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
     if (Platform.isIOS) {
       final baseDir = await storage.getDirectory();
       if (baseDir != null) {
-        for (final sub in ['downloads/Watch', 'downloads/Manga', 'downloads/Novel']) {
-          await storage.createDirectorySafely('${baseDir.path}/$sub');
-        }
+        await storage.createDirectorySafely('${baseDir.path}/download');
       }
     }
     // Ensure Watchtower/local folder exists for local media source.

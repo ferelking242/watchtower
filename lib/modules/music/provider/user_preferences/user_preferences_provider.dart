@@ -13,6 +13,7 @@ import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:watchtower/providers/storage_provider.dart';
 
 typedef UserPreferences = PreferencesTableData;
 
@@ -67,7 +68,10 @@ class UserPreferencesNotifier extends Notifier<PreferencesTableData> {
   }
 
   Future<String> _getDefaultDownloadDirectory() async {
-    if (kIsAndroid) return "/storage/emulated/0/Download/Spotube";
+    if (kIsAndroid) {
+      final baseDirectory = await StorageProvider().getDefaultDirectory();
+      return join(baseDirectory!.path, 'download');
+    }
 
     if (kIsMacOS) {
       return join((await paths.getLibraryDirectory()).path, "Caches");

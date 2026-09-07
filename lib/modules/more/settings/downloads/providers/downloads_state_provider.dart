@@ -81,7 +81,7 @@ class DownloadLocationState extends _$DownloadLocationState {
 
   void set(String location) {
     final settings = isar.settings.getSync(kSettingsId);
-    state = (path.join(_storageProvider!.path, 'downloads'), location);
+    state = (path.join(_storageProvider!.path, 'download'), location);
     isar.writeTxnSync(
       () => isar.settings.putSync(
         settings!
@@ -97,7 +97,7 @@ class DownloadLocationState extends _$DownloadLocationState {
     _storageProvider = await StorageProvider().getDefaultDirectory();
     final settings = isar.settings.getSync(kSettingsId);
     state = (
-      path.join(_storageProvider!.path, 'downloads'),
+      path.join(_storageProvider!.path, 'download'),
       settings!.downloadLocation ?? "",
     );
   }

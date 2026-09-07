@@ -46,9 +46,9 @@ class StorageProvider {
     return false;
   }
 
-  // Resolves the app's base "Watchtower" folder on Android.
+  // Resolves the app's base "watchtower" folder on Android.
   //
-  // Previously this always hardcoded /storage/emulated/0/Watchtower/, even
+  // Previously this always hardcoded /storage/emulated/0/watchtower/, even
   // when MANAGE_EXTERNAL_STORAGE was not granted (denied by the user, or
   // blocked entirely by OEMs/Play Protect on some devices/ROMs). In that
   // case every Directory.create() call against that path fails silently
@@ -65,7 +65,7 @@ class StorageProvider {
   Future<Directory> _androidBaseDirectory() async {
     final hasPermission = await requestPermission(requestIfNeeded: false);
     if (hasPermission) {
-      return Directory("/storage/emulated/0/Watchtower/");
+      return Directory("/storage/emulated/0/watchtower/");
     }
     final fallback = await getExternalStorageDirectory();
     if (fallback != null) {
@@ -189,18 +189,11 @@ class StorageProvider {
 
   Future<Directory?> getMangaMainDirectory(Chapter chapter) async {
     final manga = chapter.manga.value!;
-    final itemType = chapter.manga.value!.itemType;
-    final itemTypePath = itemType == ItemType.manga
-        ? "Manga"
-        : itemType == ItemType.anime
-        ? "Watch"
-        : "Novel";
     final dir = await getDirectory();
     return Directory(
       path.join(
         dir!.path,
-        'downloads',
-        itemTypePath,
+        'download',
         '${manga.source} (${manga.lang!.toUpperCase()})',
         manga.name!.replaceForbiddenCharacters('_'),
       ),

@@ -215,7 +215,7 @@ class TransferServer {
 
   static Future<Directory> _resolveReceiveDir() async {
     if (Platform.isAndroid) {
-      return Directory('/storage/emulated/0/Watchtower/received');
+      return Directory('/storage/emulated/0/watchtower/received');
     }
     final docs = await getApplicationDocumentsDirectory();
     return Directory(p.join(docs.path, 'Watchtower', 'received'));
