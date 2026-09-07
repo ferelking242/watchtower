@@ -728,7 +728,13 @@ String? _responseHeader(StreamedResponse response, String name) {
 
 _ParsedContentRange? _parseContentRange(String? value) {
   if (value == null) return null;
-  final match = RegExp(r'^bytes\s+(\d+)-(\d+)/(\d+|\*)$').firstMatch(value.trim());
+  final trimmed = value.trim();
+  final unsatisfied = RegExp(r'^bytes\s+\*/(\d+)$').firstMatch(trimmed);
+  if (unsatisfied != null) {
+    return _ParsedContentRange(0, -1, int.parse(unsatisfied.group(1)!));
+  }
+  final match = RegExp(r'^bytes\s+(\d+)-(\d+)/(\d+|\*)$')
+      .firstMatch(trimmed);
   if (match == null) return null;
   return _ParsedContentRange(
     int.parse(match.group(1)!),
@@ -755,16 +761,48 @@ Future<int?> _probeContentLength(
   Map<String, String> headers,
 ) async {
   try {
-    final request = Request('HEAD', uri);
-    request.headers.addAll(headers);
-    final response = await client.send(request).timeout(const Duration(seconds: 15));
-    final length = response.contentLength;
-    await response.stream.drain();
-    return length != null && length > 0 ? length : null;
+    final head = Request('HEAD', uri);
+    head.headers.addAll(headers);
+    final headResponse = await client
+        .send(head)
+        .timeout(const Duration(seconds: 15));
+    final headLength = headResponse.contentLength;
+    await headResponse.stream.drain();
+    if (headLength != null && headLength > 0) return headLength;
   } catch (_) {
-    // HEAD is optional. The real GET below may still provide Content-Range.
-    return null;
+    // Some CDNs reject HEAD. Fall through to the one-byte range probe.
   }
+
+  // A number of video CDNs omit Content-Length on HEAD but expose the real
+  // representation size in Content-Range for a one-byte range request. The
+  // response body is cancelled immediately; no media is downloaded to disk.
+  try {
+    final probe = Request('GET', uri);
+    probe.headers.addAll(headers);
+    probe.headers['Range'] = 'bytes=0-0';
+    final response = await client
+        .send(probe)
+        .timeout(const Duration(seconds: 15));
+    try {
+      final parsed = _parseContentRange(_responseHeader(response, 'content-range'));
+      if ((response.statusCode == 206 || response.statusCode == 416) &&
+          parsed?.total != null &&
+          parsed!.total! > 0) {
+        return parsed.total;
+      }
+      // A server may ignore Range but still provide the full size in 200.
+      if (response.statusCode == 200 &&
+          response.contentLength != null &&
+          response.contentLength! > 0) {
+        return response.contentLength;
+      }
+    } finally {
+      await response.stream.listen((_) {}).cancel();
+    }
+  } catch (_) {
+    // Total size is genuinely unavailable; the streaming GET still works.
+  }
+  return null;
 }
 
 /// Download an individual file with durable HTTP Range resume support.
@@ -839,7 +877,9 @@ Future<void> _downloadFile(
         int? knownTotal = (metadata['totalBytes'] as num?)?.toInt();
         if (knownTotal != null && knownTotal <= 0) knownTotal = null;
 
-        if (startFrom == 0 && knownTotal == null) {
+        if (knownTotal == null) {
+          // HEAD is not reliable across video CDNs. The fallback range probe
+          // also works after a paused download has already created .part.
           knownTotal = await _probeContentLength(client, uri, requestHeaders);
         }
 
