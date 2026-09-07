@@ -380,7 +380,7 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                                 ],
                               );
                             },
-                        separator: Container(
+                        leadingDivider: Container(
                           width: 1,
                           color: context.dynamicThemeColor.withValues(
                             alpha: 0.3,
