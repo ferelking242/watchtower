@@ -96,7 +96,9 @@ class LocalHowToScreen extends StatelessWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) context.pop();
+            },
         ),
         title: Text('Local $_typeName — Comment utiliser'),
         elevation: 0,

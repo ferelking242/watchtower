@@ -10,8 +10,8 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/utils/constant.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 // ─── Log Settings Keys (Hive box: advanced_settings) ──────────────────────────
 const _kLogBox = 'advanced_settings';
@@ -103,10 +103,11 @@ enum LogMode {
 
 class AppLogger {
   static final _logQueue = StreamController<String>();
-  static late File _logFile;
+  static File? _logFile;
   // dynamic to accept both dart:io.IOSink (native) and stub IOSink (web)
-  static late dynamic _sink;
+  static dynamic _sink;
   static bool _initialized = false;
+  static bool _queueListenerAttached = false;
 
   // ── In-memory filter state ──────────────────────────────────────────────────
   static int _minLevel = 0; // default: DEBUG (max verbosity)
@@ -197,60 +198,76 @@ class AppLogger {
     });
   }
 
-  /// Absolute path of today's log file (`<storage>/Watchtower/.dev/YYYY-MM-DD.log`).
+  /// Absolute path of today's log file (`<storage>/Watchtower/logs/YYYY-MM-DD.log`).
   /// Multiple sessions on the same calendar day append to the same file.
   /// Exposed so the in-app log viewer can offer a "share log" action.
   static String? _currentSessionPath;
   static String? get currentSessionPath => _currentSessionPath;
 
-  /// Folder where daily log files live (`<storage>/Watchtower/.dev/`).
+  /// Folder where daily log files live (`<storage>/Watchtower/logs/`).
   static String? _sessionsDirPath;
   static String? get sessionsDirPath => _sessionsDirPath;
 
   static Future<void> init() async {
+    if (_initialized) return;
+
     // File logging is always enabled — regardless of the enableLogs setting.
     // One daily file per calendar day, appended across sessions (never reset).
-    // Location: <storage>/Watchtower/.dev/YYYY-MM-DD.log
+    // Location: <storage>/Watchtower/logs/YYYY-MM-DD.log
     // The enableLogs setting now only controls the in-app log-viewer filters.
     await _loadSettings();
 
-    final storage = StorageProvider();
-    if (!kIsWeb && Platform.isAndroid) {
+    if (kIsWeb) return;
+
+    // Do not request Permission.storage here. On modern Android it is
+    // deprecated/non-applicable and a denied result used to return before
+    // creating any file. StorageProvider already falls back to an app-scoped
+    // directory when shared storage is unavailable.
+    final candidates = <Directory>[];
+    try {
+      final directory = await StorageProvider().getDefaultDirectory();
+      if (directory != null) {
+        candidates.add(Directory(path.join(directory.path, 'logs')));
+      }
+    } catch (e, st) {
+      debugPrint('[AppLogger] shared log directory unavailable: $e\n$st');
+    }
+    try {
+      final support = await getApplicationSupportDirectory();
+      candidates.add(Directory(path.join(support.path, 'Watchtower', 'logs')));
+    } catch (e, st) {
+      debugPrint('[AppLogger] app support log directory unavailable: $e\n$st');
+    }
+
+    for (final sessionsDir in candidates) {
       try {
-        final status = await Permission.storage.status;
-        if (!status.isGranted) {
-          final result = await Permission.storage.request();
-          if (!result.isGranted) return;
+        await sessionsDir.create(recursive: true);
+        final now = DateTime.now();
+        String two(int n) => n.toString().padLeft(2, '0');
+        final dateOnly = '${now.year}-${two(now.month)}-${two(now.day)}';
+        final logFile = File(path.join(sessionsDir.path, '$dateOnly.log'));
+        if (!await logFile.exists()) {
+          await logFile.create(recursive: true);
         }
-      } catch (_) {
-        // Activity not yet attached (cold start race); skip file logging.
-        return;
+        _logFile = logFile;
+        _sessionsDirPath = sessionsDir.path;
+        _currentSessionPath = logFile.path;
+        _sink = logFile.openWrite(mode: FileMode.append);
+        break;
+      } catch (e, st) {
+        debugPrint('[AppLogger] cannot open ${sessionsDir.path}: $e\n$st');
       }
     }
-    final directory = await storage.getDefaultDirectory();
 
-    // Daily log file in `<storage>/Watchtower/.dev/YYYY-MM-DD.log`.
-    // A new file is created for each calendar day; sessions within the same
-    // day append to the same file so nothing is lost between app launches.
-    final sessionsDir = Directory(path.join(directory!.path, '.dev'));
-    if (!await sessionsDir.exists()) {
-      await sessionsDir.create(recursive: true);
+    if (_sink == null || _logFile == null) {
+      debugPrint('[AppLogger] no writable log directory found');
+      return;
     }
-    _sessionsDirPath = sessionsDir.path;
-
-    final now = DateTime.now();
-    String two(int n) => n.toString().padLeft(2, '0');
-    final dateOnly = '${now.year}-${two(now.month)}-${two(now.day)}';
-    _logFile = File(path.join(sessionsDir.path, '$dateOnly.log'));
-    if (!await _logFile.exists()) {
-      await _logFile.create(recursive: true);
-    }
-    _currentSessionPath = _logFile.path;
 
     // Delete log files older than 30 days.
     try {
       final cutoff = DateTime.now().subtract(const Duration(days: 30));
-      await for (final e in sessionsDir.list()) {
+      await for (final e in Directory(_sessionsDirPath!).list()) {
         if (e is File && e.path.endsWith('.log')) {
           try {
             final stat = await e.stat();
@@ -260,23 +277,70 @@ class AppLogger {
       }
     } catch (_) {}
 
-    _sink = _logFile.openWrite(mode: FileMode.append);
     _initialized = true;
 
-    _logQueue.stream.listen((entry) {
-      // Guard against writes to a closed sink.
-      // IOSink has no public `isClosed` getter; catch the StateError
-      // that is thrown if the underlying file has been closed (e.g. on
-      // hot-restart or explicit dispose()), rather than letting the
-      // exception propagate into the stream and kill the listener.
-      try {
-        _sink.writeln(entry);
-      } catch (_) {
-        // Sink is closed — entries are still available in _ring and _liveCtrl.
-      }
-    });
+    if (!_queueListenerAttached) {
+      _queueListenerAttached = true;
+      _logQueue.stream.listen((entry) {
+        if (!_initialized || _sink == null) return;
+        try {
+          _sink.writeln(entry);
+          // Flush urgent entries so crash context survives process kills
+          // without forcing a filesystem sync for every debug line.
+          if (entry.contains('][ERROR]')) {
+            final Future<void> flush = _sink.flush();
+            unawaited(flush);
+          }
+        } catch (_) {
+          // Entries remain available in _ring and _liveCtrl.
+        }
+      });
+    }
 
     await _writeSessionHeader();
+  }
+
+  /// Returns all retained log files, oldest first. The hidden `.dev` folder
+  /// remains a read-only legacy fallback for logs written by older builds.
+  static Future<List<File>> listLogFiles() async {
+    if (kIsWeb) return [];
+    final directories = <String>{};
+    if (_sessionsDirPath != null) directories.add(_sessionsDirPath!);
+    try {
+      final base = await StorageProvider().getDefaultDirectory();
+      if (base != null) {
+        directories.add(path.join(base.path, 'logs'));
+        directories.add(path.join(base.path, '.dev'));
+      }
+    } catch (_) {}
+
+    final files = <File>[];
+    for (final directoryPath in directories) {
+      try {
+        final directory = Directory(directoryPath);
+        if (!await directory.exists()) continue;
+        await for (final entry in directory.list()) {
+          if (entry is File && entry.path.endsWith('.log')) files.add(entry);
+        }
+      } catch (_) {}
+    }
+    files.sort((a, b) => a.path.compareTo(b.path));
+    return files;
+  }
+
+  /// Reads all retained sessions for the viewer and export actions.
+  static Future<String?> readAllLogs() async {
+    final files = await listLogFiles();
+    if (files.isEmpty) return null;
+    final chunks = <String>[];
+    for (final file in files) {
+      try {
+        final content = await file.readAsString();
+        if (content.isNotEmpty) chunks.add(content);
+      } catch (_) {}
+    }
+    if (chunks.isEmpty) return null;
+    return chunks.join('\n');
   }
 
   // Call this after changing settings in the UI to update in-memory filters
@@ -406,11 +470,13 @@ class AppLogger {
 
   static Future<void> dispose() async {
     if (!_initialized) return;
-    await _logQueue.close();
-    await _liveCtrl.close();
-    await _sink.flush();
-    await _sink.close();
     _initialized = false;
+    final sink = _sink;
+    _sink = null;
+    try {
+      await sink.flush();
+      await sink.close();
+    } catch (_) {}
   }
 }
 

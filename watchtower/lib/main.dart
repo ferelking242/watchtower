@@ -86,6 +86,10 @@ void main(List<String> args) async {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      // Start file logging before native libraries and database work. The
+      // logger uses an app-scoped fallback on Android, so this never prompts
+      // for storage permission or blocks the first frame.
+      await AppLogger.init();
       // Detect real device RAM and apply adaptive image-cache limits.
       // Must run before any other init so the cache is sized correctly from
       // the very first image load. Safe to await — it is a single fast
@@ -127,33 +131,6 @@ void main(List<String> args) async {
       };
 
       MediaKit.ensureInitialized();
-      if (!kIsWeb) {
-        // Wrap each native-library init in its own try-catch.
-        // Without this, an UnsatisfiedLinkError (e.g. missing .so in the APK,
-        // wrong ABI, or a cargokit compile failure) propagates up through the
-        // async function and halts execution BEFORE runApp() is ever called —
-        // the app stays frozen on the native splash screen with zero Flutter
-        // output and no crash report visible to the user.
-        try {
-          await RustLib.init();
-        } catch (e, st) {
-          debugPrint('[main] RustLib.init() failed — app will run without Rust FFI: $e\n$st');
-          AppLogger.log('RustLib.init failed: $e\n$st', logLevel: LogLevel.error);
-        }
-        try {
-          await imgCropIsolate.start();
-        } catch (e, st) {
-          debugPrint('[main] imgCropIsolate.start() failed: $e\n$st');
-          AppLogger.log('imgCropIsolate.start failed: $e\n$st', logLevel: LogLevel.error);
-        }
-        // getIsolateService.start() is intentionally called AFTER initDB below.
-        // Both the main isolate and the background isolate call StorageProvider().initDB().
-        // If a stale DB (schema mismatch from an old build) is on disk, calling them
-        // concurrently causes both to race on the delete+retry path, leaving isar
-        // uninitialized and crashing every provider that reads isar.settings.
-        // Starting the isolate only after the main isolate has successfully opened the DB
-        // guarantees the background isolate always sees a clean, valid database.
-      }
       if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
         await windowManager.ensureInitialized();
         // Hide the window immediately so it doesn't flash a blank white frame
