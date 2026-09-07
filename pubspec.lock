@@ -864,14 +864,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_feather_icons:
+  feather_icon_font:
     dependency: "direct main"
     description:
-      name: flutter_feather_icons
-      sha256: b33b9c276fc8108254632da6644cf01f71af6c17fbfb26e136a86945f5ff9b67
+      name: feather_icon_font
+      sha256: aca83e9106df638278e9419e972ac673f9f7bded56aa93ff375c62203e3a5201
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.0+1"
+    version: "1.0.0"
   flutter_form_builder:
     dependency: "direct main"
     description:
@@ -2804,10 +2804,10 @@ packages:
     dependency: "direct main"
     description:
       name: simple_icons
-      sha256: 30067d70a9d72923fbc80e142e17fa46085dfa970e66bc4bede3be4819d05901
+      sha256: 21246ffcaaf9f560695596093c2ecf9fa763fd112a15916fbe7d282932430bae
       url: "https://pub.dev"
     source: hosted
-    version: "10.1.3"
+    version: "16.23.0"
   simple_sparse_list:
     dependency: transitive
     description:

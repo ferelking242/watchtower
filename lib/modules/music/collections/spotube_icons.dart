@@ -1,6 +1,6 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_feather_icons/flutter_feather_icons.dart';
+import 'package:feather_icon_font/feather_icon_font.dart';
 import 'package:simple_icons/simple_icons.dart';
 
 abstract class SpotubeIcons {
