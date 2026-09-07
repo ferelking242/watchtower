@@ -69,8 +69,7 @@ dependencies:
   pseudom: ^1.0.1
   path: ^1.9.0
   freezed_annotation: ^3.0.0
-  desktop_webview_window:
-    path: web_stubs/desktop_webview_window
+  desktop_webview_window: ^0.3.0
   volume_controller: ^3.4.4
   screen_brightness: ^2.1.1
   flutter_html: ^3.0.0
@@ -243,14 +242,8 @@ dependency_overrides:
   flutter_svg: ^2.0.17
   meta: ^1.17.0
   web: ^1.1.0
-  desktop_webview_window:
-    path: web_stubs/desktop_webview_window
   archive: ^4.0.9
   protobuf: ^5.0.0
-  flutter_feather_icons:
-    path: web_stubs/flutter_feather_icons
-  simple_icons:
-    path: web_stubs/simple_icons
   excel:
     path: packages/excel
 flutter:

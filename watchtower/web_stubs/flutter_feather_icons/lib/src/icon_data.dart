@@ -1,1 +1,0 @@
-library flutter_feather_icons_icon_data;
