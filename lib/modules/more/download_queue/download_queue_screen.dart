@@ -108,13 +108,11 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             automaticallyImplyLeading: false,
             leading: IconButton(
               icon: const Icon(Icons.chevron_left_rounded),
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/settings');
-                }
-              },
+              // The download queue is opened from Settings. Popping the
+              // navigator can reveal an unrelated route when the queue was
+              // reopened from a notification or a deep link, so always use
+              // the settings route as the destination.
+              onPressed: () => context.go('/settings'),
             ),
             titleSpacing: 16,
             title: const Text(

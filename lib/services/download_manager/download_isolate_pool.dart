@@ -668,7 +668,7 @@ Future<void> _processFileDownload(
       await slots[slotIdx];
 
       final pageUrl = params.pageUrls[i];
-      slots[slotIdx] = _downloadFile(pageUrl, client, params.itemType, replyPort,
+      slots[slotIdx] = _downloadFile(taskId, pageUrl, client, params.itemType, replyPort,
               writeMode: params.writeMode, throttle: throttle)
           .then((_) {
             if (params.itemType != ItemType.anime) {
@@ -709,7 +709,72 @@ Future<void> _processFileDownload(
 ///  2 = Legacy direct write to final path (risky on interruption).
 ///
 /// [throttle] implements the Speed Master per-task bandwidth cap.
+class _ParsedContentRange {
+  final int start;
+  final int end;
+  final int? total;
+
+  const _ParsedContentRange(this.start, this.end, this.total);
+}
+
+String? _responseHeader(StreamedResponse response, String name) {
+  final lower = name.toLowerCase();
+  for (final entry in response.headers.entries) {
+    if (entry.key.toLowerCase() == lower) return entry.value;
+  }
+  return null;
+}
+
+_ParsedContentRange? _parseContentRange(String? value) {
+  if (value == null) return null;
+  final match = RegExp(r'^bytes\s+(\d+)-(\d+)/(\d+|\*)$').firstMatch(value.trim());
+  if (match == null) return null;
+  return _ParsedContentRange(
+    int.parse(match.group(1)!),
+    int.parse(match.group(2)!),
+    match.group(3) == '*' ? null : int.parse(match.group(3)!),
+  );
+}
+
+Future<Map<String, dynamic>> _readPartMetadata(File metadataFile) async {
+  try {
+    if (!await metadataFile.exists()) return <String, dynamic>{};
+    final decoded = jsonDecode(await metadataFile.readAsString());
+    return decoded is Map
+        ? Map<String, dynamic>.from(decoded)
+        : <String, dynamic>{};
+  } catch (_) {
+    return <String, dynamic>{};
+  }
+}
+
+Future<int?> _probeContentLength(
+  Client client,
+  Uri uri,
+  Map<String, String> headers,
+) async {
+  try {
+    final request = Request('HEAD', uri);
+    request.headers.addAll(headers);
+    final response = await client.send(request).timeout(const Duration(seconds: 15));
+    final length = response.contentLength;
+    await response.stream.drain();
+    return length != null && length > 0 ? length : null;
+  } catch (_) {
+    // HEAD is optional. The real GET below may still provide Content-Range.
+    return null;
+  }
+}
+
+/// Download an individual file with durable HTTP Range resume support.
+///
+/// A video is always written to `<target>.part` and renamed only after the
+/// stream reaches the expected length. A sidecar stores the URL, validators,
+/// and discovered total size. On restart/pause, the client sends Range plus
+/// If-Range, validates Content-Range, and never appends bytes from a different
+/// representation.
 Future<void> _downloadFile(
+  String taskId,
   PageUrl pageUrl,
   Client client,
   ItemType itemType,
@@ -739,7 +804,6 @@ Future<void> _downloadFile(
       final bytes = response.bodyBytes;
       final finalPath = pageUrl.fileName!;
       if (writeMode == 0 && bytes.isNotEmpty) {
-        // Atomic: write to a sibling .part then rename.
         final part = File('$finalPath.part');
         await part.writeAsBytes(bytes, flush: true);
         final out = File(finalPath);
@@ -752,75 +816,152 @@ Future<void> _downloadFile(
         debugPrint('[DLPool] ${path.basename(finalPath)} ok (${bytes.length}B)');
       }
     } else {
-      // Streaming for videos — reports real byte progress ("14 MB / 58 MB").
       await _withRetry(() async {
         final finalPath = pageUrl.fileName!;
         final partFile = File('$finalPath.part');
-
-        // Resume support (mode 0): start from what we already have on disk.
-        int startFrom = 0;
-        if (writeMode == 0 && await partFile.exists()) {
-          startFrom = await partFile.length();
+        final metadataFile = File('$finalPath.part.meta');
+        final uri = Uri.parse(pageUrl.url);
+        final requestHeaders = <String, String>{
+          ...?pageUrl.headers,
+          // Do not let transparent gzip change the byte offsets.
+          'Accept-Encoding': 'identity',
+        };
+        final metadata = await _readPartMetadata(metadataFile);
+        final metadataUrl = metadata['url'];
+        if (metadataUrl is String && metadataUrl != pageUrl.url) {
+          if (await partFile.exists()) await partFile.delete();
+          if (await metadataFile.exists()) await metadataFile.delete();
+          metadata.clear();
         }
 
-        var request = Request('GET', Uri.parse(pageUrl.url));
-        request.headers.addAll(pageUrl.headers ?? {});
-        if (startFrom > 0) {
-          request.headers['Range'] = 'bytes=$startFrom-';
-        }
-        StreamedResponse response = await client.send(request);
+        int startFrom = await partFile.exists() ? await partFile.length() : 0;
+        int? knownTotal = (metadata['totalBytes'] as num?)?.toInt();
+        if (knownTotal != null && knownTotal <= 0) knownTotal = null;
 
-        final resumable = response.statusCode == 206;
-        if (response.statusCode != 200 && !resumable) {
+        if (startFrom == 0 && knownTotal == null) {
+          knownTotal = await _probeContentLength(client, uri, requestHeaders);
+        }
+
+        final request = Request('GET', uri);
+        request.headers.addAll(requestHeaders);
+        final requestedOffset = startFrom;
+        if (requestedOffset > 0) {
+          request.headers['Range'] = 'bytes=$requestedOffset-';
+          final etag = metadata['etag'];
+          final modified = metadata['lastModified'];
+          if (etag is String && etag.isNotEmpty) {
+            request.headers['If-Range'] = etag;
+          } else if (modified is String && modified.isNotEmpty) {
+            request.headers['If-Range'] = modified;
+          }
+        }
+
+        final response = await client.send(request);
+        final contentRangeHeader = _responseHeader(response, 'content-range');
+        final parsedRange = _parseContentRange(contentRangeHeader);
+
+        if (response.statusCode == 416) {
+          // A complete .part can be finalized without downloading again.
+          final remoteTotal = parsedRange?.total;
+          if (requestedOffset > 0 &&
+              remoteTotal != null &&
+              remoteTotal == requestedOffset) {
+            final out = File(finalPath);
+            if (await out.exists()) await out.delete();
+            await partFile.rename(finalPath);
+            if (await metadataFile.exists()) await metadataFile.delete();
+            replyPort.send(DownloadProgress(
+              requestedOffset,
+              requestedOffset,
+              itemType,
+              pageUrl: pageUrl,
+              downloadedBytes: requestedOffset,
+              totalBytes: requestedOffset,
+            ));
+            return;
+          }
+          // The remote representation changed or the local part is invalid.
+          // Remove only the partial state; the retry then starts from zero.
+          if (await partFile.exists()) await partFile.delete();
+          if (await metadataFile.exists()) await metadataFile.delete();
+          throw DownloadPoolException(
+            'HTTP 416 while resuming ${path.basename(finalPath)}',
+          );
+        }
+
+        if (response.statusCode != 200 && response.statusCode != 206) {
           throw DownloadPoolException(
             'Failed to download file: $finalPath (HTTP ${response.statusCode})',
           );
         }
-        if (!resumable) startFrom = 0; // server ignored Range → restart clean
 
-        // Content-Length may be absent (chunked transfer). For 206 responses
-        // it is the REMAINING length — add back what we resumed from so the
-        // UI denominator reflects the full file.
-        int contentLength = response.contentLength ?? 0;
-        if (resumable && contentLength > 0) contentLength += startFrom;
-        int received = startFrom;
-
-        IOSink sink;
-        switch (writeMode) {
-          case 0:
-            // Append only when actually resuming; otherwise truncate any
-            // stale .part so a non-Range server response can't corrupt it.
-            sink = partFile.openWrite(
-                mode: startFrom > 0 ? FileMode.append : FileMode.write);
-          case 1:
-            // Pre-allocate the space once (truncate to expected size), then
-            // stream into it. Resume not applicable in this mode.
-            if (contentLength > 0) {
-              final raf = await File(finalPath).open(mode: FileMode.write);
-              await raf.truncate(contentLength);
-              await raf.close();
-            }
-            sink = File(finalPath).openWrite(mode: FileMode.write);
-          default:
-            sink = File(finalPath).openWrite(mode: FileMode.write);
+        final resumed = response.statusCode == 206;
+        if (resumed) {
+          // Never append an unverified partial response. This prevents a
+          // server/CDN redirect or expired signed URL from corrupting a file.
+          if (requestedOffset <= 0 || parsedRange == null ||
+              parsedRange.start != requestedOffset) {
+            if (await partFile.exists()) await partFile.delete();
+            if (await metadataFile.exists()) await metadataFile.delete();
+            throw DownloadPoolException(
+              'Invalid Content-Range while resuming ${path.basename(finalPath)}',
+            );
+          }
+          startFrom = requestedOffset;
+        } else if (requestedOffset > 0) {
+          // The server ignored Range (or If-Range failed): overwrite the
+          // partial file with the complete 200 representation.
+          startFrom = 0;
+          if (await partFile.exists()) await partFile.delete();
         }
 
+        final responseLength = response.contentLength;
+        int? totalBytes = parsedRange?.total;
+        if (totalBytes == null && responseLength != null && responseLength > 0) {
+          totalBytes = responseLength + (resumed ? startFrom : 0);
+        }
+        totalBytes ??= knownTotal;
+
+        final etag = _responseHeader(response, 'etag');
+        final lastModified = _responseHeader(response, 'last-modified');
+        await metadataFile.writeAsString(
+          jsonEncode(<String, dynamic>{
+            'url': pageUrl.url,
+            if (totalBytes != null) 'totalBytes': totalBytes,
+            if (etag != null && etag.isNotEmpty) 'etag': etag,
+            if (lastModified != null && lastModified.isNotEmpty)
+              'lastModified': lastModified,
+          }),
+          flush: true,
+        );
+
+        var received = startFrom;
+        final sink = partFile.openWrite(
+          mode: startFrom > 0 ? FileMode.append : FileMode.write,
+        );
+        var cancelled = false;
         try {
-          await for (var chunk in response.stream) {
+          await for (final chunk in response.stream) {
+            if (_isCancelled(taskId)) {
+              cancelled = true;
+              break;
+            }
             if (throttle != null) await throttle.acquire(chunk.length);
+            if (_isCancelled(taskId)) {
+              cancelled = true;
+              break;
+            }
             sink.add(chunk);
             received += chunk.length;
             try {
-              replyPort.send(
-                DownloadProgress(
-                  received,
-                  contentLength > 0 ? contentLength : received,
-                  itemType,
-                  pageUrl: pageUrl,
-                  downloadedBytes: received,
-                  totalBytes: contentLength > 0 ? contentLength : null,
-                ),
-              );
+              replyPort.send(DownloadProgress(
+                received,
+                totalBytes ?? received,
+                itemType,
+                pageUrl: pageUrl,
+                downloadedBytes: received,
+                totalBytes: totalBytes,
+              ));
             } catch (_) {}
           }
         } finally {
@@ -828,22 +969,36 @@ Future<void> _downloadFile(
           await sink.close();
         }
 
-        // Finalize (mode 0): integrity check then atomic rename. The partial
-        // file only becomes the "real" download once complete.
-        if (writeMode == 0) {
-          final written = await partFile.length();
-          if (written == 0) {
-            throw DownloadPoolException('Downloaded file is empty: $finalPath');
-          }
-          if (contentLength > 0 && written < contentLength) {
-            throw DownloadPoolException(
-              'Incomplete download: $written/$contentLength bytes ($finalPath)',
-            );
-          }
-          final out = File(finalPath);
-          if (await out.exists()) await out.delete();
-          await partFile.rename(finalPath);
+        if (cancelled || _isCancelled(taskId)) {
+          throw DownloadPoolException('Task $taskId paused/cancelled', null);
         }
+
+        final written = await partFile.length();
+        if (totalBytes != null && written != totalBytes) {
+          throw DownloadPoolException(
+            'Incomplete download: $written/$totalBytes bytes ($finalPath)',
+          );
+        }
+        if (written == 0) {
+          throw DownloadPoolException('Downloaded file is empty: $finalPath');
+        }
+
+        final out = File(finalPath);
+        if (await out.exists()) await out.delete();
+        await partFile.rename(finalPath);
+        if (await metadataFile.exists()) await metadataFile.delete();
+
+        // If the server used chunked transfer, completion is the first moment
+        // at which the exact final size is knowable. Publish it as real data.
+        final finalBytes = await out.length();
+        replyPort.send(DownloadProgress(
+          finalBytes,
+          finalBytes,
+          itemType,
+          pageUrl: pageUrl,
+          downloadedBytes: finalBytes,
+          totalBytes: finalBytes,
+        ));
       }, 3);
     }
   } catch (e) {

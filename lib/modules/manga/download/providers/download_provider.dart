@@ -792,25 +792,37 @@ Future<void> downloadChapter(
       // For manga: store the real page count so the UI shows "7 / 322 images".
       // We never store raw percentages — the UI derives % from succeeded/total
       // only as a last-resort fallback.
+      final download = isar.downloads.getSync(chapter.id!);
       int isarSucceeded;
       int isarTotal;
 
       if (progress.itemType == ItemType.anime) {
         final dBytes = progress.downloadedBytes;
         final tBytes = progress.totalBytes;
-        if (dBytes != null && tBytes != null && tBytes > 0) {
-          // Persist a denominator only when the source supplied a real size.
+        final storedSucceeded = download?.succeeded ?? 0;
+        final storedTotal = download?.total ?? 0;
+
+        // The terminal callback used by the queue is a generic 1/1 event.
+        // Never let that event replace a real video byte total already stored
+        // in Isar (for example 14 MB / 140 MB).
+        if (progress.isCompleted && dBytes == null && tBytes == null &&
+            storedTotal > 500) {
+          isarSucceeded = storedSucceeded;
+          isarTotal = storedTotal;
+        } else if (dBytes != null && tBytes != null && tBytes > 0) {
+          // dBytes is cumulative, including bytes already present in .part.
           isarSucceeded = (dBytes / 1024).ceil();
           isarTotal = (tBytes / 1024).ceil();
         } else if (dBytes != null && dBytes > 0) {
           // HLS normally has no final Content-Length. Keep Isar in its
-          // sentinel state and render the live byte/segment progress from
-          // DownloadQueueState instead of inventing a fake total.
+          // sentinel state and render live byte progress from Riverpod rather
+          // than inventing a fake denominator.
           isarSucceeded = (dBytes / 1024).ceil();
-          isarTotal = progress.isCompleted ? isarSucceeded : 1;
+          isarTotal = progress.isCompleted && storedTotal > 500
+              ? storedTotal
+              : 1;
         } else {
-          // Fallback to segment count (rare — occurs during first segment
-          // before any bytes have landed yet).
+          // Fallback to segment count (rare — occurs before any bytes land).
           isarSucceeded = progress.completed;
           isarTotal = progress.total > 0 ? progress.total : 1;
         }
@@ -820,9 +832,10 @@ Future<void> downloadChapter(
         isarTotal = progress.total > 0 ? progress.total : 1;
       }
 
-      final download = isar.downloads.getSync(chapter.id!);
-
-      if (chapter.id != null) {
+      if (chapter.id != null &&
+          !(progress.isCompleted &&
+              progress.downloadedBytes == null &&
+              progress.totalBytes == null)) {
         ref.read(downloadQueueStateProvider.notifier).setLiveProgress(
           chapter.id!,
           DownloadLiveProgress(
@@ -906,7 +919,13 @@ Future<void> downloadChapter(
           // Freeze: use stored total regardless of new estimate direction.
           isarTotal = storedTotal;
         }
-        if (_resumeSucceededKbOffset > 0) {
+        // Video byte progress is already cumulative because it is read from
+        // the persistent .part file. Only add the old Isar offset for engines
+        // that report units/percentages instead of cumulative bytes.
+        final hasCumulativeVideoBytes =
+            progress.itemType == ItemType.anime &&
+            progress.downloadedBytes != null;
+        if (_resumeSucceededKbOffset > 0 && !hasCumulativeVideoBytes) {
           isarSucceeded += _resumeSucceededKbOffset;
           if (isarSucceeded > isarTotal) isarSucceeded = isarTotal;
         }
