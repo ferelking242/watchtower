@@ -171,8 +171,9 @@ class MbRowActions extends StatelessWidget {
             ? onOpen
             : onPauseResume;
 
-    return Column(
+    return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         PopupMenuButton<String>(
           padding: EdgeInsets.zero,
@@ -271,17 +272,17 @@ class MbRowActions extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(width: 4),
         GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 34,
-            height: 34,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: gradient,
             ),
-            child: Icon(icon, color: Colors.white, size: 18),
+            child: Icon(icon, color: Colors.white, size: 15),
           ),
         ),
       ],

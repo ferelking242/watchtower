@@ -1669,8 +1669,11 @@ class _DownloadCard extends ConsumerWidget {
     final isRetrievingMetadata = !isComplete && !hasFailed && !isPaused &&
         succeeded == 0 && total == 1;
 
+    // During an active download show only the measured speed on the right.
+    // The byte counter/progress belongs on the left; repeating "En cours…"
+    // wastes the narrow space and was the source of the cramped screenshot.
     final speedLabel = !isComplete && !hasFailed && !isPaused && speedMbs >= 0.05
-        ? ' · ${speedMbs >= 10 ? speedMbs.toStringAsFixed(0) : speedMbs.toStringAsFixed(1)} MB/s'
+        ? '${speedMbs >= 10 ? speedMbs.toStringAsFixed(0) : speedMbs.toStringAsFixed(1)} MB/s'
         : '';
     final String statusText = isComplete
         ? 'Terminé'
@@ -1681,7 +1684,7 @@ class _DownloadCard extends ConsumerWidget {
                 : isRetrievingMetadata
                     ? 'Récupération…'
                     : progress > 0
-                        ? 'En cours…$speedLabel'
+                        ? speedLabel
                         : 'En attente';
     final Color statusColor = isComplete
         ? scheme.primary
@@ -2245,7 +2248,9 @@ class _DownloadCard extends ConsumerWidget {
             return '${_formatBytes(downloaded)} / ${_formatBytes(knownTotal)}';
           }
           if (downloaded > 0) {
-            return '${_formatBytes(downloaded)} téléchargés · taille finale…';
+            // Never display a fake "taille finale" denominator. The real
+            // total is shown as soon as the engine provides it.
+            return _formatBytes(downloaded);
           }
           return 'Préparation du flux…';
         }
