@@ -29,7 +29,7 @@ dependencies:
   url_launcher: ^6.3.1
   package_info_plus: ^9.0.1
   permission_handler: ^12.0.1
-  flutter_inappwebview: ^6.1.5
+  flutter_inappwebview: 6.2.0-beta.3
   draggable_menu: ^4.4.1
   isar_community: ^3.3.2
   isar_community_flutter_libs: ^3.3.2
@@ -68,7 +68,8 @@ dependencies:
   pseudom: ^1.0.1
   path: ^1.9.0
   freezed_annotation: ^3.0.0
-  desktop_webview_window: ^0.3.0
+  desktop_webview_window:
+    path: web_stubs/desktop_webview_window
   volume_controller: ^3.4.4
   screen_brightness: ^2.1.1
   flutter_html: ^3.0.0
@@ -242,7 +243,8 @@ dependency_overrides:
   meta: ^1.17.0
   web: ^1.1.0
   flutter_secure_storage_platform_interface: 2.0.0
-  desktop_webview_window: ^0.3.0
+  desktop_webview_window:
+    path: web_stubs/desktop_webview_window
   archive: ^4.0.9
   protobuf: ^5.0.0
   flutter_feather_icons:
