@@ -162,14 +162,13 @@ packages:
     source: hosted
     version: "5.1.11"
   bonsoir_android:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
-      path: "packages/bonsoir_android"
-      ref: aa5604628ba41e3a7153769f4465a3d375488f2e
-      resolved-ref: aa5604628ba41e3a7153769f4465a3d375488f2e
-      url: "https://github.com/KRTirtho/Bonsoir.git"
-    source: git
-    version: "5.1.5"
+      name: bonsoir_android
+      sha256: 9a65b6e50c5718c3f1a7ed6ff57ab9ed8ae990ff9c36d2b1ab3d1b90f28f7d1b
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.1.6"
   bonsoir_darwin:
     dependency: transitive
     description:

@@ -305,12 +305,6 @@ dependency_overrides:
       path: packages/desktop_webview_window
   excel:
     path: packages/excel
-  bonsoir_android:
-    git:
-      url: https://github.com/KRTirtho/Bonsoir.git
-      path: packages/bonsoir_android
-      ref: aa5604628ba41e3a7153769f4465a3d375488f2e
-
 flutter:
   uses-material-design: true
   generate: true
