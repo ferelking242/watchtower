@@ -75,7 +75,6 @@ dependencies:
     git:
       path: packages/desktop_webview_window
       url: https://github.com/KRTirtho/flutter-plugins.git
-      ref: f261ff20e310d05713249b21c199a9fe17a3de6f
   volume_controller: ^3.4.4
   screen_brightness: ^2.1.1
   flutter_html: ^3.0.0
