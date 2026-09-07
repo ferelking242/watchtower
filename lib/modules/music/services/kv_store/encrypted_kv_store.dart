@@ -4,11 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
 
 abstract class EncryptedKvStoreService {
-  static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-  );
+  static const _storage = FlutterSecureStorage();
 
   static FlutterSecureStorage get storage => _storage;
 
