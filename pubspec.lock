@@ -1436,7 +1436,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: d85dd429241d464a8b5b0c2b3d870143eeba8b46
+      resolved-ref: 1cabe6352d11fd27dda2f534392facc06e9490e5
       url: "https://github.com/ferelking242/hetu_spotube_plugin.git"
     source: git
     version: "0.0.2"
