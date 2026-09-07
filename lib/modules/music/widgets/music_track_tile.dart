@@ -130,9 +130,9 @@ class MusicTrackTile extends ConsumerWidget {
             IconButton(
               icon: Icon(
                 liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                iconSize: 18,
                 color: liked ? cs.primary : cs.onSurface.withValues(alpha: 0.4),
               ),
+              iconSize: 18,
               onPressed: () =>
                   ref.read(musicPlayerProvider.notifier).toggleLike(track.id),
               visualDensity: VisualDensity.compact,
@@ -141,9 +141,9 @@ class MusicTrackTile extends ConsumerWidget {
             IconButton(
               icon: Icon(
                 Icons.more_vert_rounded,
-                iconSize: 18,
                 color: cs.onSurface.withValues(alpha: 0.4),
               ),
+              iconSize: 18,
               onPressed: onMoreTap ?? () => _showOptions(context, ref),
               visualDensity: VisualDensity.compact,
             ),

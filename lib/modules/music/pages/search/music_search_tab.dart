@@ -84,7 +84,8 @@ class _MusicSearchTabState extends ConsumerState<MusicSearchTab> {
                 opacity: _ctrl.text.isNotEmpty ? 1 : 0,
                 duration: const Duration(milliseconds: 200),
                 child: IconButton(
-                  icon: const Icon(Broken.close_circle, iconSize: 18),
+                  icon: const Icon(Broken.close_circle),
+                  iconSize: 18,
                   onPressed: () {
                     _ctrl.clear();
                     ref.read(musicSearchTermProvider.notifier).state = '';
