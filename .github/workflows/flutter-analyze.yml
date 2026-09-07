@@ -1,0 +1,109 @@
+name: Flutter dependencies and analysis
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - '**/*.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - '.github/workflows/flutter-analyze.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - '**/*.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - '.github/workflows/flutter-analyze.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.2'
+
+jobs:
+  analyze:
+    name: Pub get and analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Prepare reports
+        run: mkdir -p ci-reports
+
+      - name: Record Flutter environment
+        run: |
+          flutter --version 2>&1 | tee ci-reports/flutter-version.txt
+          flutter doctor -v 2>&1 | tee ci-reports/flutter-doctor.txt
+
+      - name: Get Dart packages
+        run: |
+          set -o pipefail
+          flutter pub get 2>&1 | tee ci-reports/pub-get.txt
+
+      - name: Analyze Dart code
+        id: analyze
+        run: |
+          set +e
+          set -o pipefail
+          flutter analyze \
+            --no-pub \
+            --no-fatal-infos \
+            --no-fatal-warnings \
+            2>&1 | tee ci-reports/flutter-analyze.txt
+          status=${PIPESTATUS[0]}
+          printf 'exit_code=%s\n' "$status" > ci-reports/analyze-exit-code.txt
+          exit "$status"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## Flutter dependencies and analysis"
+            echo
+            echo "- Flutter: \`${FLUTTER_VERSION}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo
+            echo "The complete logs are available in the \`flutter-analysis-report\` artifact."
+            echo
+            if [ -f ci-reports/pub-get.txt ]; then
+              echo "### flutter pub get"
+              echo '```text'
+              tail -n 120 ci-reports/pub-get.txt
+              echo '```'
+              echo
+            fi
+            if [ -f ci-reports/flutter-analyze.txt ]; then
+              echo "### flutter analyze"
+              echo '```text'
+              tail -n 200 ci-reports/flutter-analyze.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload dependency and analysis report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-analysis-report
+          path: ci-reports/
+          if-no-files-found: warn
+          retention-days: 14

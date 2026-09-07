@@ -29,10 +29,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Flutter (latest stable)
+      - name: Set up Flutter 3.47.2
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
+          flutter-version: '3.47.2'
           channel: stable
           cache: true
 
@@ -121,7 +121,7 @@ jobs:
           done
 
       - name: Static analysis
-        run: flutter analyze --no-pub || true
+        run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
 
       - name: Run tests
         run: flutter test --no-pub || true
