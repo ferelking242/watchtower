@@ -127,6 +127,8 @@ jobs:
           flutter build apk \
             --release \
             --target-platform android-arm64 \
+            --tree-shake-icons \
+            --split-debug-info=build/symbols \
             --build-name=${{ steps.ver.outputs.name }} \
             --build-number=${{ steps.ver.outputs.code }}
 
@@ -187,6 +189,16 @@ jobs:
           name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release
           path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
           compression-level: 0
+          retention-days: 30
+
+      - name: Upload Dart symbol files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-dart-symbols
+          path: build/symbols
+          if-no-files-found: ignore
+          compression-level: 9
           retention-days: 30
 
       - name: Notify ntfy (build OK)
