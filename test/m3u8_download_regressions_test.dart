@@ -6,6 +6,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/m3u8/m3u8_downloader.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
+import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
 
 void main() {
   group('HLS playlist resolution', () {
@@ -48,24 +49,7 @@ void main() {
       );
       expect(keyUrl, 'https://cdn.example.test/hls/video/keys/segment.key');
       expect(iv, isNotNull);
-      expect(iv!.toList(), [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-      ]);
+      expect(iv!.toList(), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
     });
 
     test('puts EXT-X-MAP before every media fragment', () {
@@ -110,6 +94,54 @@ segments/0002.m4s
     expect(progress.downloadedBytes, 4096);
     expect(progress.total, 3);
     expect(progress.totalBytes, isNull);
+  });
+
+  test('HLS resume progress keeps the original segment total', () {
+    final progress = m3u8ProgressForTesting(
+      segment: null,
+      completed: 4,
+      total: 10,
+      itemType: ItemType.anime,
+      downloadedBytes: 12 * 1024 * 1024,
+    );
+
+    expect(progress.completed, 4);
+    expect(progress.total, 10);
+    expect(progress.downloadedBytes, 12 * 1024 * 1024);
+    expect(progress.totalBytes, isNull);
+  });
+
+  test('HLS resume state counts only non-empty completed segments', () async {
+    final sandbox = await Directory.systemTemp.createTemp(
+      'watchtower-resume-test-',
+    );
+    addTearDown(() => sandbox.delete(recursive: true));
+
+    final complete = File('${sandbox.path}/TS_0.ts');
+    await complete.writeAsBytes([1, 2, 3, 4]);
+    await File('${complete.path}.done').writeAsBytes(const []);
+
+    final empty = File('${sandbox.path}/TS_1.ts');
+    await empty.writeAsBytes(const []);
+    await File('${empty.path}.done').writeAsBytes(const []);
+
+    final downloader = M3u8Downloader(
+      m3u8Url: 'https://cdn.example.test/video.m3u8',
+      downloadDir: sandbox.path,
+      fileName: '${sandbox.path}/video.mp4',
+      chapter: Chapter(id: 1, mangaId: 1, name: 'Test chapter'),
+      subtitles: null,
+    );
+    final (pending, completed, bytes) = await downloader
+        .getResumeStateForTesting([
+          TsInfo('TS_0', 'https://cdn.example.test/0.ts'),
+          TsInfo('TS_1', 'https://cdn.example.test/1.ts'),
+          TsInfo('TS_2', 'https://cdn.example.test/2.ts'),
+        ], sandbox.path);
+
+    expect(completed, 1);
+    expect(bytes, 4);
+    expect(pending.map((segment) => segment.name), ['TS_1', 'TS_2']);
   });
 
   group('HLS merge cleanup', () {

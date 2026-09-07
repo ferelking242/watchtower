@@ -1,5 +1,6 @@
 import 'dart:developer';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -120,7 +121,7 @@ class M3u8Downloader {
       // otherwise we'd "download" the variant playlist URLs as if they were
       // TS segments (which produced a few-KB invalid mp4 file).
       if (m3u8Body.contains('#EXT-X-STREAM-INF')) {
-           final variantUrl = _pickBestVariant(effectiveUrl, m3u8Body);
+        final variantUrl = _pickBestVariant(effectiveUrl, m3u8Body);
         if (variantUrl != null) {
           _log('Master playlist detected, switching to variant: $variantUrl');
           effectiveUrl = variantUrl;
@@ -128,12 +129,12 @@ class M3u8Downloader {
         }
       }
 
-       final tsList = _parseTsList(effectiveUrl, m3u8Body);
+      final tsList = _parseTsList(effectiveUrl, m3u8Body);
       final mediaSequence = _extractMediaSequence(m3u8Body);
 
       _log("Total TS files to download: ${tsList.length}");
 
-       final (key, iv) = await _getM3u8KeyAndIv(m3u8Body, effectiveUrl);
+      final (key, iv) = await _getM3u8KeyAndIv(m3u8Body, effectiveUrl);
       if (key != null) _log("TS Key found");
       if (iv != null) _log("TS IV found");
       if (mediaSequence != null) _log("Media sequence: $mediaSequence");
@@ -153,17 +154,34 @@ class M3u8Downloader {
     try {
       final (tsList, key, iv, mediaSequence) = await _getTsList();
 
-      final tsListToDownload = await _filterExistingSegments(tsList, tempDir);
+      final (tsListToDownload, completedSegments, downloadedBytes) =
+          await _getResumeState(tsList, tempDir);
       _log('Downloading ${tsListToDownload.length} segments...');
 
-       await _downloadSegmentsWithProgress(
-         tsListToDownload,
-         tempDir,
-         key,
-         iv,
-         mediaSequence,
-         onProgress,
-       );
+      if (completedSegments > 0) {
+        onProgress(
+          DownloadProgress(
+            completedSegments,
+            tsList.length,
+            chapter.manga.value!.itemType,
+            downloadedBytes: downloadedBytes,
+          ),
+        );
+      }
+
+      await _downloadSegmentsWithProgress(
+        tsListToDownload,
+        tempDir,
+        key,
+        iv,
+        mediaSequence,
+        onProgress,
+        {
+          totalSegments: tsList.length,
+          initialCompletedSegments: completedSegments,
+          initialDownloadedBytes: downloadedBytes,
+        },
+      );
 
       for (var element in subtitles ?? <Track>[]) {
         final subtitleFile = File(
@@ -206,20 +224,46 @@ class M3u8Downloader {
     }
   }
 
-  Future<List<TsInfo>> _filterExistingSegments(
+  /// Returns the pending segments plus the durable progress already present
+  /// on disk. A resumed HLS task must keep the original playlist denominator;
+  /// otherwise the progress bar jumps backwards when only the remaining
+  /// segments are submitted to the isolate. Empty files are deliberately not
+  /// counted as complete: a zero-byte segment is never valid media and must
+  /// be downloaded again.
+  Future<(List<TsInfo>, int, int)> _getResumeState(
     List<TsInfo> tsList,
     String tempDir,
   ) async {
-    // A segment is considered complete only when BOTH the .ts file AND its
-    // .done marker exist. A lone .ts without a marker means the write was
-    // interrupted mid-stream (e.g. app kill, network drop) and the file is
-    // potentially truncated — it must be re-downloaded to avoid merge artifacts.
-    return tsList.where((ts) {
-      final tsPath = path.join(tempDir, '${ts.name}.ts');
-      final donePath = '$tsPath.done';
-      return !(File(tsPath).existsSync() && File(donePath).existsSync());
-    }).toList();
+    final pending = <TsInfo>[];
+    var completedSegments = 0;
+    var downloadedBytes = 0;
+
+    for (final segment in tsList) {
+      final tsFile = File(path.join(tempDir, '${segment.name}.ts'));
+      final doneFile = File('${tsFile.path}.done');
+      if (tsFile.existsSync() &&
+          doneFile.existsSync() &&
+          tsFile.lengthSync() > 0) {
+        completedSegments++;
+        try {
+          downloadedBytes += await tsFile.length();
+        } catch (_) {
+          // Keep the segment counted; the worker will report the remaining
+          // bytes as soon as the next segment completes.
+        }
+      } else {
+        pending.add(segment);
+      }
+    }
+
+    return (pending, completedSegments, downloadedBytes);
   }
+
+  @visibleForTesting
+  Future<(List<TsInfo>, int, int)> getResumeStateForTesting(
+    List<TsInfo> tsList,
+    String tempDir,
+  ) => _getResumeState(tsList, tempDir);
 
   Future<void> _downloadSegmentsWithProgress(
     List<TsInfo> segments,
@@ -227,8 +271,11 @@ class M3u8Downloader {
     Uint8List? key,
     Uint8List? iv,
     int? mediaSequence,
-    void Function(DownloadProgress) onProgress,
-  ) async {
+    void Function(DownloadProgress) onProgress, {
+    required int totalSegments,
+    required int initialCompletedSegments,
+    required int initialDownloadedBytes,
+  }) async {
     final completer = Completer<void>();
     final taskId = 'm3u8_${chapter.id}';
 
@@ -241,6 +288,9 @@ class M3u8Downloader {
       key: key,
       iv: iv,
       mediaSequence: mediaSequence,
+      totalSegments: totalSegments,
+      initialCompletedSegments: initialCompletedSegments,
+      initialDownloadedBytes: initialDownloadedBytes,
       concurrentDownloads: concurrentDownloads,
       headers: _buildEffectiveHeaders(),
       itemType: chapter.manga.value!.itemType,
@@ -249,15 +299,15 @@ class M3u8Downloader {
       onProgress: (progress) {
         onProgress(progress);
       },
-       onComplete: () async {
-         try {
-           await _mergeSegmentsAndCleanTemp(fileName, tempDir, onProgress);
-           if (!completer.isCompleted) completer.complete();
-         } catch (e, st) {
-           _log('Merge failed: $e\n$st');
-           if (!completer.isCompleted) completer.completeError(e, st);
-         }
-       },
+      onComplete: () async {
+        try {
+          await _mergeSegmentsAndCleanTemp(fileName, tempDir, onProgress);
+          if (!completer.isCompleted) completer.complete();
+        } catch (e, st) {
+          _log('Merge failed: $e\n$st');
+          if (!completer.isCompleted) completer.completeError(e, st);
+        }
+      },
       onError: (error) {
         if (!completer.isCompleted) {
           completer.completeError(error);
@@ -285,8 +335,7 @@ class M3u8Downloader {
     // A failed merge must preserve valid fragments so a retry can resume.
     // Cleanup is deliberately after _mergeSegments succeeds, rather than in
     // a finally block, so a stale output file cannot hide a failed merge.
-    if (await File(outputFile).exists() &&
-        await Directory(tempDir).exists()) {
+    if (await File(outputFile).exists() && await Directory(tempDir).exists()) {
       try {
         await Directory(tempDir).delete(recursive: true);
       } catch (e) {
@@ -300,8 +349,7 @@ class M3u8Downloader {
     String outputFile,
     String tempDir,
     void Function(DownloadProgress) onProgress,
-  ) =>
-      _mergeSegmentsAndCleanTemp(outputFile, tempDir, onProgress);
+  ) => _mergeSegmentsAndCleanTemp(outputFile, tempDir, onProgress);
 
   Future<void> _mergeSegments(
     String outputFile,
@@ -318,7 +366,9 @@ class M3u8Downloader {
       int? actualBytes;
       try {
         actualBytes = await File(outputFile).length();
-        _log('Merge size: ${(actualBytes / 1024 / 1024).toStringAsFixed(1)} MB  path=$outputFile');
+        _log(
+          'Merge size: ${(actualBytes / 1024 / 1024).toStringAsFixed(1)} MB  path=$outputFile',
+        );
       } catch (e) {
         _log('Warning: could not stat merged file: $e');
       }
@@ -429,9 +479,13 @@ class M3u8Downloader {
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
       if (!line.startsWith('#EXT-X-STREAM-INF')) continue;
-      final bwMatch = RegExp(r'BANDWIDTH=(\d+)', caseSensitive: false)
-          .firstMatch(line);
-      final bw = bwMatch != null ? int.tryParse(bwMatch.group(1) ?? '') ?? 0 : 0;
+      final bwMatch = RegExp(
+        r'BANDWIDTH=(\d+)',
+        caseSensitive: false,
+      ).firstMatch(line);
+      final bw = bwMatch != null
+          ? int.tryParse(bwMatch.group(1) ?? '') ?? 0
+          : 0;
       // The next non-comment, non-empty line is the variant URL.
       String? variant;
       for (var j = i + 1; j < lines.length; j++) {
@@ -441,7 +495,7 @@ class M3u8Downloader {
         break;
       }
       if (variant == null) continue;
-       final absolute = Uri.parse(baseUrl).resolve(variant).toString();
+      final absolute = Uri.parse(baseUrl).resolve(variant).toString();
       if (bw > bestBw) {
         bestBw = bw;
         bestUrl = absolute;
@@ -465,9 +519,10 @@ class M3u8Downloader {
     String? initRef;
     for (final line in lines) {
       if (!line.trim().startsWith('#EXT-X-MAP')) continue;
-      initRef = RegExp(r'URI="([^"]+)"', caseSensitive: false)
-          .firstMatch(line)
-          ?.group(1);
+      initRef = RegExp(
+        r'URI="([^"]+)"',
+        caseSensitive: false,
+      ).firstMatch(line)?.group(1);
       if (initRef != null && initRef!.isNotEmpty) break;
     }
     if (initRef != null && initRef!.isNotEmpty) {
@@ -521,8 +576,7 @@ class M3u8Downloader {
   static (String?, Uint8List?) extractKeyAttributesForTesting(
     String content,
     String baseUrl,
-  ) =>
-      _extractKeyAttributes(content, baseUrl);
+  ) => _extractKeyAttributes(content, baseUrl);
 
   static (String?, Uint8List?) _extractKeyAttributes(
     String content,
@@ -536,8 +590,8 @@ class M3u8Downloader {
     if (match == null) return (null, null);
 
     String? uri = match.group(1);
-     if (uri != null) {
-       uri = Uri.parse(baseUrl).resolve(uri).toString();
+    if (uri != null) {
+      uri = Uri.parse(baseUrl).resolve(uri).toString();
     }
 
     final ivStr = match.group(2);

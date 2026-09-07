@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart';
 import 'package:watchtower/models/manga.dart';
@@ -51,7 +52,8 @@ class DownloadIsolatePool {
   static void configure({int poolSize = 3}) {
     if (_instance != null && _instance!._initialized) {
       if (kDebugMode) {
-        if (kDebugMode) print('[DownloadPool] Cannot reconfigure after initialization');
+        if (kDebugMode)
+          print('[DownloadPool] Cannot reconfigure after initialization');
       }
       return;
     }
@@ -63,7 +65,8 @@ class DownloadIsolatePool {
     if (_initialized) return;
 
     if (kDebugMode) {
-      if (kDebugMode) print('[DownloadPool] Initializing with $poolSize workers...');
+      if (kDebugMode)
+        print('[DownloadPool] Initializing with $poolSize workers...');
     }
 
     for (int i = 0; i < poolSize; i++) {
@@ -74,7 +77,8 @@ class DownloadIsolatePool {
 
     _initialized = true;
     if (kDebugMode) {
-      if (kDebugMode) print('[DownloadPool] Pool initialized with $poolSize workers');
+      if (kDebugMode)
+        print('[DownloadPool] Pool initialized with $poolSize workers');
     }
   }
 
@@ -175,6 +179,9 @@ class DownloadIsolatePool {
     required Uint8List? key,
     required Uint8List? iv,
     required int? mediaSequence,
+    int totalSegments = 0,
+    int initialCompletedSegments = 0,
+    int initialDownloadedBytes = 0,
     required int concurrentDownloads,
     required Map<String, String>? headers,
     required ItemType itemType,
@@ -201,6 +208,9 @@ class DownloadIsolatePool {
         key: key,
         iv: iv,
         mediaSequence: mediaSequence,
+        totalSegments: totalSegments > 0 ? totalSegments : segments.length,
+        initialCompletedSegments: initialCompletedSegments,
+        initialDownloadedBytes: initialDownloadedBytes,
         concurrentDownloads: concurrentDownloads,
         headers: headers,
         itemType: itemType,
@@ -278,17 +288,19 @@ class DownloadIsolatePool {
       final worker = _workers[workerIndex];
 
       if (kDebugMode) {
-        if (kDebugMode) print(
-          '[DownloadPool] Worker $workerIndex starting task ${task.taskId}',
-        );
+        if (kDebugMode)
+          print(
+            '[DownloadPool] Worker $workerIndex starting task ${task.taskId}',
+          );
       }
 
       worker.executeTask(task).then((_) {
         _availableWorkers.add(workerIndex); // Worker is free again
         if (kDebugMode) {
-          if (kDebugMode) print(
-            '[DownloadPool] Worker $workerIndex finished task ${task.taskId}, available workers: ${_availableWorkers.length}',
-          );
+          if (kDebugMode)
+            print(
+              '[DownloadPool] Worker $workerIndex finished task ${task.taskId}, available workers: ${_availableWorkers.length}',
+            );
         }
         _processQueue(); // Process the next task
       });
@@ -363,6 +375,12 @@ class M3u8DownloadParams {
   final Uint8List? key;
   final Uint8List? iv;
   final int? mediaSequence;
+
+  /// Total segments in the original playlist, including segments already on
+  /// disk when this task is resumed.
+  final int totalSegments;
+  final int initialCompletedSegments;
+  final int initialDownloadedBytes;
   final int concurrentDownloads;
   final Map<String, String>? headers;
   final ItemType itemType;
@@ -379,6 +397,9 @@ class M3u8DownloadParams {
     required this.key,
     required this.iv,
     required this.mediaSequence,
+    this.totalSegments = 0,
+    this.initialCompletedSegments = 0,
+    this.initialDownloadedBytes = 0,
     required this.concurrentDownloads,
     required this.headers,
     required this.itemType,
@@ -395,8 +416,8 @@ class _Throttle {
   DateTime _lastRefill;
 
   _Throttle(this.bytesPerSec)
-      : _tokens = bytesPerSec, // burst initial = 1 s de budget
-        _lastRefill = DateTime.now();
+    : _tokens = bytesPerSec, // burst initial = 1 s de budget
+      _lastRefill = DateTime.now();
 
   void _refill() {
     final now = DateTime.now();
@@ -417,7 +438,8 @@ class _Throttle {
     final deficit = n - _tokens;
     _tokens = 0;
     await Future<void>.delayed(
-        Duration(milliseconds: (deficit / bytesPerSec * 1000).ceil()));
+      Duration(milliseconds: (deficit / bytesPerSec * 1000).ceil()),
+    );
   }
 }
 
@@ -559,15 +581,15 @@ class _WorkerTask {
 final Set<String> _workerCancelledTasks = <String>{};
 
 /// Converts any exception to a plain [Exception] containing only the string
-  /// representation so it can safely cross isolate boundaries via [SendPort].
-  ///
-  /// [RhttpClient] (and other flutter_rust_bridge objects) hold a [RustArc]
-  /// which is NOT sendable between Dart isolates. Forwarding a raw
-  /// [RhttpWrappedClientException] / [DownloadPoolException] that wraps one
-  /// causes: "Illegal argument in isolate message: object is unsendable".
-  Exception _toSendable(Object e) => Exception(e.toString());
+/// representation so it can safely cross isolate boundaries via [SendPort].
+///
+/// [RhttpClient] (and other flutter_rust_bridge objects) hold a [RustArc]
+/// which is NOT sendable between Dart isolates. Forwarding a raw
+/// [RhttpWrappedClientException] / [DownloadPoolException] that wraps one
+/// causes: "Illegal argument in isolate message: object is unsendable".
+Exception _toSendable(Object e) => Exception(e.toString());
 
-  /// Isolate worker entry point
+/// Isolate worker entry point
 void _workerEntryPoint(_WorkerInit init) async {
   // Initialize dependencies in the Isolate
   await RustLib.init();
@@ -621,7 +643,9 @@ void _workerEntryPoint(_WorkerInit init) async {
           );
         }
       } catch (e) {
-        message.replyPort.send(_toSendable(DownloadPoolException('Task failed', e)));
+        message.replyPort.send(
+          _toSendable(DownloadPoolException('Task failed', e)),
+        );
       } finally {
         _workerCancelledTasks.remove(message.taskId);
       }
@@ -660,8 +684,11 @@ Future<void> _processFileDownload(
     for (int i = 0; i < params.pageUrls.length; i++) {
       if (_isCancelled(taskId)) {
         await Future.wait(slots, eagerError: false).catchError((_) => <void>[]);
-        replyPort.send(_toSendable(DownloadPoolException(
-          'Task $taskId cancelled by user', null)));
+        replyPort.send(
+          _toSendable(
+            DownloadPoolException('Task $taskId cancelled by user', null),
+          ),
+        );
         return;
       }
 
@@ -669,28 +696,51 @@ Future<void> _processFileDownload(
       await slots[slotIdx];
 
       final pageUrl = params.pageUrls[i];
-      slots[slotIdx] = _downloadFile(taskId, pageUrl, client, params.itemType, replyPort,
-              writeMode: params.writeMode, throttle: throttle)
-          .then((_) {
-            if (params.itemType != ItemType.anime) {
-              completed++;
-              replyPort.send(DownloadProgress(
-                pageUrl: pageUrl, completed, total, params.itemType));
-            }
-          })
-          .catchError((error) {
-            replyPort.send(_toSendable(DownloadPoolException(
-              'Error downloading ${pageUrl.fileName}', error)));
-            throw error;
-          });
+      slots[slotIdx] =
+          _downloadFile(
+                taskId,
+                pageUrl,
+                client,
+                params.itemType,
+                replyPort,
+                writeMode: params.writeMode,
+                throttle: throttle,
+              )
+              .then((_) {
+                if (params.itemType != ItemType.anime) {
+                  completed++;
+                  replyPort.send(
+                    DownloadProgress(
+                      pageUrl: pageUrl,
+                      completed,
+                      total,
+                      params.itemType,
+                    ),
+                  );
+                }
+              })
+              .catchError((error) {
+                replyPort.send(
+                  _toSendable(
+                    DownloadPoolException(
+                      'Error downloading ${pageUrl.fileName}',
+                      error,
+                    ),
+                  ),
+                );
+                throw error;
+              });
     }
 
     // Drain all remaining in-flight slots.
     await Future.wait(slots, eagerError: true);
 
     if (_isCancelled(taskId)) {
-      replyPort.send(_toSendable(DownloadPoolException(
-        'Task $taskId cancelled by user', null)));
+      replyPort.send(
+        _toSendable(
+          DownloadPoolException('Task $taskId cancelled by user', null),
+        ),
+      );
       return;
     }
 
@@ -733,8 +783,7 @@ _ParsedContentRange? _parseContentRange(String? value) {
   if (unsatisfied != null) {
     return _ParsedContentRange(0, -1, int.parse(unsatisfied.group(1)!));
   }
-  final match = RegExp(r'^bytes\s+(\d+)-(\d+)/(\d+|\*)$')
-      .firstMatch(trimmed);
+  final match = RegExp(r'^bytes\s+(\d+)-(\d+)/(\d+|\*)$').firstMatch(trimmed);
   if (match == null) return null;
   return _ParsedContentRange(
     int.parse(match.group(1)!),
@@ -784,7 +833,9 @@ Future<int?> _probeContentLength(
         .send(probe)
         .timeout(const Duration(seconds: 15));
     try {
-      final parsed = _parseContentRange(_responseHeader(response, 'content-range'));
+      final parsed = _parseContentRange(
+        _responseHeader(response, 'content-range'),
+      );
       if ((response.statusCode == 206 || response.statusCode == 416) &&
           parsed?.total != null &&
           parsed!.total! > 0) {
@@ -852,7 +903,9 @@ Future<void> _downloadFile(
         await File(finalPath).writeAsBytes(bytes, flush: true);
       }
       if (kDebugMode) {
-        debugPrint('[DLPool] ${path.basename(finalPath)} ok (${bytes.length}B)');
+        debugPrint(
+          '[DLPool] ${path.basename(finalPath)} ok (${bytes.length}B)',
+        );
       }
     } else {
       await _withRetry(() async {
@@ -911,14 +964,16 @@ Future<void> _downloadFile(
             if (await out.exists()) await out.delete();
             await partFile.rename(finalPath);
             if (await metadataFile.exists()) await metadataFile.delete();
-            replyPort.send(DownloadProgress(
-              requestedOffset,
-              requestedOffset,
-              itemType,
-              pageUrl: pageUrl,
-              downloadedBytes: requestedOffset,
-              totalBytes: requestedOffset,
-            ));
+            replyPort.send(
+              DownloadProgress(
+                requestedOffset,
+                requestedOffset,
+                itemType,
+                pageUrl: pageUrl,
+                downloadedBytes: requestedOffset,
+                totalBytes: requestedOffset,
+              ),
+            );
             return;
           }
           // The remote representation changed or the local part is invalid.
@@ -940,7 +995,8 @@ Future<void> _downloadFile(
         if (resumed) {
           // Never append an unverified partial response. This prevents a
           // server/CDN redirect or expired signed URL from corrupting a file.
-          if (requestedOffset <= 0 || parsedRange == null ||
+          if (requestedOffset <= 0 ||
+              parsedRange == null ||
               parsedRange.start != requestedOffset) {
             if (await partFile.exists()) await partFile.delete();
             if (await metadataFile.exists()) await metadataFile.delete();
@@ -958,7 +1014,9 @@ Future<void> _downloadFile(
 
         final responseLength = response.contentLength;
         int? totalBytes = parsedRange?.total;
-        if (totalBytes == null && responseLength != null && responseLength > 0) {
+        if (totalBytes == null &&
+            responseLength != null &&
+            responseLength > 0) {
           totalBytes = responseLength + (resumed ? startFrom : 0);
         }
         totalBytes ??= knownTotal;
@@ -995,14 +1053,16 @@ Future<void> _downloadFile(
             sink.add(chunk);
             received += chunk.length;
             try {
-              replyPort.send(DownloadProgress(
-                received,
-                totalBytes ?? received,
-                itemType,
-                pageUrl: pageUrl,
-                downloadedBytes: received,
-                totalBytes: totalBytes,
-              ));
+              replyPort.send(
+                DownloadProgress(
+                  received,
+                  totalBytes ?? received,
+                  itemType,
+                  pageUrl: pageUrl,
+                  downloadedBytes: received,
+                  totalBytes: totalBytes,
+                ),
+              );
             } catch (_) {}
           }
         } finally {
@@ -1032,14 +1092,16 @@ Future<void> _downloadFile(
         // If the server used chunked transfer, completion is the first moment
         // at which the exact final size is knowable. Publish it as real data.
         final finalBytes = await out.length();
-        replyPort.send(DownloadProgress(
-          finalBytes,
-          finalBytes,
-          itemType,
-          pageUrl: pageUrl,
-          downloadedBytes: finalBytes,
-          totalBytes: finalBytes,
-        ));
+        replyPort.send(
+          DownloadProgress(
+            finalBytes,
+            finalBytes,
+            itemType,
+            pageUrl: pageUrl,
+            downloadedBytes: finalBytes,
+            totalBytes: finalBytes,
+          ),
+        );
       }, 3);
     }
   } catch (e) {
@@ -1068,15 +1130,14 @@ DownloadProgress m3u8ProgressForTesting({
   required int total,
   required ItemType itemType,
   required int downloadedBytes,
-}) =>
-    DownloadProgress(
-      completed,
-      total,
-      itemType,
-      segment: segment,
-      downloadedBytes: downloadedBytes,
-      totalBytes: null,
-    );
+}) => DownloadProgress(
+  completed,
+  total,
+  itemType,
+  segment: segment,
+  downloadedBytes: downloadedBytes,
+  totalBytes: null,
+);
 
 Future<void> _processM3u8Download(
   String taskId,
@@ -1084,8 +1145,10 @@ Future<void> _processM3u8Download(
   SendPort replyPort,
   Client client,
 ) async {
-  int completed = 0;
-  final total = params.segments.length;
+  int completed = params.initialCompletedSegments;
+  final total = params.totalSegments > 0
+      ? params.totalSegments
+      : params.segments.length + params.initialCompletedSegments;
 
   if (total == 0) {
     replyPort.send(DownloadComplete());
@@ -1095,8 +1158,11 @@ Future<void> _processM3u8Download(
   // Byte accumulators — updated by completed segments AND in-flight chunks.
   // completedBytes: sum of all fully-downloaded segment sizes.
   // slotBytes: per-slot running total of in-flight (mid-download) bytes.
-  int completedBytes = 0;
-  final slotBytes = List<int>.filled(params.concurrentDownloads.clamp(1, 32), 0);
+  int completedBytes = params.initialDownloadedBytes;
+  final slotBytes = List<int>.filled(
+    params.concurrentDownloads.clamp(1, 32),
+    0,
+  );
 
   // Throttle: only send a real-time progress update when at least this many
   // bytes of new data have arrived since the last send. 256 KB keeps the UI
@@ -1107,15 +1173,18 @@ Future<void> _processM3u8Download(
   void _sendProgress(TsInfo? segment) {
     final inFlight = slotBytes.fold<int>(0, (a, b) => a + b);
     final totalDownloaded = completedBytes + inFlight;
-    if (totalDownloaded - _lastReportedBytes >= kProgressThrottleBytes || segment != null) {
+    if (totalDownloaded - _lastReportedBytes >= kProgressThrottleBytes ||
+        segment != null) {
       _lastReportedBytes = totalDownloaded;
-      replyPort.send(m3u8ProgressForTesting(
-        segment: segment,
-        completed: completed,
-        total: total,
-        itemType: params.itemType,
-        downloadedBytes: totalDownloaded,
-      ));
+      replyPort.send(
+        m3u8ProgressForTesting(
+          segment: segment,
+          completed: completed,
+          total: total,
+          itemType: params.itemType,
+          downloadedBytes: totalDownloaded,
+        ),
+      );
     }
   }
 
@@ -1127,8 +1196,11 @@ Future<void> _processM3u8Download(
     for (int i = 0; i < params.segments.length; i++) {
       if (_isCancelled(taskId)) {
         await Future.wait(slots, eagerError: false).catchError((_) => <void>[]);
-        replyPort.send(_toSendable(DownloadPoolException(
-          'M3U8 task $taskId cancelled by user', null)));
+        replyPort.send(
+          _toSendable(
+            DownloadPoolException('M3U8 task $taskId cancelled by user', null),
+          ),
+        );
         return;
       }
 
@@ -1140,52 +1212,69 @@ Future<void> _processM3u8Download(
 
       final segment = params.segments[i];
       final capturedSlotIdx = slotIdx;
-      slots[slotIdx] = _downloadSegment(
-        segment, params, client,
-        throttle: throttle,
-        onChunk: (bytes) {
-          slotBytes[capturedSlotIdx] += bytes;
-          _sendProgress(null); // throttled real-time update
-        },
-      ).then((_) {
-            completed++;
+      slots[slotIdx] =
+          _downloadSegment(
+                segment,
+                params,
+                client,
+                throttle: throttle,
+                onChunk: (bytes) {
+                  slotBytes[capturedSlotIdx] += bytes;
+                  _sendProgress(null); // throttled real-time update
+                },
+              )
+              .then((_) {
+                completed++;
 
-            // Commit this slot's bytes to the completed accumulator.
-            try {
-              final tsFile = File(path.join(params.tempDir, '${segment.name}.ts'));
-              if (tsFile.existsSync()) {
-                completedBytes += tsFile.lengthSync();
-              } else {
-                completedBytes += slotBytes[capturedSlotIdx];
-              }
-            } catch (_) {
-              completedBytes += slotBytes[capturedSlotIdx];
-            }
-            slotBytes[capturedSlotIdx] = 0;
+                // Commit this slot's bytes to the completed accumulator.
+                try {
+                  final tsFile = File(
+                    path.join(params.tempDir, '${segment.name}.ts'),
+                  );
+                  if (tsFile.existsSync()) {
+                    completedBytes += tsFile.lengthSync();
+                  } else {
+                    completedBytes += slotBytes[capturedSlotIdx];
+                  }
+                } catch (_) {
+                  completedBytes += slotBytes[capturedSlotIdx];
+                }
+                slotBytes[capturedSlotIdx] = 0;
 
-            // Always send an update on segment completion (threshold bypassed).
-            _lastReportedBytes = 0;
-            _sendProgress(segment);
-          })
-          .catchError((error) {
-            replyPort.send(_toSendable(DownloadPoolException(
-              'Error downloading segment ${segment.name}', error)));
-            throw error;
-          });
+                // Always send an update on segment completion (threshold bypassed).
+                _lastReportedBytes = 0;
+                _sendProgress(segment);
+              })
+              .catchError((error) {
+                replyPort.send(
+                  _toSendable(
+                    DownloadPoolException(
+                      'Error downloading segment ${segment.name}',
+                      error,
+                    ),
+                  ),
+                );
+                throw error;
+              });
     }
 
     // Drain remaining in-flight slots.
     await Future.wait(slots, eagerError: true);
 
     if (_isCancelled(taskId)) {
-      replyPort.send(_toSendable(DownloadPoolException(
-        'M3U8 task $taskId cancelled by user', null)));
+      replyPort.send(
+        _toSendable(
+          DownloadPoolException('M3U8 task $taskId cancelled by user', null),
+        ),
+      );
       return;
     }
 
     replyPort.send(DownloadComplete());
   } catch (e) {
-    replyPort.send(_toSendable(DownloadPoolException('M3U8 download failed', e)));
+    replyPort.send(
+      _toSendable(DownloadPoolException('M3U8 download failed', e)),
+    );
   }
 }
 
@@ -1232,12 +1321,14 @@ Future<void> _downloadSegment(
 
       // Wrap the entire send+stream in a timeout so a stalled CDN
       // does not block the isolate indefinitely.
-      final response = await client.send(request).timeout(
-        segmentTimeout,
-        onTimeout: () => throw DownloadPoolException(
-          'Segment ${ts.name}: connection timeout after ${segmentTimeout.inSeconds}s',
-        ),
-      );
+      final response = await client
+          .send(request)
+          .timeout(
+            segmentTimeout,
+            onTimeout: () => throw DownloadPoolException(
+              'Segment ${ts.name}: connection timeout after ${segmentTimeout.inSeconds}s',
+            ),
+          );
 
       if (response.statusCode != 200) {
         throw DownloadPoolException(
@@ -1249,12 +1340,14 @@ Future<void> _downloadSegment(
       try {
         // Per-chunk inactivity watchdog — if no bytes arrive for
         // segmentTimeout the stream is considered stalled.
-        await for (final chunk
-            in response.stream.timeout(segmentTimeout, onTimeout: (_) {
-          throw DownloadPoolException(
-            'Segment ${ts.name}: stream stalled for ${segmentTimeout.inSeconds}s',
-          );
-        })) {
+        await for (final chunk in response.stream.timeout(
+          segmentTimeout,
+          onTimeout: (_) {
+            throw DownloadPoolException(
+              'Segment ${ts.name}: stream stalled for ${segmentTimeout.inSeconds}s',
+            );
+          },
+        )) {
           if (throttle != null) await throttle.acquire(chunk.length);
           sink.add(chunk);
           onChunk?.call(chunk.length);
