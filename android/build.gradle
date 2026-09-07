@@ -17,6 +17,18 @@ subprojects {
             if (details.requested.group == "com.github.teamnewpipe" && details.requested.name == "NewPipeExtractor") {
                 details.useTarget("com.github.teamnewpipe:newpipeextractor:${details.requested.version}")
             }
+            // ffmpeg_kit_flutter_new requests the full-GPL Android artifact by
+            // default. The downloader only needs concat demuxing, MPEG-TS
+            // demuxing and MP4 muxing; the min-GPL build contains all of those
+            // while avoiding the codecs and libraries that nearly double the
+            // ARM64 APK size.
+            if (details.requested.group == "com.antonkarpenko" &&
+                details.requested.name == "ffmpeg-kit-full-gpl") {
+                details.useTarget(
+                    "com.antonkarpenko:ffmpeg-kit-min-gpl:${details.requested.version}"
+                )
+                details.because("Watchtower only uses stream-copy TS-to-MP4 muxing")
+            }
         }
     }
     afterEvaluate { project ->

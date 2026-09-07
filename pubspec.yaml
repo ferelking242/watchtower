@@ -264,7 +264,9 @@ flutter:
     - assets/trackers_icons/
     - assets/app_icons/
     - assets/icons/
-    - assets/fonts/
+    # UI fonts are declared explicitly below. Do not bundle subfont.ttf here:
+    # Android downloads that subtitle fallback font on demand in
+    # anime_player_view_io.dart, which keeps ~6 MB out of the base APK.
     - assets/fonts/Ubuntu_Mono/
     - assets/images/
     - assets/images/logos/

@@ -127,6 +127,8 @@ jobs:
           flutter build apk \
             --release \
             --target-platform android-arm64 \
+            --tree-shake-icons \
+            --split-debug-info=build/symbols \
             --build-name=${{ steps.ver.outputs.name }} \
             --build-number=${{ steps.ver.outputs.code }}
 
@@ -140,6 +142,35 @@ jobs:
             $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)/apksigner verify --print-certs "$APK" 2>&1 | head -10
           else
             echo "WARNING: APK not found at $APK"
+          fi
+
+      - name: Audit APK ABI and compression
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -f "$APK"
+          APK_BYTES=$(stat -c '%s' "$APK")
+          echo "APK bytes: $APK_BYTES"
+          MAX_APK_BYTES=$((85 * 1024 * 1024))
+          if [ "$APK_BYTES" -gt "$MAX_APK_BYTES" ]; then
+            echo "::error::Release APK is larger than the 85 MiB size budget"
+            exit 1
+          fi
+          echo "Native libraries:"
+          unzip -l "$APK" | grep -E 'lib/.+\.so$' || true
+
+          if unzip -Z1 "$APK" | grep -Eq '^lib/(armeabi-v7a|x86|x86_64)/'; then
+            echo "::error::Release APK contains a non-ARM64 ABI"
+            exit 1
+          fi
+
+          # Native libraries must remain DEFLATED in the distributable APK.
+          # This catches an accidental packaging change that inflates the
+          # download even when the ABI filter is still correct.
+          if unzip -lv "$APK" | awk '$8 ~ /^lib\/arm64-v8a\/.*\.so$/ && $2 != "Defl:N" { bad=1 } END { exit bad }'; then
+            echo "Native libraries are compressed"
+          else
+            echo "::error::One or more native libraries are not compressed"
+            exit 1
           fi
 
       - name: Rename APK
@@ -158,6 +189,16 @@ jobs:
           name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release
           path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
           compression-level: 0
+          retention-days: 30
+
+      - name: Upload Dart symbol files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-dart-symbols
+          path: build/symbols
+          if-no-files-found: ignore
+          compression-level: 9
           retention-days: 30
 
       - name: Notify ntfy (build OK)

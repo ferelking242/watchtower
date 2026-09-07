@@ -66,6 +66,14 @@ android {
     packagingOptions {
         jniLibs {
             useLegacyPackaging false
+            // The release is intentionally ARM64-only. Keep this explicit in
+            // addition to abiFilters so a future plugin/AAR cannot reintroduce
+            // emulator or 32-bit native libraries into the sideload APK.
+            excludes += [
+                'lib/armeabi-v7a/**',
+                'lib/x86/**',
+                'lib/x86_64/**',
+            ]
         }
     }
 
