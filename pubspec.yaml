@@ -84,14 +84,15 @@ dependencies:
   hive_flutter: ^1.1.0
   flutter_discord_rpc_fork:
     git:
-      url: https://github.com/Schnitzel5/flutter-discord-rpc.git
+      url: https://github.com/ferelking242/flutter-discord-rpc.git
       ref: main
   table_calendar: ^3.2.0
   local_auth: ^3.0.1
   wakelock_plus: ^1.4.0
   m_extension_server:
     git:
-      url: https://github.com/kodjodevf/m_extension_server.git
+      url: https://github.com/ferelking242/m_extension_server.git
+      ref: 0965c5becba2e826473330eb9ea99dc7030fcf99
   flutter_tts: ^4.2.5
   flutter_local_notifications: ^18.0.1
   skeletonizer: ^2.1.0+1
@@ -137,7 +138,7 @@ dependencies:
   draggable_scrollbar:
     git:
       ref: cfd570035bf393de541d32e9b28808b5d7e602df
-      url: https://github.com/thielepaul/flutter-draggable-scrollbar.git
+      url: https://github.com/ferelking242/flutter-draggable-scrollbar.git
   flutter_undraw: ^0.2.1
   palette_generator: ^0.3.3
   cached_network_image: ^3.3.1
@@ -162,27 +163,27 @@ dependencies:
   youtube_explode_dart: ^3.1.0
   yt_dlp_dart:
     git:
-      url: https://github.com/KRTirtho/yt_dlp_dart.git
+      url: https://github.com/ferelking242/yt_dlp_dart.git
       ref: 4e5310e14af74bdbb51e2a4766e66d6c6a2562a8
   flutter_new_pipe_extractor:
     git:
-      url: https://github.com/KRTirtho/flutter_new_pipe_extractor
+      url: https://github.com/ferelking242/flutter_new_pipe_extractor.git
   scrobblenaut:
     git:
       ref: dart-3-support
-      url: https://github.com/KRTirtho/scrobblenaut.git
+      url: https://github.com/ferelking242/scrobblenaut.git
   hetu_script: ^0.4.2+1
   hetu_std:
     git:
-      url: https://github.com/hetu-community/hetu_std.git
+      url: https://github.com/ferelking242/hetu_std.git
       ref: main
   hetu_otp_util:
     git:
-      url: https://github.com/hetu-community/hetu_otp_util.git
+      url: https://github.com/ferelking242/hetu_otp_util.git
       ref: main
   hetu_spotube_plugin:
     git:
-      url: https://github.com/KRTirtho/hetu_spotube_plugin.git
+      url: https://github.com/ferelking242/hetu_spotube_plugin.git
       ref: main
   fuzzywuzzy: ^1.1.6
   uuid: ^4.4.0
@@ -201,10 +202,10 @@ dependencies:
   tray_manager: ^0.5.0
   disable_battery_optimization:
     git:
-      url: https://github.com/KRTirtho/Disable-Battery-Optimizations.git
+      url: https://github.com/ferelking242/Disable-Battery-Optimizations.git
   flutter_broadcasts:
     git:
-      url: https://github.com/KRTirtho/flutter_broadcasts.git
+      url: https://github.com/ferelking242/flutter_broadcasts.git
       ref: 63931dfe06733d4fb7452e9981e1f0b23414d97a
   win32_registry: ^2.1.0
   flutter_form_builder: ^9.6.0
@@ -223,7 +224,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.3
   isar_community_generator:
     git:
-      url: https://github.com/kodjodevf/isar-community-generator.git
+      url: https://github.com/ferelking242/isar-community-generator.git
       ref: v3
   flutter_lints: ^6.0.0
   freezed: ^3.0.0
@@ -244,14 +245,19 @@ dependency_overrides:
   web: ^1.1.0
   archive: ^4.0.9
   protobuf: ^5.0.0
+  # Keep the transitive Git dependency on the Ferelking242 fork.
+  fk_user_agent:
+    git:
+      url: https://github.com/ferelking242/fk_user_agent.git
+      ref: 458046cd9a88924e5074d96ba45397219d53b230
   # flutter_web_auth_2 requires the hosted package, while
   # hetu_spotube_plugin requires this maintained fork. Override the package
   # globally so every feature resolves one implementation and one source.
   desktop_webview_window:
     git:
       path: packages/desktop_webview_window
-      ref: f261ff20e310d05713249b21c199a9fe17a3de6f
-      url: https://github.com/KRTirtho/flutter-plugins.git
+      ref: watchtower-webview-f261
+      url: https://github.com/ferelking242/desktop_webview_window.git
   excel:
     path: packages/excel
 flutter:

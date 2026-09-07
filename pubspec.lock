@@ -493,9 +493,9 @@ packages:
     dependency: "direct overridden"
     description:
       path: packages/desktop_webview_window
-      ref: f261ff20e310d05713249b21c199a9fe17a3de6f
+      ref: watchtower-webview-f261
       resolved-ref: f261ff20e310d05713249b21c199a9fe17a3de6f
-      url: "https://github.com/KRTirtho/flutter-plugins.git"
+      url: "https://github.com/ferelking242/desktop_webview_window.git"
     source: git
     version: "0.2.4"
   device_info_plus:
@@ -536,7 +536,7 @@ packages:
       path: "."
       ref: HEAD
       resolved-ref: aa77a61946849fff495091fc13dcc390948cc60b
-      url: "https://github.com/KRTirtho/Disable-Battery-Optimizations.git"
+      url: "https://github.com/ferelking242/Disable-Battery-Optimizations.git"
     source: git
     version: "1.1.1"
   docx_to_text:
@@ -561,7 +561,7 @@ packages:
       path: "."
       ref: cfd570035bf393de541d32e9b28808b5d7e602df
       resolved-ref: cfd570035bf393de541d32e9b28808b5d7e602df
-      url: "https://github.com/thielepaul/flutter-draggable-scrollbar.git"
+      url: "https://github.com/ferelking242/flutter-draggable-scrollbar.git"
     source: git
     version: "0.1.0"
   drift:
@@ -796,12 +796,12 @@ packages:
     source: hosted
     version: "1.1.1"
   fk_user_agent:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       path: "."
-      ref: HEAD
+      ref: 458046cd9a88924e5074d96ba45397219d53b230
       resolved-ref: "458046cd9a88924e5074d96ba45397219d53b230"
-      url: "https://github.com/maeltoukap/fk_user_agent.git"
+      url: "https://github.com/ferelking242/fk_user_agent.git"
     source: git
     version: "2.1.0"
   flex_color_scheme:
@@ -839,7 +839,7 @@ packages:
       path: "."
       ref: "63931dfe06733d4fb7452e9981e1f0b23414d97a"
       resolved-ref: "63931dfe06733d4fb7452e9981e1f0b23414d97a"
-      url: "https://github.com/KRTirtho/flutter_broadcasts.git"
+      url: "https://github.com/ferelking242/flutter_broadcasts.git"
     source: git
     version: "0.4.0"
   flutter_cache_manager:
@@ -856,7 +856,7 @@ packages:
       path: "."
       ref: main
       resolved-ref: "5032c0ac4d257b0fad8d3c6cd05f6d15889fc1e5"
-      url: "https://github.com/Schnitzel5/flutter-discord-rpc.git"
+      url: "https://github.com/ferelking242/flutter-discord-rpc.git"
     source: git
     version: "1.0.5"
   flutter_driver:
@@ -1051,7 +1051,7 @@ packages:
       path: "."
       ref: HEAD
       resolved-ref: "41cbd821ce49b9343136f67d83d3117e582dad75"
-      url: "https://github.com/KRTirtho/flutter_new_pipe_extractor"
+      url: "https://github.com/ferelking242/flutter_new_pipe_extractor.git"
     source: git
     version: "0.1.0"
   flutter_plugin_android_lifecycle:
@@ -1420,7 +1420,7 @@ packages:
       path: "."
       ref: main
       resolved-ref: "7790606751828758769596e809ba6cbb756f9b9a"
-      url: "https://github.com/hetu-community/hetu_otp_util.git"
+      url: "https://github.com/ferelking242/hetu_otp_util.git"
     source: git
     version: "1.0.0"
   hetu_script:
@@ -1437,7 +1437,7 @@ packages:
       path: "."
       ref: main
       resolved-ref: d85dd429241d464a8b5b0c2b3d870143eeba8b46
-      url: "https://github.com/KRTirtho/hetu_spotube_plugin.git"
+      url: "https://github.com/ferelking242/hetu_spotube_plugin.git"
     source: git
     version: "0.0.2"
   hetu_std:
@@ -1446,7 +1446,7 @@ packages:
       path: "."
       ref: main
       resolved-ref: "401fde426339cf8f1e00dee22cc95f64c3e60053"
-      url: "https://github.com/hetu-community/hetu_std.git"
+      url: "https://github.com/ferelking242/hetu_std.git"
     source: git
     version: "1.0.0"
   hive:
@@ -1700,7 +1700,7 @@ packages:
       path: "."
       ref: v3
       resolved-ref: "3e0a12223e13075faa16dd9afff9a5e252fcd79a"
-      url: "https://github.com/kodjodevf/isar-community-generator.git"
+      url: "https://github.com/ferelking242/isar-community-generator.git"
     source: git
     version: "3.3.0"
   isolate_contactor:
@@ -1923,9 +1923,9 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: HEAD
+      ref: 0965c5becba2e826473330eb9ea99dc7030fcf99
       resolved-ref: "0965c5becba2e826473330eb9ea99dc7030fcf99"
-      url: "https://github.com/kodjodevf/m_extension_server.git"
+      url: "https://github.com/ferelking242/m_extension_server.git"
     source: git
     version: "0.0.2"
   markdown:
@@ -2653,7 +2653,7 @@ packages:
       path: "."
       ref: dart-3-support
       resolved-ref: d90cb75d71737f3cfa2de4469d48080c0f3eedc2
-      url: "https://github.com/KRTirtho/scrobblenaut.git"
+      url: "https://github.com/ferelking242/scrobblenaut.git"
     source: git
     version: "3.0.0"
   scroll_to_index:
@@ -3619,7 +3619,7 @@ packages:
       path: "."
       ref: "4e5310e14af74bdbb51e2a4766e66d6c6a2562a8"
       resolved-ref: "4e5310e14af74bdbb51e2a4766e66d6c6a2562a8"
-      url: "https://github.com/KRTirtho/yt_dlp_dart.git"
+      url: "https://github.com/ferelking242/yt_dlp_dart.git"
     source: git
     version: "1.0.0"
 sdks:
