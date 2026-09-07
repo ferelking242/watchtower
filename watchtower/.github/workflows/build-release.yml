@@ -1,0 +1,208 @@
+name: Build Release APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ARMv8 Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter (latest stable)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+            gradle-${{ runner.os }}-
+
+      - name: Cache Rust (Android arm64)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-arm64-release-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-android-arm64-release-${{ runner.os }}-
+
+      - name: Cache Android SDK extras (NDK 27, CMake)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
+      - name: Install Rust Android target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Compute and bump version
+        id: ver
+        run: |
+          MAJOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9]+)\..*/\1/')
+          MINOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*[0-9]+\.([0-9]+)\..*/\1/')
+          PATCH=${GITHUB_RUN_NUMBER}
+          VNAME="${MAJOR}.${MINOR}.${PATCH}"
+          VCODE=${GITHUB_RUN_NUMBER}
+          sed -i "s/^version:.*/version: ${VNAME}+${VCODE}/" pubspec.yaml
+          echo "name=${VNAME}"  >> "$GITHUB_OUTPUT"
+          echo "code=${VCODE}"  >> "$GITHUB_OUTPUT"
+          echo "Bumped to ${VNAME}+${VCODE}"
+
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
+      - name: Verify keystore
+        run: |
+          KEYSTORE=android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < "$KEYSTORE") bytes"
+          keytool -list -keystore "$KEYSTORE" -storepass watchtower -alias watchtower 2>&1 | head -5
+
+      - name: Free disk space
+        run: |
+            df -h
+            sudo rm -rf /usr/local/lib/android/sdk/ndk/26* /usr/local/lib/android/sdk/ndk/29* || true
+            sudo rm -rf /usr/local/lib/android/sdk/build-tools/33* /usr/local/lib/android/sdk/build-tools/34* || true
+            sudo rm -rf /usr/local/.ghcup /usr/local/share/powershell || true
+            sudo apt-get clean -y || true
+            df -h
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Fix flutter_new_pipe_extractor missing assets dir
+        run: |
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read d; do
+            mkdir -p "$d/assets"
+          done
+
+      - name: Build APK (ARMv8 release)
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
+        run: |
+          flutter build apk \
+            --release \
+            --target-platform android-arm64 \
+            --build-name=${{ steps.ver.outputs.name }} \
+            --build-number=${{ steps.ver.outputs.code }}
+
+      - name: Verify APK signature
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          if [ -f "$APK" ]; then
+            echo "=== APK Signature Verification ==="
+            $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)/apksigner verify --verbose "$APK" 2>&1
+            echo "=== Cert info: ==="
+            $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)/apksigner verify --print-certs "$APK" 2>&1 | head -10
+          else
+            echo "WARNING: APK not found at $APK"
+          fi
+
+      - name: Audit APK ABI and compression
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -f "$APK"
+          APK_BYTES=$(stat -c '%s' "$APK")
+          echo "APK bytes: $APK_BYTES"
+          MAX_APK_BYTES=$((85 * 1024 * 1024))
+          if [ "$APK_BYTES" -gt "$MAX_APK_BYTES" ]; then
+            echo "::error::Release APK is larger than the 85 MiB size budget"
+            exit 1
+          fi
+          echo "Native libraries:"
+          unzip -l "$APK" | grep -E 'lib/.+\.so$' || true
+
+          if unzip -Z1 "$APK" | grep -Eq '^lib/(armeabi-v7a|x86|x86_64)/'; then
+            echo "::error::Release APK contains a non-ARM64 ABI"
+            exit 1
+          fi
+
+          # Native libraries must remain DEFLATED in the distributable APK.
+          # This catches an accidental packaging change that inflates the
+          # download even when the ABI filter is still correct.
+          if unzip -lv "$APK" | awk '$8 ~ /^lib\/arm64-v8a\/.*\.so$/ && $2 != "Defl:N" { bad=1 } END { exit bad }'; then
+            echo "Native libraries are compressed"
+          else
+            echo "::error::One or more native libraries are not compressed"
+            exit 1
+          fi
+
+      - name: Rename APK
+        run: |
+          SRC=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          if [ ! -f "$SRC" ]; then
+            SRC=build/app/outputs/flutter-apk/app-release.apk
+          fi
+          DST=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
+          cp "$SRC" "$DST"
+          echo "APK: $(du -sh $DST | cut -f1)"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release
+          path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
+          compression-level: 0
+          retention-days: 30
+
+      - name: Notify ntfy (build OK)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android Release OK" \
+            -H "Priority: default" \
+            -H "Tags: white_check_mark" \
+            -d "APK release arm64 — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+      - name: Notify ntfy (build FAILED)
+        if: failure()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Build Android Release FAIL" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light" \
+            -d "Android release build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true

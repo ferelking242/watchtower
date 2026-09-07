@@ -1,0 +1,323 @@
+name: Build Windows x64
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Windows x64 Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter (latest stable)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ${{ env.LOCALAPPDATA }}\Pub\Cache
+          key: windows-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: windows-pub-
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 3; $i++) {
+            Write-Host "--- pub get attempt $i/3 ---"
+            flutter pub get
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($i -lt 3) {
+              Write-Host "pub get failed, retrying in 30s..."
+              Start-Sleep -Seconds 30
+            } else {
+              Write-Host "All 3 attempts failed."
+              exit 1
+            }
+          }
+
+      - name: Replace app icon (PNG to ICO via ImageMagick)
+        shell: pwsh
+        run: |
+          $src = "assets\app_icons\icon.png"
+          $dst = "windows\runner\resources\app_icon.ico"
+          if (Test-Path $src) {
+            magick "$src" -define icon:auto-resize="256,128,64,48,32,16" "$dst"
+            Write-Host "app_icon.ico regenerated from $src"
+          } else {
+            Write-Host "WARNING: $src not found, keeping existing ICO"
+          }
+
+      - name: Compute version
+        id: ver
+        shell: bash
+        run: |
+          VNAME=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9.]+).*/\1/')
+          VCODE=${GITHUB_RUN_NUMBER}
+          echo "name=$VNAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VCODE" >> "$GITHUB_OUTPUT"
+          echo "Building $VNAME ($VCODE)"
+
+      - name: Build Windows x64
+        run: >
+          flutter build windows
+          --release
+          --no-tree-shake-icons
+          --build-name=${{ steps.ver.outputs.name }}
+          --build-number=${{ steps.ver.outputs.code }}
+
+      - name: Show build size
+        shell: bash
+        run: |
+          BUILD_DIR="build/windows/x64/runner/Release"
+          if [ -d "$BUILD_DIR" ]; then
+            echo "Build size: $(du -sh "$BUILD_DIR" | cut -f1)"
+            ls -la "$BUILD_DIR"
+          fi
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          $nsisPath = (Get-Command makensis -ErrorAction SilentlyContinue)?.Source
+          if (-not $nsisPath) {
+            $nsisPath = "C:\Program Files (x86)\NSIS\makensis.exe"
+          }
+          Write-Host "makensis found at: $nsisPath"
+
+      - name: Create NSIS installer (graphics + LZMA solid — professional UI)
+        shell: pwsh
+        run: |
+          $ver    = "${{ steps.ver.outputs.name }}"
+          $out    = "watchtower-setup-$ver.exe"
+          # NSIS does NOT handle forward-slash paths — use native Windows backslash everywhere
+          $srcNsis    = (Resolve-Path "build\windows\x64\runner\Release").Path
+          $wsDir      = $env:GITHUB_WORKSPACE
+          $bannerPath = "$wsDir\installer_banner.bmp"
+          $headerPath = "$wsDir\installer_header.bmp"
+          # NSIS bitmap defines use same backslash paths
+          $bannerNsis = $bannerPath
+          $headerNsis = $headerPath
+
+          # ── Generate side banner 164x314 (24-bit BMP required by NSIS MUI) ────
+          Add-Type -AssemblyName System.Drawing
+          function Save24bpp([System.Drawing.Bitmap]$src, [string]$dest) {
+            $b24 = New-Object System.Drawing.Bitmap($src.Width, $src.Height, [System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+            $g24 = [System.Drawing.Graphics]::FromImage($b24)
+            $g24.DrawImage($src, 0, 0)
+            $g24.Dispose()
+            $b24.Save($dest, [System.Drawing.Imaging.ImageFormat]::Bmp)
+            $b24.Dispose()
+          }
+
+          $bmp = New-Object System.Drawing.Bitmap(164, 314)
+          $g   = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.SmoothingMode     = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+          $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAlias
+
+          $grad = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+              (New-Object System.Drawing.Rectangle(0, 0, 164, 314)),
+              [System.Drawing.Color]::FromArgb(8, 10, 28),
+              [System.Drawing.Color]::FromArgb(18, 28, 70),
+              [System.Drawing.Drawing2D.LinearGradientMode]::Vertical)
+          $g.FillRectangle($grad, 0, 0, 164, 314)
+
+          $accentBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(90, 150, 255))
+          $g.FillRectangle($accentBrush, 0, 0, 164, 4)
+
+          $eyeColor = [System.Drawing.Color]::FromArgb(90, 150, 255)
+          $eyePen   = New-Object System.Drawing.Pen($eyeColor, 2.5)
+          $eyeGlow  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(28, 90, 150, 255))
+          $g.FillEllipse($eyeGlow, 42, 30, 80, 56)
+          $g.DrawEllipse($eyePen, 42, 30, 80, 56)
+
+          $irisBrush  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(60, 130, 255))
+          $pupilBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(10, 14, 40))
+          $shineBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(200, 230, 255))
+          $g.FillEllipse($irisBrush,  66, 44, 32, 32)
+          $g.FillEllipse($pupilBrush, 75, 53, 14, 14)
+          $g.FillEllipse($shineBrush, 80, 55,  5,  5)
+
+          $titleFont  = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+          $whiteBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
+          $sfCenter   = New-Object System.Drawing.StringFormat
+          $sfCenter.Alignment = [System.Drawing.StringAlignment]::Center
+          $sfCenter.LineAlignment = [System.Drawing.StringAlignment]::Center
+          $g.DrawString("WATCHTOWER", $titleFont, $whiteBrush,
+              (New-Object System.Drawing.RectangleF(10, 100, 144, 28)), $sfCenter)
+
+          $tagFont    = New-Object System.Drawing.Font("Segoe UI", 7, [System.Drawing.FontStyle]::Regular)
+          $bluishGray = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(150, 180, 230))
+          $g.DrawString("Anime  Manga  Novels", $tagFont, $bluishGray,
+              (New-Object System.Drawing.RectangleF(10, 132, 144, 18)), $sfCenter)
+
+          $sepPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(45, 90, 150, 255), 1)
+          $g.DrawLine($sepPen, 24, 160, 140, 160)
+
+          $descFont  = New-Object System.Drawing.Font("Segoe UI", 6.5, [System.Drawing.FontStyle]::Regular)
+          $descColor = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(130, 160, 210))
+          $sfDesc    = New-Object System.Drawing.StringFormat
+          $sfDesc.Alignment     = [System.Drawing.StringAlignment]::Center
+          $sfDesc.LineAlignment = [System.Drawing.StringAlignment]::Near
+          $g.DrawString(
+              "Your all-in-one media hub.`nBrowse thousands of sources,`nmanage your library and`ntrack your progress.",
+              $descFont, $descColor,
+              (New-Object System.Drawing.RectangleF(14, 170, 136, 90)), $sfDesc)
+
+          $towerBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(50, 90, 150, 255))
+          $g.FillRectangle($towerBrush, 74, 268, 16, 24)
+          $g.FillRectangle($towerBrush, 68, 262, 28,  8)
+          $g.FillRectangle($towerBrush, 62, 256, 40,  8)
+
+          $verFont  = New-Object System.Drawing.Font("Segoe UI", 6.5, [System.Drawing.FontStyle]::Italic)
+          $verColor = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(90, 120, 180))
+          $g.DrawString("v$ver", $verFont, $verColor,
+              (New-Object System.Drawing.RectangleF(10, 295, 144, 16)), $sfCenter)
+          $g.FillRectangle($accentBrush, 0, 311, 164, 3)
+          $g.Dispose()
+          Save24bpp $bmp $bannerPath
+          $bmp.Dispose()
+          Write-Host "Banner saved: $bannerPath ($(if(Test-Path $bannerPath){'OK'}else{'MISSING'}))"
+
+          # ── Generate header 150x57 ────────────────────────────────────────────
+          $hbmp = New-Object System.Drawing.Bitmap(150, 57)
+          $hg   = [System.Drawing.Graphics]::FromImage($hbmp)
+          $hg.SmoothingMode     = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+          $hg.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAlias
+
+          $hgrad = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+              (New-Object System.Drawing.Rectangle(0, 0, 150, 57)),
+              [System.Drawing.Color]::FromArgb(8, 10, 28),
+              [System.Drawing.Color]::FromArgb(22, 34, 80),
+              [System.Drawing.Drawing2D.LinearGradientMode]::Horizontal)
+          $hg.FillRectangle($hgrad, 0, 0, 150, 57)
+
+          $hAccent = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(90, 150, 255))
+          $hg.FillRectangle($hAccent, 0, 54, 150, 3)
+
+          $hEyePen  = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(90, 150, 255), 1.5)
+          $hEyeFill = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(40, 90, 150, 255))
+          $hg.FillEllipse($hEyeFill, 8, 18, 26, 18)
+          $hg.DrawEllipse($hEyePen,  8, 18, 26, 18)
+          $hIris  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(70, 140, 255))
+          $hPupil = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(10, 14, 40))
+          $hg.FillEllipse($hIris,  17, 23, 8, 8)
+          $hg.FillEllipse($hPupil, 19, 25, 4, 4)
+
+          $hTitle = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+          $hWhite = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
+          $hSf    = New-Object System.Drawing.StringFormat
+          $hSf.Alignment     = [System.Drawing.StringAlignment]::Far
+          $hSf.LineAlignment = [System.Drawing.StringAlignment]::Center
+          $hg.DrawString("WATCHTOWER", $hTitle, $hWhite,
+              (New-Object System.Drawing.RectangleF(40, 0, 104, 54)), $hSf)
+          $hg.Dispose()
+          Save24bpp $hbmp $headerPath
+          $hbmp.Dispose()
+          Write-Host "Header saved: $headerPath ($(if(Test-Path $headerPath){'OK'}else{'MISSING'}))"
+
+          $lines = [System.Collections.Generic.List[string]]::new()
+
+          # ── Compiler flags ────────────────────────────────────────────────────
+          $lines.Add('Unicode true')
+          $lines.Add('!include "MUI2.nsh"')
+          $lines.Add('!include "LogicLib.nsh"')
+          $lines.Add('SetCompressor /SOLID lzma')
+          $lines.Add('SetCompressorDictSize 64')
+
+          # ── Metadata ──────────────────────────────────────────────────────────
+          $lines.Add("Name `"Watchtower $ver`"")
+          $lines.Add("OutFile `"$out`"")
+          $lines.Add('InstallDir "$PROGRAMFILES64\Watchtower"')
+          $lines.Add('RequestExecutionLevel admin')
+          $lines.Add('BrandingText "Watchtower -- Your media hub"')
+
+          # ── MUI branding ──────────────────────────────────────────────────────
+          $lines.Add("!define MUI_WELCOMEFINISHPAGE_BITMAP `"$bannerNsis`"")
+          $lines.Add("!define MUI_UNWELCOMEFINISHPAGE_BITMAP `"$bannerNsis`"")
+          $lines.Add('!define MUI_HEADER_IMAGE')
+          $lines.Add("!define MUI_HEADER_IMAGE_BITMAP `"$headerNsis`"")
+          $lines.Add('!define MUI_HEADER_IMAGE_RIGHT')
+          $lines.Add('!define MUI_ABORTWARNING')
+
+          # ── Welcome page ──────────────────────────────────────────────────────
+          $lines.Add('!define MUI_WELCOMEPAGE_TITLE "Welcome to Watchtower"')
+          $lines.Add('!define MUI_WELCOMEPAGE_TEXT "Watchtower is your all-in-one media hub for anime, manga and novels.$\r$\n$\r$\nBrowse thousands of sources through a powerful extension system, manage your personal library, and track your watch and read progress -- all from a single, fast desktop app.$\r$\n$\r$\nThis wizard will install Watchtower on your computer. Click Next to continue."')
+
+          # ── Finish page ───────────────────────────────────────────────────────
+          $lines.Add('!define MUI_FINISHPAGE_RUN "$INSTDIR\watchtower.exe"')
+          $lines.Add('!define MUI_FINISHPAGE_RUN_TEXT "Launch Watchtower now"')
+          $lines.Add('!define MUI_FINISHPAGE_SHOWREADME ""')
+          $lines.Add('!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED')
+          $lines.Add('!define MUI_FINISHPAGE_TITLE "Installation Complete"')
+          $lines.Add('!define MUI_FINISHPAGE_TEXT "Watchtower has been installed on your computer.$\r$\n$\r$\nClick Finish to close this wizard."')
+
+          # ── Pages ─────────────────────────────────────────────────────────────
+          $lines.Add('!insertmacro MUI_PAGE_WELCOME')
+          $lines.Add('!insertmacro MUI_PAGE_DIRECTORY')
+          $lines.Add('!insertmacro MUI_PAGE_INSTFILES')
+          $lines.Add('!insertmacro MUI_PAGE_FINISH')
+          $lines.Add('!insertmacro MUI_UNPAGE_CONFIRM')
+          $lines.Add('!insertmacro MUI_UNPAGE_INSTFILES')
+
+          # ── Languages ─────────────────────────────────────────────────────────
+          $lines.Add('!insertmacro MUI_LANGUAGE "English"')
+          $lines.Add('!insertmacro MUI_LANGUAGE "French"')
+
+          # ── Install section ───────────────────────────────────────────────────
+          $lines.Add('Section "Watchtower" SecMain')
+          $lines.Add('  SetOutPath "$INSTDIR"')
+          $lines.Add("  File /r `"$srcNsis\*`"")
+          $lines.Add('  WriteUninstaller "$INSTDIR\Uninstall.exe"')
+          $lines.Add('  CreateShortcut "$DESKTOP\Watchtower.lnk" "$INSTDIR\watchtower.exe"')
+          $lines.Add('  CreateDirectory "$SMPROGRAMS\Watchtower"')
+          $lines.Add('  CreateShortcut "$SMPROGRAMS\Watchtower\Watchtower.lnk" "$INSTDIR\watchtower.exe"')
+          $lines.Add('  CreateShortcut "$SMPROGRAMS\Watchtower\Uninstall.lnk" "$INSTDIR\Uninstall.exe"')
+          $lines.Add('  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" "DisplayName" "Watchtower"')
+          $lines.Add("  WriteRegStr HKLM `"Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower`" `"DisplayVersion`" `"$ver`"")
+          $lines.Add('  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" "UninstallString" "$INSTDIR\Uninstall.exe"')
+          $lines.Add('  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" "Publisher" "ferelking242"')
+          $lines.Add('  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" "URLInfoAbout" "https://github.com/ferelking242/watchtower"')
+          $lines.Add('  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" "NoModify" 1')
+          $lines.Add('  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower" "NoRepair" 1')
+          $lines.Add('SectionEnd')
+
+          # ── Uninstall section ─────────────────────────────────────────────────
+          $lines.Add('Section "Uninstall"')
+          $lines.Add('  Delete "$INSTDIR\Uninstall.exe"')
+          $lines.Add('  RMDir /r "$INSTDIR"')
+          $lines.Add('  Delete "$DESKTOP\Watchtower.lnk"')
+          $lines.Add('  RMDir /r "$SMPROGRAMS\Watchtower"')
+          $lines.Add('  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Watchtower"')
+          $lines.Add('SectionEnd')
+
+          # Write ASCII — no BOM
+          [System.IO.File]::WriteAllLines("$PWD\watchtower.nsi", $lines, [System.Text.Encoding]::ASCII)
+          Write-Host "--- watchtower.nsi (first 30 lines) ---"
+          Get-Content watchtower.nsi | Select-Object -First 30
+
+          $makensis = (Get-Command makensis -ErrorAction SilentlyContinue)?.Source
+          if (-not $makensis) { $makensis = "C:\Program Files (x86)\NSIS\makensis.exe" }
+          Write-Host "Using makensis: $makensis"
+          & $makensis /V3 "$PWD\watchtower.nsi"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sizeMB = [math]::Round((Get-Item $out).Length / 1MB, 1)
+          Write-Host "Installer ready: $out ($sizeMB MB)"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-windows-setup-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}
+          path: watchtower-setup-${{ steps.ver.outputs.name }}.exe
+          retention-days: 30

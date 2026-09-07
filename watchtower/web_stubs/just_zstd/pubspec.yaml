@@ -1,0 +1,6 @@
+name: just_zstd
+version: 0.2.0
+description: Web stub for just_zstd — no-op on Flutter Web.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'

@@ -1,0 +1,12 @@
+name: media_kit
+description: Web stub for media_kit - no native dependencies
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  web: ">=1.0.0 <2.0.0"

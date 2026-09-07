@@ -1,0 +1,93 @@
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:m_extension_server/m_extension_server.dart';
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/settings.dart';
+import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
+import 'package:watchtower/utils/constant.dart';
+
+class MExtensionServerPlatform {
+  WidgetRef ref;
+  MExtensionServerPlatform(this.ref);
+
+  Future<bool> check() async {
+    if (_baseUrl == "http://127.0.0.1:0") return false;
+    try {
+      final res = await http.get(Uri.parse("$_baseUrl/"));
+      if (res.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> startServer() async {
+    if (kIsWeb) return;
+    try {
+      final isRunning = await check();
+      if (!isRunning) {
+        // Bind to port 0 to let the OS pick a free port, record it, then
+        // close immediately.  The tiny window between close() and the
+        // MExtensionServer startServer() call is a race — on a busy system
+        // another process could claim that port.  We retry up to 3 times and
+        // add a short jitter to reduce the collision probability.
+        int port = 0;
+        for (int attempt = 0; attempt < 3; attempt++) {
+          final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+          port = server.port;
+          await server.close();
+          await Future.delayed(Duration(milliseconds: attempt * 10));
+          // Verify the port is still free by binding once more.
+          try {
+            final verify = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+            await verify.close();
+            break; // Port is still available, proceed.
+          } catch (_) {
+            // Port was stolen — retry with a new one.
+            port = 0;
+          }
+        }
+        if (port == 0) return; // Could not secure a free port — abort silently.
+        if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+          final settings = isar.settings.getSync(kSettingsId);
+          final jrePath = settings?.jrePath;
+          final serverJarPath = settings?.extensionServerPath;
+          if ((jrePath?.isEmpty ?? true) || (serverJarPath?.isEmpty ?? true)) {
+            return;
+          }
+          if (!await File(jrePath!).exists() ||
+              !await File(serverJarPath!).exists()) {
+            return;
+          }
+          await MExtensionServer().startServer(
+            port,
+            jvmPath: jrePath,
+            serverJarPath: serverJarPath,
+          );
+        } else {
+          await MExtensionServer().startServer(port);
+        }
+        ref
+            .read(androidProxyServerStateProvider.notifier)
+            .set("http://127.0.0.1:$port");
+      }
+    } catch (e) {
+      // Do NOT update androidProxyServerStateProvider here — the server failed
+      // to start, so callers will correctly see the previous (empty / 0-port)
+      // state and not attempt to route requests to a non-existent server.
+      if (kDebugMode) print(e);
+    }
+  }
+
+  Future<void> stopServer() async {
+    try {
+      await MExtensionServer().stopServer();
+    } catch (_) {}
+  }
+
+  String get _baseUrl => ref.watch(androidProxyServerStateProvider);
+}

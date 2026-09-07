@@ -1,0 +1,118 @@
+# ──────────────────────────────────────────────────────────────────────
+# CI Template for Watchtower Music Plugins
+# ──────────────────────────────────────────────────────────────────────
+# Copy this file to each plugin repo at .github/workflows/build.yml
+#
+# Triggers:
+#   - Push a v* tag → builds and creates a GitHub Release
+#   - Manual dispatch → build with custom version tag
+#
+# The workflow reads plugin.json for metadata (name, version, abilities)
+# and creates a formatted release with the .smplug artifact.
+# ──────────────────────────────────────────────────────────────────────
+
+name: Build & Release Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: "Version tag (e.g. 1.0.0). Leave empty to read from plugin.json."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install Hetu compiler
+        run: dart pub global activate hetu_script_dev_tools
+
+      - name: Read plugin metadata
+        id: meta
+        run: |
+          NAME=$(python3 -c "import json; print(json.load(open('plugin.json'))['name'])")
+          VERSION=$(python3 -c "import json; print(json.load(open('plugin.json'))['version'])")
+          AUTHOR=$(python3 -c "import json; print(json.load(open('plugin.json'))['author'])")
+          ABILITIES=$(python3 -c "import json; print(', '.join(json.load(open('plugin.json')).get('abilities',[])))")
+          DESCRIPTION=$(python3 -c "import json; print(json.load(open('plugin.json')).get('description',''))")
+          REPO=$(python3 -c "import json; print(json.load(open('plugin.json')).get('repository',''))")
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "abilities=$ABILITIES" >> $GITHUB_OUTPUT
+          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+          echo "repository=$REPO" >> $GITHUB_OUTPUT
+
+      - name: Build plugin bytecode
+        run: make compile
+
+      - name: Package .smplug archive
+        run: make archive
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="v${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref_name }}" == v* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="v${{ steps.meta.outputs.version }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-smplug
+          path: plugin.smplug
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.tag.outputs.tag }}
+          name: "${{ steps.meta.outputs.name }} ${{ steps.tag.outputs.tag }}"
+          body: |
+            ## ${{ steps.meta.outputs.name }} — ${{ steps.tag.outputs.tag }}
+
+            ${{ steps.meta.outputs.description }}
+
+            | | |
+            |---|---|
+            | **Author** | ${{ steps.meta.outputs.author }} |
+            | **Version** | ${{ steps.meta.outputs.version }} |
+            | **Abilities** | ${{ steps.meta.outputs.abilities }} |
+            | **Source** | [${{ steps.meta.outputs.repository }}](${{ steps.meta.outputs.repository }}) |
+
+            ### Install
+
+            1. Open **Watchtower → Marketplace → Music**
+            2. Find **${{ steps.meta.outputs.name }}**
+            3. Tap **Install**
+            4. Set as default Metadata / Audio Source
+
+            ### Changelog
+
+            See [commit history](https://github.com/${{ github.repository }}/commits/main) for changes.
+          artifacts: plugin.smplug
+          makeLatest: legacy
+          prerelease: false

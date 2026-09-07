@@ -1,0 +1,9 @@
+name: on_audio_query
+version: 2.9.0
+description: Web stub for on_audio_query — audio query not available on Flutter Web.
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
