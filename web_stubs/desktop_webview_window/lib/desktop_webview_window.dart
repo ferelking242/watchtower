@@ -25,12 +25,14 @@ class CreateConfiguration {
   final String? title;
   final int? windowHeight;
   final int? windowWidth;
+  final int? titleBarTopPadding;
   const CreateConfiguration({
     this.userDataFolderWindows,
     this.environment,
     this.title,
     this.windowHeight,
     this.windowWidth,
+    this.titleBarTopPadding,
   });
 }
 
@@ -62,6 +64,8 @@ class Webview {
 }
 
 class WebviewWindow {
+  static bool get isWebviewAvailable => false;
+
   static Future<Webview> create({
     CreateConfiguration? configuration,
   }) async =>
