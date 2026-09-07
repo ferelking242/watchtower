@@ -59,7 +59,7 @@ dependencies:
       url: https://github.com/ferelking242/quickjsR.git
       ref: f1e4993b631725f7611f80a3f0ba21eea127d945
   http: ^1.6.0
-  re_editor: ^0.9.0
+  re_editor: ^0.10.0
   re_highlight: ^0.0.3
   json_view: ^0.4.2
   super_sliver_list: ^0.4.1
@@ -155,7 +155,7 @@ dependencies:
   drift: ^2.21.0
   sqlite3: ^2.4.3
   sqlite3_flutter_libs: ^0.5.23
-  flutter_secure_storage: ^9.2.4
+  flutter_secure_storage: ^11.0.0
   dio: ^5.4.3+1
   web_socket_channel: ^3.0.1
   bonsoir: ^5.1.10
@@ -243,7 +243,6 @@ dependency_overrides:
   flutter_svg: ^2.0.17
   meta: ^1.17.0
   web: ^1.1.0
-  flutter_secure_storage_platform_interface: 2.0.0
   desktop_webview_window:
     path: web_stubs/desktop_webview_window
   archive: ^4.0.9

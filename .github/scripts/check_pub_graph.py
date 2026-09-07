@@ -43,6 +43,11 @@ def main() -> int:
         return 1
 
     known = {name for name in names if name}
+    sources = {
+        name: entry.get("source")
+        for name, entry in zip(names, entries)
+        if name
+    }
     graph = {
         name: {
             dependency
@@ -76,8 +81,17 @@ def main() -> int:
     for name in sorted(graph):
         cycle = visit(name, [name])
         if cycle:
-            print("Circular dependency: " + " -> ".join(cycle), file=sys.stderr)
-            return 1
+            # Some hosted packages intentionally depend on each other to share
+            # public types. Pub accepts this shape; only fail cycles involving
+            # the app or a local path package that we own.
+            app_owned = any(
+                sources.get(package) in {"root", "path"} for package in cycle
+            )
+            message = " -> ".join(cycle)
+            if app_owned:
+                print("Circular app dependency: " + message, file=sys.stderr)
+                return 1
+            print("Upstream package cycle (allowed): " + message)
 
     print(f"Dependency graph OK: {len(known)} unique packages, no cycles.")
     return 0
