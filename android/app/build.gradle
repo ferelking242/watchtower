@@ -49,7 +49,10 @@ android {
 
     defaultConfig {
         applicationId "com.watchtower.app"
-        minSdkVersion flutter.minSdkVersion
+        // ffmpeg_kit_flutter_new bundles native codecs with an Android API 24
+        // minimum. Keep the application minimum aligned with that plugin so
+        // Gradle cannot produce an APK that installs but cannot load FFmpeg.
+        minSdkVersion 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

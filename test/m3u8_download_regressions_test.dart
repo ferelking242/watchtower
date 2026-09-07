@@ -172,6 +172,19 @@ segments/0002.m4s
         chapter: chapter,
         subtitles: null,
         refererUrl: null,
+        // The production path uses FFmpeg. This deterministic test runner
+        // keeps the fixture focused on ordering and cleanup without requiring
+        // valid media bytes.
+        mergeRunner: (outputFile, segmentPaths) async {
+          final output = File(outputFile).openWrite();
+          try {
+            for (final segmentPath in segmentPaths) {
+              await output.addStream(File(segmentPath).openRead());
+            }
+          } finally {
+            await output.close();
+          }
+        },
       );
     });
 

@@ -17,6 +17,11 @@ import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
 import 'package:convert/convert.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+
+typedef TsMergeRunner =
+    Future<void> Function(String outputFile, List<String> segmentPaths);
 
 class M3u8Downloader {
   final String m3u8Url;
@@ -26,6 +31,8 @@ class M3u8Downloader {
   final int concurrentDownloads;
   final Chapter chapter;
   final List<Track>? subtitles;
+  @visibleForTesting
+  final TsMergeRunner? mergeRunner;
 
   /// Source page URL — used as Referer header (anti-403 fix)
   final String? refererUrl;
@@ -46,6 +53,7 @@ class M3u8Downloader {
     this.concurrentDownloads = 1,
     required this.subtitles,
     this.refererUrl,
+    this.mergeRunner,
   });
 
   void _log(String message) {
@@ -394,52 +402,106 @@ class M3u8Downloader {
   Future<void> _mergeTsToMp4(String fileName, String directory) async {
     try {
       final dir = Directory(directory);
-      final files = await dir
-          .list()
-          .where((entity) {
+      final files =
+          (await dir.list().where((entity) {
             if (!entity.path.endsWith('.ts')) return false;
             final file = File(entity.path);
             final marker = File('${entity.path}.done');
             return marker.existsSync() && file.lengthSync() > 0;
-          })
-          .toList();
+          }).toList())..sort((a, b) {
+            final aIndex = int.parse(
+              a.path.substringAfter("TS_").substringBefore("."),
+            );
+            final bIndex = int.parse(
+              b.path.substringAfter("TS_").substringBefore("."),
+            );
+            return aIndex.compareTo(bIndex);
+          });
 
-      files.sort((a, b) {
-        final aIndex = int.parse(
-          a.path.substringAfter("TS_").substringBefore("."),
+      if (files.isEmpty) {
+        throw M3u8DownloaderException(
+          'No valid completed TS segments found in $directory',
         );
-        final bIndex = int.parse(
-          b.path.substringAfter("TS_").substringBefore("."),
-        );
-        return aIndex.compareTo(bIndex);
-      });
+      }
 
-      // Merge atomically: write to <name>.mp4.part, verify it is non-empty,
-      // then rename. A crash mid-merge can no longer leave a truncated file
-      // at the final path masquerading as a finished download.
+      // Merge atomically: FFmpeg writes to <name>.mp4.part, then the result is
+      // checked before it replaces the final file. A crash or a failed mux can
+      // no longer leave a truncated file masquerading as a finished download.
       final partFile = File('$fileName.part');
       if (await partFile.exists()) await partFile.delete();
-      final outFile = partFile.openWrite();
-      try {
-        for (var file in files) {
-          final inFile = File(file.path).openRead();
-          await outFile.addStream(inFile);
-        }
-        await outFile.flush();
-      } finally {
-        await outFile.close();
-      }
-      final mergedLen = await partFile.length();
-      if (mergedLen == 0) {
+
+      final segmentPaths = files.map((file) => file.path).toList();
+      final runner = mergeRunner ?? _runFfmpegMerge;
+      await runner(partFile.path, segmentPaths);
+
+      if (!await partFile.exists() || await partFile.length() <= 0) {
         throw M3u8DownloaderException('Merged output is empty ($fileName)');
       }
+
       final out = File(fileName);
       if (await out.exists()) await out.delete();
-      await partFile.rename(fileName);
+      await partFile.rename(out.path);
     } catch (e) {
+      final partFile = File('$fileName.part');
+      if (await partFile.exists()) {
+        try {
+          await partFile.delete();
+        } catch (_) {}
+      }
+      if (e is M3u8DownloaderException) rethrow;
       throw M3u8DownloaderException('Failed to merge TS files', e);
     }
   }
+
+  Future<void> _runFfmpegMerge(
+    String outputFile,
+    List<String> segmentPaths,
+  ) async {
+    final concatFile = File('$outputFile.concat.txt');
+    await concatFile.writeAsString(
+      segmentPaths
+          .map((segmentPath) => "file '${_escapeConcatPath(segmentPath)}'")
+          .join('\n'),
+      flush: true,
+    );
+
+    try {
+      final session = await FFmpegKit.executeWithArguments([
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-f',
+        'concat',
+        '-safe',
+        '0',
+        '-i',
+        concatFile.path,
+        '-map',
+        '0',
+        '-c',
+        'copy',
+        '-movflags',
+        '+faststart',
+        '-y',
+        outputFile,
+      ]);
+      final returnCode = await session.getReturnCode();
+      if (!ReturnCode.isSuccess(returnCode)) {
+        final output = await session.getOutput();
+        throw M3u8DownloaderException(
+          'FFmpeg merge failed (return code $returnCode)'
+          '${output == null || output.trim().isEmpty ? '' : ': $output'}',
+        );
+      }
+    } finally {
+      if (await concatFile.exists()) {
+        await concatFile.delete();
+      }
+    }
+  }
+
+  String _escapeConcatPath(String value) =>
+      value.replaceAll('\\', '\\\\').replaceAll("'", "'\\''");
 
   Future<String> _getM3u8Body(String url) async {
     final effectiveHeaders = _buildEffectiveHeaders(urlOverride: url);
