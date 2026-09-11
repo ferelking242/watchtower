@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_state_provider.dart';
-import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/utils/language.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
-import 'package:watchtower/l10n/generated/app_localizations.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key});
@@ -18,7 +15,6 @@ class PlayerScreen extends ConsumerStatefulWidget {
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   Widget build(BuildContext context) {
-    final defaultSubtitleLang = ref.watch(defaultSubtitleLangStateProvider);
     final markEpisodeAsSeenType = ref.watch(markEpisodeAsSeenTypeStateProvider);
     final defaultSkipIntroLength = ref.watch(
       defaultSkipIntroLengthStateProvider,
@@ -40,67 +36,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            ListTile(
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) {
-                    return AlertDialog(
-                      title: Text(context.l10n.default_subtitle_language),
-                      content: SizedBox(
-                        width: context.width(0.8),
-                        child: RadioGroup(
-                          groupValue: defaultSubtitleLang,
-                          onChanged: (value) {
-                            ref
-                                .read(defaultSubtitleLangStateProvider.notifier)
-                                .setLocale(value!);
-                            Navigator.pop(context);
-                          },
-                          child: SuperListView.builder(
-                            shrinkWrap: true,
-                            itemCount: AppLocalizations.supportedLocales.length,
-                            itemBuilder: (context, index) {
-                              final locale =
-                                  AppLocalizations.supportedLocales[index];
-                              return RadioListTile(
-                                dense: true,
-                                contentPadding: const EdgeInsets.all(0),
-                                value: locale,
-                                title: Text(
-                                  completeLanguageName(locale.toLanguageTag()),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      actions: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: () async {
-                                Navigator.pop(context);
-                              },
-                              child: Text(
-                                context.l10n.cancel,
-                                style: TextStyle(color: context.primaryColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-              title: Text(context.l10n.default_subtitle_language),
-              subtitle: Text(
-                completeLanguageName(defaultSubtitleLang.toLanguageTag()),
-                style: TextStyle(fontSize: 11, color: context.secondaryColor),
-              ),
-            ),
             ListTile(
               onTap: () {
                 final values = [100, 95, 90, 85, 80, 75, 70];

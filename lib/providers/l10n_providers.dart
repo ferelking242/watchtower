@@ -1,39 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/main.dart';
-import 'package:watchtower/models/settings.dart';
+import 'dart:ui';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
-import 'package:watchtower/utils/constant.dart';
 part 'l10n_providers.g.dart';
 
 @riverpod
 class L10nLocaleState extends _$L10nLocaleState {
   @override
   Locale build() {
-    return Locale(
-      _getLocale()!.languageCode ?? "en",
-      _getLocale()!.countryCode ?? "",
-    );
-  }
-
-  L10nLocale? _getLocale() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).locale ??
-        L10nLocale(languageCode: "en", countryCode: "");
-  }
-
-  void setLocale(Locale locale) async {
-    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
-    isar.writeTxnSync(() {
-      isar.settings.putSync(
-        settings
-          ..locale = L10nLocale(
-            languageCode: locale.languageCode,
-            countryCode: locale.countryCode,
-          )
-          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+    final systemLocales = PlatformDispatcher.instance.locales;
+    final supported = AppLocalizations.supportedLocales;
+    for (final systemLocale in systemLocales) {
+      final exact = supported.where(
+        (locale) =>
+            locale.languageCode == systemLocale.languageCode &&
+            locale.countryCode == systemLocale.countryCode,
       );
-    });
-    state = locale;
+      if (exact.isNotEmpty) return exact.first;
+      final language = supported.where(
+        (locale) => locale.languageCode == systemLocale.languageCode,
+      );
+      if (language.isNotEmpty) return language.first;
+    }
+    return supported.first;
   }
 }
 

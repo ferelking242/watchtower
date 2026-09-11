@@ -6,7 +6,6 @@ import 'package:watchtower/modules/more/settings/appearance/providers/app_font_f
 import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/widgets/toggle_theme_mode_container.dart';
-import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/date.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/date_format_state_provider.dart';
@@ -14,7 +13,6 @@ import 'package:watchtower/modules/more/settings/appearance/providers/pure_black
 import 'package:watchtower/modules/more/settings/appearance/widgets/blend_level_slider.dart';
 import 'package:watchtower/modules/more/settings/appearance/widgets/theme_selector.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
-import 'package:watchtower/utils/language.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 final navigationItems = {
@@ -109,7 +107,6 @@ class AppearanceScreen extends ConsumerWidget {
             SettingsSection(
               title: l10n.appearance,
               children: [
-                _buildLanguageTile(context, ref, l10n),
                 _buildFontTile(context, ref, l10n),
                 ListTile(
                   title: Text(l10n.reorder_navigation),
@@ -205,33 +202,6 @@ class AppearanceScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildLanguageTile(
-    BuildContext context,
-    WidgetRef ref,
-    AppLocalizations l10n,
-  ) {
-    final l10nLocale = ref.watch(l10nLocaleStateProvider);
-    return ListTile(
-      title: Text(l10n.app_language),
-      subtitle: Text(
-        completeLanguageName(l10nLocale.toLanguageTag()),
-        style: TextStyle(fontSize: 11, color: context.secondaryColor),
-      ),
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (_) => _LanguagePickerDialog(
-            currentLocale: l10nLocale,
-            onSelected: (locale) {
-              ref.read(l10nLocaleStateProvider.notifier).setLocale(locale);
-            },
-            cancelLabel: l10n.cancel,
-          ),
-        );
-      },
     );
   }
 
@@ -406,65 +376,6 @@ class AppearanceScreen extends ConsumerWidget {
           },
         );
       },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Language picker dialog
-// ---------------------------------------------------------------------------
-
-class _LanguagePickerDialog extends StatelessWidget {
-  const _LanguagePickerDialog({
-    required this.currentLocale,
-    required this.onSelected,
-    required this.cancelLabel,
-  });
-
-  final Locale currentLocale;
-  final ValueChanged<Locale> onSelected;
-  final String cancelLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final locales = AppLocalizations.supportedLocales;
-    return AlertDialog(
-      title: const Text('Language'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: SuperListView.builder(
-          shrinkWrap: true,
-          itemCount: locales.length,
-          itemBuilder: (context, index) {
-            final locale = locales[index];
-            final tag = locale.toLanguageTag();
-            final flag = langFlagEmoji(tag);
-            final name = completeLanguageName(tag);
-            final selected = locale.languageCode == currentLocale.languageCode &&
-                locale.countryCode == currentLocale.countryCode;
-            return RadioListTile<Locale>(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              value: locale,
-              groupValue: selected ? locale : null,
-              title: Text('$flag  $name'),
-              onChanged: (_) {
-                onSelected(locale);
-                Navigator.pop(context);
-              },
-            );
-          },
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            cancelLabel,
-            style: TextStyle(color: context.primaryColor),
-          ),
-        ),
-      ],
     );
   }
 }

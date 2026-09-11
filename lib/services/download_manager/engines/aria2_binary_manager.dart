@@ -31,6 +31,18 @@ class Aria2BinaryManager {
   static const String _assetPath = 'assets/binaries/aria2c';
   static const String _binaryName = 'aria2c';
 
+  /// Checks the local cache without probing releases or starting a download.
+  /// The onboarding screen uses this method so merely viewing the dependency
+  /// list never causes network traffic.
+  Future<bool> isInstalled() async {
+    if (_cachedPath != null) {
+      final cached = File(_cachedPath!);
+      if (await cached.exists() && await cached.length() > 0) return true;
+    }
+    final internal = File(await _internalBinaryPath());
+    return await internal.exists() && await internal.length() > 0;
+  }
+
   Future<String?> resolveExecutable() async {
     // 1. Public folder /storage/emulated/0/watchtower/bin/aria2c
     if (!kIsWeb && Platform.isAndroid) {

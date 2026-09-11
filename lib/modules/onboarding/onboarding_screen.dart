@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:extended_image/extended_image.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/onboarding_dependency_service.dart';
 
 const String _onboardingMarkerFileName = '.onboarding_complete';
 
@@ -33,50 +33,49 @@ Future<void> markOnboardingComplete() async {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Data  (no imageUrl — all cards are rendered locally via gradient)
+// Data (kept local so the first launch never waits for a network image).
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _MediaItem {
   final String title;
   final String label;
   final Color color;
-  final String imageUrl;
-  const _MediaItem(this.title, this.label, this.color, this.imageUrl);
+  const _MediaItem(this.title, this.label, this.color);
 }
 
 const _animeItems = [
-  _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00), 'https://cdn.myanimelist.net/images/anime/1141/142503l.jpg'),
-  _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703), 'https://cdn.myanimelist.net/images/anime/1277/142022l.jpg'),
-  _MediaItem('Hunter x Hunter', 'Anime', Color(0xFF06D6A0), 'https://cdn.myanimelist.net/images/anime/1305/132237l.jpg'),
-  _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF), 'https://cdn.myanimelist.net/images/anime/1770/97704l.jpg'),
-  _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D), 'https://cdn.myanimelist.net/images/anime/10/47347l.jpg'),
-  _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC), 'https://cdn.myanimelist.net/images/anime/1286/99889l.jpg'),
-  _MediaItem('Jujutsu Kaisen', 'Anime', Color(0xFF0077B6), 'https://cdn.myanimelist.net/images/anime/1171/109222l.jpg'),
-  _MediaItem('Bleach', 'Anime', Color(0xFF48CAE4), 'https://cdn.myanimelist.net/images/anime/1541/147774l.jpg'),
+  _MediaItem('Naruto', 'Anime', Color(0xFFFF6B00)),
+  _MediaItem('Dragon Ball Z', 'Anime', Color(0xFFFFB703)),
+  _MediaItem('Hunter x Hunter', 'Anime', Color(0xFF06D6A0)),
+  _MediaItem('One Piece', 'Anime', Color(0xFF3A86FF)),
+  _MediaItem('Attack on Titan', 'Anime', Color(0xFFFF4D6D)),
+  _MediaItem('Demon Slayer', 'Anime', Color(0xFF8338EC)),
+  _MediaItem('Jujutsu Kaisen', 'Anime', Color(0xFF0077B6)),
+  _MediaItem('Bleach', 'Anime', Color(0xFF48CAE4)),
 ];
 
 const _mangaItems = [
-  _MediaItem('Berserk', 'Manga', Color(0xFF6C757D), 'https://cdn.myanimelist.net/images/manga/1/157897l.jpg'),
-  _MediaItem('Vagabond', 'Manga', Color(0xFF495057), 'https://cdn.myanimelist.net/images/manga/1/259070l.jpg'),
-  _MediaItem('Vinland Saga', 'Manga', Color(0xFF2D6A4F), 'https://cdn.myanimelist.net/images/manga/2/188925l.jpg'),
-  _MediaItem('Tokyo Ghoul', 'Manga', Color(0xFF9D4EDD), 'https://cdn.myanimelist.net/images/manga/3/194456l.jpg'),
-  _MediaItem('Chainsaw Man', 'Manga', Color(0xFFD62828), 'https://cdn.myanimelist.net/images/manga/3/216464l.jpg'),
-  _MediaItem('Blue Period', 'Manga', Color(0xFF1D3557), 'https://cdn.myanimelist.net/images/manga/2/204827l.jpg'),
-  _MediaItem('Goodnight PunPun', 'Manga', Color(0xFF457B9D), 'https://cdn.myanimelist.net/images/manga/3/266834l.jpg'),
+  _MediaItem('Berserk', 'Manga', Color(0xFF6C757D)),
+  _MediaItem('Vagabond', 'Manga', Color(0xFF495057)),
+  _MediaItem('Vinland Saga', 'Manga', Color(0xFF2D6A4F)),
+  _MediaItem('Tokyo Ghoul', 'Manga', Color(0xFF9D4EDD)),
+  _MediaItem('Chainsaw Man', 'Manga', Color(0xFFD62828)),
+  _MediaItem('Blue Period', 'Manga', Color(0xFF1D3557)),
+  _MediaItem('Goodnight PunPun', 'Manga', Color(0xFF457B9D)),
 ];
 
 const _showItems = [
-  _MediaItem('Breaking Bad', 'Serie', Color(0xFF2DC653), 'https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg'),
-  _MediaItem('Arcane', 'Serie', Color(0xFF7B2FBE), 'https://image.tmdb.org/t/p/w500/abf8tHznhSvl9BAElD2cQeRr7do.jpg'),
-  _MediaItem('The Bear', 'Serie', Color(0xFFE63946), 'https://image.tmdb.org/t/p/w500/4fVddnbhcmzRZE14NJY03GKS6Fn.jpg'),
-  _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C), 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg'),
-  _MediaItem('Dune', 'Film', Color(0xFFD4A017), 'https://image.tmdb.org/t/p/w500/gDzOcq0pfeCeqMBwKIJlSmQpjkZ.jpg'),
-  _MediaItem('Shogun', 'Serie', Color(0xFFBC4749), 'https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgYT.jpg'),
-  _MediaItem('Severance', 'Serie', Color(0xFF0077B6), 'https://image.tmdb.org/t/p/w500/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg'),
+  _MediaItem('Breaking Bad', 'Serie', Color(0xFF2DC653)),
+  _MediaItem('Arcane', 'Serie', Color(0xFF7B2FBE)),
+  _MediaItem('The Bear', 'Serie', Color(0xFFE63946)),
+  _MediaItem('Oppenheimer', 'Film', Color(0xFFFF9F1C)),
+  _MediaItem('Dune', 'Film', Color(0xFFD4A017)),
+  _MediaItem('Shogun', 'Serie', Color(0xFFBC4749)),
+  _MediaItem('Severance', 'Serie', Color(0xFF0077B6)),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OnboardingScreen  (3 pages: showcase → slogan → permissions)
+// OnboardingScreen (showcase → slogan → automatic language → dependencies → permissions)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class OnboardingScreen extends StatefulWidget {
@@ -104,11 +103,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   bool _batteryGranted  = false; // Exempt from battery optimisation (Android)
   bool _busyBattery     = false;
 
+  // ── Optional dependencies ─────────────────────────────────────────────────
+  final Map<OnboardingDependencyId, bool> _dependencyInstalled = {};
+  OnboardingDependencyId? _busyDependency;
+  String? _dependencyError;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refresh();
+    _refreshDependencies();
   }
 
   @override
@@ -157,6 +162,44 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       _overlayGranted = o.isGranted;
       _batteryGranted = b.isGranted;
     });
+  }
+
+  Future<void> _refreshDependencies() async {
+    for (final dependency in OnboardingDependencyService.catalog) {
+      try {
+        final installed = await OnboardingDependencyService.isInstalled(
+          dependency.id,
+        );
+        if (mounted) {
+          setState(() => _dependencyInstalled[dependency.id] = installed);
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _installDependency(OnboardingDependencyId id) async {
+    if (_busyDependency != null) return;
+    setState(() {
+      _busyDependency = id;
+      _dependencyError = null;
+    });
+    try {
+      await OnboardingDependencyService.install(id);
+      final installed = await OnboardingDependencyService.isInstalled(id);
+      if (mounted) {
+        setState(() {
+          _dependencyInstalled[id] = installed;
+          _busyDependency = null;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busyDependency = null;
+          _dependencyError = error.toString();
+        });
+      }
+    }
   }
 
   // ── Permission requests ──────────────────────────────────────────────────
@@ -294,7 +337,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // ── Navigation ───────────────────────────────────────────────────────────
 
   void _next() {
-    if (_currentPage < 3) {
+    if (_currentPage < 4) {
       _page.nextPage(
           duration: const Duration(milliseconds: 420),
           curve: Curves.easeInOut);
@@ -328,6 +371,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 _ShowcasePage(onNext: _next),
                 _SloganPage(onNext: _next),
                 _LanguagePage(onNext: _next),
+                _DependenciesPage(
+                  installed: _dependencyInstalled,
+                  busy: _busyDependency,
+                  error: _dependencyError,
+                  onInstall: _installDependency,
+                  onNext: _next,
+                ),
                 _PermissionsPage(
                   storageGranted: _storageGranted,
                   notifGranted: _notifGranted,
@@ -358,7 +408,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(4, (i) {
+                    children: List.generate(5, (i) {
                       final active = i == _currentPage;
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 280),
@@ -771,7 +821,8 @@ class _LaneState extends State<_Lane> {
 // ─────────────────────────────────────────────────────────────────────────────
 // _Card — 100% local gradient card, zero network calls.
 // Each card gets a cinematic two-tone gradient from its accent color +
-// a subtle diagonal sheen painted on top.
+// a subtle diagonal sheen painted on top. There is no network image here:
+// the first frame stays instant and deterministic.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Card extends StatelessWidget {
@@ -801,30 +852,19 @@ class _Card extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Cover image with accent color fallback while loading
-          ExtendedImage.network(
-            item.imageUrl,
-            fit: BoxFit.cover,
-            cache: true,
-            loadStateChanged: (state) {
-              if (state.extendedImageLoadState != LoadState.completed) {
-                return DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        item.color.withValues(alpha: 0.90),
-                        item.color.withValues(alpha: 0.52),
-                        item.color.withValues(alpha: 0.18),
-                      ],
-                      stops: const [0.0, 0.52, 1.0],
-                    ),
-                  ),
-                );
-              }
-              return null;
-            },
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  item.color.withValues(alpha: 0.90),
+                  item.color.withValues(alpha: 0.52),
+                  item.color.withValues(alpha: 0.18),
+                ],
+                stops: const [0.0, 0.52, 1.0],
+              ),
+            ),
           ),
 
           // Bottom gradient for text legibility
@@ -892,7 +932,7 @@ class _Card extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Page 3 — Permissions
+// Page 5 — Permissions
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PermissionsPage extends StatelessWidget {
@@ -1043,6 +1083,242 @@ class _PermissionsPage extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Page 4 — Optional dependencies
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DependenciesPage extends StatelessWidget {
+  final Map<OnboardingDependencyId, bool> installed;
+  final OnboardingDependencyId? busy;
+  final String? error;
+  final Future<void> Function(OnboardingDependencyId) onInstall;
+  final VoidCallback onNext;
+
+  const _DependenciesPage({
+    required this.installed,
+    required this.busy,
+    required this.error,
+    required this.onInstall,
+    required this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 52, 24, 72),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Dépendances',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1.0,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'L’application garde son APK léger. Les composants optionnels '
+              's’installent après l’installation et peuvent être reportés.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.58),
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 26),
+            ...OnboardingDependencyService.catalog.map(
+              (dependency) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _DependencyCard(
+                  dependency: dependency,
+                  installed: installed[dependency.id] ?? false,
+                  busy: busy == dependency.id,
+                  onInstall: () => onInstall(dependency.id),
+                ),
+              ),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                error!,
+                style: const TextStyle(
+                  color: Color(0xFFFF8A80),
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+              ),
+            ],
+            const SizedBox(height: 26),
+            _WhiteButton(label: 'Continuer', onTap: onNext),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DependencyCard extends StatelessWidget {
+  final OnboardingDependencyInfo dependency;
+  final bool installed;
+  final bool busy;
+  final VoidCallback onInstall;
+
+  const _DependencyCard({
+    required this.dependency,
+    required this.installed,
+    required this.busy,
+    required this.onInstall,
+  });
+
+  IconData get _icon => switch (dependency.id) {
+        OnboardingDependencyId.ffmpeg => Icons.movie_filter_rounded,
+        OnboardingDependencyId.mpv => Icons.play_circle_outline_rounded,
+        OnboardingDependencyId.aria2 => Icons.speed_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final isOptional = !dependency.required;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.065),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(_icon, color: Colors.white70, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        dependency.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      dependency.required ? 'OBLIGATOIRE' : 'FACULTATIF',
+                      style: TextStyle(
+                        color: dependency.required
+                            ? const Color(0xFFFFD166)
+                            : Colors.white.withValues(alpha: 0.40),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  dependency.purpose,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.52),
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Alternative : ${dependency.alternative}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.30),
+                    fontSize: 11,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    if (installed)
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_rounded,
+                              color: Color(0xFF06D6A0), size: 16),
+                          SizedBox(width: 5),
+                          Text(
+                            'Disponible',
+                            style: TextStyle(
+                              color: Color(0xFF06D6A0),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      InkWell(
+                        onTap: busy ? null : onInstall,
+                        borderRadius: BorderRadius.circular(9),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 11, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: busy
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text(
+                                  'Installer',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    if (isOptional && !installed) ...[
+                      const SizedBox(width: 10),
+                      Text(
+                        'Vous pouvez continuer sans',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.28),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // _PermRow
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1145,51 +1421,18 @@ class _PermRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Page 3 — Language & Preferences
-// Auto-detects device locale; lets the user pick audio mode and bilingual opt.
+// Page 3 — Automatic language detection
+// The app language and user language are never manually selected.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _LanguagePage extends StatefulWidget {
+class _LanguagePage extends StatelessWidget {
   final VoidCallback onNext;
   const _LanguagePage({required this.onNext});
 
   @override
-  State<_LanguagePage> createState() => _LanguagePageState();
-}
-
-class _LanguagePageState extends State<_LanguagePage> {
-  late List<Locale> _locales;
-  late String _primaryCode;
-  bool _bilingualDetected = false;
-  String _audioMode = 'vf';   // 'vf' | 'vo' | 'both'
-
-  @override
-  void initState() {
-    super.initState();
-    _locales = PlatformDispatcher.instance.locales.take(5).toList();
-    _primaryCode = _locales.isNotEmpty ? _locales.first.languageCode : 'fr';
-    _bilingualDetected = _locales.length > 1 &&
-        _locales[1].languageCode != _primaryCode;
-  }
-
-  String _name(String code) => switch (code) {
-    'fr' => 'Français',
-    'en' => 'English',
-    'ja' => '日本語',
-    'zh' => '中文',
-    'ko' => '한국어',
-    'es' => 'Español',
-    'pt' => 'Português',
-    'de' => 'Deutsch',
-    'it' => 'Italiano',
-    'ar' => 'العربية',
-    _ => code.toUpperCase(),
-  };
-
-  @override
   Widget build(BuildContext context) {
-    final primary = _name(_primaryCode);
-    final isFr = _primaryCode == 'fr';
+    final locale = PlatformDispatcher.instance.locale;
+    final primary = locale.languageCode.toUpperCase();
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -1197,9 +1440,8 @@ class _LanguagePageState extends State<_LanguagePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Title ──────────────────────────────────────────────────
             Text(
-              isFr ? 'Langue & Préférences' : 'Language & Preferences',
+              'Détection automatique',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 30,
@@ -1209,11 +1451,8 @@ class _LanguagePageState extends State<_LanguagePage> {
             ),
             const SizedBox(height: 10),
             Text(
-              isFr
-                  ? 'Nous avons détecté que votre appareil est en $primary. '
-                    'Vous pouvez affiner ci-dessous.'
-                  : 'We detected your device language as $primary. '
-                    'Fine-tune your preferences below.',
+              'Watchtower suit la langue de votre appareil et choisit '
+              'automatiquement le doublage le plus adapté.',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.58),
                 fontSize: 15,
@@ -1223,35 +1462,16 @@ class _LanguagePageState extends State<_LanguagePage> {
 
             const SizedBox(height: 28),
 
-            // ── Primary language card ──────────────────────────────────
             _LangCard(
               icon: Icons.language_rounded,
-              label: isFr ? 'Langue principale' : 'Primary language',
+              label: 'Langue de l’appareil',
               value: primary,
+              subtitle: 'Aucun choix manuel. La langue reste synchronisée '
+                  'avec le système.',
             ),
-
-            // ── Bilingual card ─────────────────────────────────────────
-            if (_bilingualDetected) ...[
-              const SizedBox(height: 12),
-              _LangCard(
-                icon: Icons.translate_rounded,
-                label: isFr
-                    ? 'Langue secondaire détectée'
-                    : 'Secondary language detected',
-                value: _name(_locales[1].languageCode),
-                subtitle: isFr
-                    ? 'Watchtower vous proposera aussi du contenu en '
-                      '${_name(_locales[1].languageCode)}.'
-                    : 'Watchtower will also suggest content in '
-                      '${_name(_locales[1].languageCode)}.',
-              ),
-            ],
-
-            const SizedBox(height: 32),
-
-            // ── Audio preference ───────────────────────────────────────
+            const SizedBox(height: 14),
             Text(
-              isFr ? 'Préférence audio' : 'Audio preference',
+              'Doublage et sous-titres',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 17,
@@ -1260,41 +1480,27 @@ class _LanguagePageState extends State<_LanguagePage> {
             ),
             const SizedBox(height: 6),
             Text(
-              isFr
-                  ? 'Pour les anime et films avec traduction disponible.'
-                  : 'For anime and movies with available translations.',
+              'La langue audio et les sous-titres suivent automatiquement '
+              'la langue détectée. Vous pourrez changer la piste pendant '
+              'la lecture.',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.42),
                 fontSize: 13,
               ),
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              children: [
-                _AudioPill(
-                  label: isFr ? 'VF — Doublé' : 'Dubbed',
-                  selected: _audioMode == 'vf',
-                  onTap: () => setState(() => _audioMode = 'vf'),
-                ),
-                _AudioPill(
-                  label: isFr ? 'VO — Sous-titré' : 'Subbed',
-                  selected: _audioMode == 'vo',
-                  onTap: () => setState(() => _audioMode = 'vo'),
-                ),
-                _AudioPill(
-                  label: isFr ? 'Les deux' : 'Both',
-                  selected: _audioMode == 'both',
-                  onTap: () => setState(() => _audioMode = 'both'),
-                ),
-              ],
+            _LangCard(
+              icon: Icons.record_voice_over_rounded,
+              label: 'Préférence audio',
+              value: 'Automatique',
+              subtitle: 'VF si disponible, sinon VO avec sous-titres.',
             ),
 
             const SizedBox(height: 40),
 
             _WhiteButton(
-              label: isFr ? 'Continuer' : 'Continue',
-              onTap: widget.onNext,
+              label: 'Continuer',
+              onTap: onNext,
             ),
           ],
         ),
@@ -1374,49 +1580,6 @@ class _LangCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AudioPill extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _AudioPill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? Colors.white.withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected
-                ? Colors.white.withValues(alpha: 0.55)
-                : Colors.white.withValues(alpha: 0.10),
-            width: selected ? 1.2 : 0.8,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.white.withValues(alpha: 0.45),
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-          ),
-        ),
       ),
     );
   }

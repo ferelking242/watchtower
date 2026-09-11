@@ -10,30 +10,8 @@ part 'player_state_provider.g.dart';
 class DefaultSubtitleLangState extends _$DefaultSubtitleLangState {
   @override
   Locale build() {
-    return Locale(
-      _getLocale()!.languageCode ?? "en",
-      _getLocale()!.countryCode ?? "",
-    );
-  }
-
-  L10nLocale? _getLocale() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).defaultSubtitleLang ??
-        L10nLocale(languageCode: "en", countryCode: "");
-  }
-
-  void setLocale(Locale locale) async {
-    final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
-    isar.writeTxnSync(() {
-      isar.settings.putSync(
-        settings
-          ..defaultSubtitleLang = L10nLocale(
-            languageCode: locale.languageCode,
-            countryCode: locale.countryCode,
-          )
-          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-      );
-    });
-    state = locale;
+    final detected = PlatformDispatcher.instance.locale;
+    return Locale(detected.languageCode, detected.countryCode ?? '');
   }
 }
 
