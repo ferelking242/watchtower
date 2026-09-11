@@ -1,8 +1,7 @@
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:watchtower/services/download_manager/m3u8/ffmpeg_binary_manager.dart';
 
 /// The only application-facing boundary for FFmpeg-backed HLS muxing.
 ///
@@ -25,7 +24,15 @@ class FfmpegMergeService {
     );
 
     try {
-      final session = await FFmpegKit.executeWithArguments([
+      final executable =
+          await FfmpegBinaryManager.instance.resolveExecutable();
+      if (executable == null) {
+        throw const FfmpegMergeException(
+          'FFmpeg n’est pas installé. Installez le runtime FFmpeg vérifié '
+          'avant de fusionner des fragments HLS.',
+        );
+      }
+      final result = await Process.run(executable, [
         '-hide_banner',
         '-loglevel',
         'error',
@@ -43,13 +50,12 @@ class FfmpegMergeService {
         '+faststart',
         '-y',
         outputFile,
-      ]);
-      final returnCode = await session.getReturnCode();
-      if (!ReturnCode.isSuccess(returnCode)) {
-        final output = await session.getOutput();
+      ]).timeout(const Duration(minutes: 10));
+      if (result.exitCode != 0) {
+        final output = '${result.stdout}\n${result.stderr}'.trim();
         throw FfmpegMergeException(
-          'FFmpeg merge failed (return code $returnCode)'
-          '${output == null || output.trim().isEmpty ? '' : ': $output'}',
+          'FFmpeg merge failed (exit code ${result.exitCode})'
+          '${output.isEmpty ? '' : ': $output'}',
         );
       }
     } finally {

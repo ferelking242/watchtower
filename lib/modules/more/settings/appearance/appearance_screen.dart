@@ -13,6 +13,7 @@ import 'package:watchtower/modules/more/settings/appearance/providers/pure_black
 import 'package:watchtower/modules/more/settings/appearance/widgets/blend_level_slider.dart';
 import 'package:watchtower/modules/more/settings/appearance/widgets/theme_selector.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 final navigationItems = {

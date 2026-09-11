@@ -1,59 +1,50 @@
 # FFmpeg management
 
 Watchtower uses FFmpeg only for the final stream-copy mux of downloaded HLS
-fragments (`MPEG-TS` to `MP4`). The application does not download or execute a
-third-party FFmpeg binary at runtime.
+fragments (`MPEG-TS` to `MP4`). FFmpeg is not bundled in the Android APK.
+The old FFmpeg AAR added a large native payload and made the release depend on
+an abandoned packaging path.
 
-## Current implementation
+## Runtime policy
 
-- Dart package: `ffmpeg_kit_flutter_new`
-- Reviewed version: `4.6.2`
-- Package source: `https://github.com/sk3llo/ffmpeg_kit_flutter`
-- Package archive: `https://pub.dev/packages/ffmpeg_kit_flutter_new/versions/4.6.2`
-- Android artifact selected by Gradle: `com.antonkarpenko:ffmpeg-kit-min-gpl`
-- Android ABI shipped by the application: `arm64-v8a`
-- Minimum Android API: 24
+- `FfmpegMergeService` is the only application-facing FFmpeg boundary.
+- `FfmpegBinaryManager` checks an app-private executable on Android.
+- Desktop builds may use the `ffmpeg` executable from the system PATH.
+- Runtime downloads must use HTTPS and an immutable release URL.
+- The downloaded file must match its published SHA-256 digest before activation.
+- Downloads are written to a temporary file and renamed only after verification.
 
-The dependency is pinned in `pubspec.yaml`, rather than using a caret range.
-The lockfile records the hosted package digest. FFmpeg calls are isolated in
-`FfmpegMergeService`; the HLS downloader only depends on that application
-boundary.
+The Android app fails with an actionable message when no verified runtime is
+present; it never executes an arbitrary or partially downloaded file.
 
-The min-GPL artifact is sufficient for the current command:
+The runtime binary must support the current command:
 
 ```text
 -f concat -safe 0 -i <concat file> -map 0 -c copy -movflags +faststart
 ```
 
 No transcoding codec is intentionally used. If the merge command changes,
-verify that the selected artifact still contains every required demuxer and
-muxer before changing the Gradle substitution.
+verify that the selected runtime still contains every required demuxer and
+muxer.
 
-## Upgrade procedure
+## Runtime release procedure
 
-1. Review the upstream release, source repository, package archive, and
-   licensing information.
-2. Verify the Android artifact coordinates, supported API level, and native
-   ABIs. Do not replace this dependency with an unverified binary archive.
-3. Update `pubspec.yaml` to one exact version and run `flutter pub get`.
-4. Inspect the resulting `pubspec.lock` digest and the resolved Android
-   dependencies.
-5. Run the HLS regression tests and an Android build for the relevant variant.
-6. Confirm the generated APK contains only the intended native ABI and that
-   a real TS-to-MP4 stream-copy merge succeeds.
-7. Update this document with the new version and re-check all license notices
-   shipped with the application.
+1. Review the upstream source, release, license, Android ABI, and minimum API.
+2. Publish an immutable ARM64 Android executable and its SHA-256 digest.
+3. Pass the URL and digest to `installFromUrl`; never activate a URL without a
+   digest.
+4. Run the HLS regression tests and an Android build for the relevant variant.
+5. Confirm that a real TS-to-MP4 stream-copy merge succeeds.
+6. Keep the executable license and source-offer notices with the release.
 
 ## Licensing and distribution
 
-The FFmpeg package and Android artifact remain subject to their own licenses.
-Keep the corresponding notices and source-offer obligations with every
-distributed build. Do not silently switch between GPL and LGPL artifacts:
-the selected artifact, Gradle rule, documentation, and release notices must
-agree.
+Every FFmpeg runtime remains subject to its own license. Keep the corresponding
+notices and source-offer obligations with every distributed build. Do not
+silently switch between GPL and LGPL artifacts: the selected runtime,
+documentation, and release notices must agree.
 
 The `BinariesSection` is for the separately managed `aria2c` download only.
-FFmpeg is not presented there as a downloadable or bundled user-managed
-binary. A future replacement must provide a verified source, reproducible
-build or immutable release asset, SHA-256 verification, architecture
-coverage, and complete license information before it is considered.
+Any FFmpeg runtime release must provide a verified source, reproducible build or
+immutable release asset, SHA-256 verification, architecture coverage, and
+complete license information before it is used.

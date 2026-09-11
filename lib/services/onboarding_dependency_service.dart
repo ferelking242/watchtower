@@ -4,6 +4,7 @@ import 'dart:io'
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
+import 'package:watchtower/services/download_manager/m3u8/ffmpeg_binary_manager.dart';
 import 'package:watchtower/services/mpv_config_service.dart';
 
 enum OnboardingDependencyId { ffmpeg, mpv, aria2 }
@@ -32,11 +33,11 @@ class OnboardingDependencyService {
   static const catalog = <OnboardingDependencyInfo>[
     OnboardingDependencyInfo(
       id: OnboardingDependencyId.ffmpeg,
-      name: 'FFmpeg complet',
+      name: 'FFmpeg runtime',
       purpose: 'Fusionner les fragments TS en fichiers MP4 lisibles.',
       alternative: 'La lecture directe MediaKit évite la fusion quand elle suffit.',
       required: true,
-      bundled: true,
+      bundled: false,
     ),
     OnboardingDependencyInfo(
       id: OnboardingDependencyId.mpv,
@@ -59,7 +60,7 @@ class OnboardingDependencyService {
   static Future<bool> isInstalled(OnboardingDependencyId id) async {
     switch (id) {
       case OnboardingDependencyId.ffmpeg:
-        return true;
+        return await FfmpegBinaryManager.instance.isInstalled();
       case OnboardingDependencyId.mpv:
         if (kIsWeb) return true;
         final directory = await StorageProvider().getMpvDirectory();
@@ -74,6 +75,12 @@ class OnboardingDependencyService {
   static Future<void> install(OnboardingDependencyId id) async {
     switch (id) {
       case OnboardingDependencyId.ffmpeg:
+        if (await FfmpegBinaryManager.instance.resolveExecutable() == null) {
+          throw const OnboardingDependencyException(
+            'FFmpeg runtime absent. Installez un binaire vérifié dans le '
+            'stockage privé de Watchtower avant une fusion HLS.',
+          );
+        }
         return;
       case OnboardingDependencyId.mpv:
         final directory = await StorageProvider().getMpvDirectory();

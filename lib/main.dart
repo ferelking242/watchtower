@@ -416,7 +416,7 @@ class _MyAppState extends ConsumerState<MyApp>
       // Resume persisted queue work even when the user opens another section
       // first. The queue screen also kicks this provider, but downloads should
       // not depend on visiting that screen after an app restart.
-      unawaited(ref.read(processDownloadsProvider()));
+      unawaited(ref.read(processDownloadsProvider().future));
       if (ref.read(clearChapterCacheOnAppLaunchStateProvider)) {
         // Watch before calling clearcache to keep it alive, so that _getTotalDiskSpace completes safely
         ref.watch(totalChapterCacheSizeStateProvider);

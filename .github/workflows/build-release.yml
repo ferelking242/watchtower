@@ -173,6 +173,22 @@ jobs:
             exit 1
           fi
 
+      - name: Report APK size
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          APK_BYTES=$(stat -c '%s' "$APK")
+          APK_MIB=$(awk "BEGIN { printf \"%.2f\", $APK_BYTES / 1048576 }")
+          {
+            echo "## APK size"
+            echo
+            echo "- Release APK: **${APK_MIB} MiB** (${APK_BYTES} bytes)"
+            echo "- Budget: **85 MiB**"
+            echo
+            echo "### Largest APK entries"
+            unzip -l "$APK" | sort -k1,1nr | head -20
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Release APK size: ${APK_MIB} MiB (${APK_BYTES} bytes)"
+
       - name: Rename APK
         run: |
           SRC=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk

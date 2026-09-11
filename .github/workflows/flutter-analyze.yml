@@ -64,6 +64,9 @@ jobs:
           flutter pub deps --json > ci-reports/pub-deps.json
           python3 .github/scripts/check_pub_graph.py ci-reports/pub-deps.json
 
+      - name: Generate localizations
+        run: flutter gen-l10n
+
       - name: Record outdated package report
         if: always()
         run: |
