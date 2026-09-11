@@ -119,7 +119,7 @@ jobs:
         env:
           # caching=true: safe because the Gradle Actions cache key above includes
           # all Dart sources — any code change busts the cache → no stale task output.
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dhttp.keepAlive=false"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
         run: |
           flutter build apk \
             --profile \
@@ -259,7 +259,7 @@ jobs:
 
       - name: Build Universal APK
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dhttp.keepAlive=false"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
         run: flutter build apk --profile
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files

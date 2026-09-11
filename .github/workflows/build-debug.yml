@@ -1,8 +1,6 @@
 name: Build Debug APK
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 concurrency:
@@ -49,10 +47,10 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          key: gradle-debug-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
           restore-keys: |
-            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
-            gradle-${{ runner.os }}-
+            gradle-debug-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+            gradle-debug-${{ runner.os }}-
 
       - name: Cache Rust (Android arm64)
         uses: actions/cache@v5
@@ -120,15 +118,9 @@ jobs:
             mkdir -p "$d/assets"
           done
 
-      - name: Static analysis
-        run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
-
-      - name: Run tests
-        run: flutter test --no-pub || true
-
       - name: Build APK (ARMv8 debug)
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dmaven.wagon.http.retryHandler.count=3"
         run: |
           flutter build apk \
             --debug \

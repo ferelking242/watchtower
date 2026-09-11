@@ -1,10 +1,6 @@
 name: Build Profile APK
 
 on:
-  push:
-    branches: [ main, master, service-dart-fix ]
-  pull_request:
-    branches: [ main, master, service-dart-fix ]
   workflow_dispatch:
 
 # Annule le build précédent dès qu'un nouveau push arrive — seul le dernier tourne.
@@ -56,10 +52,10 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          key: gradle-profile-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
           restore-keys: |
-            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
-            gradle-${{ runner.os }}-
+            gradle-profile-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
+            gradle-profile-${{ runner.os }}-
 
       # Cache Rust — rust_lib_watchtower compile aarch64-linux-android (~150-200s sans cache)
       - name: Cache Rust (Android arm64)
@@ -70,8 +66,8 @@ jobs:
             ~/.cargo/git
             rust/target
             rust_builder/target
-          key: rust-android-arm64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: rust-android-arm64-${{ runner.os }}-
+          key: rust-android-arm64-profile-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: rust-android-arm64-profile-${{ runner.os }}-
 
       # Cache Android NDK 27 + CMake 3.22.1 — telecharges par Gradle a chaque run
       - name: Cache Android SDK extras (NDK 27, CMake)
@@ -213,7 +209,7 @@ jobs:
 
       - name: Build APK (ARMv8 profile)
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dhttp.keepAlive=false -Dmaven.wagon.http.retryHandler.count=3"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dmaven.wagon.http.retryHandler.count=3"
         run: |
           flutter build apk \
             --profile \
