@@ -18,6 +18,18 @@ class Download {
 
   bool? isStartDownload;
 
+  /// Exact transfer counters. The legacy succeeded/total fields remain in KB
+  /// for backwards-compatible queue rendering, while these fields preserve the
+  /// server's real Content-Length and resume offset across process restarts.
+  int? downloadedBytes;
+  int? totalBytes;
+
+  String? title;
+  String? quality;
+  String? posterUrl;
+  String? filePath;
+  String? status;
+
   final chapter = IsarLink<Chapter>();
 
   Download({
@@ -27,6 +39,13 @@ class Download {
     required this.total,
     required this.isDownload,
     required this.isStartDownload,
+    this.downloadedBytes,
+    this.totalBytes,
+    this.title,
+    this.quality,
+    this.posterUrl,
+    this.filePath,
+    this.status,
   });
   Download.fromJson(Map<String, dynamic> json) {
     failed = json['failed'];
@@ -35,6 +54,13 @@ class Download {
     isStartDownload = json['isStartDownload'];
     succeeded = json['succeeded'];
     total = json['total'];
+    downloadedBytes = json['downloadedBytes'];
+    totalBytes = json['totalBytes'];
+    title = json['title'];
+    quality = json['quality'];
+    posterUrl = json['posterUrl'];
+    filePath = json['filePath'];
+    status = json['status'];
   }
 
   Map<String, dynamic> toJson() => {
@@ -44,5 +70,12 @@ class Download {
     'isStartDownload': isStartDownload,
     'succeeded': succeeded,
     'total': total,
+    'downloadedBytes': downloadedBytes,
+    'totalBytes': totalBytes,
+    'title': title,
+    'quality': quality,
+    'posterUrl': posterUrl,
+    'filePath': filePath,
+    'status': status,
   };
 }

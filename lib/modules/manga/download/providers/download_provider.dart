@@ -630,6 +630,10 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
       total: 1,
       isDownload: false,
       isStartDownload: true,
+      title: chapter.name,
+      posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
+      quality: chapterPreferredQuality[chapter.id],
+      status: 'fetching_metadata',
     );
     isar.writeTxnSync(() {
       isar.downloads.putSync(download..chapter.value = chapter);
@@ -647,6 +651,14 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     existing.succeeded = 0;
     existing.failed = 0;
     existing.total = 1;
+    existing.downloadedBytes = null;
+    existing.totalBytes = null;
+    existing.filePath = null;
+    existing.title = chapter.name;
+    existing.posterUrl =
+        chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl;
+    existing.quality = chapterPreferredQuality[chapter.id];
+    existing.status = 'fetching_metadata';
     isar.writeTxnSync(() {
       isar.downloads.putSync(existing..chapter.value = chapter);
     });
@@ -938,6 +950,14 @@ Future<void> downloadChapter(
       // jumping backwards to 0 on the very first tick after resume).
       final writtenSucceeded =
           (progress.completed == 0 && _resumeSucceededKbOffset <= 0) ? 0 : isarSucceeded;
+      final exactDownloadedBytes = progress.downloadedBytes ??
+          (progress.itemType == ItemType.anime ? isarSucceeded * 1024 : null);
+      final exactTotalBytes = progress.totalBytes;
+      final progressStatus = progress.isCompleted
+          ? 'completed'
+          : (exactDownloadedBytes != null && exactDownloadedBytes > 0
+              ? 'downloading'
+              : 'initializing');
 
       if (download == null) {
         final newDl = Download(
@@ -947,6 +967,12 @@ Future<void> downloadChapter(
           total: isarTotal,
           isDownload: progress.isCompleted,
           isStartDownload: true,
+          downloadedBytes: exactDownloadedBytes,
+          totalBytes: exactTotalBytes,
+          title: chapter.name,
+          quality: chapterPreferredQuality[chapter.id],
+          posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
+          status: progressStatus,
         );
         isar.writeTxnSync(() {
           isar.downloads.putSync(newDl..chapter.value = chapter);
@@ -959,7 +985,14 @@ Future<void> downloadChapter(
                 ..succeeded = writtenSucceeded
                 ..total = isarTotal
                 ..failed = 0
-                ..isDownload = progress.isCompleted,
+                ..isDownload = progress.isCompleted
+                ..downloadedBytes = exactDownloadedBytes
+                ..totalBytes = exactTotalBytes ?? download.totalBytes
+                ..title = chapter.name
+                ..quality = chapterPreferredQuality[chapter.id]
+                ..posterUrl =
+                    chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
+                ..status = progressStatus,
             );
           });
         }
@@ -983,20 +1016,40 @@ Future<void> downloadChapter(
       }
 
       // ── Android notification: real chapter name + progress bar ───────────
-      // Only update for anime downloads where we have meaningful byte progress.
-      if (progress.itemType == ItemType.anime && progress.total > 0 && isarTotal > 0) {
-        final hasKnownSize = progress.totalBytes != null;
+      // Use the exact byte counters reported by the worker. If a server does
+      // not expose a length, keep the notification indeterminate rather than
+      // inventing a denominator.
+      if (progress.itemType == ItemType.anime && isarTotal > 0) {
+        final downloadedBytes =
+            progress.downloadedBytes ?? (isarSucceeded * 1024);
+        final notificationTotalBytes = progress.totalBytes ??
+            (isarTotal > 500 ? isarTotal * 1024 : null);
+        final hasKnownSize =
+            notificationTotalBytes != null && notificationTotalBytes > 0;
         final pct = hasKnownSize
-            ? (isarSucceeded * 100 ~/ isarTotal).clamp(0, 100)
+            ? ((downloadedBytes * 100) ~/ notificationTotalBytes!)
+                .clamp(0, 100)
             : -1;
         final activeCount = ActiveDownloadRegistry.activeCountForType(ItemType.anime);
         final notifTitle = chapter.name ?? 'Téléchargement en cours…';
-        final notifSub = '$activeCount téléchargement${activeCount > 1 ? 's' : ''} actif${activeCount > 1 ? 's' : ''}';
+        final notifSub =
+            '$activeCount téléchargement${activeCount > 1 ? 's' : ''} actif${activeCount > 1 ? 's' : ''}';
+        final etaSeconds = _speedEmaMbs >= 0.05 && hasKnownSize
+            ? (((notificationTotalBytes! - downloadedBytes).clamp(0, notificationTotalBytes)) /
+                    (_speedEmaMbs * 1024 * 1024))
+                .ceil()
+            : null;
         unawaited(BackgroundKeepAlive.update(
           count: activeCount,
           title: notifTitle,
           progress: pct,
           subtitle: notifSub,
+          downloadedBytes: downloadedBytes,
+          totalBytes: notificationTotalBytes,
+          speedMbs: _speedEmaMbs,
+          etaSeconds: etaSeconds,
+          quality: chapterPreferredQuality[chapter.id] ?? '',
+          force: progress.isCompleted,
         ));
       }
 
@@ -1007,10 +1060,22 @@ Future<void> downloadChapter(
         final finalPath = m3u8Downloader?.fileName ??
             p.join(mangaMainDirectory!.path, '$chapterName.mp4');
         if (await File(finalPath).exists()) {
+          final completedRecord = isar.downloads.getSync(chapter.id!);
+          if (completedRecord != null) {
+            isar.writeTxnSync(() {
+              isar.downloads.putSync(
+                completedRecord
+                  ..filePath = finalPath
+                  ..status = 'completed'
+                  ..isDownload = true,
+              );
+            });
+          }
           unawaited(
             WatchtowerNotificationService.instance.showMediaDownloadComplete(
               title: chapter.name ?? 'Vidéo téléchargée',
               filePath: finalPath,
+              chapterId: chapter.id,
             ),
           );
         }
@@ -1216,6 +1281,7 @@ Future<void> downloadChapter(
             dl
               ..failed = (dl.failed ?? 0) + 1
               ..isDownload = false
+                ..status = 'failed'
               // Stop processDownloads from re-queuing this chapter on every
               // 900ms tick.  The user can retry manually from the queue UI.
               ..isStartDownload = false,
@@ -1461,7 +1527,10 @@ Future<void> downloadChapter(
             if (dl != null) {
               isar.writeTxnSync(() {
                 isar.downloads.putSync(
-                  dl..failed = 1..isStartDownload = false,
+                  dl
+                    ..failed = 1
+                    ..status = 'failed'
+                    ..isStartDownload = false,
                 );
               });
             }
@@ -1472,7 +1541,10 @@ Future<void> downloadChapter(
           if (dl != null) {
             isar.writeTxnSync(() {
               isar.downloads.putSync(
-                dl..failed = 1..isStartDownload = false,
+                dl
+                  ..failed = 1
+                  ..status = 'failed'
+                  ..isStartDownload = false,
               );
             });
           }
@@ -1486,7 +1558,10 @@ Future<void> downloadChapter(
         if (dl != null) {
           isar.writeTxnSync(() {
             isar.downloads.putSync(
-              dl..failed = 1..isStartDownload = false,
+              dl
+                ..failed = 1
+                ..status = 'failed'
+                ..isStartDownload = false,
             );
           });
         }
@@ -1602,7 +1677,10 @@ Future<void> downloadChapter(
               // isStartDownload=false stops processDownloads from
               // re-queueing this broken episode every 900ms tick.
               isar.downloads.putSync(
-                dl..failed = 1..isStartDownload = false,
+                dl
+                  ..failed = 1
+                  ..status = 'failed'
+                  ..isStartDownload = false,
               );
             });
           }
@@ -1634,6 +1712,7 @@ Future<void> downloadChapter(
               dl
                 ..failed = 1
                 ..isDownload = false
+                ..status = 'failed'
                 // Stop infinite retry — leave isStartDownload=false so
                 // processDownloads skips this chapter until user retries.
                 ..isStartDownload = false,

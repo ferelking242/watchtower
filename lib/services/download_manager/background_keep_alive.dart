@@ -26,6 +26,9 @@ class BackgroundKeepAlive {
 
   static const _ch = MethodChannel('watchtower/download_service');
   static bool _wakelockHeld = false;
+  static DateTime? _lastNotificationUpdate;
+  static int _lastNotificationProgress = -2;
+  static String _lastNotificationTitle = '';
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -51,14 +54,43 @@ class BackgroundKeepAlive {
     String title = 'Téléchargement en cours…',
     int progress = -1,
     String subtitle = '',
+    int downloadedBytes = 0,
+    int? totalBytes,
+    double speedMbs = 0,
+    int? etaSeconds,
+    String quality = '',
+    bool force = false,
   }) async {
     if (!kIsWeb && Platform.isAndroid) {
+      final now = DateTime.now();
+      final progressChanged = progress != _lastNotificationProgress;
+      final titleChanged = title != _lastNotificationTitle;
+      final elapsed = _lastNotificationUpdate == null
+          ? const Duration(seconds: 1)
+          : now.difference(_lastNotificationUpdate!);
+      // Progress callbacks can arrive for every network chunk. Throttle the
+      // tray to a steady cadence so updates remain readable and do not cause
+      // notification flicker or excessive binder traffic.
+      if (!force &&
+          !progressChanged &&
+          !titleChanged &&
+          elapsed < const Duration(milliseconds: 650)) {
+        return;
+      }
+      _lastNotificationUpdate = now;
+      _lastNotificationProgress = progress;
+      _lastNotificationTitle = title;
       try {
         await _ch.invokeMethod<void>('update', {
           'count': count,
           'title': title,
           'progress': progress,
           'subtitle': subtitle,
+          'downloadedBytes': downloadedBytes,
+          'totalBytes': totalBytes,
+          'speedMbs': speedMbs,
+          'etaSeconds': etaSeconds,
+          'quality': quality,
         });
       } catch (_) {}
     }
@@ -67,6 +99,9 @@ class BackgroundKeepAlive {
   /// Call when the queue fully drains (no more active or pending downloads).
   static Future<void> stop() async {
     await _releaseWakelock();
+    _lastNotificationUpdate = null;
+    _lastNotificationProgress = -2;
+    _lastNotificationTitle = '';
     if (!kIsWeb && Platform.isAndroid) {
       try {
         await _ch.invokeMethod<void>('stop');

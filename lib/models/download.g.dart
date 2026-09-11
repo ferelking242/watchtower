@@ -34,6 +34,29 @@ const DownloadSchema = CollectionSchema(
       type: IsarType.long,
     ),
     r'total': PropertySchema(id: 4, name: r'total', type: IsarType.long),
+    r'downloadedBytes': PropertySchema(
+      id: 5,
+      name: r'downloadedBytes',
+      type: IsarType.long,
+    ),
+    r'totalBytes': PropertySchema(
+      id: 6,
+      name: r'totalBytes',
+      type: IsarType.long,
+    ),
+    r'title': PropertySchema(id: 7, name: r'title', type: IsarType.string),
+    r'quality': PropertySchema(id: 8, name: r'quality', type: IsarType.string),
+    r'posterUrl': PropertySchema(
+      id: 9,
+      name: r'posterUrl',
+      type: IsarType.string,
+    ),
+    r'filePath': PropertySchema(
+      id: 10,
+      name: r'filePath',
+      type: IsarType.string,
+    ),
+    r'status': PropertySchema(id: 11, name: r'status', type: IsarType.string),
   },
 
   estimateSize: _downloadEstimateSize,
@@ -78,6 +101,13 @@ void _downloadSerialize(
   writer.writeBool(offsets[2], object.isStartDownload);
   writer.writeLong(offsets[3], object.succeeded);
   writer.writeLong(offsets[4], object.total);
+  writer.writeLong(offsets[5], object.downloadedBytes);
+  writer.writeLong(offsets[6], object.totalBytes);
+  writer.writeString(offsets[7], object.title);
+  writer.writeString(offsets[8], object.quality);
+  writer.writeString(offsets[9], object.posterUrl);
+  writer.writeString(offsets[10], object.filePath);
+  writer.writeString(offsets[11], object.status);
 }
 
 Download _downloadDeserialize(
@@ -93,6 +123,13 @@ Download _downloadDeserialize(
     isStartDownload: reader.readBoolOrNull(offsets[2]),
     succeeded: reader.readLongOrNull(offsets[3]),
     total: reader.readLongOrNull(offsets[4]),
+    downloadedBytes: reader.readLongOrNull(offsets[5]),
+    totalBytes: reader.readLongOrNull(offsets[6]),
+    title: reader.readStringOrNull(offsets[7]),
+    quality: reader.readStringOrNull(offsets[8]),
+    posterUrl: reader.readStringOrNull(offsets[9]),
+    filePath: reader.readStringOrNull(offsets[10]),
+    status: reader.readStringOrNull(offsets[11]),
   );
   return object;
 }
@@ -114,6 +151,20 @@ P _downloadDeserializeProp<P>(
       return (reader.readLongOrNull(offset)) as P;
     case 4:
       return (reader.readLongOrNull(offset)) as P;
+    case 5:
+      return (reader.readLongOrNull(offset)) as P;
+    case 6:
+      return (reader.readLongOrNull(offset)) as P;
+    case 7:
+      return (reader.readStringOrNull(offset)) as P;
+    case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
+      return (reader.readStringOrNull(offset)) as P;
+    case 10:
+      return (reader.readStringOrNull(offset)) as P;
+    case 11:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }

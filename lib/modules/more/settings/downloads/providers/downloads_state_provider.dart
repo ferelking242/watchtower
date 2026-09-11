@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';
@@ -563,8 +565,40 @@ class SwipeRightActionState extends _$SwipeRightActionState {
 
 @riverpod
 class DownloadQueueState extends _$DownloadQueueState {
+  static const _pausedIdsKey = 'watchtower_download_paused_ids';
+
   @override
-  DownloadQueueStateData build() => const DownloadQueueStateData();
+  DownloadQueueStateData build() {
+    unawaited(_restorePausedIds());
+    return const DownloadQueueStateData();
+  }
+
+  Future<void> _restorePausedIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ids = (prefs.getStringList(_pausedIdsKey) ?? const <String>[])
+          .map(int.tryParse)
+          .whereType<int>()
+          .toSet();
+      if (ids.isNotEmpty) {
+        state = state.copyWith(pausedIds: ids);
+      }
+    } catch (_) {
+      // Queue persistence is best-effort; Isar remains the source of truth
+      // for the download records and byte offsets.
+    }
+  }
+
+  void _persistPausedIds(Set<int> ids) {
+    unawaited(
+      SharedPreferences.getInstance().then(
+        (prefs) => prefs.setStringList(
+          _pausedIdsKey,
+          ids.map((id) => id.toString()).toList(),
+        ),
+      ),
+    );
+  }
 
   void setPaused(int downloadId, bool paused) {
     final set = Set<int>.from(state.pausedIds);
@@ -574,6 +608,7 @@ class DownloadQueueState extends _$DownloadQueueState {
       set.remove(downloadId);
     }
     state = state.copyWith(pausedIds: set);
+    _persistPausedIds(set);
   }
 
   void togglePause(int downloadId) {
@@ -587,6 +622,7 @@ class DownloadQueueState extends _$DownloadQueueState {
       ActiveDownloadRegistry.pause(downloadId);
     }
     state = state.copyWith(pausedIds: set);
+    _persistPausedIds(set);
   }
 
   void setEngine(int downloadId, String engine) {
@@ -644,6 +680,7 @@ class DownloadQueueState extends _$DownloadQueueState {
       }
     }
     state = state.copyWith(pausedIds: set);
+    _persistPausedIds(set);
   }
 
   void resumeAll() {
@@ -651,6 +688,7 @@ class DownloadQueueState extends _$DownloadQueueState {
       ActiveDownloadRegistry.resume(id);
     }
     state = state.copyWith(pausedIds: {});
+    _persistPausedIds({});
   }
 }
 

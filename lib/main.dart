@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
+import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar_community/isar.dart';
@@ -413,6 +414,10 @@ class _MyAppState extends ConsumerState<MyApp>
         unawaited(windowManager.focus());
       }
       unawaited(_startExtensionServerAndSync());
+      // Resume persisted queue work even when the user opens another section
+      // first. The queue screen also kicks this provider, but downloads should
+      // not depend on visiting that screen after an app restart.
+      unawaited(ref.read(processDownloadsProvider()));
       if (ref.read(clearChapterCacheOnAppLaunchStateProvider)) {
         // Watch before calling clearcache to keep it alive, so that _getTotalDiskSpace completes safely
         ref.watch(totalChapterCacheSizeStateProvider);

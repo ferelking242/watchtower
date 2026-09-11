@@ -263,6 +263,14 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     if (id == -1) return;
     final wasPaused = ref.read(downloadQueueStateProvider).pausedIds.contains(id);
     ref.read(downloadQueueStateProvider.notifier).togglePause(id);
+    final stored = isar.downloads.getSync(id);
+    if (stored != null) {
+      isar.writeTxnSync(() {
+        isar.downloads.putSync(
+          stored..status = wasPaused ? 'queued' : 'paused',
+        );
+      });
+    }
     if (wasPaused) {
       // processDownloads re-queries Isar every ~900 ms, so resumed chapters
       // are picked up automatically without invalidating the provider.
@@ -281,9 +289,27 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       case _GlobalAction.pauseAll:
         final ids = entries.map((e) => e.id ?? -1).toList();
         ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
+        isar.writeTxnSync(() {
+          for (final id in ids.where((id) => id >= 0)) {
+            final stored = isar.downloads.getSync(id);
+            if (stored != null) {
+              isar.downloads.putSync(stored..status = 'paused');
+            }
+          }
+        });
         break;
       case _GlobalAction.resumeAll:
         ref.read(downloadQueueStateProvider.notifier).resumeAll();
+        isar.writeTxnSync(() {
+          for (final entry in entries) {
+            final id = entry.id;
+            if (id == null) continue;
+            final stored = isar.downloads.getSync(id);
+            if (stored != null && !(stored.isDownload ?? false)) {
+              isar.downloads.putSync(stored..status = 'queued');
+            }
+          }
+        });
         ref.read(processDownloadsProvider());
         break;
       case _GlobalAction.stopAll:
@@ -326,6 +352,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     DownloadIsolatePool.instance.cancelTask('m3u8_$id');
     // Mark as paused in the UI state so user can resume later
     ref.read(downloadQueueStateProvider.notifier).setPaused(id, true);
+    final stored = isar.downloads.getSync(id);
+    if (stored != null) {
+      isar.writeTxnSync(() {
+        isar.downloads.putSync(stored..status = 'paused');
+      });
+    }
     botToast('Téléchargement annulé. Appuyez sur ▶ pour reprendre.');
   }
 
@@ -341,6 +373,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     isar.writeTxnSync(() {
       isar.downloads.deleteSync(id);
     });
+    ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
   }
 
   /// Open: directly launch the reader/player for the downloaded chapter
@@ -371,7 +404,11 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             ..failed = 0
             ..total = 1
             ..isDownload = false
-            ..isStartDownload = true);
+            ..isStartDownload = true
+            ..downloadedBytes = null
+            ..totalBytes = null
+            ..filePath = null
+            ..status = 'fetching_metadata');
         }
       });
       ref.read(processDownloadsProvider());
@@ -1648,13 +1685,18 @@ class _DownloadCard extends ConsumerWidget {
     final hasFailed = failed > 0 && !isComplete;
     final isPaused = this.isPaused;
 
-    final liveDownloadedBytes = liveProgress?.downloadedBytes;
-    final liveTotalBytes = liveProgress?.totalBytes;
+    final liveDownloadedBytes =
+        liveProgress?.downloadedBytes ?? download.downloadedBytes;
+    final liveTotalBytes = liveProgress?.totalBytes ?? download.totalBytes;
     final live = liveProgress;
-    final progress = live != null
-        ? liveTotalBytes != null && liveTotalBytes > 0
-            ? liveDownloadedBytes! / liveTotalBytes
-            : live.totalUnits > 0
+    final exactDownloadedBytes = liveDownloadedBytes ??
+        (itemType == ItemType.anime && succeeded > 500 ? succeeded * 1024 : null);
+    final exactTotalBytes = liveTotalBytes ??
+        (itemType == ItemType.anime && total > 500 ? total * 1024 : null);
+    final progress = exactTotalBytes != null && exactTotalBytes > 0
+        ? (exactDownloadedBytes ?? 0) / exactTotalBytes
+        : live != null
+            ? live.totalUnits > 0
                 ? live.completedUnits / live.totalUnits
                 : 0.0
         : total > 0
@@ -1696,9 +1738,25 @@ class _DownloadCard extends ConsumerWidget {
 
     final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
-    // The queue shows "En cours… · vitesse" while downloading. An ETA based
-    // on a guessed HLS denominator is deliberately not shown: it was the
-    // source of misleading values when the playlist size was unknown.
+    final etaSeconds = speedMbs >= 0.05 &&
+            exactTotalBytes != null &&
+            exactDownloadedBytes != null
+        ? ((exactTotalBytes - exactDownloadedBytes)
+                    .clamp(0, exactTotalBytes) /
+                (speedMbs * 1024 * 1024))
+            .ceil()
+        : null;
+    final byteDetails = exactDownloadedBytes != null
+        ? [
+            if (exactTotalBytes != null)
+              '${_formatBytes(exactDownloadedBytes)} / ${_formatBytes(exactTotalBytes)}'
+            else
+              _formatBytes(exactDownloadedBytes),
+            if (!isComplete && speedMbs >= 0.05)
+              '${speedMbs >= 10 ? speedMbs.toStringAsFixed(0) : speedMbs.toStringAsFixed(1)} MB/s',
+            if (!isComplete && etaSeconds != null) 'reste ${_formatEta(etaSeconds)}',
+          ].join(' • ')
+        : '';
     final epMatch = RegExp(r'S\s?\d{1,3}\s?[ExXÉ]\s?\d{1,3}', caseSensitive: false).firstMatch(chapter?.name ?? '');
     final epTag = epMatch?.group(0)?.replaceAll(RegExp(r'\s'), '');
     var srcBadge = (manga?.source ?? '').replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
@@ -1707,20 +1765,14 @@ class _DownloadCard extends ConsumerWidget {
     // Progress bar — no TweenAnimationBuilder so progress never "resets to 0"
     // on each Isar stream rebuild (the regression bug). Direct value is correct.
     final progressBar = !isComplete && (progress > 0 || isRetrievingMetadata)
-        ? ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: isRetrievingMetadata ? null : progress.clamp(0.0, 1.0),
-              minHeight: (layout == DownloadCardLayout.minimal || layout == DownloadCardLayout.compact) ? 2 : 4,
-              backgroundColor: scheme.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                hasFailed
-                    ? Colors.redAccent
-                    : isPaused
-                        ? Colors.orange
-                        : scheme.primary,
-              ),
-            ),
+        ? MbGradientProgressBar(
+            value: isRetrievingMetadata ? 0 : progress,
+            height: (layout == DownloadCardLayout.minimal ||
+                    layout == DownloadCardLayout.compact)
+                ? 2
+                : 4,
+            paused: isPaused,
+            failed: hasFailed,
           )
         : null;
 
@@ -2114,7 +2166,7 @@ class _DownloadCard extends ConsumerWidget {
       child: Row(
         children: [
           MbThumb(
-            imageUrl: manga?.imageUrl,
+            imageUrl: download.posterUrl ?? manga?.imageUrl,
             customBytes: manga?.customCoverImage?.cast<int>(),
             itemType: itemType,
             badge: srcBadge,
@@ -2158,28 +2210,22 @@ class _DownloadCard extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 7),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: progress > 0 ? progress.clamp(0.0, 1.0) : 0,
-                    minHeight: 3,
-                    backgroundColor: scheme.onSurface.withValues(alpha: 0.10),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      hasFailed ? mbRed : isPaused ? mbAmber : mbGreen,
-                    ),
-                  ),
+                MbGradientProgressBar(
+                  value: progress > 0 ? progress : 0,
+                  height: 3,
+                  paused: isPaused,
+                  failed: hasFailed,
                 ),
                 const SizedBox(height: 7),
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        isComplete
-                            ? (itemType == ItemType.anime &&
-                                    liveProgress?.totalBytes != null
-                                ? '${_formatBytes(liveProgress!.totalBytes!)}'
-                                : 'Terminé')
-                            : _buildProgressLabel(itemType, succeeded, total, failed),
+                        byteDetails.isNotEmpty
+                            ? byteDetails
+                            : isComplete
+                                ? 'Terminé'
+                                : _buildProgressLabel(itemType, succeeded, total, failed),
                         style: TextStyle(
                           color: scheme.onSurfaceVariant,
                           fontSize: 11,
@@ -2194,7 +2240,7 @@ class _DownloadCard extends ConsumerWidget {
                               ? 'En pause'
                               : isRetrievingMetadata
                                   ? 'Récupération…'
-                            : statusText,
+                                  : statusText,
                       style: TextStyle(
                         color: hasFailed
                             ? mbRed
@@ -2306,6 +2352,14 @@ class _DownloadCard extends ConsumerWidget {
       return '${(bytes / 1024).toStringAsFixed(1)} KB';
     }
     return '$bytes B';
+  }
+
+  String _formatEta(int seconds) {
+    if (seconds < 60) return '${seconds}s';
+    final minutes = seconds ~/ 60;
+    final remaining = seconds % 60;
+    if (minutes < 60) return '${minutes}m ${remaining}s';
+    return '${minutes ~/ 60}h ${minutes % 60}m';
   }
 }
 

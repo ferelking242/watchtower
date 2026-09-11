@@ -641,9 +641,26 @@ package com.watchtower.app
                   val title    = call.argument<String>("title")    ?: "Téléchargement en cours…"
                   val subtitle = call.argument<String>("subtitle") ?: ""
                   val progress = call.argument<Int>("progress")    ?: -1
+                  val downloadedBytes = call.argument<Number>("downloadedBytes")?.toLong() ?: 0L
+                  val totalBytes = call.argument<Number>("totalBytes")?.toLong()
+                  val speedMbs = call.argument<Number>("speedMbs")?.toDouble() ?: 0.0
+                  val etaSeconds = call.argument<Number>("etaSeconds")?.toInt()
+                  val quality = call.argument<String>("quality") ?: ""
                   when (call.method) {
-                      "start"  -> { DownloadForegroundService.start(applicationContext, count, title, subtitle, progress);  result.success(null) }
-                      "update" -> { DownloadForegroundService.update(applicationContext, count, title, subtitle, progress); result.success(null) }
+                      "start"  -> {
+                          DownloadForegroundService.start(
+                              applicationContext, count, title, subtitle, progress,
+                              downloadedBytes, totalBytes, speedMbs, etaSeconds, quality,
+                          )
+                          result.success(null)
+                      }
+                      "update" -> {
+                          DownloadForegroundService.update(
+                              applicationContext, count, title, subtitle, progress,
+                              downloadedBytes, totalBytes, speedMbs, etaSeconds, quality,
+                          )
+                          result.success(null)
+                      }
                       "stop"   -> { DownloadForegroundService.stop(applicationContext);                                     result.success(null) }
                       "openFile" -> { openDownloadedFile(call.argument("filePath")); result.success(null) }
                       else     -> result.notImplemented()

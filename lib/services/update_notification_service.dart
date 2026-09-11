@@ -1,35 +1,37 @@
 import 'dart:async';
-  import 'dart:convert';
+import 'dart:convert';
   import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
-  import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-  import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-  import 'package:http/http.dart' as http;
-  import 'package:package_info_plus/package_info_plus.dart';
-  import 'package:url_launcher/url_launcher.dart';
-  import 'package:watchtower/services/silent_installer_service.dart';
-  import 'package:watchtower/utils/log/logger.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:watchtower/router/router.dart';
+import 'package:watchtower/services/silent_installer_service.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
   const int _kUpdateNotifId = 9910;
   const int _kReminderNotifId = 9911;
-  const int _kProgressNotifId = 9912;
+const int _kProgressNotifId = 9912;
 int _nextMediaNotifId = 10000;
 
-  const String _kUpdateChannelId = 'watchtower_updates';
-  const String _kUpdateChannelName = 'Mises à jour';
-  const String _kReminderChannelId = 'watchtower_reminders';
-  const String _kReminderChannelName = 'Rappels';
+const String _kUpdateChannelId = 'watchtower_updates';
+const String _kUpdateChannelName = 'Mises à jour';
+const String _kReminderChannelId = 'watchtower_reminders';
+const String _kReminderChannelName = 'Rappels';
 const String _kDownloadChannelId = 'watchtower_downloads';
 const String _kDownloadChannelName = 'Téléchargements';
 
-  const String _kActionDownload = 'action_download';
-  const String _kActionWhatsNew = 'action_whats_new';
+const String _kActionDownload = 'action_download';
+const String _kActionWhatsNew = 'action_whats_new';
 const String _kActionInstall = 'action_install';
 const String _kActionPlay = 'action_play';
 
-  class WatchtowerNotificationService {
+class WatchtowerNotificationService {
     WatchtowerNotificationService._();
     static final WatchtowerNotificationService instance =
         WatchtowerNotificationService._();
@@ -127,37 +129,64 @@ const String _kActionPlay = 'action_play';
       }
     }
 
-    void _handleAction(NotificationResponse response) {
-        final actionId = response.actionId;
-        // Tapping the notification body (no action id) when install is pending
-        if ((actionId == null || actionId == _kActionInstall) && _pendingInstallPath != null) {
-          _installPending();
-        } else if (actionId == null || actionId == _kActionPlay) {
-          _openMediaPending(response.id ?? -1);
-        } else if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
-          _downloadOrOpen(_pendingDownloadUrl!);
-        } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {
-          launchUrl(
-            Uri.parse(_pendingReleaseUrl!),
-            mode: LaunchMode.externalApplication,
-          );
-        }
-      }
+  void _handleAction(NotificationResponse response) {
+    final actionId = response.actionId;
+    // Tapping the notification body (no action id) when install is pending.
+    if ((actionId == null || actionId == _kActionInstall) &&
+        _pendingInstallPath != null) {
+      unawaited(_installPending());
+    } else if (actionId == null || actionId == _kActionPlay) {
+      unawaited(_openMediaNotification(response));
+    } else if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
+      unawaited(_downloadOrOpen(_pendingDownloadUrl!));
+    } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {
+      unawaited(launchUrl(
+        Uri.parse(_pendingReleaseUrl!),
+        mode: LaunchMode.externalApplication,
+      ));
+    }
+  }
 
-      Future<void> _openMediaPending(int notificationId) async {
-        final path = _pendingMediaPaths[notificationId];
-        if (path == null) return;
-        try {
-          const channel = MethodChannel('watchtower/download_service');
-          await channel.invokeMethod<void>('openFile', {'filePath': path});
-        } catch (e) {
-          AppLogger.log(
-            'Unable to open completed media: $e',
-            logLevel: LogLevel.warning,
-            tag: LogTag.network,
-          );
+  Future<void> _openMediaNotification(NotificationResponse response) async {
+    Map<String, dynamic>? data;
+    if (response.payload != null && response.payload!.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(response.payload!);
+        if (decoded is Map) data = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    final notificationId = response.id ?? -1;
+    final path = data?['path'] as String? ?? _pendingMediaPaths[notificationId];
+    final chapterId = (data?['chapterId'] as num?)?.toInt();
+    if (path == null || path.isEmpty) return;
+
+    // The notification should return to Watchtower's own player. The chapter
+    // id is part of the payload so this still works after a process restart;
+    // the in-memory path map is only a fast path while the app is alive.
+    if (chapterId != null) {
+      for (var attempt = 0; attempt < 5; attempt++) {
+        final context = navigatorKey.currentContext;
+        if (context != null) {
+          GoRouter.of(context).push('/animePlayerView', extra: chapterId);
+          return;
         }
+        await Future<void>.delayed(const Duration(milliseconds: 250));
       }
+    }
+
+    // If the notification was created without a chapter id (for example an
+    // older queued notification), retain a safe fallback for that item.
+    try {
+      const channel = MethodChannel('watchtower/download_service');
+      await channel.invokeMethod<void>('openFile', {'filePath': path});
+    } catch (e) {
+      AppLogger.log(
+        'Unable to open completed media: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
 
       Future<void> _installPending() async {
         final path = _pendingInstallPath;
@@ -465,6 +494,7 @@ const String _kActionPlay = 'action_play';
   Future<void> showMediaDownloadComplete({
     required String title,
     required String filePath,
+    int? chapterId,
   }) async {
     if (!_supported) return;
     try {
@@ -500,6 +530,10 @@ const String _kActionPlay = 'action_play';
         'Téléchargement réussi',
         title,
         NotificationDetails(android: androidDetails),
+        payload: jsonEncode(<String, dynamic>{
+          'path': filePath,
+          if (chapterId != null) 'chapterId': chapterId,
+        }),
       );
     } catch (e) {
       AppLogger.log(
@@ -558,4 +592,6 @@ const String _kActionPlay = 'action_play';
 }
 
 @pragma('vm:entry-point')
-void _handleBackgroundAction(NotificationResponse response) {}
+void _handleBackgroundAction(NotificationResponse response) {
+  WatchtowerNotificationService.instance._handleAction(response);
+}

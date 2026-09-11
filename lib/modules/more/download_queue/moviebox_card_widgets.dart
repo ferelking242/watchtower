@@ -9,8 +9,8 @@ const Color mbTeal = Color(0xFF00BFA5);
 const Color mbAmber = Color(0xFFFFB300);
 const Color mbRed = Color(0xFFFF5252);
 
-/// Landscape cover thumbnail: centered play overlay for video rows and a
-/// bottom-left source badge on a dark scrim — MovieBox signature.
+/// Poster thumbnail: centered play overlay for video rows and a bottom-left
+/// source badge on a dark scrim — MovieBox signature.
 class MbThumb extends StatelessWidget {
   final String? imageUrl;
   final List<dynamic>? customBytes;
@@ -30,10 +30,10 @@ class MbThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // Keep the poster compact like MovieBox: the queue is a list first, not
-    // a gallery. This leaves room for the real byte progress and actions.
-    const w = 96.0;
-    const h = 54.0;
+    // A poster ratio keeps the queue recognizable at a glance while leaving
+    // the center column wide enough for exact byte progress and actions.
+    const w = 76.0;
+    const h = 108.0;
     final placeholder = Container(
       width: w,
       height: h,
@@ -119,6 +119,58 @@ class MbThumb extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class MbGradientProgressBar extends StatelessWidget {
+  final double value;
+  final double height;
+  final bool paused;
+  final bool failed;
+
+  const MbGradientProgressBar({
+    super.key,
+    required this.value,
+    this.height = 4,
+    this.paused = false,
+    this.failed = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final background = paused
+        ? mbAmber.withValues(alpha: 0.18)
+        : failed
+            ? mbRed.withValues(alpha: 0.18)
+            : scheme.onSurface.withValues(alpha: 0.10);
+    final gradient = failed
+        ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
+        : paused
+            ? const LinearGradient(colors: [mbAmber, Color(0xFFFF8F00)])
+            : const LinearGradient(colors: [mbGreen, mbTeal]);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(height / 2),
+      child: SizedBox(
+        height: height,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: background),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: value.clamp(0.0, 1.0).toDouble(),
+                  child: DecoratedBox(decoration: BoxDecoration(gradient: gradient)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -33,6 +33,7 @@ class DownloadForegroundService : Service() {
     companion object {
         private const val CHANNEL_ID  = "watchtower_downloads"
         private const val NOTIF_ID    = 7001
+        private const val SUMMARY_ID  = 7002
 
         const val ACTION_START  = "com.kodjodevf.watchtower.DOWNLOAD_START"
         const val ACTION_STOP   = "com.kodjodevf.watchtower.DOWNLOAD_STOP"
@@ -42,16 +43,29 @@ class DownloadForegroundService : Service() {
         const val EXTRA_TITLE    = "notif_title"
         const val EXTRA_SUBTITLE = "notif_subtitle"
         const val EXTRA_PROGRESS = "notif_progress"  // 0-100, -1 = indeterminate
+        const val EXTRA_DOWNLOADED_BYTES = "downloaded_bytes"
+        const val EXTRA_TOTAL_BYTES = "total_bytes"
+        const val EXTRA_SPEED_MBS = "speed_mbs"
+        const val EXTRA_ETA_SECONDS = "eta_seconds"
+        const val EXTRA_QUALITY = "quality"
+        private const val GROUP_KEY = "com.kodjodevf.watchtower.DOWNLOADS"
 
         // ── Static helpers called from MainActivity MethodChannel ─────────────
 
         fun start(context: Context, count: Int = 0, title: String = "Téléchargement en cours…",
-                  subtitle: String = "", progress: Int = -1) {
+                  subtitle: String = "", progress: Int = -1, downloadedBytes: Long = 0,
+                  totalBytes: Long? = null, speedMbs: Double = 0.0,
+                  etaSeconds: Int? = null, quality: String = "") {
             val i = intent(context, ACTION_START).apply {
                 putExtra(EXTRA_COUNT,    count)
                 putExtra(EXTRA_TITLE,   title)
                 putExtra(EXTRA_SUBTITLE, subtitle)
                 putExtra(EXTRA_PROGRESS, progress)
+                putExtra(EXTRA_DOWNLOADED_BYTES, downloadedBytes)
+                totalBytes?.let { putExtra(EXTRA_TOTAL_BYTES, it) }
+                putExtra(EXTRA_SPEED_MBS, speedMbs)
+                etaSeconds?.let { putExtra(EXTRA_ETA_SECONDS, it) }
+                putExtra(EXTRA_QUALITY, quality)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 context.startForegroundService(i)
@@ -60,12 +74,19 @@ class DownloadForegroundService : Service() {
         }
 
         fun update(context: Context, count: Int, title: String = "Téléchargement en cours…",
-                   subtitle: String = "", progress: Int = -1) {
+                   subtitle: String = "", progress: Int = -1, downloadedBytes: Long = 0,
+                   totalBytes: Long? = null, speedMbs: Double = 0.0,
+                   etaSeconds: Int? = null, quality: String = "") {
             val i = intent(context, ACTION_UPDATE).apply {
                 putExtra(EXTRA_COUNT,    count)
                 putExtra(EXTRA_TITLE,   title)
                 putExtra(EXTRA_SUBTITLE, subtitle)
                 putExtra(EXTRA_PROGRESS, progress)
+                putExtra(EXTRA_DOWNLOADED_BYTES, downloadedBytes)
+                totalBytes?.let { putExtra(EXTRA_TOTAL_BYTES, it) }
+                putExtra(EXTRA_SPEED_MBS, speedMbs)
+                etaSeconds?.let { putExtra(EXTRA_ETA_SECONDS, it) }
+                putExtra(EXTRA_QUALITY, quality)
             }
             context.startService(i)
         }
@@ -103,7 +124,17 @@ class DownloadForegroundService : Service() {
                 val title    = intent.getStringExtra(EXTRA_TITLE)    ?: "Téléchargement en cours…"
                 val subtitle = intent.getStringExtra(EXTRA_SUBTITLE) ?: ""
                 val progress = intent.getIntExtra(EXTRA_PROGRESS, -1)
-                val notif = buildNotif(count, title, subtitle, progress)
+                val downloadedBytes = intent.getLongExtra(EXTRA_DOWNLOADED_BYTES, 0)
+                val totalBytes = intent.getLongExtra(EXTRA_TOTAL_BYTES, -1)
+                    .takeIf { it > 0 }
+                val speedMbs = intent.getDoubleExtra(EXTRA_SPEED_MBS, 0.0)
+                val etaSeconds = intent.getIntExtra(EXTRA_ETA_SECONDS, -1)
+                    .takeIf { it >= 0 }
+                val quality = intent.getStringExtra(EXTRA_QUALITY) ?: ""
+                val notif = buildNotif(
+                    count, title, subtitle, progress, downloadedBytes,
+                    totalBytes, speedMbs, etaSeconds, quality,
+                )
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     // Android 14+ requires the foreground service type to be declared
                     startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -116,9 +147,28 @@ class DownloadForegroundService : Service() {
                 val title    = intent.getStringExtra(EXTRA_TITLE)    ?: "Téléchargement en cours…"
                 val subtitle = intent.getStringExtra(EXTRA_SUBTITLE) ?: ""
                 val progress = intent.getIntExtra(EXTRA_PROGRESS, -1)
-                nm.notify(NOTIF_ID, buildNotif(count, title, subtitle, progress))
+                val downloadedBytes = intent.getLongExtra(EXTRA_DOWNLOADED_BYTES, 0)
+                val totalBytes = intent.getLongExtra(EXTRA_TOTAL_BYTES, -1)
+                    .takeIf { it > 0 }
+                val speedMbs = intent.getDoubleExtra(EXTRA_SPEED_MBS, 0.0)
+                val etaSeconds = intent.getIntExtra(EXTRA_ETA_SECONDS, -1)
+                    .takeIf { it >= 0 }
+                val quality = intent.getStringExtra(EXTRA_QUALITY) ?: ""
+                nm.notify(
+                    NOTIF_ID,
+                    buildNotif(
+                        count, title, subtitle, progress, downloadedBytes,
+                        totalBytes, speedMbs, etaSeconds, quality,
+                    ),
+                )
+                if (count > 1) {
+                    nm.notify(SUMMARY_ID, buildSummaryNotif(count))
+                } else {
+                    nm.cancel(SUMMARY_ID)
+                }
             }
             ACTION_STOP -> {
+                nm.cancel(SUMMARY_ID)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
                     stopForeground(STOP_FOREGROUND_REMOVE)
                 else
@@ -132,14 +182,43 @@ class DownloadForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun buildNotif(count: Int, title: String, subtitle: String = "", progress: Int = -1): Notification {
+    private fun buildNotif(
+        count: Int,
+        title: String,
+        subtitle: String = "",
+        progress: Int = -1,
+        downloadedBytes: Long = 0,
+        totalBytes: Long? = null,
+        speedMbs: Double = 0.0,
+        etaSeconds: Int? = null,
+        quality: String = "",
+    ): Notification {
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val pi = PendingIntent.getActivity(
             this, 0, launchIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         // Body line: show subtitle if provided, otherwise fall back to count string.
-        val body = subtitle.ifEmpty {
+        val sizeText = if (totalBytes != null && totalBytes > 0) {
+            "${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)}"
+        } else if (downloadedBytes > 0) {
+            formatBytes(downloadedBytes)
+        } else {
+            ""
+        }
+        val speedText = if (speedMbs >= 0.05) {
+            "${if (speedMbs >= 10) "%.0f".format(speedMbs) else "%.1f".format(speedMbs)} MB/s"
+        } else {
+            ""
+        }
+        val etaText = etaSeconds?.let { "reste ${formatDuration(it)}" } ?: ""
+        val metrics = listOf(sizeText, speedText, etaText)
+            .filter { it.isNotEmpty() }
+            .joinToString(" • ")
+        val body = listOf(subtitle, quality, metrics)
+            .filter { it.isNotEmpty() }
+            .joinToString(" • ")
+            .ifEmpty {
             when {
                 count > 1  -> "$count téléchargements en cours"
                 count == 1 -> "1 téléchargement en cours"
@@ -154,6 +233,11 @@ class DownloadForegroundService : Service() {
             .setSilent(true)
             .setContentIntent(pi)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setGroup(GROUP_KEY)
+            .setSubText(
+                if (count > 1) "$count téléchargements actifs" else "Watchtower",
+            )
             // Show a determinate progress bar when we know the percentage,
             // or an indeterminate spinner while the download is starting up.
             .setProgress(
@@ -172,5 +256,38 @@ class DownloadForegroundService : Service() {
         }
 
         return builder.build()
+    }
+
+    private fun buildSummaryNotif(count: Int): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Téléchargements Watchtower")
+            .setContentText("$count téléchargements actifs")
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setGroup(GROUP_KEY)
+            .setGroupSummary(true)
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+    private fun formatBytes(bytes: Long): String = when {
+        bytes >= 1024L * 1024L * 1024L ->
+            "%.1f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
+        bytes >= 1024L * 1024L ->
+            "%.1f MB".format(bytes / (1024.0 * 1024.0))
+        bytes >= 1024L ->
+            "%.1f KB".format(bytes / 1024.0)
+        else -> "$bytes B"
+    }
+
+    private fun formatDuration(seconds: Int): String {
+        if (seconds < 60) return "${seconds}s"
+        val minutes = seconds / 60
+        val remainingSeconds = seconds % 60
+        return if (minutes < 60) {
+            "${minutes}m ${remainingSeconds}s"
+        } else {
+            "${minutes / 60}h ${minutes % 60}m"
+        }
     }
 }
