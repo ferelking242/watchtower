@@ -265,7 +265,7 @@ flutter:
   generate: true
 
   assets:
-    - assets/
+    - assets/transparent.png
     - assets/animations/
     - assets/trackers_icons/
     - assets/app_icons/

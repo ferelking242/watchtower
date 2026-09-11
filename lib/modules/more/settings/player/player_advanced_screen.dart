@@ -1,14 +1,13 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
-import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/mpv_config_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:path/path.dart' as path;
 
 class PlayerAdvancedScreen extends ConsumerStatefulWidget {
   const PlayerAdvancedScreen({super.key});
@@ -71,7 +70,7 @@ class _PlayerAdvancedScreenState extends ConsumerState<PlayerAdvancedScreen> {
     final mpvFile = File('${dir!.path}/mpv.conf');
     final inputFile = File('${dir.path}/input.conf');
     final filesMissing =
-        !(await mpvFile.exists()) && !(await inputFile.exists());
+        !(await mpvFile.exists()) || !(await inputFile.exists());
     if ((redownload || filesMissing) && context.mounted) {
       final res = await showDialog(
         context: context,
@@ -89,38 +88,17 @@ class _PlayerAdvancedScreenState extends ConsumerState<PlayerAdvancedScreen> {
                   const SizedBox(width: 15),
                   ElevatedButton(
                     onPressed: () async {
-                      final bytes = await rootBundle.load(
-                        "assets/watchtower_mpv.zip",
-                      );
-                      final archive = ZipDecoder().decodeBytes(
-                        bytes.buffer.asUint8List(),
-                      );
-                      String shadersDir = path.join(dir.path, 'shaders');
-                      await Directory(shadersDir).create(recursive: true);
-                      String scriptsDir = path.join(dir.path, 'scripts');
-                      await Directory(scriptsDir).create(recursive: true);
-                      for (final file in archive.files) {
-                        if (file.name == "mpv.conf") {
-                          await mpvFile.writeAsBytes(file.content);
-                        } else if (file.name == "input.conf") {
-                          await inputFile.writeAsBytes(file.content);
-                        } else if (file.name.startsWith("shaders/") &&
-                            file.name.endsWith(".glsl")) {
-                          final shaderFile = File(
-                            '$shadersDir/${file.name.split("/").last}',
-                          );
-                          await shaderFile.writeAsBytes(file.content);
-                        } else if (file.name.startsWith("scripts/") &&
-                            (file.name.endsWith(".js") ||
-                                file.name.endsWith(".lua"))) {
-                          final scriptFile = File(
-                            '$scriptsDir/${file.name.split("/").last}',
-                          );
-                          await scriptFile.writeAsBytes(file.content);
+                      try {
+                        await MpvConfigService.install(dir);
+                        if (context.mounted) {
+                          Navigator.pop(context, "ok");
                         }
-                      }
-                      if (context.mounted) {
-                        Navigator.pop(context, "ok");
+                      } catch (error) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(error.toString())),
+                          );
+                        }
                       }
                     },
                     child: Text(context.l10n.download),

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'utils/io_stub.dart';
 import 'package:app_links/app_links.dart';
-import 'package:archive/archive.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart'
     hide WebViewEnvironment, WebViewEnvironmentSettings;
 import 'package:flutter/foundation.dart';
@@ -56,11 +55,11 @@ import 'package:media_kit/media_kit.dart'
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:path/path.dart' as p;
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
+import 'package:watchtower/services/mpv_config_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
 import 'package:watchtower/services/device_capabilities.dart';
@@ -720,45 +719,10 @@ final followSystem = ref.watch(followSystemThemeStateProvider);
     final provider = StorageProvider();
     final dir = await provider.getMpvDirectory();
     if (dir == null) return;
-    final mpvFile = File('${dir.path}/mpv.conf');
-    final inputFile = File('${dir.path}/input.conf');
-    String shadersDir = p.join(dir.path, 'shaders');
-    String scriptsDir = p.join(dir.path, 'scripts');
     try {
-      await Directory(shadersDir).create(recursive: true);
-      await Directory(scriptsDir).create(recursive: true);
+      await MpvConfigService.ensureInstalled(dir);
     } catch (e) {
-      debugPrint('_setupMpvConfig: failed to create subdirectories: $e');
-      return;
-    }
-    final filesMissing =
-        !(await mpvFile.exists()) && !(await inputFile.exists());
-    if (filesMissing) {
-      try {
-        final bytes = await rootBundle.load("assets/watchtower_mpv.zip");
-        final archive = ZipDecoder().decodeBytes(bytes.buffer.asUint8List());
-        for (final file in archive.files) {
-          if (file.name == "mpv.conf") {
-            await mpvFile.writeAsBytes(file.content);
-          } else if (file.name == "input.conf") {
-            await inputFile.writeAsBytes(file.content);
-          } else if (file.name.startsWith("shaders/") &&
-              file.name.endsWith(".glsl")) {
-            final shaderFile = File(
-              '$shadersDir/${file.name.split("/").last}',
-            );
-            await shaderFile.writeAsBytes(file.content);
-          } else if (file.name.startsWith("scripts/") &&
-              (file.name.endsWith(".js") || file.name.endsWith(".lua"))) {
-            final scriptFile = File(
-              '$scriptsDir/${file.name.split("/").last}',
-            );
-            await scriptFile.writeAsBytes(file.content);
-          }
-        }
-      } catch (_) {
-        // MPV zip asset not available, directories already created above
-      }
+      debugPrint('_setupMpvConfig: deferred download failed: $e');
     }
   }
 
