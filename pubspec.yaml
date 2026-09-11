@@ -46,7 +46,9 @@ dependencies:
   media_kit: 1.2.2
   media_kit_video: 2.0.0
   media_kit_libs_video: 1.0.7
-  ffmpeg_kit_flutter_new: ^4.6.2
+  # Keep this exact: the Android AAR and its licensing/ABI review are tied to
+  # the reviewed release. Upgrade only with the process in docs/FFMPEG_MANAGEMENT.md.
+  ffmpeg_kit_flutter_new: 4.6.2
   crypto: ^3.0.7
   cupertino_icons: ^1.0.9
   d4rt: ^0.2.2

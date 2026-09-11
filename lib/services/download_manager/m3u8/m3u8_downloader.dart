@@ -10,6 +10,7 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
+import 'package:watchtower/services/download_manager/m3u8/ffmpeg_merge_service.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
@@ -17,8 +18,6 @@ import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
 import 'package:convert/convert.dart';
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 
 typedef TsMergeRunner =
     Future<void> Function(String outputFile, List<String> segmentPaths);
@@ -454,52 +453,10 @@ class M3u8Downloader {
   Future<void> _runFfmpegMerge(
     String outputFile,
     List<String> segmentPaths,
-  ) async {
-    final concatFile = File('$outputFile.concat.txt');
-    await concatFile.writeAsString(
-      segmentPaths
-          .map((segmentPath) => "file '${_escapeConcatPath(segmentPath)}'")
-          .join('\n'),
-      flush: true,
-    );
-
-    try {
-      final session = await FFmpegKit.executeWithArguments([
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-f',
-        'concat',
-        '-safe',
-        '0',
-        '-i',
-        concatFile.path,
-        '-map',
-        '0',
-        '-c',
-        'copy',
-        '-movflags',
-        '+faststart',
-        '-y',
-        outputFile,
-      ]);
-      final returnCode = await session.getReturnCode();
-      if (!ReturnCode.isSuccess(returnCode)) {
-        final output = await session.getOutput();
-        throw M3u8DownloaderException(
-          'FFmpeg merge failed (return code $returnCode)'
-          '${output == null || output.trim().isEmpty ? '' : ': $output'}',
-        );
-      }
-    } finally {
-      if (await concatFile.exists()) {
-        await concatFile.delete();
-      }
-    }
-  }
-
-  String _escapeConcatPath(String value) =>
-      value.replaceAll('\\', '\\\\').replaceAll("'", "'\\''");
+  ) => FfmpegMergeService.mergeTsToMp4(
+    outputFile: outputFile,
+    segmentPaths: segmentPaths,
+  );
 
   Future<String> _getM3u8Body(String url) async {
     final effectiveHeaders = _buildEffectiveHeaders(urlOverride: url);
