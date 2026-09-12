@@ -73,44 +73,50 @@ class DiscoveryStage {
       final dir = Directory(root);
       if (!dir.existsSync()) continue;
 
-      await for (final entity in dir.list(
-        recursive: true,
-        followLinks: followLinks,
-      )) {
-        if (entity is! File) continue;
+      try {
+        await for (final entity in dir.list(
+          recursive: true,
+          followLinks: followLinks,
+        )) {
+          if (entity is! File) continue;
 
-        if (_isInExcludedDir(entity.path)) continue;
-        if (policy.maximumDepth != null &&
-            _relativeDepth(entity.path, root) > policy.maximumDepth!) {
-          continue;
+          if (_isInExcludedDir(entity.path)) continue;
+          if (policy.maximumDepth != null &&
+              _relativeDepth(entity.path, root) > policy.maximumDepth!) {
+            continue;
+          }
+
+          final ext = p.extension(entity.path).toLowerCase();
+          if (!allowed.contains(ext)) continue;
+
+          // Lire seulement la stat (taille + mtime), jamais le contenu
+          FileStat stat;
+          try {
+            stat = entity.statSync();
+          } catch (_) {
+            // A single inaccessible file must not abort the whole library scan.
+            continue;
+          }
+          if (stat.size < policy.minimumFileSize || !seen.add(entity.path)) {
+            continue;
+          }
+
+          batch.add(DiscoveredFile(
+            path: entity.path,
+            size: stat.size,
+            modifiedAt: stat.modified.millisecondsSinceEpoch,
+            extension: ext,
+          ));
+
+          if (batch.length >= batchSize) {
+            yield List.unmodifiable(batch);
+            batch.clear();
+          }
         }
-
-        final ext = p.extension(entity.path).toLowerCase();
-        if (!allowed.contains(ext)) continue;
-
-        // Lire seulement la stat (taille + mtime), jamais le contenu
-        FileStat stat;
-        try {
-          stat = entity.statSync();
-        } catch (_) {
-          // A single inaccessible file must not abort the whole library scan.
-          continue;
-        }
-        if (stat.size < policy.minimumFileSize || !seen.add(entity.path)) {
-          continue;
-        }
-
-        batch.add(DiscoveredFile(
-          path: entity.path,
-          size: stat.size,
-          modifiedAt: stat.modified.millisecondsSinceEpoch,
-          extension: ext,
-        ));
-
-        if (batch.length >= batchSize) {
-          yield List.unmodifiable(batch);
-          batch.clear();
-        }
+      } on FileSystemException {
+        // Scoped storage may expose a MediaStore entry while denying a
+        // recursive filesystem walk. Continue with the other roots and with
+        // the files already supplied by MediaStore.
       }
     }
 

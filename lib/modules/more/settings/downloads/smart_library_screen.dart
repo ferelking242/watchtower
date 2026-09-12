@@ -27,17 +27,21 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   bool _starting = false;
 
   Future<List<String>> _scanRoots() async {
-    final base = await StorageProvider().getDefaultDirectory();
+    final storage = StorageProvider();
+    final base = await storage.getDefaultDirectory();
     final roots = <String>[
       if (base != null) base.path,
     ];
 
-    // MediaStore is the primary Android discovery path.  Add the shared
-    // storage filesystem only when the user has already granted access; never
-    // prompt from this screen just to render the library.
+    // MediaStore is the primary Android discovery path. Request its split
+    // media permission when the user explicitly starts a scan. The shared
+    // filesystem walk remains opt-in and is added only when it is readable.
+    if (!kIsWeb && Platform.isAndroid) {
+      await storage.requestMediaPermission(requestIfNeeded: true);
+    }
     if (!kIsWeb &&
         Platform.isAndroid &&
-        await StorageProvider().requestPermission(requestIfNeeded: false)) {
+        await storage.requestPermission(requestIfNeeded: false)) {
       const sharedStorage = '/storage/emulated/0';
       if (Directory(sharedStorage).existsSync()) roots.add(sharedStorage);
     }

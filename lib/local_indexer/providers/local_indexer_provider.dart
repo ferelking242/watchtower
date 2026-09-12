@@ -21,6 +21,11 @@ final _sharedSearchEngine = LocalSearchEngine();
 /// Dispose automatiquement quand plus personne ne l'écoute.
 @riverpod
 IndexerEngine localIndexerEngine(Ref ref) {
+  // A scan is started from an imperative action (`ref.read`) rather than
+  // through a widget subscription. Keep the engine alive until the container
+  // itself is disposed, otherwise Riverpod can dispose it while scan() is
+  // awaiting filesystem or isolate work.
+  ref.keepAlive();
   final engine = IndexerEngine(
     isar: isar,
     searchEngine: _sharedSearchEngine,
@@ -45,7 +50,12 @@ Stream<IndexerStatus> indexerStatus(Ref ref) {
 @riverpod
 class LocalIndexerScan extends _$LocalIndexerScan {
   @override
-  AsyncValue<IndexerStats?> build() => const AsyncValue.data(null);
+  AsyncValue<IndexerStats?> build() {
+    // The scan action is invoked with ref.read(...notifier), so there may be
+    // no listener keeping this auto-dispose notifier alive during the await.
+    ref.keepAlive();
+    return const AsyncValue.data(null);
+  }
 
   /// Démarre un scan sur [roots].
   Future<void> scan(List<String> roots) async {

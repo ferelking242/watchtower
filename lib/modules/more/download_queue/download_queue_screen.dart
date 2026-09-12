@@ -42,7 +42,31 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     // Kick off any pending downloads that were left in queue
     // when the app was closed or the screen was dismissed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(processDownloadsProvider());
+      if (!mounted) return;
+      _cleanupOrphanedDownloads();
+      ref.read(processDownloadsProvider());
+    });
+  }
+
+  void _cleanupOrphanedDownloads() {
+    final orphanIds = <int>[];
+    for (final download in isar.downloads.where().findAllSync()) {
+      download.chapter.loadSync();
+      if (download.chapter.value == null) {
+        if (download.id != null) orphanIds.add(download.id!);
+        continue;
+      }
+      download.chapter.value!.manga.loadSync();
+      if (download.chapter.value!.manga.value == null &&
+          download.id != null) {
+        orphanIds.add(download.id!);
+      }
+    }
+    if (orphanIds.isEmpty) return;
+    isar.writeTxnSync(() {
+      for (final id in orphanIds) {
+        isar.downloads.deleteSync(id);
+      }
     });
   }
 
@@ -59,7 +83,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     final swipeLeft = ref.watch(swipeLeftActionStateProvider);
     final swipeRight = ref.watch(swipeRightActionStateProvider);
 
-    return StreamBuilder(
+    return StreamBuilder<List<Download>>(
       stream: isar.downloads
           .filter()
           .idIsNotNull()
@@ -67,25 +91,45 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
           .isStartDownloadEqualTo(true)
           .watch(fireImmediately: true),
       builder: (context, snapshot) {
-        final allEntries = snapshot.data ?? [];
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(
+              leading: const BackButton(),
+              title: const Text('Téléchargements'),
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 48),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Impossible de charger la file de téléchargement.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${snapshot.error}',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
 
-        // Clean orphaned downloads (no chapter/manga linked)
-        final orphanIds = <int>[];
+        final allEntries = snapshot.data ?? const <Download>[];
         final entries = <Download>[];
         for (final d in allEntries) {
-          if (d.chapter.value == null ||
-              d.chapter.value?.manga.value == null) {
-            if (d.id != null) orphanIds.add(d.id!);
-          } else {
+          d.chapter.loadSync();
+          d.chapter.value?.manga.loadSync();
+          if (d.chapter.value?.manga.value != null) {
             entries.add(d);
           }
-        }
-        if (orphanIds.isNotEmpty) {
-          isar.writeTxnSync(() {
-            for (final id in orphanIds) {
-              isar.downloads.deleteSync(id);
-            }
-          });
         }
 
         // Split into 3 tabs by ItemType

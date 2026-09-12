@@ -54,6 +54,47 @@ class StorageProvider {
     return false;
   }
 
+  /// Requests the media permissions used by Smart Library's MediaStore scan.
+  ///
+  /// Android 13 split the old storage permission into separate media
+  /// permissions.  Checking only [Permission.storage] therefore reports
+  /// "not granted" even when the app is allowed to read videos and images.
+  /// The shared filesystem permission is still checked separately by callers
+  /// before they attempt a recursive Directory scan.
+  Future<bool> requestMediaPermission({bool requestIfNeeded = true}) async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+
+    if (await Permission.manageExternalStorage.isGranted ||
+        await Permission.storage.isGranted) {
+      return true;
+    }
+
+    final videoStatus = await Permission.videos.status;
+    final imageStatus = await Permission.photos.status;
+    if (videoStatus.isGranted ||
+        videoStatus.isLimited ||
+        imageStatus.isGranted ||
+        imageStatus.isLimited) {
+      return true;
+    }
+
+    if (!requestIfNeeded) return false;
+
+    final requested = await [
+      Permission.videos,
+      Permission.photos,
+    ].request();
+    if (requested.values.any(
+      (status) => status.isGranted || status.isLimited,
+    )) {
+      return true;
+    }
+
+    // Android 12 and earlier still use the legacy storage permission.
+    final legacy = await Permission.storage.request();
+    return legacy.isGranted || legacy.isLimited;
+  }
+
   // Resolves the app's base "watchtower" folder on Android.
   //
   // Previously this always hardcoded /storage/emulated/0/watchtower/, even
