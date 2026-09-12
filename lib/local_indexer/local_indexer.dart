@@ -79,7 +79,7 @@ export 'cache/file_cache.dart' show FileCache, CacheStats;
 export 'engine/indexer_engine.dart'
     show IndexerEngine, IndexerStatus, IndexerStats;
 export 'engine/pipeline/discovery_stage.dart'
-    show DiscoveryStage, DiscoveredFile, FileCategory;
+    show DiscoveryStage, DiscoveredFile, FileCategory, ScanPolicy;
 export 'engine/watcher/fs_watcher.dart' show FsWatcher, FsEvent, FsEventType;
 export 'engine/watcher/android_media_store.dart'
     show AndroidMediaStore, MediaStoreEntry;

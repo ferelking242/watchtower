@@ -117,6 +117,16 @@ class NameNormalizer {
 
     // ── 8. Reconstitution du titre ────────────────────────────────────────
     final rawTitle = titleTokens.join(' ');
+    String? yearFallback;
+    if (titleTokens.isEmpty) {
+      for (final token in tokens) {
+        final value = int.tryParse(token);
+        if (value != null && value >= 1900 && value <= 2099) {
+          yearFallback = token;
+          break;
+        }
+      }
+    }
     final title = _cleanTitle(rawTitle);
 
     // ── 9. Clé canonique ──────────────────────────────────────────────────
@@ -135,7 +145,9 @@ class NameNormalizer {
     );
 
     return NormalizeResult(
-      title: title.isEmpty ? _fallbackTitle(filename) : title,
+      title: title.isEmpty
+          ? (yearFallback ?? _fallbackTitle(filename))
+          : title,
       canonicalKey: canonical,
       kind: kind,
       season: episode.season,
@@ -181,10 +193,22 @@ class NameNormalizer {
     if (const {'.epub', '.mobi', '.azw3'}.contains(ext)) {
       return LocalMediaKind.novel;
     }
-    // Vidéo → anime ou série ou film
-    if (const {'.mkv', '.mp4', '.avi', '.mov', '.flv', '.wmv', '.mpeg', '.ts'}.contains(ext)) {
+    // Vidéo → anime, série ou film.  An episode is a series by default;
+    // "anime" is reserved for an explicit anime directory signal so that
+    // ordinary TV episodes are not misclassified.
+    if (const {
+      '.mkv', '.mp4', '.avi', '.mov', '.flv', '.wmv', '.mpeg', '.mpg', '.ts',
+      '.m2ts', '.mts', '.m4v', '.webm', '.3gp',
+    }.contains(ext)) {
       if (ep.episode != null || ep.season != null) {
-        return LocalMediaKind.anime; // heuristique : épisode → anime (peut être série)
+        final pathParts = filename
+            .split(RegExp(r'[/\\]'))
+            .map((part) => part.toLowerCase())
+            .toSet();
+        if (pathParts.contains('anime') || pathParts.contains('anime series')) {
+          return LocalMediaKind.anime;
+        }
+        return LocalMediaKind.series;
       }
       return LocalMediaKind.movie;
     }

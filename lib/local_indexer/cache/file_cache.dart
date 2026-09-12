@@ -28,8 +28,24 @@ class FileCache {
   Future<LocalFileCache?> check(File file) async {
     final path = file.path;
     final stat = await file.stat();
-    final currentSize = stat.size;
-    final currentMtime = stat.modified.millisecondsSinceEpoch;
+    return checkSignature(
+      path: path,
+      size: stat.size,
+      modifiedAt: stat.modified.millisecondsSinceEpoch,
+    );
+  }
+
+  /// Checks a discovery signature without opening the file again.
+  ///
+  /// MediaStore entries may be represented by a content URI, so the indexer
+  /// must be able to use the native size/mtime values directly.
+  Future<LocalFileCache?> checkSignature({
+    required String path,
+    required int size,
+    required int modifiedAt,
+  }) async {
+    final currentSize = size;
+    final currentMtime = modifiedAt;
 
     // Tier 1 : RAM
     final ram = _ramCache[path];

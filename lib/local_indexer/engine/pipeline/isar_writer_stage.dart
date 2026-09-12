@@ -137,6 +137,28 @@ class IsarWriterStage {
 
     // ── Écriture Isar en une seule transaction ─────────────────────────────
     await _isar.writeTxn(() async {
+      // Preserve the stable local identity when a file is modified.  An
+      // auto-increment object with a unique filePath would otherwise create a
+      // second logical entry or fail on the unique index.
+      for (var i = 0; i < newItems.length; i++) {
+        final existing = await _isar.localIndexedItems
+            .where()
+            .filePathEqualTo(newItems[i].filePath)
+            .findFirst();
+        if (existing != null) {
+          newItems[i].id = existing.id;
+          newItems[i].duplicateIds = List<int>.from(existing.duplicateIds);
+        }
+        final existingCache = await _isar.localFileCaches
+            .where()
+            .filePathEqualTo(cacheEntries[i].filePath)
+            .findFirst();
+        if (existingCache != null) {
+          cacheEntries[i].id = existingCache.id;
+          cacheEntries[i].scanCount = existingCache.scanCount + 1;
+        }
+      }
+
       // Upsert des items (put = insert or replace par filePath unique)
       await _isar.localIndexedItems.putAll(newItems);
 
@@ -179,11 +201,21 @@ class IsarWriterStage {
 
   /// Relie les entrées doublons entre elles via [LocalIndexedItem.duplicateIds].
   Future<void> _linkDuplicates(List<LocalIndexedItem> items) async {
-    // Grouper par clé canonique + épisode
+    // Include items already persisted in previous scans.  Linking only the
+    // current batch would make duplicate/version detection order-dependent.
     final groups = <String, List<LocalIndexedItem>>{};
-    for (final item in items) {
-      final key = _itemEpisodeKey(item);
-      (groups[key] ??= []).add(item);
+    final keys = items.map(_itemEpisodeKey).toSet();
+    for (final key in keys) {
+      final canonical = key.split('_').first;
+      final persisted = await _isar.localIndexedItems
+          .where()
+          .canonicalKeyEqualTo(canonical)
+          .findAll();
+      for (final item in persisted) {
+        if (_itemEpisodeKey(item) == key) {
+          (groups[key] ??= []).add(item);
+        }
+      }
     }
 
     // Pour les groupes avec plusieurs éléments, relier les IDs

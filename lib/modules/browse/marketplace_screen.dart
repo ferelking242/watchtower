@@ -238,11 +238,11 @@ class _NativeToolsTab extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _NativeToolCard(
-          label: 'Local Indexer',
-          subtitle: 'Bibliothèque locale — Anime, Manga, Novel…',
-          icon: Icons.collections_bookmark_rounded,
+          label: 'Smart Library',
+          subtitle: 'Découvre et organise tous tes médias locaux',
+          icon: Icons.auto_awesome_motion_rounded,
           color: const Color(0xFF5C6BC0),
-          onTap: () => context.push('/localSources', extra: ItemType.anime),
+          onTap: () => context.push('/smartLibrary'),
         ),
       ],
     );

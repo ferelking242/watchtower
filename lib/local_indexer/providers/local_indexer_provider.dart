@@ -60,6 +60,12 @@ class LocalIndexerScan extends _$LocalIndexerScan {
     }
   }
 
+  /// Refreshes the index without deleting persisted fingerprints.
+  Future<void> refresh(List<String> roots) => scan(roots);
+
+  /// A deliberate full verification still reuses unchanged file signatures.
+  Future<void> fullRescan(List<String> roots) => scan(roots);
+
   /// Démarre la surveillance temps réel après un premier scan.
   Future<void> startWatching(List<String> roots) async {
     final engine = ref.read(localIndexerEngineProvider);
@@ -116,14 +122,11 @@ Future<Map<LocalMediaKind, int>> localIndexedCountByKind(Ref ref) async {
 
 /// Récupère les items récemment indexés (triés par date d'indexation).
 @riverpod
-Future<List<LocalIndexedItem>> recentlyIndexed(
-  Ref ref, {
-  int limit = 20,
-}) async {
+Future<List<LocalIndexedItem>> recentlyIndexed(Ref ref) async {
   return isar.localIndexedItems
       .where()
       .sortByIndexedAtDesc()
-      .limit(limit)
+      .limit(80)
       .findAll();
 }
 

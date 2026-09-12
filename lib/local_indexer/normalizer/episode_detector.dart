@@ -34,6 +34,9 @@ class EpisodeDetector {
     r'^[Ss](\d{1,3})[Ee](\d{1,4})(?:[Ee](\d{1,4}))?$',
   );
 
+  // 1x05 / 01x05
+  static final _seasonXEpisode = RegExp(r'^(\d{1,3})[Xx](\d{1,4})$');
+
   // E05 / E5 standalone
   static final _eX = RegExp(r'^[Ee](\d{1,4})$');
 
@@ -75,16 +78,43 @@ class EpisodeDetector {
       // S01E05
       final m1 = _sXeX.firstMatch(t);
       if (m1 != null) {
-        season = int.parse(m1.group(1)!);
-        episode = int.parse(m1.group(2)!);
+        season ??= int.parse(m1.group(1)!);
+        episode ??= int.parse(m1.group(2)!);
         consumed.add(i);
         continue;
+      }
+
+      // 1x05
+      final mx = _seasonXEpisode.firstMatch(t);
+      if (mx != null) {
+        season ??= int.parse(mx.group(1)!);
+        episode ??= int.parse(mx.group(2)!);
+        consumed.add(i);
+        continue;
+      }
+
+      // "Season 1 Episode 2"
+      if (t.toLowerCase() == 'season' && i + 1 < tokens.length) {
+        final seasonNumber = int.tryParse(tokens[i + 1]);
+        if (seasonNumber != null) {
+          season ??= seasonNumber;
+          consumed.addAll({i, i + 1});
+          continue;
+        }
+      }
+      if (t.toLowerCase() == 'episode' && i + 1 < tokens.length) {
+        final episodeNumber = int.tryParse(tokens[i + 1]);
+        if (episodeNumber != null) {
+          episode ??= episodeNumber;
+          consumed.addAll({i, i + 1});
+          continue;
+        }
       }
 
       // S01 standalone
       final m3 = _sX.firstMatch(t);
       if (m3 != null) {
-        season = int.parse(m3.group(1)!);
+        season ??= int.parse(m3.group(1)!);
         consumed.add(i);
         continue;
       }
@@ -92,7 +122,7 @@ class EpisodeDetector {
       // E05 standalone
       final m2 = _eX.firstMatch(t);
       if (m2 != null) {
-        episode = int.parse(m2.group(1)!);
+        episode ??= int.parse(m2.group(1)!);
         consumed.add(i);
         continue;
       }
@@ -100,7 +130,7 @@ class EpisodeDetector {
       // Episode word
       final m4 = _epWord.firstMatch(t);
       if (m4 != null) {
-        episode = int.parse(m4.group(1)!);
+        episode ??= int.parse(m4.group(1)!);
         consumed.add(i);
         continue;
       }
@@ -132,6 +162,9 @@ class EpisodeDetector {
         final n = int.parse(m.group(1)!);
         // Ignorer si c'est une résolution connue
         if (_resolutions.contains(n.toString())) continue;
+        // Four-digit numbers in the year range belong to a movie title,
+        // not to an episode number (e.g. Interstellar.2014 or 1917.2019).
+        if (n >= 1900 && n <= 2099) continue;
         // Ne prendre que si c'est dans un range raisonnable pour un épisode
         if (n >= 1 && n <= 9999) {
           episode = n;

@@ -7,6 +7,7 @@ import 'package:watchtower/local_indexer/engine/isolate_pool.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/analysis_stage.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/isar_writer_stage.dart';
+import 'package:watchtower/local_indexer/engine/watcher/android_media_store.dart';
 import 'package:watchtower/local_indexer/engine/watcher/fs_watcher.dart';
 import 'package:watchtower/local_indexer/models/local_file_cache.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
@@ -33,7 +34,7 @@ class IndexerEngine {
   late final DiscoveryStage _discovery;
   late final IsarWriterStage _writer;
   late final IsolatePool _pool;
-  late final FsWatcher _watcher;
+  FsWatcher? _watcher;
 
   bool _initialized = false;
   bool _scanning = false;
@@ -54,7 +55,6 @@ class IndexerEngine {
   /// Initialise le moteur : pool d'isolates + chargement de l'index existant.
   Future<void> initialize() async {
     if (_initialized) return;
-    _initialized = true;
 
     // Construire le pool d'isolates pour l'analyse parallèle
     _pool = await IsolatePool.create(
@@ -73,6 +73,7 @@ class IndexerEngine {
     // Charger l'index existant depuis Isar dans le SearchEngine en mémoire
     await _loadExistingIndex();
 
+    _initialized = true;
     _emit(const IndexerStatus.idle());
   }
 
@@ -90,13 +91,32 @@ class IndexerEngine {
     final stopwatch = Stopwatch()..start();
     int discovered = 0, cached = 0, analyzed = 0;
 
-    _emit(IndexerStatus.scanning(0, roots.length));
+    _emit(const IndexerStatus.scanning(0, 0));
 
     try {
       _writer.startAutoFlush();
 
       // ── 1. Découverte ──────────────────────────────────────────────────────
-      await for (final batch in _discovery.discover(roots)) {
+      final mediaStoreFiles = <DiscoveredFile>[];
+      if (AndroidMediaStore.isAvailable) {
+        try {
+          final entries = await AndroidMediaStore.queryVideos();
+          mediaStoreFiles.addAll(entries.map((entry) => DiscoveredFile(
+                path: entry.path,
+                size: entry.size,
+                modifiedAt: entry.modifiedAt,
+                extension: _ext(entry.path),
+              )));
+        } on MediaStoreException {
+          // The filesystem fallback still works when MediaStore permission
+          // is unavailable or the device does not expose the bridge.
+        }
+      }
+
+      await for (final batch in _discovery.discover(
+        roots,
+        additionalFiles: mediaStoreFiles,
+      )) {
         discovered += batch.length;
         _emit(IndexerStatus.scanning(discovered, 0));
 
@@ -104,8 +124,11 @@ class IndexerEngine {
         final toAnalyze = <DiscoveredFile>[];
 
         for (final file in batch) {
-          final f = File(file.path);
-          final cached_ = await _cache.check(f);
+          final cached_ = await _cache.checkSignature(
+            path: file.path,
+            size: file.size,
+            modifiedAt: file.modifiedAt,
+          );
           if (cached_ != null) {
             cached++;
           } else {
@@ -130,13 +153,14 @@ class IndexerEngine {
 
       // Purge des orphelins du cache (fichiers supprimés)
       final orphans = await _cache.purgeOrphans();
+      final missingIndexed = await _removeMissingIndexedItems(roots);
 
       stopwatch.stop();
       final stats = IndexerStats(
         discovered: discovered,
         cached: cached,
         analyzed: analyzed,
-        orphansPurged: orphans,
+        orphansPurged: orphans + missingIndexed,
         duration: stopwatch.elapsed,
         writerStats: _writer.stats,
       );
@@ -159,11 +183,13 @@ class IndexerEngine {
   /// ciblée de l'index — sans rescanner tout le disque.
   Future<void> startWatching(List<String> roots) async {
     if (!_initialized) await initialize();
+    await stopWatching();
 
-    _watcher = FsWatcher(roots);
-    await _watcher.start();
+    final watcher = FsWatcher(roots);
+    _watcher = watcher;
+    await watcher.start();
 
-    _watcherSub = _watcher.events.listen(
+    _watcherSub = watcher.events.listen(
       _handleFsEvent,
       onError: (e) => _emit(IndexerStatus.error('Watcher error: $e')),
     );
@@ -173,14 +199,15 @@ class IndexerEngine {
   Future<void> stopWatching() async {
     await _watcherSub?.cancel();
     _watcherSub = null;
-    await _watcher.dispose();
+    await _watcher?.dispose();
+    _watcher = null;
   }
 
   // ── Nettoyage ───────────────────────────────────────────────────────────────
 
   Future<void> dispose() async {
     await stopWatching();
-    await _pool.dispose();
+    if (_initialized) await _pool.dispose();
     await _statusController.close();
   }
 
@@ -253,7 +280,12 @@ class IndexerEngine {
     final file = File(path);
     if (!file.existsSync()) return;
 
-    final stat = file.statSync();
+    late final FileStat stat;
+    try {
+      stat = file.statSync();
+    } catch (_) {
+      return;
+    }
     final discovered = DiscoveredFile(
       path: path,
       size: stat.size,
@@ -280,6 +312,30 @@ class IndexerEngine {
     });
     await _cache.evict(path);
   }
+
+  Future<int> _removeMissingIndexedItems(List<String> roots) async {
+    final items = await _isar.localIndexedItems.where().findAll();
+    final normalizedRoots = roots.map(_normalizeRoot).toList();
+    final missing = items.where((item) {
+      final path = _normalizeRoot(item.filePath);
+      final belongsToScan = normalizedRoots.any(
+        (root) => path == root || path.startsWith('$root/'),
+      );
+      return belongsToScan && !File(item.filePath).existsSync();
+    }).toList();
+    if (missing.isEmpty) return 0;
+
+    await _isar.writeTxn(() async {
+      await _isar.localIndexedItems.deleteAll(missing.map((item) => item.id).toList());
+    });
+    for (final item in missing) {
+      searchEngine.remove(item.id);
+    }
+    return missing.length;
+  }
+
+  String _normalizeRoot(String value) =>
+      value.replaceAll('\\', '/').replaceFirst(RegExp(r'/$'), '');
 
   String _ext(String path) {
     final i = path.lastIndexOf('.');

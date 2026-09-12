@@ -203,6 +203,31 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                           itemType: widget.itemType,
                         ),
                       ),
+                      SliverToBoxAdapter(
+                        child: Card(
+                          margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                          elevation: 0,
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer,
+                              child: Icon(
+                                Icons.auto_awesome_motion_rounded,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer,
+                              ),
+                            ),
+                            title: const Text('Smart Library'),
+                            subtitle: const Text(
+                              'Discover and organize local media',
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => context.push('/smartLibrary'),
+                          ),
+                        ),
+                      ),
                       // Espace en bas : remonte la source locale au-dessus du dock
                       const SliverToBoxAdapter(child: SizedBox(height: 120)),
                     ],
