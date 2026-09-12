@@ -83,10 +83,15 @@ class DownloadLocationState extends _$DownloadLocationState {
 
   void set(String location) {
     final settings = isar.settings.getSync(kSettingsId);
-    state = (path.join(_storageProvider!.path, 'download'), location);
+    final basePath = _storageProvider?.path;
+    state = (
+      basePath == null ? "" : path.join(basePath, 'download'),
+      location,
+    );
+    if (settings == null) return;
     isar.writeTxnSync(
       () => isar.settings.putSync(
-        settings!
+        settings
           ..downloadLocation = location
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),
@@ -96,12 +101,21 @@ class DownloadLocationState extends _$DownloadLocationState {
   Directory? _storageProvider;
 
   Future _refresh() async {
-    _storageProvider = await StorageProvider().getDefaultDirectory();
-    final settings = isar.settings.getSync(kSettingsId);
-    state = (
-      path.join(_storageProvider!.path, 'download'),
-      settings!.downloadLocation ?? "",
-    );
+    try {
+      _storageProvider = await StorageProvider().getDefaultDirectory();
+      final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+      final basePath = _storageProvider?.path;
+      state = (
+        basePath == null ? "" : path.join(basePath, 'download'),
+        settings.downloadLocation ?? "",
+      );
+    } catch (_) {
+      // Keep the provider usable while storage is unavailable. The download
+      // action will report the concrete filesystem error instead of crashing
+      // the settings screen during its first build.
+      final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+      state = ("", settings.downloadLocation ?? "");
+    }
   }
 }
 

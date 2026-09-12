@@ -727,6 +727,12 @@ Future<void> downloadChapter(
       mangaMainDirectory: mangaMainDirectory,
     ))!;
     await storageProvider.createDirectorySafely(chapterDirectory.path);
+    if (!await chapterDirectory.exists()) {
+      throw FileSystemException(
+        'Impossible de créer le dossier de téléchargement',
+        chapterDirectory.path,
+      );
+    }
     Map<String, String> videoHeader = {};
     Map<String, String> htmlHeader = {
       "Priority": "u=0, i",

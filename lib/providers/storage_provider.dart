@@ -30,17 +30,25 @@ class StorageProvider {
   StorageProvider._internal();
   factory StorageProvider() => _instance;
 
-  /// Check (and optionally request) MANAGE_EXTERNAL_STORAGE on Android.
+  /// Check (and optionally request) the storage permission on Android.
   ///
   /// [requestIfNeeded] — when true (default) the real OS dialog / Settings
   /// intent is shown if the permission is not yet granted.  Pass false to
   /// perform a silent status-only check without prompting the user.
   Future<bool> requestPermission({bool requestIfNeeded = true}) async {
     if (kIsWeb || !Platform.isAndroid) return true;
-    Permission permission = Permission.manageExternalStorage;
-    if (await permission.isGranted) return true;
+    // MANAGE_EXTERNAL_STORAGE is the permission needed for the shared
+    // /storage/emulated/0/watchtower location on Android 11+.  On older
+    // Android versions permission_handler exposes the legacy storage
+    // permission instead.  Do not require both: either one is sufficient,
+    // and the app-scoped fallback works even when neither is granted.
+    if (await Permission.manageExternalStorage.isGranted ||
+        await Permission.storage.isGranted) {
+      return true;
+    }
     if (!requestIfNeeded) return false;
-    if (await permission.request().isGranted) {
+    if (await Permission.manageExternalStorage.request().isGranted ||
+        await Permission.storage.request().isGranted) {
       return true;
     }
     return false;

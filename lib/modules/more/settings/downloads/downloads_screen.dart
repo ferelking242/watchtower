@@ -752,8 +752,21 @@ class _BadgeChip extends StatelessWidget {
     }
 
     Future<void> _requestPerms() async {
-      final granted = await WatchtowerFolderService.instance.requestPermissions();
-      if (granted) _load();
+      final granted =
+          await WatchtowerFolderService.instance.requestPermissions();
+      if (!mounted) return;
+      if (granted) {
+        await _load();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Le dossier de téléchargement n’est pas accessible. '
+              'Vérifiez l’espace de stockage puis réessayez.',
+            ),
+          ),
+        );
+      }
     }
 
     @override
@@ -797,16 +810,20 @@ class _BadgeChip extends StatelessWidget {
               ]),
             ),
 
-          // No permissions case
+          // Storage unavailable case. The Download Manager itself remains
+          // usable with the app-scoped fallback; this only covers a folder
+          // service initialization failure.
           if (_folders == null || _folders!.isEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Permissions de stockage requises pour créer les dossiers.',
-                    style: TextStyle(fontSize: 13),
+                  Text(
+                    WatchtowerFolderService.instance.lastError == null
+                        ? 'Aucun dossier de téléchargement n’est disponible.'
+                        : 'Impossible de préparer le dossier de téléchargement.',
+                    style: const TextStyle(fontSize: 13),
                   ),
                   const SizedBox(height: 8),
                   FilledButton.icon(
