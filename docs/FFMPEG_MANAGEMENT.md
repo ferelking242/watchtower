@@ -27,6 +27,14 @@ No transcoding codec is intentionally used. If the merge command changes,
 verify that the selected runtime still contains every required demuxer and
 muxer.
 
+## Fallback without FFmpeg
+
+FFmpeg is optional. When no verified executable is available, the downloader
+concatenates the completed HLS fragments in playlist order. This is valid for
+MPEG-TS streams and for fragmented MP4 playlists when the initialization
+fragment is first. Online playback is unaffected, and the fallback avoids
+blocking downloads on an external runtime.
+
 ## Runtime release procedure
 
 1. Review the upstream source, release, license, Android ABI, and minimum API.

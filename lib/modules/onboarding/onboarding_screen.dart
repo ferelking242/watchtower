@@ -103,17 +103,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   bool _batteryGranted  = false; // Exempt from battery optimisation (Android)
   bool _busyBattery     = false;
 
-  // ── Optional dependencies ─────────────────────────────────────────────────
-  final Map<OnboardingDependencyId, bool> _dependencyInstalled = {};
-  OnboardingDependencyId? _busyDependency;
-  String? _dependencyError;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refresh();
-    _refreshDependencies();
   }
 
   @override
@@ -162,44 +156,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       _overlayGranted = o.isGranted;
       _batteryGranted = b.isGranted;
     });
-  }
-
-  Future<void> _refreshDependencies() async {
-    for (final dependency in OnboardingDependencyService.catalog) {
-      try {
-        final installed = await OnboardingDependencyService.isInstalled(
-          dependency.id,
-        );
-        if (mounted) {
-          setState(() => _dependencyInstalled[dependency.id] = installed);
-        }
-      } catch (_) {}
-    }
-  }
-
-  Future<void> _installDependency(OnboardingDependencyId id) async {
-    if (_busyDependency != null) return;
-    setState(() {
-      _busyDependency = id;
-      _dependencyError = null;
-    });
-    try {
-      await OnboardingDependencyService.install(id);
-      final installed = await OnboardingDependencyService.isInstalled(id);
-      if (mounted) {
-        setState(() {
-          _dependencyInstalled[id] = installed;
-          _busyDependency = null;
-        });
-      }
-    } catch (error) {
-      if (mounted) {
-        setState(() {
-          _busyDependency = null;
-          _dependencyError = error.toString();
-        });
-      }
-    }
   }
 
   // ── Permission requests ──────────────────────────────────────────────────
@@ -295,8 +251,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     bool granted = false;
     try {
       if (!kIsWeb && Platform.isAndroid) {
-        final result = await Permission.systemAlertWindow.request();
-        granted = result.isGranted;
+        final status = await Permission.systemAlertWindow.status;
+        if (status.isPermanentlyDenied) {
+          await openAppSettings();
+          granted = (await Permission.systemAlertWindow.status).isGranted;
+        } else {
+          final result = await Permission.systemAlertWindow.request();
+          granted = result.isGranted;
+        }
       } else {
         granted = true;
       }
@@ -337,7 +299,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // ── Navigation ───────────────────────────────────────────────────────────
 
   void _next() {
-    if (_currentPage < 4) {
+    if (_currentPage < 2) {
       _page.nextPage(
           duration: const Duration(milliseconds: 420),
           curve: Curves.easeInOut);
@@ -370,14 +332,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               children: [
                 _ShowcasePage(onNext: _next),
                 _SloganPage(onNext: _next),
-                _LanguagePage(onNext: _next),
-                _DependenciesPage(
-                  installed: _dependencyInstalled,
-                  busy: _busyDependency,
-                  error: _dependencyError,
-                  onInstall: _installDependency,
-                  onNext: _next,
-                ),
                 _PermissionsPage(
                   storageGranted: _storageGranted,
                   notifGranted: _notifGranted,
@@ -408,7 +362,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (i) {
+                    children: List.generate(3, (i) {
                       final active = i == _currentPage;
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 280),
@@ -1341,18 +1295,17 @@ class _PermRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dimmed = optional && !granted;
     return Row(
       children: [
         Container(
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: dimmed ? 0.04 : 0.08),
+            color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon,
-              color: Colors.white.withValues(alpha: dimmed ? 0.35 : 0.7), size: 22),
+              color: Colors.white.withValues(alpha: 0.7), size: 22),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -1361,7 +1314,7 @@ class _PermRow extends StatelessWidget {
             children: [
               Text(title,
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: dimmed ? 0.5 : 1.0),
+                      color: Colors.white,
                       fontSize: 15,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),

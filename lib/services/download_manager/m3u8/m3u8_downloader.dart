@@ -11,6 +11,7 @@ import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
 import 'package:watchtower/services/download_manager/m3u8/ffmpeg_merge_service.dart';
+import 'package:watchtower/services/download_manager/m3u8/ffmpeg_binary_manager.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
@@ -453,10 +454,22 @@ class M3u8Downloader {
   Future<void> _runFfmpegMerge(
     String outputFile,
     List<String> segmentPaths,
-  ) => FfmpegMergeService.mergeTsToMp4(
-    outputFile: outputFile,
-    segmentPaths: segmentPaths,
-  );
+  ) async {
+    final executable =
+        await FfmpegBinaryManager.instance.resolveExecutable();
+    if (executable == null) {
+      _log('FFmpeg unavailable; concatenating HLS fragments directly');
+      await FfmpegMergeService.concatenateFragments(
+        outputFile: outputFile,
+        segmentPaths: segmentPaths,
+      );
+      return;
+    }
+    await FfmpegMergeService.mergeTsToMp4(
+      outputFile: outputFile,
+      segmentPaths: segmentPaths,
+    );
+  }
 
   Future<String> _getM3u8Body(String url) async {
     final effectiveHeaders = _buildEffectiveHeaders(urlOverride: url);

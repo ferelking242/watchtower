@@ -65,6 +65,27 @@ class FfmpegMergeService {
     }
   }
 
+  /// Joins HLS fragments without transcoding when an FFmpeg executable is not
+  /// available. MPEG-TS fragments are designed to be concatenated this way;
+  /// fragmented MP4 playlists also remain valid when the initialization
+  /// fragment is first. The caller keeps the final file extension expected by
+  /// the library, while media_kit detects the container from its contents.
+  static Future<void> concatenateFragments({
+    required String outputFile,
+    required List<String> segmentPaths,
+  }) async {
+    final output = File(outputFile);
+    final sink = output.openWrite();
+    try {
+      for (final segmentPath in segmentPaths) {
+        await sink.addStream(File(segmentPath).openRead());
+      }
+      await sink.flush();
+    } finally {
+      await sink.close();
+    }
+  }
+
   static String _escapeConcatPath(String value) =>
       value.replaceAll('\\', '\\\\').replaceAll("'", "'\\''");
 }

@@ -15,7 +15,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/modules/more/widgets/binaries_section.dart';
+import 'package:watchtower/modules/browse/plugins_section.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -1055,7 +1055,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         _TypeTab(state: this, tab: _kTabGames),   // 6 Game
                         _TypeTab(state: this, tab: _kTabMusic),   // 7 Music
                         const _NativeToolsTab(),                  // 8 Outils
-                        const _BinaryTab(),                       // 9 Binaires
+                        const _BinaryTab(),                       // 9 Plugins
                       ],
                     ),
                   ),
@@ -1216,7 +1216,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
     const labels = [
       'Tout', 'Watch', 'Manga', 'Mihon', 'Aniyomi',
-      'Novel', 'Game', 'Music', 'Outils', 'Binaires',
+      'Novel', 'Game', 'Music', 'Outils', 'Plugins',
     ];
     const icons = <IconData>[
       Icons.apps_rounded, Icons.live_tv_rounded, Icons.auto_stories_rounded,
@@ -6563,8 +6563,7 @@ class _WTToastState extends State<_WTToast> with SingleTickerProviderStateMixin 
 
 
 // ─── Binary tab ────────────────────────────────────────────────────────────────
-// Shown as the 8th tab in the marketplace — displays downloadable binary engines
-// (aria2c) using the same BinariesSection used in Settings.
+// Marketplace plugins and downloadable runtime engines.
 
 class _BinaryTab extends StatelessWidget {
   const _BinaryTab();
@@ -6574,7 +6573,7 @@ class _BinaryTab extends StatelessWidget {
     return const CustomScrollView(
       slivers: [
         SliverToBoxAdapter(child: SizedBox(height: 12)),
-        SliverToBoxAdapter(child: BinariesSection()),
+        SliverToBoxAdapter(child: PluginsSection()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
