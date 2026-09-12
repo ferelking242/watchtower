@@ -1320,7 +1320,7 @@ class _PermRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(subtitle,
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: dimmed ? 0.25 : 0.42),
+                      color: Colors.white.withValues(alpha: 0.42),
                       fontSize: 12,
                       height: 1.4)),
             ],
@@ -1348,10 +1348,10 @@ class _PermRow extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
                 color:
-                    Colors.white.withValues(alpha: busy ? 0.04 : (dimmed ? 0.05 : 0.10)),
+                    Colors.white.withValues(alpha: busy ? 0.04 : 0.10),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: Colors.white.withValues(alpha: dimmed ? 0.08 : 0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     width: 1),
               ),
               child: busy
@@ -1363,7 +1363,7 @@ class _PermRow extends StatelessWidget {
                     )
                   : Text('Autoriser',
                       style: TextStyle(
-                          color: Colors.white.withValues(alpha: dimmed ? 0.4 : 1.0),
+                          color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w600)),
             ),
