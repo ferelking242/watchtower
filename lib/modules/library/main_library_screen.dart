@@ -40,6 +40,7 @@ const _kTypes = <ItemType>[
   ItemType.music,
   ItemType.game,
 ];
+const _kCarouselCopies = 1000;
 
 // ─── Type icons (Broken set) ─────────────────────────────────────────────────
 const _kTypeIcons = <ItemType, IconData>{
@@ -77,11 +78,14 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   int _selectedCatIndex = 0;
+  int _arcPage = (_kCarouselCopies ~/ 2) * _kTypes.length + 1;
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
   late final PageController _arcPageCtrl = PageController(
-    viewportFraction: 0.56, // ~3 tabs visible: center + one edge on each side
-    initialPage: _typeIndex,
+    // Three compact type items must fit in the left side of the header,
+    // without being pushed underneath the action buttons on the right.
+    viewportFraction: 0.33,
+    initialPage: _arcPage,
   );
 
   @override
@@ -125,22 +129,47 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       onNotification: (_) {
         final p = _arcPageCtrl.page;
         if (p != null) {
-          final idx = p.round();
-          if (idx != _typeIndex && idx >= 0 && idx < _kTypes.length) {
-            setState(() => _typeIndex = idx);
+          final page = p.round();
+          if (page != _arcPage) {
+            setState(() {
+              _arcPage = page;
+              _typeIndex = page % _kTypes.length;
+            });
           }
         }
         return false;
       },
       child: PageView.builder(
         controller: _arcPageCtrl,
-        itemCount: _kTypes.length,
+        itemCount: _kTypes.length * _kCarouselCopies,
         physics: const BouncingScrollPhysics(),
-        onPageChanged: (i) => setState(() => _typeIndex = i),
+        onPageChanged: (page) {
+          setState(() {
+            _arcPage = page;
+            _typeIndex = page % _kTypes.length;
+          });
+
+          // Re-center before the user can reach either artificial end. This
+          // makes the five types behave like an endless carousel while
+          // preserving a stable scroll position for the PageView.
+          if (page < _kTypes.length ||
+              page >= _kTypes.length * (_kCarouselCopies - 1)) {
+            final middlePage =
+                (_kCarouselCopies ~/ 2) * _kTypes.length +
+                    page % _kTypes.length;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted || !_arcPageCtrl.hasClients) return;
+              _arcPageCtrl.jumpToPage(middlePage);
+              setState(() => _arcPage = middlePage);
+            });
+          }
+        },
         itemBuilder: (_, i) {
-          final selected = i == _typeIndex;
-          final diff = (i - _typeIndex).abs().toDouble();
-          // Coverflow: neighbors shrink & recede so only 3 tabs are readable
+          final type = _kTypes[i % _kTypes.length];
+          final selected = i == _arcPage;
+          final diff = (i - _arcPage).abs().toDouble();
+          // Keep the selected type clear while the two adjacent items remain
+          // visible and tappable.
           final scale = (1.0 - diff * 0.16).clamp(0.72, 1.0);
           final opacity = (1.0 - diff * 0.40).clamp(0.40, 1.0);
           final blur = diff > 0.4 ? (diff * 1.8).clamp(0.4, 2.0) : 0.0;
@@ -211,7 +240,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                 : null,
                           ),
                           child: Icon(
-                            _kTypeIcons[_kTypes[i]]!,
+                            _kTypeIcons[type]!,
                             color: selected
                                 ? cs.onSurface
                                 : (isDark
@@ -223,7 +252,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                         const SizedBox(height: 3),
                         // Label
                         Text(
-                          _typeLabel(_kTypes[i]),
+                          _typeLabel(type),
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
@@ -407,22 +436,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
           ),
 
-          // ── Category bar (outlined container — user request) ─────────
+          // ── Category bar ──────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isDark
-                      ? cs.onSurface.withValues(alpha: 0.14)
-                      : cs.outline.withValues(alpha: 0.22),
-                  width: 1,
-                ),
-              ),
-              child: _buildCategoryBar(context, cats, cs, isDark),
-            ),
+            child: _buildCategoryBar(context, cats, cs, isDark),
           ),
 
           const SizedBox(height: 8),
@@ -572,18 +589,18 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          // ── Manage categories — ghost icon pill ───────────────────────
+          // ── Manage categories — standalone outlined icon ──────────────
           GestureDetector(
             onTap: () => _showManageCategories(context, cats),
             child: Container(
               height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              width: 32,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                shape: BoxShape.circle,
                 border: Border.all(
                   color: isDark
-                      ? cs.onSurface.withValues(alpha: 0.12)
-                      : cs.outline.withValues(alpha: 0.18),
+                      ? cs.onSurface.withValues(alpha: 0.28)
+                      : cs.outline.withValues(alpha: 0.42),
                   width: 1,
                 ),
               ),
@@ -597,17 +614,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
           ),
 
-          // ── Subtle separator ──────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Container(
-              width: 1,
-              height: 18,
-              color: isDark
-                  ? cs.onSurface.withValues(alpha: 0.10)
-                  : cs.outline.withValues(alpha: 0.14),
-            ),
-          ),
+          const SizedBox(width: 8),
 
           // ── "All" pill ────────────────────────────────────────────────
           _pill(
