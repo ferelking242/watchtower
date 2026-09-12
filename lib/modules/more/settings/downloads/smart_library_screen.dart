@@ -3,6 +3,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
 import 'package:watchtower/providers/storage_provider.dart';
@@ -94,7 +95,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     final colors = theme.colorScheme;
     final counts = ref.watch(localIndexedCountByKindProvider);
     final recent = ref.watch(recentlyIndexedProvider);
-    final status = ref.watch(indexerStatusProvider).valueOrNull;
+    final status = ref.watch(indexerStatusProvider).asData?.value;
     final isScanning = _starting || (status?.isScanning ?? false);
 
     return Scaffold(
