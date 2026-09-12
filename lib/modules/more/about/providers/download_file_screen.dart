@@ -424,11 +424,15 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               label: 'Télécharger',
               icon: Icons.download_rounded,
               cs: cs,
-              onPressed: _errorMsg != null
+              onPressed: _isDownloading
                   ? null
                   : () async {
                       if (!kIsWeb && Platform.isAndroid) {
                         await _startDownload(upd);
+                         // Keep this screen open so progress, errors, and the
+                         // install action remain visible after an Android
+                         // download attempt.
+                         return;
                       } else if (!kIsWeb && Platform.isIOS) {
                         await _openTrollStoreUrl(upd);
                       } else {
@@ -491,10 +495,6 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   Future<void> _downloadApk(String url, String version) async {
     if (url.isEmpty || !Uri.parse(url).hasAuthority) return;
 
-    if (await Permission.storage.isDenied) {
-      await Permission.storage.request();
-    }
-
     // Detect supported ABIs for asset matching
     try {
       final deviceInfo = DeviceInfoPlugin();
@@ -504,9 +504,16 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
       _currentAbis = ['arm64-v8a'];
     }
 
-    // APKs stored in Downloads
-    Directory? dir = Directory('/storage/emulated/0/Download');
-    if (!await dir.exists()) dir = await getExternalStorageDirectory();
+    // Prefer the public Downloads directory, but fall back to an app-owned
+    // external/documents directory. Android  scoped storage can expose the
+    // former as unavailable even when an APK can be downloaded normally.
+    Directory? dir;
+    try {
+      final publicDownloads = Directory('/storage/emulated/0/Download');
+      if (await publicDownloads.exists()) dir = publicDownloads;
+    } catch (_) {}
+    dir ??= await getExternalStorageDirectory();
+    dir ??= await getApplicationDocumentsDirectory();
 
     final file = File(
         '${dir!.path}/${url.split("/").lastOrNull ?? "Watchtower.apk"}');
