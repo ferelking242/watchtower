@@ -37,19 +37,25 @@ class StorageProvider {
   /// perform a silent status-only check without prompting the user.
   Future<bool> requestPermission({bool requestIfNeeded = true}) async {
     if (kIsWeb || !Platform.isAndroid) return true;
-    // MANAGE_EXTERNAL_STORAGE is the permission needed for the shared
-    // /storage/emulated/0/watchtower location on Android 11+.  On older
-    // Android versions permission_handler exposes the legacy storage
-    // permission instead.  Do not require both: either one is sufficient,
-    // and the app-scoped fallback works even when neither is granted.
-    if (await Permission.manageExternalStorage.isGranted ||
-        await Permission.storage.isGranted) {
-      return true;
-    }
-    if (!requestIfNeeded) return false;
-    if (await Permission.manageExternalStorage.request().isGranted ||
-        await Permission.storage.request().isGranted) {
-      return true;
+    try {
+      // MANAGE_EXTERNAL_STORAGE is the permission needed for the shared
+      // /storage/emulated/0/watchtower location on Android 11+.  On older
+      // Android versions permission_handler exposes the legacy storage
+      // permission instead.  Do not require both: either one is sufficient,
+      // and the app-scoped fallback works even when neither is granted.
+      if (await Permission.manageExternalStorage.isGranted ||
+          await Permission.storage.isGranted) {
+        return true;
+      }
+      if (!requestIfNeeded) return false;
+      if (await Permission.manageExternalStorage.request().isGranted ||
+          await Permission.storage.request().isGranted) {
+        return true;
+      }
+    } catch (error) {
+      // Some Android TV/OEM builds do not expose one of the storage
+      // permission APIs. That must not block the app-scoped fallback.
+      debugPrint('[StorageProvider] storage permission check failed: $error');
     }
     return false;
   }
@@ -127,6 +133,31 @@ class StorageProvider {
     // Last resort: internal app storage always exists without any permission.
     final internal = await getApplicationDocumentsDirectory();
     return Directory(path.join(internal.path, 'Watchtower'));
+  }
+
+  /// Returns whether [directory] can be used for download output.
+  ///
+  /// A persisted directory can become unavailable after an uninstall,
+  /// permission change, SD-card removal, or an Android document-provider
+  /// change. Validate it before handing it to the download pipeline so a
+  /// stale setting cannot leave every queued item stuck.
+  Future<bool> _isWritableDirectory(Directory directory) async {
+    try {
+      await directory.create(recursive: true);
+      final probe = File(path.join(
+        directory.path,
+        '.watchtower_write_probe_${DateTime.now().microsecondsSinceEpoch}',
+      ));
+      await probe.writeAsString('');
+      await probe.delete();
+      return true;
+    } catch (error) {
+      debugPrint(
+        '[StorageProvider] configured download directory is unavailable '
+        '(${directory.path}): $error',
+      );
+      return false;
+    }
   }
 
   Future<void> deleteBtDirectory() async {
@@ -221,9 +252,14 @@ class StorageProvider {
       debugPrint("Could not get downloadLocation from Isar settings: $e");
     }
     if (!kIsWeb && Platform.isAndroid) {
-      directory = dPath.isEmpty
-          ? await _androidBaseDirectory()
-          : Directory("$dPath/");
+      if (dPath.isEmpty) {
+        directory = await _androidBaseDirectory();
+      } else {
+        final configured = Directory(dPath);
+        directory = await _isWritableDirectory(configured)
+            ? configured
+            : await _androidBaseDirectory();
+      }
     } else {
       final dir = await getApplicationDocumentsDirectory();
       final p = dPath.isEmpty ? dir.path : dPath;

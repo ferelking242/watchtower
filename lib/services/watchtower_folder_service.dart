@@ -22,6 +22,7 @@ import 'package:watchtower/providers/storage_provider.dart';
     bool _initialized = false;
     String? _baseDir;
     String? _lastError;
+    Future<void>? _initializationFuture;
     final Map<String, String> _downloadDirs = {};
 
     String? get baseDir => _baseDir;
@@ -55,7 +56,20 @@ import 'package:watchtower/providers/storage_provider.dart';
 
     Future<void> initialize() async {
       if (_initialized) return;
+      final pending = _initializationFuture;
+      if (pending != null) return pending;
+
+      _initializationFuture = _initialize();
+      try {
+        await _initializationFuture;
+      } finally {
+        _initializationFuture = null;
+      }
+    }
+
+    Future<void> _initialize() async {
       _lastError = null;
+      _downloadDirs.clear();
       try {
         final baseDirectory = await StorageProvider().getDefaultDirectory();
         if (baseDirectory == null) {

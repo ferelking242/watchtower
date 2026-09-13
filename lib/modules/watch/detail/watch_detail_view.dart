@@ -2911,8 +2911,12 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
 
   // ── Download action ───────────────────────────────────────────────────────────
   Future<void> _startDownload() async {
-    if (_selected.isEmpty) return;
-    final chapters = _selected.toList();
+    // Selecting episodes is optional: an empty selection means "download all
+    // episodes currently shown". This keeps the primary download action
+    // usable instead of leaving it permanently greyed out on first open.
+    final chapters =
+        _selected.isEmpty ? _displayChapters : _selected.toList();
+    if (chapters.isEmpty) return;
 
     if (_downloader == _Downloader.external) {
       if (mounted) Navigator.pop(context);
@@ -3240,15 +3244,18 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   // The pills row above is selection-only; the action lives at the bottom so
   // it never fights with Saison/Langue/Qualité for space. ──────────────────────
   Widget _buildDownloadFooter() {
-    final empty = _selected.isEmpty;
+    final displayedCount = _displayChapters.length;
+    final selectedCount =
+        _selected.isEmpty ? displayedCount : _selected.length;
+    final empty = selectedCount == 0;
     final totalSz = _totalSizeLabel();
     final label = empty
         ? 'Télécharger'
-        : totalSz.isNotEmpty
-            ? 'Télécharger ${_selected.length} épisode${_selected.length > 1 ? 's' : ''} • $totalSz'
+        : totalSz.isNotEmpty && _selected.isNotEmpty
+            ? 'Télécharger $selectedCount épisode${selectedCount > 1 ? 's' : ''} • $totalSz'
             : _isFilm
                 ? 'Télécharger le film'
-                : 'Télécharger ${_selected.length} épisode${_selected.length > 1 ? 's' : ''}';
+                : 'Télécharger $selectedCount épisode${selectedCount > 1 ? 's' : ''}';
 
     // Quality/lang recap line so the user always sees what will be downloaded.
     final recap = [
