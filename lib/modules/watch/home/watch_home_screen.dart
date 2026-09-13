@@ -381,11 +381,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       if (!mounted || next == null || next.id == source.id) return;
       isar.writeTxnSync(() {
         final sources = isar.sources
-            .filter()
-            .idIsNotNull()
-            .itemTypeEqualTo(source.itemType)
+            .where()
             .findAllSync();
         for (final candidate in sources) {
+          if (candidate.itemType != source.itemType) continue;
           isar.sources.putSync(candidate
             ..lastUsed = candidate.id == next.id
             ..updatedAt = DateTime.now().millisecondsSinceEpoch);
@@ -2472,12 +2471,14 @@ class _WatchSourcePickerSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final sources = isar.sources
-        .filter()
-        .idIsNotNull()
-        .isAddedEqualTo(true)
-        .isActiveEqualTo(true)
-        .itemTypeEqualTo(current.itemType)
+        .where()
         .findAllSync()
+        .where(
+          (s) =>
+              (s.isAdded ?? false) &&
+              (s.isActive ?? false) &&
+              s.itemType == current.itemType,
+        )
         .where((s) => s.name != 'local')
         .toList()
       ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));

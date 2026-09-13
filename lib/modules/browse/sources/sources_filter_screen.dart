@@ -27,14 +27,20 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
 
   List<String> get _availableLangs {
     final sources = isar.sources
-        .filter()
-        .idIsNotNull()
-        .and()
-        .sourceCodeIsNotEmpty()
-        .itemTypeEqualTo(widget.itemType)
-        .isAddedEqualTo(true)
+        .where()
         .findAllSync();
-    return sources.map((s) => s.lang ?? '').where((l) => l.isNotEmpty).toSet().toList()..sort();
+    return sources
+        .where(
+          (source) =>
+              (source.sourceCode ?? '').isNotEmpty &&
+              source.itemType == widget.itemType &&
+              (source.isAdded ?? false),
+        )
+        .map((s) => s.lang ?? '')
+        .where((l) => l.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
   }
 
   @override
@@ -59,21 +65,21 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
             child: Padding(
               padding: const EdgeInsets.only(top: 6),
               child: StreamBuilder(
-          stream: isar.sources
-              .filter()
-              .idIsNotNull()
-              .and()
-              .sourceCodeIsNotEmpty()
-              .optional(_selectedLang != null, (q) => q.langEqualTo(_selectedLang!))
-              .and()
-              .itemTypeEqualTo(widget.itemType)
-              .watch(fireImmediately: true),
+           stream: isar.sources.where().watch(fireImmediately: true),
           builder: (context, snapshot) {
             if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const Center(child: Text('Aucune source installée'));
             }
 
-            final rawEntries = snapshot.data!;
+             final rawEntries = snapshot.data!
+                 .where(
+                   (source) =>
+                       (source.sourceCode ?? '').isNotEmpty &&
+                       source.itemType == widget.itemType &&
+                       (_selectedLang == null ||
+                           source.lang == _selectedLang),
+                 )
+                 .toList();
 
               // Apply filters
               bool Function(Source) nsfwTest = switch (_nsfwFilter) {

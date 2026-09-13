@@ -9,11 +9,18 @@ Source? getSource(
   bool installedOnly = false,
 }) {
   try {
-    var sourcesFilter = isar.sources.filter().idIsNotNull();
-    if (installedOnly) {
-      sourcesFilter = sourcesFilter.isActiveEqualTo(true).isAddedEqualTo(true);
-    }
-    final sourcesList = sourcesFilter.findAllSync();
+    // The Isar community runtime does not support every filter operation on
+    // the implicit id property on every platform. Load the small source
+    // collection and apply these simple predicates in Dart instead.
+    final sourcesList = isar.sources
+        .where()
+        .findAllSync()
+        .where(
+          (source) =>
+              !installedOnly ||
+              ((source.isActive ?? false) && (source.isAdded ?? false)),
+        )
+        .toList();
     return sourcesList.firstWhere(
       (element) => sourceId != null
           ? element.id == sourceId && element.sourceCode != null

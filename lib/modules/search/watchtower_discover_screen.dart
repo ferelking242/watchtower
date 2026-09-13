@@ -2415,11 +2415,12 @@ class _SourcePickerSheet extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final sources = isar.sources
-        .filter()
-        .idIsNotNull()
-        .isAddedEqualTo(true)
-        .isActiveEqualTo(true)
+        .where()
         .findAllSync()
+        .where(
+          (source) =>
+              (source.isAdded ?? false) && (source.isActive ?? false),
+        )
         .where((s) => s.name != 'local')
         .toList();
 

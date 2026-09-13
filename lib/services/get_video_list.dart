@@ -339,6 +339,9 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       error: e,
       stackTrace: st,
     );
-    rethrow;
+    // A dead CDN, expired URL, or unavailable extension must not tear down
+    // the whole watch screen. The player already handles an empty result as
+    // a recoverable "no playable source" state.
+    return (<Video>[], false, <String>[], null);
   }
 }

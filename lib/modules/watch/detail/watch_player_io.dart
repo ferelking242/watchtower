@@ -295,13 +295,29 @@ class WatchInlinePlayer {
                     logLevel: LogLevel.warning, tag: LogTag.watch);
               }
             }
-                      if (_isDisposed) {
-                        watchdog.cancel();
-                        durSub?.cancel();
-                        errSub?.cancel();
-                        return;
-                      }
-                      await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
+        if (_isDisposed) {
+          watchdog.cancel();
+          durSub?.cancel();
+          errSub?.cancel();
+          return;
+        }
+        try {
+          await _player.open(
+            Media(v.url, httpHeaders: v.headers),
+            play: true,
+          );
+        } catch (openError) {
+          if (completer.isCompleted) continue;
+          watchdog.cancel();
+          durSub?.cancel();
+          errSub?.cancel();
+          AppLogger.log(
+            '[PLAYER] ouverture échouée qualité="${v.quality}": $openError',
+            logLevel: LogLevel.error,
+            tag: LogTag.watch,
+          );
+          completer.complete(false);
+        }
         final success = await completer.future;
         if (success) return;
 

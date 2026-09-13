@@ -1336,6 +1336,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   double _dragStartFraction = 1.0;
   double _dragStartY = 0;
   bool _isClosing = false;
+  bool _isDismissing = false;
 
   late AnimationController _animCtrl;
   late Animation<double> _animation;
@@ -1415,7 +1416,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         ..launch(widget.url)
         ..onClose.whenComplete(() {
           timer.cancel();
-          if (mounted) Navigator.pop(context);
+          if (mounted && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
         });
     } else {
       browser = MyInAppBrowser(
@@ -1506,10 +1509,23 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     _animCtrl.forward(from: 0);
   }
 
+  void _popRouteIfPossible() {
+    if (!mounted) return;
+    try {
+      final router = GoRouter.of(context);
+      if (!router.canPop()) return;
+      router.pop();
+    } catch (_) {
+      // The route may already have been removed by a platform callback.
+    }
+  }
+
   void _dismiss() {
+    if (!mounted || _isDismissing) return;
+    _isDismissing = true;
     _animateTo(0.0);
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) context.pop();
+      _popRouteIfPossible();
     });
   }
 
@@ -1531,7 +1547,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             MiniWebViewEntry(url: _url, title: label),
           );
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      if (mounted) context.pop();
+      _popRouteIfPossible();
     }
   }
 
@@ -1986,7 +2002,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         }
       } catch (_) {}
     }
-    if (mounted) context.pop();
+    _popRouteIfPossible();
   }
 
   // ── Video interception helpers ─────────────────────────────────────────────
@@ -2289,7 +2305,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             dismiss();
             _toggleIncognito();
           },
-          onCloseWebView: () => context.pop(),
+          onCloseWebView: _popRouteIfPossible,
         );
       },
     );
@@ -2333,7 +2349,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         if (await _webViewController?.canGoBack() ?? false) {
           _webViewController?.goBack();
         } else {
-          if (mounted) context.pop();
+          _popRouteIfPossible();
         }
       },
       child: Scaffold(
@@ -3994,7 +4010,13 @@ class MyInAppBrowser extends InAppBrowser {
   void onProgressChanged(progress) => onProgress.call(progress);
 
   @override
-  void onExit() => Navigator.pop(context);
+  void onExit() {
+    try {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {}
+  }
 
   @override
   void onLoadStop(url) async {
@@ -4065,6 +4087,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
     with SingleTickerProviderStateMixin {
   late final Player _player;
   late final VideoController _controller;
+  bool _playerDisposed = false;
 
   // Absolute drag deltas from the default anchor (bottom-centre)
   double _dx = 0;
@@ -4093,17 +4116,30 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
     super.initState();
     _player = Player();
     _controller = VideoController(_player);
-    _player.open(Media(widget.videoUrl));
+    unawaited(_openMedia());
     _springCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
     );
   }
 
+  Future<void> _openMedia() async {
+    if (_playerDisposed) return;
+    try {
+      await _player.open(Media(widget.videoUrl));
+    } catch (_) {
+      // A remote URL can expire or reject the request. The overlay remains
+      // dismissible and the parent player can try another source.
+    }
+  }
+
   @override
   void dispose() {
+    _playerDisposed = true;
     _springCtrl.dispose();
-    _player.dispose();
+    try {
+      _player.dispose();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -4204,6 +4240,17 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
       _dx = 0;
       _dy = 0;
     });
+  }
+
+  void _togglePlayback() {
+    if (_playerDisposed) return;
+    try {
+      if (_player.state.playing) {
+        _player.pause();
+      } else {
+        _player.play();
+      }
+    } catch (_) {}
   }
 
   // ── Mini bubble ────────────────────────────────────────────────────────────
@@ -4319,9 +4366,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
               onScaleStart: _onScaleStart,
               onScaleUpdate: _onScaleUpdate,
               onScaleEnd: (d) => _onScaleEnd(d, screen),
-              onTap: () => _player.state.playing
-                  ? _player.pause()
-                  : _player.play(),
+               onTap: _togglePlayback,
             ),
           ),
 
@@ -4368,7 +4413,10 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(18)),
-              child: _PipSeekBar(player: _player),
+               child: _PipSeekBar(
+                 player: _player,
+                 isDisposed: () => _playerDisposed,
+               ),
             ),
           ),
         ],
@@ -4387,14 +4435,17 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
 
 class _PipSeekBar extends StatelessWidget {
   final Player player;
-  const _PipSeekBar({required this.player});
+  final bool Function() isDisposed;
+  const _PipSeekBar({required this.player, required this.isDisposed});
 
   void _seekFromX(BuildContext ctx, double localX, int durMs) {
-    if (durMs <= 0) return;
+    if (durMs <= 0 || isDisposed()) return;
     final box = ctx.findRenderObject() as RenderBox?;
     if (box == null) return;
     final frac = (localX / box.size.width).clamp(0.0, 1.0);
-    player.seek(Duration(milliseconds: (frac * durMs).round()));
+    try {
+      player.seek(Duration(milliseconds: (frac * durMs).round()));
+    } catch (_) {}
   }
 
   @override
