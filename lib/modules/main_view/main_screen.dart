@@ -37,6 +37,8 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
+import 'package:watchtower/modules/widgets/falling_petals.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
@@ -601,6 +603,46 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
+    if (dest.contains("/flixMovies")) {
+      destinations[dest.indexOf("/flixMovies")] = const NavigationRailDestination(
+        selectedIcon: Icon(Icons.movie_creation_rounded),
+        icon: Icon(Icons.movie_outlined),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Movies'),
+        ),
+      );
+    }
+    if (dest.contains("/flixSeries")) {
+      destinations[dest.indexOf("/flixSeries")] = const NavigationRailDestination(
+        selectedIcon: Icon(Icons.live_tv_rounded),
+        icon: Icon(Icons.tv_outlined),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Series'),
+        ),
+      );
+    }
+    if (dest.contains("/tvLive")) {
+      destinations[dest.indexOf("/tvLive")] = const NavigationRailDestination(
+        selectedIcon: Icon(Icons.tv_rounded),
+        icon: Icon(Icons.tv_outlined),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('TV Live'),
+        ),
+      );
+    }
+    if (dest.contains("/profile")) {
+      destinations[dest.indexOf("/profile")] = const NavigationRailDestination(
+        selectedIcon: Icon(Icons.person_rounded),
+        icon: Icon(Icons.person_outline_rounded),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Profile'),
+        ),
+      );
+    }
     if (dest.contains("/NovelLibrary")) {
       destinations[dest.indexOf("/NovelLibrary")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.note_text),
@@ -771,6 +813,34 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         selectedIcon: const Icon(Broken.video_square),
         icon: const Icon(Broken.video_octagon),
         label: l10n.watch,
+      );
+    }
+    if (dest.contains('/flixMovies')) {
+      destMap['/flixMovies'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.movie_creation_rounded),
+        icon: Icon(Icons.movie_outlined),
+        label: 'Movies',
+      );
+    }
+    if (dest.contains('/flixSeries')) {
+      destMap['/flixSeries'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.live_tv_rounded),
+        icon: Icon(Icons.tv_outlined),
+        label: 'Series',
+      );
+    }
+    if (dest.contains('/tvLive')) {
+      destMap['/tvLive'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.tv_rounded),
+        icon: Icon(Icons.tv_outlined),
+        label: 'TV Live',
+      );
+    }
+    if (dest.contains('/profile')) {
+      destMap['/profile'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.person_rounded),
+        icon: Icon(Icons.person_outline_rounded),
+        label: 'Profile',
       );
     }
     if (dest.contains('/NovelLibrary')) {
@@ -1434,6 +1504,10 @@ class _SidebarItem extends StatelessWidget {
                             ),
                           ),
                         ),
+                      ),
+                    if (ref.watch(fallingPetalsProvider))
+                      const Positioned.fill(
+                        child: IgnorePointer(child: FallingPetals()),
                       ),
                   ],
                 ),

@@ -125,6 +125,23 @@ final glowEffectsProvider = NotifierProvider<GlowEffectsNotifier, bool>(
   GlowEffectsNotifier.new,
 );
 
+// ── Falling petals ───────────────────────────────────────────────────────────
+
+class FallingPetalsNotifier extends Notifier<bool> {
+  @override
+  bool build() =>
+      _box?.get('falling_petals', defaultValue: true) as bool? ?? true;
+
+  void set(bool v) {
+    _box?.put('falling_petals', v);
+    state = v;
+  }
+}
+
+final fallingPetalsProvider = NotifierProvider<FallingPetalsNotifier, bool>(
+  FallingPetalsNotifier.new,
+);
+
 // ── Carousel Synopsis ─────────────────────────────────────────────────────────
 
 class CarouselSynopsisNotifier extends Notifier<bool> {

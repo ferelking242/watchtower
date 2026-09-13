@@ -23,6 +23,10 @@ class _MenuItem {
 const kWtRouteInfo = <String, (String, IconData)>{
   '/WatchtowerHome':  ('Accueil',    Icons.home_rounded),
   '/AnimeLibrary':    ('Watch',      Icons.live_tv_rounded),
+  '/flixMovies':      ('Movies',     Icons.movie_creation_rounded),
+  '/flixSeries':      ('Series',     Icons.live_tv_rounded),
+  '/tvLive':          ('TV Live',    Icons.tv_rounded),
+  '/profile':         ('Profile',    Icons.person_rounded),
   '/MangaLibrary':    ('Manga',      Icons.auto_stories),
   '/NovelLibrary':    ('Novel',      Icons.local_library),
   '/MusicLibrary':    ('Music',      Icons.music_note),
@@ -40,7 +44,8 @@ const kWtRouteInfo = <String, (String, IconData)>{
 };
 
 const kWtDefaultNavOrder = [
-  '/discover',       '/AnimeLibrary',  '/MangaLibrary',  '/browse',
+  '/discover',       '/AnimeLibrary',  '/flixMovies',    '/flixSeries',
+  '/tvLive',         '/MangaLibrary', '/browse',
   '/NovelLibrary',   '/MusicLibrary',  '/GameLibrary',   '/Library',
   '/marketplace',    '/history',       '/updates',
   '/trackerLibrary', '/WatchtowerHome',
@@ -53,7 +58,7 @@ const kWtDefaultHideItems = [
 
 const kWtStaticRoutes = [
   '/browse', '/marketplace', '/schedule', '/updates', '/history',
-  '/downloadQueue',
+  '/downloadQueue', '/profile',
 ];
 
 // French label overrides — used when device/app locale is 'fr'.
