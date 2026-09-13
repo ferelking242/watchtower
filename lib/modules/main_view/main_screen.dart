@@ -1417,7 +1417,7 @@ class _ExpandedRail extends StatelessWidget {
 
 // ââ Single sidebar item âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-class _SidebarItem extends StatelessWidget {
+class _SidebarItem extends ConsumerWidget {
   final Widget icon;
   final String? label;
   final bool active;
@@ -1435,7 +1435,7 @@ class _SidebarItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
