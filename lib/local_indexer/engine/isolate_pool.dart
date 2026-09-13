@@ -119,39 +119,25 @@ class IsolatePool {
   Future<void> _spawnWorker(int id, IsolateEntryPoint entryPoint) async {
     final receivePort = ReceivePort();
     final completer = Completer<SendPort>();
+    _IsolateWorker? worker;
 
-    // Premier message = handshake SendPort
-    late StreamSubscription sub;
-    sub = receivePort.listen((message) {
-      if (message is SendPort) {
-        completer.complete(message);
-        sub.cancel();
-      }
-    });
-
-    final isolate = await Isolate.spawn(
-      entryPoint,
-      receivePort.sendPort,
-      debugName: 'LocalIndexerWorker#$id',
-    );
-
-    final sendPort = await completer.future;
-
-    final worker = _IsolateWorker(
-      id: id,
-      isolate: isolate,
-      sendPort: sendPort,
-      receivePort: receivePort,
-    );
-
-    // Écouter les résultats de ce worker
+    // ReceivePort exposes a single-subscription stream. Keep one listener for
+    // the worker lifetime and route the first SendPort message through the
+    // handshake completer; installing a second listener after the handshake
+    // throws "Bad state: Stream has already been listened to".
     receivePort.listen((message) {
-      if (message is! Map) return;
+      if (message is SendPort) {
+        if (!completer.isCompleted) completer.complete(message);
+        return;
+      }
+      if (message is! Map || worker == null) return;
+
       final taskId = message['taskId'] as String?;
       if (taskId == null) return;
 
       final comp = _pending.remove(taskId);
-      worker.pendingTasks = (worker.pendingTasks - 1).clamp(0, 999999);
+      worker!.pendingTasks =
+          (worker!.pendingTasks - 1).clamp(0, 999999);
 
       if (comp == null || comp.isCompleted) return;
 
@@ -165,7 +151,22 @@ class IsolatePool {
       }
     });
 
-    _workers.add(worker);
+    final isolate = await Isolate.spawn(
+      entryPoint,
+      receivePort.sendPort,
+      debugName: 'LocalIndexerWorker#$id',
+    );
+
+    final sendPort = await completer.future;
+
+    final createdWorker = _IsolateWorker(
+      id: id,
+      isolate: isolate,
+      sendPort: sendPort,
+      receivePort: receivePort,
+    );
+    worker = createdWorker;
+    _workers.add(createdWorker);
   }
 
   _IsolateWorker _leastBusy() {
