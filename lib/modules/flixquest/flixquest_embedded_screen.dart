@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flixquest/constants/app_constants.dart' as flixquest_constants;
 import 'package:flixquest/flixquest_main.dart';
@@ -31,70 +33,31 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
   late final Future<_FlixQuestDependencies> _dependencies = _prepare();
 
   Future<_FlixQuestDependencies> _prepare() async {
-    // The standalone FlixQuest entry point initializes Firebase before
-    // constructing its providers. The embedded entry point must do the same,
-    // otherwise FirebaseAuth/FirebaseFirestore throw firebase_core/no-app
-    // while RecentProvider and BookmarkProvider are being created.
-    try {
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
-      }
-    } catch (error) {
-      // Firebase is optional for the embedded catalog. Keep local browsing,
-      // downloads, and the profile surface usable when no native Firebase
-      // configuration is bundled with the host application.
-      debugPrint('FlixQuest Firebase initialization skipped: $error');
-    }
+    // Firebase is an enhancement, never a reason to keep the catalog off
+    // screen. Start it in the background so a missing native configuration
+    // cannot hold the embedded app behind its startup gate.
+    _startOptionalFirebase();
 
+    // The home page stores its selected tab in SharedPreferences. This is the
+    // only small local prerequisite for rendering the original FlixQuest
+    // surface; every other startup task is deliberately best effort.
     flixquest_constants.sharedPrefsSingleton =
         await SharedPreferences.getInstance();
 
     final settings = SettingsProvider();
-    await Future.wait([
-      settings.getCurrentThemeMode(),
-      settings.getCurrentMaterial3Mode(),
-      settings.getCurrentAdultMode(),
-      settings.getCurrentDefaultScreen(),
-      settings.getCurrentImageQuality(),
-      settings.getCurrentWatchCountry(),
-      settings.getCurrentViewType(),
-      settings.getSeekDuration(),
-      settings.getViewMode(),
-      settings.getMaxBufferDuration(),
-      settings.getVideoResolution(),
-      settings.getSubtitleLanguage(),
-      settings.getForegroundSubtitleColor(),
-      settings.getBackgroundSubtitleColor(),
-      settings.getSubtitleSize(),
-      settings.getAppLanguage(),
-      settings.getSubtitleMode(),
-      settings.getAppColorIndex(),
-      settings.getCustomAppColor(),
-      settings.getStreamProviderOrder(),
-      settings.getPlayerTimeStyle(),
-      settings.getUseProxyMode(),
-      settings.getSubtitleStyle(),
-      settings.getEnableNextEpisodeButton(),
-      settings.getIntroDbSettings(),
-      settings.getPlayerAmbientGlowEnabled(),
-      settings.getAutoLoadSources(),
-    ]);
-    settings.completeHydration();
-
     final recent = RecentProvider();
     final bookmarks = BookmarkProvider();
     final dependencies = AppDependencyProvider();
-    await Future.wait([
-      recent.fetchMovies(),
-      recent.fetchEpisodes(),
-      bookmarks.fetchBookmarks(),
-      dependencies.getFlixQuestLogo(),
-      dependencies.getOccasionalTheme(),
-      dependencies.getAmbientMode(),
-      dependencies.getFQUrl(),
-      dependencies.getTmdbProxy(),
-      dependencies.getUpdateConfiguration(),
-    ]);
+
+    // Render with safe defaults first. A bad preference row, unavailable
+    // platform plugin, or Firebase error must not replace the actual screens
+    // with a startup error page.
+    unawaited(_hydrateBestEffort(
+      settings: settings,
+      recent: recent,
+      bookmarks: bookmarks,
+      dependencies: dependencies,
+    ));
 
     return _FlixQuestDependencies(
       settings: settings,
@@ -104,21 +67,102 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
     );
   }
 
+  void _startOptionalFirebase() {
+    if (Firebase.apps.isNotEmpty) return;
+    unawaited(
+      Firebase.initializeApp().then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) {
+          debugPrint('FlixQuest optional Firebase unavailable: $error');
+        },
+      ),
+    );
+  }
+
+  Future<void> _hydrateBestEffort({
+    required SettingsProvider settings,
+    required RecentProvider recent,
+    required BookmarkProvider bookmarks,
+    required AppDependencyProvider dependencies,
+  }) async {
+    await _ignoreStartupFailure(
+      'settings',
+      () => Future.wait([
+        settings.getCurrentThemeMode(),
+        settings.getCurrentMaterial3Mode(),
+        settings.getCurrentAdultMode(),
+        settings.getCurrentDefaultScreen(),
+        settings.getCurrentImageQuality(),
+        settings.getCurrentWatchCountry(),
+        settings.getCurrentViewType(),
+        settings.getSeekDuration(),
+        settings.getViewMode(),
+        settings.getMaxBufferDuration(),
+        settings.getVideoResolution(),
+        settings.getSubtitleLanguage(),
+        settings.getForegroundSubtitleColor(),
+        settings.getBackgroundSubtitleColor(),
+        settings.getSubtitleSize(),
+        settings.getAppLanguage(),
+        settings.getSubtitleMode(),
+        settings.getAppColorIndex(),
+        settings.getCustomAppColor(),
+        settings.getStreamProviderOrder(),
+        settings.getPlayerTimeStyle(),
+        settings.getUseProxyMode(),
+        settings.getSubtitleStyle(),
+        settings.getEnableNextEpisodeButton(),
+        settings.getIntroDbSettings(),
+        settings.getPlayerAmbientGlowEnabled(),
+        settings.getAutoLoadSources(),
+      ]),
+    );
+    settings.completeHydration();
+
+    await Future.wait([
+      _ignoreStartupFailure('recent movies', recent.fetchMovies),
+      _ignoreStartupFailure('recent episodes', recent.fetchEpisodes),
+      _ignoreStartupFailure('bookmarks', bookmarks.fetchBookmarks),
+      _ignoreStartupFailure(
+        'FlixQuest logo',
+        dependencies.getFlixQuestLogo,
+      ),
+      _ignoreStartupFailure(
+        'occasional theme',
+        dependencies.getOccasionalTheme,
+      ),
+      _ignoreStartupFailure('ambient mode', dependencies.getAmbientMode),
+      _ignoreStartupFailure('API URL', dependencies.getFQUrl),
+      _ignoreStartupFailure('TMDB proxy', dependencies.getTmdbProxy),
+      _ignoreStartupFailure(
+        'update configuration',
+        dependencies.getUpdateConfiguration,
+      ),
+    ]);
+  }
+
+  Future<void> _ignoreStartupFailure(
+    String operation,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } catch (error, stack) {
+      debugPrint('FlixQuest optional startup step failed ($operation): $error');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<_FlixQuestDependencies>(
       future: _dependencies,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'FlixQuest could not be initialized.\n${snapshot.error}',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          );
+          // Only the local SharedPreferences prerequisite can reach this
+          // branch. Never expose an exception as the product screen.
+          debugPrint('FlixQuest local startup failed: ${snapshot.error}');
+          return const _FlixQuestStartupFallback();
         }
         final dependencies = snapshot.data;
         if (dependencies == null) {
@@ -147,6 +191,20 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _FlixQuestStartupFallback extends StatelessWidget {
+  const _FlixQuestStartupFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFF070B17),
+      child: Center(
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }
