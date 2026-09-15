@@ -198,7 +198,7 @@ dependencies:
   wikipedia_api: ^0.1.0
   file_selector: ^1.0.3
   flutter_sharing_intent: ^1.1.0
-  home_widget: ^0.7.0
+  home_widget: ^0.9.2
   local_notifier: ^0.1.6
   tray_manager: ^0.5.0
   disable_battery_optimization:
