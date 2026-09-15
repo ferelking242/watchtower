@@ -75,7 +75,7 @@ dependencies:
   convert: ^3.1.2
   connectivity_plus: ^7.0.0
   app_links: ^7.0.0
-  win32: ^6.0.1
+  win32: ^5.10.1
   protobuf: ^5.0.0
   device_info_plus: ^12.2.0
   marquee: ^2.2.3
@@ -260,6 +260,9 @@ dependency_overrides:
       url: https://github.com/ferelking242/desktop_webview_window.git
   excel:
     path: packages/excel
+  # better_player_plus currently requests wakelock_plus 1.7, whose Win32 6
+  # constraint conflicts with Watchtower/file_picker Win32 5 support.
+  wakelock_plus: 1.4.0
 flutter:
   uses-material-design: true
   generate: true
