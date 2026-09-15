@@ -13,6 +13,10 @@ rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
     configurations.all {
+        // Firebase's protolite-well-known-types AAR duplicates the descriptor
+        // classes already supplied by protobuf-javalite. Keep javalite because
+        // it also provides the protobuf runtime used by the other dependencies.
+        exclude group: 'com.google.firebase', module: 'protolite-well-known-types'
         resolutionStrategy.eachDependency { details ->
             if (details.requested.group == "com.github.teamnewpipe" && details.requested.name == "NewPipeExtractor") {
                 details.useTarget("com.github.teamnewpipe:newpipeextractor:${details.requested.version}")
