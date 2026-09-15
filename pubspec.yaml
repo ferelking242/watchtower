@@ -208,7 +208,6 @@ dependencies:
     git:
       url: https://github.com/ferelking242/flutter_broadcasts.git
       ref: 63931dfe06733d4fb7452e9981e1f0b23414d97a
-  win32_registry: ^2.1.0
   flutter_form_builder: ^9.6.0
   form_builder_validators: ^11.1.1
   html_unescape: ^2.0.0
