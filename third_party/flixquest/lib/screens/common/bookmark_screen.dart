@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -29,7 +30,8 @@ class BookmarkScreen extends StatefulWidget {
 class _BookmarkScreenState extends State<BookmarkScreen>
     with SingleTickerProviderStateMixin {
   late TabController tabController;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseAuth? get _auth =>
+      Firebase.apps.isEmpty ? null : FirebaseAuth.instance;
   User? user;
 
   @override
@@ -41,6 +43,7 @@ class _BookmarkScreenState extends State<BookmarkScreen>
   }
 
   void _triggerAutoSync() async {
+    if (Firebase.apps.isEmpty) return;
     if (BookmarkSyncService.instance.canSync) {
       await BookmarkSyncService.instance.autoSyncIfSignedIn();
       if (mounted) {
@@ -50,7 +53,7 @@ class _BookmarkScreenState extends State<BookmarkScreen>
   }
 
   void getData() async {
-    user = _auth.currentUser;
+    user = _auth?.currentUser;
   }
 
   @override

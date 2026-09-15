@@ -10,6 +10,7 @@ import 'package:flixquest/provider/settings_provider.dart';
 import 'package:flixquest/provider/wellness_provider.dart';
 import 'package:flixquest/tv/platform/device_presentation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,6 +31,21 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
   late final Future<_FlixQuestDependencies> _dependencies = _prepare();
 
   Future<_FlixQuestDependencies> _prepare() async {
+    // The standalone FlixQuest entry point initializes Firebase before
+    // constructing its providers. The embedded entry point must do the same,
+    // otherwise FirebaseAuth/FirebaseFirestore throw firebase_core/no-app
+    // while RecentProvider and BookmarkProvider are being created.
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
+    } catch (error) {
+      // Firebase is optional for the embedded catalog. Keep local browsing,
+      // downloads, and the profile surface usable when no native Firebase
+      // configuration is bundled with the host application.
+      debugPrint('FlixQuest Firebase initialization skipped: $error');
+    }
+
     flixquest_constants.sharedPrefsSingleton =
         await SharedPreferences.getInstance();
 

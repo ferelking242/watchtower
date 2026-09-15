@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../controllers/bookmark_database_controller.dart';
 import '../models/movie.dart';
@@ -7,8 +8,10 @@ import '../services/bookmark_sync_service.dart';
 
 class BookmarkProvider extends ChangeNotifier {
   BookmarkProvider() {
-    BookmarkSyncService.instance.statusNotifier
-        .addListener(_onSyncStatusChanged);
+    if (Firebase.apps.isNotEmpty) {
+      BookmarkSyncService.instance.statusNotifier
+          .addListener(_onSyncStatusChanged);
+    }
   }
 
   final MovieDatabaseController _movieDb = MovieDatabaseController();
@@ -46,27 +49,35 @@ class BookmarkProvider extends ChangeNotifier {
   Future<void> addMovie(Movie movie) async {
     await _movieDb.insertMovie(movie);
     await fetchBookmarks();
-    BookmarkSyncService.instance.onBookmarkChanged();
+    if (Firebase.apps.isNotEmpty) {
+      BookmarkSyncService.instance.onBookmarkChanged();
+    }
   }
 
   Future<void> removeMovie(int id) async {
     await _movieDb.deleteMovie(id);
     await fetchBookmarks();
-    await BookmarkSyncService.instance.deleteMovieFromCloud(id);
-    BookmarkSyncService.instance.onBookmarkChanged();
+    if (Firebase.apps.isNotEmpty) {
+      await BookmarkSyncService.instance.deleteMovieFromCloud(id);
+      BookmarkSyncService.instance.onBookmarkChanged();
+    }
   }
 
   Future<void> addTV(TV tv) async {
     await _tvDb.insertTV(tv);
     await fetchBookmarks();
-    BookmarkSyncService.instance.onBookmarkChanged();
+    if (Firebase.apps.isNotEmpty) {
+      BookmarkSyncService.instance.onBookmarkChanged();
+    }
   }
 
   Future<void> removeTV(int id) async {
     await _tvDb.deleteTV(id);
     await fetchBookmarks();
-    await BookmarkSyncService.instance.deleteTVFromCloud(id);
-    BookmarkSyncService.instance.onBookmarkChanged();
+    if (Firebase.apps.isNotEmpty) {
+      await BookmarkSyncService.instance.deleteTVFromCloud(id);
+      BookmarkSyncService.instance.onBookmarkChanged();
+    }
   }
 
   bool isMovieBookmarked(int id) {
@@ -79,8 +90,10 @@ class BookmarkProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    BookmarkSyncService.instance.statusNotifier
-        .removeListener(_onSyncStatusChanged);
+    if (Firebase.apps.isNotEmpty) {
+      BookmarkSyncService.instance.statusNotifier
+          .removeListener(_onSyncStatusChanged);
+    }
     super.dispose();
   }
 }
