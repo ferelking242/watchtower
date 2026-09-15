@@ -235,6 +235,8 @@ dev_dependencies:
   protoc_plugin: ^23.0.0
 
 dependency_overrides:
+  phosphor_flutter:
+    path: third_party/phosphor_flutter
   analyzer: ^9.0.0
   ffi: ^2.1.3
   html: ^0.15.4
