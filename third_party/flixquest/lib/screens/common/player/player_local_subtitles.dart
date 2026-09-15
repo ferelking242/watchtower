@@ -244,7 +244,7 @@ class PlayerLocalSubtitles {
   Future<void> _pickFiles(
       StateSetter setBottomSheetState, BuildContext context) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['srt', 'vtt'],
         allowMultiple: true,
