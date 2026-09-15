@@ -28,9 +28,9 @@ class WindowsProtocolHandler extends ProtocolHandler {
   void unregister(String scheme) {
     if (defaultTargetPlatform != TargetPlatform.windows) return;
 
-    final txtKey = TEXT(_regPrefix(scheme));
+    final txtKey = _regPrefix(scheme).toPcwstr();
     try {
-      RegDeleteTree(HKEY_CURRENT_USER, txtKey);
+      RegDeleteTree(_hive, txtKey);
     } finally {
       free(txtKey);
     }
@@ -38,10 +38,10 @@ class WindowsProtocolHandler extends ProtocolHandler {
 
   String _regPrefix(String scheme) => 'SOFTWARE\\Classes\\$scheme';
 
-  int _regCreateStringKey(int hKey, String key, String valueName, String data) {
-    final txtKey = TEXT(key);
-    final txtValue = TEXT(valueName);
-    final txtData = TEXT(data);
+  int _regCreateStringKey(HKEY hKey, String key, String valueName, String data) {
+    final txtKey = key.toPcwstr();
+    final txtValue = valueName.toPcwstr();
+    final txtData = data.toPcwstr();
     try {
       return RegSetKeyValue(
         hKey,
@@ -49,7 +49,7 @@ class WindowsProtocolHandler extends ProtocolHandler {
         txtValue,
         REG_SZ,
         txtData,
-        txtData.length * 2 + 2,
+        txtData.byteLength + 2,
       );
     } finally {
       free(txtKey);
