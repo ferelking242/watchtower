@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TMDB poster ratio: 2:3. Keep these dimensions paired. -->
+    <dimen name="widget_poster_width">96dp</dimen>
+    <dimen name="widget_poster_height">144dp</dimen>
+</resources>

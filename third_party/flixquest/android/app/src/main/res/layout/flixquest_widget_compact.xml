@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The narrow layout. There is no room for a poster column, so the backdrop carries the artwork and
+  the facts stack vertically. Same ids as the wide layout, minus the poster, which the provider
+  simply never touches in this bucket.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_margin="4dp"
+    android:background="@drawable/flixquest_widget_background"
+    android:clipToOutline="true">
+
+    <ImageView
+        android:id="@+id/widget_surface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/flixquest_widget_surface" />
+
+    <ImageView
+        android:id="@+id/widget_hero"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop"
+        android:visibility="gone"
+        tools:src="@drawable/icon"
+        tools:visibility="visible" />
+
+    <ImageView
+        android:id="@+id/widget_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:importantForAccessibility="no"
+        android:src="@drawable/flixquest_widget_scrim"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/widget_eyebrow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="@font/figtree_family"
+            android:letterSpacing="0.08"
+            android:maxLines="1"
+            android:textColor="#FFF57C00"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            tools:text="MOVIE OF THE DAY" />
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:fontFamily="@font/figtree_family"
+            android:lineSpacingMultiplier="0.95"
+            android:maxLines="3"
+            android:textColor="#FFFFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="Dune: Part Two" />
+
+        <TextView
+            android:id="@+id/widget_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:fontFamily="@font/figtree_family"
+            android:maxLines="1"
+            android:textColor="#E6FFFFFF"
+            android:textSize="11sp"
+            tools:text="2024  ·  8.1 rating" />
+
+        <ProgressBar
+            android:id="@+id/widget_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_marginTop="8dp"
+            android:indeterminate="false"
+            android:max="100"
+            android:progressBackgroundTint="#40FFFFFF"
+            android:progressDrawable="@drawable/flixquest_widget_progress"
+            android:progressTint="#FFF57C00"
+            android:visibility="gone"
+            tools:progress="45"
+            tools:visibility="visible" />
+
+        <TextView
+            android:id="@+id/widget_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:fontFamily="@font/figtree_family"
+            android:maxLines="2"
+            android:textColor="#B3FFFFFF"
+            android:textSize="10sp"
+            tools:text="18m left" />
+    </LinearLayout>
+</FrameLayout>

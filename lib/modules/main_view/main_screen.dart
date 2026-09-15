@@ -611,6 +611,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
+    if (dest.contains("/flix")) {
+      destinations[dest.indexOf("/flix")] = const NavigationRailDestination(
+        selectedIcon: Icon(Icons.movie_creation_rounded),
+        icon: Icon(Icons.movie_outlined),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Flix'),
+        ),
+      );
+    }
     if (dest.contains("/MusicLibrary")) {
       destinations[dest.indexOf("/MusicLibrary")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.music_circle),
@@ -778,6 +788,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         selectedIcon: const Icon(Broken.note_text),
         icon: const Icon(Broken.text),
         label: l10n.novel,
+      );
+    }
+    if (dest.contains('/flix')) {
+      destMap['/flix'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.movie_creation_rounded),
+        icon: Icon(Icons.movie_outlined),
+        label: 'Flix',
       );
     }
     if (dest.contains('/MusicLibrary')) {

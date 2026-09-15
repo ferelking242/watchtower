@@ -116,6 +116,8 @@ dependencies:
   xml: ^6.6.1
   receive_sharing_intent: ^1.8.1
   dynamic_color: ^1.7.0
+  flixquest:
+    path: third_party/flixquest
   sqflite: ^2.3.3+1
   ftpconnect: ^2.0.10
   dart_lz4: ^1.0.0

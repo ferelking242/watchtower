@@ -25,6 +25,7 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/AnimeLibrary':    ('Watch',      Icons.live_tv_rounded),
   '/MangaLibrary':    ('Manga',      Icons.auto_stories),
   '/NovelLibrary':    ('Novel',      Icons.local_library),
+  '/flix':            ('Flix',       Icons.movie_creation_rounded),
   '/MusicLibrary':    ('Music',      Icons.music_note),
   '/GameLibrary':     ('Games',      Icons.sports_esports),
   '/Library':         ('Library',    Icons.collections_bookmark),
@@ -41,7 +42,8 @@ const kWtRouteInfo = <String, (String, IconData)>{
 
 const kWtDefaultNavOrder = [
   '/discover',       '/AnimeLibrary',  '/MangaLibrary',  '/browse',
-  '/NovelLibrary',   '/MusicLibrary',  '/GameLibrary',   '/Library',
+  '/NovelLibrary',   '/flix',          '/MusicLibrary',  '/GameLibrary',
+  '/Library',
   '/marketplace',    '/history',       '/updates',
   '/trackerLibrary', '/WatchtowerHome',
 ];

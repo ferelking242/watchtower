@@ -1,0 +1,210 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="dev.beamlak.flixquest_v2">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/> 
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <queries>
+      <!-- If your app opens https URLs -->
+      <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="https" />
+      </intent>
+      <!-- If your app emails -->
+      <intent>
+        <action android:name="android.intent.action.SEND" />
+        <data android:mimeType="*/*" />
+      </intent>
+      </queries>
+    <application
+        android:name=".FlixQuestApplication"
+        android:label="FlixQuest"
+        android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true">    
+        <!-- Replace the default receiver ID after registering cast_receiver/. -->
+        <meta-data
+            android:name="uz.shs.better_player_plus.CAST_RECEIVER_APPLICATION_ID"
+            android:value="CC1AD845" />
+        <activity
+            android:name=".MainActivity"
+            android:supportsPictureInPicture="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <!-- Displays an Android View that continues showing the launch screen
+                 Drawable until Flutter paints its first frame, then this splash
+                 screen fades out. A splash screen is useful to avoid any visual
+                 gap between the end of Android's launch screen and the painting of
+                 Flutter's first frame. -->
+                 
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="es.antonborri.home_widget.action.LAUNCH" />
+            </intent-filter>
+
+            <!-- Addresses on TMDB. Deliberately unverified: claiming a domain means publishing a
+                 file on it, and neither of these domains is ours. Android 12 and later therefore
+                 send a tapped link here only after someone picks this app under Open by default,
+                 and the share filter below is the route that works without that. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="themoviedb.org" />
+                <data android:host="www.themoviedb.org" />
+                <data android:pathPrefix="/movie/" />
+                <data android:pathPrefix="/tv/" />
+                <data android:pathPrefix="/person/" />
+                <data android:pathPrefix="/collection/" />
+            </intent-filter>
+
+            <!-- Addresses on IMDb. The patterns are for its localised paths, which put a language
+                 in front of the same address. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="imdb.com" />
+                <data android:host="www.imdb.com" />
+                <data android:host="m.imdb.com" />
+                <data android:pathPrefix="/title/" />
+                <data android:pathPrefix="/name/" />
+                <data android:pathPattern="/.*/title/.*" />
+                <data android:pathPattern="/.*/name/.*" />
+            </intent-filter>
+
+            <!-- Anything shared as text, which is how a link gets here from an app that will not
+                 give up its own handling of it. The address is read out of the text; text with no
+                 address in it is answered with a word to that effect rather than silence. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widgets.MovieOfDayWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_movie_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_movie_of_day" />
+        </receiver>
+        <receiver
+            android:name=".widgets.TvShowOfDayWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_tv_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_tv_show_of_day" />
+        </receiver>
+        <receiver
+            android:name=".widgets.WellnessWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_wellness_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_wellness" />
+        </receiver>
+        <receiver
+            android:name=".widgets.ContinueWatchingWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_continue_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_continue_watching" />
+        </receiver>
+        <receiver
+            android:name=".widgets.MyListWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_my_list_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_my_list" />
+        </receiver>
+        
+        <provider
+            android:name="vn.hunghd.flutterdownloader.DownloadedFileProvider"
+            android:authorities="${applicationId}.flutter_downloader.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths"/>
+        </provider>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.offline_files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/offline_file_paths" />
+        </provider>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+        <service
+            android:name=".downloads.StreamDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync">
+            <intent-filter>
+                <action android:name="androidx.media3.exoplayer.downloadService.action.RESTART" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+    </application>
+
+</manifest>

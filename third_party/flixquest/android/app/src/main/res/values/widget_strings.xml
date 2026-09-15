@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_poster_description">Poster for %1$s</string>
+
+    <!-- Widget picker labels. -->
+    <string name="widget_movie_name">Movie of the day</string>
+    <string name="widget_tv_name">TV show of the day</string>
+    <string name="widget_wellness_name">Viewing insights</string>
+    <string name="widget_continue_name">Continue watching</string>
+    <string name="widget_my_list_name">My List</string>
+
+    <!--
+      Picker descriptions. The launcher shows these directly under the label above, so each one has
+      to say something the label does not.
+    -->
+    <string name="widget_movie_description">A trending film picked for today, with its rating and a one-line hook.</string>
+    <string name="widget_tv_description">A trending series picked for today, with its rating and a one-line hook.</string>
+    <string name="widget_wellness_description">How much you watched this week, your top genre, and how many days you were active.</string>
+    <string name="widget_continue_description">Resume the last thing you were watching, with how much of it is left.</string>
+    <string name="widget_my_list_description">How many titles you have saved, the movie/show split, and the last one you added.</string>
+</resources>

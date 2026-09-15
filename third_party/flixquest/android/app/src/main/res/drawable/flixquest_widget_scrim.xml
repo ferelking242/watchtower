@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sits between the backdrop and the text. It stays above 0.7 alpha everywhere so white text clears
+  contrast over any artwork, and deepens towards the bottom to give the card some depth.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:centerColor="#CC000000"
+        android:endColor="#E6000000"
+        android:startColor="#B3000000"
+        android:type="linear" />
+    <corners android:radius="20dp" />
+</shape>

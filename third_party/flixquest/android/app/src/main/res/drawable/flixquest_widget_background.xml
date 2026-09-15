@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Supplies the rounded outline that the container clips its children to, so the backdrop art gets
+  rounded corners. The colour only shows through if the themed surface layer above it fails to load.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FF1D2023" />
+    <corners android:radius="20dp" />
+</shape>

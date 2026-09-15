@@ -1,0 +1,250 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../focus/tv_keymap.dart';
+
+import '../app/tv_design.dart';
+import '../focus/tv_focusable.dart';
+
+class TvUpdateAction extends StatelessWidget {
+  const TvUpdateAction(
+      {required this.label,
+      required this.onPressed,
+      this.autofocus = false,
+      this.primary = false,
+      this.focusNode,
+      super.key});
+  final String label;
+  final VoidCallback onPressed;
+  final bool autofocus;
+  final bool primary;
+  final FocusNode? focusNode;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return TvFocusable(
+      semanticLabel: label,
+      focusNode: focusNode,
+      autofocus: autofocus,
+      onActivate: onPressed,
+      focusScale: 1,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: BoxDecoration(
+            color: primary ? colors.primary : colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10)),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: primary ? colors.onPrimary : colors.onSurface)),
+      ),
+    );
+  }
+}
+
+class TvUpdateChangelog extends StatelessWidget {
+  const TvUpdateChangelog({
+    required this.changeLog,
+    required this.onPressed,
+    this.focusNode,
+    super.key,
+  });
+
+  final String changeLog;
+  final VoidCallback onPressed;
+  final FocusNode? focusNode;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return TvFocusable(
+      semanticLabel: 'What’s new',
+      focusNode: focusNode,
+      onActivate: onPressed,
+      focusScale: 1,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
+        decoration: BoxDecoration(
+          color: TvDesign.surface,
+          borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+          border:
+              Border.all(color: colors.outlineVariant.withValues(alpha: .6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('What’s new',
+                style: TextStyle(
+                    color: colors.primary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            Text(changeLog,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 20, height: 1.45)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TvUpdateLayout extends StatelessWidget {
+  const TvUpdateLayout(
+      {required this.title,
+      required this.message,
+      required this.children,
+      super.key});
+  final String title;
+  final String message;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: TvDesign.pageBackground,
+      body: SafeArea(
+        minimum: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
+        child: Center(
+            child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(TvDesign.focusOutset),
+            child: FocusTraversalGroup(
+              policy: ReadingOrderTraversalPolicy(),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 34,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    Text(message,
+                        style: const TextStyle(
+                            color: TvDesign.mutedText,
+                            fontSize: 20,
+                            height: 1.4)),
+                    const SizedBox(height: 24),
+                    ...children,
+                  ]),
+            ),
+          ),
+        )),
+      ),
+    );
+  }
+}
+
+/// Release notes are a document, with remote scrolling independent of buttons.
+class TvChangelogView extends StatefulWidget {
+  const TvChangelogView({required this.changeLog, super.key});
+  final String changeLog;
+
+  @override
+  State<TvChangelogView> createState() => _TvChangelogViewState();
+}
+
+class _TvChangelogViewState extends State<TvChangelogView> {
+  final _scroll = ScrollController();
+  final _notesFocus = FocusNode(debugLabel: 'Release notes');
+  final _backFocus = FocusNode(debugLabel: 'Back from release notes');
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _notesFocus.dispose();
+    _backFocus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key != LogicalKeyboardKey.arrowDown &&
+        key != LogicalKeyboardKey.arrowUp) {
+      return KeyEventResult.ignored;
+    }
+    if (_backFocus.hasFocus) {
+      if (key == LogicalKeyboardKey.arrowUp) _notesFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (!_scroll.hasClients) return KeyEventResult.handled;
+    final position = _scroll.position;
+    final down = key == LogicalKeyboardKey.arrowDown;
+    if (down && position.extentAfter < 1) {
+      _backFocus.requestFocus();
+    } else {
+      _scroll.animateTo(
+          (position.pixels + (down ? 120 : -120))
+              .clamp(0, position.maxScrollExtent),
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut);
+    }
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TvKeymap(
+      onBack: () => Navigator.of(context).pop(),
+      child: Focus(
+        focusNode: _notesFocus,
+        autofocus: true,
+        onKeyEvent: _onKey,
+        child: Scaffold(
+          backgroundColor: TvDesign.pageBackground,
+          body: SafeArea(
+            minimum: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
+            child: Center(
+                child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Padding(
+                padding: const EdgeInsets.all(TvDesign.focusOutset),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('What’s new',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 8),
+                      const Text('Use ↑ ↓ to scroll',
+                          style: TextStyle(
+                              color: TvDesign.mutedText, fontSize: 16)),
+                      const SizedBox(height: 24),
+                      Expanded(
+                          child: Scrollbar(
+                              controller: _scroll,
+                              thumbVisibility: true,
+                              child: SingleChildScrollView(
+                                controller: _scroll,
+                                padding: const EdgeInsets.only(
+                                    right: 24, bottom: 16),
+                                child: Text(widget.changeLog,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 21,
+                                        height: 1.6)),
+                              ))),
+                      const SizedBox(height: 16),
+                      TvUpdateAction(
+                          label: 'Back',
+                          focusNode: _backFocus,
+                          onPressed: () => Navigator.of(context).pop()),
+                    ]),
+              ),
+            )),
+          ),
+        ),
+      ),
+    );
+  }
+}

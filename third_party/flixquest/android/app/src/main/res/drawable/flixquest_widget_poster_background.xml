@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shows while the poster bitmap is missing, and rounds the artwork's corners via clipToOutline. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#33FFFFFF" />
+    <corners android:radius="10dp" />
+</shape>

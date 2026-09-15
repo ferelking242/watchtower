@@ -51,6 +51,7 @@ import 'package:watchtower/modules/browse/extension/extension_lang.dart';
 import 'package:watchtower/modules/browse/extension_diagnostic_screen.dart';
 import 'package:watchtower/modules/browse/global_search/global_search_screen.dart';
 import 'package:watchtower/modules/main_view/main_screen.dart';
+import 'package:watchtower/modules/flixquest/flixquest_embedded_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/main_library_screen.dart';
@@ -190,6 +191,10 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(
           name: "AnimeLibrary",
           child: const AnimeDiscoveryScreen(),
+        ),
+        _genericRoute(
+          name: "flix",
+          child: const FlixQuestEmbeddedScreen(),
         ),
         _genericRoute(
           name: "NovelLibrary",
