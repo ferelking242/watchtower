@@ -17,7 +17,7 @@ set TMDB_API_KEY(String value) {
   final trimmed = value.trim();
   _remoteTmdbApiKey = trimmed.isNotEmpty ? trimmed : null;
 }
-String mixpanelKey = dotenv.env['MIXPANEL_API_KEY']!;
+String mixpanelKey = dotenv.env['MIXPANEL_API_KEY'] ?? '';
 const TMDB_BASE_IMAGE_URL = 'https://image.tmdb.org/t/p/';
 const String EMBED_BASE_MOVIE_URL =
     'https://www.2embed.to/embed/tmdb/movie?id=';
@@ -29,4 +29,4 @@ const String INSTAGRAM_BASE_URL = 'https://instagram.com/';
 const String TWITTER_BASE_URL = 'https://twitter.com/';
 const String IMDB_BASE_URL = 'https://imdb.com/title/';
 const String TWOEMBED_BASE_URL = 'https://2embed.biz';
-String flixquestApiUrl = dotenv.env['FLIXQUEST_API_URL']!;
+String flixquestApiUrl = dotenv.env['FLIXQUEST_API_URL'] ?? '';

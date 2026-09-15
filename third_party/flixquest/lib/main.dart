@@ -88,7 +88,11 @@ Future<DevicePresentation> appInitialize({
   //     await PlatformAssetBundle().load('packages/flixquest/assets/ca/lets-encrypt-r3.pem');
   // SecurityContext.defaultContext
   //     .setTrustedCertificatesBytes(data.buffer.asUint8List());
-  await dotenv.load(fileName: '.env');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (error) {
+    debugPrint('FlixQuest optional .env not loaded: $error');
+  }
   await EasyLocalization.ensureInitialized();
   sharedPrefsSingleton = await SharedPreferencesSingleton.getInstance();
   await clearVideoPlaybackCache();
