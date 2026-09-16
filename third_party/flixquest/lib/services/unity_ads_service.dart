@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:unity_ads_plugin/unity_ads_plugin.dart';
+
+import '../constants/api_constants.dart';
 
 /// Centralized service to manage Unity Ads SDK lifecycle.
 class UnityAdsService {
@@ -25,14 +26,14 @@ class UnityAdsService {
 
   /// Returns the fallback Game ID for Android from .env or defaults.
   static String get fallbackAndroidGameId =>
-      dotenv.env['UNITY_GAME_ID_ANDROID']?.trim().isNotEmpty == true
-          ? dotenv.env['UNITY_GAME_ID_ANDROID']!.trim()
+      safeDotenv('UNITY_GAME_ID_ANDROID')?.trim().isNotEmpty == true
+          ? safeDotenv('UNITY_GAME_ID_ANDROID')!.trim()
           : defaultAndroidGameId;
 
   /// Returns the fallback banner placement ID from .env or defaults.
   static String get fallbackBannerPlacementId =>
-      dotenv.env['UNITY_BANNER_PLACEMENT_ID']?.trim().isNotEmpty == true
-          ? dotenv.env['UNITY_BANNER_PLACEMENT_ID']!.trim()
+      safeDotenv('UNITY_BANNER_PLACEMENT_ID')?.trim().isNotEmpty == true
+          ? safeDotenv('UNITY_BANNER_PLACEMENT_ID')!.trim()
           : defaultBannerPlacementId;
 
   /// Initializes Unity Ads SDK.
