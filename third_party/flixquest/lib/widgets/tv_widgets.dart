@@ -262,13 +262,17 @@ class DiscoverTVState extends State<DiscoverTV>
   }
 
   Future<void> _loadBookmarks() async {
-    final items = await _bookmarkController.getTVList();
-    if (!mounted) return;
-    setState(() {
-      _bookmarkedIds
-        ..clear()
-        ..addAll(items.map((item) => item.id).whereType<int>());
-    });
+    try {
+      final items = await _bookmarkController.getTVList();
+      if (!mounted) return;
+      setState(() {
+        _bookmarkedIds
+          ..clear()
+          ..addAll(items.map((item) => item.id).whereType<int>());
+      });
+    } catch (error) {
+      debugPrint('FlixQuest TV bookmarks unavailable: $error');
+    }
   }
 
   Future<void> _toggleBookmark(TV item) async {
@@ -341,7 +345,8 @@ class DiscoverTVState extends State<DiscoverTV>
     );
 
     try {
-      final results = await Future.wait([trendingFuture, randomDiscoverFuture]);
+      final results = await Future.wait([trendingFuture, randomDiscoverFuture])
+          .timeout(const Duration(seconds: 20));
       final trendingList = results[0];
       final randomList = results[1];
 
@@ -386,10 +391,11 @@ class DiscoverTVState extends State<DiscoverTV>
         });
       }
     } catch (_) {
-      final fallback = await trendingFuture.catchError((_) => <TV>[]);
       if (mounted) {
         setState(() {
-          tvList = fallback;
+          // Empty data is a completed state. Do not keep the hero shimmer
+          // alive while an unreachable catalog endpoint retries.
+          tvList = <TV>[];
         });
       }
     }

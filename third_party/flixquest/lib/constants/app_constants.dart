@@ -45,11 +45,15 @@ const kTableLeftStyle =
 const String currentAppVersion = '4.0.0';
 
 final client = HttpClient();
+// Catalog requests must fail back to the screen instead of retrying forever.
+// The old 100000-attempt policy kept the hero shimmer alive for hours when
+// TMDB or the configured proxy was unreachable.
 const retryOptions = RetryOptions(
-    maxDelay: Duration(milliseconds: 300),
-    delayFactor: Duration(seconds: 0),
-    maxAttempts: 100000);
-const timeOut = Duration(seconds: 60);
+  maxAttempts: 2,
+  maxDelay: Duration(seconds: 1),
+  delayFactor: Duration(milliseconds: 300),
+);
+const timeOut = Duration(seconds: 12);
 
 const retryOptionsStream = RetryOptions(
     maxDelay: Duration(milliseconds: 300),

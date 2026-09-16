@@ -12,7 +12,6 @@ import 'package:flixquest/provider/settings_provider.dart';
 import 'package:flixquest/provider/wellness_provider.dart';
 import 'package:flixquest/tv/platform/device_presentation.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,14 +31,9 @@ class FlixQuestEmbeddedScreen extends StatefulWidget {
 class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
   late final Future<void> _sharedPreferencesReady =
       _ensureSharedPreferences();
-  late final Future<_FlixQuestDependencies> _dependencies = _prepare();
+  late Future<_FlixQuestDependencies> _dependencies = _prepare();
 
   Future<_FlixQuestDependencies> _prepare() async {
-    // Firebase is an enhancement, never a reason to keep the catalog off
-    // screen. Start it in the background so a missing native configuration
-    // cannot hold the embedded app behind its startup gate.
-    _startOptionalFirebase();
-
     final settings = SettingsProvider();
     final recent = RecentProvider();
     final bookmarks = BookmarkProvider();
@@ -77,18 +71,6 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
       debugPrint('FlixQuest preferences unavailable: $error');
       debugPrintStack(stackTrace: stack);
     }
-  }
-
-  void _startOptionalFirebase() {
-    if (Firebase.apps.isNotEmpty) return;
-    unawaited(
-      Firebase.initializeApp().then<void>(
-        (_) {},
-        onError: (Object error, StackTrace stack) {
-          debugPrint('FlixQuest optional Firebase unavailable: $error');
-        },
-      ),
-    );
   }
 
   Future<void> _hydrateBestEffort({
@@ -175,10 +157,13 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
       future: _dependencies,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          // Only the local SharedPreferences prerequisite can reach this
-          // branch. Never expose an exception as the product screen.
           debugPrint('FlixQuest local startup failed: ${snapshot.error}');
-          return const _FlixQuestStartupFallback();
+          return _FlixQuestStartupFallback(
+            error: snapshot.error,
+            onRetry: () => setState(() {
+              _dependencies = _prepare();
+            }),
+          );
         }
         final dependencies = snapshot.data;
         if (dependencies == null) {
@@ -212,14 +197,49 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
 }
 
 class _FlixQuestStartupFallback extends StatelessWidget {
-  const _FlixQuestStartupFallback();
+  const _FlixQuestStartupFallback({
+    required this.error,
+    required this.onRetry,
+  });
+
+  final Object? error;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0xFF070B17),
+    return ColoredBox(
+      color: const Color(0xFF070B17),
       child: Center(
-        child: CircularProgressIndicator(),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white70, size: 42),
+              const SizedBox(height: 14),
+              const Text(
+                'FlixQuest ne peut pas démarrer',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 18),
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  error.toString(),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 18),
+              OutlinedButton(
+                onPressed: onRetry,
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

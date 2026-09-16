@@ -251,13 +251,17 @@ class DiscoverMoviesState extends State<DiscoverMovies>
   }
 
   Future<void> _loadBookmarks() async {
-    final bookmarks = await _bookmarkController.getMovieList();
-    if (!mounted) return;
-    setState(() {
-      _bookmarkedMovieIds
-        ..clear()
-        ..addAll(bookmarks.map((movie) => movie.id).whereType<int>());
-    });
+    try {
+      final bookmarks = await _bookmarkController.getMovieList();
+      if (!mounted) return;
+      setState(() {
+        _bookmarkedMovieIds
+          ..clear()
+          ..addAll(bookmarks.map((movie) => movie.id).whereType<int>());
+      });
+    } catch (error) {
+      debugPrint('FlixQuest movie bookmarks unavailable: $error');
+    }
   }
 
   Future<void> _toggleBookmark(Movie movie) async {
@@ -337,7 +341,8 @@ class DiscoverMoviesState extends State<DiscoverMovies>
     );
 
     try {
-      final results = await Future.wait([trendingFuture, randomDiscoverFuture]);
+      final results = await Future.wait([trendingFuture, randomDiscoverFuture])
+          .timeout(const Duration(seconds: 20));
       final trendingList = results[0];
       final randomList = results[1];
 
@@ -380,10 +385,11 @@ class DiscoverMoviesState extends State<DiscoverMovies>
         });
       }
     } catch (_) {
-      final fallback = await trendingFuture.catchError((_) => <Movie>[]);
       if (mounted) {
         setState(() {
-          moviesList = fallback;
+          // Empty data is a completed state. Do not keep the hero shimmer
+          // alive while an unreachable catalog endpoint retries.
+          moviesList = <Movie>[];
         });
       }
     }
