@@ -28,7 +28,7 @@ class AppSessionStateStore {
     'settings',
   };
 
-  final SharedPreferences _preferences;
+  final SharedPreferences? _preferences;
 
   String? get handheldDestination => _validatedDestination(
         handheldDestinationKey,
@@ -42,16 +42,16 @@ class AppSessionStateStore {
 
   Future<void> rememberHandheldDestination(String destinationId) async {
     if (!handheldDestinations.contains(destinationId)) return;
-    await _preferences.setString(handheldDestinationKey, destinationId);
+    await _preferences?.setString(handheldDestinationKey, destinationId);
   }
 
   Future<void> rememberTelevisionDestination(String destinationId) async {
     if (!televisionDestinations.contains(destinationId)) return;
-    await _preferences.setString(televisionDestinationKey, destinationId);
+    await _preferences?.setString(televisionDestinationKey, destinationId);
   }
 
   String? _validatedDestination(String key, Set<String> validDestinations) {
-    final destinationId = _preferences.getString(key);
+    final destinationId = _preferences?.getString(key);
     // Keep users on the same fourth tab after the navbar destination swap.
     if (destinationId == 'bookmarks' &&
         validDestinations.contains('downloads')) {

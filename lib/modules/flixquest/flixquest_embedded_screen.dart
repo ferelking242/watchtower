@@ -30,6 +30,8 @@ class FlixQuestEmbeddedScreen extends StatefulWidget {
 }
 
 class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
+  late final Future<void> _sharedPreferencesReady =
+      _ensureSharedPreferences();
   late final Future<_FlixQuestDependencies> _dependencies = _prepare();
 
   Future<_FlixQuestDependencies> _prepare() async {
@@ -37,12 +39,6 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
     // screen. Start it in the background so a missing native configuration
     // cannot hold the embedded app behind its startup gate.
     _startOptionalFirebase();
-
-    // The home page stores its selected tab in SharedPreferences. This is the
-    // only small local prerequisite for rendering the original FlixQuest
-    // surface; every other startup task is deliberately best effort.
-    flixquest_constants.sharedPrefsSingleton =
-        await SharedPreferences.getInstance();
 
     final settings = SettingsProvider();
     final recent = RecentProvider();
@@ -53,6 +49,7 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
     // platform plugin, or Firebase error must not replace the actual screens
     // with a startup error page.
     unawaited(_hydrateBestEffort(
+      preferencesReady: _sharedPreferencesReady,
       settings: settings,
       recent: recent,
       bookmarks: bookmarks,
@@ -65,6 +62,21 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
       bookmarks: bookmarks,
       dependencies: dependencies,
     );
+  }
+
+  Future<void> _ensureSharedPreferences() async {
+    if (flixquest_constants.sharedPrefsSingletonOrNull != null) return;
+    try {
+      flixquest_constants.sharedPrefsSingleton =
+          await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 3),
+      );
+    } catch (error, stack) {
+      // The embedded catalog can still render and browse without persisted
+      // settings. Keep this failure off the screen and use default values.
+      debugPrint('FlixQuest preferences unavailable: $error');
+      debugPrintStack(stackTrace: stack);
+    }
   }
 
   void _startOptionalFirebase() {
@@ -80,42 +92,46 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
   }
 
   Future<void> _hydrateBestEffort({
+    required Future<void> preferencesReady,
     required SettingsProvider settings,
     required RecentProvider recent,
     required BookmarkProvider bookmarks,
     required AppDependencyProvider dependencies,
   }) async {
     await _ignoreStartupFailure(
-      'settings',
-      () => Future.wait([
-        settings.getCurrentThemeMode(),
-        settings.getCurrentMaterial3Mode(),
-        settings.getCurrentAdultMode(),
-        settings.getCurrentDefaultScreen(),
-        settings.getCurrentImageQuality(),
-        settings.getCurrentWatchCountry(),
-        settings.getCurrentViewType(),
-        settings.getSeekDuration(),
-        settings.getViewMode(),
-        settings.getMaxBufferDuration(),
-        settings.getVideoResolution(),
-        settings.getSubtitleLanguage(),
-        settings.getForegroundSubtitleColor(),
-        settings.getBackgroundSubtitleColor(),
-        settings.getSubtitleSize(),
-        settings.getAppLanguage(),
-        settings.getSubtitleMode(),
-        settings.getAppColorIndex(),
-        settings.getCustomAppColor(),
-        settings.getStreamProviderOrder(),
-        settings.getPlayerTimeStyle(),
-        settings.getUseProxyMode(),
-        settings.getSubtitleStyle(),
-        settings.getEnableNextEpisodeButton(),
-        settings.getIntroDbSettings(),
-        settings.getPlayerAmbientGlowEnabled(),
-        settings.getAutoLoadSources(),
-      ]),
+      'preferences and settings',
+      () async {
+        await preferencesReady;
+        await Future.wait([
+          settings.getCurrentThemeMode(),
+          settings.getCurrentMaterial3Mode(),
+          settings.getCurrentAdultMode(),
+          settings.getCurrentDefaultScreen(),
+          settings.getCurrentImageQuality(),
+          settings.getCurrentWatchCountry(),
+          settings.getCurrentViewType(),
+          settings.getSeekDuration(),
+          settings.getViewMode(),
+          settings.getMaxBufferDuration(),
+          settings.getVideoResolution(),
+          settings.getSubtitleLanguage(),
+          settings.getForegroundSubtitleColor(),
+          settings.getBackgroundSubtitleColor(),
+          settings.getSubtitleSize(),
+          settings.getAppLanguage(),
+          settings.getSubtitleMode(),
+          settings.getAppColorIndex(),
+          settings.getCustomAppColor(),
+          settings.getStreamProviderOrder(),
+          settings.getPlayerTimeStyle(),
+          settings.getUseProxyMode(),
+          settings.getSubtitleStyle(),
+          settings.getEnableNextEpisodeButton(),
+          settings.getIntroDbSettings(),
+          settings.getPlayerAmbientGlowEnabled(),
+          settings.getAutoLoadSources(),
+        ]);
+      },
     );
     settings.completeHydration();
 

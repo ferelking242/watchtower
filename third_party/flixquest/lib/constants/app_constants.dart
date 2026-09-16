@@ -102,5 +102,15 @@ class MyHttpOverrides extends HttpOverrides {
 
 late SharedPreferences sharedPrefsSingleton;
 
+/// Returns persisted preferences when the host has finished initializing the
+/// platform plugin. Embedded FlixQuest screens use defaults until then.
+SharedPreferences? get sharedPrefsSingletonOrNull {
+  try {
+    return sharedPrefsSingleton;
+  } on LateInitializationError {
+    return null;
+  }
+}
+
 /// easy localization run command
 // flutter pub run easy_localization:generate -S packages/flixquest/assets/translations -f keys -O lib/translations -o locale_keys.g.dart

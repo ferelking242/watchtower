@@ -287,7 +287,7 @@ class _FlixQuestHomePageState extends State<FlixQuestHomePage>
   @override
   void initState() {
     super.initState();
-    _sessionState = AppSessionStateStore(sharedPrefsSingleton);
+    _sessionState = AppSessionStateStore(sharedPrefsSingletonOrNull);
     final defaultHome =
         Provider.of<SettingsProvider>(context, listen: false).defaultValue;
     final defaultDestinationId = defaultHome == 3
