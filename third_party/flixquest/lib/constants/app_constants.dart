@@ -107,7 +107,7 @@ late SharedPreferences sharedPrefsSingleton;
 SharedPreferences? get sharedPrefsSingletonOrNull {
   try {
     return sharedPrefsSingleton;
-  } on LateInitializationError {
+  } catch (_) {
     return null;
   }
 }
