@@ -26,6 +26,10 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/MangaLibrary':    ('Manga',      Icons.auto_stories),
   '/NovelLibrary':    ('Novel',      Icons.local_library),
   '/flix':            ('Flix',       Icons.movie_creation_rounded),
+  '/flixMovies':      ('Movie',      Icons.movie_rounded),
+  '/flixSeries':      ('Watch Series', Icons.live_tv_rounded),
+  '/flixLiveTv':      ('Live TV',    Icons.broadcast_on_personal_rounded),
+  '/flixProfile':     ('Profile',    Icons.person_rounded),
   '/MusicLibrary':    ('Music',      Icons.music_note),
   '/GameLibrary':     ('Games',      Icons.sports_esports),
   '/Library':         ('Library',    Icons.collections_bookmark),
@@ -37,12 +41,15 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/schedule':        ('Schedule',   Icons.calendar_month_rounded),
   '/marketplace':     ('Market',     Icons.storefront_rounded),
   '/downloadQueue':   ('Downloads',  Icons.download_rounded),
+  '/settings':        ('Settings',   Icons.settings_rounded),
+  '/about':           ('About',      Icons.info_outline_rounded),
   '_enableLibSwitch': ('Hub',        Icons.grid_view_rounded),
 };
 
 const kWtDefaultNavOrder = [
   '/discover',       '/AnimeLibrary',  '/MangaLibrary',  '/browse',
-  '/NovelLibrary',   '/flix',          '/MusicLibrary',  '/GameLibrary',
+  '/NovelLibrary',   '/flixMovies',    '/flixSeries',    '/flixLiveTv',
+  '/MusicLibrary',   '/GameLibrary',
   '/Library',
   '/marketplace',    '/history',       '/updates',
   '/trackerLibrary', '/WatchtowerHome',
@@ -55,7 +62,7 @@ const kWtDefaultHideItems = [
 
 const kWtStaticRoutes = [
   '/browse', '/marketplace', '/schedule', '/updates', '/history',
-  '/downloadQueue',
+  '/downloadQueue', '/settings', '/about',
 ];
 
 // French label overrides — used when device/app locale is 'fr'.
@@ -67,6 +74,12 @@ const _kFrLabels = <String, String>{
   '/history':       'Historique',
   '/marketplace':   'Marché',
   '/downloadQueue': 'Téléchargements',
+  '/flixMovies':    'Films',
+  '/flixSeries':    'Séries',
+  '/flixLiveTv':    'TV en direct',
+  '/flixProfile':   'Profil',
+  '/settings':      'Paramètres',
+  '/about':         'À propos',
 };
 
 // ── Visual constants (Seanime-style solid dark boxes) ─────────────────────────
@@ -147,6 +160,19 @@ class _WatchtowerMenuOverlayState
     String label(String route) {
       final base = kWtRouteInfo[route]?.$1 ?? route.replaceAll('/', '');
       return isFr ? (_kFrLabels[route] ?? base) : base;
+    }
+
+    // Profile is a stable account entry, not a user-configurable dock item.
+    // Keep it first so it remains easy to reach even when the navigation order
+    // has been customized.
+    final profileInfo = kWtRouteInfo['/flixProfile'];
+    if (profileInfo != null) {
+      seen.add('/flixProfile');
+      items.add(_MenuItem(
+        route: '/flixProfile',
+        label: label('/flixProfile'),
+        icon: profileInfo.$2,
+      ));
     }
 
     for (final r in widget.overflowRoutes) {

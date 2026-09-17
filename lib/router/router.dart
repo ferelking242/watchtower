@@ -197,6 +197,30 @@ class RouterNotifier extends ChangeNotifier {
           child: const FlixQuestEmbeddedScreen(),
         ),
         _genericRoute(
+          name: "flixMovies",
+          child: const FlixQuestEmbeddedScreen(
+            initialDestination: 'movies',
+          ),
+        ),
+        _genericRoute(
+          name: "flixSeries",
+          child: const FlixQuestEmbeddedScreen(
+            initialDestination: 'series',
+          ),
+        ),
+        _genericRoute(
+          name: "flixLiveTv",
+          child: const FlixQuestEmbeddedScreen(
+            initialDestination: 'live',
+          ),
+        ),
+        _genericRoute(
+          name: "flixProfile",
+          child: const FlixQuestEmbeddedScreen(
+            initialDestination: 'profile',
+          ),
+        ),
+        _genericRoute(
           name: "NovelLibrary",
           child: const NovelDiscoveryScreen(),
         ),

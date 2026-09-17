@@ -21,7 +21,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// its screens in Watchtower. Watchtower only supplies the route and the
 /// provider boundary needed by the imported application.
 class FlixQuestEmbeddedScreen extends StatefulWidget {
-  const FlixQuestEmbeddedScreen({super.key});
+  const FlixQuestEmbeddedScreen({
+    super.key,
+    this.initialDestination,
+  });
+
+  /// Optional FlixQuest destination selected when Watchtower opens the
+  /// embedded surface from a dedicated dock/menu entry.
+  final String? initialDestination;
 
   @override
   State<FlixQuestEmbeddedScreen> createState() =>
@@ -188,7 +195,9 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
               ),
               ChangeNotifierProvider.value(value: WellnessProvider.instance),
             ],
-            child: const FlixQuestHomePage(),
+            child: FlixQuestHomePage(
+              initialDestination: initialDestination,
+            ),
           ),
         );
       },

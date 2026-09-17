@@ -32,6 +32,7 @@ import 'services/recently_watched_sync_service.dart';
 import 'services/app_session_state_store.dart';
 import 'services/app_remote_config.dart';
 import 'screens/common/downloads_screen.dart';
+import 'screens/common/live_tv_screen.dart';
 import 'tv/platform/device_presentation.dart';
 import 'tv/widgets/tv_update_gate.dart';
 
@@ -261,8 +262,11 @@ class _FlixQuestState extends State<FlixQuest>
 
 class FlixQuestHomePage extends StatefulWidget {
   const FlixQuestHomePage({
+    this.initialDestination,
     super.key,
   });
+
+  final String? initialDestination;
 
   @override
   State<FlixQuestHomePage> createState() => _FlixQuestHomePageState();
@@ -273,6 +277,7 @@ class _FlixQuestHomePageState extends State<FlixQuestHomePage>
   static const _destinationIds = <String>[
     'movies',
     'series',
+    'live',
     'discover',
     'downloads',
     'profile',
@@ -290,13 +295,22 @@ class _FlixQuestHomePageState extends State<FlixQuestHomePage>
     _sessionState = AppSessionStateStore(sharedPrefsSingletonOrNull);
     final defaultHome =
         Provider.of<SettingsProvider>(context, listen: false).defaultValue;
-    final defaultDestinationId = defaultHome == 3
-        ? 'profile'
-        : defaultHome >= 0 && defaultHome < _destinationIds.length
-            ? _destinationIds[defaultHome]
-            : 'movies';
+    final defaultDestinationId = switch (defaultHome) {
+      0 => 'movies',
+      1 => 'series',
+      2 => 'discover',
+      3 => 'profile',
+      4 => 'downloads',
+      _ => 'movies',
+    };
+    final restoredDestination =
+        _sessionState.handheldDestination ?? defaultDestinationId;
+    final requestedDestination = widget.initialDestination;
     _selectedDestinationId = RestorableString(
-      _sessionState.handheldDestination ?? defaultDestinationId,
+      requestedDestination != null &&
+              _destinationIds.contains(requestedDestination)
+          ? requestedDestination
+          : restoredDestination,
     );
     WidgetsBinding.instance.addPostFrameCallback(
       (_) {
@@ -317,7 +331,10 @@ class _FlixQuestHomePageState extends State<FlixQuestHomePage>
       _selectedDestinationId,
       'selected_destination',
     );
-    if (!_destinationIds.contains(_selectedDestinationId.value)) {
+    if (widget.initialDestination != null &&
+        _destinationIds.contains(widget.initialDestination)) {
+      _selectedDestinationId.value = widget.initialDestination!;
+    } else if (!_destinationIds.contains(_selectedDestinationId.value)) {
       _selectedDestinationId.value = 'movies';
     }
   }
@@ -398,6 +415,13 @@ class _FlixQuestHomePageState extends State<FlixQuestHomePage>
                       label: tr('tv_series'),
                     ),
                     NavigationDestination(
+                      icon: Icon(PhosphorIcons.broadcast()),
+                      selectedIcon: Icon(
+                          PhosphorIcons.broadcast(PhosphorIconsStyle.fill),
+                          color: colorScheme.primary),
+                      label: tr('live_tv'),
+                    ),
+                    NavigationDestination(
                       icon: Icon(PhosphorIcons.compass()),
                       selectedIcon: Icon(
                           PhosphorIcons.compass(PhosphorIconsStyle.fill),
@@ -471,9 +495,10 @@ class _FlixQuestHomePageState extends State<FlixQuestHomePage>
                   );
                 },
               ),
+              const ChannelList(),
               const DiscoverPage(),
               const DownloadsScreen(embedded: true),
-              const UserInfo()
+              const UserInfo(),
             ],
           ),
         ));

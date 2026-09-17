@@ -42,7 +42,9 @@ import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 
 
-final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
+final libLocationRegex = RegExp(
+  r"^/(Manga|Anime|Novel|Music|Game)Library$|^/flix(Movie|Series|LiveTv)$",
+);
 
 /// Whether the floating dock should be hidden because the user is scrolling
 /// down. Pages can opt-in to driving this by wrapping their scrollables in a
@@ -277,14 +279,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         "/MangaLibrary",
                         "/AnimeLibrary",
                         "/NovelLibrary",
+                        "/flixMovies",
+                        "/flixSeries",
+                        "/flixLiveTv",
                       ].contains(nav)) {
                         if (uniqueSwitch) return null;
                         uniqueSwitch = true;
                         return "_enableLibSwitch";
                       }
-                      // Music & Game are accessible via Hub expansion — hide
-                      // them from the main dock row when Hub is enabled.
-                      if (nav == "/MusicLibrary" || nav == "/GameLibrary") {
+                      // Music, Game and the FlixQuest surfaces are accessible
+                      // via Hub expansion — hide them from the main dock row
+                      // when Hub is enabled.
+                      if (nav == "/MusicLibrary" ||
+                          nav == "/GameLibrary") {
                         return null;
                       }
                       return nav;
@@ -301,6 +308,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   '/MangaLibrary',
                   '/AnimeLibrary',
                   '/NovelLibrary',
+                  '/flixMovies',
+                  '/flixSeries',
+                  '/flixLiveTv',
                   '/MusicLibrary',
                   '/GameLibrary',
                 ];
@@ -555,6 +565,42 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         location == '/novelReaderView';
   }
 
+  void _addFlixDesktopDestination(
+    List<NavigationRailDestination?> destinations,
+    List<String> dest, {
+    required String route,
+    required String label,
+    required IconData icon,
+    required IconData activeIcon,
+  }) {
+    final index = dest.indexOf(route);
+    if (index == -1) return;
+    destinations[index] = NavigationRailDestination(
+      selectedIcon: Icon(activeIcon),
+      icon: Icon(icon),
+      label: Padding(
+        padding: const EdgeInsets.only(top: 5),
+        child: Text(label),
+      ),
+    );
+  }
+
+  void _addFlixMobileDestination(
+    Map<String, NavigationDestination> destMap,
+    List<String> dest, {
+    required String route,
+    required String label,
+    required IconData icon,
+    required IconData activeIcon,
+  }) {
+    if (!dest.contains(route)) return;
+    destMap[route] = NavigationDestination(
+      selectedIcon: Icon(activeIcon),
+      icon: Icon(icon),
+      label: label,
+    );
+  }
+
   List<NavigationRailDestination> _buildNavigationWidgetsDesktop(
     WidgetRef ref,
     List<String> dest,
@@ -621,6 +667,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
+    _addFlixDesktopDestination(
+      destinations,
+      dest,
+      route: '/flixMovies',
+      label: 'Movie',
+      icon: Icons.movie_outlined,
+      activeIcon: Icons.movie_rounded,
+    );
+    _addFlixDesktopDestination(
+      destinations,
+      dest,
+      route: '/flixSeries',
+      label: 'Watch Series',
+      icon: Icons.live_tv_outlined,
+      activeIcon: Icons.live_tv_rounded,
+    );
+    _addFlixDesktopDestination(
+      destinations,
+      dest,
+      route: '/flixLiveTv',
+      label: 'Live TV',
+      icon: Icons.broadcast_on_personal_outlined,
+      activeIcon: Icons.broadcast_on_personal_rounded,
+    );
     if (dest.contains("/MusicLibrary")) {
       destinations[dest.indexOf("/MusicLibrary")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.music_circle),
@@ -797,6 +867,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: 'Flix',
       );
     }
+    _addFlixMobileDestination(
+      destMap,
+      dest,
+      route: '/flixMovies',
+      label: 'Movie',
+      icon: Icons.movie_outlined,
+      activeIcon: Icons.movie_rounded,
+    );
+    _addFlixMobileDestination(
+      destMap,
+      dest,
+      route: '/flixSeries',
+      label: 'Watch Series',
+      icon: Icons.live_tv_outlined,
+      activeIcon: Icons.live_tv_rounded,
+    );
+    _addFlixMobileDestination(
+      destMap,
+      dest,
+      route: '/flixLiveTv',
+      label: 'Live TV',
+      icon: Icons.broadcast_on_personal_outlined,
+      activeIcon: Icons.broadcast_on_personal_rounded,
+    );
     if (dest.contains('/MusicLibrary')) {
       destMap['/MusicLibrary'] = const NavigationDestination(
         selectedIcon: Icon(Broken.music_circle),
@@ -1718,6 +1812,27 @@ class _FloatingDockState extends State<_FloatingDock> {
             label: l10n.novel,
             icon: Broken.text,
             activeIcon: Broken.note_text,
+          ));
+        case '/flixMovies':
+          items.add(const _DockItemData(
+            route: '/flixMovies',
+            label: 'Movie',
+            icon: Icons.movie_outlined,
+            activeIcon: Icons.movie_rounded,
+          ));
+        case '/flixSeries':
+          items.add(const _DockItemData(
+            route: '/flixSeries',
+            label: 'Watch Series',
+            icon: Icons.live_tv_outlined,
+            activeIcon: Icons.live_tv_rounded,
+          ));
+        case '/flixLiveTv':
+          items.add(const _DockItemData(
+            route: '/flixLiveTv',
+            label: 'Live TV',
+            icon: Icons.broadcast_on_personal_outlined,
+            activeIcon: Icons.broadcast_on_personal_rounded,
           ));
         case '/MusicLibrary':
           items.add(const _DockItemData(
