@@ -196,7 +196,7 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
               ChangeNotifierProvider.value(value: WellnessProvider.instance),
             ],
             child: FlixQuestHomePage(
-              initialDestination: initialDestination,
+              initialDestination: widget.initialDestination,
             ),
           ),
         );
