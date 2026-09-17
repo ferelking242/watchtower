@@ -51,6 +51,7 @@ import 'package:watchtower/modules/browse/extension/extension_lang.dart';
 import 'package:watchtower/modules/browse/extension_diagnostic_screen.dart';
 import 'package:watchtower/modules/browse/global_search/global_search_screen.dart';
 import 'package:watchtower/modules/main_view/main_screen.dart';
+import 'package:watchtower/modules/home/tmdb_catalog_screen.dart';
 import 'package:watchtower/modules/flixquest/flixquest_embedded_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
@@ -193,32 +194,16 @@ class RouterNotifier extends ChangeNotifier {
           child: const AnimeDiscoveryScreen(),
         ),
         _genericRoute(
-          name: "flix",
-          child: const FlixQuestEmbeddedScreen(),
-        ),
-        _genericRoute(
           name: "flixMovies",
-          child: const FlixQuestEmbeddedScreen(
-            initialDestination: 'movies',
-          ),
+          child: const TmdbCatalogScreen(kind: TmdbCatalogKind.movies),
         ),
         _genericRoute(
           name: "flixSeries",
-          child: const FlixQuestEmbeddedScreen(
-            initialDestination: 'series',
-          ),
+          child: const TmdbCatalogScreen(kind: TmdbCatalogKind.series),
         ),
         _genericRoute(
           name: "flixLiveTv",
-          child: const FlixQuestEmbeddedScreen(
-            initialDestination: 'live',
-          ),
-        ),
-        _genericRoute(
-          name: "flixProfile",
-          child: const FlixQuestEmbeddedScreen(
-            initialDestination: 'profile',
-          ),
+          child: const FlixQuestEmbeddedScreen(initialDestination: 'live'),
         ),
         _genericRoute(
           name: "NovelLibrary",

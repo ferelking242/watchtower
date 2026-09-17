@@ -187,14 +187,13 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 @riverpod
 class NavigationOrderState extends _$NavigationOrderState {
   final items = [
-    '/discover',
-    '/Library',
     '/AnimeLibrary',
-    '/MangaLibrary',
-    '/NovelLibrary',
     '/flixMovies',
     '/flixSeries',
     '/flixLiveTv',
+    '/MangaLibrary',
+    '/NovelLibrary',
+    '/Library',
     '/MusicLibrary',
     '/GameLibrary',
     '/marketplace',
@@ -207,9 +206,45 @@ class NavigationOrderState extends _$NavigationOrderState {
 
   @override
   List<String> build() {
-    return _checkMissingItems(
-      (isar.settings.getSync(kSettingsId) ?? Settings()).navigationOrder?.toList() ?? [],
-    );
+    final saved = (isar.settings.getSync(kSettingsId) ?? Settings())
+            .navigationOrder
+            ?.toList() ??
+        [];
+    return _checkMissingItems(_migrateFlixDock(saved));
+  }
+
+  List<String> _migrateFlixDock(List<String> navigationOrder) {
+    const legacyPrefix = [
+      '/discover',
+      '/Library',
+      '/AnimeLibrary',
+      '/MangaLibrary',
+      '/NovelLibrary',
+      '/flixMovies',
+      '/flixSeries',
+      '/flixLiveTv',
+    ];
+    final isLegacy = navigationOrder.length >= legacyPrefix.length &&
+        legacyPrefix.asMap().entries.every(
+              (entry) => navigationOrder[entry.key] == entry.value,
+            );
+    if (!isLegacy) return navigationOrder;
+    const mediaOrder = [
+      '/AnimeLibrary',
+      '/flixMovies',
+      '/flixSeries',
+      '/flixLiveTv',
+      '/MangaLibrary',
+      '/NovelLibrary',
+    ];
+    return [
+      ...mediaOrder,
+      ...navigationOrder.where(
+        (route) => !mediaOrder.contains(route) &&
+            route != '/discover' &&
+            route != '/Library',
+      ),
+    ];
   }
 
   List<String> _checkMissingItems(List<String> navigationOrder) {

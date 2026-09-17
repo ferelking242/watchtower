@@ -128,6 +128,7 @@ jobs:
           flutter build apk \
             --release \
             --target-platform android-arm64 \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
             --tree-shake-icons \
             --split-debug-info=build/symbols \
             --build-name=${{ steps.ver.outputs.name }} \

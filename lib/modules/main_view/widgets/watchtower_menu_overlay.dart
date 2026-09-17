@@ -25,11 +25,9 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/AnimeLibrary':    ('Watch',      Icons.live_tv_rounded),
   '/MangaLibrary':    ('Manga',      Icons.auto_stories),
   '/NovelLibrary':    ('Novel',      Icons.local_library),
-  '/flix':            ('Flix',       Icons.movie_creation_rounded),
-  '/flixMovies':      ('Movie',      Icons.movie_rounded),
-  '/flixSeries':      ('Watch Series', Icons.live_tv_rounded),
+  '/flixMovies':      ('Film',       Icons.movie_rounded),
+  '/flixSeries':      ('Série',      Icons.live_tv_rounded),
   '/flixLiveTv':      ('Live TV',    Icons.broadcast_on_personal_rounded),
-  '/flixProfile':     ('Profile',    Icons.person_rounded),
   '/MusicLibrary':    ('Music',      Icons.music_note),
   '/GameLibrary':     ('Games',      Icons.sports_esports),
   '/Library':         ('Library',    Icons.collections_bookmark),
@@ -47,8 +45,8 @@ const kWtRouteInfo = <String, (String, IconData)>{
 };
 
 const kWtDefaultNavOrder = [
-  '/discover',       '/AnimeLibrary',  '/MangaLibrary',  '/browse',
-  '/NovelLibrary',   '/flixMovies',    '/flixSeries',    '/flixLiveTv',
+  '/AnimeLibrary',   '/flixMovies',    '/flixSeries',    '/flixLiveTv',
+  '/MangaLibrary',   '/NovelLibrary',
   '/MusicLibrary',   '/GameLibrary',
   '/Library',
   '/marketplace',    '/history',       '/updates',
@@ -77,7 +75,6 @@ const _kFrLabels = <String, String>{
   '/flixMovies':    'Films',
   '/flixSeries':    'Séries',
   '/flixLiveTv':    'TV en direct',
-  '/flixProfile':   'Profil',
   '/settings':      'Paramètres',
   '/about':         'À propos',
 };
@@ -160,19 +157,6 @@ class _WatchtowerMenuOverlayState
     String label(String route) {
       final base = kWtRouteInfo[route]?.$1 ?? route.replaceAll('/', '');
       return isFr ? (_kFrLabels[route] ?? base) : base;
-    }
-
-    // Profile is a stable account entry, not a user-configurable dock item.
-    // Keep it first so it remains easy to reach even when the navigation order
-    // has been customized.
-    final profileInfo = kWtRouteInfo['/flixProfile'];
-    if (profileInfo != null) {
-      seen.add('/flixProfile');
-      items.add(_MenuItem(
-        route: '/flixProfile',
-        label: label('/flixProfile'),
-        icon: profileInfo.$2,
-      ));
     }
 
     for (final r in widget.overflowRoutes) {

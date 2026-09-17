@@ -125,6 +125,7 @@ jobs:
           flutter build apk \
             --debug \
             --target-platform android-arm64 \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
             --build-name=${{ steps.ver.outputs.name }} \
             --build-number=${{ steps.ver.outputs.code }}
 

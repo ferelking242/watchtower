@@ -123,9 +123,7 @@ class TmdbHome {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _tmdbBase = 'https://api.themoviedb.org/3';
-// Read-access token baked at compile time — no keystore, read-only scopes only.
-const _tmdbToken =
-    'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkZmM1YjViNWFiMzRjNzFhODRiNGMwYzZjZDBiM2I3YSIsIm5iZiI6MTc4MTU1NTQyMC40MzYsInN1YiI6IjZhMzA2MGRjOGMzN2NhMWE3ZTQzN2UzYiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.SINbDQCMCtXT6V6wFlB8sD7GwXzetFJwJNEv7ropRMg';
+const _tmdbToken = String.fromEnvironment('TMDB_READ_TOKEN');
 
 const _headers = {
   'Authorization': 'Bearer $_tmdbToken',
@@ -137,6 +135,12 @@ const _headers = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 Future<List<TmdbMedia>> _fetchMovies(String path) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
   final uri = Uri.parse('$_tmdbBase$path?language=fr-FR&page=1');
   final res = await http
       .get(uri, headers: _headers)
@@ -152,6 +156,12 @@ Future<List<TmdbMedia>> _fetchMovies(String path) async {
 }
 
 Future<List<TmdbMedia>> _fetchTv(String path) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
   final uri = Uri.parse('$_tmdbBase$path?language=fr-FR&page=1');
   final res = await http
       .get(uri, headers: _headers)

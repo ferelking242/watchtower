@@ -124,6 +124,7 @@ jobs:
           flutter build apk \
             --profile \
             --target-platform ${{ matrix.target }} \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
             --split-per-abi
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
@@ -260,7 +261,7 @@ jobs:
       - name: Build Universal APK
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
-        run: flutter build apk --profile
+        run: flutter build apk --profile --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
         run: |
@@ -363,7 +364,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Linux
-        run: flutter build linux --release
+        run: flutter build linux --release --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
       - name: Package archive (7z LZMA2 max)
         run: |
@@ -409,7 +410,7 @@ jobs:
         run: flutter pub get
 
       - name: Build macOS
-        run: flutter build macos --release
+        run: flutter build macos --release --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
       - name: Package archive (zip -9)
         run: |
@@ -482,7 +483,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows
-        run: flutter build windows --release
+        run: flutter build windows --release --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
       - name: Package archive (7z max)
         shell: pwsh
@@ -615,7 +616,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          flutter build ios --profile --no-codesign --config-only 2>&1 | tail -20 || true
+          flutter build ios --profile --no-codesign --config-only \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
+            2>&1 | tail -20 || true
 
           echo "=== xcodebuild start ==="
           set +e

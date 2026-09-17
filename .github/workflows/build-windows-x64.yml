@@ -73,6 +73,7 @@ jobs:
         run: >
           flutter build windows
           --release
+          --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
           --no-tree-shake-icons
           --build-name=${{ steps.ver.outputs.name }}
           --build-number=${{ steps.ver.outputs.code }}

@@ -10,6 +10,7 @@ import 'package:flixquest/provider/offline_download_provider.dart';
 import 'package:flixquest/provider/recently_watched_provider.dart';
 import 'package:flixquest/provider/settings_provider.dart';
 import 'package:flixquest/provider/wellness_provider.dart';
+import 'package:flixquest/screens/common/live_tv_screen.dart';
 import 'package:flixquest/tv/platform/device_presentation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -195,9 +196,11 @@ class _FlixQuestEmbeddedScreenState extends State<FlixQuestEmbeddedScreen> {
               ),
               ChangeNotifierProvider.value(value: WellnessProvider.instance),
             ],
-            child: FlixQuestHomePage(
-              initialDestination: widget.initialDestination,
-            ),
+            child: widget.initialDestination == 'live'
+                ? const ChannelList()
+                : FlixQuestHomePage(
+                    initialDestination: widget.initialDestination,
+                  ),
           ),
         );
       },
