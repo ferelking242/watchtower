@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:watchtower/modules/music/collections/formatters.dart';
 import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';

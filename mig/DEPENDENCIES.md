@@ -47,7 +47,7 @@ roles with existing Watchtower packages or Flutter primitives:
 | --- | --- |
 | `easy_localization`, `flutter_localization` | Watchtower `flutter_localizations` and its generated l10n setup. |
 | `phosphor_flutter` | Existing `font_awesome_flutter`, `fluentui_system_icons`, `feather_icon_font` or `simple_icons`. |
-| `shimmer` | Existing `skeletonizer` or Watchtower loading/skeleton widgets. |
+| `shimmer` | Use directly for Watchtower and migration loading states. |
 | `carousel_slider` | `PageView`, `CustomScrollView` or Watchtower list/carousel components. |
 | `google_nav_bar` | Material `NavigationBar`/`NavigationRail` or Watchtower navigation. |
 | `percent_indicator` | Material progress indicators or an existing Watchtower progress widget. |
@@ -57,15 +57,14 @@ roles with existing Watchtower packages or Flutter primitives:
 | `retry` | A small repository-level retry policy, not screen code. |
 | `animated_text_kit` | Existing Flutter animation primitives only if the visual effect is retained. |
 
-## Remove or stub for this visual migration
+## Removed permanently from this migration
 
-These dependencies belong to backend, playback, account, telemetry or
-distribution behavior and must not be brought into Watchtower for the copied
-screens:
+These FlixQuest dependencies are not present in the Watchtower dependency
+graph and are not present in the runnable `mig` preview:
 
 ### Firebase and authentication
 
-Remove all of these from the migration:
+The following are intentionally removed rather than replaced:
 
 - `firebase_core`
 - `firebase_auth`
@@ -94,13 +93,16 @@ The requested migration intentionally does not include the reader/player.
 
 ### Ads, analytics and environment services
 
-Remove or replace with no-op visual placeholders:
+These are also intentionally removed:
 
 - `unity_ads_plugin`
 - `mixpanel_flutter`
 - `flutter_dotenv`
 
-Ads and analytics must not be required to render any copied screen.
+Ads and analytics must not be required to render any copied screen. The
+Watchtower repository currently has no ads SDK dependency; the existing
+webview ad-domain blocklist is only a security/filter list, not an ad
+integration, and remains unrelated to this migration.
 
 ## Files that need splitting before integration
 
@@ -130,6 +132,14 @@ callbacks with Watchtower fixture data. Do not copy these FlixQuest layers:
 ## Current staging status
 
 - `mig/flixquest/` contains the selected source and visual assets.
-- Watchtower `lib/`, `pubspec.yaml` and platform folders were not modified.
-- The staging snapshot is deliberately not claimed to compile yet because its
-  original imports still identify the backend boundaries that must be replaced.
+- `mig/lib/` contains a runnable fixture-backed preview with separated
+  screens/widgets and a direct `shimmer` implementation.
+- `mig/build_arm64.sh` and `.github/workflows/build-mig-arm64.yml` build the
+  preview with the existing Android scaffold using `--target-platform
+  android-arm64`.
+- Watchtower's feature screens and platform folders were not modified; its
+  loading dependency was intentionally changed from `skeletonizer` to
+  `shimmer`.
+- The raw source snapshot is not compiled directly because its original
+  imports identify backend boundaries. The runnable preview is compiled from
+  `mig/lib/main.dart` and does not link those raw files.

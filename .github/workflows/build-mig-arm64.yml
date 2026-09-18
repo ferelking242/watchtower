@@ -1,0 +1,89 @@
+name: Build Migration Preview ARM64
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "mig/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "android/**"
+      - ".github/workflows/build-mig-arm64.yml"
+
+concurrency:
+  group: migration-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-mig:
+    name: Build mig UI preview APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter 3.47.2
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-mig-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-mig-
+            ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build migration preview ARM64 APK
+        run: |
+          flutter build apk \
+            --release \
+            --target mig/lib/main.dart \
+            --target-platform android-arm64 \
+            --tree-shake-icons \
+            --split-debug-info=build/mig-symbols
+
+      - name: Verify APK ABI
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -f "$APK"
+          unzip -Z1 "$APK" | grep -q '^lib/arm64-v8a/'
+          if unzip -Z1 "$APK" | grep -Eq '^lib/(armeabi-v7a|x86|x86_64)/'; then
+            echo "::error::Migration APK contains a non-ARM64 ABI"
+            exit 1
+          fi
+          echo "Migration APK size: $(du -h "$APK" | cut -f1)"
+
+      - name: Upload migration APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: Watchtower-mig-arm64-preview
+          path: build/app/outputs/flutter-apk/app-release.apk
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload Dart symbols
+        uses: actions/upload-artifact@v5
+        with:
+          name: Watchtower-mig-arm64-symbols
+          path: build/mig-symbols
+          if-no-files-found: ignore
+          retention-days: 30
