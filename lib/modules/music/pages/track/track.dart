@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';

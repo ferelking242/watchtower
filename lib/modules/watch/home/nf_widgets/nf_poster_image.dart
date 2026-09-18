@@ -3,7 +3,7 @@
 // Replaces Image.asset('netflix_symbol.png') with a dark placeholder.
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 class NfPosterImage extends StatelessWidget {
   const NfPosterImage({

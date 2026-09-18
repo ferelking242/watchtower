@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/components/dialogs/prompt_dialog.dart';
 import 'package:watchtower/modules/music/components/dialogs/select_device_dialog.dart';

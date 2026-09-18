@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 /// Skeleton loading screen that mirrors the WatchtowerHomeScreen layout.
 ///

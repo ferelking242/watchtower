@@ -3,6 +3,14 @@
   version = "0.1.0"
   edition = "2021"
 
+[profile.release]
+# Keep all Rust features while reducing the native release library footprint.
+# The Flutter build already keeps Dart symbols separately; stripping the Rust
+# library here removes only native symbol metadata from the shipped APK.
+strip = "symbols"
+lto = "thin"
+codegen-units = 1
+
   [lib]
   crate-type = ["cdylib", "staticlib"]
 

@@ -94,7 +94,7 @@ dependencies:
       ref: 0965c5becba2e826473330eb9ea99dc7030fcf99
   flutter_tts: ^4.2.5
   flutter_local_notifications: ^18.0.1
-  skeletonizer: ^2.1.0+1
+  shimmer: ^3.0.0
   speech_to_text: ^7.0.0
   flutter_svg: ^2.0.17
   lottie: ^3.1.0

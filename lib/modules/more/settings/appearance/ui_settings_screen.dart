@@ -48,6 +48,7 @@ class UiSettingsScreen extends ConsumerWidget {
     final carouselStyle = ref.watch(carouselStyleProvider);
     final showSynopsis = ref.watch(carouselSynopsisProvider);
     final glowEffects = ref.watch(glowEffectsProvider);
+    final fallingPetals = ref.watch(fallingPetalsProvider);
     final kenBurns = ref.watch(kenBurnsProvider);
     final pageTransStyle = ref.watch(pageTransitionStyleProvider);
     final headerBlur = ref.watch(headerBlurProvider);
@@ -116,6 +117,16 @@ class UiSettingsScreen extends ConsumerWidget {
               ),
               value: kenBurns,
               onChanged: (v) => ref.read(kenBurnsProvider.notifier).set(v),
+            ),
+            SwitchListTile(
+              secondary: iconBox(Icons.local_florist_rounded),
+              title: const Text('Fleurs qui tombent'),
+              subtitle: Text(
+                'Animation florale discrète sur les écrans',
+                style: TextStyle(fontSize: 11, color: context.secondaryColor),
+              ),
+              value: fallingPetals,
+              onChanged: (v) => ref.read(fallingPetalsProvider.notifier).set(v),
             ),
             const Divider(height: 24),
             const Padding(
