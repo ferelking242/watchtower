@@ -1755,11 +1755,16 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
       // chapters that are later resumed, newly added downloads, and completed
       // downloads are all naturally handled because we look at the live DB
       // state on every iteration instead of a stale list built at startup.
+      // isar_community rejects filters on these nullable bool properties at
+      // runtime ("Property does not support this filter"). Read the
+      // collection and apply the same predicate in Dart.
       final ongoingRaw = isar.downloads
-          .filter()
-          .isDownloadEqualTo(false)
-          .isStartDownloadEqualTo(true)
-          .findAllSync();
+          .where()
+          .findAllSync()
+          .where((download) =>
+              download.isDownload == false &&
+              download.isStartDownload == true)
+          .toList();
 
       for (final dl in ongoingRaw) {
         dl.chapter.loadSync();

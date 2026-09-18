@@ -84,11 +84,16 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     final swipeRight = ref.watch(swipeRightActionStateProvider);
 
     return StreamBuilder<List<Download>>(
-      stream: isar.downloads
-          .filter()
-          .isDownloadEqualTo(false)
-          .isStartDownloadEqualTo(true)
-          .watch(fireImmediately: true),
+      // isar_community rejects filters on these nullable bool properties at
+      // runtime ("Property does not support this filter"). Watch the
+      // collection and apply the equivalent predicate in Dart instead.
+      stream: isar.downloads.where().watch(fireImmediately: true).map(
+            (downloads) => downloads
+                .where((download) =>
+                    download.isDownload == false &&
+                    download.isStartDownload == true)
+                .toList(),
+          ),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(
@@ -365,9 +370,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       case _GlobalAction.deleteCompleted:
         isar.writeTxnSync(() {
           final completed = isar.downloads
-              .filter()
-              .isDownloadEqualTo(true)
-              .findAllSync();
+              .where()
+              .findAllSync()
+              .where((download) => download.isDownload == true)
+              .toList();
           for (final d in completed) {
             if (d.id != null) isar.downloads.deleteSync(d.id!);
           }
@@ -822,10 +828,11 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     onTap: () {
                       Navigator.pop(context);
                       isar.writeTxnSync(() {
-                        final completed = isar.downloads
-                            .filter()
-                            .isDownloadEqualTo(true)
-                            .findAllSync();
+                          final completed = isar.downloads
+                              .where()
+                              .findAllSync()
+                              .where((download) => download.isDownload == true)
+                              .toList();
                         for (final d in completed) {
                           if (d.id != null) isar.downloads.deleteSync(d.id!);
                         }
