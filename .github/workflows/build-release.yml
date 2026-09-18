@@ -16,7 +16,8 @@ jobs:
   build:
     name: Build ARMv8 Release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Rust + Flutter ARMv8 builds can exceed 20 minutes on a cold runner.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
