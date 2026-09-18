@@ -1,0 +1,19 @@
+name: watchtower_mig_preview
+description: Isolated Watchtower UI migration preview.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

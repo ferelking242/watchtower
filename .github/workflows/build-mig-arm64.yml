@@ -50,20 +50,33 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          BUILD_DIR="$(mktemp -d)"
+          echo "BUILD_DIR=$BUILD_DIR" >> "$GITHUB_ENV"
+          flutter create \
+            --platforms=android \
+            --project-name=watchtower_mig_preview \
+            --org=com.watchtower \
+            --no-pub \
+            "$BUILD_DIR"
+          cp mig/pubspec.yaml "$BUILD_DIR/pubspec.yaml"
+          rm -rf "$BUILD_DIR/lib"
+          cp -R mig/lib "$BUILD_DIR/lib"
+          cd "$BUILD_DIR"
+          flutter pub get
 
       - name: Build migration preview ARM64 APK
         run: |
+          cd "$BUILD_DIR"
           flutter build apk \
             --release \
-            --target mig/lib/main.dart \
             --target-platform android-arm64 \
             --tree-shake-icons \
-            --split-debug-info=build/mig-symbols
+            --split-debug-info="$GITHUB_WORKSPACE/build/mig-symbols"
 
       - name: Verify APK ABI
         run: |
-          APK=build/app/outputs/flutter-apk/app-release.apk
+          APK="$BUILD_DIR/build/app/outputs/flutter-apk/app-release.apk"
           test -f "$APK"
           unzip -Z1 "$APK" | grep -q '^lib/arm64-v8a/'
           if unzip -Z1 "$APK" | grep -Eq '^lib/(armeabi-v7a|x86|x86_64)/'; then
@@ -76,7 +89,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: Watchtower-mig-arm64-preview
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: ${{ env.BUILD_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           compression-level: 0
           retention-days: 30
 

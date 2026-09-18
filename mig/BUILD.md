@@ -6,12 +6,12 @@ before any integration into Watchtower.
 From the repository root:
 
 ```bash
-flutter pub get
 bash mig/build_arm64.sh
 ```
 
-The command builds only `mig/lib/main.dart` using the existing Android
-scaffold and the existing Watchtower dependency graph. The preview contains
+The script creates a temporary minimal Flutter Android project and copies only
+`mig/pubspec.yaml` and `mig/lib/` into it. The preview therefore does not load
+Watchtower's Rust, media, downloader, backend or platform plugins. It contains
 fixture data and the shared `shimmer` package. It does not connect Firebase,
 ads, a backend, a downloader, metadata network services or any reader/player.
 
