@@ -86,7 +86,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     return StreamBuilder<List<Download>>(
       stream: isar.downloads
           .filter()
-          .idIsNotNull()
           .isDownloadEqualTo(false)
           .isStartDownloadEqualTo(true)
           .watch(fireImmediately: true),

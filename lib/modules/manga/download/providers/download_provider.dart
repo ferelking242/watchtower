@@ -1757,7 +1757,6 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
       // state on every iteration instead of a stale list built at startup.
       final ongoingRaw = isar.downloads
           .filter()
-          .idIsNotNull()
           .isDownloadEqualTo(false)
           .isStartDownloadEqualTo(true)
           .findAllSync();
