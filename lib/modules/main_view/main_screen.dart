@@ -37,16 +37,12 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
-import 'package:watchtower/modules/widgets/falling_petals.dart';
-import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 
 
-final libLocationRegex = RegExp(
-  r"^/(Manga|Anime|Novel|Music|Game)Library$|^/flix(Movie|Series|LiveTv)$",
-);
+final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
 
 /// Whether the floating dock should be hidden because the user is scrolling
 /// down. Pages can opt-in to driving this by wrapping their scrollables in a
@@ -281,19 +277,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         "/MangaLibrary",
                         "/AnimeLibrary",
                         "/NovelLibrary",
-                        "/flixMovies",
-                        "/flixSeries",
-                        "/flixLiveTv",
                       ].contains(nav)) {
                         if (uniqueSwitch) return null;
                         uniqueSwitch = true;
                         return "_enableLibSwitch";
                       }
-                      // Music, Game and the FlixQuest surfaces are accessible
-                      // via Hub expansion — hide them from the main dock row
-                      // when Hub is enabled.
-                      if (nav == "/MusicLibrary" ||
-                          nav == "/GameLibrary") {
+                      // Music & Game are accessible via Hub expansion — hide
+                      // them from the main dock row when Hub is enabled.
+                      if (nav == "/MusicLibrary" || nav == "/GameLibrary") {
                         return null;
                       }
                       return nav;
@@ -310,9 +301,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   '/MangaLibrary',
                   '/AnimeLibrary',
                   '/NovelLibrary',
-                  '/flixMovies',
-                  '/flixSeries',
-                  '/flixLiveTv',
                   '/MusicLibrary',
                   '/GameLibrary',
                 ];
@@ -567,42 +555,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         location == '/novelReaderView';
   }
 
-  void _addFlixDesktopDestination(
-    List<NavigationRailDestination?> destinations,
-    List<String> dest, {
-    required String route,
-    required String label,
-    required IconData icon,
-    required IconData activeIcon,
-  }) {
-    final index = dest.indexOf(route);
-    if (index == -1) return;
-    destinations[index] = NavigationRailDestination(
-      selectedIcon: Icon(activeIcon),
-      icon: Icon(icon),
-      label: Padding(
-        padding: const EdgeInsets.only(top: 5),
-        child: Text(label),
-      ),
-    );
-  }
-
-  void _addFlixMobileDestination(
-    Map<String, NavigationDestination> destMap,
-    List<String> dest, {
-    required String route,
-    required String label,
-    required IconData icon,
-    required IconData activeIcon,
-  }) {
-    if (!dest.contains(route)) return;
-    destMap[route] = NavigationDestination(
-      selectedIcon: Icon(activeIcon),
-      icon: Icon(icon),
-      label: label,
-    );
-  }
-
   List<NavigationRailDestination> _buildNavigationWidgetsDesktop(
     WidgetRef ref,
     List<String> dest,
@@ -649,46 +601,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
-    if (dest.contains("/flixMovies")) {
-      destinations[dest.indexOf("/flixMovies")] = const NavigationRailDestination(
-        selectedIcon: Icon(Icons.movie_creation_rounded),
-        icon: Icon(Icons.movie_outlined),
-        label: Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Text('Movies'),
-        ),
-      );
-    }
-    if (dest.contains("/flixSeries")) {
-      destinations[dest.indexOf("/flixSeries")] = const NavigationRailDestination(
-        selectedIcon: Icon(Icons.live_tv_rounded),
-        icon: Icon(Icons.tv_outlined),
-        label: Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Text('Series'),
-        ),
-      );
-    }
-    if (dest.contains("/tvLive")) {
-      destinations[dest.indexOf("/tvLive")] = const NavigationRailDestination(
-        selectedIcon: Icon(Icons.tv_rounded),
-        icon: Icon(Icons.tv_outlined),
-        label: Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Text('TV Live'),
-        ),
-      );
-    }
-    if (dest.contains("/profile")) {
-      destinations[dest.indexOf("/profile")] = const NavigationRailDestination(
-        selectedIcon: Icon(Icons.person_rounded),
-        icon: Icon(Icons.person_outline_rounded),
-        label: Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Text('Profile'),
-        ),
-      );
-    }
     if (dest.contains("/NovelLibrary")) {
       destinations[dest.indexOf("/NovelLibrary")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.note_text),
@@ -699,30 +611,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
-    _addFlixDesktopDestination(
-      destinations,
-      dest,
-      route: '/flixMovies',
-      label: 'Film',
-      icon: Icons.movie_outlined,
-      activeIcon: Icons.movie_rounded,
-    );
-    _addFlixDesktopDestination(
-      destinations,
-      dest,
-      route: '/flixSeries',
-      label: 'Série',
-      icon: Icons.live_tv_outlined,
-      activeIcon: Icons.live_tv_rounded,
-    );
-    _addFlixDesktopDestination(
-      destinations,
-      dest,
-      route: '/flixLiveTv',
-      label: 'Live TV',
-      icon: Icons.broadcast_on_personal_outlined,
-      activeIcon: Icons.broadcast_on_personal_rounded,
-    );
     if (dest.contains("/MusicLibrary")) {
       destinations[dest.indexOf("/MusicLibrary")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.music_circle),
@@ -885,34 +773,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: l10n.watch,
       );
     }
-    if (dest.contains('/flixMovies')) {
-      destMap['/flixMovies'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.movie_creation_rounded),
-        icon: Icon(Icons.movie_outlined),
-        label: 'Movies',
-      );
-    }
-    if (dest.contains('/flixSeries')) {
-      destMap['/flixSeries'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.live_tv_rounded),
-        icon: Icon(Icons.tv_outlined),
-        label: 'Series',
-      );
-    }
-    if (dest.contains('/tvLive')) {
-      destMap['/tvLive'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.tv_rounded),
-        icon: Icon(Icons.tv_outlined),
-        label: 'TV Live',
-      );
-    }
-    if (dest.contains('/profile')) {
-      destMap['/profile'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.person_rounded),
-        icon: Icon(Icons.person_outline_rounded),
-        label: 'Profile',
-      );
-    }
     if (dest.contains('/NovelLibrary')) {
       destMap['/NovelLibrary'] = NavigationDestination(
         selectedIcon: const Icon(Broken.note_text),
@@ -920,30 +780,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: l10n.novel,
       );
     }
-    _addFlixMobileDestination(
-      destMap,
-      dest,
-      route: '/flixMovies',
-      label: 'Film',
-      icon: Icons.movie_outlined,
-      activeIcon: Icons.movie_rounded,
-    );
-    _addFlixMobileDestination(
-      destMap,
-      dest,
-      route: '/flixSeries',
-      label: 'Série',
-      icon: Icons.live_tv_outlined,
-      activeIcon: Icons.live_tv_rounded,
-    );
-    _addFlixMobileDestination(
-      destMap,
-      dest,
-      route: '/flixLiveTv',
-      label: 'Live TV',
-      icon: Icons.broadcast_on_personal_outlined,
-      activeIcon: Icons.broadcast_on_personal_rounded,
-    );
     if (dest.contains('/MusicLibrary')) {
       destMap['/MusicLibrary'] = const NavigationDestination(
         selectedIcon: Icon(Broken.music_circle),
@@ -1511,7 +1347,7 @@ class _ExpandedRail extends StatelessWidget {
 
 // ââ Single sidebar item âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-class _SidebarItem extends ConsumerWidget {
+class _SidebarItem extends StatelessWidget {
   final Widget icon;
   final String? label;
   final bool active;
@@ -1529,7 +1365,7 @@ class _SidebarItem extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
@@ -1598,10 +1434,6 @@ class _SidebarItem extends ConsumerWidget {
                             ),
                           ),
                         ),
-                      ),
-                    if (ref.watch(fallingPetalsProvider))
-                      const Positioned.fill(
-                        child: IgnorePointer(child: FallingPetals()),
                       ),
                   ],
                 ),
@@ -1870,27 +1702,6 @@ class _FloatingDockState extends State<_FloatingDock> {
             icon: Broken.text,
             activeIcon: Broken.note_text,
           ));
-        case '/flixMovies':
-          items.add(const _DockItemData(
-            route: '/flixMovies',
-            label: 'Film',
-            icon: Icons.movie_outlined,
-            activeIcon: Icons.movie_rounded,
-          ));
-        case '/flixSeries':
-          items.add(const _DockItemData(
-            route: '/flixSeries',
-            label: 'Série',
-            icon: Icons.live_tv_outlined,
-            activeIcon: Icons.live_tv_rounded,
-          ));
-        case '/flixLiveTv':
-          items.add(const _DockItemData(
-            route: '/flixLiveTv',
-            label: 'Live TV',
-            icon: Icons.broadcast_on_personal_outlined,
-            activeIcon: Icons.broadcast_on_personal_rounded,
-          ));
         case '/MusicLibrary':
           items.add(const _DockItemData(
             route: '/MusicLibrary',
@@ -2006,25 +1817,10 @@ class _FloatingDockState extends State<_FloatingDock> {
       }
     }
 
-    // The media hub contains six first-class pages:
-    // Watch, Film, Série, Live TV, Manga and Roman.
-    final _hubMode = d.contains('_disableLibSwitch') ||
-        d.contains('_disableLibrarySwitch') ||
-        d.contains('_nfileBack');
-    final _mediaRoute = {
-      '/AnimeLibrary',
-      '/flixMovies',
-      '/flixSeries',
-      '/flixLiveTv',
-      '/MangaLibrary',
-      '/NovelLibrary',
-    };
-    final _mediaDock = d.any(_mediaRoute.contains);
-    final _cap = _hubMode
-        ? 7 // back + six media pages
-        : _mediaDock
-            ? 6
-            : 4;
+    // In Hub or Library sub-dock mode, allow 5 content slots so that all items
+    // fit; otherwise cap at 4.
+    final _hubMode = d.contains('_disableLibSwitch') || d.contains('_disableLibrarySwitch') || d.contains('_nfileBack');
+    final _cap = _hubMode ? 5 : 4;
     if (items.length > _cap) {
       items.removeRange(_cap, items.length);
     }

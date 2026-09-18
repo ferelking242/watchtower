@@ -25,9 +25,6 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/AnimeLibrary':    ('Watch',      Icons.live_tv_rounded),
   '/MangaLibrary':    ('Manga',      Icons.auto_stories),
   '/NovelLibrary':    ('Novel',      Icons.local_library),
-  '/flixMovies':      ('Film',       Icons.movie_rounded),
-  '/flixSeries':      ('Série',      Icons.live_tv_rounded),
-  '/flixLiveTv':      ('Live TV',    Icons.broadcast_on_personal_rounded),
   '/MusicLibrary':    ('Music',      Icons.music_note),
   '/GameLibrary':     ('Games',      Icons.sports_esports),
   '/Library':         ('Library',    Icons.collections_bookmark),
@@ -39,16 +36,12 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/schedule':        ('Schedule',   Icons.calendar_month_rounded),
   '/marketplace':     ('Market',     Icons.storefront_rounded),
   '/downloadQueue':   ('Downloads',  Icons.download_rounded),
-  '/settings':        ('Settings',   Icons.settings_rounded),
-  '/about':           ('About',      Icons.info_outline_rounded),
   '_enableLibSwitch': ('Hub',        Icons.grid_view_rounded),
 };
 
 const kWtDefaultNavOrder = [
-  '/AnimeLibrary',   '/flixMovies',    '/flixSeries',    '/flixLiveTv',
-  '/MangaLibrary',   '/NovelLibrary',
-  '/MusicLibrary',   '/GameLibrary',
-  '/Library',
+  '/discover',       '/AnimeLibrary',  '/MangaLibrary',  '/browse',
+  '/NovelLibrary',   '/MusicLibrary',  '/GameLibrary',   '/Library',
   '/marketplace',    '/history',       '/updates',
   '/trackerLibrary', '/WatchtowerHome',
 ];
@@ -60,7 +53,7 @@ const kWtDefaultHideItems = [
 
 const kWtStaticRoutes = [
   '/browse', '/marketplace', '/schedule', '/updates', '/history',
-  '/downloadQueue', '/settings', '/about',
+  '/downloadQueue',
 ];
 
 // French label overrides — used when device/app locale is 'fr'.
@@ -72,11 +65,6 @@ const _kFrLabels = <String, String>{
   '/history':       'Historique',
   '/marketplace':   'Marché',
   '/downloadQueue': 'Téléchargements',
-  '/flixMovies':    'Films',
-  '/flixSeries':    'Séries',
-  '/flixLiveTv':    'TV en direct',
-  '/settings':      'Paramètres',
-  '/about':         'À propos',
 };
 
 // ── Visual constants (Seanime-style solid dark boxes) ─────────────────────────

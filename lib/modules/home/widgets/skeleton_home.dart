@@ -28,8 +28,6 @@ class SkeletonHomeScreen extends StatelessWidget {
             // ── Hero carousel bone (shimmered) — at the very top ─────────────
             Skeletonizer(
               enabled: true,
-              enableSwitchAnimation: true,
-              ignorePointers: false,
               child: _FakeHeroBanner(height: screenH * 0.36),
             ),
 
@@ -209,8 +207,6 @@ class _FakeSpotlightSection extends StatelessWidget {
         // Fake carousel cards — shimmered
         Skeletonizer(
           enabled: true,
-          enableSwitchAnimation: true,
-          ignorePointers: false,
           child: Column(
             children: [
               SizedBox(
@@ -423,8 +419,6 @@ class _FakeLandscapeRow extends StatelessWidget {
         ),
         Skeletonizer(
           enabled: true,
-          enableSwitchAnimation: true,
-          ignorePointers: false,
           child: SizedBox(
             height: 148,
             child: ListView.separated(
@@ -515,8 +509,6 @@ class _FakeCardRow extends StatelessWidget {
         // Cards — shimmered via Skeletonizer
         Skeletonizer(
           enabled: true,
-          enableSwitchAnimation: true,
-          ignorePointers: false,
           child: SizedBox(
             height: cardHeight,
             child: ListView.separated(
