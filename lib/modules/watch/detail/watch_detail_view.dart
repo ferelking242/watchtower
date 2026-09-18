@@ -2502,8 +2502,38 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       builder: (_) => _DownloadSheet(
         manga: widget.manga,
         chapters: chapters,
-        onDownload: (selected) {
+        onDownload: (selected) async {
           Navigator.pop(ctx);
+          if (selected.isNotEmpty) {
+            await Future<void>.delayed(const Duration(milliseconds: 160));
+            if (mounted) _showDownloadPreparationSheet(ctx, selected);
+          }
+        },
+      ),
+    );
+  }
+
+  void _showDownloadPreparationSheet(
+      BuildContext ctx, List<Chapter> selected) {
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: _surface,
+      isDismissible: false,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      builder: (_) => _DownloadPreparationSheet(
+        count: selected.length,
+        prepare: (setStatus, setProgress) async {
+          setStatus('Collecte des métadonnées…');
+          setProgress(0.18);
+          await Future<void>.delayed(const Duration(milliseconds: 350));
+
+          setStatus('Détection des sources…');
+          setProgress(0.42);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+
+          setStatus('Préparation des épisodes…');
+          setProgress(0.68);
           for (final ch in selected) {
             final entry =
                 isar.downloads.filter().idEqualTo(ch.id).findFirstSync();
@@ -2511,15 +2541,26 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ref.read(addDownloadToQueueProvider(chapter: ch));
             }
           }
+
+          setStatus('Ajout à la file de téléchargement…');
           ref.read(processDownloadsProvider());
-          if (selected.isNotEmpty)
-            _showAfterDownloadSheet(ctx, selected.length);
+          setProgress(1);
+          await Future<void>.delayed(const Duration(milliseconds: 450));
+        },
+        onDone: () {
+          Navigator.of(ctx).pop();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _showAfterDownloadSheet(ctx, selected.length, selected.first);
+            }
+          });
         },
       ),
     );
   }
 
-  void _showAfterDownloadSheet(BuildContext ctx, int count) {
+  void _showAfterDownloadSheet(
+      BuildContext ctx, int count, Chapter firstChapter) {
     showModalBottomSheet(
       context: ctx,
       backgroundColor: _surface,
@@ -2576,7 +2617,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _loadEpisodeInBanner(firstChapter);
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _accent,
                         foregroundColor: Colors.white,
@@ -2688,10 +2732,166 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
 enum _Downloader { internal, aria2, external }
 
+class _DownloadPreparationSheet extends StatefulWidget {
+  const _DownloadPreparationSheet({
+    required this.count,
+    required this.prepare,
+    required this.onDone,
+  });
+
+  final int count;
+  final Future<void> Function(
+    ValueChanged<String> setStatus,
+    ValueChanged<double> setProgress,
+  ) prepare;
+  final VoidCallback onDone;
+
+  @override
+  State<_DownloadPreparationSheet> createState() =>
+      _DownloadPreparationSheetState();
+}
+
+class _DownloadPreparationSheetState
+    extends State<_DownloadPreparationSheet> {
+  String _status = 'Collecte des métadonnées…';
+  double _progress = 0.08;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _run());
+  }
+
+  Future<void> _run() async {
+    try {
+      await widget.prepare(
+        (status) {
+          if (mounted) setState(() => _status = status);
+        },
+        (progress) {
+          if (mounted) setState(() => _progress = progress);
+        },
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _status = 'Impossible de préparer le téléchargement';
+        });
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        if (mounted) {
+          Navigator.of(context).pop();
+          botToast('Le téléchargement n’a pas pu être préparé.');
+        }
+      }
+      return;
+    }
+    if (mounted) widget.onDone();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).colorScheme.onSurface;
+    final muted = text.withValues(alpha: 0.58);
+    final accent = Theme.of(context).primaryColor;
+    const steps = [
+      'Collecte des métadonnées',
+      'Détection des sources',
+      'Préparation des épisodes',
+      'Ajout à la file',
+    ];
+    final completedSteps = _hasError
+        ? 0
+        : (_progress * steps.length).floor().clamp(0, steps.length).toInt();
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _hasError
+                      ? Icons.error_outline_rounded
+                      : Icons.download_for_offline_rounded,
+                  color: _hasError ? Colors.redAccent : accent,
+                  size: 22,
+                ),
+                const SizedBox(width: 9),
+                Text(
+                  'Préparation de ${widget.count} fichier(s)',
+                  style: TextStyle(
+                    color: text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: _hasError ? null : _progress,
+                minHeight: 5,
+                color: _hasError ? Colors.redAccent : accent,
+                backgroundColor: text.withValues(alpha: 0.10),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _status,
+              style: TextStyle(
+                color: text,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (var index = 0; index < steps.length; index++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      index < completedSteps
+                          ? Icons.check_circle_rounded
+                          : index == completedSteps && !_hasError
+                              ? Icons.radio_button_checked_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                      size: 16,
+                      color: index < completedSteps
+                          ? mbGreen
+                          : index == completedSteps && !_hasError
+                              ? accent
+                              : muted,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      steps[index],
+                      style: TextStyle(
+                        color: index <= completedSteps ? text : muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DownloadSheet extends ConsumerStatefulWidget {
   final Manga manga;
   final List<Chapter> chapters;
-  final void Function(List<Chapter> selected) onDownload;
+  final Future<void> Function(List<Chapter> selected) onDownload;
 
   const _DownloadSheet({
     required this.manga,
@@ -2979,7 +3179,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
           chapterPreferredQuality[ch.id!] = qualityKey;
         }
       }
-      widget.onDownload(chapters);
+      await widget.onDownload(chapters);
     }
   }
 
