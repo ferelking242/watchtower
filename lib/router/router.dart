@@ -23,6 +23,7 @@ import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.da
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/data_and_storage.dart';
+import 'package:watchtower/modules/more/download_queue/download_queue_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/custom_navigation_settings.dart';
 import 'package:watchtower/modules/more/settings/browse/source_repositories.dart';
 import 'package:watchtower/modules/more/settings/player/custom_button_screen.dart';
