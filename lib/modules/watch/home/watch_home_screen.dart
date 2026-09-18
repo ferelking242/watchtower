@@ -1378,7 +1378,7 @@ class NfHeroShimmerPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       child: Container(
         width:  width,
@@ -1514,7 +1514,7 @@ class _NfContentRow extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Skeletonizer(
+          child: ShimmerSkeleton(
             enabled: true,
             child: Container(
               width:  140, height: 16,
@@ -1834,7 +1834,7 @@ class _NfShimmerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 200.0,
-      child: Skeletonizer(
+      child: ShimmerSkeleton(
         enabled: true,
         child: ListView(
           scrollDirection: Axis.horizontal,
@@ -1863,7 +1863,7 @@ class _NfShimmerNewHot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       child: Column(
         children: List.generate(
@@ -1899,7 +1899,7 @@ class _NfShimmerNewHot extends StatelessWidget {
 class _NfShimmerPosterTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       child: Container(
         decoration: BoxDecoration(

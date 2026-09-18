@@ -18,7 +18,7 @@ class StatsPageSummarySection extends HookConsumerWidget {
     final summary = ref.watch(playbackHistorySummaryProvider);
     final summaryData = summary.asData?.value ?? FakeData.historySummary;
 
-    return Skeletonizer.sliver(
+    return ShimmerSkeleton.sliver(
       enabled: summary.isLoading,
       child: SliverPadding(
         padding: const EdgeInsets.all(10),

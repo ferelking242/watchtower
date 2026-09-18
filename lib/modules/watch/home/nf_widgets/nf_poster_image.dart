@@ -46,7 +46,7 @@ class NfPosterImage extends StatelessWidget {
           alignment: alignment,
         ),
       ),
-      placeholder: (_, __) => Skeletonizer(
+      placeholder: (_, __) => ShimmerSkeleton(
         enabled: true,
         child: Container(
           decoration: BoxDecoration(

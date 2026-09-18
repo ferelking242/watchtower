@@ -99,7 +99,7 @@ class StatsStreamFeesPage extends HookConsumerWidget {
               ),
             ),
             SliverSafeArea(
-              sliver: Skeletonizer.sliver(
+              sliver: ShimmerSkeleton.sliver(
                 enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
                 child: SliverInfiniteList(
                   onFetchData: () async {

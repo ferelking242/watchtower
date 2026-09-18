@@ -8,7 +8,7 @@ class ShimmerLyrics extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Skeletonizer(enabled: true,
+    return ShimmerSkeleton(enabled: true,
       child: ListView.builder(
         itemCount: 30,
         physics: const NeverScrollableScrollPhysics(),

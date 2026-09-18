@@ -290,7 +290,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 12),
                 loadingBuilder: (context) {
-                  return Skeletonizer(enabled: true,
+                  return ShimmerSkeleton(enabled: true,
                     child: MetadataPluginRepositoryItem(
                       pluginRepo: MetadataPluginRepository(
                         name: "Loading...",

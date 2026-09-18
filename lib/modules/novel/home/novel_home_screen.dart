@@ -520,7 +520,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
             if (_catalogueItems.isEmpty) {
               return SliverToBoxAdapter(
-                child: Skeletonizer(
+                child: ShimmerSkeleton(
                   enabled: true,
                   effect: ShimmerEffect(
                       baseColor: base,
@@ -551,7 +551,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
               delegate: SliverChildBuilderDelegate(
                 (c2, i) {
                   if (i >= _catalogueItems.length) {
-                    return Skeletonizer(
+                    return ShimmerSkeleton(
                       enabled: true,
                       effect: ShimmerEffect(
                           baseColor: base,
@@ -629,7 +629,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
   Widget _buildBookRowSkeleton(BuildContext ctx) {
     final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       effect: ShimmerEffect(baseColor: base,
           highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
@@ -672,7 +672,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
   Widget _buildRankedRowSkeleton(BuildContext ctx) {
     final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       effect: ShimmerEffect(baseColor: base,
           highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
@@ -701,7 +701,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
   Widget _buildCarouselSkeleton(BuildContext ctx) {
     final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       effect: ShimmerEffect(baseColor: base,
           highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
@@ -762,7 +762,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
       itemCount: _mangaList.length + (_isLoadingMore ? 3 : 0),
       itemBuilder: (c, i) {
         if (i >= _mangaList.length) {
-          return Skeletonizer(
+          return ShimmerSkeleton(
             enabled: true,
             effect: ShimmerEffect(
                 baseColor: base,
@@ -785,7 +785,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
   Widget _buildSkeletonGrid() {
     final base = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       effect: ShimmerEffect(baseColor: base,
           highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
@@ -1377,7 +1377,7 @@ class _SectionPageGrid extends StatelessWidget {
       itemCount: items.length + (loading ? 3 : 0),
       itemBuilder: (c, i) {
         if (i >= items.length) {
-          return Skeletonizer(
+          return ShimmerSkeleton(
             enabled: true,
             effect: ShimmerEffect(
                 baseColor: base,
@@ -1405,7 +1405,7 @@ class _SectionPageSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       effect: ShimmerEffect(
           baseColor: base,

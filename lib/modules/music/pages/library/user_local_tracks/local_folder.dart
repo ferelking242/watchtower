@@ -399,7 +399,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                         },
                         child: InterScrollbar(
                           controller: controller,
-                          child: Skeletonizer(
+                          child: ShimmerSkeleton(
                             enabled: trackSnapshot.isLoading,
                             child: CustomScrollView(
                               controller: controller,
@@ -444,7 +444,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                     );
                   },
                   loading: () => Expanded(
-                    child: Skeletonizer(
+                    child: ShimmerSkeleton(
                       enabled: true,
                       child: ListView.builder(
                         itemCount: 5,

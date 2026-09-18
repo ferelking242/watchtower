@@ -26,7 +26,7 @@ class SkeletonHomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Hero carousel bone (shimmered) — at the very top ─────────────
-            Skeletonizer(
+            ShimmerSkeleton(
               enabled: true,
               child: _FakeHeroBanner(height: screenH * 0.36),
             ),
@@ -205,7 +205,7 @@ class _FakeSpotlightSection extends StatelessWidget {
         ),
 
         // Fake carousel cards — shimmered
-        Skeletonizer(
+        ShimmerSkeleton(
           enabled: true,
           child: Column(
             children: [
@@ -250,7 +250,7 @@ class _FakeSpotlightSection extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fake hero banner (shimmered via Skeletonizer wrapping)
+// Fake hero banner with an explicit shimmer wrapper.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FakeHeroBanner extends StatelessWidget {
@@ -417,7 +417,7 @@ class _FakeLandscapeRow extends StatelessWidget {
             ],
           ),
         ),
-        Skeletonizer(
+        ShimmerSkeleton(
           enabled: true,
           child: SizedBox(
             height: 148,
@@ -506,8 +506,8 @@ class _FakeCardRow extends StatelessWidget {
           ),
         ),
 
-        // Cards — shimmered via Skeletonizer
-        Skeletonizer(
+        // Cards — shimmered explicitly.
+        ShimmerSkeleton(
           enabled: true,
           child: SizedBox(
             height: cardHeight,

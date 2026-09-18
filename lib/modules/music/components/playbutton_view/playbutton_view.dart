@@ -135,7 +135,7 @@ class PlaybuttonView extends StatelessWidget {
                       ),
                       itemBuilder: (context, index) {
                         if (isLoading) {
-                          return const Skeletonizer(enabled: true,
+                          return const ShimmerSkeleton(enabled: true,
                             child: _dummyPlaybuttonCard,
                           );
                         }
@@ -146,7 +146,7 @@ class PlaybuttonView extends StatelessWidget {
                             controller: controller,
                             isGrid: true,
                             onTouchEdge: onRequestMore,
-                            child: const Skeletonizer(enabled: true,
+                            child: const ShimmerSkeleton(enabled: true,
                               child: _dummyPlaybuttonCard,
                             ),
                           );
@@ -155,7 +155,7 @@ class PlaybuttonView extends StatelessWidget {
                         return gridItemBuilder(context, index);
                       },
                     ),
-              (false, true) => Skeletonizer.sliver(
+              (false, true) => ShimmerSkeleton.sliver(
                   enabled: true,
                   child: SliverList(
                     delegate: SliverChildBuilderDelegate(
@@ -166,7 +166,7 @@ class PlaybuttonView extends StatelessWidget {
                 ),
               (false, false) => SliverInfiniteList(
                   itemCount: itemCount,
-                  loadingBuilder: (context) => const Skeletonizer(enabled: true,
+                  loadingBuilder: (context) => const ShimmerSkeleton(enabled: true,
                     child: _dummyPlaybuttonTile,
                   ),
                   itemBuilder: listItemBuilder,

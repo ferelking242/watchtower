@@ -112,7 +112,7 @@ class ArtistPageHeader extends HookConsumerWidget {
       ),
     );
 
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: artistQuery.isLoading,
       child: LayoutBuilder(
         builder: (context, constrains) {

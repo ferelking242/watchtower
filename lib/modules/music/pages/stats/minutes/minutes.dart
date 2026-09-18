@@ -32,7 +32,7 @@ class StatsMinutesPage extends HookConsumerWidget {
         appBar: AppBar(
             title: Text(context.l10n.minutes_listened),
           ),
-        body: Skeletonizer(enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
+        body: ShimmerSkeleton(enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
           child: InfiniteList(
             separatorBuilder: (context, index) => SizedBox(height: 8),
             onFetchData: () async {

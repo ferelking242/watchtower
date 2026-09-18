@@ -48,7 +48,7 @@ class SearchPageTracksTab extends HookConsumerWidget {
         isLoading: searchTracksSnapshot.isLoading &&
             !searchTracksSnapshot.isLoadingNextPage,
         loadingBuilder: (context) {
-          return Skeletonizer(enabled: true,
+          return ShimmerSkeleton(enabled: true,
             child: TrackTile(track: FakeData.track, playlist: playlist),
           );
         },

@@ -121,12 +121,12 @@ class UserArtistsPage extends HookConsumerWidget {
                             controller: controller,
                             isGrid: true,
                             onTouchEdge: artistQueryNotifier.fetchMore,
-                            child: Skeletonizer(enabled: true,
+                            child: ShimmerSkeleton(enabled: true,
                               child: ArtistCard(FakeData.artist),
                             ),
                           );
                         }
-                        return Skeletonizer(enabled: artistQuery.isLoading,
+                        return ShimmerSkeleton(enabled: artistQuery.isLoading,
                           child: ArtistCard(
                             filteredArtists.elementAtOrNull(index) ??
                                 FakeData.artist,

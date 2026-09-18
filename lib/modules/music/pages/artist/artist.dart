@@ -57,7 +57,7 @@ class ArtistPage extends HookConsumerWidget {
                 ),
               );
             }
-            return Skeletonizer(enabled: artistQuery.isLoading,
+            return ShimmerSkeleton(enabled: artistQuery.isLoading,
               child: CustomScrollView(
                 controller: scrollController,
                 slivers: [

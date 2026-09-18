@@ -35,7 +35,7 @@ class StatsArtistsPage extends HookConsumerWidget {
         appBar: AppBar(
             title: Text(context.l10n.artists),
           ),
-        body: Skeletonizer(enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
+        body: ShimmerSkeleton(enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
           child: InfiniteList(
             onFetchData: () async {
               await topTracksNotifier.fetchMore();

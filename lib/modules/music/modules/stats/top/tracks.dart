@@ -24,7 +24,7 @@ class TopTracks extends HookConsumerWidget {
 
     final tracksData = topTracks.asData?.value.items ?? [];
 
-    return Skeletonizer.sliver(
+    return ShimmerSkeleton.sliver(
       enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
       child: SliverInfiniteList(
         onFetchData: () async {

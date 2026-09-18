@@ -22,7 +22,7 @@ class TopAlbums extends HookConsumerWidget {
 
     final albumsData = topAlbums.asData?.value.items ?? [];
 
-    return Skeletonizer.sliver(
+    return ShimmerSkeleton.sliver(
       enabled: topAlbums.isLoading && !topAlbums.isLoadingNextPage,
       child: SliverInfiniteList(
         onFetchData: () async {

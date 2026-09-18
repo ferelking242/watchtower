@@ -693,7 +693,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
       width: w == double.infinity ? null : w, height: h,
       decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(r)),
     );
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       effect: ShimmerEffect(baseColor: base, highlightColor: high, duration: const Duration(milliseconds: 1200)),
       child: SingleChildScrollView(
@@ -754,7 +754,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
     if (_isHomeTab && !isLocal) {
       return _buildSkeletonList();
     }
-    return Skeletonizer(
+    return ShimmerSkeleton(
       enabled: true,
       effect: ShimmerEffect(
         baseColor: Theme.of(context)
@@ -875,7 +875,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
     Widget _buildHorizontalSkeleton(BuildContext ctx) {
       final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
       final high = Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
-      return Skeletonizer(
+      return ShimmerSkeleton(
         enabled: true,
         effect: ShimmerEffect(
           baseColor: base,
@@ -936,7 +936,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
     Widget _buildLatestSkeleton(BuildContext ctx) {
       final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
       final high = Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
-      return Skeletonizer(
+      return ShimmerSkeleton(
         enabled: true,
         effect: ShimmerEffect(baseColor: base, highlightColor: high, duration: const Duration(milliseconds: 1200)),
         child: Column(
@@ -977,7 +977,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
           final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
           final high = Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9);
           // Full-width shimmer, no card background — matches the real carousel
-          return Skeletonizer(
+          return ShimmerSkeleton(
             enabled: true,
             effect: ShimmerEffect(
                 baseColor: base, highlightColor: high,
@@ -1151,7 +1151,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
         final base = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
         final high = Theme.of(context).colorScheme.surface.withValues(alpha: 0.9);
         if (isListMode) {
-          return Skeletonizer(
+          return ShimmerSkeleton(
             enabled: true,
             effect: ShimmerEffect(baseColor: base, highlightColor: high, duration: const Duration(milliseconds: 1200)),
             child: Column(children: List.generate(3, (_) => Padding(
@@ -1168,7 +1168,7 @@ class _MangaHomeScreenState extends ConsumerState<MangaHomeScreen>
             ))),
           );
         }
-        return Skeletonizer(
+        return ShimmerSkeleton(
           enabled: true,
           effect: ShimmerEffect(baseColor: base, highlightColor: high, duration: const Duration(milliseconds: 1200)),
           child: Row(children: List.generate(3, (_) => Expanded(child: Padding(
@@ -1865,7 +1865,7 @@ class _MangaHomeImageCardListTileState
                       frameBuilder: (ctx, child, frame, wasSynchronouslyLoaded) {
                         if (frame == null) {
                           // Still loading — show shimmer placeholder
-                          return Skeletonizer(
+                          return ShimmerSkeleton(
                             enabled: true,
                             effect: ShimmerEffect(
                               baseColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,

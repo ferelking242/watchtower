@@ -72,7 +72,7 @@ class PresentationListSection extends HookConsumerWidget {
       itemCount: state.presentationTracks.length,
       hasReachedMax: !options.pagination.hasNextPage,
       loadingBuilder: (context) {
-        return Skeletonizer(enabled: true,
+        return ShimmerSkeleton(enabled: true,
           child: TrackTile(
             index: 0,
             playlist: playlist,
@@ -80,7 +80,7 @@ class PresentationListSection extends HookConsumerWidget {
           ),
         );
       },
-      emptyBuilder: (context) => Skeletonizer(enabled: true,
+      emptyBuilder: (context) => ShimmerSkeleton(enabled: true,
         child: Column(
           children: List.generate(
             10,

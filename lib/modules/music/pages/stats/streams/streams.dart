@@ -32,7 +32,7 @@ class StatsStreamsPage extends HookConsumerWidget {
         appBar: AppBar(
             title: Text(context.l10n.streamed_songs),
           ),
-        body: Skeletonizer(enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
+        body: ShimmerSkeleton(enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
           child: InfiniteList(
             separatorBuilder: (context, index) => SizedBox(height: 8),
             onFetchData: () async {

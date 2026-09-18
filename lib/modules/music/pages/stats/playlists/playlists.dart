@@ -31,7 +31,7 @@ class StatsPlaylistsPage extends HookConsumerWidget {
         appBar: AppBar(
             title: Text(context.l10n.playlists),
           ),
-        body: Skeletonizer(enabled: topPlaylists.isLoading && !topPlaylists.isLoadingNextPage,
+        body: ShimmerSkeleton(enabled: topPlaylists.isLoading && !topPlaylists.isLoadingNextPage,
           child: InfiniteList(
             onFetchData: () async {
               await topPlaylistsNotifier.fetchMore();

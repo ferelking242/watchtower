@@ -26,7 +26,7 @@ class TopArtists extends HookConsumerWidget {
     final artistsData =
         useMemoized(() => topTracksNotifier.artists, [topTracks.asData?.value]);
 
-    return Skeletonizer.sliver(
+    return ShimmerSkeleton.sliver(
       enabled: topTracks.isLoading && !topTracks.isLoadingNextPage,
       child: SliverInfiniteList(
         onFetchData: () async {

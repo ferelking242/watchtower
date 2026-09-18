@@ -145,7 +145,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 10)),
-        SliverSkeletonizer(
+        SliverShimmerSkeleton(
           enabled: topTracksQuery.isLoading,
           child: SliverList.builder(
             itemCount: topTracks.length,

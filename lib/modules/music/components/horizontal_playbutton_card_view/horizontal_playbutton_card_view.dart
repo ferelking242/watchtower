@@ -81,7 +81,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                   ),
                   child: items.isEmpty
                       ? isLoading
-                          ? Skeletonizer(
+                          ? ShimmerSkeleton(
                               enabled: true,
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
@@ -97,7 +97,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           itemCount: items.length,
                           onFetchData: onFetchMore,
-                          loadingBuilder: (context) => Skeletonizer(enabled: true,
+                          loadingBuilder: (context) => ShimmerSkeleton(enabled: true,
                                 child: isArtist
                                     ? ArtistCard(FakeData.artist)
                                     : AlbumCard(FakeData.albumSimple),

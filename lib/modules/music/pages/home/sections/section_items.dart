@@ -50,7 +50,7 @@ class HomeBrowseSectionItemsPage extends HookConsumerWidget {
 
     return SafeArea(
       bottom: false,
-      child: Skeletonizer(enabled: sectionItems.isLoading,
+      child: ShimmerSkeleton(enabled: sectionItems.isLoading,
         child: Scaffold(
           appBar: AppBar(
               title: Text(section.title),
@@ -70,7 +70,7 @@ class HomeBrowseSectionItemsPage extends HookConsumerWidget {
                   ),
                   itemBuilder: (context, index) {
                     if (isLoading) {
-                      return const Skeletonizer(enabled: true,
+                      return const ShimmerSkeleton(enabled: true,
                         child: _dummyPlaybuttonCard,
                       );
                     }
@@ -83,7 +83,7 @@ class HomeBrowseSectionItemsPage extends HookConsumerWidget {
                         onTouchEdge: () async {
                           await sectionItemsNotifier.fetchMore();
                         },
-                        child: const Skeletonizer(enabled: true,
+                        child: const ShimmerSkeleton(enabled: true,
                           child: _dummyPlaybuttonCard,
                         ),
                       );

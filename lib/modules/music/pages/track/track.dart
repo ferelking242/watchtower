@@ -85,7 +85,7 @@ class TrackPage extends HookConsumerWidget {
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Skeletonizer(enabled: trackQuery.isLoading,
+                child: ShimmerSkeleton(enabled: trackQuery.isLoading,
                   child: Container(
                     alignment: Alignment.topCenter,
                     decoration: BoxDecoration(

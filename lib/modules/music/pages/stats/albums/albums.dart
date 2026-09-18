@@ -30,7 +30,7 @@ class StatsAlbumsPage extends HookConsumerWidget {
         appBar: AppBar(
             title: Text(context.l10n.albums),
           ),
-        body: Skeletonizer(enabled: topAlbums.isLoading && !topAlbums.isLoadingNextPage,
+        body: ShimmerSkeleton(enabled: topAlbums.isLoading && !topAlbums.isLoadingNextPage,
           child: InfiniteList(
             onFetchData: () async {
               await topAlbumsNotifier.fetchMore();

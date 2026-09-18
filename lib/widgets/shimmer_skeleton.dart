@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-/// Local loading surface used instead of Skeletonizer.
+/// Local shimmer loading surface used by loading placeholders.
 ///
-/// The old dependency attempted to infer skeleton shapes from the whole
-/// widget tree. Watchtower now keeps the same call sites but renders them
-/// with the explicit shimmer package, which keeps loading UI lightweight and
-/// independent from a second skeleton engine.
+/// Loading surfaces are rendered explicitly with the shimmer package so they
+/// stay lightweight and do not depend on a second skeleton engine.
 class ShimmerEffect {
   final Color baseColor;
   final Color highlightColor;
@@ -19,20 +17,20 @@ class ShimmerEffect {
   });
 }
 
-class Skeletonizer extends StatelessWidget {
+class ShimmerSkeleton extends StatelessWidget {
   final Widget child;
   final bool enabled;
   final ShimmerEffect? effect;
   final bool _sliver;
 
-  const Skeletonizer({
+  const ShimmerSkeleton({
     super.key,
     required this.child,
     this.enabled = true,
     this.effect,
   }) : _sliver = false;
 
-  const Skeletonizer.sliver({
+  const ShimmerSkeleton.sliver({
     super.key,
     required this.child,
     this.enabled = true,
@@ -56,12 +54,12 @@ class Skeletonizer extends StatelessWidget {
   }
 }
 
-class SliverSkeletonizer extends StatelessWidget {
+class SliverShimmerSkeleton extends StatelessWidget {
   final Widget child;
   final bool enabled;
   final ShimmerEffect? effect;
 
-  const SliverSkeletonizer({
+  const SliverShimmerSkeleton({
     super.key,
     required this.child,
     this.enabled = true,
