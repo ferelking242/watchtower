@@ -195,8 +195,6 @@ Future<List<ExtDiagResult>> runExtensionDiagnosticsFull(
 }) async {
   final sources = isar.sources
       .filter()
-      .idIsNotNull()
-      .and()
       .isAddedEqualTo(true)
       .and()
       .itemTypeEqualTo(itemType)

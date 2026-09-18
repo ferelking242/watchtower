@@ -48,20 +48,17 @@ Future<StatisticsData> getStatistics(
 }) async {
   final items = await isar.mangas
       .filter()
-      .idIsNotNull()
       .favoriteEqualTo(true)
       .itemTypeEqualTo(itemType)
       .findAll();
 
   final chapters = await isar.chapters
       .filter()
-      .idIsNotNull()
       .manga((q) => q.favoriteEqualTo(true).itemTypeEqualTo(itemType))
       .findAll();
 
   final downloadedCount = await isar.downloads
       .filter()
-      .idIsNotNull()
       .chapter((q) => q.manga((m) => m.itemTypeEqualTo(itemType)))
       .chapter((q) => q.manga((m) => m.favoriteEqualTo(true)))
       .isDownloadEqualTo(true)
@@ -69,7 +66,6 @@ Future<StatisticsData> getStatistics(
 
   final totalDownloadedChapters = await isar.downloads
       .filter()
-      .idIsNotNull()
       .chapter((q) => q.manga((m) => m.itemTypeEqualTo(itemType)))
       .isDownloadEqualTo(true)
       .count();

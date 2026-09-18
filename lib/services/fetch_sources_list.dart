@@ -586,7 +586,6 @@ Future<void> checkIfSourceIsObsolete(
 
   final sources = await isar.sources
       .filter()
-      .idIsNotNull()
       .itemTypeEqualTo(itemType)
       .and()
       .isLocalEqualTo(false)

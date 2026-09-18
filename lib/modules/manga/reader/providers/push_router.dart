@@ -18,8 +18,6 @@ Future<void> pushMangaReaderView({
       .and()
       .nameContains(chManga.source!, caseSensitive: false)
       .and()
-      .idIsNotNull()
-      .and()
       .isActiveEqualTo(true)
       .and()
       .isAddedEqualTo(true)

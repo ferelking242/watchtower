@@ -96,14 +96,12 @@ class Synching extends _$Synching {
   }
 
   List<ChangedPart> getAllChangedParts() {
-    return isar.changedParts.filter().idIsNotNull().findAllSync();
+    return isar.changedParts.where().findAllSync();
   }
 
   List<ChangedPart> getChangedParts(List<ActionType> actionTypes) {
     var query = isar.changedParts
         .filter()
-        .idIsNotNull()
-        .and()
         .actionTypeEqualTo(actionTypes.first);
     for (final at in actionTypes.skip(1)) {
       query = query.or().actionTypeEqualTo(at);
@@ -192,7 +190,7 @@ class Synching extends _$Synching {
   }
 
   Future<void> clearChangedParts(List<ActionType> actions, bool txn) async {
-    var temp = isar.changedParts.filter().idIsNotNull().and().actionTypeEqualTo(
+    var temp = isar.changedParts.filter().actionTypeEqualTo(
       actions.first,
     );
     for (ActionType action in actions.skip(1)) {

@@ -6,7 +6,7 @@ part 'custom_buttons_provider.g.dart';
 
 @riverpod
 Stream<List<CustomButton>> getCustomButtonsStream(Ref ref) async* {
-  yield* isar.customButtons.filter().idIsNotNull().sortByPos().watch(
+  yield* isar.customButtons.filter().sortByPos().watch(
     fireImmediately: true,
   );
 }

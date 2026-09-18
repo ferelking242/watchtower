@@ -86,8 +86,6 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
               ? StreamBuilder(
                   stream: isar.historys
                       .filter()
-                      .idIsNotNull()
-                      .and()
                       .chapter(
                         (q) => q.manga(
                           (q) => q.itemTypeEqualTo(widget.manga.itemType),
@@ -260,8 +258,6 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                   final model = widget.manga;
                   final checkCategoryList = isar.categorys
                       .filter()
-                      .idIsNotNull()
-                      .and()
                       .forItemTypeEqualTo(model.itemType)
                       .isNotEmptySync();
                   if (checkCategoryList) {

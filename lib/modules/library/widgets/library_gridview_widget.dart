@@ -312,8 +312,6 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                 return StreamBuilder(
                                   stream: isar.historys
                                       .filter()
-                                      .idIsNotNull()
-                                      .and()
                                       .chapter(
                                         (q) => q.manga(
                                           (q) =>

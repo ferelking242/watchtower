@@ -36,8 +36,6 @@ class SourceListTile extends StatelessWidget {
           if (!isLocal) {
             final sources = isar.sources
                 .filter()
-                .idIsNotNull()
-                .and()
                 .itemTypeEqualTo(itemType)
                 .findAllSync();
             isar.writeTxnSync(() {

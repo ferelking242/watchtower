@@ -8,7 +8,6 @@ part 'calendar_provider.g.dart';
 Stream<List<Manga>> getCalendarStream(Ref ref, {ItemType? itemType}) async* {
   yield* isar.mangas
       .filter()
-      .idIsNotNull()
       .favoriteEqualTo(true)
       .itemTypeEqualTo(itemType ?? ItemType.manga)
       .anyOf([

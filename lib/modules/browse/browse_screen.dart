@@ -587,8 +587,6 @@ void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
   }
   final entries = isar.sources
       .filter()
-      .idIsNotNull()
-      .and()
       .itemTypeEqualTo(itemType)
       .findAllSync();
 
@@ -628,8 +626,6 @@ Widget _extensionUpdateBadge(WidgetRef ref, ItemType itemType) {
   return StreamBuilder(
     stream: isar.sources
         .filter()
-        .idIsNotNull()
-        .and()
         .isActiveEqualTo(true)
         .itemTypeEqualTo(itemType)
         .watch(fireImmediately: true),

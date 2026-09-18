@@ -287,8 +287,6 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
   void _loadSources() {
     final sources = isar.sources
         .filter()
-        .idIsNotNull()
-        .and()
         .isAddedEqualTo(true)
         .and()
         .itemTypeEqualTo(widget.itemType)

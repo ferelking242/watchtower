@@ -107,8 +107,6 @@ void showCategorySelectionDialog({
                   child: StreamBuilder(
                     stream: isar.categorys
                         .filter()
-                        .idIsNotNull()
-                        .and()
                         .forItemTypeEqualTo(itemType)
                         .watch(fireImmediately: true),
                     builder: (context, snapshot) {

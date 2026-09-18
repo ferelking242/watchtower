@@ -817,7 +817,6 @@ class _AnimeStreamPageState extends riv.ConsumerState<AnimeStreamPage>
     if (!useMpvConfig) return;
     final customButtons = isar.customButtons
         .filter()
-        .idIsNotNull()
         .sortByPos()
         .findAllSync();
     if (customButtons.isEmpty) return;

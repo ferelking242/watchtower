@@ -109,7 +109,6 @@ class _WatchOrderScreenState extends State<WatchOrderScreen> {
           return StreamBuilder(
             stream: isar.tracks
                 .filter()
-                .idIsNotNull()
                 .mediaIdEqualTo(int.tryParse(sequel.id))
                 .or()
                 .mediaIdEqualTo(int.tryParse(sequel.anilistId ?? ""))

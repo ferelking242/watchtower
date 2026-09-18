@@ -38,8 +38,6 @@ class ExtensionsLang extends ConsumerWidget {
                 }
                 final sources = isar.sources
                     .filter()
-                    .idIsNotNull()
-                    .and()
                     .itemTypeEqualTo(itemType)
                     .findAllSync();
                 for (var source in sources) {
@@ -57,8 +55,6 @@ class ExtensionsLang extends ConsumerWidget {
       body: StreamBuilder(
         stream: isar.sources
             .filter()
-            .idIsNotNull()
-            .and()
             .itemTypeEqualTo(itemType)
             .watch(fireImmediately: true),
         builder: (context, snapshot) {

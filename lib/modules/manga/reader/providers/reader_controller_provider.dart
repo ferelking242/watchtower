@@ -422,7 +422,6 @@ extension ChapterExtensions on Chapter {
 
     final tracks = isar.tracks
         .filter()
-        .idIsNotNull()
         .itemTypeEqualTo(manga.itemType)
         .mangaIdEqualTo(manga.id!)
         .findAllSync();

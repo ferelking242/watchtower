@@ -74,8 +74,6 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
                 .and()
                 .nameContains(manga.source!, caseSensitive: false)
                 .and()
-                .idIsNotNull()
-                .and()
                 .isActiveEqualTo(true)
                 .and()
                 .isAddedEqualTo(true)

@@ -49,7 +49,6 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
             child: StreamBuilder(
               stream: isar.sources
                   .filter()
-                  .idIsNotNull()
                   .isAddedEqualTo(true)
                   .and()
                   .isActiveEqualTo(true)

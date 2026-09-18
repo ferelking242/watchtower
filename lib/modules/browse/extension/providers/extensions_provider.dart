@@ -10,8 +10,6 @@ part 'extensions_provider.g.dart';
 Stream<List<Source>> getExtensionsStream(Ref ref, ItemType itemType) async* {
   yield* isar.sources
       .filter()
-      .idIsNotNull()
-      .and()
       .group(
         (q) => q.repoIsNull().or().repo(
           (q) => q.hiddenIsNull().or().hiddenEqualTo(false),

@@ -91,7 +91,6 @@ class TrackingTab extends StatelessWidget {
     return StreamBuilder(
       stream: isar.tracks
           .filter()
-          .idIsNotNull()
           .itemTypeEqualTo(itemType)
           .syncIdEqualTo(syncId)
           .watch(fireImmediately: true),
@@ -147,7 +146,6 @@ class TrackingWidget extends StatelessWidget {
     return StreamBuilder(
       stream: isar.tracks
           .filter()
-          .idIsNotNull()
           .mediaIdEqualTo(mediaId)
           .itemTypeEqualTo(itemType)
           .watch(fireImmediately: true),

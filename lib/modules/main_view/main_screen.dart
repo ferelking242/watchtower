@@ -2519,7 +2519,7 @@ class _ExtensionBadgeWidget extends ConsumerWidget {
     return StreamBuilder(
       stream: isar.sources
           .filter()
-          .idIsNotNull()
+          .isActiveEqualTo(true)
           .optional(
             hideItems.contains("/MangaLibrary"),
             (q) => q.not().itemTypeEqualTo(ItemType.manga),
@@ -2540,8 +2540,6 @@ class _ExtensionBadgeWidget extends ConsumerWidget {
             hideItems.contains("/GameLibrary"),
             (q) => q.not().itemTypeEqualTo(ItemType.game),
           )
-          .and()
-          .isActiveEqualTo(true)
           .watch(fireImmediately: true),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -2576,28 +2574,7 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
     final hideItems = ref.watch(hideItemsStateProvider);
 
     return StreamBuilder(
-      stream: isar.updates
-          .filter()
-          .idIsNotNull()
-          .optional(
-            hideItems.contains("/MangaLibrary"),
-            (q) => q.chapter(
-              (c) => c.manga((m) => m.not().itemTypeEqualTo(ItemType.manga)),
-            ),
-          )
-          .optional(
-            hideItems.contains("/AnimeLibrary"),
-            (q) => q.chapter(
-              (c) => c.manga((m) => m.not().itemTypeEqualTo(ItemType.anime)),
-            ),
-          )
-          .optional(
-            hideItems.contains("/NovelLibrary"),
-            (q) => q.chapter(
-              (c) => c.manga((m) => m.not().itemTypeEqualTo(ItemType.novel)),
-            ),
-          )
-          .watch(fireImmediately: true),
+      stream: isar.updates.where().watch(fireImmediately: true),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return icon;
@@ -2607,7 +2584,18 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
           if (!element.chapter.isLoaded) {
             element.chapter.loadSync();
           }
-          return !(element.chapter.value?.isRead ?? false);
+          final chapter = element.chapter.value;
+          if (chapter != null && !chapter.manga.isLoaded) {
+            chapter.manga.loadSync();
+          }
+          final itemType = chapter?.manga.value?.itemType;
+          final hidden = (itemType == ItemType.manga &&
+                  hideItems.contains("/MangaLibrary")) ||
+              (itemType == ItemType.anime &&
+                  hideItems.contains("/AnimeLibrary")) ||
+              (itemType == ItemType.novel &&
+                  hideItems.contains("/NovelLibrary"));
+          return !hidden && !(chapter?.isRead ?? false);
         }).toList();
 
         if (entries.isEmpty) {

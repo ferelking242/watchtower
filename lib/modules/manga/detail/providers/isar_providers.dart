@@ -19,7 +19,7 @@ Stream<List<Chapter>> getChaptersStream(
   if (kIsWeb) {
     // MockIsar ignores all filter predicates — fetch everything and
     // filter client-side by mangaId so each detail page sees only its own episodes.
-    final all = await isar.chapters.filter().idIsNotNull().findAll();
+    final all = await isar.chapters.where().findAll();
     yield all.where((c) => c.mangaId == mangaId).toList();
     return;
   }

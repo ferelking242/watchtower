@@ -102,7 +102,6 @@ class _UpdatesScreenState extends BaseLibraryTabScreenState<UpdatesScreen> {
     final itemType = getCurrentItemType();
     final mangaList = isar.mangas
         .filter()
-        .idIsNotNull()
         .favoriteEqualTo(true)
         .and()
         .itemTypeEqualTo(itemType)
@@ -121,7 +120,6 @@ class _UpdatesScreenState extends BaseLibraryTabScreenState<UpdatesScreen> {
   Future<void> _clearUpdates() async {
     List<Update> updates = await isar.updates
         .filter()
-        .idIsNotNull()
         .chapter((q) => q.manga((q) => q.itemTypeEqualTo(getCurrentItemType())))
         .findAll();
     final idsToDelete = <Id>[];
@@ -272,8 +270,6 @@ Widget _updateNumbers(WidgetRef ref, ItemType itemType) {
   return StreamBuilder(
     stream: isar.updates
         .filter()
-        .idIsNotNull()
-        .and()
         .chapter((q) => q.manga((q) => q.itemTypeEqualTo(itemType)))
         .watch(fireImmediately: true),
     builder: (context, snapshot) {

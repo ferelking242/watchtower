@@ -57,8 +57,6 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               .findAllSync()
         : isar.sources
               .filter()
-              .idIsNotNull()
-              .and()
               .isAddedEqualTo(true)
               .and()
               .itemTypeEqualTo(widget.itemType)

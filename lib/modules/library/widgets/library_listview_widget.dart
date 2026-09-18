@@ -312,8 +312,6 @@ class LibraryListViewWidget extends StatelessWidget {
                                 return StreamBuilder(
                                   stream: isar.historys
                                       .filter()
-                                      .idIsNotNull()
-                                      .and()
                                       .chapter(
                                         (q) => q.manga(
                                           (q) =>

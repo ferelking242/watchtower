@@ -185,7 +185,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
             as int;
     final chapters = isar.chapters
         .filter()
-        .idIsNotNull()
         .mangaIdEqualTo(widget.manga!.id!)
         .findAllSync();
     return _filterAndSortChapter(
@@ -274,8 +273,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     final isLongPressed = ref.watch(isLongPressedStateProvider);
     final checkCategoryList = isar.categorys
         .filter()
-        .idIsNotNull()
-        .and()
         .forItemTypeEqualTo(widget.manga!.itemType)
         .isNotEmptySync();
     return Stack(
@@ -569,7 +566,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                           .toList();
                                   isar.chapters
                                       .filter()
-                                      .idIsNotNull()
                                       .mangaIdEqualTo(widget.manga!.id!)
                                       .isReadEqualTo(false)
                                       .findAllSync();
@@ -1646,7 +1642,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     StreamBuilder(
                       stream: isar.tracks
                           .filter()
-                          .idIsNotNull()
                           .mangaIdEqualTo(widget.manga!.id!)
                           .watch(fireImmediately: true),
                       builder: (context, snapshot) {
@@ -1953,7 +1948,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
             child: StreamBuilder(
               stream: isar.tracks
                   .filter()
-                  .idIsNotNull()
                   .mangaIdEqualTo(widget.manga!.id!)
                   .watch(fireImmediately: true),
               builder: (context, snapshot) {
@@ -2397,7 +2391,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     return StreamBuilder(
                       stream: isar.tracks
                           .filter()
-                          .idIsNotNull()
                           .syncIdEqualTo(entries[index].syncId)
                           .mangaIdEqualTo(widget.manga!.id!)
                           .watch(fireImmediately: true),

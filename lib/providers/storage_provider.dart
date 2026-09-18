@@ -672,8 +672,7 @@ class StorageProvider {
     });
 
     final customButton = await isar.customButtons
-        .filter()
-        .idIsNotNull()
+        .where()
         .findFirst();
     if (customButton == null) {
       await isar.writeTxn(() async {

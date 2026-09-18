@@ -15,8 +15,6 @@ Stream<List<History>> getAllHistoryStream(
 }) async* {
   yield* isar.historys
       .filter()
-      .idIsNotNull()
-      .and()
       .chapter((q) => q.manga((q) => q.itemTypeEqualTo(itemType)))
       .and()
       .chapter(
@@ -33,8 +31,6 @@ Stream<List<Update>> getAllUpdateStream(
 }) async* {
   yield* isar.updates
       .filter()
-      .idIsNotNull()
-      .and()
       .chapter((q) => q.manga((q) => q.itemTypeEqualTo(itemType)))
       .and()
       .chapter(

@@ -49,8 +49,6 @@ class _MigrationScreenScreenState extends ConsumerState<MigrationScreen> {
             .findAllSync()
       : isar.sources
             .filter()
-            .idIsNotNull()
-            .and()
             .isAddedEqualTo(true)
             .and()
             .itemTypeEqualTo(widget.manga.itemType)
@@ -500,8 +498,6 @@ class _MigrationMangaGlobalImageCardState
                 child: StreamBuilder(
                   stream: isar.categorys
                       .filter()
-                      .idIsNotNull()
-                      .and()
                       .forItemTypeEqualTo(widget.oldManga.itemType)
                       .watch(fireImmediately: true),
                   builder: (context, snapshot) {
