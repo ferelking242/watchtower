@@ -24,7 +24,10 @@ class DownloadQueueScreen extends ConsumerWidget {
         title: const Text('Téléchargements'),
       ),
       body: StreamBuilder<List<Download>>(
-        stream: isar.downloads.where().watch(fireImmediately: true),
+        stream: isar.downloads
+            .filter()
+            .idIsNotNull()
+            .watch(fireImmediately: true),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return _QueueMessage(
