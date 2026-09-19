@@ -21,9 +21,16 @@ class ChapterPageDownload extends ConsumerWidget {
 
   const ChapterPageDownload({super.key, required this.chapter});
 
-  void _startDownload(bool? useWifi, int? downloadId, WidgetRef ref) async {
+  Future<void> _startDownload(
+    bool? useWifi,
+    int? downloadId,
+    WidgetRef ref,
+  ) async {
     _cancelTasks(downloadId: downloadId);
-    ref.read(downloadChapterProvider(chapter: chapter, useWifi: useWifi));
+    // Queue the record before starting the worker so the queue screen and the
+    // foreground notification can observe the download immediately.
+    await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+    ref.read(processDownloadsProvider(useWifi: useWifi));
   }
 
   void _sendFile(BuildContext context) async {
