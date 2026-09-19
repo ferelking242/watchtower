@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:collection/collection.dart';
 import 'dart:math' as math;
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -32,7 +33,8 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
-import 'package:watchtower/modules/home/widgets/home_header.dart' show showAccountSheet;
+import 'package:watchtower/modules/home/widgets/home_header.dart'
+    show showAccountSheet;
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
@@ -40,7 +42,6 @@ import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dar
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
-
 
 final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
 
@@ -53,16 +54,18 @@ class _DockHiddenNotifier extends Notifier<bool> {
   void set(bool v) => state = v;
 }
 
-final dockHiddenProvider =
-    NotifierProvider<_DockHiddenNotifier, bool>(_DockHiddenNotifier.new);
+final dockHiddenProvider = NotifierProvider<_DockHiddenNotifier, bool>(
+  _DockHiddenNotifier.new,
+);
 
 class _MenuOpenNotifier extends Notifier<bool> {
   @override
   bool build() => false;
 }
 
-final menuOpenProvider =
-    NotifierProvider<_MenuOpenNotifier, bool>(_MenuOpenNotifier.new);
+final menuOpenProvider = NotifierProvider<_MenuOpenNotifier, bool>(
+  _MenuOpenNotifier.new,
+);
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, required this.child});
@@ -121,9 +124,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         .autoSyncFrequency;
     final hiddenItems = ref.read(hideItemsStateProvider);
 
-    _defaultLocation = _navigationOrder
-        .where((e) => !hiddenItems.contains(e))
-        .firstOrNull ?? '/WatchtowerHome';
+    _defaultLocation =
+        _navigationOrder.where((e) => !hiddenItems.contains(e)).firstOrNull ??
+        '/WatchtowerHome';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -240,313 +243,311 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final location = ref.watch(routerCurrentLocationStateProvider);
 
     return Consumer(
-            builder: (context, ref, child) {
-              final isReadingScreen = _isReadingScreen(location);
-              bool uniqueSwitch = false;
-              // Guard isLibSwitch with mergeLibraryNavMobile so that disabling
-              // the Hub toggle instantly collapses back to the normal item list.
-              List<String> dest;
-              if (isLibSwitch && mergeLibraryNavMobile) {
-                final libItems = navigationOrder
-                    .where((nav) => libLocationRegex.hasMatch(nav))
-                    .toList();
-                dest = [
-                  "_disableLibSwitch",
-                  ...libItems,
-                ].where((nav) => !hideItems.contains(nav)).toList();
-                // Always expose Music in the Hub sub-dock even if the user
-                // hasn't added /MusicLibrary to their navigation order.
-                final hasMusicInDest = dest.any((n) =>
-                    n == '/MusicLibrary' || n == '/MusicSearch');
-                if (!hasMusicInDest && !hideItems.contains('/MusicSearch')) {
-                  dest.add('/MusicSearch');
-                }
-                // Reset dock-hidden state so the sub-dock is always visible.
-                Future.microtask(
-                    () => ref.read(dockHiddenProvider.notifier).set(false));
-              } else {
-                dest = navigationOrder
-                    .where((nav) => !hideItems.contains(nav))
-                    .toList();
-              }
-
-              if (mergeLibraryNavMobile && !isLibSwitch) {
-                dest = dest
-                    .map((nav) {
-                      if ([
-                        "/MangaLibrary",
-                        "/AnimeLibrary",
-                        "/NovelLibrary",
-                      ].contains(nav)) {
-                        if (uniqueSwitch) return null;
-                        uniqueSwitch = true;
-                        return "_enableLibSwitch";
-                      }
-                      // Music & Game are accessible via Hub expansion — hide
-                      // them from the main dock row when Hub is enabled.
-                      if (nav == "/MusicLibrary" || nav == "/GameLibrary") {
-                        return null;
-                      }
-                      return nav;
-                    })
-                    .nonNulls
-                    .toList();
-              }
-
-              // Insert /Library on dock when Library toggle is ON
-              if (mergeLibraryDock && !isLibSwitch) {
-                // Always filter out individual library items when merge is ON,
-                // regardless of whether hideItems was explicitly updated.
-                const _individualLibs = [
-                  '/MangaLibrary',
-                  '/AnimeLibrary',
-                  '/NovelLibrary',
-                  '/MusicLibrary',
-                  '/GameLibrary',
-                ];
-                dest = dest
-                    .where((e) => !_individualLibs.contains(e))
-                    .toList();
-
-                if (!dest.contains('/Library')) {
-                  final insertIdx = dest.indexWhere(
-                    (e) =>
-                        e != '_enableLibSwitch' &&
-                        !libLocationRegex.hasMatch(e),
-                  );
-                  if (insertIdx == -1) {
-                    dest.add('/Library');
-                  } else {
-                    dest.insert(insertIdx, '/Library');
-                  }
-                }
-              }
-
-              // ── Library sub-dock mode ───────────────────────────────────────
-              // When isLibrarySwitch is on, show [Back, /Library].
-              // Otherwise, if /Library is in dest, replace it with
-              // _enableLibrarySwitch so tapping opens the sub-dock instead of
-              // navigating directly to the library page.
-              if (isLibrarySwitch) {
-                dest = ['_disableLibrarySwitch', '/Library']
-                    .where((nav) => !hideItems.contains(nav))
-                    .toList();
-              } else if (dest.contains('/Library') && !isLibSwitch) {
-                dest = dest
-                    .map((nav) => nav == '/Library' ? '_enableLibrarySwitch' : nav)
-                    .toList();
-              }
-
-              if (isLibSwitch &&
-                  (currentIndex >= dest.length ||
-                      !libLocationRegex.hasMatch(location ?? ""))) {
-                currentIndex = 0;
-              } else {
-                String? libLocation;
-                if (mergeLibraryNavMobile &&
-                    !isLibSwitch) {
-                  libLocation = location?.replaceAll(
-                    libLocationRegex,
-                    "_enableLibSwitch",
-                  );
-                }
-                int currentIdx = dest.indexOf(
-                  libLocation ?? location ?? _defaultLocation,
-                );
-                if (currentIdx != -1) {
-                  currentIndex = currentIdx;
-                }
-              }
-
-              // ── Browse always in dock, Marketplace always in menu ─────────
-              {
-                final _mktI = dest.indexOf('/marketplace');
-                final _brwI = dest.indexOf('/browse');
-                if (_mktI >= 0 && _mktI < 4) {
-                  dest = List<String>.from(dest)..removeAt(_mktI)..add('/marketplace');
-                }
-                final _brwI2 = dest.indexOf('/browse');
-                if (_brwI2 >= 4) {
-                  dest = List<String>.from(dest)..removeAt(_brwI2)..insert(3, '/browse');
-                }
-              }
-
-              // ── NFile sub-dock: show back button when inside nfile routes ─
-              if (location?.startsWith('/nfile') == true) {
-                dest = ['_nfileBack', ...dest];
-              }
-
-              // ── 5-item dock cap ───────────────────────────────────────────
-              // Classic dock gets a capped dest (4 user items); overflow goes
-              // to the menu overlay.  Floating dock caps internally in _buildItems.
-              final _cappedDest = dest.take(4).toList();
-              final _overflowRoutes =
-                  dest.length > 4 ? dest.sublist(4) : <String>[];
-
-              final menuOpen = ref.watch(menuOpenProvider);
-              final incognitoMode = ref.watch(incognitoModeStateProvider);
-              final downloadedOnly = ref.watch(downloadedOnlyStateProvider);
-              final isLongPressed = ref.watch(isLongPressedStateProvider);
-
-              // ── PC sidebar mode (also auto-activates on Android TV / Smart TV) ──
-              // NavigationMode.directional is set by the Android TV system when
-              // a D-pad / remote control is the primary input device.
-              final _isTV = MediaQuery.of(context).navigationMode ==
-                  NavigationMode.directional;
-              if ((dockStyle == 'pc_sidebar' || _isTV) &&
-                  MediaQuery.of(context).size.width >= 700 &&
-                  !isReadingScreen) {
-                return _TabletLayout(
-                  isLongPressed: isLongPressed,
-                  location: location,
-                  dest: dest,
-                  currentIndex: currentIndex,
-                  route: route,
-                  child: widget.child,
-                  ref: ref,
-                  buildNavigationWidgetsDesktop: _buildNavigationWidgetsDesktop,
-                );
-              }
-
-              return Column(
-                children: [
-                  Flexible(
-                    child: Stack(
-                      children: [
-                    Scaffold(
-                      extendBody: true,
-                      // The dock is now always persistent — it no longer
-                      // auto-hides on scroll/inactivity nor when the drawer
-                      // is swiped open. See _isVisible() in _FloatingDockState.
-                      body: widget.child,
-                      bottomNavigationBar: dockStyle == 'classic'
-                              ? _RoundedOrClassicDock(
-                                  isRounded: false,
-                                  dest: _cappedDest,
-                                  currentIndex: currentIndex,
-                                  buildDestinations:
-                                      _buildNavigationWidgetsMobile,
-                                  ref: ref,
-                                  onDestinationSelected: (idx) {
-                                    if (idx >= _cappedDest.length) {
-                                      ref.read(menuOpenProvider.notifier).state =
-                                          !ref.read(menuOpenProvider);
-                                      return;
-                                    }
-                                    final destination = _cappedDest[idx];
-                                    AppLogger.log(
-                                      'Nav -> $destination',
-                                      logLevel: LogLevel.debug,
-                                      tag: LogTag.ui,
-                                    );
-                                    ref
-                                        .read(dockHiddenProvider.notifier)
-                                        .set(false);
-                                    if (destination == "_enableLibSwitch") {
-                                      setState(() => isLibSwitch = true);
-                                    } else if (destination == "_disableLibSwitch") {
-                                      setState(() => isLibSwitch = false);
-                                    } else if (destination == "_enableLibrarySwitch") {
-                                      setState(() => isLibrarySwitch = true);
-                                    } else if (destination == "_disableLibrarySwitch") {
-                                      setState(() => isLibrarySwitch = false);
-                                    } else if (destination == "_nfileBack") {
-                                      route.go('/marketplace');
-                                    } else {
-                                      route.go(destination);
-                                    }
-                                  },
-                                )
-                              : _FloatingDock(
-                                  isLongPressed: isLongPressed,
-                                  location: location,
-                                  dest: dest,
-                                  ref: ref,
-                                  showPill: true,
-                                  onDestinationSelected: (destination) {
-                                    AppLogger.log(
-                                      'Nav -> $destination',
-                                      logLevel: LogLevel.debug,
-                                      tag: LogTag.ui,
-                                    );
-                                    ref
-                                        .read(dockHiddenProvider.notifier)
-                                        .set(false);
-                                    if (destination == "_enableLibSwitch") {
-                                      setState(() => isLibSwitch = true);
-                                    } else if (destination == "_disableLibSwitch") {
-                                      setState(() => isLibSwitch = false);
-                                    } else if (destination == "_enableLibrarySwitch") {
-                                      setState(() => isLibrarySwitch = true);
-                                    } else if (destination == "_disableLibrarySwitch") {
-                                      setState(() => isLibrarySwitch = false);
-                                    } else if (destination == "_watchtower_menu") {
-                                      ref.read(menuOpenProvider.notifier).state =
-                                          !ref.read(menuOpenProvider);
-                                    } else if (destination == "_nfileBack") {
-                                      route.go('/marketplace');
-                                    } else {
-                                      route.go(destination);
-                                    }
-                                  },
-                                ),
-                    ),
-                    if (!isReadingScreen && (downloadedOnly || incognitoMode))
-                      _SideBanners(
-                        downloadedOnly: downloadedOnly,
-                        incognitoMode: incognitoMode,
-                        l10n: l10n,
-                      ),
-                    // Music mini-player — shown above the dock when a track is active
-                    // Music mini-player — shown on ALL pages above the dock when
-                    // music is playing, except inside the music module itself
-                    // where the music module's BottomPlayer/PlayerOverlay already shows.
-                    if (!isReadingScreen &&
-                        location != '/MusicLibrary')
-                      Consumer(
-                        builder: (ctx, r, _) {
-                          // Check both the custom player and the music module player
-                          final hasCustomTrack = r.watch(
-                            musicPlayerProvider
-                                .select((s) => s.activeTrack != null),
-                          );
-                          final hasMusicTrack = r.watch(
-                            audioPlayerProvider
-                                .select((s) => s.activeTrack != null),
-                          );
-                          if (!hasCustomTrack && !hasMusicTrack) {
-                            return const SizedBox.shrink();
-                          }
-                          final bottomInset =
-                              MediaQuery.of(ctx).padding.bottom;
-                          // Floating dock height
-                          final dockHeight =
-                              dockStyle == 'classic' ? 56.0 : 72.0;
-                          return Positioned(
-                            bottom: dockHeight + bottomInset,
-                            left: 0,
-                            right: 0,
-                            child: const MusicMiniPlayer(),
-                          );
-                        },
-                      ),
-                    // Menu overlay — triggered by the dock Menu button
-                    if (!isReadingScreen && menuOpen && dockStyle != 'pc_sidebar')
-                      Positioned.fill(
-                        child: WatchtowerMenuOverlay(
-                          overflowRoutes: _overflowRoutes,
-                          onClose: () =>
-                              ref.read(menuOpenProvider.notifier).state = false,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-                ],
-              );
-
-            },
+      builder: (context, ref, child) {
+        final isReadingScreen = _isReadingScreen(location);
+        bool uniqueSwitch = false;
+        // Guard isLibSwitch with mergeLibraryNavMobile so that disabling
+        // the Hub toggle instantly collapses back to the normal item list.
+        List<String> dest;
+        if (isLibSwitch && mergeLibraryNavMobile) {
+          final libItems = navigationOrder
+              .where((nav) => libLocationRegex.hasMatch(nav))
+              .toList();
+          dest = [
+            "_disableLibSwitch",
+            ...libItems,
+          ].where((nav) => !hideItems.contains(nav)).toList();
+          // Always expose Music in the Hub sub-dock even if the user
+          // hasn't added /MusicLibrary to their navigation order.
+          final hasMusicInDest = dest.any(
+            (n) => n == '/MusicLibrary' || n == '/MusicSearch',
           );
+          if (!hasMusicInDest && !hideItems.contains('/MusicSearch')) {
+            dest.add('/MusicSearch');
+          }
+          // Reset dock-hidden state so the sub-dock is always visible.
+          Future.microtask(
+            () => ref.read(dockHiddenProvider.notifier).set(false),
+          );
+        } else {
+          dest = navigationOrder
+              .where((nav) => !hideItems.contains(nav))
+              .toList();
+        }
+
+        if (mergeLibraryNavMobile && !isLibSwitch) {
+          dest = dest
+              .map((nav) {
+                if ([
+                  "/MangaLibrary",
+                  "/AnimeLibrary",
+                  "/NovelLibrary",
+                ].contains(nav)) {
+                  if (uniqueSwitch) return null;
+                  uniqueSwitch = true;
+                  return "_enableLibSwitch";
+                }
+                // Music & Game are accessible via Hub expansion — hide
+                // them from the main dock row when Hub is enabled.
+                if (nav == "/MusicLibrary" || nav == "/GameLibrary") {
+                  return null;
+                }
+                return nav;
+              })
+              .nonNulls
+              .toList();
+        }
+
+        // Insert /Library on dock when Library toggle is ON
+        if (mergeLibraryDock && !isLibSwitch) {
+          // Always filter out individual library items when merge is ON,
+          // regardless of whether hideItems was explicitly updated.
+          const _individualLibs = [
+            '/MangaLibrary',
+            '/AnimeLibrary',
+            '/NovelLibrary',
+            '/MusicLibrary',
+            '/GameLibrary',
+          ];
+          dest = dest.where((e) => !_individualLibs.contains(e)).toList();
+
+          if (!dest.contains('/Library')) {
+            final insertIdx = dest.indexWhere(
+              (e) => e != '_enableLibSwitch' && !libLocationRegex.hasMatch(e),
+            );
+            if (insertIdx == -1) {
+              dest.add('/Library');
+            } else {
+              dest.insert(insertIdx, '/Library');
+            }
+          }
+        }
+
+        // ── Library sub-dock mode ───────────────────────────────────────
+        // When isLibrarySwitch is on, show [Back, /Library].
+        // Otherwise, if /Library is in dest, replace it with
+        // _enableLibrarySwitch so tapping opens the sub-dock instead of
+        // navigating directly to the library page.
+        if (isLibrarySwitch) {
+          dest = [
+            '_disableLibrarySwitch',
+            '/Library',
+          ].where((nav) => !hideItems.contains(nav)).toList();
+        } else if (dest.contains('/Library') && !isLibSwitch) {
+          dest = dest
+              .map((nav) => nav == '/Library' ? '_enableLibrarySwitch' : nav)
+              .toList();
+        }
+
+        if (isLibSwitch &&
+            (currentIndex >= dest.length ||
+                !libLocationRegex.hasMatch(location ?? ""))) {
+          currentIndex = 0;
+        } else {
+          String? libLocation;
+          if (mergeLibraryNavMobile && !isLibSwitch) {
+            libLocation = location?.replaceAll(
+              libLocationRegex,
+              "_enableLibSwitch",
+            );
+          }
+          int currentIdx = dest.indexOf(
+            libLocation ?? location ?? _defaultLocation,
+          );
+          if (currentIdx != -1) {
+            currentIndex = currentIdx;
+          }
+        }
+
+        // ── Browse always in dock, Marketplace always in menu ─────────
+        {
+          final _mktI = dest.indexOf('/marketplace');
+          final _brwI = dest.indexOf('/browse');
+          if (_mktI >= 0 && _mktI < 4) {
+            dest = List<String>.from(dest)
+              ..removeAt(_mktI)
+              ..add('/marketplace');
+          }
+          final _brwI2 = dest.indexOf('/browse');
+          if (_brwI2 >= 4) {
+            dest = List<String>.from(dest)
+              ..removeAt(_brwI2)
+              ..insert(3, '/browse');
+          }
+        }
+
+        // ── NFile sub-dock: show back button when inside nfile routes ─
+        if (location?.startsWith('/nfile') == true) {
+          dest = ['_nfileBack', ...dest];
+        }
+
+        // ── 5-item dock cap ───────────────────────────────────────────
+        // Classic dock gets a capped dest (4 user items); overflow goes
+        // to the menu overlay.  Floating dock caps internally in _buildItems.
+        final _cappedDest = dest.take(4).toList();
+        final _overflowRoutes = dest.length > 4 ? dest.sublist(4) : <String>[];
+
+        final menuOpen = ref.watch(menuOpenProvider);
+        final incognitoMode = ref.watch(incognitoModeStateProvider);
+        final downloadedOnly = ref.watch(downloadedOnlyStateProvider);
+        final isLongPressed = ref.watch(isLongPressedStateProvider);
+
+        // ── PC sidebar mode (also auto-activates on Android TV / Smart TV) ──
+        // NavigationMode.directional is set by the Android TV system when
+        // a D-pad / remote control is the primary input device.
+        final _isTV =
+            MediaQuery.of(context).navigationMode == NavigationMode.directional;
+        if ((dockStyle == 'pc_sidebar' || _isTV) &&
+            MediaQuery.of(context).size.width >= 700 &&
+            !isReadingScreen) {
+          return _TabletLayout(
+            isLongPressed: isLongPressed,
+            location: location,
+            dest: dest,
+            currentIndex: currentIndex,
+            route: route,
+            child: widget.child,
+            ref: ref,
+            buildNavigationWidgetsDesktop: _buildNavigationWidgetsDesktop,
+          );
+        }
+
+        return Column(
+          children: [
+            Flexible(
+              child: Stack(
+                children: [
+                  Scaffold(
+                    extendBody: true,
+                    // The dock is now always persistent — it no longer
+                    // auto-hides on scroll/inactivity nor when the drawer
+                    // is swiped open. See _isVisible() in _FloatingDockState.
+                    body: widget.child,
+                    bottomNavigationBar: dockStyle == 'classic'
+                        ? _RoundedOrClassicDock(
+                            isRounded: false,
+                            dest: _cappedDest,
+                            currentIndex: currentIndex,
+                            buildDestinations: _buildNavigationWidgetsMobile,
+                            ref: ref,
+                            onDestinationSelected: (idx) {
+                              if (idx >= _cappedDest.length) {
+                                ref.read(menuOpenProvider.notifier).state = !ref
+                                    .read(menuOpenProvider);
+                                return;
+                              }
+                              final destination = _cappedDest[idx];
+                              AppLogger.log(
+                                'Nav -> $destination',
+                                logLevel: LogLevel.debug,
+                                tag: LogTag.ui,
+                              );
+                              ref.read(dockHiddenProvider.notifier).set(false);
+                              if (destination == "_enableLibSwitch") {
+                                setState(() => isLibSwitch = true);
+                              } else if (destination == "_disableLibSwitch") {
+                                setState(() => isLibSwitch = false);
+                              } else if (destination ==
+                                  "_enableLibrarySwitch") {
+                                setState(() => isLibrarySwitch = true);
+                              } else if (destination ==
+                                  "_disableLibrarySwitch") {
+                                setState(() => isLibrarySwitch = false);
+                              } else if (destination == "_nfileBack") {
+                                route.go('/marketplace');
+                              } else {
+                                route.go(destination);
+                              }
+                            },
+                          )
+                        : _FloatingDock(
+                            isLongPressed: isLongPressed,
+                            location: location,
+                            dest: dest,
+                            ref: ref,
+                            showPill: true,
+                            onDestinationSelected: (destination) {
+                              AppLogger.log(
+                                'Nav -> $destination',
+                                logLevel: LogLevel.debug,
+                                tag: LogTag.ui,
+                              );
+                              ref.read(dockHiddenProvider.notifier).set(false);
+                              if (destination == "_enableLibSwitch") {
+                                setState(() => isLibSwitch = true);
+                              } else if (destination == "_disableLibSwitch") {
+                                setState(() => isLibSwitch = false);
+                              } else if (destination ==
+                                  "_enableLibrarySwitch") {
+                                setState(() => isLibrarySwitch = true);
+                              } else if (destination ==
+                                  "_disableLibrarySwitch") {
+                                setState(() => isLibrarySwitch = false);
+                              } else if (destination == "_watchtower_menu") {
+                                ref.read(menuOpenProvider.notifier).state = !ref
+                                    .read(menuOpenProvider);
+                              } else if (destination == "_nfileBack") {
+                                route.go('/marketplace');
+                              } else {
+                                route.go(destination);
+                              }
+                            },
+                          ),
+                  ),
+                  if (!isReadingScreen && (downloadedOnly || incognitoMode))
+                    _SideBanners(
+                      downloadedOnly: downloadedOnly,
+                      incognitoMode: incognitoMode,
+                      l10n: l10n,
+                    ),
+                  // Music mini-player — shown above the dock when a track is active
+                  // Music mini-player — shown on ALL pages above the dock when
+                  // music is playing, except inside the music module itself
+                  // where the music module's BottomPlayer/PlayerOverlay already shows.
+                  if (!isReadingScreen && location != '/MusicLibrary')
+                    Consumer(
+                      builder: (ctx, r, _) {
+                        // Check both the custom player and the music module player
+                        final hasCustomTrack = r.watch(
+                          musicPlayerProvider.select(
+                            (s) => s.activeTrack != null,
+                          ),
+                        );
+                        final hasMusicTrack = r.watch(
+                          audioPlayerProvider.select(
+                            (s) => s.activeTrack != null,
+                          ),
+                        );
+                        if (!hasCustomTrack && !hasMusicTrack) {
+                          return const SizedBox.shrink();
+                        }
+                        final bottomInset = MediaQuery.of(ctx).padding.bottom;
+                        // Floating dock height
+                        final dockHeight = dockStyle == 'classic' ? 56.0 : 72.0;
+                        return Positioned(
+                          bottom: dockHeight + bottomInset,
+                          left: 0,
+                          right: 0,
+                          child: const MusicMiniPlayer(),
+                        );
+                      },
+                    ),
+                  // Menu overlay — triggered by the dock Menu button
+                  if (!isReadingScreen && menuOpen && dockStyle != 'pc_sidebar')
+                    Positioned.fill(
+                      child: WatchtowerMenuOverlay(
+                        overflowRoutes: _overflowRoutes,
+                        onClose: () =>
+                            ref.read(menuOpenProvider.notifier).state = false,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   static bool _isReadingScreen(String? location) {
@@ -601,6 +602,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
+    if (dest.contains("/FilmSeries")) {
+      destinations[dest.indexOf(
+        "/FilmSeries",
+      )] = const NavigationRailDestination(
+        selectedIcon: Icon(Icons.movie_filter_rounded),
+        icon: Icon(Icons.movie_filter_outlined),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Films & Séries'),
+        ),
+      );
+    }
     if (dest.contains("/NovelLibrary")) {
       destinations[dest.indexOf("/NovelLibrary")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.note_text),
@@ -632,8 +645,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
     }
     if (dest.contains("/WatchtowerHome")) {
-      destinations[dest.indexOf("/WatchtowerHome")] =
-          NavigationRailDestination(
+      destinations[dest.indexOf("/WatchtowerHome")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.home_2),
         icon: const Icon(Broken.home_1),
         label: const Padding(
@@ -773,6 +785,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: l10n.watch,
       );
     }
+    if (dest.contains('/FilmSeries')) {
+      destMap['/FilmSeries'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.movie_filter_rounded),
+        icon: Icon(Icons.movie_filter_outlined),
+        label: 'Films & Séries',
+      );
+    }
     if (dest.contains('/NovelLibrary')) {
       destMap['/NovelLibrary'] = NavigationDestination(
         selectedIcon: const Icon(Broken.note_text),
@@ -803,8 +822,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('/updates')) {
       destMap['/updates'] = NavigationDestination(
-        selectedIcon: _UpdatesBadgeWidget(icon: const Icon(Broken.notification_bing), ref: ref),
-        icon: _UpdatesBadgeWidget(icon: const Icon(Broken.notification), ref: ref),
+        selectedIcon: _UpdatesBadgeWidget(
+          icon: const Icon(Broken.notification_bing),
+          ref: ref,
+        ),
+        icon: _UpdatesBadgeWidget(
+          icon: const Icon(Broken.notification),
+          ref: ref,
+        ),
         label: l10n.updates,
       );
     }
@@ -817,8 +842,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('/browse')) {
       destMap['/browse'] = NavigationDestination(
-        selectedIcon: _ExtensionBadgeWidget(icon: const Icon(Broken.global), ref: ref),
-        icon: _ExtensionBadgeWidget(icon: const Icon(Broken.global_search), ref: ref),
+        selectedIcon: _ExtensionBadgeWidget(
+          icon: const Icon(Broken.global),
+          ref: ref,
+        ),
+        icon: _ExtensionBadgeWidget(
+          icon: const Icon(Broken.global_search),
+          ref: ref,
+        ),
         label: l10n.browse,
       );
     }
@@ -918,7 +949,10 @@ class _SideBanners extends StatelessWidget {
                   child: RotatedBox(
                     quarterTurns: 3,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: cs.secondary.withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(999),
@@ -926,7 +960,11 @@ class _SideBanners extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.download_done_rounded, size: 11, color: Colors.white),
+                          const Icon(
+                            Icons.download_done_rounded,
+                            size: 11,
+                            color: Colors.white,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             l10n.downloaded_only,
@@ -952,7 +990,10 @@ class _SideBanners extends StatelessWidget {
                   child: RotatedBox(
                     quarterTurns: 1,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: cs.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(999),
@@ -964,7 +1005,11 @@ class _SideBanners extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.visibility_off_rounded, size: 11, color: cs.primary),
+                          Icon(
+                            Icons.visibility_off_rounded,
+                            size: 11,
+                            color: cs.primary,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             l10n.incognito_mode,
@@ -1023,28 +1068,100 @@ class _TabletLayoutState extends State<_TabletLayout> {
   static const double _sidebarWidth = 64.0;
 
   static const _validLocations = {
-    '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
-    '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
-    '/updates', '/browse', '/settings', '/trackerLibrary', '/globalSearch',
-    '/marketplace', '/discover', '/nfileHome',
+    '/Library',
+    '/MangaLibrary',
+    '/AnimeLibrary',
+    '/NovelLibrary',
+    '/MusicLibrary',
+    '/GameLibrary',
+    '/WatchtowerHome',
+    '/history',
+    '/updates',
+    '/browse',
+    '/settings',
+    '/trackerLibrary',
+    '/globalSearch',
+    '/marketplace',
+    '/discover',
+    '/nfileHome',
   };
 
   static const _mainItems = [
-    (route: '/discover',       icon: Broken.global_search,    activeIcon: Broken.global_search,   tooltip: 'Discover'),
-    (route: '/WatchtowerHome', icon: Broken.home_1,           activeIcon: Broken.home_2,          tooltip: 'Accueil'),
-    (route: '/AnimeLibrary',   icon: Broken.video_octagon,    activeIcon: Broken.video_square,    tooltip: 'Watch'),
-    (route: '/MangaLibrary',   icon: Broken.book_1,           activeIcon: Broken.book_square,     tooltip: 'Manga'),
-    (route: '/NovelLibrary',   icon: Broken.text,             activeIcon: Broken.note_text,       tooltip: 'Novel'),
-    (route: '/MusicLibrary',   icon: Broken.music_playlist,   activeIcon: Broken.music_circle,    tooltip: 'Music'),
-    (route: '/GameLibrary',    icon: Broken.gameboy,          activeIcon: Broken.gameboy,         tooltip: 'Games'),
-    (route: '/Library',        icon: Broken.book_1,           activeIcon: Broken.book_square,     tooltip: 'Bibliothèque'),
-    (route: '/globalSearch',   icon: Broken.search_normal_1,  activeIcon: Broken.search_normal,   tooltip: 'Recherche'),
-    (route: '/browse',         icon: Broken.global_search,    activeIcon: Broken.global,          tooltip: 'Browse'),
-    (route: '/marketplace',    icon: Broken.shopping_cart,    activeIcon: Broken.shop,            tooltip: 'Marketplace'),
+    (
+      route: '/discover',
+      icon: Broken.global_search,
+      activeIcon: Broken.global_search,
+      tooltip: 'Discover',
+    ),
+    (
+      route: '/WatchtowerHome',
+      icon: Broken.home_1,
+      activeIcon: Broken.home_2,
+      tooltip: 'Accueil',
+    ),
+    (
+      route: '/AnimeLibrary',
+      icon: Broken.video_octagon,
+      activeIcon: Broken.video_square,
+      tooltip: 'Watch',
+    ),
+    (
+      route: '/MangaLibrary',
+      icon: Broken.book_1,
+      activeIcon: Broken.book_square,
+      tooltip: 'Manga',
+    ),
+    (
+      route: '/NovelLibrary',
+      icon: Broken.text,
+      activeIcon: Broken.note_text,
+      tooltip: 'Novel',
+    ),
+    (
+      route: '/MusicLibrary',
+      icon: Broken.music_playlist,
+      activeIcon: Broken.music_circle,
+      tooltip: 'Music',
+    ),
+    (
+      route: '/GameLibrary',
+      icon: Broken.gameboy,
+      activeIcon: Broken.gameboy,
+      tooltip: 'Games',
+    ),
+    (
+      route: '/Library',
+      icon: Broken.book_1,
+      activeIcon: Broken.book_square,
+      tooltip: 'Bibliothèque',
+    ),
+    (
+      route: '/globalSearch',
+      icon: Broken.search_normal_1,
+      activeIcon: Broken.search_normal,
+      tooltip: 'Recherche',
+    ),
+    (
+      route: '/browse',
+      icon: Broken.global_search,
+      activeIcon: Broken.global,
+      tooltip: 'Browse',
+    ),
+    (
+      route: '/marketplace',
+      icon: Broken.shopping_cart,
+      activeIcon: Broken.shop,
+      tooltip: 'Marketplace',
+    ),
   ];
 
   static const _footerItems = [
-    (route: '/settings', icon: Broken.setting_2, activeIcon: Broken.setting, tooltip: 'Paramètres'),
+    (
+      route: '/settings',
+      icon: Broken.setting_2,
+      activeIcon: Broken.setting,
+      tooltip: 'Paramètres',
+    ),
   ];
 
   double _railWidth() {
@@ -1074,119 +1191,126 @@ class _TabletLayoutState extends State<_TabletLayout> {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                     child: Container(
-                  width: _sidebarWidth,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.30)
-                        : Colors.white.withValues(alpha: 0.25),
-                    border: Border(
-                      right: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.18),
-                        width: 0.5,
+                      width: _sidebarWidth,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.30)
+                            : Colors.white.withValues(alpha: 0.25),
+                        border: Border(
+                          right: BorderSide(
+                            color: cs.outlineVariant.withValues(alpha: 0.18),
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          // ── App icon ────────────────────────────────
+                          SafeArea(
+                            bottom: false,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                top: 14,
+                                bottom: 10,
+                              ),
+                              child: SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.asset(
+                                    'assets/app_icons/icon.png',
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // ── Main nav items ──────────────────────────
+                          Expanded(
+                            child: ListView(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              children: _mainItems
+                                  .map(
+                                    (item) => Tooltip(
+                                      message: item.tooltip,
+                                      preferBelow: false,
+                                      child: _SidebarItem(
+                                        icon: location == item.route
+                                            ? Icon(item.activeIcon)
+                                            : Icon(item.icon),
+                                        label: null,
+                                        active: location == item.route,
+                                        cs: cs,
+                                        onTap: () =>
+                                            widget.route.go(item.route),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                          // ── Divider ───────────────────────────────────
+                          Divider(
+                            height: 1,
+                            thickness: 0.5,
+                            color: cs.outlineVariant.withValues(alpha: 0.30),
+                            indent: 12,
+                            endIndent: 12,
+                          ),
+                          const SizedBox(height: 4),
+                          // ── Footer: More & Settings ─────────────────
+                          ..._footerItems.map(
+                            (item) => Tooltip(
+                              message: item.tooltip,
+                              child: _SidebarItem(
+                                icon: location == item.route
+                                    ? Icon(item.activeIcon)
+                                    : Icon(item.icon),
+                                label: null,
+                                active: location == item.route,
+                                cs: cs,
+                                onTap: () => widget.route.go(item.route),
+                              ),
+                            ),
+                          ),
+                          // ── Account ─────────────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Tooltip(
+                              message: 'Compte',
+                              child: InkWell(
+                                onTap: () => showAccountSheet(context),
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        cs.primary.withValues(alpha: 0.85),
+                                        cs.tertiary.withValues(alpha: 0.80),
+                                      ],
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
                       ),
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      // ── App icon ────────────────────────────────
-                      SafeArea(
-                        bottom: false,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 14, bottom: 10),
-                          child: SizedBox(
-                            width: 36,
-                            height: 36,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.asset(
-                                'assets/app_icons/icon.png',
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // ── Main nav items ──────────────────────────
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          children: _mainItems
-                              .map((item) => Tooltip(
-                                    message: item.tooltip,
-                                    preferBelow: false,
-                                    child: _SidebarItem(
-                                      icon: location == item.route
-                                          ? Icon(item.activeIcon)
-                                          : Icon(item.icon),
-                                      label: null,
-                                      active: location == item.route,
-                                      cs: cs,
-                                      onTap: () =>
-                                          widget.route.go(item.route),
-                                    ),
-                                  ))
-                              .toList(),
-                        ),
-                      ),
-                      // ── Divider ───────────────────────────────────
-                      Divider(
-                        height: 1,
-                        thickness: 0.5,
-                        color: cs.outlineVariant.withValues(alpha: 0.30),
-                        indent: 12,
-                        endIndent: 12,
-                      ),
-                      const SizedBox(height: 4),
-                      // ── Footer: More & Settings ─────────────────
-                      ..._footerItems.map((item) => Tooltip(
-                            message: item.tooltip,
-                            child: _SidebarItem(
-                              icon: location == item.route
-                                  ? Icon(item.activeIcon)
-                                  : Icon(item.icon),
-                              label: null,
-                              active: location == item.route,
-                              cs: cs,
-                              onTap: () => widget.route.go(item.route),
-                            ),
-                          )),
-                      // ── Account ─────────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Tooltip(
-                          message: 'Compte',
-                          child: InkWell(
-                            onTap: () => showAccountSheet(context),
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              width: 34,
-                              height: 34,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    cs.primary.withValues(alpha: 0.85),
-                                    cs.tertiary.withValues(alpha: 0.80),
-                                  ],
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.person_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                  ),
                 ),
-                ),
-              ),
         ),
         // ── Content area ──────────────────────────────────
         Expanded(child: widget.child),
@@ -1402,7 +1526,9 @@ class _SidebarItem extends StatelessWidget {
                   children: [
                     IconTheme(
                       data: IconThemeData(
-                        color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.55),
+                        color: active
+                            ? cs.primary
+                            : cs.onSurface.withValues(alpha: 0.55),
                         size: 22,
                       ),
                       child: icon,
@@ -1412,15 +1538,15 @@ class _SidebarItem extends StatelessWidget {
                         top: -4,
                         right: -4,
                         child: Container(
-                          constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                          constraints: const BoxConstraints(
+                            minWidth: 15,
+                            minHeight: 15,
+                          ),
                           padding: const EdgeInsets.symmetric(horizontal: 3),
                           decoration: BoxDecoration(
                             color: Colors.red.shade600,
                             borderRadius: BorderRadius.circular(99),
-                            border: Border.all(
-                              color: cs.surface,
-                              width: 1.2,
-                            ),
+                            border: Border.all(color: cs.surface, width: 1.2),
                           ),
                           child: Center(
                             child: Text(
@@ -1501,7 +1627,11 @@ class _SidebarFooter extends StatelessWidget {
               ],
             ),
           ),
-          child: const Icon(Icons.person_rounded, color: Colors.white, size: 18),
+          child: const Icon(
+            Icons.person_rounded,
+            color: Colors.white,
+            size: 18,
+          ),
         ),
       );
     }
@@ -1530,7 +1660,11 @@ class _SidebarFooter extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(Icons.person_rounded, color: Colors.white, size: 17),
+            child: const Icon(
+              Icons.person_rounded,
+              color: Colors.white,
+              size: 17,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1567,9 +1701,18 @@ class _SidebarFooter extends StatelessWidget {
 double _getNavigationRailWidthLegacy(bool isLongPressed, String? location) {
   if (isLongPressed) return 0;
   const validLocations = {
-    '/Library', '/MangaLibrary', '/AnimeLibrary', '/NovelLibrary',
-    '/MusicLibrary', '/GameLibrary', '/WatchtowerHome', '/history',
-    '/updates', '/browse', '/settings', '/trackerLibrary',
+    '/Library',
+    '/MangaLibrary',
+    '/AnimeLibrary',
+    '/NovelLibrary',
+    '/MusicLibrary',
+    '/GameLibrary',
+    '/WatchtowerHome',
+    '/history',
+    '/updates',
+    '/browse',
+    '/settings',
+    '/trackerLibrary',
   };
   return (location == null || validLocations.contains(location)) ? 200 : 0;
 }
@@ -1617,8 +1760,8 @@ class _FloatingDockState extends State<_FloatingDock> {
   final ScrollController _scrollController = ScrollController();
   bool _menuOpen = false;
 
-  static const double _itemWidth = 52.0;   // compact dock items
-  static const double _dockHeight = 56.0;  // reduced height — more native feel
+  static const double _itemWidth = 52.0; // compact dock items
+  static const double _dockHeight = 56.0; // reduced height — more native feel
   static const double _dockBottomPad = 10.0;
   static const double _pillHPad = 6.0;
   static const int _maxInlineItems = 5;
@@ -1675,162 +1818,207 @@ class _FloatingDockState extends State<_FloatingDock> {
     for (final route in d) {
       switch (route) {
         case '/WatchtowerHome':
-          items.add(const _DockItemData(
-            route: '/WatchtowerHome',
-            label: 'Accueil',
-            icon: Broken.home_1,
-            activeIcon: Broken.home_2,
-          ));
+          items.add(
+            const _DockItemData(
+              route: '/WatchtowerHome',
+              label: 'Accueil',
+              icon: Broken.home_1,
+              activeIcon: Broken.home_2,
+            ),
+          );
         case '/AnimeLibrary':
-          items.add(_DockItemData(
-            route: '/AnimeLibrary',
-            label: l10n.watch,
-            icon: Broken.video_octagon,
-            activeIcon: Broken.video_square,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/AnimeLibrary',
+              label: l10n.watch,
+              icon: Broken.video_octagon,
+              activeIcon: Broken.video_square,
+            ),
+          );
         case '/MangaLibrary':
-          items.add(_DockItemData(
-            route: '/MangaLibrary',
-            label: l10n.manga,
-            icon: Broken.book_1,
-            activeIcon: Broken.book_square,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/MangaLibrary',
+              label: l10n.manga,
+              icon: Broken.book_1,
+              activeIcon: Broken.book_square,
+            ),
+          );
         case '/NovelLibrary':
-          items.add(_DockItemData(
-            route: '/NovelLibrary',
-            label: l10n.novel,
-            icon: Broken.text,
-            activeIcon: Broken.note_text,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/NovelLibrary',
+              label: l10n.novel,
+              icon: Broken.text,
+              activeIcon: Broken.note_text,
+            ),
+          );
         case '/MusicLibrary':
-          items.add(const _DockItemData(
-            route: '/MusicLibrary',
-            label: 'Music',
-            icon: Broken.music_playlist,
-            activeIcon: Broken.music_circle,
-          ));
+          items.add(
+            const _DockItemData(
+              route: '/MusicLibrary',
+              label: 'Music',
+              icon: Broken.music_playlist,
+              activeIcon: Broken.music_circle,
+            ),
+          );
         case '/GameLibrary':
-          items.add(const _DockItemData(
-            route: '/GameLibrary',
-            label: 'Games',
-            icon: Broken.gameboy,
-            activeIcon: Broken.gameboy,
-          ));
+          items.add(
+            const _DockItemData(
+              route: '/GameLibrary',
+              label: 'Games',
+              icon: Broken.gameboy,
+              activeIcon: Broken.gameboy,
+            ),
+          );
         case '/Library':
-          items.add(_DockItemData(
-            route: '/Library',
-            label: l10n.library,
-            icon: Broken.book_1,
-            activeIcon: Broken.book_square,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/Library',
+              label: l10n.library,
+              icon: Broken.book_1,
+              activeIcon: Broken.book_square,
+            ),
+          );
         case '/browse':
-          items.add(_DockItemData(
-            route: '/browse',
-            label: l10n.browse,
-            icon: Broken.global_search,
-            activeIcon: Broken.global,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/browse',
+              label: l10n.browse,
+              icon: Broken.global_search,
+              activeIcon: Broken.global,
+            ),
+          );
         case '/history':
-          items.add(_DockItemData(
-            route: '/history',
-            label: l10n.history,
-            icon: Broken.clock_1,
-            activeIcon: Broken.clock,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/history',
+              label: l10n.history,
+              icon: Broken.clock_1,
+              activeIcon: Broken.clock,
+            ),
+          );
         case '/settings':
-          items.add(_DockItemData(
-            route: '/settings',
-            label: l10n.more,
-            icon: Broken.setting_2,
-            activeIcon: Broken.setting,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/settings',
+              label: l10n.more,
+              icon: Broken.setting_2,
+              activeIcon: Broken.setting,
+            ),
+          );
         case '/updates':
-          items.add(_DockItemData(
-            route: '/updates',
-            label: l10n.updates,
-            icon: Broken.notification,
-            activeIcon: Broken.notification_bing,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/updates',
+              label: l10n.updates,
+              icon: Broken.notification,
+              activeIcon: Broken.notification_bing,
+            ),
+          );
         case '/trackerLibrary':
-          items.add(_DockItemData(
-            route: '/trackerLibrary',
-            label: l10n.tracking,
-            icon: Broken.presention_chart,
-            activeIcon: Broken.chart_21,
-          ));
+          items.add(
+            _DockItemData(
+              route: '/trackerLibrary',
+              label: l10n.tracking,
+              icon: Broken.presention_chart,
+              activeIcon: Broken.chart_21,
+            ),
+          );
         case '/discover':
-          items.add(const _DockItemData(
-            route: '/discover',
-            label: 'Discover',
-            icon: Broken.global_search,
-            activeIcon: Broken.global_search,
-          ));
+          items.add(
+            const _DockItemData(
+              route: '/discover',
+              label: 'Discover',
+              icon: Broken.global_search,
+              activeIcon: Broken.global_search,
+            ),
+          );
         case '/marketplace':
-          items.add(const _DockItemData(
-            route: '/marketplace',
-            label: 'Market',
-            icon: Broken.shopping_cart,
-            activeIcon: Broken.shop,
-          ));
+          items.add(
+            const _DockItemData(
+              route: '/marketplace',
+              label: 'Market',
+              icon: Broken.shopping_cart,
+              activeIcon: Broken.shop,
+            ),
+          );
         case '_enableLibSwitch':
-          items.add(const _DockItemData(
-            route: '_enableLibSwitch',
-            label: 'Hub',
-            icon: Broken.category_2,
-            activeIcon: Broken.category,
-          ));
+          items.add(
+            const _DockItemData(
+              route: '_enableLibSwitch',
+              label: 'Hub',
+              icon: Broken.category_2,
+              activeIcon: Broken.category,
+            ),
+          );
         case '_disableLibSwitch':
-          items.add(_DockItemData(
-            route: '_disableLibSwitch',
-            label: l10n.go_back,
-            icon: Broken.arrow_left_2,
-            activeIcon: Broken.arrow_left_2,
-          ));
+          items.add(
+            _DockItemData(
+              route: '_disableLibSwitch',
+              label: l10n.go_back,
+              icon: Broken.arrow_left_2,
+              activeIcon: Broken.arrow_left_2,
+            ),
+          );
         case '_enableLibrarySwitch':
-          items.add(const _DockItemData(
-            route: '_enableLibrarySwitch',
-            label: 'Library',
-            icon: Broken.book_1,
-            activeIcon: Broken.book_square,
-          ));
+          items.add(
+            const _DockItemData(
+              route: '_enableLibrarySwitch',
+              label: 'Library',
+              icon: Broken.book_1,
+              activeIcon: Broken.book_square,
+            ),
+          );
         case '_disableLibrarySwitch':
-          items.add(_DockItemData(
-            route: '_disableLibrarySwitch',
-            label: l10n.go_back,
-            icon: Broken.arrow_left_2,
-            activeIcon: Broken.arrow_left_2,
-          ));
+          items.add(
+            _DockItemData(
+              route: '_disableLibrarySwitch',
+              label: l10n.go_back,
+              icon: Broken.arrow_left_2,
+              activeIcon: Broken.arrow_left_2,
+            ),
+          );
         case '_nfileBack':
-          items.add(_DockItemData(
-            route: '_nfileBack',
-            label: l10n.go_back,
-            icon: Broken.arrow_left_2,
-            activeIcon: Broken.arrow_left_2,
-          ));
+          items.add(
+            _DockItemData(
+              route: '_nfileBack',
+              label: l10n.go_back,
+              icon: Broken.arrow_left_2,
+              activeIcon: Broken.arrow_left_2,
+            ),
+          );
         case '/MusicSearch':
-          items.add(const _DockItemData(
-            route: '/MusicSearch',
-            label: 'Music',
-            icon: Broken.music_playlist,
-            activeIcon: Broken.music_circle,
-          ));
+          items.add(
+            const _DockItemData(
+              route: '/MusicSearch',
+              label: 'Music',
+              icon: Broken.music_playlist,
+              activeIcon: Broken.music_circle,
+            ),
+          );
       }
     }
 
     // In Hub or Library sub-dock mode, allow 5 content slots so that all items
     // fit; otherwise cap at 4.
-    final _hubMode = d.contains('_disableLibSwitch') || d.contains('_disableLibrarySwitch') || d.contains('_nfileBack');
+    final _hubMode =
+        d.contains('_disableLibSwitch') ||
+        d.contains('_disableLibrarySwitch') ||
+        d.contains('_nfileBack');
     final _cap = _hubMode ? 5 : 4;
     if (items.length > _cap) {
       items.removeRange(_cap, items.length);
     }
 
-    items.add(const _DockItemData(
-      route: '_watchtower_menu',
-      label: 'Menu',
-      icon: Broken.menu_1,
-      activeIcon: Broken.close_circle,
-    ));
+    items.add(
+      const _DockItemData(
+        route: '_watchtower_menu',
+        label: 'Menu',
+        icon: Broken.menu_1,
+        activeIcon: Broken.close_circle,
+      ),
+    );
 
     return items;
   }
@@ -1857,7 +2045,11 @@ class _FloatingDockState extends State<_FloatingDock> {
     _menuOpen = widget.ref.watch(menuOpenProvider);
     // Respect the user-chosen animation speed from advanced nav settings.
     final animSpeed = widget.ref.watch(navAnimSpeedProvider);
-    final dockAnimMs = animSpeed == 0 ? 0 : animSpeed == 2 ? 100 : 220;
+    final dockAnimMs = animSpeed == 0
+        ? 0
+        : animSpeed == 2
+        ? 100
+        : 220;
 
     final visible = _isVisible();
     final items = visible ? _buildItems(context) : <_DockItemData>[];
@@ -1870,7 +2062,8 @@ class _FloatingDockState extends State<_FloatingDock> {
 
     // In sub-dock mode (Back is first item), detach Back and Menu into their
     // own mini pills flanking the content pill for a cleaner visual.
-    final inSubDock = items.length >= 3 &&
+    final inSubDock =
+        items.length >= 3 &&
         (items.first.route == '_disableLibSwitch' ||
             items.first.route == '_disableLibrarySwitch' ||
             items.first.route == '_nfileBack');
@@ -1884,7 +2077,8 @@ class _FloatingDockState extends State<_FloatingDock> {
       final menuItem = items.last;
       final contentItems = items.sublist(1, items.length - 1);
       // back(32) + sep(9) + content + sep(9) + menu(itemWidth) + pill pads(4+6)
-      final rawW = 32.0 + 9 + contentItems.length * _itemWidth + 9 + _itemWidth + 10.0;
+      final rawW =
+          32.0 + 9 + contentItems.length * _itemWidth + 9 + _itemWidth + 10.0;
       // Guard against narrow/transient layouts where screenWidth - 32 < 80,
       // which would make clamp's upper bound smaller than its lower bound
       // and throw "Invalid argument(s): 80.0".
@@ -2157,13 +2351,13 @@ class _UnifiedSubDockPill extends StatelessWidget {
 
     // Thin vertical divider between zones
     Widget divider() => Container(
-          width: 0.5,
-          height: 26,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.13)
-              : Colors.black.withValues(alpha: 0.10),
-        );
+      width: 0.5,
+      height: 26,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.13)
+          : Colors.black.withValues(alpha: 0.10),
+    );
 
     // Compact back — 32px slot, icon right-of-center so it's close to divider.
     final backBtn = GestureDetector(
@@ -2214,15 +2408,17 @@ class _UnifiedSubDockPill extends StatelessWidget {
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: contentItems
-                .map((item) => SizedBox(
-                      width: itemWidth,
-                      child: _DockItemWidget(
-                        item: item,
-                        active: isActive(item.route),
-                        ref: ref,
-                        onTap: () => onTap(item.route),
-                      ),
-                    ))
+                .map(
+                  (item) => SizedBox(
+                    width: itemWidth,
+                    child: _DockItemWidget(
+                      item: item,
+                      active: isActive(item.route),
+                      ref: ref,
+                      onTap: () => onTap(item.route),
+                    ),
+                  ),
+                )
                 .toList(),
           );
 
@@ -2278,7 +2474,7 @@ class _ClassicDock extends StatelessWidget {
   final List<String> dest;
   final int currentIndex;
   final List<Widget> Function(WidgetRef, List<String>, BuildContext)
-      buildDestinations;
+  buildDestinations;
   final WidgetRef ref;
   final void Function(int) onDestinationSelected;
 
@@ -2311,8 +2507,8 @@ class _ClassicDock extends StatelessWidget {
             color: sel
                 ? cs.primary
                 : (isDark
-                    ? Colors.white.withValues(alpha: 0.58)
-                    : Colors.black.withValues(alpha: 0.52)),
+                      ? Colors.white.withValues(alpha: 0.58)
+                      : Colors.black.withValues(alpha: 0.52)),
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
@@ -2321,8 +2517,8 @@ class _ClassicDock extends StatelessWidget {
             color: sel
                 ? cs.primary
                 : (isDark
-                    ? Colors.white.withValues(alpha: 0.62)
-                    : Colors.black.withValues(alpha: 0.55)),
+                      ? Colors.white.withValues(alpha: 0.62)
+                      : Colors.black.withValues(alpha: 0.55)),
             size: 22,
           );
         }),
@@ -2340,55 +2536,55 @@ class _ClassicDock extends StatelessWidget {
 }
 
 // ─── Rounded variant wrapper for _ClassicDock ────────────────────────────────
-  /// When [isRounded] is true, clips the [NavigationBar] with large top-corner
-  /// radii to produce the "Rounded Full" style.
-  class _RoundedOrClassicDock extends StatelessWidget {
-    const _RoundedOrClassicDock({
-      required this.isRounded,
-      required this.dest,
-      required this.currentIndex,
-      required this.buildDestinations,
-      required this.ref,
-      required this.onDestinationSelected,
-    });
+/// When [isRounded] is true, clips the [NavigationBar] with large top-corner
+/// radii to produce the "Rounded Full" style.
+class _RoundedOrClassicDock extends StatelessWidget {
+  const _RoundedOrClassicDock({
+    required this.isRounded,
+    required this.dest,
+    required this.currentIndex,
+    required this.buildDestinations,
+    required this.ref,
+    required this.onDestinationSelected,
+  });
 
-    final bool isRounded;
-    final List<String> dest;
-    final int currentIndex;
-    final List<Widget> Function(WidgetRef, List<String>, BuildContext)
-        buildDestinations;
-    final WidgetRef ref;
-    final void Function(int) onDestinationSelected;
+  final bool isRounded;
+  final List<String> dest;
+  final int currentIndex;
+  final List<Widget> Function(WidgetRef, List<String>, BuildContext)
+  buildDestinations;
+  final WidgetRef ref;
+  final void Function(int) onDestinationSelected;
 
-    @override
-    Widget build(BuildContext context) {
-      final base = _ClassicDock(
-        dest: dest,
-        currentIndex: currentIndex,
-        buildDestinations: buildDestinations,
-        ref: ref,
-        onDestinationSelected: onDestinationSelected,
-      );
-      final Widget shaped = isRounded
-          ? ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(22),
-                topRight: Radius.circular(22),
-              ),
-              child: base,
-            )
-          : base;
-      // Blur + semi-transparent background (background opacity set in _ClassicDock)
-      return ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: shaped,
-        ),
-      );
-    }
+  @override
+  Widget build(BuildContext context) {
+    final base = _ClassicDock(
+      dest: dest,
+      currentIndex: currentIndex,
+      buildDestinations: buildDestinations,
+      ref: ref,
+      onDestinationSelected: onDestinationSelected,
+    );
+    final Widget shaped = isRounded
+        ? ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(22),
+              topRight: Radius.circular(22),
+            ),
+            child: base,
+          )
+        : base;
+    // Blur + semi-transparent background (background opacity set in _ClassicDock)
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: shaped,
+      ),
+    );
   }
+}
 
-  class _DockItemWidget extends StatelessWidget {
+class _DockItemWidget extends StatelessWidget {
   const _DockItemWidget({
     required this.item,
     required this.active,
@@ -2430,7 +2626,11 @@ class _ClassicDock extends StatelessWidget {
     final spacing = ref.watch(navItemSpacingProvider);
     final haptic = ref.watch(navHapticProvider);
     final animSpeed = ref.watch(navAnimSpeedProvider);
-    final itemAnimMs = animSpeed == 0 ? 0 : animSpeed == 2 ? 80 : 180;
+    final itemAnimMs = animSpeed == 0
+        ? 0
+        : animSpeed == 2
+        ? 80
+        : 180;
     const _descriptions = {
       '_enableLibSwitch': 'Hub â tap to expand Manga, Watch & Novel tabs',
       '_disableLibSwitch': 'Tap to go back to Hub view',
@@ -2589,7 +2789,8 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
             chapter.manga.loadSync();
           }
           final itemType = chapter?.manga.value?.itemType;
-          final hidden = (itemType == ItemType.manga &&
+          final hidden =
+              (itemType == ItemType.manga &&
                   hideItems.contains("/MangaLibrary")) ||
               (itemType == ItemType.anime &&
                   hideItems.contains("/AnimeLibrary")) ||
@@ -2607,4 +2808,3 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
     );
   }
 }
-

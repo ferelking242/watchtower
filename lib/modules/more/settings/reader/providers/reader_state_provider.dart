@@ -28,7 +28,8 @@ class DefaultReadingModeState extends _$DefaultReadingModeState {
 class AnimatePageTransitionsState extends _$AnimatePageTransitionsState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).animatePageTransitions!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+        .animatePageTransitions!;
   }
 
   void set(bool value) {
@@ -48,7 +49,8 @@ class AnimatePageTransitionsState extends _$AnimatePageTransitionsState {
 class DoubleTapAnimationSpeedState extends _$DoubleTapAnimationSpeedState {
   @override
   int build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).doubleTapAnimationSpeed!;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+        .doubleTapAnimationSpeed!;
   }
 
   void set(int value) {
@@ -68,7 +70,8 @@ class DoubleTapAnimationSpeedState extends _$DoubleTapAnimationSpeedState {
 class CropBordersState extends _$CropBordersState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).cropBorders ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).cropBorders ??
+        false;
   }
 
   void set(bool value) {
@@ -108,7 +111,9 @@ class ScaleTypeState extends _$ScaleTypeState {
 class PagePreloadAmountState extends _$PagePreloadAmountState {
   @override
   int build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).pagePreloadAmount ?? 6;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .pagePreloadAmount ??
+        6;
   }
 
   void set(int value) {
@@ -148,7 +153,8 @@ class BackgroundColorState extends _$BackgroundColorState {
 class UsePageTapZonesState extends _$UsePageTapZonesState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).usePageTapZones ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).usePageTapZones ??
+        true;
   }
 
   void set(bool value) {
@@ -168,7 +174,9 @@ class UsePageTapZonesState extends _$UsePageTapZonesState {
 class FullScreenReaderState extends _$FullScreenReaderState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).fullScreenReader ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .fullScreenReader ??
+        true;
   }
 
   void set(bool value) {
@@ -190,6 +198,7 @@ class NavigationOrderState extends _$NavigationOrderState {
     '/discover',
     '/Library',
     '/AnimeLibrary',
+    '/FilmSeries',
     '/MangaLibrary',
     '/NovelLibrary',
     '/MusicLibrary',
@@ -205,7 +214,9 @@ class NavigationOrderState extends _$NavigationOrderState {
   @override
   List<String> build() {
     return _checkMissingItems(
-      (isar.settings.getSync(kSettingsId) ?? Settings()).navigationOrder?.toList() ?? [],
+      (isar.settings.getSync(kSettingsId) ?? Settings()).navigationOrder
+              ?.toList() ??
+          [],
     );
   }
 
@@ -234,11 +245,7 @@ class HideItemsState extends _$HideItemsState {
   @override
   List<String> build() {
     return (isar.settings.getSync(kSettingsId) ?? Settings()).hideItems ??
-        const [
-          '/trackerLibrary',
-          '/updates',
-          '/history',
-        ];
+        const ['/trackerLibrary', '/updates', '/history'];
   }
 
   void set(List<String> values) {
@@ -258,7 +265,9 @@ class HideItemsState extends _$HideItemsState {
 class MergeLibraryNavMobileState extends _$MergeLibraryNavMobileState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).mergeLibraryNavMobile ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .mergeLibraryNavMobile ??
+        true;
   }
 
   void set(bool value) {
@@ -278,7 +287,8 @@ class MergeLibraryNavMobileState extends _$MergeLibraryNavMobileState {
 class NovelFontSizeState extends _$NovelFontSizeState {
   @override
   int build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelFontSize ?? 14;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelFontSize ??
+        14;
   }
 
   void set(int value) {
@@ -318,7 +328,9 @@ class NovelTextAlignState extends _$NovelTextAlignState {
 class NovelReaderThemeState extends _$NovelReaderThemeState {
   @override
   String build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelReaderTheme ?? '#292832';
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .novelReaderTheme ??
+        '#292832';
   }
 
   void set(String value) {
@@ -338,7 +350,9 @@ class NovelReaderThemeState extends _$NovelReaderThemeState {
 class NovelReaderTextColorState extends _$NovelReaderTextColorState {
   @override
   String build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelReaderTextColor ?? '#CCCCCC';
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .novelReaderTextColor ??
+        '#CCCCCC';
   }
 
   void set(String value) {
@@ -358,7 +372,9 @@ class NovelReaderTextColorState extends _$NovelReaderTextColorState {
 class NovelReaderPaddingState extends _$NovelReaderPaddingState {
   @override
   int build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelReaderPadding ?? 16;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .novelReaderPadding ??
+        16;
   }
 
   void set(int value) {
@@ -378,7 +394,9 @@ class NovelReaderPaddingState extends _$NovelReaderPaddingState {
 class NovelReaderLineHeightState extends _$NovelReaderLineHeightState {
   @override
   double build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelReaderLineHeight ?? 1.5;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .novelReaderLineHeight ??
+        1.5;
   }
 
   void set(double value) {
@@ -398,7 +416,9 @@ class NovelReaderLineHeightState extends _$NovelReaderLineHeightState {
 class NovelShowScrollPercentageState extends _$NovelShowScrollPercentageState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelShowScrollPercentage ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .novelShowScrollPercentage ??
+        true;
   }
 
   void set(bool value) {
@@ -419,7 +439,8 @@ class NovelRemoveExtraParagraphSpacingState
     extends _$NovelRemoveExtraParagraphSpacingState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelRemoveExtraParagraphSpacing ??
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .novelRemoveExtraParagraphSpacing ??
         false;
   }
 
@@ -440,7 +461,9 @@ class NovelRemoveExtraParagraphSpacingState
 class NovelTapToScrollState extends _$NovelTapToScrollState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).novelTapToScroll ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .novelTapToScroll ??
+        false;
   }
 
   void set(bool value) {
@@ -460,7 +483,8 @@ class NovelTapToScrollState extends _$NovelTapToScrollState {
 class ShowPagesNumberState extends _$ShowPagesNumberState {
   @override
   build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).showPagesNumber ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).showPagesNumber ??
+        true;
   }
 
   void set(bool value) {
@@ -481,7 +505,9 @@ class ShowPagesNumberState extends _$ShowPagesNumberState {
 class KeepScreenOnReaderState extends _$KeepScreenOnReaderState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).keepScreenOnReader ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .keepScreenOnReader ??
+        true;
   }
 
   void set(bool value) {
@@ -501,7 +527,9 @@ class KeepScreenOnReaderState extends _$KeepScreenOnReaderState {
 class WebtoonSidePaddingState extends _$WebtoonSidePaddingState {
   @override
   int build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).webtoonSidePadding ?? 0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .webtoonSidePadding ??
+        0;
   }
 
   void set(int value) {
@@ -521,7 +549,8 @@ class WebtoonSidePaddingState extends _$WebtoonSidePaddingState {
 class ShowPageGapsState extends _$ShowPageGapsState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).showPageGaps ?? true;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).showPageGaps ??
+        true;
   }
 
   void set(bool value) {
@@ -541,7 +570,8 @@ class ShowPageGapsState extends _$ShowPageGapsState {
 class InvertColorsState extends _$InvertColorsState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).invertColors ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).invertColors ??
+        false;
   }
 
   void set(bool value) {
@@ -561,7 +591,8 @@ class InvertColorsState extends _$InvertColorsState {
 class GrayscaleState extends _$GrayscaleState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).grayscale ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).grayscale ??
+        false;
   }
 
   void set(bool value) {
@@ -581,7 +612,9 @@ class GrayscaleState extends _$GrayscaleState {
 class ReaderBrightnessState extends _$ReaderBrightnessState {
   @override
   double build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerBrightness ?? 0.0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .readerBrightness ??
+        0.0;
   }
 
   void set(double value) {
@@ -601,7 +634,8 @@ class ReaderBrightnessState extends _$ReaderBrightnessState {
 class ReaderContrastState extends _$ReaderContrastState {
   @override
   double build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerContrast ?? 1.0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerContrast ??
+        1.0;
   }
 
   void set(double value) {
@@ -621,7 +655,9 @@ class ReaderContrastState extends _$ReaderContrastState {
 class ReaderSaturationState extends _$ReaderSaturationState {
   @override
   double build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerSaturation ?? 1.0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .readerSaturation ??
+        1.0;
   }
 
   void set(double value) {
@@ -641,7 +677,9 @@ class ReaderSaturationState extends _$ReaderSaturationState {
 class ReaderNavigationLayoutState extends _$ReaderNavigationLayoutState {
   @override
   int build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).readerNavigationLayout ?? 0;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .readerNavigationLayout ??
+        0;
   }
 
   void set(int value) {
@@ -661,7 +699,8 @@ class ReaderNavigationLayoutState extends _$ReaderNavigationLayoutState {
 class TtsSpeechRateState extends _$TtsSpeechRateState {
   @override
   double build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).ttsSpeechRate ?? 0.5;
+    return (isar.settings.getSync(kSettingsId) ?? Settings()).ttsSpeechRate ??
+        0.5;
   }
 
   void set(double value) {
@@ -741,7 +780,9 @@ class TtsVoiceState extends _$TtsVoiceState {
 class VolumeButtonNavigationState extends _$VolumeButtonNavigationState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).volumeButtonNavigation ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .volumeButtonNavigation ??
+        false;
   }
 
   void set(bool value) {
@@ -758,10 +799,13 @@ class VolumeButtonNavigationState extends _$VolumeButtonNavigationState {
 }
 
 @riverpod
-class InvertVolumeButtonNavigationState extends _$InvertVolumeButtonNavigationState {
+class InvertVolumeButtonNavigationState
+    extends _$InvertVolumeButtonNavigationState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).invertVolumeButtonNavigation ?? false;
+    return (isar.settings.getSync(kSettingsId) ?? Settings())
+            .invertVolumeButtonNavigation ??
+        false;
   }
 
   void set(bool value) {

@@ -1,11 +1,16 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
-    show pendingUpdateBanner, pendingUpdateData, pendingInstallFile, clearInstallReady;
+    show
+        pendingUpdateBanner,
+        pendingUpdateData,
+        pendingInstallFile,
+        clearInstallReady;
 
 import 'package:watchtower/modules/more/about/providers/download_file_screen.dart'
     show DownloadFileScreen, ApkInstaller;
@@ -17,63 +22,85 @@ class _MenuItem {
   final String route;
   final String label;
   final IconData icon;
-  const _MenuItem({required this.route, required this.label, required this.icon});
+  const _MenuItem({
+    required this.route,
+    required this.label,
+    required this.icon,
+  });
 }
 
 const kWtRouteInfo = <String, (String, IconData)>{
-  '/WatchtowerHome':  ('Accueil',    Icons.home_rounded),
-  '/AnimeLibrary':    ('Watch',      Icons.live_tv_rounded),
-  '/MangaLibrary':    ('Manga',      Icons.auto_stories),
-  '/NovelLibrary':    ('Novel',      Icons.local_library),
-  '/MusicLibrary':    ('Music',      Icons.music_note),
-  '/GameLibrary':     ('Games',      Icons.sports_esports),
-  '/Library':         ('Library',    Icons.collections_bookmark),
-  '/discover':        ('Search',     Icons.travel_explore_rounded),
-  '/browse':          ('Browser',    Icons.explore_rounded),
-  '/history':         ('History',    Icons.history_rounded),
-  '/updates':         ('Updates',    Icons.new_releases_rounded),
-  '/trackerLibrary':  ('Tracking',   Icons.account_tree),
-  '/schedule':        ('Schedule',   Icons.calendar_month_rounded),
-  '/marketplace':     ('Market',     Icons.storefront_rounded),
-  '/downloadQueue':   ('Downloads',  Icons.download_rounded),
-  '_enableLibSwitch': ('Hub',        Icons.grid_view_rounded),
+  '/WatchtowerHome': ('Accueil', Icons.home_rounded),
+  '/AnimeLibrary': ('Watch', Icons.live_tv_rounded),
+  '/FilmSeries': ('Films & Séries', Icons.movie_filter_rounded),
+  '/MangaLibrary': ('Manga', Icons.auto_stories),
+  '/NovelLibrary': ('Novel', Icons.local_library),
+  '/MusicLibrary': ('Music', Icons.music_note),
+  '/GameLibrary': ('Games', Icons.sports_esports),
+  '/Library': ('Library', Icons.collections_bookmark),
+  '/discover': ('Search', Icons.travel_explore_rounded),
+  '/browse': ('Browser', Icons.explore_rounded),
+  '/history': ('History', Icons.history_rounded),
+  '/updates': ('Updates', Icons.new_releases_rounded),
+  '/trackerLibrary': ('Tracking', Icons.account_tree),
+  '/schedule': ('Schedule', Icons.calendar_month_rounded),
+  '/marketplace': ('Market', Icons.storefront_rounded),
+  '/downloadQueue': ('Downloads', Icons.download_rounded),
+  '_enableLibSwitch': ('Hub', Icons.grid_view_rounded),
 };
 
 const kWtDefaultNavOrder = [
-  '/discover',       '/AnimeLibrary',  '/MangaLibrary',  '/browse',
-  '/NovelLibrary',   '/MusicLibrary',  '/GameLibrary',   '/Library',
-  '/marketplace',    '/history',       '/updates',
-  '/trackerLibrary', '/WatchtowerHome',
+  '/discover',
+  '/AnimeLibrary',
+  '/FilmSeries',
+  '/MangaLibrary',
+  '/browse',
+  '/NovelLibrary',
+  '/MusicLibrary',
+  '/GameLibrary',
+  '/Library',
+  '/marketplace',
+  '/history',
+  '/updates',
+  '/trackerLibrary',
+  '/WatchtowerHome',
 ];
 
 const kWtDefaultHideItems = [
-  '/trackerLibrary', '/updates', '/history', '/WatchtowerHome',
+  '/trackerLibrary',
+  '/updates',
+  '/history',
+  '/WatchtowerHome',
   '/discover',
 ];
 
 const kWtStaticRoutes = [
-  '/browse', '/marketplace', '/schedule', '/updates', '/history',
+  '/browse',
+  '/marketplace',
+  '/schedule',
+  '/updates',
+  '/history',
   '/downloadQueue',
 ];
 
 // French label overrides — used when device/app locale is 'fr'.
 const _kFrLabels = <String, String>{
-  '/discover':      'Recherche',
-  '/browse':        'Explorer',
-  '/schedule':      'Planning',
-  '/updates':       'Nouveautés',
-  '/history':       'Historique',
-  '/marketplace':   'Marché',
+  '/discover': 'Recherche',
+  '/browse': 'Explorer',
+  '/schedule': 'Planning',
+  '/updates': 'Nouveautés',
+  '/history': 'Historique',
+  '/marketplace': 'Marché',
   '/downloadQueue': 'Téléchargements',
 };
 
 // ── Visual constants (Seanime-style solid dark boxes) ─────────────────────────
 
 // Dark mode — slightly transparent boxes so background bleeds through a little.
-const _kDarkIconBg  = Color(0xCC0F0F14); // ~80% opacity, near-black purple tint
+const _kDarkIconBg = Color(0xCC0F0F14); // ~80% opacity, near-black purple tint
 const _kDarkLabelBg = Color(0xCC090910); // ~80% opacity, slightly darker
 // Light mode
-const _kLightIconBg  = Color(0xFFE4E4E8);
+const _kLightIconBg = Color(0xFFE4E4E8);
 const _kLightLabelBg = Color(0xFFF0F0F4);
 
 // ── Public overlay ─────────────────────────────────────────────────────────────
@@ -93,8 +120,7 @@ class WatchtowerMenuOverlay extends ConsumerStatefulWidget {
       _WatchtowerMenuOverlayState();
 }
 
-class _WatchtowerMenuOverlayState
-    extends ConsumerState<WatchtowerMenuOverlay>
+class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   bool _reorderMode = false;
@@ -102,12 +128,12 @@ class _WatchtowerMenuOverlayState
   // ── Timing constants (ms) ──────────────────────────────────────────────────
   // Phase 1: icons pop up one by one from bottom (short stagger).
   // Phase 2: after last icon, labels fade in (minimal gap, same stagger).
-  static const int _total      = 750; // total controller duration
-  static const int _iconDur    = 140; // how long each icon anim lasts
-  static const int _iconStep   = 30;  // stagger between icons (bottom→top)
-  static const int _phaseGap   = 30;  // gap between last icon & first label
-  static const int _labelDur   = 120; // how long each label fade lasts
-  static const int _labelStep  = 22;  // stagger between labels
+  static const int _total = 750; // total controller duration
+  static const int _iconDur = 140; // how long each icon anim lasts
+  static const int _iconStep = 30; // stagger between icons (bottom→top)
+  static const int _phaseGap = 30; // gap between last icon & first label
+  static const int _labelDur = 120; // how long each label fade lasts
+  static const int _labelStep = 22; // stagger between labels
 
   @override
   void initState() {
@@ -126,8 +152,11 @@ class _WatchtowerMenuOverlayState
   }
 
   Future<void> _close() async {
-    await _ctrl.animateTo(0.0,
-        duration: const Duration(milliseconds: 160), curve: Curves.easeIn);
+    await _ctrl.animateTo(
+      0.0,
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeIn,
+    );
     widget.onClose();
   }
 
@@ -169,26 +198,34 @@ class _WatchtowerMenuOverlayState
   }
 
   void _resetProviders() {
-    ref.read(navigationOrderStateProvider.notifier)
+    ref
+        .read(navigationOrderStateProvider.notifier)
         .set(List<String>.from(kWtDefaultNavOrder));
-    ref.read(hideItemsStateProvider.notifier)
+    ref
+        .read(hideItemsStateProvider.notifier)
         .set(List<String>.from(kWtDefaultHideItems));
   }
 
   // ── Animation helpers ──────────────────────────────────────────────────────
 
   Animation<double> _fade(int startMs, int endMs) => CurvedAnimation(
-        parent: _ctrl,
-        curve: Interval((startMs / _total).clamp(0, 1),
-            (endMs / _total).clamp(0, 1), curve: Curves.easeOut),
-      );
+    parent: _ctrl,
+    curve: Interval(
+      (startMs / _total).clamp(0, 1),
+      (endMs / _total).clamp(0, 1),
+      curve: Curves.easeOut,
+    ),
+  );
 
   Animation<Offset> _slideUp(int startMs, int endMs) =>
       Tween<Offset>(begin: const Offset(0, 0.6), end: Offset.zero).animate(
         CurvedAnimation(
           parent: _ctrl,
-          curve: Interval((startMs / _total).clamp(0, 1),
-              (endMs / _total).clamp(0, 1), curve: Curves.easeOutCubic),
+          curve: Interval(
+            (startMs / _total).clamp(0, 1),
+            (endMs / _total).clamp(0, 1),
+            curve: Curves.easeOutCubic,
+          ),
         ),
       );
 
@@ -196,37 +233,40 @@ class _WatchtowerMenuOverlayState
       Tween<Offset>(begin: const Offset(-1.4, 0), end: Offset.zero).animate(
         CurvedAnimation(
           parent: _ctrl,
-          curve: Interval((startMs / _total).clamp(0, 1),
-              (endMs / _total).clamp(0, 1), curve: Curves.easeOutCubic),
+          curve: Interval(
+            (startMs / _total).clamp(0, 1),
+            (endMs / _total).clamp(0, 1),
+            curve: Curves.easeOutCubic,
+          ),
         ),
       );
 
   @override
   Widget build(BuildContext context) {
-    final mq     = MediaQuery.of(context);
-    final isDark  = Theme.of(context).brightness == Brightness.dark;
-    final cs      = Theme.of(context).colorScheme;
+    final mq = MediaQuery.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     final dockBot = 14.0 + 64.0 + mq.padding.bottom;
 
     if (_reorderMode) {
       return _buildReorderMode(context, mq, isDark, cs, dockBot);
     }
 
-    final items    = _buildItems(context);
-    final n        = items.length;
+    final items = _buildItems(context);
+    final n = items.length;
     final location = GoRouterState.of(context).matchedLocation;
 
     // Phase 2 start: after all icons finish + gap
     final labelPhaseMs = (n - 1) * _iconStep + _iconDur + _phaseGap;
 
     // Wrench: first to appear; X: 45 ms after
-    final wrenchFade  = _fade(0, 180);
+    final wrenchFade = _fade(0, 180);
     final wrenchSlide = _slideLeft(0, 180);
-    final xFade       = _fade(45, 225);
-    final xSlide      = _slideLeft(45, 225);
+    final xFade = _fade(45, 225);
+    final xSlide = _slideLeft(45, 225);
 
     final updateVersion = pendingUpdateBanner;
-    final updateData    = pendingUpdateData;
+    final updateData = pendingUpdateData;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -234,7 +274,10 @@ class _WatchtowerMenuOverlayState
         // ── Tap-outside to dismiss ──────────────────────────────────────────
         Positioned.fill(
           child: GestureDetector(
-            onTap: () { HapticFeedback.lightImpact(); _close(); },
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _close();
+            },
             behavior: HitTestBehavior.translucent,
             child: const SizedBox.expand(),
           ),
@@ -287,24 +330,28 @@ class _WatchtowerMenuOverlayState
               ],
               // ── Regular menu items ──────────────────────────────────────
               ...List.generate(n, (displayIdx) {
-                final item     = items[displayIdx];
+                final item = items[displayIdx];
                 final isActive = location == item.route;
 
                 // Bottom item (n-1) → delay 0; top item (0) → delay (n-1)*step
-                final iconDelayMs  = (n - 1 - displayIdx) * _iconStep;
-                final labelDelayMs = labelPhaseMs + (n - 1 - displayIdx) * _labelStep;
+                final iconDelayMs = (n - 1 - displayIdx) * _iconStep;
+                final labelDelayMs =
+                    labelPhaseMs + (n - 1 - displayIdx) * _labelStep;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _MenuRow(
-                    item:      item,
-                    isActive:  isActive,
-                    isDark:    isDark,
-                    cs:        cs,
-                    iconFade:  _fade(iconDelayMs, iconDelayMs + _iconDur),
+                    item: item,
+                    isActive: isActive,
+                    isDark: isDark,
+                    cs: cs,
+                    iconFade: _fade(iconDelayMs, iconDelayMs + _iconDur),
                     iconSlide: _slideUp(iconDelayMs, iconDelayMs + _iconDur),
-                    lblFade:   _fade(labelDelayMs, labelDelayMs + _labelDur),
-                    onTap: () { HapticFeedback.lightImpact(); _navigate(item.route); },
+                    lblFade: _fade(labelDelayMs, labelDelayMs + _labelDur),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _navigate(item.route);
+                    },
                   ),
                 );
               }),
@@ -322,13 +369,19 @@ class _WatchtowerMenuOverlayState
               child: FadeTransition(
                 opacity: wrenchFade,
                 child: _ControlBtn(
-                  onTap: () { HapticFeedback.mediumImpact(); setState(() => _reorderMode = true); },
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    setState(() => _reorderMode = true);
+                  },
                   isDark: isDark,
                   cs: cs,
-                  child: Icon(Icons.build_rounded, size: 20,
+                  child: Icon(
+                    Icons.build_rounded,
+                    size: 20,
                     color: isDark
                         ? Colors.white.withValues(alpha: 0.80)
-                        : Colors.black.withValues(alpha: 0.65)),
+                        : Colors.black.withValues(alpha: 0.65),
+                  ),
                 ),
               ),
             ),
@@ -345,7 +398,10 @@ class _WatchtowerMenuOverlayState
               child: FadeTransition(
                 opacity: xFade,
                 child: _ControlBtn(
-                  onTap: () { HapticFeedback.mediumImpact(); _resetProviders(); },
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    _resetProviders();
+                  },
                   isDark: isDark,
                   cs: cs,
                   isError: true,
@@ -368,20 +424,24 @@ class _WatchtowerMenuOverlayState
     ColorScheme cs,
     double dockBot,
   ) {
-    final navOrder  = ref.watch(navigationOrderStateProvider);
+    final navOrder = ref.watch(navigationOrderStateProvider);
     final hideItems = ref.watch(hideItemsStateProvider);
 
     return Stack(
       children: [
         Positioned.fill(
           child: GestureDetector(
-            onTap: () { HapticFeedback.lightImpact(); setState(() => _reorderMode = false); },
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() => _reorderMode = false);
+            },
             behavior: HitTestBehavior.translucent,
             child: const SizedBox.expand(),
           ),
         ),
         Positioned(
-          left: 16, right: 16,
+          left: 16,
+          right: 16,
           bottom: dockBot + 10,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: mq.size.height * 0.55),
@@ -409,26 +469,46 @@ class _WatchtowerMenuOverlayState
                         padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
                         child: Row(
                           children: [
-                            Icon(Icons.swap_vert_rounded, size: 15, color: cs.primary),
+                            Icon(
+                              Icons.swap_vert_rounded,
+                              size: 15,
+                              color: cs.primary,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text('Réorganiser',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: cs.onSurface,
-                                    decoration: TextDecoration.none,
-                                  )),
+                              child: Text(
+                                'Réorganiser',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurface,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
                             ),
                             IconButton(
-                              onPressed: () { HapticFeedback.mediumImpact(); _resetProviders(); },
-                              icon: Icon(Icons.refresh_rounded, size: 17, color: cs.error),
+                              onPressed: () {
+                                HapticFeedback.mediumImpact();
+                                _resetProviders();
+                              },
+                              icon: Icon(
+                                Icons.refresh_rounded,
+                                size: 17,
+                                color: cs.error,
+                              ),
                               padding: const EdgeInsets.all(6),
                               constraints: const BoxConstraints(),
                             ),
                             IconButton(
-                              onPressed: () { HapticFeedback.lightImpact(); setState(() => _reorderMode = false); },
-                              icon: Icon(Icons.check_rounded, size: 17, color: cs.primary),
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                setState(() => _reorderMode = false);
+                              },
+                              icon: Icon(
+                                Icons.check_rounded,
+                                size: 17,
+                                color: cs.primary,
+                              ),
                               padding: const EdgeInsets.all(6),
                               constraints: const BoxConstraints(),
                             ),
@@ -446,56 +526,84 @@ class _WatchtowerMenuOverlayState
                           ),
                         ),
                       ),
-                      Divider(height: 1, thickness: 0.5,
-                          color: cs.onSurface.withValues(alpha: 0.10)),
+                      Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        color: cs.onSurface.withValues(alpha: 0.10),
+                      ),
                       Flexible(
                         child: ReorderableListView.builder(
                           shrinkWrap: true,
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          proxyDecorator: (child, index, animation) =>
-                              Material(color: Colors.transparent, elevation: 0, child: child),
+                          proxyDecorator: (child, index, animation) => Material(
+                            color: Colors.transparent,
+                            elevation: 0,
+                            child: child,
+                          ),
                           onReorder: (oldIdx, newIdx) {
                             HapticFeedback.selectionClick();
                             _onReorder(navOrder, oldIdx, newIdx);
                           },
                           itemCount: navOrder.length,
                           itemBuilder: (context, index) {
-                            final route    = navOrder[index];
-                            final info     = kWtRouteInfo[route];
-                            final label    = info?.$1 ?? route.replaceAll('/', '');
-                            final icon     = info?.$2 ?? Icons.circle_outlined;
+                            final route = navOrder[index];
+                            final info = kWtRouteInfo[route];
+                            final label = info?.$1 ?? route.replaceAll('/', '');
+                            final icon = info?.$2 ?? Icons.circle_outlined;
                             final isHidden = hideItems.contains(route);
-                            final inDock   = index < 4 && !isHidden;
+                            final inDock = index < 4 && !isHidden;
 
                             return ListTile(
                               key: ValueKey(route),
-                              leading: Icon(icon, size: 20,
-                                  color: inDock
-                                      ? cs.primary
-                                      : cs.onSurface.withValues(alpha: isHidden ? 0.28 : 0.52)),
-                              title: Text(label,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: inDock ? FontWeight.w500 : FontWeight.w400,
-                                    color: cs.onSurface.withValues(alpha: isHidden ? 0.35 : 1.0),
-                                    decoration: TextDecoration.none,
-                                  )),
+                              leading: Icon(
+                                icon,
+                                size: 20,
+                                color: inDock
+                                    ? cs.primary
+                                    : cs.onSurface.withValues(
+                                        alpha: isHidden ? 0.28 : 0.52,
+                                      ),
+                              ),
+                              title: Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: inDock
+                                      ? FontWeight.w500
+                                      : FontWeight.w400,
+                                  color: cs.onSurface.withValues(
+                                    alpha: isHidden ? 0.35 : 1.0,
+                                  ),
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   _Badge(
-                                    label: inDock ? 'dock' : isHidden ? 'caché' : 'menu',
-                                    color: inDock ? cs.primary : cs.onSurface.withValues(alpha: 0.38),
+                                    label: inDock
+                                        ? 'dock'
+                                        : isHidden
+                                        ? 'caché'
+                                        : 'menu',
+                                    color: inDock
+                                        ? cs.primary
+                                        : cs.onSurface.withValues(alpha: 0.38),
                                     bg: inDock
                                         ? cs.primary.withValues(alpha: 0.12)
                                         : cs.onSurface.withValues(alpha: 0.07),
                                   ),
                                   const SizedBox(width: 6),
-                                  Icon(Icons.drag_handle_rounded, size: 18,
-                                      color: cs.onSurface.withValues(alpha: 0.28)),
+                                  Icon(
+                                    Icons.drag_handle_rounded,
+                                    size: 18,
+                                    color: cs.onSurface.withValues(alpha: 0.28),
+                                  ),
                                 ],
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               dense: true,
                               minVerticalPadding: 4,
                             );
@@ -528,25 +636,31 @@ class _MenuRow extends StatelessWidget {
   final VoidCallback onTap;
 
   const _MenuRow({
-    required this.item, required this.isActive,
-    required this.isDark, required this.cs,
-    required this.iconFade, required this.iconSlide, required this.lblFade,
+    required this.item,
+    required this.isActive,
+    required this.isDark,
+    required this.cs,
+    required this.iconFade,
+    required this.iconSlide,
+    required this.lblFade,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final accent    = cs.primary;
+    final accent = cs.primary;
 
     // Solid opaque backgrounds matching Seanime reference
     final iconBg = isDark ? _kDarkIconBg : _kLightIconBg;
-    final lblBg  = isDark ? _kDarkLabelBg : _kLightLabelBg;
+    final lblBg = isDark ? _kDarkLabelBg : _kLightLabelBg;
 
     // Active tint
     final activeIconBg = accent.withValues(alpha: 0.22);
 
-    final iconColor = isDark ? Colors.white.withValues(alpha: 0.88) : Colors.black.withValues(alpha: 0.72);
-    final lblColor  = isActive
+    final iconColor = isDark
+        ? Colors.white.withValues(alpha: 0.88)
+        : Colors.black.withValues(alpha: 0.72);
+    final lblColor = isActive
         ? accent
         : (isDark ? Colors.white : Colors.black.withValues(alpha: 0.82));
 
@@ -602,13 +716,17 @@ class _MenuRow extends StatelessWidget {
                     color: isActive
                         ? accent.withValues(alpha: 0.28)
                         : (isDark
-                            ? Colors.white.withValues(alpha: 0.10)
-                            : Colors.black.withValues(alpha: 0.08)),
+                              ? Colors.white.withValues(alpha: 0.10)
+                              : Colors.black.withValues(alpha: 0.08)),
                     width: 0.8,
                   ),
                 ),
                 child: Center(
-                  child: Icon(item.icon, size: 24, color: isActive ? accent : iconColor),
+                  child: Icon(
+                    item.icon,
+                    size: 24,
+                    color: isActive ? accent : iconColor,
+                  ),
                 ),
               ),
             ),
@@ -629,8 +747,11 @@ class _ControlBtn extends StatelessWidget {
   final bool isError;
 
   const _ControlBtn({
-    required this.onTap, required this.isDark,
-    required this.cs, required this.child, this.isError = false,
+    required this.onTap,
+    required this.isDark,
+    required this.cs,
+    required this.child,
+    this.isError = false,
   });
 
   @override
@@ -641,8 +762,8 @@ class _ControlBtn extends StatelessWidget {
     final border = isError
         ? cs.error.withValues(alpha: 0.32)
         : (isDark
-            ? Colors.white.withValues(alpha: 0.10)
-            : Colors.black.withValues(alpha: 0.08));
+              ? Colors.white.withValues(alpha: 0.10)
+              : Colors.black.withValues(alpha: 0.08));
 
     return GestureDetector(
       onTap: onTap,
@@ -673,12 +794,19 @@ class _Badge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label,
-          style: TextStyle(
-            fontSize: 9.5, fontWeight: FontWeight.w600,
-            color: color, decoration: TextDecoration.none,
-          )),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9.5,
+          fontWeight: FontWeight.w600,
+          color: color,
+          decoration: TextDecoration.none,
+        ),
+      ),
     );
   }
 }
@@ -701,15 +829,17 @@ class _ReorderSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final navOrder  = ref.watch(navigationOrderStateProvider);
+    final navOrder = ref.watch(navigationOrderStateProvider);
     final hideItems = ref.watch(hideItemsStateProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs     = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.65),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.65,
+        ),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -720,7 +850,8 @@ class _ReorderSheet extends ConsumerWidget {
             Center(
               child: Container(
                 margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 36, height: 4,
+                width: 36,
+                height: 4,
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.22)
@@ -736,24 +867,38 @@ class _ReorderSheet extends ConsumerWidget {
                   Icon(Icons.swap_vert_rounded, size: 16, color: cs.primary),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('Réorganiser la navigation',
-                        style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600,
-                          color: cs.onSurface, decoration: TextDecoration.none,
-                        )),
+                    child: Text(
+                      'Réorganiser la navigation',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.refresh_rounded, size: 18, color: cs.error),
+                    icon: Icon(
+                      Icons.refresh_rounded,
+                      size: 18,
+                      color: cs.error,
+                    ),
                     onPressed: () {
                       HapticFeedback.mediumImpact();
-                      ref.read(navigationOrderStateProvider.notifier)
+                      ref
+                          .read(navigationOrderStateProvider.notifier)
                           .set(List<String>.from(kWtDefaultNavOrder));
-                      ref.read(hideItemsStateProvider.notifier)
+                      ref
+                          .read(hideItemsStateProvider.notifier)
                           .set(List<String>.from(kWtDefaultHideItems));
                     },
                   ),
                   IconButton(
-                    icon: Icon(Icons.check_rounded, size: 18, color: cs.primary),
+                    icon: Icon(
+                      Icons.check_rounded,
+                      size: 18,
+                      color: cs.primary,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -770,7 +915,11 @@ class _ReorderSheet extends ConsumerWidget {
                 ),
               ),
             ),
-            Divider(height: 1, thickness: 0.5, color: cs.onSurface.withValues(alpha: 0.12)),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: cs.onSurface.withValues(alpha: 0.12),
+            ),
             Flexible(
               child: ReorderableListView.builder(
                 shrinkWrap: true,
@@ -786,39 +935,57 @@ class _ReorderSheet extends ConsumerWidget {
                 },
                 itemCount: navOrder.length,
                 itemBuilder: (context, index) {
-                  final route    = navOrder[index];
-                  final info     = kWtRouteInfo[route];
-                  final label    = info?.$1 ?? route.replaceAll('/', '');
-                  final icon     = info?.$2 ?? Icons.circle_outlined;
+                  final route = navOrder[index];
+                  final info = kWtRouteInfo[route];
+                  final label = info?.$1 ?? route.replaceAll('/', '');
+                  final icon = info?.$2 ?? Icons.circle_outlined;
                   final isHidden = hideItems.contains(route);
-                  final inDock   = index < 4 && !isHidden;
+                  final inDock = index < 4 && !isHidden;
 
                   return ListTile(
                     key: ValueKey(route),
-                    leading: Icon(icon, size: 20,
-                        color: inDock
-                            ? cs.primary
-                            : cs.onSurface.withValues(alpha: isHidden ? 0.28 : 0.52)),
-                    title: Text(label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: inDock ? FontWeight.w500 : FontWeight.w400,
-                          color: cs.onSurface.withValues(alpha: isHidden ? 0.35 : 1.0),
-                          decoration: TextDecoration.none,
-                        )),
+                    leading: Icon(
+                      icon,
+                      size: 20,
+                      color: inDock
+                          ? cs.primary
+                          : cs.onSurface.withValues(
+                              alpha: isHidden ? 0.28 : 0.52,
+                            ),
+                    ),
+                    title: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: inDock ? FontWeight.w500 : FontWeight.w400,
+                        color: cs.onSurface.withValues(
+                          alpha: isHidden ? 0.35 : 1.0,
+                        ),
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _Badge(
-                          label: inDock ? 'dock' : isHidden ? 'caché' : 'menu',
-                          color: inDock ? cs.primary : cs.onSurface.withValues(alpha: 0.38),
+                          label: inDock
+                              ? 'dock'
+                              : isHidden
+                              ? 'caché'
+                              : 'menu',
+                          color: inDock
+                              ? cs.primary
+                              : cs.onSurface.withValues(alpha: 0.38),
                           bg: inDock
                               ? cs.primary.withValues(alpha: 0.12)
                               : cs.onSurface.withValues(alpha: 0.07),
                         ),
                         const SizedBox(width: 6),
-                        Icon(Icons.drag_handle_rounded, size: 18,
-                            color: cs.onSurface.withValues(alpha: 0.28)),
+                        Icon(
+                          Icons.drag_handle_rounded,
+                          size: 18,
+                          color: cs.onSurface.withValues(alpha: 0.28),
+                        ),
                       ],
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -887,15 +1054,14 @@ class _InstallBannerState extends State<_InstallBanner>
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                const Color(0xFF1A6B2A),
-                Colors.green.shade700,
-              ],
+              colors: [const Color(0xFF1A6B2A), Colors.green.shade700],
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.green.withValues(alpha: 0.30 + _glow.value * 0.42),
+                color: Colors.green.withValues(
+                  alpha: 0.30 + _glow.value * 0.42,
+                ),
                 blurRadius: 14 + _glow.value * 10,
                 spreadRadius: _glow.value * 3,
               ),
@@ -904,8 +1070,11 @@ class _InstallBannerState extends State<_InstallBanner>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.install_mobile_rounded,
-                  size: 15, color: Colors.white),
+              const Icon(
+                Icons.install_mobile_rounded,
+                size: 15,
+                color: Colors.white,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Installer v${widget.version}',
@@ -918,8 +1087,11 @@ class _InstallBannerState extends State<_InstallBanner>
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.chevron_right_rounded,
-                  size: 15, color: Colors.white70),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 15,
+                color: Colors.white70,
+              ),
             ],
           ),
         ),
@@ -985,7 +1157,8 @@ class _UpdateBannerState extends State<_UpdateBanner>
             boxShadow: [
               BoxShadow(
                 color: widget.cs.primary.withValues(
-                    alpha: 0.30 + _glow.value * 0.42),
+                  alpha: 0.30 + _glow.value * 0.42,
+                ),
                 blurRadius: 14 + _glow.value * 10,
                 spreadRadius: _glow.value * 3,
               ),
@@ -994,8 +1167,11 @@ class _UpdateBannerState extends State<_UpdateBanner>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.system_update_alt_rounded,
-                  size: 15, color: Colors.white),
+              const Icon(
+                Icons.system_update_alt_rounded,
+                size: 15,
+                color: Colors.white,
+              ),
               const SizedBox(width: 8),
               Text(
                 'v${widget.version} disponible',
@@ -1008,8 +1184,11 @@ class _UpdateBannerState extends State<_UpdateBanner>
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.chevron_right_rounded,
-                  size: 15, color: Colors.white70),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 15,
+                color: Colors.white70,
+              ),
             ],
           ),
         ),

@@ -1,4 +1,5 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -62,7 +63,8 @@ import 'package:watchtower/modules/novel/novel_discovery_screen.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/music/pages/search/music_search_screen.dart';
 import 'package:watchtower/modules/game/game_discovery_screen.dart';
-import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart' as nfile_home;
+import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart'
+    as nfile_home;
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
@@ -92,6 +94,10 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/modules/transfer/transfer_screen.dart';
 import 'package:watchtower/modules/browse/local_how_to_screen.dart';
 import 'package:watchtower/modules/search/watchtower_discover_screen.dart';
+import 'package:watchtower/modules/film_series/catalog_screen.dart';
+import 'package:watchtower/modules/film_series/detail_screen.dart';
+import 'package:watchtower/modules/film_series/film_series_screen.dart';
+import 'package:watchtower/modules/film_series/supporting_screens.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:watchtower/remote/remote_mode_screen.dart';
@@ -117,9 +123,7 @@ GoRouter router(Ref ref) {
     initialLocation: destination,
     debugLogDiagnostics: kDebugMode,
     refreshListenable: router,
-    routes: [
-      ...router._routes,
-    ],
+    routes: [...router._routes],
     navigatorKey: navigatorKey,
     onException: (context, state, router) => router.go(mainLocation),
     redirect: (context, state) {
@@ -181,7 +185,8 @@ class RouterNotifier extends ChangeNotifier {
       routes: [
         _genericRoute<String?>(
           name: "Library",
-          allowNullExtra: true, // opened from the dock without extra → presetInput=null is the normal state
+          allowNullExtra:
+              true, // opened from the dock without extra → presetInput=null is the normal state
           builder: (id) => MainLibraryScreen(presetInput: id),
         ),
         _genericRoute(
@@ -192,6 +197,7 @@ class RouterNotifier extends ChangeNotifier {
           name: "AnimeLibrary",
           child: const AnimeDiscoveryScreen(),
         ),
+        _genericRoute(name: "FilmSeries", child: const FilmSeriesHomeScreen()),
         _genericRoute(
           name: "NovelLibrary",
           child: const NovelDiscoveryScreen(),
@@ -200,18 +206,12 @@ class RouterNotifier extends ChangeNotifier {
           name: "MusicLibrary",
           child: const MusicDiscoveryScreen(),
         ),
-        _genericRoute(
-          name: "MusicSearch",
-          child: const MusicSearchScreen(),
-        ),
+        _genericRoute(name: "MusicSearch", child: const MusicSearchScreen()),
         _genericRoute(
           name: "MusicLibraryPage",
           child: const MusicDiscoveryScreen(initialRoute: 'library'),
         ),
-        _genericRoute(
-          name: "GameLibrary",
-          child: const GameDiscoveryScreen(),
-        ),
+        _genericRoute(name: "GameLibrary", child: const GameDiscoveryScreen()),
         // Page plugin dédiée supprimée : les extensions vivent dans le
         // Marketplace (onglet Music pour metadata/audio-source, onglet
         // Outils pour les outils natifs File Manager / Local Indexer).
@@ -225,16 +225,105 @@ class RouterNotifier extends ChangeNotifier {
         ),
         _genericRoute<String?>(
           name: "trackerLibrary",
-          allowNullExtra: true, // opened from the dock / home header without extra
+          allowNullExtra:
+              true, // opened from the dock / home header without extra
           builder: (id) => TrackerLibraryScreen(presetInput: id),
         ),
         _genericRoute(name: "history", child: const HistoryScreen()),
         _genericRoute(name: "updates", child: const UpdatesScreen()),
         _genericRoute(name: "browse", child: const BrowseScreen()),
         _genericRoute(name: "marketplace", child: const MarketplaceScreen()),
-        _genericRoute(name: "downloadQueue", child: const DownloadQueueScreen()),
-        _genericRoute(name: "discover", child: const WatchtowerDiscoverScreen()),
+        _genericRoute(
+          name: "downloadQueue",
+          child: const DownloadQueueScreen(),
+        ),
+        _genericRoute(
+          name: "discover",
+          child: const WatchtowerDiscoverScreen(),
+        ),
       ],
+    ),
+    _genericRoute(
+      name: "MoviesCatalog",
+      child: const FilmSeriesCatalogScreen(mediaType: 'movie'),
+    ),
+    _genericRoute(
+      name: "SeriesCatalog",
+      child: const FilmSeriesCatalogScreen(mediaType: 'tv'),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "MovieDetail",
+      builder: (data) => FilmSeriesDetailScreen(
+        id: (data['id'] as num).toInt(),
+        mediaType: 'movie',
+      ),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "SeriesDetail",
+      builder: (data) => FilmSeriesDetailScreen(
+        id: (data['id'] as num).toInt(),
+        mediaType: 'tv',
+      ),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "MovieGenre",
+      builder: (data) => FilmSeriesGenreScreen(
+        mediaType: 'movie',
+        genreId: (data['genreId'] as num).toInt(),
+        genreName: data['genreName'] as String? ?? 'Genre films',
+      ),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "SeriesGenre",
+      builder: (data) => FilmSeriesGenreScreen(
+        mediaType: 'tv',
+        genreId: (data['genreId'] as num).toInt(),
+        genreName: data['genreName'] as String? ?? 'Genre séries',
+      ),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "MovieCollection",
+      builder: (data) =>
+          FilmSeriesCollectionScreen(id: (data['id'] as num).toInt()),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "SeasonDetail",
+      builder: (data) => FilmSeriesSeasonScreen(
+        tvId: (data['tvId'] as num).toInt(),
+        seasonNumber: (data['seasonNumber'] as num).toInt(),
+        seriesName: data['name'] as String? ?? 'Série',
+      ),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "EpisodeDetail",
+      builder: (data) => FilmSeriesEpisodeScreen(
+        tvId: (data['tvId'] as num).toInt(),
+        seasonNumber: (data['seasonNumber'] as num).toInt(),
+        episodeNumber: (data['episodeNumber'] as num).toInt(),
+        seriesName: data['seriesName'] as String? ?? 'Série',
+      ),
+    ),
+    _genericRoute<int>(
+      name: "PersonDetail",
+      builder: (id) => FilmSeriesPersonScreen(id: id),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "MovieCastCrew",
+      builder: (data) => FilmSeriesPeopleScreen(
+        id: (data['id'] as num).toInt(),
+        mediaType: 'movie',
+      ),
+    ),
+    _genericRoute<Map<String, dynamic>>(
+      name: "SeriesCastCrew",
+      builder: (data) => FilmSeriesPeopleScreen(
+        id: (data['id'] as num).toInt(),
+        mediaType: 'tv',
+      ),
+    ),
+    _genericRoute(
+      name: "FilmSeriesSearch",
+      child: const FilmSeriesSearchScreen(),
     ),
     _genericRoute<(Source?, bool)>(
       name: "mangaHome",
@@ -255,12 +344,12 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute<Map<String, dynamic>>(
       name: "creatorProfile",
       builder: (data) => CreatorProfileScreen(
-        source:        data['source']        as Source,
-        creator:       data['creator']       as String,
+        source: data['source'] as Source,
+        creator: data['creator'] as String,
         creatorAvatar: (data['creatorAvatar'] ?? '') as String,
-        verified:      (data['verified']     ?? false) as bool,
-        followers:     (data['followers']    ?? 0) as int,
-        bio:           (data['bio']          ?? '') as String,
+        verified: (data['verified'] ?? false) as bool,
+        followers: (data['followers'] ?? 0) as int,
+        bio: (data['bio'] ?? '') as String,
       ),
     ),
     _genericRoute<(Source?, bool)>(
@@ -312,8 +401,7 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute<(AnilistBrowseFilter, String)>(
       name: "anilistBrowse",
-      builder: (data) =>
-          AnilistBrowseScreen(filter: data.$1, title: data.$2),
+      builder: (data) => AnilistBrowseScreen(filter: data.$1, title: data.$2),
     ),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),
@@ -337,8 +425,14 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute(name: "statistics", child: const StatisticsScreen()),
     _genericRoute(name: "general", child: const GeneralScreen()),
-    _genericRoute(name: "recommendations", child: const RecommendationsScreen()),
-    _genericRoute(name: "extension-cookies", child: const ExtensionCookieManagerScreen()),
+    _genericRoute(
+      name: "recommendations",
+      child: const RecommendationsScreen(),
+    ),
+    _genericRoute(
+      name: "extension-cookies",
+      child: const ExtensionCookieManagerScreen(),
+    ),
     _genericRoute(name: "readerMode", child: const ReaderScreen()),
     _genericRoute(name: "browseS", child: const BrowseSScreen()),
     _genericRoute(
@@ -415,15 +509,15 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) => WatchOrderScreen(name: data.$1, track: data.$2),
     ),
     _genericRoute(name: "onboarding", child: const OnboardingScreen()),
-      _genericRoute<ItemType>(
+    _genericRoute<ItemType>(
       name: "localSources",
       builder: (itemType) => LocalBrowserPage(itemType: itemType),
     ),
-      _genericRoute(
-        name: "smartLibrary",
-        child: const SmartLibraryScreen(),
-      ),
-    _genericRoute(name: "watchtowerSearch", child: const WatchtowerSearchScreen()),
+    _genericRoute(name: "smartLibrary", child: const SmartLibraryScreen()),
+    _genericRoute(
+      name: "watchtowerSearch",
+      child: const WatchtowerSearchScreen(),
+    ),
     _genericRoute(name: "transfer", child: const TransferScreen()),
     _genericRoute<ItemType>(
       name: "localHowTo",
