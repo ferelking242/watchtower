@@ -69,20 +69,6 @@ class WatchDiscoverDrawer extends ConsumerWidget {
             // ── Logo header ──────────────────────────────────────────────────
             _WatchLogoContainer(cs: cs, isDark: isDark, onTap: onClose),
 
-            // ── Divider ──────────────────────────────────────────────────────
-            _NamidaContainerDivider(
-              color: (isDark ? Colors.white : Colors.black)
-                  .withValues(alpha: 0.10),
-            ),
-
-            // ── Theme mode toggle (system / clair / sombre) ───────────────────
-            const _ThemeModeToggleBox(),
-
-            _NamidaContainerDivider(
-              color: (isDark ? Colors.white : Colors.black)
-                  .withValues(alpha: 0.10),
-            ),
-
             // ── Nav list ─────────────────────────────────────────────────────
             Expanded(
               child: ListView.builder(
@@ -110,6 +96,9 @@ class WatchDiscoverDrawer extends ConsumerWidget {
                 },
               ),
             ),
+
+            // ── Theme mode toggle (system / clair / sombre) ────────────
+            const _ThemeModeToggleBox(),
 
             // ── Bottom settings row ──────────────────────────────────────────
             const SizedBox(height: 12),
@@ -431,26 +420,6 @@ class _WatchLogoContainer extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ── Divider (source: NamidaContainerDivider in custom_widgets.dart) ───────────
-
-class _NamidaContainerDivider extends StatelessWidget {
-  final Color? color;
-  const _NamidaContainerDivider({this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1.5,
-      width: 42,
-      margin: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color ?? Theme.of(context).dividerColor,
-        borderRadius: BorderRadius.circular(20),
       ),
     );
   }
