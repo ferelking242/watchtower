@@ -215,7 +215,7 @@ jobs:
             Widget build(BuildContext context) =>
                 nullArtworkWidget ?? const SizedBox.shrink();
           }
-          ''', encoding: 'utf-8');
+          ''', encoding='utf-8')
 
           media_kit = Path('web_stubs/media_kit/lib/media_kit.dart')
           media_text = media_kit.read_text(encoding='utf-8')
