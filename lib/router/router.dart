@@ -70,6 +70,7 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/media_hub_screen.dart';
 import 'package:watchtower/modules/media/flixquest_movie_widgets.dart';
 import 'package:watchtower/modules/media/tmdb_media_detail_screen.dart';
+import 'package:watchtower/modules/media/tmdb_people_screen.dart';
 import 'package:watchtower/modules/media/live_tv_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
@@ -463,6 +464,14 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute<TmdbMedia>(
       name: "flixMediaDetail",
       builder: (media) => TmdbMediaDetailScreen(media: media),
+    ),
+    _genericRoute<TmdbMedia>(
+      name: "flixCastCrew",
+      builder: (media) => TmdbCastCrewScreen(media: media),
+    ),
+    _genericRoute<TmdbPersonRef>(
+      name: "flixPerson",
+      builder: (person) => TmdbPersonScreen(person: person),
     ),
     _genericRoute(name: "transfer", child: const TransferScreen()),
     _genericRoute<ItemType>(
