@@ -118,6 +118,40 @@ class TmdbHome {
   });
 }
 
+class TmdbGenre {
+  final int id;
+  final String name;
+
+  const TmdbGenre({required this.id, required this.name});
+
+  factory TmdbGenre.fromJson(Map<String, dynamic> json) => TmdbGenre(
+        id: (json['id'] as num).toInt(),
+        name: json['name'] as String? ?? 'Autre',
+      );
+}
+
+class TmdbWatchProvider {
+  final int id;
+  final String name;
+  final String? logoPath;
+
+  const TmdbWatchProvider({
+    required this.id,
+    required this.name,
+    this.logoPath,
+  });
+
+  String? get logoUrl =>
+      logoPath == null ? null : 'https://image.tmdb.org/t/p/w185$logoPath';
+
+  factory TmdbWatchProvider.fromJson(Map<String, dynamic> json) =>
+      TmdbWatchProvider(
+        id: (json['provider_id'] as num).toInt(),
+        name: json['provider_name'] as String? ?? 'Service',
+        logoPath: json['logo_path'] as String?,
+      );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TMDB API constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,6 +207,78 @@ Future<List<TmdbMedia>> _fetchTv(String path) async {
       .whereType<Map>()
       .map((e) => TmdbMedia.fromTvJson(e.cast<String, dynamic>()))
       .where((m) => m.posterPath != null)
+      .toList(growable: false);
+}
+
+Future<List<TmdbMedia>> fetchTmdbMoviePage({
+  required String path,
+  int page = 1,
+}) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
+  final baseUri = Uri.parse('$_tmdbBase$path');
+  final query = <String, String>{
+    ...baseUri.queryParameters,
+    'language': 'fr-FR',
+    'page': '$page',
+  };
+  final uri = baseUri.replace(queryParameters: query);
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return const [];
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  final results = data['results'] as List? ?? [];
+  return results
+      .whereType<Map>()
+      .map((e) => TmdbMedia.fromMovieJson(e.cast<String, dynamic>()))
+      .where((m) => m.posterPath != null)
+      .toList(growable: false);
+}
+
+Future<List<TmdbGenre>> fetchTmdbMovieGenres() async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
+  final uri = Uri.parse('$_tmdbBase/genre/movie/list?language=fr-FR');
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return const [];
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  return (data['genres'] as List? ?? [])
+      .whereType<Map>()
+      .map((e) => TmdbGenre.fromJson(e.cast<String, dynamic>()))
+      .toList(growable: false);
+}
+
+Future<List<TmdbWatchProvider>> fetchTmdbWatchProviders() async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
+  final uri = Uri.parse(
+    '$_tmdbBase/watch/providers/movie?language=fr-FR&watch_region=US',
+  );
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return const [];
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  return (data['results'] as List? ?? [])
+      .whereType<Map>()
+      .map((e) => TmdbWatchProvider.fromJson(e.cast<String, dynamic>()))
+      .where((provider) => provider.logoPath != null)
+      .take(12)
       .toList(growable: false);
 }
 
