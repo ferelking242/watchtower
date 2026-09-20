@@ -208,7 +208,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
           SafeArea(
             child: Column(
               children: [
-                // Nav bar — always pinned, never scrolls
+                // Navigation controls stay pinned while the detail content scrolls.
                 _buildNavBar(context, m, cs),
 
                 // Scrollable hero + sticky tab bar + tab views
@@ -290,11 +290,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
             icon: Broken.arrow_left,
             onTap: () => Navigator.of(context).maybePop(),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ScrollingTitle(text: m.displayTitle),
-          ),
-          const SizedBox(width: 8),
+          const Spacer(),
           _CircleBtn(
             icon: Broken.menu_1,
             onTap: () => _showMoreMenu(context, m),
@@ -2895,77 +2891,6 @@ class _GlassCard extends StatelessWidget {
             ),
           ),
           child: child,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Scrolling title (marquee when text overflows)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ScrollingTitle extends StatefulWidget {
-  final String text;
-  const _ScrollingTitle({required this.text});
-
-  @override
-  State<_ScrollingTitle> createState() => _ScrollingTitleState();
-}
-
-class _ScrollingTitleState extends State<_ScrollingTitle>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  final _scrollCtrl = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))
-      ..addStatusListener((s) {
-        if (!mounted) return;
-        if (s == AnimationStatus.completed) {
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (mounted) _ctrl.reverse();
-          });
-        } else if (s == AnimationStatus.dismissed) {
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (mounted) _ctrl.forward();
-          });
-        }
-      })
-      ..addListener(() {
-        if (!_scrollCtrl.hasClients) return;
-        final max = _scrollCtrl.position.maxScrollExtent;
-        if (max <= 0) return;
-        _scrollCtrl.jumpTo(_ctrl.value * max);
-      });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollCtrl.hasClients) return;
-      if (_scrollCtrl.position.maxScrollExtent > 0) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    _scrollCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: _scrollCtrl,
-      scrollDirection: Axis.horizontal,
-      physics: const NeverScrollableScrollPhysics(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Text(
-          widget.text,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, height: 1.2),
-          maxLines: 1,
-          textAlign: TextAlign.center,
         ),
       ),
     );
