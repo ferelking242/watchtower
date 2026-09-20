@@ -614,7 +614,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       )] = const NavigationRailDestination(
         selectedIcon: Icon(Icons.movie_rounded),
         icon: Icon(Icons.movie_outlined),
-        label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Films')),
+        label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Movies')),
       );
     }
     if (dest.contains("/SeriesLibrary")) {
@@ -801,7 +801,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       destMap['/MoviesLibrary'] = const NavigationDestination(
         selectedIcon: Icon(Icons.movie_rounded),
         icon: Icon(Icons.movie_outlined),
-        label: 'Films',
+        label: 'Movies',
       );
     }
     if (dest.contains('/SeriesLibrary')) {
@@ -1109,6 +1109,12 @@ class _TabletLayoutState extends State<_TabletLayout> {
 
   static const _mainItems = [
     (
+      route: '/MoviesLibrary',
+      icon: Broken.video_square,
+      activeIcon: Broken.video_square,
+      tooltip: 'Movies',
+    ),
+    (
       route: '/discover',
       icon: Broken.global_search,
       activeIcon: Broken.global_search,
@@ -1125,12 +1131,6 @@ class _TabletLayoutState extends State<_TabletLayout> {
       icon: Broken.video_octagon,
       activeIcon: Broken.video_square,
       tooltip: 'Watch',
-    ),
-    (
-      route: '/MoviesLibrary',
-      icon: Broken.video_square,
-      activeIcon: Broken.video_square,
-      tooltip: 'Films',
     ),
     (
       route: '/SeriesLibrary',
@@ -1876,7 +1876,7 @@ class _FloatingDockState extends State<_FloatingDock> {
           items.add(
             const _DockItemData(
               route: '/MoviesLibrary',
-              label: 'Films',
+              label: 'Movies',
               icon: Broken.video_square,
               activeIcon: Broken.video_square,
             ),

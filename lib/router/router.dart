@@ -67,6 +67,7 @@ import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart'
     as nfile_home;
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/media/media_hub_screen.dart';
+import 'package:watchtower/modules/media/live_tv_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
@@ -244,6 +245,10 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(
           name: "discover",
           child: const WatchtowerDiscoverScreen(),
+        ),
+        _genericRoute(
+          name: "liveTv",
+          child: const LiveTvScreen(),
         ),
       ],
     ),
