@@ -286,6 +286,25 @@ Future<List<TmdbGenre>> fetchTmdbMovieGenres() async {
       .toList(growable: false);
 }
 
+Future<List<TmdbGenre>> fetchTmdbTvGenres() async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
+  final uri = Uri.parse('$_tmdbBase/genre/tv/list?language=fr-FR');
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return const [];
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  return (data['genres'] as List? ?? [])
+      .whereType<Map>()
+      .map((e) => TmdbGenre.fromJson(e.cast<String, dynamic>()))
+      .toList(growable: false);
+}
+
 Future<List<TmdbWatchProvider>> fetchTmdbWatchProviders() async {
   if (_tmdbToken.isEmpty) {
     throw StateError(

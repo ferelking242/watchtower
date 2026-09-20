@@ -296,6 +296,14 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                     ...widget.home.onTheAirTv,
                   ],
                 ),
+                GenreListGrid(
+                  isTv: true,
+                  imageSource: [
+                    ...widget.home.trendingTv,
+                    ...widget.home.popularTv,
+                    ...widget.home.topRatedTv,
+                  ],
+                ),
                 const SizedBox(height: 112),
               ]),
             ),
@@ -681,14 +689,19 @@ class ScrollingLandscapeMovies extends StatelessWidget {
 }
 
 class GenreListGrid extends StatelessWidget {
-  const GenreListGrid({this.imageSource = const [], super.key});
+  const GenreListGrid({
+    this.imageSource = const [],
+    this.isTv = false,
+    super.key,
+  });
 
   final List<TmdbMedia> imageSource;
+  final bool isTv;
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<TmdbGenre>>(
-      future: fetchTmdbMovieGenres(),
+      future: isTv ? fetchTmdbTvGenres() : fetchTmdbMovieGenres(),
       builder: (context, snapshot) {
         final genres = snapshot.data ?? const <TmdbGenre>[];
         if (snapshot.connectionState == ConnectionState.waiting &&
@@ -699,7 +712,11 @@ class GenreListGrid extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppSectionHeader(title: 'Genres'),
+            AppSectionHeader(
+              title: isTv ? 'TV genres' : 'Genres',
+              actionLabel: 'View all',
+              onAction: () => _showAllGenres(context, genres),
+            ),
             SizedBox(
               height: 126,
               child: GridView.builder(
@@ -729,7 +746,9 @@ class GenreListGrid extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => TmdbMoviesListScreen(
                           title: genre.name,
-                          path: '/discover/movie?with_genres=${genre.id}',
+                          path:
+                              '/discover/${isTv ? 'tv' : 'movie'}?with_genres=${genre.id}',
+                          isTv: isTv,
                         ),
                       ),
                     ),
@@ -740,6 +759,50 @@ class GenreListGrid extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  void _showAllGenres(BuildContext context, List<TmdbGenre> genres) {
+    final parentContext = context;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            Text(
+              isTv ? 'TV genres' : 'Genres',
+              style: Theme.of(sheetContext).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final genre in genres)
+                  ActionChip(
+                    label: Text(genre.name),
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      Navigator.push(
+                        parentContext,
+                        MaterialPageRoute(
+                          builder: (_) => TmdbMoviesListScreen(
+                            title: genre.name,
+                            path:
+                                '/discover/${isTv ? 'tv' : 'movie'}?with_genres=${genre.id}',
+                            isTv: isTv,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -953,12 +1016,14 @@ class TmdbMoviesListScreen extends StatefulWidget {
     required this.title,
     required this.path,
     this.initialItems = const [],
+    this.isTv = false,
     super.key,
   });
 
   final String title;
   final String path;
   final List<TmdbMedia> initialItems;
+  final bool isTv;
 
   @override
   State<TmdbMoviesListScreen> createState() => _TmdbMoviesListScreenState();
@@ -997,7 +1062,9 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
       _error = null;
     });
     try {
-      final page = await fetchTmdbMoviePage(path: widget.path, page: _page);
+      final page = widget.isTv
+          ? await fetchTmdbTvPage(path: widget.path, page: _page)
+          : await fetchTmdbMoviePage(path: widget.path, page: _page);
       if (!mounted) return;
       setState(() {
         _movies.addAll(page);
