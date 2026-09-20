@@ -1,0 +1,1 @@
+- [Compatibilité Flutter](flutter-sdk-compatibility.md) — la validation locale exige Dart 3.11 ou plus récent.
