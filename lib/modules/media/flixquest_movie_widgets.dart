@@ -178,6 +178,161 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
   }
 }
 
+/// The same FlixQuest feed composition used for television series.
+class MainSeriesDisplay extends StatefulWidget {
+  const MainSeriesDisplay({
+    required this.home,
+    this.onSearchPressed,
+    this.onBookmarksPressed,
+    super.key,
+  });
+
+  final TmdbHome home;
+  final VoidCallback? onSearchPressed;
+  final VoidCallback? onBookmarksPressed;
+
+  @override
+  State<MainSeriesDisplay> createState() => _MainSeriesDisplayState();
+}
+
+class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
+  final ScrollController _feedController = ScrollController();
+  final Set<int> _bookmarkedIds = <int>{};
+  bool _showCompactHeader = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _feedController.addListener(_updateCompactHeader);
+  }
+
+  void _updateCompactHeader() {
+    if (!mounted) return;
+    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
+      410.0,
+      500.0,
+    );
+    final shouldShow = _feedController.offset >=
+        heroHeight - MediaQuery.paddingOf(context).top;
+    if (shouldShow != _showCompactHeader) {
+      setState(() => _showCompactHeader = shouldShow);
+    }
+  }
+
+  void _openMedia(TmdbMedia media) =>
+      context.push('/flixMediaDetail', extra: media);
+
+  void _toggleBookmark(TmdbMedia media) {
+    setState(() {
+      if (!_bookmarkedIds.add(media.id)) _bookmarkedIds.remove(media.id);
+    });
+  }
+
+  @override
+  void dispose() {
+    _feedController
+      ..removeListener(_updateCompactHeader)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
+    final bookmarks = widget.onBookmarksPressed ??
+        () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Liste locale des favoris')),
+            );
+    final liveTv = () => context.push('/liveTv');
+
+    return Stack(
+      children: [
+        CustomScrollView(
+          controller: _feedController,
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          slivers: [
+            SliverToBoxAdapter(
+              child: DiscoverMovies(
+                movies: widget.home.trendingTv,
+                bookmarkedMovieIds: _bookmarkedIds,
+                onSearchPressed: search,
+                onLiveTVPressed: liveTv,
+                onBookmarksPressed: bookmarks,
+                onBookmarkToggled: _toggleBookmark,
+                onMoviePressed: _openMedia,
+              ),
+            ),
+            SliverList(
+              delegate: SliverChildListDelegate.fixed([
+                ScrollingMovies(
+                  title: 'Popular',
+                  items: widget.home.popularTv,
+                  discoverPath: '/tv/popular',
+                ),
+                ScrollingMovies(
+                  title: 'Trending this week',
+                  items: widget.home.trendingTv,
+                  discoverPath: '/trending/tv/week',
+                ),
+                ScrollingMovies(
+                  title: 'Top rated',
+                  items: widget.home.topRatedTv,
+                  discoverPath: '/tv/top_rated',
+                ),
+                ScrollingLandscapeMovies(
+                  title: 'Airing today',
+                  items: widget.home.airingTodayTv,
+                ),
+                ScrollingLandscapeMovies(
+                  title: 'On the air',
+                  items: widget.home.onTheAirTv,
+                ),
+                FullWidthMovieBanners(
+                  title: 'À voir bientôt',
+                  items: [
+                    ...widget.home.airingTodayTv,
+                    ...widget.home.onTheAirTv,
+                  ],
+                ),
+                const SizedBox(height: 112),
+              ]),
+            ),
+          ],
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            ignoring: !_showCompactHeader,
+            child: AnimatedSlide(
+              offset: _showCompactHeader ? Offset.zero : const Offset(0, -1),
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              child: AnimatedOpacity(
+                opacity: _showCompactHeader ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: AppFeedOverlayHeader(
+                  title: 'Series',
+                  onSearchPressed: search,
+                  actionLabel: 'Live TV',
+                  actionIcon: Icons.podcasts_rounded,
+                  onActionPressed: liveTv,
+                  utilityIcon: Icons.bookmark_border_rounded,
+                  utilityTooltip: 'Bookmarks',
+                  onUtilityPressed: bookmarks,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// The original FlixQuest hero entry point, retaining its cross-fade swipe
 /// transition while receiving Watchtower's TmdbMedia objects.
 class DiscoverMovies extends StatelessWidget {
@@ -249,36 +404,39 @@ class DiscoverMovies extends StatelessWidget {
                       bottom: false,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                        child: Row(
-                          children: [
-                            SvgPicture.asset(
-                              'assets/images/fq_svg.svg',
-                              width: 28,
-                              height: 28,
-                              placeholderBuilder: (_) => const Icon(
-                                Icons.movie_rounded,
-                                color: Colors.white,
-                                size: 28,
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: Row(
+                              children: [
+                                SvgPicture.asset(
+                                  'assets/images/fq_svg.svg',
+                                  width: 28,
+                                  height: 28,
+                                  placeholderBuilder: (_) => const Icon(
+                                    Icons.movie_rounded,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
                               ),
+                                const Spacer(),
+                                if (onLiveTVPressed != null) ...[
+                                  _HeroLiveButton(onPressed: onLiveTVPressed!),
+                                  const SizedBox(width: 8),
+                                ],
+                                _HeroIconButton(
+                                  icon: isBookmarked
+                                      ? Icons.bookmark
+                                      : Icons.bookmark_border,
+                                  tooltip: 'Bookmarks',
+                                  onPressed: () => onBookmarkToggled(movie),
+                                ),
+                                const SizedBox(width: 8),
+                                _HeroIconButton(
+                                  icon: Icons.search_rounded,
+                                  onPressed: onSearchPressed,
+                                ),
+                              ],
                             ),
-                            const Spacer(),
-                            if (onLiveTVPressed != null) ...[
-                              _HeroLiveButton(onPressed: onLiveTVPressed!),
-                              const SizedBox(width: 8),
-                            ],
-                            _HeroIconButton(
-                              icon: isBookmarked
-                                  ? Icons.bookmark
-                                  : Icons.bookmark_border,
-                              tooltip: 'Bookmarks',
-                              onPressed: () => onBookmarkToggled(movie),
-                            ),
-                            const SizedBox(width: 8),
-                            _HeroIconButton(
-                              icon: Icons.search_rounded,
-                              onPressed: onSearchPressed,
-                            ),
-                          ],
                         ),
                       ),
                     ),
@@ -1035,20 +1193,14 @@ class _TmdbSearchResults extends StatelessWidget {
       future: future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 150,
-              childAspectRatio: .66,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 16,
-            ),
-            itemCount: 12,
-            itemBuilder: (_, __) => const AppShimmerBlock(radius: 14),
-          );
+          return const AppMediaGridShimmer();
         }
         if (snapshot.hasError || snapshot.data?.isEmpty != false) {
-          return const Center(child: Text('Aucun résultat'));
+          return const AppEmptyState(
+            title: 'Aucun résultat',
+            message: 'Aucun film ou série ne correspond à cette recherche.',
+            icon: Icons.search_off_rounded,
+          );
         }
         final items = snapshot.data!;
         return GridView.builder(

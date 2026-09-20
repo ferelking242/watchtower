@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 
 /// Visual primitives copied from FlixQuest's app_ui_components.dart.
 /// Data and navigation remain Watchtower-owned.
@@ -48,6 +49,30 @@ abstract final class AppUI {
     if (width >= 650) return 108;
     return ((width - (pagePadding(context) * 2) - 30) / 4).clamp(72.0, 100.0);
   }
+}
+
+@immutable
+class AppLoadingColors {
+  const AppLoadingColors({
+    required this.shimmerBase,
+    required this.shimmerHighlight,
+  });
+
+  static const dark = AppLoadingColors(
+    shimmerBase: Color(0xFF292D31),
+    shimmerHighlight: Color(0xFF30353A),
+  );
+
+  static const light = AppLoadingColors(
+    shimmerBase: Color(0xFFE9EBEE),
+    shimmerHighlight: Color(0xFFEFF1F3),
+  );
+
+  final Color shimmerBase;
+  final Color shimmerHighlight;
+
+  static AppLoadingColors of(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? dark : light;
 }
 
 /// The original FlixQuest swipe-and-crossfade carousel behavior.
@@ -380,6 +405,275 @@ class AppGenreTile extends StatelessWidget {
   }
 }
 
+class AppHeroShimmer extends StatelessWidget {
+  const AppHeroShimmer({required this.height, super.key});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppLoadingColors.of(context);
+    return SizedBox(
+      height: height,
+      child: Shimmer.fromColors(
+        baseColor: colors.shimmerBase,
+        highlightColor: colors.shimmerHighlight,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(color: colors.shimmerBase),
+            Positioned(
+              left: AppUI.phonePadding,
+              right: AppUI.phonePadding,
+              bottom: 28,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ShimmerBlock(
+                    width: 210,
+                    height: 30,
+                    color: colors.shimmerBase,
+                  ),
+                  const SizedBox(height: 10),
+                  _ShimmerBlock(
+                    width: 150,
+                    height: 14,
+                    color: colors.shimmerBase,
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      _ShimmerBlock(
+                        width: 112,
+                        height: 44,
+                        color: colors.shimmerBase,
+                      ),
+                      const SizedBox(width: 12),
+                      _ShimmerBlock(
+                        width: 112,
+                        height: 44,
+                        color: colors.shimmerBase,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppMediaRowShimmer extends StatelessWidget {
+  const AppMediaRowShimmer({this.itemWidth, super.key});
+
+  final double? itemWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppLoadingColors.of(context);
+    final cardWidth = itemWidth ?? AppUI.horizontalCardWidth(context);
+    return Shimmer.fromColors(
+      baseColor: colors.shimmerBase,
+      highlightColor: colors.shimmerHighlight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+        itemCount: 8,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, __) => SizedBox(
+          width: cardWidth,
+          child: Column(
+            children: [
+              AspectRatio(
+                aspectRatio: 2 / 3,
+                child: _ShimmerBlock(
+                  width: cardWidth,
+                  height: double.infinity,
+                  color: colors.shimmerBase,
+                  radius: AppUI.cardRadius,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _ShimmerBlock(
+                width: cardWidth * .82,
+                height: 13,
+                color: colors.shimmerBase,
+              ),
+              const SizedBox(height: 6),
+              _ShimmerBlock(
+                width: cardWidth * .55,
+                height: 11,
+                color: colors.shimmerBase,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AppMediaGridShimmer extends StatelessWidget {
+  const AppMediaGridShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppLoadingColors.of(context);
+    final columns = AppUI.mediaGridColumns(context);
+    return Shimmer.fromColors(
+      baseColor: colors.shimmerBase,
+      highlightColor: colors.shimmerHighlight,
+      child: GridView.builder(
+        padding: EdgeInsets.fromLTRB(
+          AppUI.pagePadding(context),
+          12,
+          AppUI.pagePadding(context),
+          24,
+        ),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
+          crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: columns * 4,
+        itemBuilder: (_, __) => Column(
+          children: [
+            AspectRatio(
+              aspectRatio: AppUI.posterAspectRatio,
+              child: _ShimmerBlock(
+                width: double.infinity,
+                height: double.infinity,
+                color: colors.shimmerBase,
+                radius: AppUI.cardRadius,
+              ),
+            ),
+            const SizedBox(height: AppUI.mediaGridTitleGap),
+            SizedBox(
+              height: AppUI.mediaGridTitleHeight,
+              child: Column(
+                children: [
+                  FractionallySizedBox(
+                    widthFactor: .84,
+                    child: _ShimmerBlock(
+                      width: double.infinity,
+                      height: 13,
+                      color: colors.shimmerBase,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _ShimmerBlock(
+                    width: 54,
+                    height: 11,
+                    color: colors.shimmerBase,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppEmptyState extends StatelessWidget {
+  const AppEmptyState({
+    required this.title,
+    required this.message,
+    this.icon,
+    super.key,
+  });
+
+  final String title;
+  final String message;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: .09),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon ?? Icons.movie_filter_rounded,
+                  size: 52,
+                  color: colors.primary,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FlixQuestMediaLoading extends StatelessWidget {
+  const FlixQuestMediaLoading({required this.isSeries, super.key});
+
+  final bool isSeries;
+
+  @override
+  Widget build(BuildContext context) {
+    final titles = isSeries
+        ? const ['Popular', 'Trending this week', 'Top rated', 'Airing today', 'On the air']
+        : const ['Popular', 'Trending this week', 'Top rated', 'Now playing', 'Upcoming'];
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppHeroShimmer(
+            height: (MediaQuery.sizeOf(context).height * .48).clamp(410.0, 500.0),
+          ),
+          for (final title in titles) ...[
+            AppSectionHeader(title: title),
+            SizedBox(
+              height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
+              child: const AppMediaRowShimmer(),
+            ),
+          ],
+          const SizedBox(height: 112),
+        ],
+      ),
+    );
+  }
+}
+
 class AppShimmerBlock extends StatelessWidget {
   const AppShimmerBlock({this.radius = 14, super.key});
 
@@ -387,9 +681,40 @@ class AppShimmerBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    final colors = AppLoadingColors.of(context);
+    return Shimmer.fromColors(
+      baseColor: colors.shimmerBase,
+      highlightColor: colors.shimmerHighlight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShimmerBlock extends StatelessWidget {
+  const _ShimmerBlock({
+    required this.width,
+    required this.height,
+    required this.color,
+    this.radius = 8,
+  });
+
+  final double width;
+  final double height;
+  final Color color;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: color,
         borderRadius: BorderRadius.circular(radius),
       ),
     );

@@ -396,11 +396,11 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   List<Widget> _tmdbFilmTab(BuildContext ctx, TmdbHome tmdb) {
     return [
-      _TmdbLandscapeRow(
-        title: 'Films en ce moment',
-        icon: Icons.theaters_rounded,
-        color: const Color(0xFF2980B9),
-        items: tmdb.nowPlayingMovies,
+      _TmdbRow(
+        title: 'Films populaires',
+        icon: Icons.star_rounded,
+        color: const Color(0xFF8E44AD),
+        items: tmdb.popularMovies,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRow(
@@ -410,18 +410,18 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         items: tmdb.trendingMovies,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
-      _TmdbRankedRow(
+      _TmdbRow(
         title: 'Les mieux notés',
         icon: Icons.emoji_events_rounded,
         color: const Color(0xFFF39C12),
-        items: tmdb.topRatedMovies.take(10).toList(),
+        items: tmdb.topRatedMovies,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
-      _TmdbRow(
-        title: 'Films populaires',
-        icon: Icons.star_rounded,
-        color: const Color(0xFF8E44AD),
-        items: tmdb.popularMovies,
+      _TmdbLandscapeRow(
+        title: 'Films en ce moment',
+        icon: Icons.theaters_rounded,
+        color: const Color(0xFF2980B9),
+        items: tmdb.nowPlayingMovies,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRow(
@@ -439,17 +439,24 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   List<Widget> _tmdbSerieTab(BuildContext ctx, TmdbHome tmdb) {
     return [
       _TmdbRow(
+        title: 'Séries populaires',
+        icon: Icons.star_rounded,
+        color: const Color(0xFFF39C12),
+        items: tmdb.popularTv,
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+      ),
+      _TmdbRow(
         title: 'Tendances TV de la semaine',
         icon: Icons.local_fire_department_rounded,
         color: const Color(0xFFE74C3C),
         items: tmdb.trendingTv,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
-      _TmdbLandscapeRow(
-        title: 'En cours de diffusion',
-        icon: Icons.live_tv_rounded,
-        color: const Color(0xFF2980B9),
-        items: tmdb.onTheAirTv,
+      _TmdbRow(
+        title: 'Les mieux notées',
+        icon: Icons.workspace_premium_rounded,
+        color: const Color(0xFF6C5CE7),
+        items: tmdb.topRatedTv,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRow(
@@ -459,18 +466,11 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         items: tmdb.airingTodayTv,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
-      _TmdbRankedRow(
-        title: 'Les mieux notées',
-        icon: Icons.workspace_premium_rounded,
-        color: const Color(0xFF6C5CE7),
-        items: tmdb.topRatedTv.take(10).toList(),
-        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
-      ),
-      _TmdbRow(
-        title: 'Séries populaires',
-        icon: Icons.star_rounded,
-        color: const Color(0xFFF39C12),
-        items: tmdb.popularTv,
+      _TmdbLandscapeRow(
+        title: 'En cours de diffusion',
+        icon: Icons.live_tv_rounded,
+        color: const Color(0xFF2980B9),
+        items: tmdb.onTheAirTv,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
     ];
