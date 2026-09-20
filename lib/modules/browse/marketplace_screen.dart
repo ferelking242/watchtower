@@ -9323,7 +9323,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           onTap: () => _showDetails(entry),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: colors,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
