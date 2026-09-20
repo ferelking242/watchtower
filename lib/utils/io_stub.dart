@@ -18,6 +18,30 @@ export 'dart:io'
         Link,
         exit;
 
+// dart:io's file watcher types are not available in the web SDK. The web
+// implementation never emits events, but keeping the API shape lets shared
+// indexer code compile without importing dart:io.
+class FileSystemEvent {
+  static const int create = 1;
+  static const int modify = 2;
+  static const int delete = 4;
+  static const int move = 8;
+  static const int all = create | modify | delete | move;
+
+  final String path;
+  final int type;
+  const FileSystemEvent(this.type, this.path);
+}
+
+class FileSystemMoveEvent extends FileSystemEvent {
+  final String destination;
+  const FileSystemMoveEvent(
+    super.type,
+    super.path,
+    this.destination,
+  );
+}
+
 // ─── Platform stub for web ────────────────────────────────────────────────────
 // dart:io Platform throws on web. This stub returns safe defaults so that
 // all Platform.isX / Platform.operatingSystem calls compile and run on web

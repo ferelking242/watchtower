@@ -133,6 +133,168 @@ jobs:
               handle.writelines(lines)
           PYEOF
 
+      - name: Align web compatibility shims
+        run: |
+          python3 << 'PYEOF'
+          from pathlib import Path
+
+          on_audio = Path('web_stubs/on_audio_query/lib/on_audio_query.dart')
+          on_audio.write_text(r'''
+          import 'dart:typed_data';
+          import 'package:flutter/material.dart';
+
+          class SongModel {
+            final Map<String, dynamic> _data;
+            SongModel(Map<String, dynamic> data) : _data = data;
+
+            int get id => (_data['id'] as int?) ?? 0;
+            String get title => (_data['title'] as String?) ?? '';
+            String get displayName => (_data['display_name'] as String?) ?? title;
+            String get data => (_data['data'] as String?) ?? '';
+            String? get album => _data['album'] as String?;
+            String? get artist => _data['artist'] as String?;
+            int? get duration => _data['duration'] as int?;
+            int get size => (_data['size'] as int?) ?? 0;
+            int? get dateAdded => _data['date_added'] as int?;
+            int? get dateModified => _data['date_modified'] as int?;
+            Map<String, dynamic> getMap() => _data;
+          }
+
+          enum OrderType { ASC_OR_SMALLER, DESC_GREATER }
+          enum SortType { TITLE, DATE_ADDED, SIZE, DURATION, DISPLAY_NAME }
+          enum AudiosFrom { ALBUM, ARTIST, GENRE, PLAYLIST }
+          enum UriType { EXTERNAL, INTERNAL }
+          enum ArtworkType { AUDIO, VIDEO }
+
+          class OnAudioQuery {
+            Future<bool> permissionsStatus() async => false;
+            Future<bool> permissionsRequest() async => false;
+            Future<List<SongModel>> querySongs({
+              OrderType? orderType,
+              SortType? sortType,
+              bool? ignoreCase,
+              UriType? uriType,
+            }) async => <SongModel>[];
+            Future<List<Map<String, dynamic>>> queryAudiosFrom(
+              AudiosFrom type,
+              Object filter,
+            ) async => <Map<String, dynamic>>[];
+            Future<Uint8List?> queryArtwork(
+              int id,
+              ArtworkType type, {
+              int? size,
+              int? quality,
+            }) async => null;
+          }
+
+          class QueryArtworkWidget extends StatelessWidget {
+            final int id;
+            final ArtworkType type;
+            final BorderRadius? artworkBorder;
+            final BoxFit? artworkFit;
+            final double? artworkWidth;
+            final double? artworkHeight;
+            final int? size;
+            final int? quality;
+            final Widget? nullArtworkWidget;
+
+            const QueryArtworkWidget({
+              super.key,
+              required this.id,
+              required this.type,
+              this.artworkBorder,
+              this.artworkFit,
+              this.artworkWidth,
+              this.artworkHeight,
+              this.size,
+              this.quality,
+              this.nullArtworkWidget,
+            });
+
+            @override
+            Widget build(BuildContext context) =>
+                nullArtworkWidget ?? const SizedBox.shrink();
+          }
+          ''', encoding: 'utf-8');
+
+          media_kit = Path('web_stubs/media_kit/lib/media_kit.dart')
+          media_text = media_kit.read_text(encoding='utf-8')
+          media_text = media_text.replace(
+              'final bool ready;', 'final bool? ready;')
+          media_kit.write_text(media_text, encoding='utf-8')
+
+          media_video = Path('web_stubs/media_kit_video/lib/media_kit_video.dart')
+          video_text = media_video.read_text(encoding='utf-8')
+          video_text = video_text.replace(
+              'final bool enableHardwareAcceleration;\n'
+              '    const VideoControllerConfiguration({this.enableHardwareAcceleration = true});',
+              'final bool enableHardwareAcceleration;\n'
+              '    final String? hwdec;\n'
+              '    const VideoControllerConfiguration({\n'
+              '      this.enableHardwareAcceleration = true,\n'
+              '      this.hwdec,\n'
+              '    });')
+          media_video.write_text(video_text, encoding='utf-8')
+
+          sqlite = Path('web_stubs/sqlite3/lib/common.dart')
+          sqlite_text = sqlite.read_text(encoding='utf-8')
+          sqlite_text = sqlite_text.replace(
+              'class Database extends CommonDatabase {\n',
+              'class _HandleStub { int get address => 0; }\n\n'
+              'class Database extends CommonDatabase {\n'
+              '  dynamic get handle => _HandleStub();\n')
+          sqlite_text = sqlite_text.replace(
+              '  @override\n  void execute(String sql, [List<Object?> parameters = const []]) {}',
+              '  @override\n  void execute(String sql, [List<Object?> parameters = const []]) {}\n\n'
+              '  ResultSet select(String sql, [List<Object?> parameters = const []]) =>\n'
+              '      ResultSet([], <Map<String, dynamic>>[]);')
+          sqlite_text = sqlite_text.replace(
+              'final sqlite3 = Sqlite3();',
+              'final sqlite3 = Sqlite3();\n\n'
+              'extension Sqlite3WebPointerShim on Sqlite3 {\n'
+              '  Sqlite3 fromPointer(dynamic pointer) => this;\n'
+              '}')
+          sqlite.write_text(sqlite_text, encoding='utf-8')
+
+          sqflite = Path('web_stubs/sqflite/lib/src/database.dart')
+          sqflite_text = sqflite.read_text(encoding='utf-8')
+          if 'class DatabaseException' not in sqflite_text:
+              sqflite.write_text(
+                  'class DatabaseException implements Exception {\n'
+                  '  final String message;\n'
+                  '  const DatabaseException(this.message);\n'
+                  '  @override String toString() => message;\n'
+                  '}\n\n' + sqflite_text,
+                  encoding='utf-8')
+
+          ftp = Path('web_stubs/ftpconnect/lib/ftpconnect.dart')
+          ftp_text = ftp.read_text(encoding='utf-8')
+          ftp_text = ftp_text.replace(
+              'Future<bool> downloadFile(String remoteFile, dynamic localFile) async =>',
+              'Future<bool> downloadFile(String remoteFile, dynamic localFile, '
+              '{Function? onProgress}) async =>')
+          ftp_text = ftp_text.replace(
+              'Future<bool> uploadFile(dynamic localFile, {String? remoteFileName}) async =>',
+              'Future<bool> uploadFile(dynamic localFile, {String? remoteFileName, '
+              'String? sRemoteName, Function? onProgress}) async =>')
+          ftp_text = ftp_text.replace(
+              'Future<bool> makeDirectory(String dir) async =>',
+              'Future<bool> createFolderIfNotExist(String dir) async => true;\n'
+              '  Future<bool> makeDirectory(String dir) async =>')
+          ftp.write_text(ftp_text, encoding='utf-8')
+
+          excel = Path('web_stubs/excel2003/lib/excel2003.dart')
+          excel.write_text(r'''
+          // Web stub for excel2003 — legacy XLS viewing is unavailable on web.
+          class XlsReader {
+            XlsReader._();
+            static XlsReader fromBytes(List<int> bytes) => XlsReader._();
+            List<String> get sheetNames => const <String>[];
+            dynamic sheetByName(String name) => null;
+          }
+          ''', encoding='utf-8')
+          PYEOF
+
       - name: Stub native-only Dart pub-cache files
         run: |
           python3 << 'PYEOF'
@@ -158,18 +320,39 @@ jobs:
           for path in glob.glob(f'{pub_cache}/flutter_qjs-*/lib/*.dart'):
               with open(path, 'w', encoding='utf-8') as handle:
                   handle.write(qjs_stub)
+
+          for path in glob.glob(f'{pub_cache}/drift-*/lib/src/sqlite3/database_tracker.dart'):
+              with open(path, 'w', encoding='utf-8') as handle:
+                  handle.write(
+                      "import 'package:sqlite3/sqlite3.dart';\n\n"
+                      "DatabaseTracker tracker(Sqlite3 sqlite3) => "
+                      "_instance ??= DatabaseTracker(sqlite3);\n"
+                      "DatabaseTracker? _instance;\n\n"
+                      "class DatabaseTracker {\n"
+                      "  DatabaseTracker(Sqlite3 sqlite3);\n"
+                      "  void markOpened(String path, Database openedDb) {}\n"
+                      "  void markClosed(Database db) {}\n"
+                      "  void closeExisting() {}\n"
+                      "}\n")
           PYEOF
 
       - name: Patch pseudom CSSParser for dart2js
         run: |
-          FILE=$(find ~/.pub-cache -name 'CSSParser.dart' -path '*/pseudom*' 2>/dev/null | head -1)
-          if [ -n "$FILE" ]; then
-            sed -i 's/& -3765256679076942294/& 0/g' "$FILE"
-            sed -i 's/& 4626330031550017026/& 0/g' "$FILE"
-            sed -i 's/& 5779244251887978624/& 0/g' "$FILE"
-            sed -i 's/& -4597022382133018102/& 0/g' "$FILE"
-            sed -i 's/& -4022278413737085706/& 0/g' "$FILE"
-          fi
+          python3 << 'PYEOF'
+          import glob
+          import os
+          import re
+
+          for path in glob.glob(
+              os.path.expanduser('~/.pub-cache/hosted/pub.dev/'
+                                 'pseudom-*/lib/src/csslib/CSSParser.dart')):
+              with open(path, 'r', encoding='utf-8') as handle:
+                  content = handle.read()
+              patched = re.sub(r'(?<=& )-?\d{16,}', '0', content)
+              if patched != content:
+                  with open(path, 'w', encoding='utf-8') as handle:
+                      handle.write(patched)
+          PYEOF
 
       - name: Patch large generated integer literals for dart2js
         run: |

@@ -448,7 +448,10 @@ class _CastSection extends StatelessWidget {
                     person.character,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white45, fontSize: 10),
+                    style: const TextStyle(
+                      color: Color.fromRGBO(255, 255, 255, 0.45),
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),
