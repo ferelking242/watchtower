@@ -149,6 +149,172 @@ class TmdbWatchProvider {
       );
 }
 
+class TmdbCastMember {
+  final int id;
+  final String name;
+  final String character;
+  final String? profilePath;
+
+  const TmdbCastMember({
+    required this.id,
+    required this.name,
+    required this.character,
+    this.profilePath,
+  });
+
+  String? get profileUrl => profilePath == null
+      ? null
+      : 'https://image.tmdb.org/t/p/w185$profilePath';
+
+  factory TmdbCastMember.fromJson(Map<String, dynamic> json) =>
+      TmdbCastMember(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        name: json['name'] as String? ?? 'Artiste',
+        character: json['character'] as String? ?? '',
+        profilePath: json['profile_path'] as String?,
+      );
+}
+
+class TmdbVideo {
+  final String key;
+  final String name;
+  final String site;
+  final String type;
+  final bool official;
+
+  const TmdbVideo({
+    required this.key,
+    required this.name,
+    required this.site,
+    required this.type,
+    required this.official,
+  });
+
+  bool get isYoutube => site.toLowerCase() == 'youtube';
+
+  String get watchUrl => isYoutube
+      ? 'https://www.youtube.com/watch?v=$key'
+      : 'https://$site.com/watch?v=$key';
+
+  factory TmdbVideo.fromJson(Map<String, dynamic> json) => TmdbVideo(
+        key: json['key'] as String? ?? '',
+        name: json['name'] as String? ?? 'Vidéo',
+        site: json['site'] as String? ?? '',
+        type: json['type'] as String? ?? 'Video',
+        official: json['official'] as bool? ?? false,
+      );
+}
+
+class TmdbMediaDetails {
+  final int? runtime;
+  final int? numberOfSeasons;
+  final int? numberOfEpisodes;
+  final String? tagline;
+  final String? status;
+  final List<TmdbGenre> genres;
+  final List<TmdbCastMember> cast;
+  final List<TmdbVideo> videos;
+  final List<String> backdropPaths;
+  final List<TmdbMedia> recommendations;
+  final List<TmdbWatchProvider> watchProviders;
+
+  const TmdbMediaDetails({
+    this.runtime,
+    this.numberOfSeasons,
+    this.numberOfEpisodes,
+    this.tagline,
+    this.status,
+    this.genres = const [],
+    this.cast = const [],
+    this.videos = const [],
+    this.backdropPaths = const [],
+    this.recommendations = const [],
+    this.watchProviders = const [],
+  });
+
+  factory TmdbMediaDetails.fromJson(
+    Map<String, dynamic> json,
+    String mediaType,
+  ) {
+    final genres = (json['genres'] as List? ?? [])
+        .whereType<Map>()
+        .map((item) => TmdbGenre.fromJson(item.cast<String, dynamic>()))
+        .toList(growable: false);
+    final credits = json['credits'] as Map?;
+    final cast = (credits?['cast'] as List? ?? [])
+        .whereType<Map>()
+        .map((item) => TmdbCastMember.fromJson(item.cast<String, dynamic>()))
+        .where((item) => item.name.isNotEmpty)
+        .take(20)
+        .toList(growable: false);
+    final videos = ((json['videos'] as Map?)?['results'] as List? ?? [])
+        .whereType<Map>()
+        .map((item) => TmdbVideo.fromJson(item.cast<String, dynamic>()))
+        .where((item) => item.key.isNotEmpty && item.isYoutube)
+        .where((item) => item.type == 'Trailer' || item.type == 'Teaser')
+        .take(12)
+        .toList(growable: false);
+    final images = (json['images'] as Map?)?['backdrops'] as List? ?? [];
+    final backdropPaths = images
+        .whereType<Map>()
+        .map((item) => item['file_path'] as String?)
+        .whereType<String>()
+        .where((path) => path.isNotEmpty)
+        .take(8)
+        .toList(growable: false);
+    final recommendations = ((json['recommendations'] as Map?)?['results']
+            as List? ??
+        [])
+        .whereType<Map>()
+        .map(
+          (item) => mediaType == 'movie'
+              ? TmdbMedia.fromMovieJson(item.cast<String, dynamic>())
+              : TmdbMedia.fromTvJson(item.cast<String, dynamic>()),
+        )
+        .where((item) => item.posterPath != null)
+        .take(20)
+        .toList(growable: false);
+    final providerRegion =
+        ((json['watch/providers'] as Map?)?['results'] as Map?)?['US']
+            as Map?;
+    final providerGroups = [
+      providerRegion?['flatrate'],
+      providerRegion?['free'],
+      providerRegion?['ads'],
+      providerRegion?['rent'],
+      providerRegion?['buy'],
+    ];
+    final watchProviders = providerGroups
+        .expand((group) => group is List ? group : const [])
+        .whereType<Map>()
+        .map((item) => TmdbWatchProvider.fromJson(item.cast<String, dynamic>()))
+        .where((item) => item.logoPath != null)
+        .fold<List<TmdbWatchProvider>>(
+          <TmdbWatchProvider>[],
+          (items, provider) {
+            if (items.every((item) => item.id != provider.id)) {
+              items.add(provider);
+            }
+            return items;
+          },
+        );
+
+    return TmdbMediaDetails(
+      runtime: (json['runtime'] as num?)?.toInt(),
+      numberOfSeasons: (json['number_of_seasons'] as num?)?.toInt(),
+      numberOfEpisodes: (json['number_of_episodes'] as num?)?.toInt(),
+      tagline: json['tagline'] as String?,
+      status: json['status'] as String?,
+      genres: genres,
+      cast: cast,
+      videos: videos,
+      backdropPaths: backdropPaths,
+      recommendations: recommendations,
+      watchProviders: watchProviders,
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TMDB API constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -326,6 +492,38 @@ Future<List<TmdbWatchProvider>> fetchTmdbWatchProviders() async {
       .where((provider) => provider.logoPath != null)
       .take(12)
       .toList(growable: false);
+}
+
+Future<TmdbMediaDetails> fetchTmdbMediaDetails(TmdbMedia media) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
+  final uri = Uri.parse('$_tmdbBase/${media.mediaType}/${media.id}').replace(
+    queryParameters: {
+      'language': 'fr-FR',
+      'append_to_response':
+          'credits,videos,images,recommendations,watch/providers',
+      'include_image_language': 'fr,null',
+      'watch_region': 'US',
+    },
+  );
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) {
+    throw StateError('TMDB detail request failed (${res.statusCode}).');
+  }
+  final json = jsonDecode(res.body);
+  if (json is! Map) {
+    throw const FormatException('TMDB returned an invalid detail payload.');
+  }
+  return TmdbMediaDetails.fromJson(
+    json.cast<String, dynamic>(),
+    media.mediaType,
+  );
 }
 
 Future<TmdbHome> _fetchTmdbHome() async {

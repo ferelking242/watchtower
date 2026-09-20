@@ -1,5 +1,4 @@
 import 'package:collection/collection.dart';
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -46,7 +45,6 @@ class FlixMediaHomeScreen extends ConsumerWidget {
     );
   }
 }
-
 class _MediaHomeBody extends StatelessWidget {
   final MediaHubKind kind;
   final TmdbHome home;
@@ -107,7 +105,6 @@ class _MediaHomeBody extends StatelessWidget {
     );
   }
 }
-
 class _MediaHero extends StatelessWidget {
   final String title;
   final TmdbMedia? media;
@@ -312,7 +309,6 @@ class _MediaRow extends StatelessWidget {
     );
   }
 }
-
 class _MediaError extends StatelessWidget {
   final String title;
   final Object error;
@@ -357,166 +353,6 @@ class _MediaError extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class TmdbMediaDetailScreen extends StatelessWidget {
-  final TmdbMedia media;
-
-  const TmdbMediaDetailScreen({super.key, required this.media});
-
-  @override
-  Widget build(BuildContext context) {
-    final genres = media.mediaType == 'movie'
-        ? tmdbMovieGenreNames(media.genreIds)
-        : tmdbTvGenreNames(media.genreIds);
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 370,
-            pinned: true,
-            backgroundColor: const Color(0xFF0B0B11),
-            leading: const BackButton(color: Colors.white),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (media.bannerImage != null)
-                    ExtendedImage.network(
-                      media.bannerImage!,
-                      fit: BoxFit.cover,
-                    ),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0xFF0B0B11)],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    media.displayTitle,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (media.voteAverage != null)
-                        _InfoChip(
-                          icon: Icons.star_rounded,
-                          label: media.voteAverage!.toStringAsFixed(1),
-                        ),
-                      if (media.releaseDate != null ||
-                          media.firstAirDate != null)
-                        _InfoChip(
-                          icon: Icons.calendar_month_rounded,
-                          label: (media.releaseDate ?? media.firstAirDate!)
-                              .split('-')
-                              .first,
-                        ),
-                      ...genres.map((genre) => _InfoChip(label: genre)),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => context.push('/flixSearch'),
-                          icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('Rechercher une source'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      IconButton.filledTonal(
-                        onPressed: () =>
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Ajouté à votre liste locale'),
-                              ),
-                            ),
-                        icon: const Icon(Icons.add_rounded),
-                        tooltip: 'Ma liste',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 25),
-                  const Text(
-                    'Synopsis',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 9),
-                  Text(
-                    media.overview?.isNotEmpty == true
-                        ? media.overview!
-                        : 'Aucun synopsis disponible.',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      height: 1.5,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final IconData? icon;
-  final String label;
-
-  const _InfoChip({this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, color: Colors.amber, size: 15),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-        ],
       ),
     );
   }
