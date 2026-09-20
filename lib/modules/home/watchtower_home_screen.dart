@@ -5,7 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
     show AniListErrorView;
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
-    show AnilistHome, AnilistMedia, AnilistBrowseFilter, anilistHomeProvider, anilistOfflineNotifier;
+    show
+        AnilistHome,
+        AnilistMedia,
+        AnilistBrowseFilter,
+        anilistHomeProvider,
+        anilistOfflineNotifier;
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart'
     show TmdbHome, TmdbMedia, tmdbHomeProvider;
 import 'package:watchtower/modules/home/widgets/category_row.dart';
@@ -23,7 +28,20 @@ import 'package:watchtower/modules/music/music_discovery_screen.dart';
 // 0=Tout 1=Film 2=Série 3=Musique 4=Anime 5=Asia 6=Enfant 7=Occidental 8=Africa 9=TV Court 10=Football 11=Jeux
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum _HomeTab { tout, film, serie, musique, anime, asia, enfant, occidental, africa, tvCourt, football, jeux }
+enum _HomeTab {
+  tout,
+  film,
+  serie,
+  musique,
+  anime,
+  asia,
+  enfant,
+  occidental,
+  africa,
+  tvCourt,
+  football,
+  jeux,
+}
 
 /// Premium streaming home screen — Disney+ / Netflix / Apple TV+ hybrid.
 ///
@@ -44,65 +62,69 @@ class WatchtowerHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
-    final _scroll = ScrollController();
-    final _carouselColor = ValueNotifier<Color>(Colors.transparent);
-    final _headerOpacity = ValueNotifier<double>(0.15);
-    double _carouselH = 300.0;
-    double _headerH = 56.0;
-    int _tab = 0;
+  final _scroll = ScrollController();
+  final _carouselColor = ValueNotifier<Color>(Colors.transparent);
+  final _headerOpacity = ValueNotifier<double>(0.15);
+  double _carouselH = 300.0;
+  double _headerH = 56.0;
+  int _tab = 0;
 
-    @override
-    void initState() {
-      super.initState();
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
-      ));
-      _scroll.addListener(_updateOpacity);
-    }
+      ),
+    );
+    _scroll.addListener(_updateOpacity);
+  }
 
-    void _updateOpacity() {
-      if (!_scroll.hasClients) return;
-      final v = 0.15 + (_scroll.offset / _carouselH).clamp(0.0, 0.85);
-      if ((v - _headerOpacity.value).abs() > 0.005) _headerOpacity.value = v;
-    }
+  void _updateOpacity() {
+    if (!_scroll.hasClients) return;
+    final v = 0.15 + (_scroll.offset / _carouselH).clamp(0.0, 0.85);
+    if ((v - _headerOpacity.value).abs() > 0.005) _headerOpacity.value = v;
+  }
 
-    @override
-    void dispose() {
-      _scroll.removeListener(_updateOpacity);
-      _scroll.dispose();
-      _carouselColor.dispose();
-      _headerOpacity.dispose();
-      super.dispose();
-    }
+  @override
+  void dispose() {
+    _scroll.removeListener(_updateOpacity);
+    _scroll.dispose();
+    _carouselColor.dispose();
+    _headerOpacity.dispose();
+    super.dispose();
+  }
 
   void _openDetail(BuildContext ctx, AnilistMedia m) =>
       ctx.push('/anilistDetail', extra: m);
 
-  void _browseTo(BuildContext ctx, String type, {String? genre}) =>
-      ctx.push('/anilistBrowse',
-          extra: (AnilistBrowseFilter(mediaType: type, genre: genre),
-              genre ?? type));
+  void _browseTo(BuildContext ctx, String type, {String? genre}) => ctx.push(
+    '/anilistBrowse',
+    extra: (AnilistBrowseFilter(mediaType: type, genre: genre), genre ?? type),
+  );
 
   void _onTabChanged(int i) {
     setState(() => _tab = i);
     if (_scroll.hasClients && _scroll.offset > 60) {
-      _scroll.animateTo(0,
-          duration: const Duration(milliseconds: 380),
-          curve: Curves.easeOutCubic);
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
+      );
     }
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
-    Widget build(BuildContext context) {
-      final _topPad = MediaQuery.of(context).padding.top;
-      _headerH = _topPad + 56 + 36; // +36 for pills row
-      _carouselH = _headerH + MediaQuery.sizeOf(context).height * 0.28;
-      return Scaffold(
+  Widget build(BuildContext context) {
+    final _topPad = MediaQuery.of(context).padding.top;
+    _headerH = _topPad + 56 + 36; // +36 for pills row
+    _carouselH = _headerH + MediaQuery.sizeOf(context).height * 0.28;
+    return Scaffold(
       body: ValueListenableBuilder<bool>(
         valueListenable: anilistOfflineNotifier,
         builder: (context, isOffline, _) => Stack(
@@ -118,36 +140,42 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                         width: double.infinity,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.wifi_off,
-                                  color: Colors.white, size: 16),
+                              const Icon(
+                                Icons.wifi_off,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
                               const Flexible(
                                 child: Text(
                                   'Connexion non disponible — données mises en cache',
                                   style: TextStyle(
-                                      color: Colors.white, fontSize: 13),
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               InkWell(
-                                onTap: () =>
-                                    ref.refresh(anilistHomeProvider),
+                                onTap: () => ref.refresh(anilistHomeProvider),
                                 borderRadius: BorderRadius.circular(4),
                                 child: const Padding(
                                   padding: EdgeInsets.all(4),
                                   child: Text(
                                     'Réessayer',
                                     style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        decoration:
-                                            TextDecoration.underline,
-                                        decorationColor: Colors.white),
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -158,12 +186,14 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                     ),
                   ),
                 Expanded(
-                  child: ref.watch(anilistHomeProvider).when(
+                  child: ref
+                      .watch(anilistHomeProvider)
+                      .when(
                         loading: () => const SkeletonHomeScreen(),
                         error: (e, _) => AniListErrorView(
-                            error: e,
-                            onRetry: () =>
-                                ref.refresh(anilistHomeProvider)),
+                          error: e,
+                          onRetry: () => ref.refresh(anilistHomeProvider),
+                        ),
                         data: (home) => _buildBody(context, home),
                       ),
                 ),
@@ -195,11 +225,13 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     // Film & Série tabs use TMDB — load asynchronously
     final isTmdbTab = tab == _HomeTab.film || tab == _HomeTab.serie;
     if (isTmdbTab) {
-      return ref.watch(tmdbHomeProvider).when(
-        loading: () => const SkeletonHomeScreen(),
-        error: (e, _) => _buildBodyWithAnilist(context, home),
-        data: (tmdb) => _buildBodyTmdb(context, tmdb, tab),
-      );
+      return ref
+          .watch(tmdbHomeProvider)
+          .when(
+            loading: () => const SkeletonHomeScreen(),
+            error: (e, _) => _buildBodyWithAnilist(context, home),
+            data: (tmdb) => _buildBodyTmdb(context, tmdb, tab),
+          );
     }
 
     return _buildBodyWithAnilist(context, home);
@@ -207,7 +239,10 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   Widget _buildBodyTmdb(BuildContext context, TmdbHome tmdb, _HomeTab tab) {
     final heroItems = tab == _HomeTab.film
-        ? tmdb.trendingMovies.where((m) => m.bannerImage != null).take(10).toList()
+        ? tmdb.trendingMovies
+              .where((m) => m.bannerImage != null)
+              .take(10)
+              .toList()
         : tmdb.trendingTv.where((m) => m.bannerImage != null).take(10).toList();
 
     return RefreshIndicator(
@@ -221,18 +256,23 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       child: CustomScrollView(
         controller: _scroll,
-        physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
         slivers: [
           if (heroItems.isNotEmpty)
             SliverToBoxAdapter(
               child: TmdbHeroCarousel(
                 items: heroItems,
-                onTap: (_) {},
+                onTap: (media) =>
+                    context.push('/flixMediaDetail', extra: media),
                 topPadding: _headerH,
               ),
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 10)),
-          ...(tab == _HomeTab.film ? _tmdbFilmTab(context, tmdb) : _tmdbSerieTab(context, tmdb)),
+          ...(tab == _HomeTab.film
+              ? _tmdbFilmTab(context, tmdb)
+              : _tmdbSerieTab(context, tmdb)),
           const SliverToBoxAdapter(child: SizedBox(height: 110)),
         ],
       ),
@@ -255,7 +295,8 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       child: CustomScrollView(
         controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics()),
+          parent: ClampingScrollPhysics(),
+        ),
         slivers: [
           // ── Hero carousel (full bleed, at the very top) ────────────────
           if (heroItems.isNotEmpty)
@@ -311,8 +352,12 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         return home.animeMovies.where(ok).toList();
       case _HomeTab.serie:
         return [
-          ...home.trendingAnimes.where((m) => ok(m) && m.format != 'MOVIE').take(6),
-          ...home.popularAnimes.where((m) => ok(m) && m.format != 'MOVIE').take(4),
+          ...home.trendingAnimes
+              .where((m) => ok(m) && m.format != 'MOVIE')
+              .take(6),
+          ...home.popularAnimes
+              .where((m) => ok(m) && m.format != 'MOVIE')
+              .take(4),
         ]..shuffle();
       case _HomeTab.anime:
         return [
@@ -326,10 +371,16 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ]..shuffle();
       case _HomeTab.tvCourt:
         final shorts = [
-          ...home.recentlyUpdatedAnimes.where((m) => ok(m) && m.format == 'TV_SHORT'),
-          ...home.trendingAnimes.where((m) => ok(m) && (m.episodes ?? 99) <= 13),
+          ...home.recentlyUpdatedAnimes.where(
+            (m) => ok(m) && m.format == 'TV_SHORT',
+          ),
+          ...home.trendingAnimes.where(
+            (m) => ok(m) && (m.episodes ?? 99) <= 13,
+          ),
         ];
-        return shorts.isEmpty ? home.trendingAnimes.where(ok).take(6).toList() : shorts.take(8).toList();
+        return shorts.isEmpty
+            ? home.trendingAnimes.where(ok).take(6).toList()
+            : shorts.take(8).toList();
       case _HomeTab.musique:
         return [];
       case _HomeTab.enfant:
@@ -350,35 +401,35 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         icon: Icons.theaters_rounded,
         color: const Color(0xFF2980B9),
         items: tmdb.nowPlayingMovies,
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRow(
         title: 'Tendances de la semaine',
         icon: Icons.local_fire_department_rounded,
         color: const Color(0xFFE17055),
         items: tmdb.trendingMovies,
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRankedRow(
         title: 'Les mieux notés',
         icon: Icons.emoji_events_rounded,
         color: const Color(0xFFF39C12),
         items: tmdb.topRatedMovies.take(10).toList(),
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRow(
         title: 'Films populaires',
         icon: Icons.star_rounded,
         color: const Color(0xFF8E44AD),
         items: tmdb.popularMovies,
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRow(
         title: 'Prochainement',
         icon: Icons.upcoming_rounded,
         color: const Color(0xFF0984E3),
         items: tmdb.upcomingMovies,
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
     ];
   }
@@ -392,35 +443,35 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         icon: Icons.local_fire_department_rounded,
         color: const Color(0xFFE74C3C),
         items: tmdb.trendingTv,
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbLandscapeRow(
         title: 'En cours de diffusion',
         icon: Icons.live_tv_rounded,
         color: const Color(0xFF2980B9),
         items: tmdb.onTheAirTv,
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRow(
         title: 'Diffusées aujourd\'hui',
         icon: Icons.fiber_new_rounded,
         color: const Color(0xFF00B894),
         items: tmdb.airingTodayTv,
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRankedRow(
         title: 'Les mieux notées',
         icon: Icons.workspace_premium_rounded,
         color: const Color(0xFF6C5CE7),
         items: tmdb.topRatedTv.take(10).toList(),
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
       _TmdbRow(
         title: 'Séries populaires',
         icon: Icons.star_rounded,
         color: const Color(0xFFF39C12),
         items: tmdb.popularTv,
-        onTap: (_) {},
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
     ];
   }
@@ -429,28 +480,54 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   List<Widget> _sections(BuildContext ctx, AnilistHome home, _HomeTab tab) {
     switch (tab) {
-      case _HomeTab.tout:       return _toutAllTab(ctx, home);
-      case _HomeTab.film:       return _filmTab(ctx, home);
-      case _HomeTab.serie:      return _serieTab(ctx, home);
-      case _HomeTab.anime:      return _animeTab(ctx, home);
-      case _HomeTab.asia:       return _asiaTab(ctx, home);
-      case _HomeTab.tvCourt:    return _tvCourtTab(ctx, home);
+      case _HomeTab.tout:
+        return _toutAllTab(ctx, home);
+      case _HomeTab.film:
+        return _filmTab(ctx, home);
+      case _HomeTab.serie:
+        return _serieTab(ctx, home);
+      case _HomeTab.anime:
+        return _animeTab(ctx, home);
+      case _HomeTab.asia:
+        return _asiaTab(ctx, home);
+      case _HomeTab.tvCourt:
+        return _tvCourtTab(ctx, home);
       case _HomeTab.enfant:
-        return _promoTab(ctx, icon: Icons.child_care_rounded,
-            title: 'Enfant', subtitle: 'Dessins animés & contenus jeunesse',
-            color: const Color(0xFFFF9800), route: '/globalSearch');
+        return _promoTab(
+          ctx,
+          icon: Icons.child_care_rounded,
+          title: 'Enfant',
+          subtitle: 'Dessins animés & contenus jeunesse',
+          color: const Color(0xFFFF9800),
+          route: '/globalSearch',
+        );
       case _HomeTab.occidental:
-        return _promoTab(ctx, icon: Icons.public_rounded,
-            title: 'Occidental', subtitle: 'Séries & films US/EU',
-            color: const Color(0xFF2980B9), route: '/globalSearch');
+        return _promoTab(
+          ctx,
+          icon: Icons.public_rounded,
+          title: 'Occidental',
+          subtitle: 'Séries & films US/EU',
+          color: const Color(0xFF2980B9),
+          route: '/globalSearch',
+        );
       case _HomeTab.africa:
-        return _promoTab(ctx, icon: Icons.flag_rounded,
-            title: 'Africa', subtitle: 'Contenus africains',
-            color: const Color(0xFF27AE60), route: '/globalSearch');
+        return _promoTab(
+          ctx,
+          icon: Icons.flag_rounded,
+          title: 'Africa',
+          subtitle: 'Contenus africains',
+          color: const Color(0xFF27AE60),
+          route: '/globalSearch',
+        );
       case _HomeTab.football:
-        return _promoTab(ctx, icon: Icons.sports_soccer_rounded,
-            title: 'Football', subtitle: 'Matchs & résumés',
-            color: const Color(0xFF2ECC71), route: '/globalSearch');
+        return _promoTab(
+          ctx,
+          icon: Icons.sports_soccer_rounded,
+          title: 'Football',
+          subtitle: 'Matchs & résumés',
+          color: const Color(0xFF2ECC71),
+          route: '/globalSearch',
+        );
       case _HomeTab.musique:
         return [
           const SliverFillRemaining(
@@ -459,9 +536,14 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           ),
         ];
       case _HomeTab.jeux:
-        return _promoTab(ctx, icon: Icons.sports_esports_rounded,
-            title: 'Jeux', subtitle: 'Bibliothèque ROM',
-            color: const Color(0xFF3498DB), route: '/GameLibrary');
+        return _promoTab(
+          ctx,
+          icon: Icons.sports_esports_rounded,
+          title: 'Jeux',
+          subtitle: 'Bibliothèque ROM',
+          color: const Color(0xFF3498DB),
+          route: '/GameLibrary',
+        );
     }
   }
 
@@ -469,13 +551,15 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
   List<AnilistMedia> _sagaItems(AnilistHome home) {
     final seen = <int>{};
-    final out  = <AnilistMedia>[];
+    final out = <AnilistMedia>[];
     for (final m in [
       ...home.popularAnimes,
       ...home.trendingAnimes,
       ...home.recentlyUpdatedAnimes,
     ]) {
-      if (m.format == 'TV' && (m.episodes ?? 0) >= 24 && seen.add(m.id ?? out.length)) {
+      if (m.format == 'TV' &&
+          (m.episodes ?? 0) >= 24 &&
+          seen.add(m.id ?? out.length)) {
         out.add(m);
       }
     }
@@ -498,35 +582,40 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           onTap: (m) => _openDetail(ctx, m),
         ),
       _Row(
-          title: 'Sorties récentes',
-          icon: Icons.fiber_new_rounded,
-          color: const Color(0xFF00B894),
-          items: home.recentlyUpdatedAnimes,
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'Sorties récentes',
+        icon: Icons.fiber_new_rounded,
+        color: const Color(0xFF00B894),
+        items: home.recentlyUpdatedAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
       _MixedRow(
-          title: 'En ce moment',
-          icon: Icons.local_fire_department_rounded,
-          color: const Color(0xFFE17055),
-          items: home.trendingAnimes,
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'En ce moment',
+        icon: Icons.local_fire_department_rounded,
+        color: const Color(0xFFE17055),
+        items: home.trendingAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
       _LandscapeRow(
-          title: 'Films populaires',
-          icon: Icons.theaters_rounded,
-          color: const Color(0xFF2980B9),
-          items: home.animeMovies,
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'Films populaires',
+        icon: Icons.theaters_rounded,
+        color: const Color(0xFF2980B9),
+        items: home.animeMovies,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
       _RankedRow(
-          title: 'Top du moment',
-          icon: Icons.bar_chart_rounded,
-          color: const Color(0xFFE84393),
-          items: home.popularAnimes.take(10).toList(),
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'Top du moment',
+        icon: Icons.bar_chart_rounded,
+        color: const Color(0xFFE84393),
+        items: home.popularAnimes.take(10).toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
       _Row(
-          title: 'Prochainement',
-          icon: Icons.upcoming_rounded,
-          color: const Color(0xFF0984E3),
-          items: home.upcomingAnimes,
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'Prochainement',
+        icon: Icons.upcoming_rounded,
+        color: const Color(0xFF0984E3),
+        items: home.upcomingAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
     ];
   }
 
@@ -550,20 +639,22 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
       // ── Sorties récentes ────────────────────────────────────────────────
       _Row(
-          title: 'Sorties récentes',
-          icon: Icons.fiber_new_rounded,
-          color: const Color(0xFF00B894),
-          items: home.recentlyUpdatedAnimes,
-          onTap: (m) => _openDetail(ctx, m),
-          trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME'))),
+        title: 'Sorties récentes',
+        icon: Icons.fiber_new_rounded,
+        color: const Color(0xFF00B894),
+        items: home.recentlyUpdatedAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+        trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME')),
+      ),
 
       // ── En ce moment ────────────────────────────────────────────────────
       _MixedRow(
-          title: 'En ce moment',
-          icon: Icons.local_fire_department_rounded,
-          color: const Color(0xFFE17055),
-          items: home.trendingAnimes,
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'En ce moment',
+        icon: Icons.local_fire_department_rounded,
+        color: const Color(0xFFE17055),
+        items: home.trendingAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
 
       // ── Sagas & longues séries ───────────────────────────────────────────
       if (sagas.isNotEmpty)
@@ -577,19 +668,21 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
 
       // ── Top du moment ───────────────────────────────────────────────────
       _RankedRow(
-          title: 'Top du moment',
-          icon: Icons.bar_chart_rounded,
-          color: const Color(0xFFE84393),
-          items: home.popularAnimes.take(10).toList(),
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'Top du moment',
+        icon: Icons.bar_chart_rounded,
+        color: const Color(0xFFE84393),
+        items: home.popularAnimes.take(10).toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
 
       // ── Prochainement ───────────────────────────────────────────────────
       _Row(
-          title: 'Prochainement',
-          icon: Icons.upcoming_rounded,
-          color: const Color(0xFF0984E3),
-          items: home.upcomingAnimes,
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'Prochainement',
+        icon: Icons.upcoming_rounded,
+        color: const Color(0xFF0984E3),
+        items: home.upcomingAnimes,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
     ];
   }
 
@@ -598,56 +691,72 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   List<Widget> _tvCourtTab(BuildContext ctx, AnilistHome home) {
     final shorts = [
       ...home.recentlyUpdatedAnimes.where((m) => m.format == 'TV_SHORT'),
-      ...home.trendingAnimes.where((m) => (m.episodes ?? 99) <= 13 && m.format != 'MOVIE'),
+      ...home.trendingAnimes.where(
+        (m) => (m.episodes ?? 99) <= 13 && m.format != 'MOVIE',
+      ),
     ].toSet().toList();
 
     if (shorts.isEmpty) {
-      return _promoTab(ctx,
-          icon: Icons.timer_rounded,
-          title: 'TV Court',
-          subtitle: 'Mini-séries, shorts & drama courts',
-          color: const Color(0xFF00CEC9),
-          route: '/globalSearch');
+      return _promoTab(
+        ctx,
+        icon: Icons.timer_rounded,
+        title: 'TV Court',
+        subtitle: 'Mini-séries, shorts & drama courts',
+        color: const Color(0xFF00CEC9),
+        route: '/globalSearch',
+      );
     }
 
     return [
       _Row(
-          title: 'Mini-dramas & courts',
-          icon: Icons.timer_rounded,
-          color: const Color(0xFF00CEC9),
-          items: shorts.take(20).toList(),
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'Mini-dramas & courts',
+        icon: Icons.timer_rounded,
+        color: const Color(0xFF00CEC9),
+        items: shorts.take(20).toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
       _RankedRow(
-          title: 'Les mieux notés (court)',
-          icon: Icons.workspace_premium_rounded,
-          color: const Color(0xFFFD79A8),
-          items: (List<AnilistMedia>.from(shorts)
-                ..sort((a, b) => (b.averageScore ?? 0).compareTo(a.averageScore ?? 0)))
-              .take(10)
-              .toList(),
-          onTap: (m) => _openDetail(ctx, m)),
+        title: 'Les mieux notés (court)',
+        icon: Icons.workspace_premium_rounded,
+        color: const Color(0xFFFD79A8),
+        items:
+            (List<AnilistMedia>.from(shorts)..sort(
+                  (a, b) =>
+                      (b.averageScore ?? 0).compareTo(a.averageScore ?? 0),
+                ))
+                .take(10)
+                .toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
     ];
   }
 
   // ── Film ───────────────────────────────────────────────────────────────────
 
   List<Widget> _filmTab(BuildContext ctx, AnilistHome home) {
-    if (home.animeMovies.isEmpty) return [_EmptySliver('Aucun film disponible')];
+    if (home.animeMovies.isEmpty)
+      return [_EmptySliver('Aucun film disponible')];
     return [
-      _LandscapeRow(title: 'Films à l\'affiche',
-          icon: Icons.theaters_rounded,
-          color: const Color(0xFF2980B9),
-          items: home.animeMovies,
-          onTap: (m) => _openDetail(ctx, m)),
-      _RankedRow(title: 'Mieux notés',
-          icon: Icons.emoji_events_rounded,
-          color: const Color(0xFFF39C12),
-          items: (List<AnilistMedia>.from(home.animeMovies)
-                ..sort((a, b) =>
-                    (b.averageScore ?? 0).compareTo(a.averageScore ?? 0)))
-              .take(10)
-              .toList(),
-          onTap: (m) => _openDetail(ctx, m)),
+      _LandscapeRow(
+        title: 'Films à l\'affiche',
+        icon: Icons.theaters_rounded,
+        color: const Color(0xFF2980B9),
+        items: home.animeMovies,
+        onTap: (m) => _openDetail(ctx, m),
+      ),
+      _RankedRow(
+        title: 'Mieux notés',
+        icon: Icons.emoji_events_rounded,
+        color: const Color(0xFFF39C12),
+        items:
+            (List<AnilistMedia>.from(home.animeMovies)..sort(
+                  (a, b) =>
+                      (b.averageScore ?? 0).compareTo(a.averageScore ?? 0),
+                ))
+                .take(10)
+                .toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
     ];
   }
 
@@ -663,11 +772,13 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           mediaForImages: [...home.trendingAnimes, ...home.popularAnimes],
         ),
       ),
-      _MixedRow(title: 'Séries en tendance',
-          icon: Icons.local_fire_department_rounded,
-          color: const Color(0xFFE74C3C),
-          items: home.trendingAnimes.where((m) => m.format != 'MOVIE').toList(),
-          onTap: (m) => _openDetail(ctx, m)),
+      _MixedRow(
+        title: 'Séries en tendance',
+        icon: Icons.local_fire_department_rounded,
+        color: const Color(0xFFE74C3C),
+        items: home.trendingAnimes.where((m) => m.format != 'MOVIE').toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
       if (sagas.isNotEmpty)
         _SagaRow(
           title: 'Sagas & Longues Séries',
@@ -676,105 +787,134 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           items: sagas.take(15).toList(),
           onTap: (m) => _openDetail(ctx, m),
         ),
-      _RankedRow(title: 'Top populaires',
-          icon: Icons.star_rounded,
-          color: const Color(0xFFF39C12),
-          items: home.popularAnimes.where((m) => m.format != 'MOVIE').take(10).toList(),
-          onTap: (m) => _openDetail(ctx, m),
-          trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME'))),
-      _RankedRow(title: 'Mieux notées',
-          icon: Icons.workspace_premium_rounded,
-          color: const Color(0xFF8E44AD),
-          items: home.topRatedAnimes.where((m) => m.format != 'MOVIE').take(10).toList(),
-          onTap: (m) => _openDetail(ctx, m)),
+      _RankedRow(
+        title: 'Top populaires',
+        icon: Icons.star_rounded,
+        color: const Color(0xFFF39C12),
+        items: home.popularAnimes
+            .where((m) => m.format != 'MOVIE')
+            .take(10)
+            .toList(),
+        onTap: (m) => _openDetail(ctx, m),
+        trailing: _SeeAllBtn(() => _browseTo(ctx, 'ANIME')),
+      ),
+      _RankedRow(
+        title: 'Mieux notées',
+        icon: Icons.workspace_premium_rounded,
+        color: const Color(0xFF8E44AD),
+        items: home.topRatedAnimes
+            .where((m) => m.format != 'MOVIE')
+            .take(10)
+            .toList(),
+        onTap: (m) => _openDetail(ctx, m),
+      ),
     ];
   }
 
   // ── Asia ───────────────────────────────────────────────────────────────────
 
   List<Widget> _asiaTab(BuildContext ctx, AnilistHome home) => [
-        SliverToBoxAdapter(
-            child: _AsiaChips(onBrowse: (t, g) => _browseTo(ctx, t, genre: g))),
-        _MixedRow(title: 'K-Drama en tendance',
-            icon: Icons.whatshot_rounded,
-            color: const Color(0xFF3498DB),
-            items: home.trendingManhwa,
-            onTap: (m) => _openDetail(ctx, m),
-            trailing:
-                _SeeAllBtn(() => _browseTo(ctx, 'MANGA', genre: 'Romance'))),
-        _Row(title: 'C-Drama / Manhua',
-            icon: Icons.flag_rounded,
-            color: const Color(0xFFE74C3C),
-            items: home.trendingManhua,
-            onTap: (m) => _openDetail(ctx, m)),
-        _RankedRow(title: 'Top Asie',
-            icon: Icons.emoji_events_rounded,
-            color: const Color(0xFFF39C12),
-            items: home.popularMangas.take(10).toList(),
-            onTap: (m) => _openDetail(ctx, m)),
-      ];
+    SliverToBoxAdapter(
+      child: _AsiaChips(onBrowse: (t, g) => _browseTo(ctx, t, genre: g)),
+    ),
+    _MixedRow(
+      title: 'K-Drama en tendance',
+      icon: Icons.whatshot_rounded,
+      color: const Color(0xFF3498DB),
+      items: home.trendingManhwa,
+      onTap: (m) => _openDetail(ctx, m),
+      trailing: _SeeAllBtn(() => _browseTo(ctx, 'MANGA', genre: 'Romance')),
+    ),
+    _Row(
+      title: 'C-Drama / Manhua',
+      icon: Icons.flag_rounded,
+      color: const Color(0xFFE74C3C),
+      items: home.trendingManhua,
+      onTap: (m) => _openDetail(ctx, m),
+    ),
+    _RankedRow(
+      title: 'Top Asie',
+      icon: Icons.emoji_events_rounded,
+      color: const Color(0xFFF39C12),
+      items: home.popularMangas.take(10).toList(),
+      onTap: (m) => _openDetail(ctx, m),
+    ),
+  ];
 
   // ── Promo tab (Football / Musique / Jeux) ──────────────────────────────────
 
-  List<Widget> _promoTab(BuildContext ctx,
-      {required IconData icon,
-      required String title,
-      required String subtitle,
-      required Color color,
-      required String route}) =>
-      [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: color.withValues(alpha: 0.25), width: 1.5),
-                    ),
-                    child: Icon(icon, color: color, size: 42),
+  List<Widget> _promoTab(
+    BuildContext ctx, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required String route,
+  }) => [
+    SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.25),
+                    width: 1.5,
                   ),
-                  const SizedBox(height: 22),
-                  Text(title,
-                      style: TextStyle(
-                          color: color,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5)),
-                  const SizedBox(height: 8),
-                  Text(subtitle,
-                      style: TextStyle(
-                          color: color.withValues(alpha: 0.60),
-                          fontSize: 14)),
-                  const SizedBox(height: 30),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: color,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                    onPressed: () => ctx.go(route),
-                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: const Text('Ouvrir',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
-                  ),
-                ],
+                ),
+                child: Icon(icon, color: color, size: 42),
               ),
-            ),
+              const SizedBox(height: 22),
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: color.withValues(alpha: 0.60),
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 30),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: color,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () => ctx.go(route),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: const Text(
+                  'Ouvrir',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
+            ],
           ),
         ),
-      ];
+      ),
+    ),
+  ];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -872,8 +1012,11 @@ class _TitleBarState extends State<_TitleBar>
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.person_rounded,
-                            color: Colors.white, size: 19),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          color: Colors.white,
+                          size: 19,
+                        ),
                       ),
                     ),
                   ),
@@ -923,7 +1066,8 @@ class _HoloRingPainter extends CustomPainter {
 
     final paint = Paint()
       ..shader = gradient.createShader(
-          Rect.fromCircle(center: center, radius: radius))
+        Rect.fromCircle(center: center, radius: radius),
+      )
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -946,9 +1090,12 @@ class _TabsDelegate extends SliverPersistentHeaderDelegate {
 
   static const double _h = 52.0;
 
-  @override double get minExtent => _h;
-  @override double get maxExtent => _h;
-  @override bool shouldRebuild(_TabsDelegate o) =>
+  @override
+  double get minExtent => _h;
+  @override
+  double get maxExtent => _h;
+  @override
+  bool shouldRebuild(_TabsDelegate o) =>
       o.tab != tab || o.onChanged != onChanged;
 
   @override
@@ -1039,11 +1186,12 @@ class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final Color color;
   final Widget? trailing;
-  const _SectionHeader(
-      {required this.title,
-      required this.icon,
-      required this.color,
-      this.trailing});
+  const _SectionHeader({
+    required this.title,
+    required this.icon,
+    required this.color,
+    this.trailing,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1076,10 +1224,16 @@ class _SectionHeader extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.07)],
+                colors: [
+                  color.withValues(alpha: 0.22),
+                  color.withValues(alpha: 0.07),
+                ],
               ),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: color.withValues(alpha: 0.22), width: 0.8),
+              border: Border.all(
+                color: color.withValues(alpha: 0.22),
+                width: 0.8,
+              ),
             ),
             child: Icon(icon, size: 17, color: color),
           ),
@@ -1157,13 +1311,18 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionHeader(
-              title: title, icon: icon, color: color, trailing: trailing),
+            title: title,
+            icon: icon,
+            color: color,
+            trailing: trailing,
+          ),
           SizedBox(
             height: 196,
             child: ListView.separated(
@@ -1208,13 +1367,18 @@ class _MixedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionHeader(
-              title: title, icon: icon, color: color, trailing: trailing),
+            title: title,
+            icon: icon,
+            color: color,
+            trailing: trailing,
+          ),
           SizedBox(
             height: 218,
             child: ListView.separated(
@@ -1224,9 +1388,13 @@ class _MixedRow extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, i) => i == 0
                   ? FeaturedDiscoveryCard(
-                      media: items[i], onTap: () => onTap(items[i]))
+                      media: items[i],
+                      onTap: () => onTap(items[i]),
+                    )
                   : DiscoveryCard(
-                      media: items[i], onTap: () => onTap(items[i])),
+                      media: items[i],
+                      onTap: () => onTap(items[i]),
+                    ),
             ),
           ),
         ],
@@ -1258,13 +1426,18 @@ class _RankedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionHeader(
-              title: title, icon: icon, color: color, trailing: trailing),
+            title: title,
+            icon: icon,
+            color: color,
+            trailing: trailing,
+          ),
           SizedBox(
             height: 196,
             child: ListView.separated(
@@ -1318,8 +1491,9 @@ class _SpotlightSectionState extends State<_SpotlightSection> {
 
   Widget _buildPcGrid(double width) {
     final crossCount = width >= 1100 ? 3 : 2;
-    final maxItems =
-        widget.items.length > crossCount * 2 ? crossCount * 2 : widget.items.length;
+    final maxItems = widget.items.length > crossCount * 2
+        ? crossCount * 2
+        : widget.items.length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: GridView.builder(
@@ -1387,7 +1561,8 @@ class _SpotlightSectionState extends State<_SpotlightSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (widget.items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     final cs = Theme.of(context).colorScheme;
 
     return SliverToBoxAdapter(
@@ -1435,7 +1610,8 @@ class _SagaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1481,7 +1657,8 @@ class _LandscapeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1495,7 +1672,9 @@ class _LandscapeRow extends StatelessWidget {
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (_, i) => LandscapeDiscoveryCard(
-                media: items[i], onTap: () => onTap(items[i])),
+                media: items[i],
+                onTap: () => onTap(items[i]),
+              ),
             ),
           ),
         ],
@@ -1519,17 +1698,15 @@ class _AsiaChips extends StatelessWidget {
 
     // flag · label · type · genre
     const chips = [
-      ('🇰🇷', 'K-Drama',  'MANGA', 'Romance'),
-      ('🇨🇳', 'C-Drama',  'MANGA', null),
-      ('🇯🇵', 'J-Drama',  'MANGA', 'Slice of Life'),
-      ('🇰🇷', 'Manhwa',   'MANGA', null),
-      ('🇨🇳', 'Manhua',   'MANGA', null),
-      ('🇰🇷', 'Webtoon',  'MANGA', null),
+      ('🇰🇷', 'K-Drama', 'MANGA', 'Romance'),
+      ('🇨🇳', 'C-Drama', 'MANGA', null),
+      ('🇯🇵', 'J-Drama', 'MANGA', 'Slice of Life'),
+      ('🇰🇷', 'Manhwa', 'MANGA', null),
+      ('🇨🇳', 'Manhua', 'MANGA', null),
+      ('🇰🇷', 'Webtoon', 'MANGA', null),
     ];
 
-    final bg = isDark
-        ? cs.surfaceContainerHighest
-        : cs.surfaceContainerLow;
+    final bg = isDark ? cs.surfaceContainerHighest : cs.surfaceContainerLow;
     final fg = cs.onSurface.withValues(alpha: 0.80);
     final border = cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.45);
 
@@ -1541,7 +1718,9 @@ class _AsiaChips extends StatelessWidget {
           child: Text(
             'Origine',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700, fontSize: 15),
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
           ),
         ),
         SizedBox(
@@ -1557,7 +1736,9 @@ class _AsiaChips extends StatelessWidget {
                 onTap: () => onBrowse(type, genre),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 13, vertical: 0),
+                    horizontal: 13,
+                    vertical: 0,
+                  ),
                   decoration: BoxDecoration(
                     color: bg,
                     borderRadius: BorderRadius.circular(10),
@@ -1596,10 +1777,7 @@ class _ContinueWatchingSection extends StatelessWidget {
   final List<AnilistMedia> items;
   final void Function(AnilistMedia) onTap;
 
-  const _ContinueWatchingSection({
-    required this.items,
-    required this.onTap,
-  });
+  const _ContinueWatchingSection({required this.items, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1663,9 +1841,7 @@ class _ContinueWatchingSection extends StatelessWidget {
                   animeCoverUrl: media.bestCover,
                   animeTitle: media.displayTitle ?? 'Unknown',
                   episodeNumber: (index % 24) + 1,
-                  progress: EpisodeProgress(
-                    value: progress.clamp(0.0, 1.0),
-                  ),
+                  progress: EpisodeProgress(value: progress.clamp(0.0, 1.0)),
                 ),
                 onTap: () => onTap(media),
                 width: 200,
@@ -1717,119 +1893,119 @@ class _HomeHeader extends StatefulWidget {
 }
 
 class _HomeHeaderState extends State<_HomeHeader> {
-    @override
-    Widget build(BuildContext context) {
-      final topPad = MediaQuery.paddingOf(context).top;
-      final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.paddingOf(context).top;
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
 
-      return ValueListenableBuilder<double>(
-        valueListenable: widget.headerOpacity,
-        builder: (context, opacity, _) {
-          final bgColor = scaffoldBg.withValues(alpha: opacity);
+    return ValueListenableBuilder<double>(
+      valueListenable: widget.headerOpacity,
+      builder: (context, opacity, _) {
+        final bgColor = scaffoldBg.withValues(alpha: opacity);
 
-          return Container(
-            color: bgColor,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ── Safe-area scrim — dark gradient behind status bar icons ──
-                // Ensures white battery/clock stay readable over bright images.
-                Container(
-                  height: topPad,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: (1.0 - opacity) * 0.55),
-                        Colors.transparent,
-                      ],
-                    ),
+        return Container(
+          color: bgColor,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Safe-area scrim — dark gradient behind status bar icons ──
+              // Ensures white battery/clock stay readable over bright images.
+              Container(
+                height: topPad,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: (1.0 - opacity) * 0.55),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
+              ),
 
-                // ── Row 1: Logo + Search bar ──────────────────────────────
-                SizedBox(
-                  height: 56,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Row(
-                      children: [
-                        GestureDetector(
-                          onTap: widget.onAvatarTap,
-                          child: Image.asset(
-                            'assets/app_icons/icon.png',
-                            width: 56,
-                            height: 56,
-                          ),
+              // ── Row 1: Logo + Search bar ──────────────────────────────
+              SizedBox(
+                height: 56,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: widget.onAvatarTap,
+                        child: Image.asset(
+                          'assets/app_icons/icon.png',
+                          width: 56,
+                          height: 56,
                         ),
-                        const SizedBox(width: 10),
+                      ),
+                      const SizedBox(width: 10),
 
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: widget.onSearchTap,
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: const Row(
-                                children: [
-                                  SizedBox(width: 14),
-                                  Icon(
-                                    Icons.search_rounded,
-                                    color: Colors.white54,
-                                    size: 18,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Rechercher un titre...',
-                                      style: TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Recherche',
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: widget.onSearchTap,
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: const Row(
+                              children: [
+                                SizedBox(width: 14),
+                                Icon(
+                                  Icons.search_rounded,
+                                  color: Colors.white54,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Rechercher un titre...',
                                     style: TextStyle(
-                                      color: Color(0xFF00E676),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white54,
+                                      fontSize: 14,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  SizedBox(width: 14),
-                                ],
-                              ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Recherche',
+                                  style: TextStyle(
+                                    color: Color(0xFF00E676),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(width: 14),
+                              ],
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
 
-                // ── Row 2: Tab pills — tighter gap vs Row 1 ──────────────
-                SizedBox(
-                  height: 36,
-                  child: _SlidingTabRow(
-                    tab: widget.tab,
-                    onChanged: widget.onTabChanged,
-                  ),
+              // ── Row 2: Tab pills — tighter gap vs Row 1 ──────────────
+              SizedBox(
+                height: 36,
+                child: _SlidingTabRow(
+                  tab: widget.tab,
+                  onChanged: widget.onTabChanged,
                 ),
-              ],
-            ),
-          );
-        },
-      );
-    }
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
-  
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Empty state sliver
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1844,12 +2020,14 @@ class _EmptySliver extends StatelessWidget {
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(48),
-          child: Text(message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.50))),
+          child: Text(
+            message,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.50),
+            ),
+          ),
         ),
       ),
     );
@@ -1877,7 +2055,8 @@ class _TmdbRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1924,7 +2103,8 @@ class _TmdbLandscapeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1970,7 +2150,8 @@ class _TmdbRankedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

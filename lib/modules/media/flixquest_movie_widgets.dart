@@ -38,8 +38,10 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
 
   void _updateCompactHeader() {
     if (!mounted) return;
-    final heroHeight =
-        (MediaQuery.sizeOf(context).height * .48).clamp(410.0, 500.0);
+    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
+      410.0,
+      500.0,
+    );
     final threshold = heroHeight - MediaQuery.paddingOf(context).top;
     final shouldShow = _feedController.offset >= threshold;
     if (shouldShow != _showCompactHeader) {
@@ -69,12 +71,12 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
 
   @override
   Widget build(BuildContext context) {
-    final search = widget.onSearchPressed ??
-        () => context.push('/globalSearch');
-    final openBookmarks = widget.onBookmarksPressed ??
+    final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
+    final openBookmarks =
+        widget.onBookmarksPressed ??
         () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Liste locale des favoris')),
-            );
+          const SnackBar(content: Text('Liste locale des favoris')),
+        );
     final openLiveTv = () => context.push('/liveTv');
 
     return Stack(
@@ -123,7 +125,20 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                     title: 'Upcoming',
                     items: widget.home.upcomingMovies,
                   ),
-                  const GenreListGrid(),
+                  FullWidthMovieBanners(
+                    title: 'À voir ce soir',
+                    items: [
+                      ...widget.home.nowPlayingMovies,
+                      ...widget.home.upcomingMovies,
+                    ],
+                  ),
+                  GenreListGrid(
+                    imageSource: [
+                      ...widget.home.trendingMovies,
+                      ...widget.home.popularMovies,
+                      ...widget.home.topRatedMovies,
+                    ],
+                  ),
                   const MoviesFromWatchProviders(),
                   const SizedBox(height: 112),
                 ]),
@@ -187,8 +202,10 @@ class DiscoverMovies extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heroHeight =
-        (MediaQuery.sizeOf(context).height * .48).clamp(410.0, 500.0);
+    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
+      410.0,
+      500.0,
+    );
     final heroMovies = movies.take(10).toList(growable: false);
     return SizedBox(
       width: double.infinity,
@@ -453,10 +470,8 @@ class ScrollingMovies extends StatelessWidget {
                 child: TmdbPosterCard(
                   media: items[index],
                   width: cardWidth,
-                  onTap: () => context.push(
-                    '/flixMediaDetail',
-                    extra: items[index],
-                  ),
+                  onTap: () =>
+                      context.push('/flixMediaDetail', extra: items[index]),
                 ),
               ),
             ),
@@ -487,7 +502,9 @@ class ScrollingLandscapeMovies extends StatelessWidget {
         SizedBox(
           height: 158,
           child: ListView.separated(
-            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
@@ -495,10 +512,8 @@ class ScrollingLandscapeMovies extends StatelessWidget {
             itemBuilder: (context, index) => TmdbLandscapeCard(
               media: items[index],
               width: 238,
-              onTap: () => context.push(
-                '/flixMediaDetail',
-                extra: items[index],
-              ),
+              onTap: () =>
+                  context.push('/flixMediaDetail', extra: items[index]),
             ),
           ),
         ),
@@ -508,7 +523,9 @@ class ScrollingLandscapeMovies extends StatelessWidget {
 }
 
 class GenreListGrid extends StatelessWidget {
-  const GenreListGrid({super.key});
+  const GenreListGrid({this.imageSource = const [], super.key});
+
+  final List<TmdbMedia> imageSource;
 
   @override
   Widget build(BuildContext context) {
@@ -542,8 +559,13 @@ class GenreListGrid extends StatelessWidget {
                 itemCount: genres.length,
                 itemBuilder: (context, index) {
                   final genre = genres[index];
+                  final image = imageSource
+                      .where((movie) => movie.genreIds.contains(genre.id))
+                      .map((movie) => movie.bannerImage ?? movie.bestCover)
+                      .firstWhere((url) => url != null, orElse: () => null);
                   return AppGenreTile(
                     label: genre.name,
+                    imageUrl: image,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -560,6 +582,104 @@ class GenreListGrid extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class FullWidthMovieBanners extends StatelessWidget {
+  const FullWidthMovieBanners({
+    required this.title,
+    required this.items,
+    super.key,
+  });
+
+  final String title;
+  final List<TmdbMedia> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final banners = items
+        .where((movie) => movie.bannerImage != null)
+        .take(8)
+        .toList(growable: false);
+    if (banners.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title),
+        ...banners.map(
+          (movie) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppUI.pagePadding(context),
+              0,
+              AppUI.pagePadding(context),
+              12,
+            ),
+            child: _FullWidthMovieBanner(movie: movie),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FullWidthMovieBanner extends StatelessWidget {
+  const _FullWidthMovieBanner({required this.movie});
+
+  final TmdbMedia movie;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/flixMediaDetail', extra: movie),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: AspectRatio(
+          aspectRatio: 2.05,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ExtendedImage.network(
+                movie.bannerImage!,
+                fit: BoxFit.cover,
+                cache: true,
+                loadStateChanged: (state) {
+                  if (state.extendedImageLoadState == LoadState.completed) {
+                    return null;
+                  }
+                  return const AppShimmerBlock(radius: 0);
+                },
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xE6000000)],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: 12,
+                child: Text(
+                  movie.displayTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    shadows: [Shadow(color: Colors.black, blurRadius: 8)],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -619,10 +739,7 @@ class MoviesFromWatchProviders extends StatelessWidget {
 }
 
 class _StreamingServiceCard extends StatelessWidget {
-  const _StreamingServiceCard({
-    required this.service,
-    required this.onTap,
-  });
+  const _StreamingServiceCard({required this.service, required this.onTap});
 
   final TmdbWatchProvider service;
   final VoidCallback onTap;
@@ -662,10 +779,9 @@ class _StreamingServiceCard extends StatelessWidget {
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -776,13 +892,181 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
                 final media = _movies[index];
                 return TmdbPosterCard(
                   media: media,
-                  onTap: () => context.push(
-                    '/flixMediaDetail',
-                    extra: media,
-                  ),
+                  onTap: () => context.push('/flixMediaDetail', extra: media),
                 );
               },
             ),
+    );
+  }
+}
+
+/// FlixQuest-style TMDB search kept separate from Watchtower's extension
+/// search. It searches the movie/series catalogue and never opens the
+/// extension global-search route.
+class TmdbSearchScreen extends StatefulWidget {
+  const TmdbSearchScreen({super.key});
+
+  @override
+  State<TmdbSearchScreen> createState() => _TmdbSearchScreenState();
+}
+
+class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
+  final TextEditingController _controller = TextEditingController();
+  String _query = '';
+  Future<List<TmdbMedia>>? _movies;
+  Future<List<TmdbMedia>>? _series;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _search([String? raw]) {
+    final query = (raw ?? _controller.text).trim();
+    if (query.isEmpty) return;
+    _controller.text = query;
+    _controller.selection = TextSelection.collapsed(offset: query.length);
+    final encoded = Uri.encodeQueryComponent(query);
+    setState(() {
+      _query = query;
+      _movies = fetchTmdbMoviePage(path: '/search/movie?query=$encoded');
+      _series = fetchTmdbTvPage(path: '/search/tv?query=$encoded');
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: TextField(
+          controller: _controller,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          onSubmitted: _search,
+          decoration: const InputDecoration(
+            hintText: 'Rechercher un film ou une série',
+            border: InputBorder.none,
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Rechercher',
+            onPressed: _search,
+            icon: const Icon(Icons.search_rounded),
+          ),
+        ],
+      ),
+      body: _query.isEmpty
+          ? _SearchEmptyState(color: colors)
+          : DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  const TabBar(
+                    tabs: [
+                      Tab(text: 'Films'),
+                      Tab(text: 'Séries'),
+                    ],
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _TmdbSearchResults(future: _movies!),
+                        _TmdbSearchResults(future: _series!),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _SearchEmptyState extends StatelessWidget {
+  const _SearchEmptyState({required this.color});
+
+  final ColorScheme color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.auto_awesome_rounded,
+              size: 58,
+              color: color.primary.withValues(alpha: .8),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Que veux-tu regarder ?',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Recherche directement dans le catalogue Movies et Series.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: color.onSurface.withValues(alpha: .55)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TmdbSearchResults extends StatelessWidget {
+  const _TmdbSearchResults({required this.future});
+
+  final Future<List<TmdbMedia>> future;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<TmdbMedia>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 150,
+              childAspectRatio: .66,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: 12,
+            itemBuilder: (_, __) => const AppShimmerBlock(radius: 14),
+          );
+        }
+        if (snapshot.hasError || snapshot.data?.isEmpty != false) {
+          return const Center(child: Text('Aucun résultat'));
+        }
+        final items = snapshot.data!;
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 150,
+            childAspectRatio: .66,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 16,
+          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) => TmdbPosterCard(
+            media: items[index],
+            width: double.infinity,
+            onTap: () => context.push('/flixMediaDetail', extra: items[index]),
+          ),
+        );
+      },
     );
   }
 }

@@ -66,7 +66,9 @@ import 'package:watchtower/modules/game/game_discovery_screen.dart';
 import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart'
     as nfile_home;
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
+import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/media_hub_screen.dart';
+import 'package:watchtower/modules/media/flixquest_movie_widgets.dart';
 import 'package:watchtower/modules/media/live_tv_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
@@ -246,10 +248,7 @@ class RouterNotifier extends ChangeNotifier {
           name: "discover",
           child: const WatchtowerDiscoverScreen(),
         ),
-        _genericRoute(
-          name: "liveTv",
-          child: const LiveTvScreen(),
-        ),
+        _genericRoute(name: "liveTv", child: const LiveTvScreen()),
       ],
     ),
     _genericRoute<(Source?, bool)>(
@@ -444,6 +443,11 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute(
       name: "watchtowerSearch",
       child: const WatchtowerSearchScreen(),
+    ),
+    _genericRoute(name: "flixSearch", child: const TmdbSearchScreen()),
+    _genericRoute<TmdbMedia>(
+      name: "flixMediaDetail",
+      builder: (media) => TmdbMediaDetailScreen(media: media),
     ),
     _genericRoute(name: "transfer", child: const TransferScreen()),
     _genericRoute<ItemType>(

@@ -1,6 +1,7 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
+import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TMDB Poster card (2:3)
@@ -42,8 +43,9 @@ class TmdbPosterCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     cache: true,
                     loadStateChanged: (s) {
-                      if (s.extendedImageLoadState == LoadState.completed) return null;
-                      return Container(color: cs.surfaceContainerHighest);
+                      if (s.extendedImageLoadState == LoadState.completed)
+                        return null;
+                      return const AppShimmerBlock();
                     },
                   )
                 else
@@ -67,9 +69,13 @@ class TmdbPosterCard extends StatelessWidget {
                 // Score badge
                 if (score != null && score > 0)
                   Positioned(
-                    top: 7, right: 7,
+                    top: 7,
+                    right: 7,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.70),
                         borderRadius: BorderRadius.circular(6),
@@ -77,7 +83,11 @@ class TmdbPosterCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.star_rounded, size: 10, color: Colors.amber),
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 10,
+                            color: Colors.amber,
+                          ),
                           const SizedBox(width: 2),
                           Text(
                             score.toStringAsFixed(1),
@@ -93,7 +103,9 @@ class TmdbPosterCard extends StatelessWidget {
                   ),
                 // Title bottom
                 Positioned(
-                  left: 8, right: 8, bottom: 8,
+                  left: 8,
+                  right: 8,
+                  bottom: 8,
                   child: Text(
                     media.displayTitle,
                     maxLines: 2,
@@ -109,9 +121,13 @@ class TmdbPosterCard extends StatelessWidget {
                 ),
                 // Type badge
                 Positioned(
-                  bottom: 8, right: 8,
+                  bottom: 8,
+                  right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: media.mediaType == 'movie'
                           ? const Color(0xFF2980B9).withValues(alpha: 0.90)
@@ -174,10 +190,13 @@ class TmdbLandscapeCard extends StatelessWidget {
               children: [
                 if (image != null)
                   ExtendedImage.network(
-                    image, fit: BoxFit.cover, cache: true,
+                    image,
+                    fit: BoxFit.cover,
+                    cache: true,
                     loadStateChanged: (s) {
-                      if (s.extendedImageLoadState == LoadState.completed) return null;
-                      return Container(color: cs.surfaceContainerHighest);
+                      if (s.extendedImageLoadState == LoadState.completed)
+                        return null;
+                      return const AppShimmerBlock(radius: 0);
                     },
                   )
                 else
@@ -185,7 +204,8 @@ class TmdbLandscapeCard extends StatelessWidget {
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                       stops: [0.3, 1.0],
                       colors: [Colors.transparent, Colors.black87],
                     ),
@@ -193,52 +213,87 @@ class TmdbLandscapeCard extends StatelessWidget {
                 ),
                 Center(
                   child: Container(
-                    width: 38, height: 38,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.20),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
                     ),
-                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                   ),
                 ),
                 Positioned(
-                  left: 10, right: 60, bottom: 10,
+                  left: 10,
+                  right: 60,
+                  bottom: 10,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         media.displayTitle,
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                           shadows: [Shadow(color: Colors.black, blurRadius: 6)],
                         ),
                       ),
                       if (score != null && score > 0) ...[
                         const SizedBox(height: 4),
-                        Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.star_rounded, size: 12, color: Colors.amberAccent),
-                          const SizedBox(width: 3),
-                          Text(score.toStringAsFixed(1),
-                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ]),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 12,
+                              color: Colors.amberAccent,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              score.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ],
                   ),
                 ),
                 Positioned(
-                  top: 8, right: 8,
+                  top: 8,
+                  right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.60),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       media.mediaType == 'movie' ? 'FILM' : 'SÉRIE',
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ),
@@ -276,7 +331,9 @@ class TmdbRankedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final rankColor = rank <= 3 ? _rankColors[rank - 1] : cs.onSurface.withValues(alpha: 0.40);
+    final rankColor = rank <= 3
+        ? _rankColors[rank - 1]
+        : cs.onSurface.withValues(alpha: 0.40);
 
     return GestureDetector(
       onTap: onTap,
@@ -293,16 +350,23 @@ class TmdbRankedCard extends StatelessWidget {
                     child: AspectRatio(
                       aspectRatio: 2 / 3,
                       child: media.bestCover != null
-                          ? ExtendedImage.network(media.bestCover!, fit: BoxFit.cover, cache: true,
+                          ? ExtendedImage.network(
+                              media.bestCover!,
+                              fit: BoxFit.cover,
+                              cache: true,
                               loadStateChanged: (s) {
-                                if (s.extendedImageLoadState == LoadState.completed) return null;
-                                return Container(color: cs.surfaceContainerHighest);
-                              })
-                          : Container(color: cs.surfaceContainerHighest),
+                                if (s.extendedImageLoadState ==
+                                    LoadState.completed)
+                                  return null;
+                                return const AppShimmerBlock();
+                              },
+                            )
+                          : const AppShimmerBlock(),
                     ),
                   ),
                   Positioned(
-                    bottom: -4, left: 4,
+                    bottom: -4,
+                    left: 4,
                     child: Text(
                       '$rank',
                       style: TextStyle(
@@ -317,12 +381,15 @@ class TmdbRankedCard extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    bottom: -4, left: 4,
+                    bottom: -4,
+                    left: 4,
                     child: Text(
                       '$rank',
                       style: TextStyle(
-                        fontSize: 52, fontWeight: FontWeight.w900,
-                        color: rankColor, height: 1,
+                        fontSize: 52,
+                        fontWeight: FontWeight.w900,
+                        color: rankColor,
+                        height: 1,
                       ),
                     ),
                   ),
@@ -332,7 +399,8 @@ class TmdbRankedCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               media.displayTitle,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             ),
           ],
@@ -377,8 +445,11 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
     Future.delayed(const Duration(seconds: 6), () {
       if (!mounted) return;
       final next = (_page + 1) % widget.items.length;
-      _ctrl.animateToPage(next,
-          duration: const Duration(milliseconds: 520), curve: Curves.easeOutCubic);
+      _ctrl.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+      );
       _startAutoPlay();
     });
   }
@@ -418,21 +489,28 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
                       Container(color: cs.surfaceContainerHighest),
                     // Top gradient (behind header)
                     Positioned(
-                      top: 0, left: 0, right: 0,
+                      top: 0,
+                      left: 0,
+                      right: 0,
                       height: widget.topPadding + 80,
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Colors.black.withValues(alpha: 0.55), Colors.transparent],
+                            colors: [
+                              Colors.black.withValues(alpha: 0.55),
+                              Colors.transparent,
+                            ],
                           ),
                         ),
                       ),
                     ),
                     // Bottom info overlay
                     Positioned(
-                      left: 0, right: 0, bottom: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
                       child: Container(
                         padding: EdgeInsets.fromLTRB(20, 60, 20, 16),
                         decoration: BoxDecoration(
@@ -453,7 +531,10 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
                           children: [
                             // Type badge
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: m.mediaType == 'movie'
                                     ? const Color(0xFF2980B9)
@@ -463,8 +544,11 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
                               child: Text(
                                 m.mediaType == 'movie' ? 'FILM' : 'SÉRIE',
                                 style: const TextStyle(
-                                  color: Colors.white, fontSize: 11,
-                                  fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -480,19 +564,29 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
                                 height: 1.15,
                               ),
                             ),
-                            if (m.voteAverage != null && m.voteAverage! > 0) ...[
+                            if (m.voteAverage != null &&
+                                m.voteAverage! > 0) ...[
                               const SizedBox(height: 6),
-                              Row(children: [
-                                const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${m.voteAverage!.toStringAsFixed(1)} / 10',
-                                  style: TextStyle(
-                                    color: cs.onSurface.withValues(alpha: 0.70),
-                                    fontSize: 12, fontWeight: FontWeight.w600,
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    size: 14,
+                                    color: Colors.amber,
                                   ),
-                                ),
-                              ]),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${m.voteAverage!.toStringAsFixed(1)} / 10',
+                                    style: TextStyle(
+                                      color: cs.onSurface.withValues(
+                                        alpha: 0.70,
+                                      ),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ],
                         ),
@@ -505,7 +599,9 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
           ),
           // Page dots
           Positioned(
-            bottom: 8, left: 0, right: 0,
+            bottom: 8,
+            left: 0,
+            right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(

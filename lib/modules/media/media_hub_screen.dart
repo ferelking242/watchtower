@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
+import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/media/flixquest_movie_widgets.dart';
 
 enum MediaHubKind { movies, series }
@@ -24,7 +25,7 @@ class FlixMediaHomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: home.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonHomeScreen(),
         error: (error, _) => _MediaError(title: title, error: error),
         data: (data) => isMovies
             ? MainMoviesDisplay(home: data)
@@ -247,7 +248,8 @@ class _MediaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.only(bottom: 25),
@@ -362,7 +364,10 @@ class TmdbMediaDetailScreen extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (media.bannerImage != null)
-                    ExtendedImage.network(media.bannerImage!, fit: BoxFit.cover),
+                    ExtendedImage.network(
+                      media.bannerImage!,
+                      fit: BoxFit.cover,
+                    ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -416,18 +421,19 @@ class TmdbMediaDetailScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: () => context.push('/globalSearch'),
+                          onPressed: () => context.push('/flixSearch'),
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: const Text('Rechercher une source'),
                         ),
                       ),
                       const SizedBox(width: 10),
                       IconButton.filledTonal(
-                        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Ajouté à votre liste locale'),
-                          ),
-                        ),
+                        onPressed: () =>
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Ajouté à votre liste locale'),
+                              ),
+                            ),
                         icon: const Icon(Icons.add_rounded),
                         tooltip: 'Ma liste',
                       ),

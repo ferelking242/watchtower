@@ -31,7 +31,7 @@ class _MenuItem {
 
 const kWtRouteInfo = <String, (String, IconData)>{
   '/WatchtowerHome': ('Accueil', Icons.home_rounded),
-  '/AnimeLibrary': ('Watch', Icons.live_tv_rounded),
+  '/AnimeLibrary': ('Anime', Icons.live_tv_rounded),
   '/MoviesLibrary': ('Movies', Icons.movie_rounded),
   '/MangaLibrary': ('Manga', Icons.auto_stories),
   '/NovelLibrary': ('Novel', Icons.local_library),

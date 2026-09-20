@@ -8,7 +8,7 @@ import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/models/manga.dart';
-import 'package:watchtower/modules/home/widgets/library_header_bar.dart';
+import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 
 /// Novel tab — AniList-powered light-novel discover page (trending, popular,
 /// latest) plus genre & origin category cards.
@@ -23,8 +23,7 @@ class NovelDiscoveryScreen extends ConsumerWidget {
     context.push(
       '/anilistBrowse',
       extra: (
-        AnilistBrowseFilter(
-            mediaType: 'MANGA', format: 'NOVEL', genre: genre),
+        AnilistBrowseFilter(mediaType: 'MANGA', format: 'NOVEL', genre: genre),
         genre == null ? 'Light Novels' : '$genre Novels',
       ),
     );
@@ -60,85 +59,83 @@ class NovelDiscoveryScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            const LibraryHeaderBar(itemType: ItemType.manga),
-            Expanded(
-              child: asyncHome.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => AniListErrorView(
-                  error: e,
-                  onRetry: () => ref.invalidate(anilistHomeProvider),
-                ),
-                data: (home) => CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: HeroCarousel(
-                        items: home.trendingNovels.take(8).toList(),
-                        onItemTap: (m) => _openDetail(context, m),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.only(bottom: 120),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          DiscoveryRow(
-                            title: 'Trending Light Novels',
-                            items: home.trendingNovels,
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => _seeAllNovels(context),
-                          ),
-                          CategoryRow(
-                            title: 'Genres',
-                            categories: novelCategories(),
-                          ),
-                          DiscoveryRow(
-                            title: 'Popular Novels',
-                            items: home.popularNovels,
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => _seeAllNovels(context),
-                          ),
-                          DiscoveryRow(
-                            title: 'Highly Rated Completed',
-                            items: home.latestNovels,
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => _seeAllNovels(context),
-                          ),
-                          DiscoveryRow(
-                            title: 'Top Rated',
-                            items: _byScore(home.popularNovels + home.trendingNovels),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => _seeAllNovels(context),
-                          ),
-                          DiscoveryRow(
-                            title: 'Fantasy',
-                            items: _byGenre(home.popularNovels + home.trendingNovels, 'Fantasy'),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => _seeAllNovels(context, genre: 'Fantasy'),
-                          ),
-                          DiscoveryRow(
-                            title: 'Romance',
-                            items: _byGenre(home.popularNovels + home.trendingNovels, 'Romance'),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => _seeAllNovels(context, genre: 'Romance'),
-                          ),
-                          DiscoveryRow(
-                            title: 'Action',
-                            items: _byGenre(home.popularNovels + home.trendingNovels, 'Action'),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => _seeAllNovels(context, genre: 'Action'),
-                          ),
-                          const _NovelSourcesHint(),
-                        ]),
-                      ),
-                    ),
-                  ],
+        child: asyncHome.when(
+          loading: () => const SkeletonHomeScreen(),
+          error: (e, _) => AniListErrorView(
+            error: e,
+            onRetry: () => ref.invalidate(anilistHomeProvider),
+          ),
+          data: (home) => CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: HeroCarousel(
+                  items: home.trendingNovels.take(8).toList(),
+                  onItemTap: (m) => _openDetail(context, m),
                 ),
               ),
-            ),
-          ],
+              SliverPadding(
+                padding: const EdgeInsets.only(bottom: 120),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    DiscoveryRow(
+                      title: 'Trending Light Novels',
+                      items: home.trendingNovels,
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => _seeAllNovels(context),
+                    ),
+                    CategoryRow(title: 'Genres', categories: novelCategories()),
+                    DiscoveryRow(
+                      title: 'Popular Novels',
+                      items: home.popularNovels,
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => _seeAllNovels(context),
+                    ),
+                    DiscoveryRow(
+                      title: 'Highly Rated Completed',
+                      items: home.latestNovels,
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => _seeAllNovels(context),
+                    ),
+                    DiscoveryRow(
+                      title: 'Top Rated',
+                      items: _byScore(home.popularNovels + home.trendingNovels),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => _seeAllNovels(context),
+                    ),
+                    DiscoveryRow(
+                      title: 'Fantasy',
+                      items: _byGenre(
+                        home.popularNovels + home.trendingNovels,
+                        'Fantasy',
+                      ),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => _seeAllNovels(context, genre: 'Fantasy'),
+                    ),
+                    DiscoveryRow(
+                      title: 'Romance',
+                      items: _byGenre(
+                        home.popularNovels + home.trendingNovels,
+                        'Romance',
+                      ),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => _seeAllNovels(context, genre: 'Romance'),
+                    ),
+                    DiscoveryRow(
+                      title: 'Action',
+                      items: _byGenre(
+                        home.popularNovels + home.trendingNovels,
+                        'Action',
+                      ),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => _seeAllNovels(context, genre: 'Action'),
+                    ),
+                    const _NovelSourcesHint(),
+                  ]),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -158,9 +155,7 @@ class _NovelSourcesHint extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.surfaceContainerHigh.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: cs.outline.withValues(alpha: 0.15),
-          ),
+          border: Border.all(color: cs.outline.withValues(alpha: 0.15)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

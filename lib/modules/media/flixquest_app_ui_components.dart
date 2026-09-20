@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
 /// Visual primitives copied from FlixQuest's app_ui_components.dart.
@@ -29,12 +30,15 @@ abstract final class AppUI {
 
   static double mediaGridChildAspectRatio(BuildContext context) {
     final columns = mediaGridColumns(context);
-    final gridWidth = MediaQuery.sizeOf(context).width -
+    final gridWidth =
+        MediaQuery.sizeOf(context).width -
         (pagePadding(context) * 2) -
         (mediaGridCrossAxisSpacing * (columns - 1));
     final itemWidth = gridWidth / columns;
     final itemHeight =
-        (itemWidth / posterAspectRatio) + mediaGridTitleGap + mediaGridTitleHeight;
+        (itemWidth / posterAspectRatio) +
+        mediaGridTitleGap +
+        mediaGridTitleHeight;
     return itemWidth / itemHeight;
   }
 
@@ -42,8 +46,7 @@ abstract final class AppUI {
     final width = MediaQuery.sizeOf(context).width;
     if (width >= 900) return 118;
     if (width >= 650) return 108;
-    return ((width - (pagePadding(context) * 2) - 30) / 4)
-        .clamp(72.0, 100.0);
+    return ((width - (pagePadding(context) * 2) - 30) / 4).clamp(72.0, 100.0);
   }
 }
 
@@ -240,9 +243,9 @@ class AppSectionHeader extends StatelessWidget {
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           if (actionLabel != null)
@@ -265,8 +268,8 @@ class AppRatingBadge extends StatelessWidget {
     final value = rating == null
         ? '—'
         : rating! % 1 == 0
-            ? rating!.toInt().toString()
-            : rating!.toStringAsFixed(1);
+        ? rating!.toInt().toString()
+        : rating!.toStringAsFixed(1);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.primary,
@@ -301,51 +304,76 @@ class AppGenreTile extends StatelessWidget {
   const AppGenreTile({
     required this.label,
     required this.onTap,
+    this.imageUrl,
     super.key,
   });
 
   final String label;
   final VoidCallback onTap;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Material(
-      color: colors.surfaceContainerHigh.withValues(alpha: .78),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(17),
-        side: BorderSide(color: colors.outlineVariant.withValues(alpha: .55)),
-      ),
+      color: colors.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(11),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (imageUrl != null)
+              ExtendedImage.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                cache: true,
+                loadStateChanged: (state) {
+                  if (state.extendedImageLoadState == LoadState.completed) {
+                    return null;
+                  }
+                  return ColoredBox(color: colors.surfaceContainerHigh);
+                },
+              )
+            else
+              ColoredBox(color: colors.surfaceContainerHigh),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xE6000000)],
                 ),
-                child: Icon(Icons.movie_filter_rounded,
-                    size: 18, color: colors.primary),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
+            ),
+            Positioned(
+              left: 12,
+              right: 10,
+              bottom: 10,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        shadows: [Shadow(color: Colors.black, blurRadius: 6)],
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: Colors.white70,
+                  ),
+                ],
               ),
-              Icon(Icons.chevron_right_rounded,
-                  size: 15, color: colors.onSurfaceVariant),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

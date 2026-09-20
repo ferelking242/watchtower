@@ -5,7 +5,7 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
-import 'package:watchtower/modules/home/widgets/library_header_bar.dart';
+import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/models/manga.dart';
 
 /// Anime tab — AniList-powered discover page (trending, popular, upcoming).
@@ -46,142 +46,163 @@ class AnimeDiscoveryScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            const LibraryHeaderBar(itemType: ItemType.anime),
-            Expanded(
-              child: asyncHome.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => AniListErrorView(
-                  error: e,
-                  onRetry: () => ref.invalidate(anilistHomeProvider),
-                ),
-                data: (home) => CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: HeroCarousel(
-                        items: home.trendingAnimes.take(8).toList(),
-                        onItemTap: (m) => _openDetail(context, m),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.only(bottom: 120),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          DiscoveryRow(
-                            title: 'Recommended Anime',
-                            items: home.trendingAnimes,
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push(
-                              '/anilistBrowse',
-                              extra: (
-                                const AnilistBrowseFilter(mediaType: 'ANIME'),
-                                'Anime'
-                              ),
-                            ),
-                          ),
-                          CategoryRow(
-                            title: 'Genres',
-                            categories: animeCategories(),
-                          ),
-                          DiscoveryRow(
-                            title: 'Popular Anime',
-                            items: home.popularAnimes,
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push('/globalSearch',
-                                extra: (null, ItemType.anime)),
-                          ),
-                          DiscoveryRow(
-                            title: 'Upcoming Anime',
-                            items: home.upcomingAnimes,
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push('/globalSearch',
-                                extra: (null, ItemType.anime)),
-                          ),
-                          DiscoveryRow(
-                            title: 'Recently Updated',
-                            items: home.recentlyUpdatedAnimes,
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push('/globalSearch',
-                                extra: (null, ItemType.anime)),
-                          ),
-                          DiscoveryRow(
-                            title: 'Recently Completed',
-                            items: home.latestAnimes,
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push('/globalSearch',
-                                extra: (null, ItemType.anime)),
-                          ),
-                          DiscoveryRow(
-                            title: 'Top Rated',
-                            items: _byScore(home.popularAnimes + home.trendingAnimes),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push(
-                              '/anilistBrowse',
-                              extra: (
-                                const AnilistBrowseFilter(mediaType: 'ANIME'),
-                                'Top Rated Anime'
-                              ),
-                            ),
-                          ),
-                          DiscoveryRow(
-                            title: 'Action',
-                            items: _byGenre(home.popularAnimes + home.trendingAnimes, 'Action'),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push(
-                              '/anilistBrowse',
-                              extra: (
-                                const AnilistBrowseFilter(mediaType: 'ANIME', genre: 'Action'),
-                                'Action Anime'
-                              ),
-                            ),
-                          ),
-                          DiscoveryRow(
-                            title: 'Romance',
-                            items: _byGenre(home.popularAnimes + home.trendingAnimes, 'Romance'),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push(
-                              '/anilistBrowse',
-                              extra: (
-                                const AnilistBrowseFilter(mediaType: 'ANIME', genre: 'Romance'),
-                                'Romance Anime'
-                              ),
-                            ),
-                          ),
-                          DiscoveryRow(
-                            title: 'Comedy',
-                            items: _byGenre(home.popularAnimes + home.trendingAnimes, 'Comedy'),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push(
-                              '/anilistBrowse',
-                              extra: (
-                                const AnilistBrowseFilter(mediaType: 'ANIME', genre: 'Comedy'),
-                                'Comedy Anime'
-                              ),
-                            ),
-                          ),
-                          DiscoveryRow(
-                            title: 'Fantasy',
-                            items: _byGenre(home.popularAnimes + home.trendingAnimes, 'Fantasy'),
-                            onItemTap: (m) => _openDetail(context, m),
-                            onSeeAll: () => context.push(
-                              '/anilistBrowse',
-                              extra: (
-                                const AnilistBrowseFilter(mediaType: 'ANIME', genre: 'Fantasy'),
-                                'Fantasy Anime'
-                              ),
-                            ),
-                          ),
-                        ]),
-                      ),
-                    ),
-                  ],
+        child: asyncHome.when(
+          loading: () => const SkeletonHomeScreen(),
+          error: (e, _) => AniListErrorView(
+            error: e,
+            onRetry: () => ref.invalidate(anilistHomeProvider),
+          ),
+          data: (home) => CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: HeroCarousel(
+                  items: home.trendingAnimes.take(8).toList(),
+                  onItemTap: (m) => _openDetail(context, m),
                 ),
               ),
-            ),
-          ],
+              SliverPadding(
+                padding: const EdgeInsets.only(bottom: 120),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    DiscoveryRow(
+                      title: 'Recommended Anime',
+                      items: home.trendingAnimes,
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/anilistBrowse',
+                        extra: (
+                          const AnilistBrowseFilter(mediaType: 'ANIME'),
+                          'Anime',
+                        ),
+                      ),
+                    ),
+                    CategoryRow(title: 'Genres', categories: animeCategories()),
+                    DiscoveryRow(
+                      title: 'Popular Anime',
+                      items: home.popularAnimes,
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/globalSearch',
+                        extra: (null, ItemType.anime),
+                      ),
+                    ),
+                    DiscoveryRow(
+                      title: 'Upcoming Anime',
+                      items: home.upcomingAnimes,
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/globalSearch',
+                        extra: (null, ItemType.anime),
+                      ),
+                    ),
+                    DiscoveryRow(
+                      title: 'Recently Updated',
+                      items: home.recentlyUpdatedAnimes,
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/globalSearch',
+                        extra: (null, ItemType.anime),
+                      ),
+                    ),
+                    DiscoveryRow(
+                      title: 'Recently Completed',
+                      items: home.latestAnimes,
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/globalSearch',
+                        extra: (null, ItemType.anime),
+                      ),
+                    ),
+                    DiscoveryRow(
+                      title: 'Top Rated',
+                      items: _byScore(home.popularAnimes + home.trendingAnimes),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/anilistBrowse',
+                        extra: (
+                          const AnilistBrowseFilter(mediaType: 'ANIME'),
+                          'Top Rated Anime',
+                        ),
+                      ),
+                    ),
+                    DiscoveryRow(
+                      title: 'Action',
+                      items: _byGenre(
+                        home.popularAnimes + home.trendingAnimes,
+                        'Action',
+                      ),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/anilistBrowse',
+                        extra: (
+                          const AnilistBrowseFilter(
+                            mediaType: 'ANIME',
+                            genre: 'Action',
+                          ),
+                          'Action Anime',
+                        ),
+                      ),
+                    ),
+                    DiscoveryRow(
+                      title: 'Romance',
+                      items: _byGenre(
+                        home.popularAnimes + home.trendingAnimes,
+                        'Romance',
+                      ),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/anilistBrowse',
+                        extra: (
+                          const AnilistBrowseFilter(
+                            mediaType: 'ANIME',
+                            genre: 'Romance',
+                          ),
+                          'Romance Anime',
+                        ),
+                      ),
+                    ),
+                    DiscoveryRow(
+                      title: 'Comedy',
+                      items: _byGenre(
+                        home.popularAnimes + home.trendingAnimes,
+                        'Comedy',
+                      ),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/anilistBrowse',
+                        extra: (
+                          const AnilistBrowseFilter(
+                            mediaType: 'ANIME',
+                            genre: 'Comedy',
+                          ),
+                          'Comedy Anime',
+                        ),
+                      ),
+                    ),
+                    DiscoveryRow(
+                      title: 'Fantasy',
+                      items: _byGenre(
+                        home.popularAnimes + home.trendingAnimes,
+                        'Fantasy',
+                      ),
+                      onItemTap: (m) => _openDetail(context, m),
+                      onSeeAll: () => context.push(
+                        '/anilistBrowse',
+                        extra: (
+                          const AnilistBrowseFilter(
+                            mediaType: 'ANIME',
+                            genre: 'Fantasy',
+                          ),
+                          'Fantasy Anime',
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -191,13 +212,18 @@ class AnimeDiscoveryScreen extends ConsumerWidget {
 class AniListErrorView extends StatelessWidget {
   final Object error;
   final VoidCallback onRetry;
-  const AniListErrorView({super.key, required this.error, required this.onRetry});
+  const AniListErrorView({
+    super.key,
+    required this.error,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final msg = error.toString().toLowerCase();
-    final isNet = msg.contains('socket') ||
+    final isNet =
+        msg.contains('socket') ||
         msg.contains('failed host') ||
         msg.contains('network') ||
         msg.contains('timeout') ||

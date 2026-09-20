@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
-import 'package:watchtower/modules/home/widgets/library_header_bar.dart';
 
 class GameDiscoveryScreen extends ConsumerStatefulWidget {
   const GameDiscoveryScreen({super.key});
@@ -38,13 +37,15 @@ class _GameDiscoveryScreenState extends ConsumerState<GameDiscoveryScreen> {
         bottom: false,
         child: Column(
           children: [
-            const LibraryHeaderBar(itemType: ItemType.game),
             // Platform picker
             SizedBox(
               height: 48,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 itemCount: _platforms.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (context, i) {
@@ -73,7 +74,9 @@ class _GameDiscoveryScreenState extends ConsumerState<GameDiscoveryScreen> {
               child: Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 16),
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -84,8 +87,9 @@ class _GameDiscoveryScreenState extends ConsumerState<GameDiscoveryScreen> {
                           gradient: LinearGradient(
                             colors: [
                               _platforms[_selectedPlatform].color,
-                              _platforms[_selectedPlatform].color
-                                  .withValues(alpha: 0.5),
+                              _platforms[_selectedPlatform].color.withValues(
+                                alpha: 0.5,
+                              ),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -151,8 +155,7 @@ class _GameDiscoveryScreenState extends ConsumerState<GameDiscoveryScreen> {
                         label: const Text('Browse Game Extensions'),
                         style: FilledButton.styleFrom(
                           minimumSize: const Size(220, 48),
-                          backgroundColor:
-                              _platforms[_selectedPlatform].color,
+                          backgroundColor: _platforms[_selectedPlatform].color,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),

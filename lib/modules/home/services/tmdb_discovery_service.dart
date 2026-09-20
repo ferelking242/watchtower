@@ -40,9 +40,8 @@ class TmdbMedia {
 
   String get displayTitle => titleFr ?? titleEn ?? 'Sans titre';
 
-  String? get bestCover => posterPath != null
-      ? 'https://image.tmdb.org/t/p/w500$posterPath'
-      : null;
+  String? get bestCover =>
+      posterPath != null ? 'https://image.tmdb.org/t/p/w500$posterPath' : null;
 
   String? get bannerImage => backdropPath != null
       ? 'https://image.tmdb.org/t/p/w1280$backdropPath'
@@ -52,40 +51,38 @@ class TmdbMedia {
       voteAverage != null ? (voteAverage! * 10).round() : null;
 
   factory TmdbMedia.fromMovieJson(Map<String, dynamic> j) => TmdbMedia(
-        id: (j['id'] as num).toInt(),
-        mediaType: 'movie',
-        titleEn: j['title'] as String?,
-        titleFr: j['title'] as String?,
-        posterPath: j['poster_path'] as String?,
-        backdropPath: j['backdrop_path'] as String?,
-        overview: j['overview'] as String?,
-        voteAverage: (j['vote_average'] as num?)?.toDouble(),
-        voteCount: (j['vote_count'] as num?)?.toInt(),
-        releaseDate: j['release_date'] as String?,
-        genreIds: (j['genre_ids'] as List?)
-                ?.whereType<int>()
-                .toList(growable: false) ??
-            const [],
-        originalLanguage: j['original_language'] as String?,
-      );
+    id: (j['id'] as num).toInt(),
+    mediaType: 'movie',
+    titleEn: j['title'] as String?,
+    titleFr: j['title'] as String?,
+    posterPath: j['poster_path'] as String?,
+    backdropPath: j['backdrop_path'] as String?,
+    overview: j['overview'] as String?,
+    voteAverage: (j['vote_average'] as num?)?.toDouble(),
+    voteCount: (j['vote_count'] as num?)?.toInt(),
+    releaseDate: j['release_date'] as String?,
+    genreIds:
+        (j['genre_ids'] as List?)?.whereType<int>().toList(growable: false) ??
+        const [],
+    originalLanguage: j['original_language'] as String?,
+  );
 
   factory TmdbMedia.fromTvJson(Map<String, dynamic> j) => TmdbMedia(
-        id: (j['id'] as num).toInt(),
-        mediaType: 'tv',
-        titleEn: j['name'] as String?,
-        titleFr: j['name'] as String?,
-        posterPath: j['poster_path'] as String?,
-        backdropPath: j['backdrop_path'] as String?,
-        overview: j['overview'] as String?,
-        voteAverage: (j['vote_average'] as num?)?.toDouble(),
-        voteCount: (j['vote_count'] as num?)?.toInt(),
-        firstAirDate: j['first_air_date'] as String?,
-        genreIds: (j['genre_ids'] as List?)
-                ?.whereType<int>()
-                .toList(growable: false) ??
-            const [],
-        originalLanguage: j['original_language'] as String?,
-      );
+    id: (j['id'] as num).toInt(),
+    mediaType: 'tv',
+    titleEn: j['name'] as String?,
+    titleFr: j['name'] as String?,
+    posterPath: j['poster_path'] as String?,
+    backdropPath: j['backdrop_path'] as String?,
+    overview: j['overview'] as String?,
+    voteAverage: (j['vote_average'] as num?)?.toDouble(),
+    voteCount: (j['vote_count'] as num?)?.toInt(),
+    firstAirDate: j['first_air_date'] as String?,
+    genreIds:
+        (j['genre_ids'] as List?)?.whereType<int>().toList(growable: false) ??
+        const [],
+    originalLanguage: j['original_language'] as String?,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,9 +122,9 @@ class TmdbGenre {
   const TmdbGenre({required this.id, required this.name});
 
   factory TmdbGenre.fromJson(Map<String, dynamic> json) => TmdbGenre(
-        id: (json['id'] as num).toInt(),
-        name: json['name'] as String? ?? 'Autre',
-      );
+    id: (json['id'] as num).toInt(),
+    name: json['name'] as String? ?? 'Autre',
+  );
 }
 
 class TmdbWatchProvider {
@@ -240,6 +237,36 @@ Future<List<TmdbMedia>> fetchTmdbMoviePage({
       .toList(growable: false);
 }
 
+Future<List<TmdbMedia>> fetchTmdbTvPage({
+  required String path,
+  int page = 1,
+}) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
+  final baseUri = Uri.parse('$_tmdbBase$path');
+  final query = <String, String>{
+    ...baseUri.queryParameters,
+    'language': 'fr-FR',
+    'page': '$page',
+  };
+  final uri = baseUri.replace(queryParameters: query);
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return const [];
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  final results = data['results'] as List? ?? [];
+  return results
+      .whereType<Map>()
+      .map((e) => TmdbMedia.fromTvJson(e.cast<String, dynamic>()))
+      .where((media) => media.posterPath != null)
+      .toList(growable: false);
+}
+
 Future<List<TmdbGenre>> fetchTmdbMovieGenres() async {
   if (_tmdbToken.isEmpty) {
     throw StateError(
@@ -310,27 +337,52 @@ Future<TmdbHome> _fetchTmdbHome() async {
   );
 }
 
-final tmdbHomeProvider =
-    FutureProvider.autoDispose<TmdbHome>((_) => _fetchTmdbHome());
+final tmdbHomeProvider = FutureProvider.autoDispose<TmdbHome>(
+  (_) => _fetchTmdbHome(),
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Genre name helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _movieGenres = {
-  28: 'Action', 12: 'Aventure', 16: 'Animation', 35: 'Comédie',
-  80: 'Crime', 99: 'Documentaire', 18: 'Drame', 10751: 'Famille',
-  14: 'Fantastique', 36: 'Histoire', 27: 'Horreur', 10402: 'Musique',
-  9648: 'Mystère', 10749: 'Romance', 878: 'Science-Fiction',
-  10770: 'Téléfilm', 53: 'Thriller', 10752: 'Guerre', 37: 'Western',
+  28: 'Action',
+  12: 'Aventure',
+  16: 'Animation',
+  35: 'Comédie',
+  80: 'Crime',
+  99: 'Documentaire',
+  18: 'Drame',
+  10751: 'Famille',
+  14: 'Fantastique',
+  36: 'Histoire',
+  27: 'Horreur',
+  10402: 'Musique',
+  9648: 'Mystère',
+  10749: 'Romance',
+  878: 'Science-Fiction',
+  10770: 'Téléfilm',
+  53: 'Thriller',
+  10752: 'Guerre',
+  37: 'Western',
 };
 
 const _tvGenres = {
-  10759: 'Action & Aventure', 16: 'Animation', 35: 'Comédie',
-  80: 'Crime', 99: 'Documentaire', 18: 'Drame', 10751: 'Famille',
-  10762: 'Enfants', 9648: 'Mystère', 10763: 'Actualités',
-  10764: 'Réalité', 10765: 'Sci-Fi & Fantastique',
-  10766: 'Soap', 10767: 'Talk-show', 10768: 'Guerre & Politique',
+  10759: 'Action & Aventure',
+  16: 'Animation',
+  35: 'Comédie',
+  80: 'Crime',
+  99: 'Documentaire',
+  18: 'Drame',
+  10751: 'Famille',
+  10762: 'Enfants',
+  9648: 'Mystère',
+  10763: 'Actualités',
+  10764: 'Réalité',
+  10765: 'Sci-Fi & Fantastique',
+  10766: 'Soap',
+  10767: 'Talk-show',
+  10768: 'Guerre & Politique',
   37: 'Western',
 };
 
