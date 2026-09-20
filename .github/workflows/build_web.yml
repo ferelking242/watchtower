@@ -263,6 +263,7 @@ jobs:
                   'class DatabaseException implements Exception {\n'
                   '  final String message;\n'
                   '  const DatabaseException(this.message);\n'
+                  '  bool isDuplicateColumnError() => false;\n'
                   '  @override String toString() => message;\n'
                   '}\n\n' + sqflite_text,
                   encoding='utf-8')

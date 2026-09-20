@@ -79,7 +79,9 @@ class FsWatcher {
     }
   }
 
-  void _handleEvent(FileSystemEvent event) {
+  void _handleEvent(Object event) {
+    if (event is! FileSystemEvent) return;
+
     // Filtrer les événements sur les fichiers non-média
     final path = event.path;
     if (!_isMediaFile(path)) return;
