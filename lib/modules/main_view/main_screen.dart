@@ -366,7 +366,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
 
         // ── Browse always in dock, Marketplace always in menu ─────────
-        {
+        final inMarketplaceSubDock = location == '/marketplace' ||
+            location == '/marketplace/plugins' ||
+            location == '/marketplace/search';
+        if (inMarketplaceSubDock) {
+          dest = [
+            '_disableMarketplaceSwitch',
+            '/marketplace',
+            '/marketplace/plugins',
+            '/marketplace/search',
+          ];
+          final marketIndex = dest.indexOf(location ?? '/marketplace');
+          currentIndex = marketIndex >= 0 ? marketIndex : 1;
+        } else {
           final _mktI = dest.indexOf('/marketplace');
           final _brwI = dest.indexOf('/browse');
           if (_mktI >= 0 && _mktI < 4) {
@@ -388,10 +400,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
 
         // ── 5-item dock cap ───────────────────────────────────────────
-        // Classic dock gets a capped dest (4 user items); overflow goes
-        // to the menu overlay.  Floating dock caps internally in _buildItems.
-        final _cappedDest = dest.take(4).toList();
-        final _overflowRoutes = dest.length > 4 ? dest.sublist(4) : <String>[];
+        // Marketplace is a menu-only route in the normal dock. Keep it in
+        // the menu explicitly even when a custom navigation order has fewer
+        // than four visible destinations.
+        final _dockDest = inMarketplaceSubDock
+            ? dest
+            : dest.where((nav) => nav != '/marketplace').toList();
+        if (!inMarketplaceSubDock) {
+          final dockIndex = _dockDest.indexOf(location ?? _defaultLocation);
+          if (dockIndex >= 0) currentIndex = dockIndex;
+        }
+        final _cappedDest = _dockDest.take(4).toList();
+        final _overflowRoutes = <String>[
+          if (!inMarketplaceSubDock) '/marketplace',
+          if (_dockDest.length > 4) ..._dockDest.sublist(4),
+        ];
 
         final menuOpen = ref.watch(menuOpenProvider);
         final incognitoMode = ref.watch(incognitoModeStateProvider);
@@ -409,7 +432,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           return _TabletLayout(
             isLongPressed: isLongPressed,
             location: location,
-            dest: dest,
+            dest: _dockDest,
             currentIndex: currentIndex,
             route: route,
             child: widget.child,
@@ -459,6 +482,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               } else if (destination ==
                                   "_disableLibrarySwitch") {
                                 setState(() => isLibrarySwitch = false);
+                              } else if (destination ==
+                                  "_disableMarketplaceSwitch") {
+                                route.go('/browse');
                               } else if (destination == "_nfileBack") {
                                 route.go('/marketplace');
                               } else {
@@ -469,7 +495,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         : _FloatingDock(
                             isLongPressed: isLongPressed,
                             location: location,
-                            dest: dest,
+                            dest: _dockDest,
                             ref: ref,
                             showPill: true,
                             onDestinationSelected: (destination) {
@@ -492,7 +518,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               } else if (destination == "_watchtower_menu") {
                                 ref.read(menuOpenProvider.notifier).state = !ref
                                     .read(menuOpenProvider);
-                              } else if (destination == "_nfileBack") {
+                               } else if (destination ==
+                                   "_disableMarketplaceSwitch") {
+                                 route.go('/browse');
+                               } else if (destination == "_nfileBack") {
                                 route.go('/marketplace');
                               } else {
                                 route.go(destination);
@@ -714,6 +743,50 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
+    if (dest.contains('_disableMarketplaceSwitch')) {
+      destinations[dest.indexOf('_disableMarketplaceSwitch')] =
+          const NavigationRailDestination(
+        selectedIcon: Icon(Icons.arrow_back_rounded),
+        icon: Icon(Icons.arrow_back_rounded),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Retour'),
+        ),
+      );
+    }
+    if (dest.contains('/marketplace')) {
+      destinations[dest.indexOf('/marketplace')] =
+          const NavigationRailDestination(
+        selectedIcon: Icon(Icons.extension_rounded),
+        icon: Icon(Icons.extension_outlined),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Extensions'),
+        ),
+      );
+    }
+    if (dest.contains('/marketplace/plugins')) {
+      destinations[dest.indexOf('/marketplace/plugins')] =
+          const NavigationRailDestination(
+        selectedIcon: Icon(Icons.extension_rounded),
+        icon: Icon(Icons.extension_outlined),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Plugin'),
+        ),
+      );
+    }
+    if (dest.contains('/marketplace/search')) {
+      destinations[dest.indexOf('/marketplace/search')] =
+          const NavigationRailDestination(
+        selectedIcon: Icon(Icons.search_rounded),
+        icon: Icon(Icons.search_rounded),
+        label: Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text('Rechercher'),
+        ),
+      );
+    }
     if (dest.contains("/settings")) {
       destinations[dest.indexOf("/settings")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.setting),
@@ -767,6 +840,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         selectedIcon: const Icon(Broken.arrow_left_2),
         icon: const Icon(Broken.arrow_left_2),
         label: l10n.go_back,
+      );
+    }
+    if (dest.contains('_disableMarketplaceSwitch')) {
+      destMap['_disableMarketplaceSwitch'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.arrow_back_rounded),
+        icon: Icon(Icons.arrow_back_rounded),
+        label: 'Retour',
       );
     }
     if (dest.contains('_enableLibSwitch')) {
@@ -888,9 +968,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('/marketplace')) {
       destMap['/marketplace'] = const NavigationDestination(
-        selectedIcon: Icon(Broken.shop),
-        icon: Icon(Broken.shopping_cart),
-        label: 'Market',
+        selectedIcon: Icon(Icons.extension_rounded),
+        icon: Icon(Icons.extension_outlined),
+        label: 'Extensions',
+      );
+    }
+    if (dest.contains('/marketplace/plugins')) {
+      destMap['/marketplace/plugins'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.extension_rounded),
+        icon: Icon(Icons.extension_outlined),
+        label: 'Plugin',
+      );
+    }
+    if (dest.contains('/marketplace/search')) {
+      destMap['/marketplace/search'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.search_rounded),
+        icon: Icon(Icons.search_rounded),
+        label: 'Rechercher',
       );
     }
     if (dest.contains('/schedule')) {
@@ -1103,6 +1197,8 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/trackerLibrary',
     '/globalSearch',
     '/marketplace',
+    '/marketplace/plugins',
+    '/marketplace/search',
     '/discover',
     '/nfileHome',
   };
@@ -1818,6 +1914,8 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/settings',
     '/trackerLibrary',
     '/marketplace',
+    '/marketplace/plugins',
+    '/marketplace/search',
     '/schedule',
     '/discover',
     '/nfileHome',
@@ -1993,9 +2091,27 @@ class _FloatingDockState extends State<_FloatingDock> {
           items.add(
             const _DockItemData(
               route: '/marketplace',
-              label: 'Market',
-              icon: Broken.shopping_cart,
-              activeIcon: Broken.shop,
+              label: 'Extensions',
+              icon: Icons.extension_outlined,
+              activeIcon: Icons.extension_rounded,
+            ),
+          );
+        case '/marketplace/plugins':
+          items.add(
+            const _DockItemData(
+              route: '/marketplace/plugins',
+              label: 'Plugin',
+              icon: Icons.extension_outlined,
+              activeIcon: Icons.extension_rounded,
+            ),
+          );
+        case '/marketplace/search':
+          items.add(
+            const _DockItemData(
+              route: '/marketplace/search',
+              label: 'Rechercher',
+              icon: Icons.search_rounded,
+              activeIcon: Icons.search_rounded,
             ),
           );
         case '_enableLibSwitch':
@@ -2034,6 +2150,15 @@ class _FloatingDockState extends State<_FloatingDock> {
               activeIcon: Broken.arrow_left_2,
             ),
           );
+        case '_disableMarketplaceSwitch':
+          items.add(
+            _DockItemData(
+              route: '_disableMarketplaceSwitch',
+              label: l10n.go_back,
+              icon: Icons.arrow_back_rounded,
+              activeIcon: Icons.arrow_back_rounded,
+            ),
+          );
         case '_nfileBack':
           items.add(
             _DockItemData(
@@ -2060,6 +2185,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     final _hubMode =
         d.contains('_disableLibSwitch') ||
         d.contains('_disableLibrarySwitch') ||
+        d.contains('_disableMarketplaceSwitch') ||
         d.contains('_nfileBack');
     final _cap = _hubMode ? 5 : 4;
     if (items.length > _cap) {
@@ -2121,6 +2247,7 @@ class _FloatingDockState extends State<_FloatingDock> {
         items.length >= 3 &&
         (items.first.route == '_disableLibSwitch' ||
             items.first.route == '_disableLibrarySwitch' ||
+            items.first.route == '_disableMarketplaceSwitch' ||
             items.first.route == '_nfileBack');
 
     final screenWidth = MediaQuery.of(context).size.width;
