@@ -242,6 +242,20 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(name: "browse", child: const BrowseScreen()),
         _genericRoute(name: "marketplace", child: const MarketplaceScreen()),
         _genericRoute(
+          name: "marketplacePlugins",
+          path: "/marketplace/plugins",
+          child: const MarketplaceScreen(
+            initialSection: MarketplaceSection.plugins,
+          ),
+        ),
+        _genericRoute(
+          name: "marketplaceSearch",
+          path: "/marketplace/search",
+          child: const MarketplaceScreen(
+            initialSection: MarketplaceSection.search,
+          ),
+        ),
+        _genericRoute(
           name: "downloadQueue",
           child: const DownloadQueueScreen(),
         ),

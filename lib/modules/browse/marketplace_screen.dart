@@ -72,6 +72,31 @@ String _mktSlugify(String name) => name
     .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
     .replaceAll(RegExp(r'^-+|-+$'), '');
 
+String _formatMktSize(int? bytes) {
+  if (bytes == null || bytes <= 0) return 'Taille inconnue';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} Ko';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} Mo';
+}
+
+int? _parseMktSize(dynamic raw) {
+  if (raw is num) return raw.toInt();
+  if (raw is! String) return null;
+  final match = RegExp(r'^\s*([\d.,]+)\s*(kb|kib|mb|mib|gb|gib)?\s*$',
+          caseSensitive: false)
+      .firstMatch(raw);
+  if (match == null) return null;
+  final value = double.tryParse(match.group(1)!.replaceAll(',', '.'));
+  if (value == null) return null;
+  final unit = match.group(2)?.toLowerCase() ?? 'b';
+  final multiplier = switch (unit) {
+    'kb' || 'kib' => 1024,
+    'mb' || 'mib' => 1024 * 1024,
+    'gb' || 'gib' => 1024 * 1024 * 1024,
+    _ => 1,
+  };
+  return (value * multiplier).round();
+}
+
 // ─── Data model ────────────────────────────────────────────────────────────────
 
 class _ExtEntry {
@@ -93,6 +118,7 @@ class _ExtEntry {
   final bool supportsComments;
   final String upstream;
   final String description;
+  final int? sizeBytes;
 
   const _ExtEntry({
     required this.id,
@@ -113,6 +139,7 @@ class _ExtEntry {
     this.supportsComments = false,
     this.upstream = '',
     this.description = '',
+    this.sizeBytes,
   });
 }
 
@@ -177,6 +204,9 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'supportsComments': e['supportsComments'] as bool? ?? false,
         'upstream': e['upstream'] as String? ?? '',
         'description': e['description'] as String? ?? '',
+        'sizeBytes': _parseMktSize(
+          e['sizeBytes'] ?? e['size'] ?? e['downloadSize'],
+        ),
       });
     }
   }
@@ -206,6 +236,7 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
           supportsComments: m['supportsComments'] as bool? ?? false,
           upstream: m['upstream'] as String? ?? '',
           description: m['description'] as String? ?? '',
+          sizeBytes: _parseMktSize(m['sizeBytes']),
         ))
     .toList();
 
@@ -346,8 +377,16 @@ class _NativeToolCard extends StatelessWidget {
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
+enum MarketplaceSection { extensions, plugins, search }
+
 class MarketplaceScreen extends ConsumerStatefulWidget {
-  const MarketplaceScreen({super.key});
+  final MarketplaceSection initialSection;
+
+  const MarketplaceScreen({
+    super.key,
+    this.initialSection = MarketplaceSection.extensions,
+  });
+
   @override
   ConsumerState<MarketplaceScreen> createState() => _MarketplaceScreenState();
 }
@@ -458,7 +497,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 10, vsync: this);
+    _tabCtrl = TabController(
+      length: 10,
+      vsync: this,
+      initialIndex: widget.initialSection == MarketplaceSection.plugins
+          ? 9
+          : 0,
+    );
+    _searchOpen = widget.initialSection == MarketplaceSection.search;
+    if (_searchOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocus.requestFocus();
+      });
+    }
     if (_cachedAll != null && _cacheTime != null &&
         DateTime.now().difference(_cacheTime!) < const Duration(seconds: 30)) {
       _all = _cachedAll!;
@@ -1034,31 +1085,42 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         backgroundColor: Colors.transparent,
         body: Stack(
           children: [
-            if (_error != null && _all.isEmpty)
+            if (_searchOpen)
+              _buildSearchOverlay(cs, theme)
+            else if (_error != null && _all.isEmpty)
               _buildError(cs)
             else
               Column(
                 children: [
                   _buildLogoRow(cs, theme),
                   _buildPersistentSearch(cs, theme),
-                  _buildTabBarRow(cs, theme),
-                  _buildFilterRows(cs, theme),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabCtrl,
-                      children: [
-                        _TypeTab(state: this, tab: _kTabHome),    // 0 Tout
-                        _TypeTab(state: this, tab: _kTabAnime),   // 1 Watch
-                        _TypeTab(state: this, tab: _kTabManga),   // 2 Manga
-                        _TypeTab(state: this, tab: _kTabMihon),   // 3 Mihon
-                        _TypeTab(state: this, tab: _kTabAniyomi), // 4 Aniyomi
-                        _TypeTab(state: this, tab: _kTabNovel),   // 5 Novel
-                        _TypeTab(state: this, tab: _kTabGames),   // 6 Game
-                        _TypeTab(state: this, tab: _kTabMusic),   // 7 Music
-                        const _NativeToolsTab(),                  // 8 Outils
-                        const _BinaryTab(),                       // 9 Plugins
-                      ],
+                  if (widget.initialSection != MarketplaceSection.plugins) ...[
+                    _buildTabBarRow(cs, theme),
+                    AnimatedBuilder(
+                      animation: _tabCtrl,
+                      builder: (_, __) => _tabCtrl.index == 0
+                          ? const SizedBox.shrink()
+                          : _buildFilterRows(cs, theme),
                     ),
+                  ],
+                  Expanded(
+                    child: widget.initialSection == MarketplaceSection.plugins
+                        ? const _BinaryTab()
+                        : TabBarView(
+                            controller: _tabCtrl,
+                            children: [
+                              _HomeTab(state: this),                    // 0 Tout
+                              _TypeTab(state: this, tab: _kTabAnime),   // 1 Watch
+                              _TypeTab(state: this, tab: _kTabManga),   // 2 Manga
+                              _TypeTab(state: this, tab: _kTabMihon),   // 3 Mihon
+                              _TypeTab(state: this, tab: _kTabAniyomi), // 4 Aniyomi
+                              _TypeTab(state: this, tab: _kTabNovel),   // 5 Novel
+                              _TypeTab(state: this, tab: _kTabGames),   // 6 Game
+                              _TypeTab(state: this, tab: _kTabMusic),   // 7 Music
+                              const _NativeToolsTab(),                  // 8 Outils
+                              const _BinaryTab(),                       // 9 Plugins
+                            ],
+                          ),
                   ),
                 ],
               ),
@@ -1684,6 +1746,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Search overlay (Play Store style) ────────────────────────────────────────
 
   void _closeSearch() {
+    if (widget.initialSection == MarketplaceSection.search) {
+      context.go('/marketplace');
+      return;
+    }
     setState(() {
       _searchOpen = false;
       _searchQuery = '';
@@ -2321,7 +2387,9 @@ class _HomeTab extends StatelessWidget {
                 Icons.live_tv_rounded,
                 color: const Color(0xFF7B2FBE),
                 subtitle: '${watchExt.length} extensions · Watchtower',
-                onSeeAll: () => state._tabCtrl.animateTo(_kTabAnime),
+                 onSeeAll: () => state._tabCtrl.animateTo(
+                   state._tabConstToVisual(_kTabAnime),
+                 ),
               ),
             ),
             SliverToBoxAdapter(child: state.buildHorizontal(watchExt, cs)),
@@ -2334,7 +2402,9 @@ class _HomeTab extends StatelessWidget {
                 Icons.auto_stories_rounded,
                 color: const Color(0xFFE91E63),
                 subtitle: 'Japonais, anglais et plus',
-                onSeeAll: () => state._tabCtrl.animateTo(_kTabManga),
+                 onSeeAll: () => state._tabCtrl.animateTo(
+                   state._tabConstToVisual(_kTabManga),
+                 ),
               ),
             ),
             SliverToBoxAdapter(child: state.buildHorizontal(mangaExt, cs)),
@@ -2347,7 +2417,9 @@ class _HomeTab extends StatelessWidget {
                 Icons.menu_book_rounded,
                 color: const Color(0xFF009688),
                 subtitle: 'Romans & Web novels',
-                onSeeAll: () => state._tabCtrl.animateTo(_kTabNovel),
+                 onSeeAll: () => state._tabCtrl.animateTo(
+                   state._tabConstToVisual(_kTabNovel),
+                 ),
               ),
             ),
             SliverToBoxAdapter(child: state.buildHorizontal(novelExt, cs)),
@@ -2360,7 +2432,9 @@ class _HomeTab extends StatelessWidget {
                 Icons.music_note_rounded,
                 color: const Color(0xFF0288D1),
                 subtitle: 'Extensions musicales',
-                onSeeAll: () => state._tabCtrl.animateTo(_kTabMusic),
+                 onSeeAll: () => state._tabCtrl.animateTo(
+                   state._tabConstToVisual(_kTabMusic),
+                 ),
               ),
             ),
             SliverToBoxAdapter(child: state.buildHorizontal(musicExt, cs)),
@@ -2373,7 +2447,9 @@ class _HomeTab extends StatelessWidget {
                 Icons.sports_esports_rounded,
                 color: const Color(0xFF607D8B),
                 subtitle: 'ROMs & émulateurs',
-                onSeeAll: () => state._tabCtrl.animateTo(_kTabGames),
+                 onSeeAll: () => state._tabCtrl.animateTo(
+                   state._tabConstToVisual(_kTabGames),
+                 ),
               ),
             ),
             SliverToBoxAdapter(child: state.buildHorizontal(gameExt, cs)),
@@ -3300,6 +3376,32 @@ class _PlayStoreCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.star_outline_rounded,
+                      size: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.72)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'v${entry.version}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  _MetaDot(color: cs.onSurfaceVariant),
+                  Text(
+                    _formatMktSize(entry.sizeBytes),
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                  _MetaDot(color: cs.onSurfaceVariant),
+                  Text(
+                    langCode,
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               // ── Tags ─────────────────────────────────────────────────
               Wrap(
                 spacing: 6,
@@ -3333,6 +3435,17 @@ class _PlayStoreCard extends StatelessWidget {
         ),
       );
     }
+  }
+
+  class _MetaDot extends StatelessWidget {
+    final Color color;
+    const _MetaDot({required this.color});
+
+    @override
+    Widget build(BuildContext context) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 7),
+          child: Text('•', style: TextStyle(fontSize: 11, color: color)),
+        );
   }
 
   class _TagChip extends StatelessWidget {
