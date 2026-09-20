@@ -1212,7 +1212,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             error: _error,
             initialSearch: widget.initialSection == MarketplaceSection.search,
             onInstall: _install,
-            onOpenSettings: _openSettings,
             onRefresh: () => _loadAll(bypassCache: true),
           ),
         ),
@@ -8944,7 +8943,6 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
   final String? error;
   final bool initialSearch;
   final Future<void> Function(_ExtEntry entry) onInstall;
-  final Future<void> Function(int id) onOpenSettings;
   final Future<void> Function() onRefresh;
 
   const _PlayStoreMarketplaceView({
@@ -8955,7 +8953,6 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
     required this.error,
     required this.initialSearch,
     required this.onInstall,
-    required this.onOpenSettings,
     required this.onRefresh,
   });
 
