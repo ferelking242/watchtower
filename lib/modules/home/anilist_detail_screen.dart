@@ -9,6 +9,7 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:shimmer/shimmer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Detail screen — otraku-inspired with 11 tabs
@@ -60,6 +61,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
 
   void _showPersonSheet(
     BuildContext ctx,
+    int id,
     String name,
     String? imageUrl,
     String? subtitle,
@@ -76,6 +78,21 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
         subtitle: subtitle,
         kind: kind,
         siteUrl: siteUrl,
+        onOpenProfile: () {
+          Navigator.pop(ctx);
+          Navigator.of(ctx).push(
+            MaterialPageRoute(
+              builder: (_) => AnilistPersonScreen(
+                id: id,
+                name: name,
+                imageUrl: imageUrl,
+                subtitle: subtitle,
+                kind: kind,
+                siteUrl: siteUrl,
+               ),
+            ),
+          );
+        },
         onOpenWeb: siteUrl != null
             ? () {
                 Navigator.pop(ctx);
@@ -230,21 +247,22 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
                             indicatorWeight: 2.5,
                             labelColor: cs.primary,
                             unselectedLabelColor: cs.onSurface.withValues(alpha: 0.5),
-                            labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                            labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                            labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
                             tabs: const [
-                              Tab(icon: Icon(Broken.info_circle, size: 13), text: 'Overview'),
-                              Tab(icon: Icon(Broken.video, size: 13), text: 'Episodes'),
-                              Tab(icon: Icon(Broken.link_2, size: 13), text: 'Related'),
-                              Tab(icon: Icon(Broken.user, size: 13), text: 'Characters'),
-                              Tab(icon: Icon(Broken.people, size: 13), text: 'Staff'),
-                              Tab(icon: Icon(Broken.star, size: 13), text: 'Reviews'),
-                              Tab(icon: Icon(Broken.messages, size: 13), text: 'Threads'),
-                              Tab(icon: Icon(Broken.heart, size: 13), text: 'Following'),
-                              Tab(icon: Icon(Broken.activity, size: 13), text: 'Activities'),
-                              Tab(icon: Icon(Broken.like, size: 13), text: 'Recommendations'),
-                              Tab(icon: Icon(Broken.chart_2, size: 13), text: 'Statistics'),
-                              Tab(icon: Icon(Broken.video_time, size: 13), text: 'Watch Order'),
+                              Tab(height: 46, icon: Icon(Broken.info_circle, size: 11), text: 'Overview'),
+                              Tab(height: 46, icon: Icon(Broken.video, size: 11), text: 'Episodes'),
+                              Tab(height: 46, icon: Icon(Broken.link_2, size: 11), text: 'Related'),
+                              Tab(height: 46, icon: Icon(Broken.user, size: 11), text: 'Characters'),
+                              Tab(height: 46, icon: Icon(Broken.people, size: 11), text: 'Staff'),
+                              Tab(height: 46, icon: Icon(Broken.star, size: 11), text: 'Reviews'),
+                              Tab(height: 46, icon: Icon(Broken.messages, size: 11), text: 'Threads'),
+                              Tab(height: 46, icon: Icon(Broken.heart, size: 11), text: 'Following'),
+                              Tab(height: 46, icon: Icon(Broken.activity, size: 11), text: 'Activities'),
+                              Tab(height: 46, icon: Icon(Broken.like, size: 11), text: 'Recommendations'),
+                              Tab(height: 46, icon: Icon(Broken.chart_2, size: 11), text: 'Statistics'),
+                              Tab(height: 46, icon: Icon(Broken.video_time, size: 11), text: 'Watch Order'),
                             ],
                           ),
                           bgColor: scaffoldBg,
@@ -531,11 +549,14 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       error: (e, _) => _ErrorView(message: e.toString()),
       data: (d) {
         if (d.relations.isEmpty) return const _EmptyView(message: 'No related media');
+        final relations = [...d.relations]
+          ..sort((a, b) => _watchOrderSort(a.relationType)
+              .compareTo(_watchOrderSort(b.relationType)));
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
-          itemCount: d.relations.length,
+          itemCount: relations.length,
           itemBuilder: (_, i) {
-            final r = d.relations[i];
+            final r = relations[i];
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _RelationListTile(
@@ -575,10 +596,10 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
         return _CharactersWithFilter(
           characters: d.characters,
           onCharTap: (c) {
-            _showPersonSheet(context, c.name, c.imageUrl, c.role, 'Character', c.siteUrl);
+            _showPersonSheet(context, c.id, c.name, c.imageUrl, c.role, 'Character', c.siteUrl);
           },
           onVATap: (va) {
-            _showPersonSheet(context, va.name, va.imageUrl, va.language, 'Voice Actor', va.siteUrl);
+            _showPersonSheet(context, va.id, va.name, va.imageUrl, va.language, 'Voice Actor', va.siteUrl);
           },
         );
       },
@@ -607,7 +628,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
             final s = d.staff[i];
             return _StaffRow(
               staff: s,
-              onTap: () => _showPersonSheet(context, s.name, s.imageUrl, s.role, 'Staff', s.siteUrl),
+               onTap: () => _showPersonSheet(context, s.id, s.name, s.imageUrl, s.role, 'Staff', s.siteUrl),
             );
           },
         );
@@ -620,24 +641,10 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildReviews(BuildContext context, AsyncValue<AnilistMediaDetail> detail) {
-    return detail.when(
-      loading: () => const _LoadingView(),
-      error: (e, _) => _ErrorView(message: e.toString()),
-      data: (d) {
-        if (d.reviews.isEmpty) return const _EmptyView(message: 'No reviews yet');
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
-          itemCount: d.reviews.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (_, i) {
-            final r = d.reviews[i];
-            return _ReviewCard(
-              review: r,
-              onTap: r.siteUrl != null ? () => _openWebview(r.siteUrl!, r.authorName ?? 'Review') : null,
-            );
-          },
-        );
-      },
+    return _AnilistAuthGate(
+      title: 'Connect to read reviews',
+      message: 'AniList reviews are available after you connect your AniList account.',
+      onConnect: () => _openWebview('https://anilist.co/login', 'AniList Login'),
     );
   }
 
@@ -646,27 +653,10 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildThreads(BuildContext context, AnilistMedia m) {
-    final threads = ref.watch(threadsProvider(m.id));
-    return threads.when(
-      loading: () => const _LoadingView(),
-      error: (e, _) => _ErrorView(message: e.toString()),
-      data: (list) {
-        if (list.isEmpty) return const _EmptyView(message: 'No threads yet');
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
-          itemCount: list.length,
-          separatorBuilder: (_, __) => Divider(
-            height: 1,
-            thickness: 0.5,
-            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.2),
-          ),
-          itemBuilder: (_, i) => _ThreadCard(
-            thread: list[i],
-            mediaTitleForCategories: m.displayTitle,
-            onTap: () => _openWebview(list[i].siteUrl, list[i].title),
-          ),
-        );
-      },
+    return _AnilistAuthGate(
+      title: 'Connect to view threads',
+      message: 'Join the AniList discussion after connecting your AniList account.',
+      onConnect: () => _openWebview('https://anilist.co/login', 'AniList Login'),
     );
   }
 
@@ -698,7 +688,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
               onTap: () => context.push(
                 '/mangawebview',
                 extra: {
-                  'url': 'https://anilist.co/api/v2/oauth/authorize?client_id=_&response_type=token',
+                  'url': 'https://anilist.co/login',
                   'title': 'AniList Login',
                 },
               ),
@@ -1089,18 +1079,86 @@ class _OverviewTabState extends State<_OverviewTab> {
 // Episode + Hours box
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _EpisodeHoursBox extends StatelessWidget {
+class _LocalAnimeProgress {
+  final int watched;
+  final int total;
+  final int watchedMinutes;
+
+  const _LocalAnimeProgress({
+    required this.watched,
+    required this.total,
+    required this.watchedMinutes,
+  });
+
+  double get fraction =>
+      total <= 0 ? 0 : (watched / total).clamp(0.0, 1.0).toDouble();
+}
+
+final localAnimeProgressProvider =
+    FutureProvider.autoDispose.family<_LocalAnimeProgress, AnilistMedia>(
+  (ref, media) async {
+    final titles = <String>{
+      media.displayTitle,
+      if (media.titleRomaji != null) media.titleRomaji!,
+      if (media.titleEnglish != null) media.titleEnglish!,
+      if (media.titleNative != null) media.titleNative!,
+    }.map((title) => title.toLowerCase().trim()).toSet();
+
+    final mangas = await isar.mangas
+        .filter()
+        .itemTypeEqualTo(ItemType.anime)
+        .findAll();
+    final manga = mangas.cast<Manga?>().firstWhere(
+          (candidate) {
+            final name = candidate?.name?.toLowerCase().trim();
+            return name != null &&
+                titles.any((title) => name == title || name.contains(title) || title.contains(name));
+          },
+          orElse: () => null,
+        );
+
+    final total = media.episodes ?? media.chapters ?? 0;
+    if (manga == null) {
+      return _LocalAnimeProgress(watched: 0, total: total, watchedMinutes: 0);
+    }
+
+    await manga.chapters.load();
+    final chapters = manga.chapters.toList();
+    final histories = await isar.historys.where().findAll();
+    final watchedIds = histories
+        .where((h) => h.mangaId == manga.id)
+        .map((h) => h.chapterId)
+        .whereType<int>()
+        .toSet();
+    final watched = chapters
+        .where((chapter) => chapter.isRead == true || watchedIds.contains(chapter.id))
+        .length;
+    final effectiveTotal = total > 0 ? total : chapters.length;
+
+    return _LocalAnimeProgress(
+      watched: watched.clamp(0, effectiveTotal).toInt(),
+      total: effectiveTotal,
+      watchedMinutes: watched * (media.type == 'ANIME' ? 24 : 10),
+    );
+  },
+);
+
+class _EpisodeHoursBox extends ConsumerWidget {
   final AnilistMedia media;
   final ColorScheme cs;
 
   const _EpisodeHoursBox({required this.media, required this.cs});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final eps = media.episodes ?? media.chapters;
     final isAnime = media.type == 'ANIME';
     final label = isAnime ? 'Episode' : 'Chapter';
     final total = eps ?? 0;
+    final progress = ref.watch(localAnimeProgressProvider(media)).valueOrNull ??
+        _LocalAnimeProgress(watched: 0, total: total, watchedMinutes: 0);
+    final displayedTotal = progress.total > 0 ? progress.total : total;
+    final percentage = progress.fraction * 100;
 
     return _GlassCard(
       child: Column(
@@ -1116,7 +1174,9 @@ class _EpisodeHoursBox extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  eps != null ? '$label 0 of $total' : label,
+                  displayedTotal > 0
+                      ? '$label ${progress.watched} of $displayedTotal'
+                      : label,
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
               ),
@@ -1127,7 +1187,7 @@ class _EpisodeHoursBox extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '0.00%',
+                  '${percentage.toStringAsFixed(percentage >= 100 ? 0 : 2)}%',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.onSurface),
                 ),
               ),
@@ -1138,7 +1198,7 @@ class _EpisodeHoursBox extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: 0,
+              value: progress.fraction,
               minHeight: 5,
               backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
               valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
@@ -1151,9 +1211,18 @@ class _EpisodeHoursBox extends StatelessWidget {
               children: [
                 _HourItem(label: 'Total', value: _totalHours(), cs: cs),
                 VerticalDivider(color: cs.outlineVariant.withValues(alpha: 0.4), thickness: 0.5),
-                _HourItem(label: 'Watched', value: '—', cs: cs),
+                _HourItem(
+                  label: 'Watched',
+                  value: _formatMinutes(progress.watchedMinutes),
+                  cs: cs,
+                ),
                 VerticalDivider(color: cs.outlineVariant.withValues(alpha: 0.4), thickness: 0.5),
-                _HourItem(label: 'Remaining', value: _totalHours(), cs: cs, accent: true),
+                _HourItem(
+                  label: 'Remaining',
+                  value: _remainingHours(displayedTotal, progress.watched),
+                  cs: cs,
+                  accent: true,
+                ),
               ],
             ),
           ),
@@ -1176,6 +1245,18 @@ class _EpisodeHoursBox extends StatelessWidget {
       if (minutes >= 60) return '${(minutes / 60).toStringAsFixed(0)}h';
       return '${minutes}m';
     }
+  }
+
+  String _formatMinutes(int minutes) {
+    if (minutes <= 0) return '0m';
+    if (minutes < 60) return '${minutes}m';
+    return '${(minutes / 60).toStringAsFixed(minutes % 60 == 0 ? 0 : 1)}h';
+  }
+
+  String _remainingHours(int total, int watched) {
+    final remaining = (total - watched).clamp(0, total).toInt();
+    if (remaining == 0) return '0m';
+    return _formatMinutes(remaining * (media.type == 'ANIME' ? 24 : 10));
   }
 }
 
@@ -2056,7 +2137,7 @@ class _ActivitiesTabState extends ConsumerState<_ActivitiesTab> {
                   ),
                 )
               : activities.when(
-                  loading: () => const _LoadingView(),
+                  loading: () => const _ActivityShimmer(),
                   error: (e, _) => _ErrorView(message: e.toString()),
                   data: (list) {
                     if (list.isEmpty) return const _EmptyView(message: 'No recent activities');
@@ -2074,6 +2155,85 @@ class _ActivitiesTabState extends ConsumerState<_ActivitiesTab> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _AnilistAuthGate extends StatelessWidget {
+  final String title;
+  final String message;
+  final VoidCallback onConnect;
+
+  const _AnilistAuthGate({
+    required this.title,
+    required this.message,
+    required this.onConnect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline_rounded, size: 48, color: cs.primary.withValues(alpha: 0.7)),
+            const SizedBox(height: 14),
+            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, height: 1.5, color: cs.onSurface.withValues(alpha: 0.6)),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: onConnect,
+              icon: const Icon(Icons.login_rounded, size: 17),
+              label: const Text('Connect to AniList'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityShimmer extends StatelessWidget {
+  const _ActivityShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Shimmer.fromColors(
+      baseColor: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+      highlightColor: cs.surfaceContainerHighest.withValues(alpha: 0.9),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 80),
+        itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: 18),
+        itemBuilder: (_, __) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(radius: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(height: 12, width: 150, color: Colors.white),
+                  const SizedBox(height: 9),
+                  Container(height: 12, width: double.infinity, color: Colors.white),
+                  const SizedBox(height: 7),
+                  Container(height: 12, width: 220, color: Colors.white),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -3145,6 +3305,7 @@ class _EpisodesTab extends ConsumerStatefulWidget {
 
 class _EpisodesTabState extends ConsumerState<_EpisodesTab> {
   bool _showSpecials = false;
+  bool _onlyWithOverview = false;
 
   @override
   Widget build(BuildContext context) {
@@ -3167,7 +3328,10 @@ class _EpisodesTabState extends ConsumerState<_EpisodesTab> {
 
         final specials = list.where((e) => e.episodeNumber == 0).toList();
         final regular = list.where((e) => e.episodeNumber > 0).toList();
-        final displayed = _showSpecials ? list : regular;
+        final source = _showSpecials ? list : regular;
+        final displayed = _onlyWithOverview
+            ? source.where((e) => e.overview?.isNotEmpty == true).toList()
+            : source;
 
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
@@ -3187,24 +3351,40 @@ class _EpisodesTabState extends ConsumerState<_EpisodesTab> {
                     ),
                     const Spacer(),
                     if (specials.isNotEmpty)
-                      GestureDetector(
-                        onTap: () => setState(() => _showSpecials = !_showSpecials),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: cs.primary.withValues(alpha: _showSpecials ? 0.2 : 0.08),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Specials',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: cs.primary,
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _showSpecials = !_showSpecials),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(alpha: _showSpecials ? 0.2 : 0.08),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Specials',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: cs.primary,
+                              ),
                             ),
                           ),
                         ),
                       ),
+                    PopupMenuButton<String>(
+                      tooltip: 'Episode filters',
+                      icon: Icon(Icons.filter_list_rounded, size: 20, color: cs.onSurface.withValues(alpha: 0.65)),
+                      onSelected: (value) => setState(() {
+                        _showSpecials = value == 'specials';
+                        _onlyWithOverview = value == 'overview';
+                      }),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'regular', child: Text('Regular episodes')),
+                        PopupMenuItem(value: 'specials', child: Text('Include specials')),
+                        PopupMenuItem(value: 'overview', child: Text('Episodes with synopsis')),
+                      ],
+                    ),
                   ],
                 ),
               );
@@ -3266,9 +3446,9 @@ class _EpisodeRowState extends State<_EpisodeRow> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Thumbnail ─────────────────────────────────────────────
-                SizedBox(
-                  width: 120,
-                  height: 90,
+                 SizedBox(
+                   width: 104,
+                   height: 88,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -3277,9 +3457,9 @@ class _EpisodeRowState extends State<_EpisodeRow> {
                           topLeft: Radius.circular(12),
                           bottomLeft: Radius.circular(12),
                         ),
-                        child: ep.image != null
+                        child: (ep.image ?? widget.media.bestCover) != null
                             ? Image.network(
-                                ep.image!,
+                                ep.image ?? widget.media.bestCover!,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) =>
                                     const _EpisodePlaceholder(),
@@ -3931,6 +4111,7 @@ class _PersonSheet extends StatelessWidget {
   final String? subtitle;
   final String kind;
   final String? siteUrl;
+  final VoidCallback? onOpenProfile;
   final VoidCallback? onOpenWeb;
 
   const _PersonSheet({
@@ -3939,6 +4120,7 @@ class _PersonSheet extends StatelessWidget {
     this.subtitle,
     required this.kind,
     this.siteUrl,
+    this.onOpenProfile,
     this.onOpenWeb,
   });
 
@@ -4048,12 +4230,11 @@ class _PersonSheet extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // Open AniList button
-                  if (onOpenWeb != null)
+                  if (onOpenProfile != null)
                     SizedBox(
                       width: double.infinity,
                       child: GestureDetector(
-                        onTap: onOpenWeb,
+                        onTap: onOpenProfile,
                         child: Container(
                           height: 48,
                           decoration: BoxDecoration(
@@ -4063,10 +4244,10 @@ class _PersonSheet extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.open_in_new_rounded, size: 17, color: Colors.white),
+                              Icon(Icons.person_outline_rounded, size: 18, color: cs.onPrimary),
                               const SizedBox(width: 8),
                               Text(
-                                'Voir sur AniList',
+                                'Open profile',
                                 style: TextStyle(
                                   color: cs.onPrimary,
                                   fontWeight: FontWeight.w700,
@@ -4078,11 +4259,161 @@ class _PersonSheet extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (onOpenWeb != null) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: GestureDetector(
+                        onTap: onOpenWeb,
+                        child: Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.open_in_new_rounded, size: 17, color: cs.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                'View on AniList',
+                                style: TextStyle(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class AnilistPersonScreen extends StatelessWidget {
+  final int id;
+  final String name;
+  final String? imageUrl;
+  final String? subtitle;
+  final String kind;
+  final String? siteUrl;
+
+  const AnilistPersonScreen({
+    super.key,
+    required this.id,
+    required this.name,
+    this.imageUrl,
+    this.subtitle,
+    required this.kind,
+    this.siteUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final profileUrl = siteUrl ?? 'https://anilist.co/${kind == 'Character' ? 'character' : 'staff'}/$id';
+    return Scaffold(
+      appBar: AppBar(title: Text(kind)),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: SizedBox(
+                  width: 112,
+                  height: 150,
+                  child: imageUrl != null
+                      ? ExtendedImage.network(imageUrl!, fit: BoxFit.cover, cache: true)
+                      : Container(
+                          color: cs.surfaceContainerHighest,
+                          child: const Icon(Icons.person_rounded, size: 42),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        kind,
+                        style: TextStyle(
+                          color: cs.onPrimaryContainer,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(name, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                    if (subtitle?.isNotEmpty == true) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(color: cs.onSurface.withValues(alpha: 0.58), height: 1.4),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _GlassCard(
+            child: Row(
+              children: [
+                Icon(
+                  kind == 'Voice Actor'
+                      ? Icons.record_voice_over_outlined
+                      : kind == 'Staff'
+                          ? Icons.movie_creation_outlined
+                          : Icons.person_outline_rounded,
+                  color: cs.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    kind == 'Voice Actor'
+                        ? 'Voice actor profile'
+                        : kind == 'Staff'
+                            ? 'Staff profile'
+                            : 'Character profile',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Text('#$id', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.45))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () => context.push(
+              '/mangawebview',
+              extra: {'url': profileUrl, 'title': name},
+            ),
+            icon: const Icon(Icons.open_in_new_rounded, size: 18),
+            label: const Text('View full profile on AniList'),
+          ),
+        ],
       ),
     );
   }
