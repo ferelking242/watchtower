@@ -7,6 +7,7 @@ import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:shimmer/shimmer.dart';
@@ -1155,8 +1156,16 @@ class _EpisodeHoursBox extends ConsumerWidget {
     final isAnime = media.type == 'ANIME';
     final label = isAnime ? 'Episode' : 'Chapter';
     final total = eps ?? 0;
-    final progress = ref.watch(localAnimeProgressProvider(media)).valueOrNull ??
-        _LocalAnimeProgress(watched: 0, total: total, watchedMinutes: 0);
+    final fallback = _LocalAnimeProgress(
+      watched: 0,
+      total: total,
+      watchedMinutes: 0,
+    );
+    final progress = ref.watch(localAnimeProgressProvider(media)).when(
+          data: (value) => value,
+          loading: () => fallback,
+          error: (_, __) => fallback,
+        );
     final displayedTotal = progress.total > 0 ? progress.total : total;
     final percentage = progress.fraction * 100;
 
