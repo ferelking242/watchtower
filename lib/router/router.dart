@@ -66,6 +66,7 @@ import 'package:watchtower/modules/game/game_discovery_screen.dart';
 import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart'
     as nfile_home;
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
+import 'package:watchtower/modules/media/media_hub_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
@@ -94,10 +95,6 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/modules/transfer/transfer_screen.dart';
 import 'package:watchtower/modules/browse/local_how_to_screen.dart';
 import 'package:watchtower/modules/search/watchtower_discover_screen.dart';
-import 'package:watchtower/modules/film_series/catalog_screen.dart';
-import 'package:watchtower/modules/film_series/detail_screen.dart';
-import 'package:watchtower/modules/film_series/film_series_screen.dart';
-import 'package:watchtower/modules/film_series/supporting_screens.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:watchtower/remote/remote_mode_screen.dart';
@@ -197,7 +194,14 @@ class RouterNotifier extends ChangeNotifier {
           name: "AnimeLibrary",
           child: const AnimeDiscoveryScreen(),
         ),
-        _genericRoute(name: "FilmSeries", child: const FilmSeriesHomeScreen()),
+        _genericRoute(
+          name: "MoviesLibrary",
+          child: const FlixMediaHomeScreen(kind: MediaHubKind.movies),
+        ),
+        _genericRoute(
+          name: "SeriesLibrary",
+          child: const FlixMediaHomeScreen(kind: MediaHubKind.series),
+        ),
         _genericRoute(
           name: "NovelLibrary",
           child: const NovelDiscoveryScreen(),
@@ -242,88 +246,6 @@ class RouterNotifier extends ChangeNotifier {
           child: const WatchtowerDiscoverScreen(),
         ),
       ],
-    ),
-    _genericRoute(
-      name: "MoviesCatalog",
-      child: const FilmSeriesCatalogScreen(mediaType: 'movie'),
-    ),
-    _genericRoute(
-      name: "SeriesCatalog",
-      child: const FilmSeriesCatalogScreen(mediaType: 'tv'),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "MovieDetail",
-      builder: (data) => FilmSeriesDetailScreen(
-        id: (data['id'] as num).toInt(),
-        mediaType: 'movie',
-      ),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "SeriesDetail",
-      builder: (data) => FilmSeriesDetailScreen(
-        id: (data['id'] as num).toInt(),
-        mediaType: 'tv',
-      ),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "MovieGenre",
-      builder: (data) => FilmSeriesGenreScreen(
-        mediaType: 'movie',
-        genreId: (data['genreId'] as num).toInt(),
-        genreName: data['genreName'] as String? ?? 'Genre films',
-      ),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "SeriesGenre",
-      builder: (data) => FilmSeriesGenreScreen(
-        mediaType: 'tv',
-        genreId: (data['genreId'] as num).toInt(),
-        genreName: data['genreName'] as String? ?? 'Genre séries',
-      ),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "MovieCollection",
-      builder: (data) =>
-          FilmSeriesCollectionScreen(id: (data['id'] as num).toInt()),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "SeasonDetail",
-      builder: (data) => FilmSeriesSeasonScreen(
-        tvId: (data['tvId'] as num).toInt(),
-        seasonNumber: (data['seasonNumber'] as num).toInt(),
-        seriesName: data['name'] as String? ?? 'Série',
-      ),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "EpisodeDetail",
-      builder: (data) => FilmSeriesEpisodeScreen(
-        tvId: (data['tvId'] as num).toInt(),
-        seasonNumber: (data['seasonNumber'] as num).toInt(),
-        episodeNumber: (data['episodeNumber'] as num).toInt(),
-        seriesName: data['seriesName'] as String? ?? 'Série',
-      ),
-    ),
-    _genericRoute<int>(
-      name: "PersonDetail",
-      builder: (id) => FilmSeriesPersonScreen(id: id),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "MovieCastCrew",
-      builder: (data) => FilmSeriesPeopleScreen(
-        id: (data['id'] as num).toInt(),
-        mediaType: 'movie',
-      ),
-    ),
-    _genericRoute<Map<String, dynamic>>(
-      name: "SeriesCastCrew",
-      builder: (data) => FilmSeriesPeopleScreen(
-        id: (data['id'] as num).toInt(),
-        mediaType: 'tv',
-      ),
-    ),
-    _genericRoute(
-      name: "FilmSeriesSearch",
-      child: const FilmSeriesSearchScreen(),
     ),
     _genericRoute<(Source?, bool)>(
       name: "mangaHome",

@@ -43,7 +43,9 @@ import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 
-final libLocationRegex = RegExp(r"^/(Manga|Anime|Novel|Music|Game)Library$");
+final libLocationRegex = RegExp(
+  r"^/(Manga|Anime|Novel|Music|Game|Movies|Series)Library$",
+);
 
 /// Whether the floating dock should be hidden because the user is scrolling
 /// down. Pages can opt-in to driving this by wrapping their scrollables in a
@@ -282,6 +284,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   "/MangaLibrary",
                   "/AnimeLibrary",
                   "/NovelLibrary",
+                  "/MoviesLibrary",
+                  "/SeriesLibrary",
                 ].contains(nav)) {
                   if (uniqueSwitch) return null;
                   uniqueSwitch = true;
@@ -306,6 +310,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             '/MangaLibrary',
             '/AnimeLibrary',
             '/NovelLibrary',
+            '/MoviesLibrary',
+            '/SeriesLibrary',
             '/MusicLibrary',
             '/GameLibrary',
           ];
@@ -602,16 +608,22 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ),
       );
     }
-    if (dest.contains("/FilmSeries")) {
+    if (dest.contains("/MoviesLibrary")) {
       destinations[dest.indexOf(
-        "/FilmSeries",
+        "/MoviesLibrary",
       )] = const NavigationRailDestination(
-        selectedIcon: Icon(Icons.movie_filter_rounded),
-        icon: Icon(Icons.movie_filter_outlined),
-        label: Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Text('Films & Séries'),
-        ),
+        selectedIcon: Icon(Icons.movie_rounded),
+        icon: Icon(Icons.movie_outlined),
+        label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Films')),
+      );
+    }
+    if (dest.contains("/SeriesLibrary")) {
+      destinations[dest.indexOf(
+        "/SeriesLibrary",
+      )] = const NavigationRailDestination(
+        selectedIcon: Icon(Icons.tv_rounded),
+        icon: Icon(Icons.tv_outlined),
+        label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Séries')),
       );
     }
     if (dest.contains("/NovelLibrary")) {
@@ -785,11 +797,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: l10n.watch,
       );
     }
-    if (dest.contains('/FilmSeries')) {
-      destMap['/FilmSeries'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.movie_filter_rounded),
-        icon: Icon(Icons.movie_filter_outlined),
-        label: 'Films & Séries',
+    if (dest.contains('/MoviesLibrary')) {
+      destMap['/MoviesLibrary'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.movie_rounded),
+        icon: Icon(Icons.movie_outlined),
+        label: 'Films',
+      );
+    }
+    if (dest.contains('/SeriesLibrary')) {
+      destMap['/SeriesLibrary'] = const NavigationDestination(
+        selectedIcon: Icon(Icons.tv_rounded),
+        icon: Icon(Icons.tv_outlined),
+        label: 'Séries',
       );
     }
     if (dest.contains('/NovelLibrary')) {
@@ -1071,6 +1090,8 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/Library',
     '/MangaLibrary',
     '/AnimeLibrary',
+    '/MoviesLibrary',
+    '/SeriesLibrary',
     '/NovelLibrary',
     '/MusicLibrary',
     '/GameLibrary',
@@ -1104,6 +1125,18 @@ class _TabletLayoutState extends State<_TabletLayout> {
       icon: Broken.video_octagon,
       activeIcon: Broken.video_square,
       tooltip: 'Watch',
+    ),
+    (
+      route: '/MoviesLibrary',
+      icon: Broken.video_square,
+      activeIcon: Broken.video_square,
+      tooltip: 'Films',
+    ),
+    (
+      route: '/SeriesLibrary',
+      icon: Broken.video_square,
+      activeIcon: Broken.video_square,
+      tooltip: 'Séries',
     ),
     (
       route: '/MangaLibrary',
@@ -1704,6 +1737,8 @@ double _getNavigationRailWidthLegacy(bool isLongPressed, String? location) {
     '/Library',
     '/MangaLibrary',
     '/AnimeLibrary',
+    '/MoviesLibrary',
+    '/SeriesLibrary',
     '/NovelLibrary',
     '/MusicLibrary',
     '/GameLibrary',
@@ -1770,6 +1805,8 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/Library',
     '/MangaLibrary',
     '/AnimeLibrary',
+    '/MoviesLibrary',
+    '/SeriesLibrary',
     '/NovelLibrary',
     '/MusicLibrary',
     '/MusicSearch',
@@ -1832,6 +1869,24 @@ class _FloatingDockState extends State<_FloatingDock> {
               route: '/AnimeLibrary',
               label: l10n.watch,
               icon: Broken.video_octagon,
+              activeIcon: Broken.video_square,
+            ),
+          );
+        case '/MoviesLibrary':
+          items.add(
+            const _DockItemData(
+              route: '/MoviesLibrary',
+              label: 'Films',
+              icon: Broken.video_square,
+              activeIcon: Broken.video_square,
+            ),
+          );
+        case '/SeriesLibrary':
+          items.add(
+            const _DockItemData(
+              route: '/SeriesLibrary',
+              label: 'Séries',
+              icon: Broken.video_square,
               activeIcon: Broken.video_square,
             ),
           );
@@ -2636,6 +2691,8 @@ class _DockItemWidget extends StatelessWidget {
       '_disableLibSwitch': 'Tap to go back to Hub view',
       '/Library': 'Library â all your content unified in one page',
       '/AnimeLibrary': 'Watch â your anime & video library',
+      '/MoviesLibrary': 'Films â original FlixQuest movie page',
+      '/SeriesLibrary': 'Séries â original FlixQuest series page',
       '/MangaLibrary': 'Manga â your manga & comic library',
       '/NovelLibrary': 'Novel â your light novel library',
       '/MusicLibrary': 'Music â stream & download music',

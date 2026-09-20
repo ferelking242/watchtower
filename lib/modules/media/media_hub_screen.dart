@@ -1,4 +1,5 @@
 import 'package:extended_image/extended_image.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,8 +40,7 @@ class _MediaHomeBody extends StatelessWidget {
 
   List<TmdbMedia> get trending =>
       isMovies ? home.trendingMovies : home.trendingTv;
-  List<TmdbMedia> get popular =>
-      isMovies ? home.popularMovies : home.popularTv;
+  List<TmdbMedia> get popular => isMovies ? home.popularMovies : home.popularTv;
   List<TmdbMedia> get topRated =>
       isMovies ? home.topRatedMovies : home.topRatedTv;
   List<TmdbMedia> get latest =>
@@ -243,7 +243,8 @@ class _MediaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (items.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.only(bottom: 25),
@@ -323,7 +324,10 @@ class _MediaError extends StatelessWidget {
               style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 8),
-            Text('$error', style: const TextStyle(color: Colors.white24, fontSize: 10)),
+            Text(
+              '$error',
+              style: const TextStyle(color: Colors.white24, fontSize: 10),
+            ),
           ],
         ),
       ),
@@ -355,7 +359,10 @@ class TmdbMediaDetailScreen extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (media.bannerImage != null)
-                    ExtendedImage.network(media.bannerImage!, fit: BoxFit.cover),
+                    ExtendedImage.network(
+                      media.bannerImage!,
+                      fit: BoxFit.cover,
+                    ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -393,10 +400,13 @@ class TmdbMediaDetailScreen extends StatelessWidget {
                           icon: Icons.star_rounded,
                           label: media.voteAverage!.toStringAsFixed(1),
                         ),
-                      if (media.releaseDate != null || media.firstAirDate != null)
+                      if (media.releaseDate != null ||
+                          media.firstAirDate != null)
                         _InfoChip(
                           icon: Icons.calendar_month_rounded,
-                          label: (media.releaseDate ?? media.firstAirDate!).split('-').first,
+                          label: (media.releaseDate ?? media.firstAirDate!)
+                              .split('-')
+                              .first,
                         ),
                       ...genres.map((genre) => _InfoChip(label: genre)),
                     ],
@@ -417,9 +427,12 @@ class TmdbMediaDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       IconButton.filledTonal(
-                        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Ajouté à votre liste locale')),
-                        ),
+                        onPressed: () =>
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Ajouté à votre liste locale'),
+                              ),
+                            ),
                         icon: const Icon(Icons.add_rounded),
                         tooltip: 'Ma liste',
                       ),
@@ -428,7 +441,11 @@ class TmdbMediaDetailScreen extends StatelessWidget {
                   const SizedBox(height: 25),
                   const Text(
                     'Synopsis',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 9),
                   Text(
@@ -463,12 +480,19 @@ class TmdbMediaDetailScreen extends StatelessWidget {
             children: [
               const Text(
                 'Sources Watchtower',
-                style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'La fiche utilise les données TMDB. Ouvrez Recherche pour choisir une source Watchtower installée.',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), height: 1.4),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 16),
               FilledButton(
@@ -507,7 +531,10 @@ class _InfoChip extends StatelessWidget {
             Icon(icon, color: Colors.amber, size: 15),
             const SizedBox(width: 4),
           ],
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
         ],
       ),
     );

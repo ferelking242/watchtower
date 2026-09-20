@@ -32,7 +32,6 @@ class _MenuItem {
 const kWtRouteInfo = <String, (String, IconData)>{
   '/WatchtowerHome': ('Accueil', Icons.home_rounded),
   '/AnimeLibrary': ('Watch', Icons.live_tv_rounded),
-  '/FilmSeries': ('Films & Séries', Icons.movie_filter_rounded),
   '/MangaLibrary': ('Manga', Icons.auto_stories),
   '/NovelLibrary': ('Novel', Icons.local_library),
   '/MusicLibrary': ('Music', Icons.music_note),
@@ -52,7 +51,8 @@ const kWtRouteInfo = <String, (String, IconData)>{
 const kWtDefaultNavOrder = [
   '/discover',
   '/AnimeLibrary',
-  '/FilmSeries',
+  '/MoviesLibrary',
+  '/SeriesLibrary',
   '/MangaLibrary',
   '/browse',
   '/NovelLibrary',
