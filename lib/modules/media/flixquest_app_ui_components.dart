@@ -434,6 +434,45 @@ class AppHeroShimmer extends StatelessWidget {
           children: [
             ColoredBox(color: colors.shimmerBase),
             Positioned(
+              top: 12,
+              left: AppUI.phonePadding,
+              right: AppUI.phonePadding,
+              child: SafeArea(
+                bottom: false,
+                child: Row(
+                  children: [
+                    _ShimmerBlock(
+                      width: 30,
+                      height: 30,
+                      color: colors.shimmerBase,
+                      radius: 15,
+                    ),
+                    const Spacer(),
+                    _ShimmerBlock(
+                      width: 76,
+                      height: 38,
+                      color: colors.shimmerBase,
+                      radius: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    _ShimmerBlock(
+                      width: 40,
+                      height: 40,
+                      color: colors.shimmerBase,
+                      radius: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    _ShimmerBlock(
+                      width: 40,
+                      height: 40,
+                      color: colors.shimmerBase,
+                      radius: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
               left: AppUI.phonePadding,
               right: AppUI.phonePadding,
               bottom: 28,
@@ -591,6 +630,291 @@ class AppMediaGridShimmer extends StatelessWidget {
   }
 }
 
+class AppGenreGridShimmer extends StatelessWidget {
+  const AppGenreGridShimmer({this.isTv = false, super.key});
+
+  final bool isTv;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: isTv ? 'TV genres' : 'Genres',
+          actionLabel: 'View all',
+        ),
+        SizedBox(
+          height: 158,
+          child: GridView.builder(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 184,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+            ),
+            itemCount: 8,
+            itemBuilder: (_, __) => const AppGenreTileShimmer(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class AppGenreTileShimmer extends StatelessWidget {
+  const AppGenreTileShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppLoadingColors.of(context);
+    return Shimmer.fromColors(
+      baseColor: colors.shimmerBase,
+      highlightColor: colors.shimmerHighlight,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(17),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(color: colors.shimmerBase),
+            Positioned(
+              left: 12,
+              bottom: 10,
+              child: _ShimmerBlock(
+                width: 82,
+                height: 13,
+                color: colors.shimmerBase,
+                radius: 6,
+              ),
+            ),
+            Positioned(
+              right: 10,
+              bottom: 9,
+              child: _ShimmerBlock(
+                width: 18,
+                height: 18,
+                color: colors.shimmerBase,
+                radius: 9,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppStreamingServicesShimmer extends StatelessWidget {
+  const AppStreamingServicesShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AppSectionHeader(title: 'Streaming services'),
+        SizedBox(
+          height: 132,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+              vertical: 2,
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            itemCount: 7,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, __) => const AppStreamingServiceTileShimmer(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class AppStreamingServiceTileShimmer extends StatelessWidget {
+  const AppStreamingServiceTileShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppLoadingColors.of(context);
+    return SizedBox(
+      width: 96,
+      child: Shimmer.fromColors(
+        baseColor: colors.shimmerBase,
+        highlightColor: colors.shimmerHighlight,
+        child: Column(
+          children: [
+            _ShimmerBlock(
+              width: 88,
+              height: 88,
+              color: colors.shimmerBase,
+              radius: 22,
+            ),
+            const SizedBox(height: 8),
+            _ShimmerBlock(
+              width: 72,
+              height: 11,
+              color: colors.shimmerBase,
+              radius: 6,
+            ),
+            const SizedBox(height: 6),
+            _ShimmerBlock(
+              width: 48,
+              height: 10,
+              color: colors.shimmerBase,
+              radius: 6,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppLandscapeRowShimmer extends StatelessWidget {
+  const AppLandscapeRowShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppLoadingColors.of(context);
+    return Shimmer.fromColors(
+      baseColor: colors.shimmerBase,
+      highlightColor: colors.shimmerHighlight,
+      child: ListView.separated(
+        padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+        physics: const BouncingScrollPhysics(),
+        scrollDirection: Axis.horizontal,
+        itemCount: 5,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, __) => SizedBox(
+          width: 238,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ShimmerBlock(
+                width: 238,
+                height: 124,
+                color: colors.shimmerBase,
+                radius: AppUI.cardRadius,
+              ),
+              const SizedBox(height: 9),
+              _ShimmerBlock(width: 180, height: 12, color: colors.shimmerBase),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AppRankedRowShimmer extends StatelessWidget {
+  const AppRankedRowShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppLoadingColors.of(context);
+    return Shimmer.fromColors(
+      baseColor: colors.shimmerBase,
+      highlightColor: colors.shimmerHighlight,
+      child: ListView.separated(
+        padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+        physics: const BouncingScrollPhysics(),
+        scrollDirection: Axis.horizontal,
+        itemCount: 7,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, index) => SizedBox(
+          width: 110,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _ShimmerBlock(
+                      width: 110,
+                      height: double.infinity,
+                      color: colors.shimmerBase,
+                      radius: 12,
+                    ),
+                    Positioned(
+                      left: 4,
+                      bottom: -4,
+                      child: _ShimmerBlock(
+                        width: 30,
+                        height: 52,
+                        color: colors.shimmerHighlight,
+                        radius: 6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              _ShimmerBlock(width: 84, height: 11, color: colors.shimmerBase),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AppBannerRowShimmer extends StatelessWidget {
+  const AppBannerRowShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppLoadingColors.of(context);
+    return Column(
+      children: List.generate(
+        2,
+        (index) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppUI.pagePadding(context),
+            index == 0 ? 0 : 12,
+            AppUI.pagePadding(context),
+            0,
+          ),
+          child: AspectRatio(
+            aspectRatio: 2.05,
+            child: Shimmer.fromColors(
+              baseColor: colors.shimmerBase,
+              highlightColor: colors.shimmerHighlight,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _ShimmerBlock(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: colors.shimmerBase,
+                    radius: 18,
+                  ),
+                  Positioned(
+                    left: 14,
+                    bottom: 12,
+                    child: _ShimmerBlock(
+                      width: 140,
+                      height: 14,
+                      color: colors.shimmerBase,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AppEmptyState extends StatelessWidget {
   const AppEmptyState({
     required this.title,
@@ -665,47 +989,80 @@ class AppEmptyState extends StatelessWidget {
 }
 
 class FlixQuestMediaLoading extends StatelessWidget {
-  const FlixQuestMediaLoading({required this.isSeries, super.key});
+  const FlixQuestMediaLoading({
+    required this.isSeries,
+    this.onSearchPressed,
+    this.onLiveTVPressed,
+    this.onBookmarksPressed,
+    this.onRefresh,
+    super.key,
+  });
 
   final bool isSeries;
+  final VoidCallback? onSearchPressed;
+  final VoidCallback? onLiveTVPressed;
+  final VoidCallback? onBookmarksPressed;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final titles = isSeries
-        ? const [
-            'Popular',
-            'Trending this week',
-            'Top rated',
-            'Airing today',
-            'On the air',
-          ]
-        : const [
-            'Popular',
-            'Trending this week',
-            'Top rated',
-            'Now playing',
-            'Upcoming',
-          ];
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppHeroShimmer(
-            height: (MediaQuery.sizeOf(context).height * .48).clamp(
-              410.0,
-              500.0,
+    final title = isSeries ? 'Series' : 'Movies';
+    return RefreshIndicator(
+      onRefresh: onRefresh ?? () async {},
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppFeedOverlayHeader(
+              title: title,
+              onSearchPressed: onSearchPressed,
+              actionLabel: 'Live TV',
+              actionIcon: Icons.podcasts_rounded,
+              onActionPressed: onLiveTVPressed,
+              utilityIcon: Icons.bookmark_border_rounded,
+              utilityTooltip: 'Bookmarks',
+              onUtilityPressed: onBookmarksPressed,
             ),
-          ),
-          for (final title in titles) ...[
-            AppSectionHeader(title: title),
-            SizedBox(
-              height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
-              child: const AppMediaRowShimmer(),
+            AppHeroShimmer(
+              height: (MediaQuery.sizeOf(context).height * .48).clamp(
+                410.0,
+                500.0,
+              ),
             ),
+            for (final sectionTitle in const [
+              'Popular',
+              'Trending this week',
+              'Top rated',
+            ]) ...[
+              AppSectionHeader(title: sectionTitle, actionLabel: 'View all'),
+              SizedBox(
+                height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
+                child: const AppMediaRowShimmer(),
+              ),
+            ],
+            for (final sectionTitle
+                in isSeries
+                    ? const ['Airing today', 'On the air']
+                    : const ['Now playing', 'Upcoming']) ...[
+              AppSectionHeader(title: sectionTitle, actionLabel: 'View all'),
+              const SizedBox(height: 158, child: AppLandscapeRowShimmer()),
+            ],
+            if (!isSeries) ...[
+              const AppSectionHeader(title: 'Top 10 cette semaine'),
+              const SizedBox(height: 208, child: AppRankedRowShimmer()),
+              const AppSectionHeader(title: 'À découvrir'),
+              const SizedBox(height: 172, child: AppLandscapeRowShimmer()),
+              const AppSectionHeader(title: 'À voir ce soir'),
+              const AppBannerRowShimmer(),
+            ],
+            AppGenreGridShimmer(isTv: isSeries),
+            if (!isSeries) const AppStreamingServicesShimmer(),
+            const SizedBox(height: 112),
           ],
-          const SizedBox(height: 112),
-        ],
+        ),
       ),
     );
   }

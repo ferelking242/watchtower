@@ -25,7 +25,15 @@ class FlixMediaHomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: home.when(
-        loading: () => FlixQuestMediaLoading(isSeries: !isMovies),
+        loading: () => FlixQuestMediaLoading(
+          isSeries: !isMovies,
+          onSearchPressed: () => context.push('/flixSearch'),
+          onLiveTVPressed: () => context.push('/liveTv'),
+          onBookmarksPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Liste locale des favoris')),
+          ),
+          onRefresh: () async => ref.invalidate(tmdbHomeProvider),
+        ),
         error: (error, _) => _MediaError(
           title: title,
           error: error,

@@ -826,7 +826,7 @@ class GenreListGrid extends StatelessWidget {
         final genres = snapshot.data ?? const <TmdbGenre>[];
         if (snapshot.connectionState == ConnectionState.waiting &&
             genres.isEmpty) {
-          return const SizedBox(height: 154, child: AppShimmerBlock());
+          return AppGenreGridShimmer(isTv: isTv);
         }
         if (genres.isEmpty) return const SizedBox.shrink();
         return Column(
@@ -1055,7 +1055,7 @@ class MoviesFromWatchProviders extends StatelessWidget {
         final services = snapshot.data ?? const <TmdbWatchProvider>[];
         if (snapshot.connectionState == ConnectionState.waiting &&
             services.isEmpty) {
-          return const SizedBox(height: 154, child: AppShimmerBlock());
+          return const AppStreamingServicesShimmer();
         }
         if (services.isEmpty) return const SizedBox.shrink();
         return Column(
