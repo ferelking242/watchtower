@@ -330,12 +330,14 @@ class AppGenreTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.imageUrl,
+    this.fallbackImageUrl,
     super.key,
   });
 
   final String label;
   final VoidCallback onTap;
   final String? imageUrl;
+  final String? fallbackImageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -357,6 +359,15 @@ class AppGenreTile extends StatelessWidget {
                 loadStateChanged: (state) {
                   if (state.extendedImageLoadState == LoadState.completed) {
                     return null;
+                  }
+                  if (state.extendedImageLoadState == LoadState.failed &&
+                      fallbackImageUrl != null &&
+                      fallbackImageUrl != imageUrl) {
+                    return ExtendedImage.network(
+                      fallbackImageUrl!,
+                      fit: BoxFit.cover,
+                      cache: true,
+                    );
                   }
                   return ColoredBox(color: colors.surfaceContainerHigh);
                 },
@@ -585,12 +596,16 @@ class AppEmptyState extends StatelessWidget {
     required this.title,
     required this.message,
     this.icon,
+    this.actionLabel,
+    this.onAction,
     super.key,
   });
 
   final String title;
   final String message;
   final IconData? icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -634,6 +649,13 @@ class AppEmptyState extends StatelessWidget {
                   height: 1.45,
                 ),
               ),
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: 20),
+                FilledButton.tonal(
+                  onPressed: onAction,
+                  child: Text(actionLabel!),
+                ),
+              ],
             ],
           ),
         ),
@@ -650,15 +672,30 @@ class FlixQuestMediaLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titles = isSeries
-        ? const ['Popular', 'Trending this week', 'Top rated', 'Airing today', 'On the air']
-        : const ['Popular', 'Trending this week', 'Top rated', 'Now playing', 'Upcoming'];
+        ? const [
+            'Popular',
+            'Trending this week',
+            'Top rated',
+            'Airing today',
+            'On the air',
+          ]
+        : const [
+            'Popular',
+            'Trending this week',
+            'Top rated',
+            'Now playing',
+            'Upcoming',
+          ];
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppHeroShimmer(
-            height: (MediaQuery.sizeOf(context).height * .48).clamp(410.0, 500.0),
+            height: (MediaQuery.sizeOf(context).height * .48).clamp(
+              410.0,
+              500.0,
+            ),
           ),
           for (final title in titles) ...[
             AppSectionHeader(title: title),

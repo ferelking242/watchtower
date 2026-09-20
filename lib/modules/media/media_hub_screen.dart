@@ -26,7 +26,11 @@ class FlixMediaHomeScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF0B0B11),
       body: home.when(
         loading: () => FlixQuestMediaLoading(isSeries: !isMovies),
-        error: (error, _) => _MediaError(title: title, error: error),
+        error: (error, _) => _MediaError(
+          title: title,
+          error: error,
+          onRetry: () => ref.invalidate(tmdbHomeProvider),
+        ),
         data: (data) => isMovies
             ? MainMoviesDisplay(home: data)
             : MainSeriesDisplay(home: data),
@@ -304,8 +308,13 @@ class _MediaRow extends StatelessWidget {
 class _MediaError extends StatelessWidget {
   final String title;
   final Object error;
+  final VoidCallback onRetry;
 
-  const _MediaError({required this.title, required this.error});
+  const _MediaError({
+    required this.title,
+    required this.error,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -327,6 +336,11 @@ class _MediaError extends StatelessWidget {
               'Impossible de charger le catalogue TMDB. Réessayez lorsque la connexion sera disponible.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white60),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.tonal(
+              onPressed: onRetry,
+              child: const Text('Réessayer'),
             ),
             const SizedBox(height: 8),
             Text(

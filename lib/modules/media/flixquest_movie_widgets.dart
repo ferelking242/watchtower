@@ -117,13 +117,28 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                     items: widget.home.topRatedMovies,
                     discoverPath: '/movie/top_rated',
                   ),
+                  RankedMovies(
+                    title: 'Top 10 cette semaine',
+                    items: widget.home.trendingMovies
+                        .take(10)
+                        .toList(growable: false),
+                  ),
                   ScrollingLandscapeMovies(
                     title: 'Now playing',
                     items: widget.home.nowPlayingMovies,
+                    discoverPath: '/movie/now_playing',
                   ),
                   ScrollingLandscapeMovies(
                     title: 'Upcoming',
                     items: widget.home.upcomingMovies,
+                    discoverPath: '/movie/upcoming',
+                  ),
+                  FeaturedMovieRail(
+                    title: 'À découvrir',
+                    items: [
+                      ...widget.home.popularMovies,
+                      ...widget.home.trendingMovies,
+                    ],
                   ),
                   FullWidthMovieBanners(
                     title: 'À voir ce soir',
@@ -212,7 +227,8 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
       410.0,
       500.0,
     );
-    final shouldShow = _feedController.offset >=
+    final shouldShow =
+        _feedController.offset >=
         heroHeight - MediaQuery.paddingOf(context).top;
     if (shouldShow != _showCompactHeader) {
       setState(() => _showCompactHeader = shouldShow);
@@ -239,10 +255,11 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
   @override
   Widget build(BuildContext context) {
     final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
-    final bookmarks = widget.onBookmarksPressed ??
+    final bookmarks =
+        widget.onBookmarksPressed ??
         () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Liste locale des favoris')),
-            );
+          const SnackBar(content: Text('Liste locale des favoris')),
+        );
     final liveTv = () => context.push('/liveTv');
 
     return Stack(
@@ -412,39 +429,39 @@ class DiscoverMovies extends StatelessWidget {
                       bottom: false,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: Row(
-                              children: [
-                                SvgPicture.asset(
-                                  'assets/images/fq_svg.svg',
-                                  width: 28,
-                                  height: 28,
-                                  placeholderBuilder: (_) => const Icon(
-                                    Icons.movie_rounded,
-                                    color: Colors.white,
-                                    size: 28,
-                                  ),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Row(
+                            children: [
+                              SvgPicture.asset(
+                                'assets/images/fq_svg.svg',
+                                width: 28,
+                                height: 28,
+                                placeholderBuilder: (_) => const Icon(
+                                  Icons.movie_rounded,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
                               ),
-                                const Spacer(),
-                                if (onLiveTVPressed != null) ...[
-                                  _HeroLiveButton(onPressed: onLiveTVPressed!),
-                                  const SizedBox(width: 8),
-                                ],
-                                _HeroIconButton(
-                                  icon: isBookmarked
-                                      ? Icons.bookmark
-                                      : Icons.bookmark_border,
-                                  tooltip: 'Bookmarks',
-                                  onPressed: () => onBookmarkToggled(movie),
-                                ),
+                              const Spacer(),
+                              if (onLiveTVPressed != null) ...[
+                                _HeroLiveButton(onPressed: onLiveTVPressed!),
                                 const SizedBox(width: 8),
-                                _HeroIconButton(
-                                  icon: Icons.search_rounded,
-                                  onPressed: onSearchPressed,
-                                ),
                               ],
-                            ),
+                              _HeroIconButton(
+                                icon: isBookmarked
+                                    ? Icons.bookmark
+                                    : Icons.bookmark_border,
+                                tooltip: 'Bookmarks',
+                                onPressed: () => onBookmarkToggled(movie),
+                              ),
+                              const SizedBox(width: 8),
+                              _HeroIconButton(
+                                icon: Icons.search_rounded,
+                                onPressed: onSearchPressed,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -652,11 +669,13 @@ class ScrollingLandscapeMovies extends StatelessWidget {
   const ScrollingLandscapeMovies({
     required this.title,
     required this.items,
+    this.discoverPath,
     super.key,
   });
 
   final String title;
   final List<TmdbMedia> items;
+  final String? discoverPath;
 
   @override
   Widget build(BuildContext context) {
@@ -664,7 +683,22 @@ class ScrollingLandscapeMovies extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(title: title),
+        AppSectionHeader(
+          title: title,
+          actionLabel: discoverPath == null ? null : 'View all',
+          onAction: discoverPath == null
+              ? null
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TmdbMoviesListScreen(
+                      title: title,
+                      path: discoverPath!,
+                      initialItems: items,
+                    ),
+                  ),
+                ),
+        ),
         SizedBox(
           height: 158,
           child: ListView.separated(
@@ -681,6 +715,92 @@ class ScrollingLandscapeMovies extends StatelessWidget {
               onTap: () =>
                   context.push('/flixMediaDetail', extra: items[index]),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A ranked rail breaks up the repeated poster rows and mirrors the Top 10
+/// treatment used by FlixQuest: the number is part of the card, not a badge
+/// hidden below the image.
+class RankedMovies extends StatelessWidget {
+  const RankedMovies({required this.title, required this.items, super.key});
+
+  final String title;
+  final List<TmdbMedia> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title),
+        SizedBox(
+          height: 208,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) => TmdbRankedCard(
+              media: items[index],
+              rank: index + 1,
+              onTap: () =>
+                  context.push('/flixMediaDetail', extra: items[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A second landscape treatment with larger cards is useful for films whose
+/// backdrop is more informative than their poster.
+class FeaturedMovieRail extends StatelessWidget {
+  const FeaturedMovieRail({
+    required this.title,
+    required this.items,
+    super.key,
+  });
+
+  final String title;
+  final List<TmdbMedia> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final uniqueItems = <int, TmdbMedia>{
+      for (final item in items) item.id: item,
+    }.values.toList(growable: false);
+    if (uniqueItems.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title),
+        SizedBox(
+          height: 172,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            itemCount: uniqueItems.take(10).length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final media = uniqueItems[index];
+              return TmdbLandscapeCard(
+                media: media,
+                width: 280,
+                onTap: () => context.push('/flixMediaDetail', extra: media),
+              );
+            },
           ),
         ),
       ],
@@ -740,7 +860,10 @@ class GenreListGrid extends StatelessWidget {
                       .firstWhere((url) => url != null, orElse: () => null);
                   return AppGenreTile(
                     label: genre.name,
-                    imageUrl: image,
+                    // Prefer a streamed genre animation when one is available,
+                    // then fall back to a real TMDB backdrop from this feed.
+                    imageUrl: _genreGifUrl(genre.id) ?? image,
+                    fallbackImageUrl: image,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -804,6 +927,22 @@ class GenreListGrid extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String? _genreGifUrl(int id) {
+    // These are public Giphy CDN URLs. Nothing is bundled in the application;
+    // unavailable animations naturally fall back to the TMDB image above.
+    const gifs = <int, String>{
+      28: 'https://media.giphy.com/media/JwaENCLHyE7cn0OvhT/giphy.gif',
+      12: 'https://media.giphy.com/media/3o7aD2saalBq0Q6Fag/giphy.gif',
+      16: 'https://media.giphy.com/media/26tn33aiTi1jkl6H6/giphy.gif',
+      27: 'https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif',
+      35: 'https://media.giphy.com/media/3o6Zt6D8P3RrL3nQ5G/giphy.gif',
+      878: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
+      10749: 'https://media.giphy.com/media/26FLdmIp6wJr91JAI/giphy.gif',
+      53: 'https://media.giphy.com/media/3o7TKsQ8UQJpY2sQfK/giphy.gif',
+    };
+    return gifs[id];
   }
 }
 
@@ -1094,7 +1233,9 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: _error != null && _movies.isEmpty
-          ? Center(child: Text('Impossible de charger ${widget.title}'))
+          ? _CatalogError(title: widget.title, onRetry: _loadPage)
+          : _movies.isEmpty && _loading
+          ? const AppMediaGridShimmer()
           : GridView.builder(
               controller: _scrollController,
               padding: EdgeInsets.fromLTRB(
@@ -1121,6 +1262,26 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
                 );
               },
             ),
+    );
+  }
+}
+
+class _CatalogError extends StatelessWidget {
+  const _CatalogError({required this.title, required this.onRetry});
+
+  final String title;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: AppEmptyState(
+        title: 'Catalogue indisponible',
+        message: 'Impossible de charger $title pour le moment.',
+        icon: Icons.wifi_off_rounded,
+        actionLabel: 'Réessayer',
+        onAction: onRetry,
+      ),
     );
   }
 }
