@@ -1,2 +1,3 @@
+- [Flutter toolchain verification](flutter-toolchain.md) — use the repository’s Flutter 3.47.2 workflow when the local SDK is below the project minimum.
 - [Compatibilité Flutter](flutter-sdk-compatibility.md) — la validation locale exige Dart 3.11 ou plus récent.
 - [Push GitHub](github-push-auth.md) — l’API accepte Bearer, mais Git push exige Basic avec x-access-token et le PAT.

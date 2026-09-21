@@ -25,8 +25,6 @@ class TmdbPosterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final score = media.voteAverage;
     final image = media.bestCover == null
         ? const _TmdbImagePlaceholder()
@@ -44,115 +42,75 @@ class TmdbPosterCard extends StatelessWidget {
       onTap: onTap,
       child: SizedBox(
         width: width,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: AspectRatio(
-            aspectRatio: 2 / 3,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Hero(
-                  tag: heroTag ?? tmdbHeroTag(media),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: image,
-                  ),
-                ),
-                // Bottom gradient
-                const Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: [0.55, 1.0],
-                        colors: [Colors.transparent, Colors.black87],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: AspectRatio(
+                aspectRatio: 2 / 3,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Hero(
+                      tag: heroTag ?? tmdbHeroTag(media),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: image,
                       ),
                     ),
-                  ),
-                ),
-                // Score badge
-                if (score != null && score > 0)
-                  Positioned(
-                    top: 7,
-                    right: 7,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.70),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Broken.star,
-                            size: 10,
-                            color: Colors.amber,
+                    // Score badge
+                    if (score != null && score > 0)
+                      Positioned(
+                        top: 7,
+                        right: 7,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
                           ),
-                          const SizedBox(width: 2),
-                          Text(
-                            score.toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.70),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Broken.star,
+                                size: 10,
+                                color: Colors.amber,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                score.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                // Title bottom
-                Positioned(
-                  left: 8,
-                  right: 8,
-                  bottom: 8,
-                  child: Text(
-                    media.displayTitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                      shadows: [Shadow(color: Colors.black, blurRadius: 6)],
-                    ),
-                  ),
+                  ],
                 ),
-                // Type badge
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: media.mediaType == 'movie'
-                          ? const Color(0xFF2980B9).withValues(alpha: 0.90)
-                          : const Color(0xFFE74C3C).withValues(alpha: 0.90),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      media.mediaType == 'movie' ? 'FILM' : 'SÉRIE',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 6),
+            Text(
+              media.displayTitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -188,132 +146,70 @@ class TmdbLandscapeCard extends StatelessWidget {
       onTap: onTap,
       child: SizedBox(
         width: width,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Hero(
-                  tag: heroTag ?? tmdbHeroTag(media),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: image != null
-                        ? ExtendedImage.network(
-                            image,
-                            fit: BoxFit.cover,
-                            cache: true,
-                            loadStateChanged: (s) {
-                              if (s.extendedImageLoadState ==
-                                  LoadState.completed) {
-                                return null;
-                              }
-                              return const AppShimmerBlock(radius: 0);
-                            },
-                          )
-                        : Container(color: cs.surfaceContainerHighest),
-                  ),
-                ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      stops: [0.3, 1.0],
-                      colors: [Colors.transparent, Colors.black87],
-                    ),
-                  ),
-                ),
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.20),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        width: 1.5,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Hero(
+                      tag: heroTag ?? tmdbHeroTag(media),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: image != null
+                            ? ExtendedImage.network(
+                                image,
+                                fit: BoxFit.cover,
+                                cache: true,
+                                loadStateChanged: (s) {
+                                  if (s.extendedImageLoadState ==
+                                      LoadState.completed) {
+                                    return null;
+                                  }
+                                  return const AppShimmerBlock(radius: 0);
+                                },
+                              )
+                            : Container(color: cs.surfaceContainerHighest),
                       ),
                     ),
-                    child: const Icon(
-                      Broken.play,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
+                  ],
                 ),
-                Positioned(
-                  left: 10,
-                  right: 60,
-                  bottom: 10,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        media.displayTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          shadows: [Shadow(color: Colors.black, blurRadius: 6)],
-                        ),
-                      ),
-                      if (score != null && score > 0) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Broken.star,
-                              size: 12,
-                              color: Colors.amberAccent,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              score.toStringAsFixed(1),
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.60),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      media.mediaType == 'movie' ? 'FILM' : 'SÉRIE',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 6),
+            Text(
+              media.displayTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (score != null && score > 0) ...[
+              const SizedBox(height: 3),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Broken.star, size: 12, color: Colors.amberAccent),
+                  const SizedBox(width: 3),
+                  Text(
+                    score.toStringAsFixed(1),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -578,29 +474,6 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Type badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: m.mediaType == 'movie'
-                                    ? const Color(0xFF2980B9)
-                                    : const Color(0xFFE74C3C),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                m.mediaType == 'movie' ? 'FILM' : 'SÉRIE',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
                             Text(
                               m.displayTitle,
                               maxLines: 2,

@@ -745,7 +745,7 @@ class ScrollingLandscapeMovies extends StatelessWidget {
                 ),
         ),
         SizedBox(
-          height: 158,
+          height: 184,
           child: ListView.separated(
             padding: EdgeInsets.symmetric(
               horizontal: AppUI.pagePadding(context),
@@ -839,7 +839,7 @@ class FeaturedMovieRail extends StatelessWidget {
       children: [
         AppSectionHeader(title: title),
         SizedBox(
-          height: 172,
+          height: 204,
           child: ListView.separated(
             padding: EdgeInsets.symmetric(
               horizontal: AppUI.pagePadding(context),
@@ -906,7 +906,7 @@ class GenreListGrid extends StatelessWidget {
               ),
             ),
             SizedBox(
-              height: 164,
+              height: 186,
               child: GridView.builder(
                 padding: EdgeInsets.symmetric(
                   horizontal: AppUI.pagePadding(context),
@@ -914,8 +914,9 @@ class GenreListGrid extends StatelessWidget {
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 1,
-                  mainAxisExtent: 154,
+                  crossAxisCount: 2,
+                  mainAxisExtent: 132,
+                  crossAxisSpacing: 8,
                   mainAxisSpacing: 12,
                 ),
                 itemCount: genres.length,
