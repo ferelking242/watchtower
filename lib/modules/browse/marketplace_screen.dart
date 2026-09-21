@@ -8935,8 +8935,8 @@ class _BinaryTab extends StatelessWidget {
 //
 // This is deliberately a single, focused catalogue surface. The old
 // marketplace contained several competing card systems; this one follows the
-// mobile Play Store rhythm: compact header, search, category tabs, featured
-// content, full-width app rows and a persistent bottom navigation bar.
+// mobile Play Store rhythm: compact header, swipeable category tabs, featured
+// shelves, full-width app rows and a persistent bottom navigation bar.
 
 class _PlayStoreMarketplaceView extends StatefulWidget {
   final List<_ExtEntry> entries;
@@ -8975,6 +8975,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   int _bottomTab = 1;
   bool _searching = false;
   bool _accountOpen = false;
+  String _subCategory = 'Tout';
 
   static const _green = Color(0xFF8ED081);
   static const _surface = Color(0xFF1B1B1D);
@@ -9039,6 +9040,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             .toList();
         break;
     }
+    if (_subCategory != 'Tout') {
+      list = list.where(_matchesSubCategory).toList();
+    }
     list.sort((a, b) {
       final rating = _playRating(b).compareTo(_playRating(a));
       if (rating != 0) return rating;
@@ -9047,8 +9051,107 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     return list;
   }
 
-  List<_ExtEntry> _forType(ItemType type) =>
-      _visible.where((entry) => entry.contentType == type).toList();
+  static const _tabLabels = [
+    'Pour vous',
+    'Watch',
+    'Manga',
+    '+18',
+    'Musique',
+    'Jeux',
+    'Romans',
+  ];
+
+  List<String> get _subCategories {
+    switch (_tab) {
+      case 1:
+        return const ['Tout', 'Anime', 'Films', 'Séries', 'Drama', '+18'];
+      case 2:
+        return const [
+          'Tout',
+          'Manga',
+          'Webtoon',
+          'Webcomic',
+          'Manhwa',
+          'Manhua',
+          'Pornhua',
+          'Pornwha',
+        ];
+      case 3:
+        return const [
+          'Tout',
+          'Tous les +18',
+          'Watch +18',
+          'Manga +18',
+          'Pornhua',
+          'Pornwha',
+        ];
+      case 4:
+        return const ['Tout', 'Audio', 'AnimeThemes', 'Podcasts', 'Karaoké'];
+      case 5:
+        return const ['Tout', 'ROMs', 'PC', 'Console', 'Émulation'];
+      case 6:
+        return const ['Tout', 'Light novels', 'Web novels', 'Romans'];
+      default:
+        return const ['Tout', 'Populaire', 'Nouveautés', 'JavaScript', 'Dart'];
+    }
+  }
+
+  String _entrySearchText(_ExtEntry entry) => [
+    entry.name,
+    entry.description,
+    ...entry.subCategories,
+  ].join(' ').toLowerCase();
+
+  bool _matchesSubCategory(_ExtEntry entry) {
+    final label = _subCategory.toLowerCase();
+    final searchText = _entrySearchText(entry);
+    switch (label) {
+      case 'anime':
+        return entry.contentType == ItemType.anime;
+      case 'manga':
+        return entry.contentType == ItemType.manga;
+      case '+18':
+      case 'tous les +18':
+        return entry.isNsfw;
+      case 'watch +18':
+        return entry.isNsfw && entry.contentType == ItemType.anime;
+      case 'manga +18':
+        return entry.isNsfw && entry.contentType == ItemType.manga;
+      case 'pornhua':
+      case 'pornwha':
+        // Older repositories do not expose subCategories yet. Keep both
+        // adult manga labels useful until the catalogue starts publishing
+        // the more precise taxonomy.
+        return entry.isNsfw && entry.contentType == ItemType.manga;
+      case 'audio':
+        return entry.contentType == ItemType.music;
+      case 'romans':
+        return entry.contentType == ItemType.novel;
+      case 'populaire':
+        return _playRating(entry) >= 4.5;
+      case 'nouveautés':
+        return entry.version.isNotEmpty;
+      default:
+        return searchText.contains(
+          label
+              .replaceAll('é', 'e')
+              .replaceAll('è', 'e')
+              .replaceAll('ê', 'e')
+              .replaceAll('+', ''),
+        );
+    }
+  }
+
+  void _selectTab(int tab) {
+    setState(() {
+      _tab = tab;
+      _subCategory = 'Tout';
+    });
+  }
+
+  void _selectSubCategory(String category) {
+    setState(() => _subCategory = category);
+  }
 
   List<_ExtEntry> get _featured {
     final preferred = <_ExtEntry>[];
@@ -9113,47 +9216,46 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
-        SliverToBoxAdapter(child: _buildSearchBar()),
         if (!_searching) ...[
-          SliverToBoxAdapter(child: _buildTabs()),
-          if (_tab == 7)
-            SliverToBoxAdapter(child: _buildCategories())
+          _buildTabs(),
+          SliverToBoxAdapter(child: _buildSubcategoryRail()),
+          if (widget.loading && widget.entries.isEmpty)
+            const SliverToBoxAdapter(child: _LoadingRows())
+          else if (_tab == 3 && !widget.showNsfw)
+            SliverToBoxAdapter(child: _buildNsfwGate())
           else ...[
-            if (widget.loading && widget.entries.isEmpty)
-              const SliverToBoxAdapter(child: _LoadingRows())
-            else ...[
-              SliverToBoxAdapter(child: _buildHero()),
-              SliverToBoxAdapter(
-                child: _buildSectionTitle(
-                  _tab == 1
-                      ? 'Watch à découvrir'
-                      : _tab == 2
-                      ? 'Manga à découvrir'
-                      : _tab == 3
-                      ? 'Contenu +18'
-                      : _tab == 4
-                      ? 'Musique à découvrir'
-                      : _tab == 5
-                      ? 'Jeux à découvrir'
-                      : _tab == 6
-                      ? 'Romans à découvrir'
-                      : 'Recommandé pour vous',
-                ),
+            SliverToBoxAdapter(child: _buildHero()),
+            SliverToBoxAdapter(
+              child: _buildSectionTitle(
+                _tab == 1
+                    ? 'Watch à découvrir'
+                    : _tab == 2
+                    ? 'Manga à découvrir'
+                    : _tab == 3
+                    ? 'Contenu +18'
+                    : _tab == 4
+                    ? 'Musique à découvrir'
+                    : _tab == 5
+                    ? 'Jeux à découvrir'
+                    : _tab == 6
+                    ? 'Romans à découvrir'
+                    : 'Recommandé pour vous',
               ),
-              _buildRows(_visible.take(8).toList()),
-              SliverToBoxAdapter(
-                child: _buildSectionTitle(
-                  _tab == 0 ? 'Nouveautés intéressantes' : 'Plus de résultats',
-                ),
+            ),
+            _buildShelf(_featured),
+            SliverToBoxAdapter(
+              child: _buildSectionTitle(
+                _tab == 2 ? 'Manga et webcomics' : 'À découvrir ensuite',
               ),
-              _buildRows(_visible.skip(8).take(8).toList()),
-              SliverToBoxAdapter(
-                child: _buildSectionTitle('Toutes les extensions'),
-              ),
-              _buildRows(_visible.skip(16).take(36).toList()),
-            ],
+            ),
+            _buildShelf(_visible.skip(6).take(10).toList()),
+            SliverToBoxAdapter(
+              child: _buildSectionTitle('Toutes les extensions'),
+            ),
+            _buildRows(_visible.skip(16).take(36).toList()),
           ],
         ] else ...[
+          SliverToBoxAdapter(child: _buildSearchBar()),
           SliverToBoxAdapter(
             child: _buildSectionTitle(
               _searchController.text.isEmpty
@@ -9173,7 +9275,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 14, 6),
+      padding: const EdgeInsets.fromLTRB(18, 12, 14, 8),
       child: Row(
         children: [
           CustomPaint(
@@ -9186,7 +9288,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               'Watchtower',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.6,
               ),
@@ -9264,48 +9366,55 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildTabs() {
-    const labels = [
-      'Accueil',
-      'Watch',
-      'Manga',
-      '+18',
-      'Musique',
-      'Jeux',
-      'Romans',
-      'Plus',
-    ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-      child: Wrap(
-        spacing: 7,
-        runSpacing: 7,
-        children: List.generate(labels.length, (index) {
-          final selected = _tab == index;
-          return GestureDetector(
-            onTap: () => setState(() => _tab = index),
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _MarketplaceTabHeaderDelegate(
+        labels: _tabLabels,
+        selected: _tab,
+        onSelected: _selectTab,
+      ),
+    );
+  }
+
+  Widget _buildSubcategoryRail() {
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
+        scrollDirection: Axis.horizontal,
+        itemCount: _subCategories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, index) {
+          final category = _subCategories[index];
+          final selected = category == _subCategory;
+          return InkWell(
+            onTap: () => _selectSubCategory(category),
+            borderRadius: BorderRadius.circular(20),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: selected ? const Color(0xFF164C56) : _surface,
+                color: selected ? const Color(0xFFB7F4F0) : _surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: selected
-                      ? const Color(0xFF2B8D88)
-                      : const Color(0xFF303034),
+                      ? const Color(0xFFB7F4F0)
+                      : const Color(0xFF353539),
                 ),
               ),
-              child: Text(
-                labels[index],
-                style: TextStyle(
-                  color: selected ? const Color(0xFFB7F4F0) : _muted,
-                  fontSize: 12,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              child: Center(
+                child: Text(
+                  category,
+                  style: TextStyle(
+                    color: selected ? const Color(0xFF123437) : _muted,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
               ),
             ),
           );
-        }),
+        },
       ),
     );
   }
@@ -9313,73 +9422,85 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   Widget _buildHero() {
     final entries = _featured;
     if (entries.isEmpty) return const SizedBox(height: 8);
-    final entry = entries.first;
-    final colors = const [Color(0xFF254D44), Color(0xFF121C29)];
     return SizedBox(
       height: 176,
-      child: Padding(
+      child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-        child: GestureDetector(
-          onTap: () => _showDetails(entry),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: colors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: 18,
-                  top: 18,
-                  child: _PlayStoreIcon(entry: entry, size: 82),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 116, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      const Text(
-                        'Recommandé pour toi',
-                        style: TextStyle(
-                          color: Color(0xFFD8EEDB),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        entry.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 21,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _playDescription(entry),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFFE0E6E4),
-                          fontSize: 12,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
+        scrollDirection: Axis.horizontal,
+        itemCount: entries.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, index) {
+          final entry = entries[index];
+          final colors = index.isEven
+              ? const [Color(0xFF254D44), Color(0xFF121C29)]
+              : const [Color(0xFF39456B), Color(0xFF201D35)];
+          return SizedBox(
+            width: (MediaQuery.sizeOf(context).width - 32)
+                .clamp(280.0, 540.0)
+                .toDouble(),
+            child: GestureDetector(
+              onTap: () => _showDetails(entry),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: colors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-              ],
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: 18,
+                      top: 18,
+                      child: _PlayStoreIcon(entry: entry, size: 82),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 116, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'Recommandé pour toi',
+                            style: TextStyle(
+                              color: Color(0xFFD8EEDB),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            entry.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _playDescription(entry),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFE0E6E4),
+                              fontSize: 12,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -9406,6 +9527,41 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               visualDensity: VisualDensity.compact,
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildShelf(List<_ExtEntry> entries) {
+    if (entries.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(18, 8, 18, 22),
+          child: Text(
+            'Aucune extension dans cette catégorie pour le moment.',
+            style: TextStyle(color: _muted, fontSize: 13),
+          ),
+        ),
+      );
+    }
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 222,
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          scrollDirection: Axis.horizontal,
+          itemCount: entries.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (_, index) {
+            final entry = entries[index];
+            return _PlayStoreShelfCard(
+              entry: entry,
+              installed: widget.installed.contains(entry.id),
+              busy: widget.busy[entry.id] == true,
+              onTap: () => _showDetails(entry),
+              onInstall: () => widget.onInstall(entry),
+            );
+          },
+        ),
       ),
     );
   }
@@ -9515,7 +9671,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           final category = categories[index];
           return InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: () => setState(() => _tab = category.$4),
+            onTap: () => _selectTab(category.$4),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: _surface,
@@ -9616,6 +9772,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                   onTap: () => setState(() {
                     _accountOpen = false;
                     _tab = 1;
+                    _subCategory = 'Tout';
                   }),
                 ),
                 _AccountOption(
@@ -9987,6 +10144,228 @@ class _PlayStoreRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PlayStoreShelfCard extends StatelessWidget {
+  final _ExtEntry entry;
+  final bool installed;
+  final bool busy;
+  final VoidCallback onTap;
+  final VoidCallback onInstall;
+
+  const _PlayStoreShelfCard({
+    required this.entry,
+    required this.installed,
+    required this.busy,
+    required this.onTap,
+    required this.onInstall,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 238,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: const Color(0xFF202023),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF303035)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _PlayStoreIcon(entry: entry, size: 58),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      entry.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _PlayStoreMarketplaceViewState._muted,
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _playDescription(entry),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFD0CFD4),
+                  fontSize: 11,
+                  height: 1.25,
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Text(
+                    _playRating(entry).toStringAsFixed(1),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  const Icon(
+                    Icons.star_rounded,
+                    color: Color(0xFFFFC107),
+                    size: 14,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      _playSize(entry),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _PlayStoreMarketplaceViewState._muted,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              SizedBox(
+                width: double.infinity,
+                height: 32,
+                child: FilledButton(
+                  onPressed: installed || busy ? null : onInstall,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFB7F4F0),
+                    foregroundColor: const Color(0xFF123437),
+                    disabledBackgroundColor: const Color(0xFF343438),
+                    disabledForegroundColor: const Color(0xFFA6A5AA),
+                    padding: EdgeInsets.zero,
+                    textStyle: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: busy
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(installed ? 'Installée' : 'Installer'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  _MarketplaceTabHeaderDelegate({
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  double get minExtent => 48;
+
+  @override
+  double get maxExtent => 48;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF111113),
+        border: Border(
+          bottom: BorderSide(
+            color: overlapsContent
+                ? const Color(0xFF353539)
+                : Colors.transparent,
+          ),
+        ),
+      ),
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        scrollDirection: Axis.horizontal,
+        itemCount: labels.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 26),
+        itemBuilder: (_, index) {
+          final isSelected = index == selected;
+          return GestureDetector(
+            onTap: () => onSelected(index),
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                Center(
+                  child: Text(
+                    labels[index],
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFFB9B8BE),
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: isSelected ? 34 : 0,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFB7F4F0),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _MarketplaceTabHeaderDelegate oldDelegate) =>
+      oldDelegate.selected != selected ||
+      oldDelegate.labels != labels ||
+      oldDelegate.onSelected != onSelected;
 }
 
 class _PlayStoreDetails extends StatelessWidget {
