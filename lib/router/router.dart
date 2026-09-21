@@ -80,6 +80,7 @@ import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/novel/home/novel_home_screen.dart';
 import 'package:watchtower/modules/watch/reel/reel_screen.dart';
 import 'package:watchtower/modules/watch/reel/creator_profile_screen.dart';
+import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
 import 'package:watchtower/modules/more/about/about_screen.dart';
 import 'package:watchtower/modules/more/about/log_viewer_screen.dart';
@@ -229,10 +230,9 @@ class RouterNotifier extends ChangeNotifier {
           name: "nfileHome",
           child: nfile_home.HomeScreen(toggleTheme: () {}),
         ),
-        _genericRoute<Source?>(
+        _genericRoute(
           name: "WatchtowerHome",
-          allowNullExtra: true,
-          builder: (source) => WatchtowerHomeScreen(source: source),
+          child: const WatchtowerHomeScreen(),
         ),
         _genericRoute<String?>(
           name: "trackerLibrary",
@@ -272,6 +272,10 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute<(Source?, bool)>(
       name: "mangaHome",
       builder: (id) => MangaHomeScreen(source: id.$1!, isLatest: id.$2),
+    ),
+    _genericRoute<Source>(
+      name: "watchExtensionHome",
+      builder: (source) => WatchExtensionHomeScreen(source: source),
     ),
     _genericRoute<Map<String, dynamic>>(
       name: "reel",

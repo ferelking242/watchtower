@@ -66,20 +66,18 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   }();
 
   /// Unique, sorted language codes present in _allSources.
-  late final List<String> _availableLangs = _allSources
-      .map((s) => s.lang ?? '')
-      .where((l) => l.isNotEmpty)
-      .toSet()
-      .toList()
-    ..sort();
+  late final List<String> _availableLangs =
+      _allSources
+          .map((s) => s.lang ?? '')
+          .where((l) => l.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
 
   /// Source code language types present in _allSources (excluding dart default
   /// when all sources are that type, to avoid a useless single chip).
   late final List<SourceCodeLanguage> _availableTypes = () {
-    final types = _allSources
-        .map((s) => s.sourceCodeLanguage)
-        .toSet()
-        .toList();
+    final types = _allSources.map((s) => s.sourceCodeLanguage).toSet().toList();
     return types.length > 1 ? types : <SourceCodeLanguage>[];
   }();
 
@@ -131,13 +129,12 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       return;
     }
     if (source.additionalParams?.contains('type=reel') ?? false) {
-      context.pushNamed('reel', extra: {
-        'source': source,
-        'listId': 'for_you',
-        'startGifId': null,
-      });
+      context.pushNamed(
+        'reel',
+        extra: {'source': source, 'listId': 'for_you', 'startGifId': null},
+      );
     } else if (source.itemType == ItemType.anime) {
-      context.push('/WatchtowerHome', extra: source);
+      context.push('/watchExtensionHome', extra: source);
     } else if (source.itemType == ItemType.novel) {
       context.push('/novelHome', extra: (source, false));
     } else {
@@ -175,34 +172,36 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Row(children: [SeachFormTextField(
-          onChanged: (value) {},
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          onFieldSubmitted: (value) async {
-            if (!(_query == _textEditingController.text)) {
-              setState(() {
-                _query = "";
-              });
-              await WidgetsBinding.instance.endOfFrame;
-              AppLogger.log(
-                'Global search started | type=${widget.itemType.name} '
-                '| sources=${filtered.length} | query="$value"',
-                logLevel: LogLevel.info,
-                tag: LogTag.search,
-              );
-              setState(() {
-                _query = value;
-              });
-            }
-          },
-          onSuffixPressed: () {
-            _textEditingController.clear();
-            setState(() {
-              _query = "";
-            });
-          },
+        title: Row(
+          children: [
+            SeachFormTextField(
+              onChanged: (value) {},
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              onFieldSubmitted: (value) async {
+                if (!(_query == _textEditingController.text)) {
+                  setState(() {
+                    _query = "";
+                  });
+                  await WidgetsBinding.instance.endOfFrame;
+                  AppLogger.log(
+                    'Global search started | type=${widget.itemType.name} '
+                    '| sources=${filtered.length} | query="$value"',
+                    logLevel: LogLevel.info,
+                    tag: LogTag.search,
+                  );
+                  setState(() {
+                    _query = value;
+                  });
+                }
+              },
+              onSuffixPressed: () {
+                _textEditingController.clear();
+                setState(() {
+                  _query = "";
+                });
+              },
               controller: _textEditingController,
             ),
           ],
@@ -231,7 +230,10 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               } catch (_) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Recherche vocale indisponible'), duration: Duration(seconds: 1)),
+                    const SnackBar(
+                      content: Text('Recherche vocale indisponible'),
+                      duration: Duration(seconds: 1),
+                    ),
                   );
                 }
               }
@@ -250,9 +252,14 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   selectedType: _selectedType,
                   pinnedOnly: _pinnedOnly,
                   cs: cs,
-                  onLangSelected: (lang) => setState(() => _selectedLang = lang == _selectedLang ? null : lang),
-                  onTypeSelected: (type) => setState(() => _selectedType = type == _selectedType ? null : type),
-                  onPinnedToggled: () => setState(() => _pinnedOnly = !_pinnedOnly),
+                  onLangSelected: (lang) => setState(
+                    () => _selectedLang = lang == _selectedLang ? null : lang,
+                  ),
+                  onTypeSelected: (type) => setState(
+                    () => _selectedType = type == _selectedType ? null : type,
+                  ),
+                  onPinnedToggled: () =>
+                      setState(() => _pinnedOnly = !_pinnedOnly),
                   onClearAll: _clearFilters,
                 ),
               );
@@ -274,11 +281,12 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               cs: cs,
               isDark: isDark,
               onLangSelected: (lang) => setState(
-                  () => _selectedLang = lang == _selectedLang ? null : lang),
+                () => _selectedLang = lang == _selectedLang ? null : lang,
+              ),
               onTypeSelected: (type) => setState(
-                  () => _selectedType = type == _selectedType ? null : type),
-              onPinnedToggled: () =>
-                  setState(() => _pinnedOnly = !_pinnedOnly),
+                () => _selectedType = type == _selectedType ? null : type,
+              ),
+              onPinnedToggled: () => setState(() => _pinnedOnly = !_pinnedOnly),
               onClearAll: _clearFilters,
             ),
 
@@ -286,28 +294,28 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           Expanded(
             child: (_query.isNotEmpty || widget.search != null)
                 ? filtered.isEmpty
-                    ? _EmptyFiltersState(
-                        hasFilters: _hasActiveFilters,
-                        onClear: _clearFilters,
-                        cs: cs,
-                        isDark: isDark,
-                      )
-                    : SuperListView.builder(
-                        itemCount: filtered.length,
-                        extentPrecalculationPolicy:
-                            SuperPrecalculationPolicy(),
-                        itemBuilder: (context, index) {
-                          final source = filtered[index];
-                          return SizedBox(
-                            height: 260,
-                            child: SourceSearchScreen(
-                              key: ValueKey('${query}_${source.id}'),
-                              query: query,
-                              source: source,
-                            ),
-                          );
-                        },
-                      )
+                      ? _EmptyFiltersState(
+                          hasFilters: _hasActiveFilters,
+                          onClear: _clearFilters,
+                          cs: cs,
+                          isDark: isDark,
+                        )
+                      : SuperListView.builder(
+                          itemCount: filtered.length,
+                          extentPrecalculationPolicy:
+                              SuperPrecalculationPolicy(),
+                          itemBuilder: (context, index) {
+                            final source = filtered[index];
+                            return SizedBox(
+                              height: 260,
+                              child: SourceSearchScreen(
+                                key: ValueKey('${query}_${source.id}'),
+                                query: query,
+                                source: source,
+                              ),
+                            );
+                          },
+                        )
                 : _IdleSourcesList(
                     sources: filtered,
                     hasFilters: _hasActiveFilters,
@@ -456,15 +464,15 @@ class _Chip extends StatelessWidget {
     final bg = isReset
         ? cs.error.withValues(alpha: 0.12)
         : selected
-            ? cs.primary.withValues(alpha: 0.15)
-            : (isDark
-                ? Colors.white.withValues(alpha: 0.07)
-                : Colors.black.withValues(alpha: 0.05));
+        ? cs.primary.withValues(alpha: 0.15)
+        : (isDark
+              ? Colors.white.withValues(alpha: 0.07)
+              : Colors.black.withValues(alpha: 0.05));
     final fg = isReset
         ? cs.error
         : selected
-            ? cs.primary
-            : cs.onSurfaceVariant;
+        ? cs.primary
+        : cs.onSurfaceVariant;
 
     return GestureDetector(
       onTap: onTap,
@@ -478,8 +486,8 @@ class _Chip extends StatelessWidget {
             color: selected
                 ? cs.primary.withValues(alpha: 0.40)
                 : isReset
-                    ? cs.error.withValues(alpha: 0.30)
-                    : cs.outline.withValues(alpha: 0.18),
+                ? cs.error.withValues(alpha: 0.30)
+                : cs.outline.withValues(alpha: 0.18),
             width: 1,
           ),
         ),
@@ -1083,15 +1091,32 @@ class _FilterSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('Filtres', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                Text(
+                  'Filtres',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
                 const Spacer(),
                 if (selectedLang != null || selectedType != null || pinnedOnly)
-                  TextButton(onPressed: onClearAll, child: const Text('Effacer tout')),
+                  TextButton(
+                    onPressed: onClearAll,
+                    child: const Text('Effacer tout'),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
             if (availableLangs.isNotEmpty) ...[
-              Text('Langue', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+              Text(
+                'Langue',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
@@ -1099,7 +1124,10 @@ class _FilterSheet extends StatelessWidget {
                 children: [
                   for (final lang in availableLangs)
                     FilterChip(
-                      label: Text(lang.toUpperCase(), style: const TextStyle(fontSize: 11)),
+                      label: Text(
+                        lang.toUpperCase(),
+                        style: const TextStyle(fontSize: 11),
+                      ),
                       selected: selectedLang == lang,
                       onSelected: (_) => onLangSelected(lang),
                       visualDensity: VisualDensity.compact,
@@ -1109,7 +1137,14 @@ class _FilterSheet extends StatelessWidget {
               const SizedBox(height: 16),
             ],
             if (availableTypes.isNotEmpty) ...[
-              Text('Type de source', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+              Text(
+                'Type de source',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
@@ -1117,7 +1152,10 @@ class _FilterSheet extends StatelessWidget {
                 children: [
                   for (final type in availableTypes)
                     FilterChip(
-                      label: Text(type.name, style: const TextStyle(fontSize: 11)),
+                      label: Text(
+                        type.name,
+                        style: const TextStyle(fontSize: 11),
+                      ),
                       selected: selectedType == type,
                       onSelected: (_) => onTypeSelected(type),
                       visualDensity: VisualDensity.compact,
@@ -1128,7 +1166,10 @@ class _FilterSheet extends StatelessWidget {
             ],
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Favoris uniquement', style: TextStyle(fontSize: 13)),
+              title: const Text(
+                'Favoris uniquement',
+                style: TextStyle(fontSize: 13),
+              ),
               value: pinnedOnly,
               onChanged: (_) => onPinnedToggled(),
             ),

@@ -22,8 +22,6 @@ import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
-import 'package:watchtower/models/source.dart';
-import 'package:watchtower/services/layout_registry.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
@@ -57,9 +55,7 @@ enum _HomeTab {
 ///   │ Section rows …                  │
 ///   └──────────────────────────────────┘
 class WatchtowerHomeScreen extends ConsumerStatefulWidget {
-  final Source? source;
-
-  const WatchtowerHomeScreen({this.source, super.key});
+  const WatchtowerHomeScreen({super.key});
   @override
   ConsumerState<WatchtowerHomeScreen> createState() =>
       _WatchtowerHomeScreenState();
@@ -76,7 +72,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSourceLayout();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -86,12 +81,6 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       ),
     );
     _scroll.addListener(_updateOpacity);
-  }
-
-  Future<void> _loadSourceLayout() async {
-    final source = widget.source;
-    if (source == null || !source.providesHome) return;
-    await LayoutRegistry.instance.load(source);
   }
 
   void _updateOpacity() {
@@ -448,15 +437,11 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         items: tmdb.upcomingMovies,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
-      ..._tmdbCountryRows(
-        ctx,
-        [
-          ...tmdb.popularMovies,
-          ...tmdb.trendingMovies,
-          ...tmdb.topRatedMovies,
-        ],
-        itemLabel: 'Films',
-      ),
+      ..._tmdbCountryRows(ctx, [
+        ...tmdb.popularMovies,
+        ...tmdb.trendingMovies,
+        ...tmdb.topRatedMovies,
+      ], itemLabel: 'Films'),
     ];
   }
 
@@ -506,15 +491,11 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         items: tmdb.onTheAirTv,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
-      ..._tmdbCountryRows(
-        ctx,
-        [
-          ...tmdb.popularTv,
-          ...tmdb.trendingTv,
-          ...tmdb.topRatedTv,
-        ],
-        itemLabel: 'Séries',
-      ),
+      ..._tmdbCountryRows(ctx, [
+        ...tmdb.popularTv,
+        ...tmdb.trendingTv,
+        ...tmdb.topRatedTv,
+      ], itemLabel: 'Séries'),
     ];
   }
 
@@ -2275,10 +2256,7 @@ class _TmdbTonightSection extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _TmdbTonightImage(
-                          media: featured,
-                          background: surface,
-                        ),
+                        _TmdbTonightImage(media: featured, background: surface),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -2374,10 +2352,7 @@ class _TmdbTonightImage extends StatelessWidget {
   final TmdbMedia media;
   final Color background;
 
-  const _TmdbTonightImage({
-    required this.media,
-    required this.background,
-  });
+  const _TmdbTonightImage({required this.media, required this.background});
 
   @override
   Widget build(BuildContext context) {
@@ -2415,10 +2390,7 @@ class _TmdbTonightMiniCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(11),
             child: AspectRatio(
               aspectRatio: 1.44,
-              child: _TmdbTonightImage(
-                media: media,
-                background: background,
-              ),
+              child: _TmdbTonightImage(media: media, background: background),
             ),
           ),
           const SizedBox(height: 5),

@@ -56,13 +56,16 @@ class SourceListTile extends StatelessWidget {
           if (isLocal) {
             context.push('/localSources', extra: itemType);
           } else if (source.additionalParams?.contains('type=reel') ?? false) {
-            context.pushNamed('reel', extra: {
-              'source': source,
-              'listId': 'for_you',
-              'startGifId': null,
-            });
+            context.pushNamed(
+              'reel',
+              extra: {
+                'source': source,
+                'listId': 'for_you',
+                'startGifId': null,
+              },
+            );
           } else if (source.itemType == ItemType.anime) {
-            context.push('/WatchtowerHome', extra: source);
+            context.push('/watchExtensionHome', extra: source);
           } else if (source.itemType == ItemType.novel) {
             context.push('/novelHome', extra: (source, false));
           } else {
@@ -210,8 +213,12 @@ class SourceListTile extends StatelessWidget {
                   );
                 },
                 icon: Icon(
-                  (source.isPinned ?? false) ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-                  color: (source.isPinned ?? false) ? context.primaryColor : null,
+                  (source.isPinned ?? false)
+                      ? Icons.push_pin_rounded
+                      : Icons.push_pin_outlined,
+                  color: (source.isPinned ?? false)
+                      ? context.primaryColor
+                      : null,
                 ),
               )
             : null,
