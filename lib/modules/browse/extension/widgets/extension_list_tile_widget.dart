@@ -19,6 +19,7 @@ import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 final extensionListTileWidget = Provider.family<Widget, Source>((ref, source) {
   return ExtensionListTileWidget(source: source);
@@ -50,11 +51,13 @@ class _ExtensionListTileWidgetState
   }
 
   bool get _sourceNotEmpty =>
-      widget.source.sourceCode != null &&
-      widget.source.sourceCode!.isNotEmpty;
+      widget.source.sourceCode != null && widget.source.sourceCode!.isNotEmpty;
 
   Future<void> _handleSourceFetch() async {
-    setState(() { _isLoading = true; _lastError = null; });
+    setState(() {
+      _isLoading = true;
+      _lastError = null;
+    });
     AppLogger.log(
       '${_updateAvailable ? "Update" : "Install"} requested: "${widget.source.name}" v${widget.source.version}',
       tag: LogTag.extension_,
@@ -154,11 +157,11 @@ class _ExtensionListTileWidgetState
                       ),
                       child: (widget.source.iconUrl?.isEmpty ?? true)
                           ? const Icon(Icons.extension_rounded, size: 18)
-                            : ExtensionIconWidget(
-                                sourceId: widget.source.id,
-                                iconUrl: widget.source.iconUrl,
-                                size: 36,
-                              )
+                          : ExtensionIconWidget(
+                              sourceId: widget.source.id,
+                              iconUrl: widget.source.iconUrl,
+                              size: 36,
+                            ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -185,15 +188,12 @@ class _ExtensionListTileWidgetState
                   ],
                 ),
               ),
-              Divider(
-                height: 1,
-                color: cs.outline.withValues(alpha: 0.12),
-              ),
+              Divider(height: 1, color: cs.outline.withValues(alpha: 0.12)),
 
               // ── Actions ───────────────────────────────────────────────
               if (_sourceNotEmpty)
                 _SheetAction(
-                  icon: Icons.settings_outlined,
+                  icon: Broken.setting_2,
                   label: 'Ouvrir les paramètres',
                   cs: cs,
                   isDark: isDark,
@@ -219,9 +219,7 @@ class _ExtensionListTileWidgetState
                   },
                 ),
               _SheetAction(
-                icon: isPinned
-                    ? Icons.push_pin_rounded
-                    : Icons.push_pin_outlined,
+                icon: isPinned ? Broken.bookmark : Broken.bookmark_2,
                 label: isPinned ? 'Désépingler' : 'Épingler',
                 cs: cs,
                 isDark: isDark,
@@ -255,9 +253,7 @@ class _ExtensionListTileWidgetState
       context: ctx,
       builder: (dialogCtx) => AlertDialog(
         title: Text(widget.source.name!),
-        content: Text(
-          dialogCtx.l10n.uninstall_extension(widget.source.name!),
-        ),
+        content: Text(dialogCtx.l10n.uninstall_extension(widget.source.name!)),
         actions: [
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -269,15 +265,13 @@ class _ExtensionListTileWidgetState
               const SizedBox(width: 15),
               TextButton(
                 onPressed: () {
-                  final sourcePrefsIds = isar
-                      .sourcePreferences
+                  final sourcePrefsIds = isar.sourcePreferences
                       .filter()
                       .sourceIdEqualTo(widget.source.id!)
                       .findAllSync()
                       .map((e) => e.id!)
                       .toList();
-                  final sourcePrefsStringIds = isar
-                      .sourcePreferenceStringValues
+                  final sourcePrefsStringIds = isar.sourcePreferenceStringValues
                       .filter()
                       .sourceIdEqualTo(widget.source.id!)
                       .findAllSync()
@@ -305,8 +299,9 @@ class _ExtensionListTileWidgetState
                     }
                     unawaited(LayoutDownloader.instance.remove(widget.source));
                     isar.sourcePreferences.deleteAllSync(sourcePrefsIds);
-                    isar.sourcePreferenceStringValues
-                        .deleteAllSync(sourcePrefsStringIds);
+                    isar.sourcePreferenceStringValues.deleteAllSync(
+                      sourcePrefsStringIds,
+                    );
                   });
                   Navigator.pop(dialogCtx);
                 },
@@ -339,7 +334,7 @@ class _ExtensionListTileWidgetState
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         onPressed: _handleSourceFetch,
-        icon: const Icon(Icons.download_outlined, size: 20),
+        icon: const Icon(Broken.document_download, size: 20),
       );
     }
     // Installed — settings gear → directly to extension settings
@@ -356,7 +351,7 @@ class _ExtensionListTileWidgetState
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
             ),
             child: Icon(
-              Icons.settings_outlined,
+              Broken.setting_2,
               size: 17,
               color: _updateAvailable
                   ? Colors.orange.shade400
@@ -419,11 +414,11 @@ class _ExtensionListTileWidgetState
         ),
         child: (widget.source.iconUrl?.isEmpty ?? true)
             ? const Icon(Icons.extension_rounded, size: 18)
-              : ExtensionIconWidget(
-                  sourceId: widget.source.id,
-                  iconUrl: widget.source.iconUrl,
-                  size: 30,
-                )
+            : ExtensionIconWidget(
+                sourceId: widget.source.id,
+                iconUrl: widget.source.iconUrl,
+                size: 30,
+              ),
       ),
       title: Text(widget.source.name!),
       subtitle: Row(
@@ -455,7 +450,11 @@ class _ExtensionListTileWidgetState
                 ),
                 child: const Text(
                   "NSFW",
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -470,7 +469,11 @@ class _ExtensionListTileWidgetState
                 ),
                 child: const Text(
                   "DART",
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -485,7 +488,11 @@ class _ExtensionListTileWidgetState
                 ),
                 child: const Text(
                   "JS",
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -502,7 +509,11 @@ class _ExtensionListTileWidgetState
                 ),
                 child: Text(
                   isAniyomi ? 'ANIYOMI' : 'MIHON',
-                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -532,47 +543,52 @@ class _ExtensionListTileWidgetState
     );
 
     final errorBar = _lastError == null
-          ? null
-          : Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 8, 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.error_outline, size: 13, color: Colors.red),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      _lastError!,
-                      style: const TextStyle(fontSize: 10, color: Colors.red),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+        ? null
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 8, 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    _lastError!,
+                    style: const TextStyle(fontSize: 10, color: Colors.red),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () => Clipboard.setData(ClipboardData(text: _lastError!)),
-                    child: const Icon(Icons.copy_rounded, size: 13, color: Colors.red),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () =>
+                      Clipboard.setData(ClipboardData(text: _lastError!)),
+                  child: const Icon(
+                    Icons.copy_rounded,
+                    size: 13,
+                    color: Colors.red,
                   ),
-                ],
-              ),
-            );
+                ),
+              ],
+            ),
+          );
 
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _SwipeTile(
-            sourceNotEmpty: _sourceNotEmpty,
-            isPinned: widget.source.isPinned ?? false,
-            onUninstall: _sourceNotEmpty ? () => _uninstall(context) : null,
-            onPin: _togglePin,
-            onSettings: _sourceNotEmpty
-                ? () => context.push('/extension_detail', extra: widget.source)
-                : null,
-            child: tile,
-          ),
-          if (errorBar != null) errorBar,
-        ],
-      );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SwipeTile(
+          sourceNotEmpty: _sourceNotEmpty,
+          isPinned: widget.source.isPinned ?? false,
+          onUninstall: _sourceNotEmpty ? () => _uninstall(context) : null,
+          onPin: _togglePin,
+          onSettings: _sourceNotEmpty
+              ? () => context.push('/extension_detail', extra: widget.source)
+              : null,
+          child: tile,
+        ),
+        if (errorBar != null) errorBar,
+      ],
+    );
   }
 }
 
@@ -627,17 +643,25 @@ class _SwipeTileState extends State<_SwipeTile>
 
   void _snapTo(double target) {
     final start = _dx;
-    _snapAnim = Tween<double>(begin: start, end: target)
-        .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
+    _snapAnim = Tween<double>(
+      begin: start,
+      end: target,
+    ).animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
     _snapCtrl.forward(from: 0);
-    setState(() { _dx = target; _dragging = false; });
+    setState(() {
+      _dx = target;
+      _dragging = false;
+    });
   }
 
   void _onDragUpdate(DragUpdateDetails d) {
     _snapCtrl.stop();
     final next = (_dx + d.delta.dx).clamp(-_revealW, _deleteTh);
     if (!mounted) return;
-    setState(() { _dx = next; _dragging = true; });
+    setState(() {
+      _dx = next;
+      _dragging = true;
+    });
   }
 
   void _onDragEnd(DragEndDetails _) {
@@ -667,9 +691,7 @@ class _SwipeTileState extends State<_SwipeTile>
           behavior: HitTestBehavior.opaque,
           onHorizontalDragUpdate: _onDragUpdate,
           onHorizontalDragEnd: _onDragEnd,
-          onTap: (!_dragging && offset != 0)
-              ? () => _snapTo(0)
-              : null,
+          onTap: (!_dragging && offset != 0) ? () => _snapTo(0) : null,
           child: Stack(
             clipBehavior: Clip.hardEdge,
             children: [
@@ -714,8 +736,8 @@ class _SwipeTileState extends State<_SwipeTile>
                                 children: [
                                   Icon(
                                     widget.isPinned
-                                        ? Icons.push_pin_rounded
-                                        : Icons.push_pin_outlined,
+                                        ? Broken.bookmark
+                                        : Broken.bookmark_2,
                                     color: Colors.white,
                                     size: 18,
                                   ),
@@ -745,7 +767,7 @@ class _SwipeTileState extends State<_SwipeTile>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    Icons.settings_outlined,
+                                    Broken.setting_2,
                                     color: Colors.white,
                                     size: 18,
                                   ),

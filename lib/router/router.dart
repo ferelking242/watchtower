@@ -37,6 +37,7 @@ import 'package:watchtower/modules/more/statistics/statistics_screen.dart';
 import 'package:watchtower/modules/novel/novel_reader_view.dart';
 import 'package:watchtower/modules/tracker_library/tracker_library_screen.dart';
 import 'package:watchtower/modules/updates/updates_screen.dart';
+import 'package:watchtower/modules/updates/notifications_screen.dart';
 import 'package:watchtower/modules/more/categories/categories_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/downloads_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/local_source_import_page.dart';
@@ -242,6 +243,10 @@ class RouterNotifier extends ChangeNotifier {
         ),
         _genericRoute(name: "history", child: const HistoryScreen()),
         _genericRoute(name: "updates", child: const UpdatesScreen()),
+        _genericRoute(
+          name: "notifications",
+          child: const NotificationsScreen(),
+        ),
         _genericRoute(name: "browse", child: const BrowseScreen()),
         _genericRoute(name: "marketplace", child: const MarketplaceScreen()),
         _genericRoute(

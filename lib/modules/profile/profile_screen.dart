@@ -78,8 +78,9 @@ class ProfileScreen extends StatelessWidget {
                       Text(
                         copy.anonymousTitle,
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -132,7 +133,7 @@ class ProfileScreen extends StatelessWidget {
                     _ProfileAction(
                       icon: Icons.system_update_alt_rounded,
                       title: copy.checkUpdate,
-                      onTap: () => context.push('/updates'),
+                      onTap: () => context.push('/notifications'),
                     ),
                     _ProfileAction(
                       icon: Icons.share_outlined,
@@ -178,9 +179,9 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _showMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -332,47 +333,50 @@ class _ProfileCopy {
     final language = Localizations.localeOf(context).languageCode;
     final base = language == 'fr'
         ? const _ProfileCopy(
-        title: 'Moi',
-        anonymousTitle: 'Compte anonyme',
-        anonymousSubtitle:
-            'Utilisez Watchtower sans compte. Vos préférences restent sur cet appareil.',
-        login: 'Connexion / inscription',
-        insights: 'Statistiques de visionnage',
-        insightsSubtitle: 'Suivez vos habitudes de lecture et de visionnage',
-        settings: 'Paramètres',
-        appearance: 'Apparence',
-        storage: 'Données et stockage',
-        server: 'État du serveur',
-        serverMessage: 'Les services TMDB et les sources sont vérifiés à la demande.',
-        checkUpdate: 'Rechercher une mise à jour',
-        share: 'Partager l’application',
-        shareMessage: 'Découvrez Watchtower, votre bibliothèque de contenus.',
-        about: 'À propos',
-        accountMessage:
-            'La gestion de compte en ligne n’est pas activée dans cette version de Watchtower. Vous pouvez continuer avec le profil local et les réglages de l’application.',
-        close: 'Fermer',
-      )
+            title: 'Moi',
+            anonymousTitle: 'Compte anonyme',
+            anonymousSubtitle:
+                'Utilisez Watchtower sans compte. Vos préférences restent sur cet appareil.',
+            login: 'Connexion / inscription',
+            insights: 'Statistiques de visionnage',
+            insightsSubtitle:
+                'Suivez vos habitudes de lecture et de visionnage',
+            settings: 'Paramètres',
+            appearance: 'Apparence',
+            storage: 'Données et stockage',
+            server: 'État du serveur',
+            serverMessage:
+                'Les services TMDB et les sources sont vérifiés à la demande.',
+            checkUpdate: 'Rechercher une mise à jour',
+            share: 'Partager l’application',
+            shareMessage:
+                'Découvrez Watchtower, votre bibliothèque de contenus.',
+            about: 'À propos',
+            accountMessage:
+                'La gestion de compte en ligne n’est pas activée dans cette version de Watchtower. Vous pouvez continuer avec le profil local et les réglages de l’application.',
+            close: 'Fermer',
+          )
         : const _ProfileCopy(
-      title: 'Me',
-      anonymousTitle: 'Anonymous account',
-      anonymousSubtitle:
-          'Use Watchtower without an account. Your preferences stay on this device.',
-      login: 'Login / Sign up',
-      insights: 'Viewing insights',
-      insightsSubtitle: 'Track your reading and watching habits',
-      settings: 'Settings',
-      appearance: 'Appearance',
-      storage: 'Data and storage',
-      server: 'Server status',
-      serverMessage: 'TMDB and source services are checked on demand.',
-      checkUpdate: 'Check for update',
-      share: 'Share the app',
-      shareMessage: 'Discover Watchtower, your personal content library.',
-      about: 'About',
-      accountMessage:
-          'Online account management is not enabled in this Watchtower build. You can continue with the local profile and app settings.',
-      close: 'Close',
-    );
+            title: 'Me',
+            anonymousTitle: 'Anonymous account',
+            anonymousSubtitle:
+                'Use Watchtower without an account. Your preferences stay on this device.',
+            login: 'Login / Sign up',
+            insights: 'Viewing insights',
+            insightsSubtitle: 'Track your reading and watching habits',
+            settings: 'Settings',
+            appearance: 'Appearance',
+            storage: 'Data and storage',
+            server: 'Server status',
+            serverMessage: 'TMDB and source services are checked on demand.',
+            checkUpdate: 'Check for update',
+            share: 'Share the app',
+            shareMessage: 'Discover Watchtower, your personal content library.',
+            about: 'About',
+            accountMessage:
+                'Online account management is not enabled in this Watchtower build. You can continue with the local profile and app settings.',
+            close: 'Close',
+          );
     final l10n = context.l10n;
     return base.copyWith(
       login: l10n.login,

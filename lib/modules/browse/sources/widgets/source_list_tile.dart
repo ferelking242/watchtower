@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
@@ -214,8 +215,8 @@ class SourceListTile extends StatelessWidget {
                 },
                 icon: Icon(
                   (source.isPinned ?? false)
-                      ? Icons.push_pin_rounded
-                      : Icons.push_pin_outlined,
+                      ? Broken.bookmark
+                      : Broken.bookmark_2,
                   color: (source.isPinned ?? false)
                       ? context.primaryColor
                       : null,

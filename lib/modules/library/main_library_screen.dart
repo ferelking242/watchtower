@@ -445,7 +445,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     // 3. Notifications
                     _iconBtn(
                       icon: Broken.notification,
-                      onTap: () => context.push('/updates'),
+                      onTap: () => context.push('/notifications'),
                       tooltip: l10n.updates,
                     ),
                     const SizedBox(width: 6),

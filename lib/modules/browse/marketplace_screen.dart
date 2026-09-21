@@ -626,9 +626,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _installedVersions = {
             for (final s in sources)
               if (s.id != null && s.version != null) s.id!: s.version!,
-            ...musicPlugins.map(
-              (id, plugin) => MapEntry(id, plugin.version),
-            ),
+            ...musicPlugins.map((id, plugin) => MapEntry(id, plugin.version)),
           };
           _installedSources = {
             for (final s in sources)
@@ -836,12 +834,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       }
     } catch (e) {
       if (mounted) {
-        _showToast(
-          context,
-          'Erreur : $e',
-          isError: true,
-          icon: Broken.danger,
-        );
+        _showToast(context, 'Erreur : $e', isError: true, icon: Broken.danger);
       }
     } finally {
       if (mounted) setState(() => _busy.remove(entry.id));
@@ -934,11 +927,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       });
       await _refreshInstalled();
       if (mounted) {
-        _showToast(
-          context,
-          '${entry.name} désinstallée',
-          icon: Broken.trash,
-        );
+        _showToast(context, '${entry.name} désinstallée', icon: Broken.trash);
       }
     } catch (e) {
       if (mounted) {
@@ -1236,15 +1225,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               children: [
                 _buildLogoRow(cs, theme),
                 _buildPersistentSearch(cs, theme),
-                if (widget.initialSection != MarketplaceSection.plugins) ...[
+                if (widget.initialSection != MarketplaceSection.plugins)
                   _buildTabBarRow(cs, theme),
-                  AnimatedBuilder(
-                    animation: _tabCtrl,
-                    builder: (_, __) => _tabCtrl.index == 0
-                        ? const SizedBox.shrink()
-                        : _buildFilterRows(cs, theme),
-                  ),
-                ],
                 Expanded(
                   child: widget.initialSection == MarketplaceSection.plugins
                       ? const _BinaryTab()
@@ -1572,7 +1554,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           child: Row(
             children: [
               const SizedBox(width: 14),
-              Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
+              Icon(
+                Broken.search_normal_1,
+                size: 18,
+                color: cs.onSurfaceVariant,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: TextField(
@@ -1595,7 +1581,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               if (_searchQuery.isNotEmpty)
                 IconButton(
                   icon: Icon(
-                    Icons.close_rounded,
+                    Broken.close_circle,
                     size: 16,
                     color: cs.onSurfaceVariant,
                   ),
@@ -1606,7 +1592,65 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                 ),
+              if (widget.initialSection != MarketplaceSection.plugins)
+                _MarketplaceFilterButton(
+                  active:
+                      _globalLangFilter != null ||
+                      _globalRepoFilter != null ||
+                      _globalProgLangFilter != null,
+                  onTap: _showMarketplaceFilterOverlay,
+                ),
               const SizedBox(width: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMarketplaceFilterOverlay() {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final tab = _visualToTabConst(_tabCtrl.index);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (_) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    Icon(Broken.filter, color: cs.primary, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Filtrer les extensions',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Broken.close_circle,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildFilterRows(cs, theme),
             ],
           ),
         ),
@@ -3403,11 +3447,7 @@ class _TypeTabState extends State<_TypeTab> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Broken.refresh_2,
-                            size: 13,
-                            color: cs.primary,
-                          ),
+                          Icon(Broken.refresh_2, size: 13, color: cs.primary),
                           const SizedBox(width: 4),
                           Text(
                             'Vérifier màj',
@@ -4482,11 +4522,7 @@ class _CardAction extends StatelessWidget {
           color: cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(
-          Broken.setting_2,
-          size: 18,
-          color: cs.onSurfaceVariant,
-        ),
+        child: Icon(Broken.setting_2, size: 18, color: cs.onSurfaceVariant),
       ),
     );
   }
@@ -6494,11 +6530,7 @@ class _LightActionTile extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(
-                            Broken.arrow_right,
-              size: 18,
-              color: cs.outlineVariant,
-            ),
+            Icon(Broken.arrow_right, size: 18, color: cs.outlineVariant),
           ],
         ),
       ),
@@ -6786,6 +6818,29 @@ class _SearchCategoryTile extends StatelessWidget {
 }
 
 // ─── Filter chip button (Play Store style) ─────────────────────────────────────
+
+class _MarketplaceFilterButton extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+
+  const _MarketplaceFilterButton({required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: 'Filtrer',
+      onPressed: onTap,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      icon: Icon(
+        Broken.filter,
+        size: 19,
+        color: active ? cs.primary : cs.onSurfaceVariant,
+      ),
+    );
+  }
+}
 
 class _FilterChipButton extends StatelessWidget {
   final String label;
@@ -9297,7 +9352,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             ),
           ),
           _HeaderIcon(
-            icon: Icons.notifications_none_rounded,
+            icon: Broken.notification,
             badge: '3',
             onTap: () => _showNotifications(context),
           ),

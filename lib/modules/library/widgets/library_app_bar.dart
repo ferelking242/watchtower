@@ -1,4 +1,5 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,7 +34,8 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 ///   • Via the three-dots menu ("Filters & Sort") when search is inactive.
 ///
 /// All icons use the Broken icon set — no Material icons in the action area.
-class LibraryAppBar extends ConsumerStatefulWidget implements PreferredSizeWidget {
+class LibraryAppBar extends ConsumerStatefulWidget
+    implements PreferredSizeWidget {
   final ItemType itemType;
   final bool isNotFiltering;
   final bool showNumbersOfItems;
@@ -97,7 +99,8 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
     final manga = widget.categoryId == null
         ? ref.watch(
             getAllMangaWithoutCategoriesStreamProvider(
-                itemType: widget.itemType),
+              itemType: widget.itemType,
+            ),
           )
         : ref.watch(
             getAllMangaStreamProvider(
@@ -145,8 +148,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
               children: [
                 Text(
                   widget.itemType.localized(l10n),
-                  style:
-                      TextStyle(color: Theme.of(context).hintColor),
+                  style: TextStyle(color: Theme.of(context).hintColor),
                 ),
                 const SizedBox(width: 10),
                 if (widget.showNumbersOfItems)
@@ -158,8 +160,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
                         widget.numberOfItems.toString(),
                         style: TextStyle(
                           fontSize: 12,
-                          color:
-                              Theme.of(context).textTheme.bodySmall!.color,
+                          color: Theme.of(context).textTheme.bodySmall!.color,
                         ),
                       ),
                     ),
@@ -213,7 +214,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
         // ── 2. Notifications ───────────────────────────────────────────────
         IconButton(
           splashRadius: 20,
-          onPressed: () => context.push('/updates'),
+          onPressed: () => context.push('/notifications'),
           icon: const Icon(Broken.notification),
           tooltip: l10n.updates,
         ),
@@ -226,44 +227,54 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
             return [
               PopupMenuItem<int>(
                 value: 0,
-                child: Row(children: [
-                  const Icon(Broken.refresh_left_square, size: 18),
-                  const SizedBox(width: 10),
-                  Text(context.l10n.update_library),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Broken.refresh_left_square, size: 18),
+                    const SizedBox(width: 10),
+                    Text(context.l10n.update_library),
+                  ],
+                ),
               ),
               PopupMenuItem<int>(
                 value: 1,
-                child: Row(children: [
-                  const Icon(Broken.programming_arrows, size: 18),
-                  const SizedBox(width: 10),
-                  Text(l10n.open_random_entry),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Broken.programming_arrows, size: 18),
+                    const SizedBox(width: 10),
+                    Text(l10n.open_random_entry),
+                  ],
+                ),
               ),
               PopupMenuItem<int>(
                 value: 2,
-                child: Row(children: [
-                  const Icon(Broken.arrow_square, size: 18),
-                  const SizedBox(width: 10),
-                  Text(l10n.import),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Broken.arrow_square, size: 18),
+                    const SizedBox(width: 10),
+                    Text(l10n.import),
+                  ],
+                ),
               ),
               PopupMenuItem<int>(
                 value: 4,
-                child: Row(children: [
-                  const Icon(Broken.slider_horizontal, size: 18),
-                  const SizedBox(width: 10),
-                  Text(l10n.filter),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Broken.slider_horizontal, size: 18),
+                    const SizedBox(width: 10),
+                    Text(l10n.filter),
+                  ],
+                ),
               ),
               if (widget.itemType == ItemType.anime)
                 PopupMenuItem<int>(
                   value: 3,
-                  child: Row(children: [
-                    const Icon(Broken.video_play, size: 18),
-                    const SizedBox(width: 10),
-                    Text(l10n.torrent_stream),
-                  ]),
+                  child: Row(
+                    children: [
+                      const Icon(Broken.video_play, size: 18),
+                      const SizedBox(width: 10),
+                      Text(l10n.torrent_stream),
+                    ],
+                  ),
                 ),
             ];
           },
@@ -333,9 +344,7 @@ class _SelectionAppBar extends ConsumerWidget {
       leading: IconButton(
         onPressed: () {
           ref.read(mangasListStateProvider.notifier).clear();
-          ref
-              .read(isLongPressedStateProvider.notifier)
-              .update(!isLongPressed);
+          ref.read(isLongPressedStateProvider.notifier).update(!isLongPressed);
         },
         icon: const Icon(Broken.close_circle),
       ),
@@ -352,18 +361,12 @@ class _SelectionAppBar extends ConsumerWidget {
           onPressed: () {
             if (data.length == mangaIdsList.length) {
               for (var manga in data) {
-                ref
-                    .read(mangasListStateProvider.notifier)
-                    .selectSome(manga);
+                ref.read(mangasListStateProvider.notifier).selectSome(manga);
               }
-              ref
-                  .read(isLongPressedStateProvider.notifier)
-                  .update(false);
+              ref.read(isLongPressedStateProvider.notifier).update(false);
             } else {
               for (var manga in data) {
-                ref
-                    .read(mangasListStateProvider.notifier)
-                    .selectSome(manga);
+                ref.read(mangasListStateProvider.notifier).selectSome(manga);
               }
             }
           },
