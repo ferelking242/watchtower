@@ -2069,11 +2069,17 @@ class _TmdbRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, i) => TmdbPosterCard(
-                media: items[i],
-                onTap: () => onTap(items[i]),
-                width: 120,
-              ),
+              itemBuilder: (_, i) {
+                final media = items[i];
+                final source = 'home-poster-${title.hashCode}-$i';
+                return TmdbPosterCard(
+                  media: media,
+                  heroTag: tmdbHeroTag(media, source),
+                  onTap: () =>
+                      pushTmdbMediaDetail(context, media, source: source),
+                  width: 120,
+                );
+              },
             ),
           ),
         ],
@@ -2117,10 +2123,16 @@ class _TmdbLandscapeRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (_, i) => TmdbLandscapeCard(
-                media: items[i],
-                onTap: () => onTap(items[i]),
-              ),
+              itemBuilder: (_, i) {
+                final media = items[i];
+                final source = 'home-landscape-${title.hashCode}-$i';
+                return TmdbLandscapeCard(
+                  media: media,
+                  heroTag: tmdbHeroTag(media, source),
+                  onTap: () =>
+                      pushTmdbMediaDetail(context, media, source: source),
+                );
+              },
             ),
           ),
         ],
@@ -2164,11 +2176,17 @@ class _TmdbRankedRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) => TmdbRankedCard(
-                media: items[i],
-                rank: i + 1,
-                onTap: () => onTap(items[i]),
-              ),
+              itemBuilder: (_, i) {
+                final media = items[i];
+                final source = 'home-ranked-${title.hashCode}-$i';
+                return TmdbRankedCard(
+                  media: media,
+                  heroTag: tmdbHeroTag(media, source),
+                  rank: i + 1,
+                  onTap: () =>
+                      pushTmdbMediaDetail(context, media, source: source),
+                );
+              },
             ),
           ),
         ],

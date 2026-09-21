@@ -13,8 +13,13 @@ import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
 
 class TmdbMediaDetailScreen extends StatefulWidget {
   final TmdbMedia media;
+  final String heroTag;
 
-  const TmdbMediaDetailScreen({super.key, required this.media});
+  const TmdbMediaDetailScreen({
+    super.key,
+    required this.media,
+    this.heroTag = '',
+  });
 
   @override
   State<TmdbMediaDetailScreen> createState() => _TmdbMediaDetailScreenState();
@@ -35,6 +40,9 @@ class _TmdbMediaDetailScreenState extends State<TmdbMediaDetailScreen> {
     setState(() => _details = fetchTmdbMediaDetails(widget.media));
   }
 
+  String get _heroTag =>
+      widget.heroTag.isEmpty ? tmdbHeroTag(widget.media) : widget.heroTag;
+
   Future<void> _shareMedia() {
     return Share.share(
       '${widget.media.displayTitle}\n'
@@ -53,24 +61,19 @@ class _TmdbMediaDetailScreenState extends State<TmdbMediaDetailScreen> {
             return const _DetailSkeleton();
           }
           if (snapshot.hasError || !snapshot.hasData) {
-            return _DetailError(
-              error: snapshot.error,
-              onRetry: _retry,
-            );
+            return _DetailError(error: snapshot.error, onRetry: _retry);
           }
           return _DetailContent(
             media: widget.media,
             details: snapshot.data!,
+            heroTag: _heroTag,
             isFavorite: _isFavorite,
             tabIndex: _tabIndex,
             onTabChanged: (index) => setState(() => _tabIndex = index),
-            onFavoriteChanged: () =>
-                setState(() => _isFavorite = !_isFavorite),
+            onFavoriteChanged: () => setState(() => _isFavorite = !_isFavorite),
             onShare: _shareMedia,
-            onDownload: () => context.push(
-              '/flixSearch',
-              extra: widget.media.displayTitle,
-            ),
+            onDownload: () =>
+                context.push('/flixSearch', extra: widget.media.displayTitle),
           );
         },
       ),
@@ -81,6 +84,7 @@ class _TmdbMediaDetailScreenState extends State<TmdbMediaDetailScreen> {
 class _DetailContent extends StatefulWidget {
   final TmdbMedia media;
   final TmdbMediaDetails details;
+  final String heroTag;
   final bool isFavorite;
   final int tabIndex;
   final ValueChanged<int> onTabChanged;
@@ -91,6 +95,7 @@ class _DetailContent extends StatefulWidget {
   const _DetailContent({
     required this.media,
     required this.details,
+    required this.heroTag,
     required this.isFavorite,
     required this.tabIndex,
     required this.onTabChanged,
@@ -121,8 +126,8 @@ class _DetailContentState extends State<_DetailContent> {
   }
 
   void _handleScroll() {
-    final shouldShow = _scrollController.hasClients &&
-        _scrollController.offset > 190;
+    final shouldShow =
+        _scrollController.hasClients && _scrollController.offset > 190;
     if (shouldShow != _showCollapsedTitle && mounted) {
       setState(() => _showCollapsedTitle = shouldShow);
     }
@@ -157,11 +162,11 @@ class _DetailContentState extends State<_DetailContent> {
           expandedHeight: width < 700 ? 330 : 430,
           pinned: true,
           backgroundColor: const Color(0xFF0B0B11),
-           leading: IconButton(
-             tooltip: 'Retour',
-             onPressed: () => context.pop(),
-             icon: const Icon(Broken.arrow_left, color: Colors.white),
-           ),
+          leading: IconButton(
+            tooltip: 'Retour',
+            onPressed: () => context.pop(),
+            icon: const Icon(Broken.arrow_left, color: Colors.white),
+          ),
           title: AnimatedOpacity(
             duration: const Duration(milliseconds: 180),
             opacity: _showCollapsedTitle ? 1 : 0,
@@ -179,7 +184,7 @@ class _DetailContentState extends State<_DetailContent> {
           flexibleSpace: FlexibleSpaceBar(
             background: _BackdropCarousel(
               paths: backdrops,
-               videos: details.videos,
+              videos: details.videos,
               fallback: media.backdropPath,
             ),
           ),
@@ -194,7 +199,7 @@ class _DetailContentState extends State<_DetailContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Hero(
-                      tag: 'tmdb-${media.mediaType}-${media.id}',
+                      tag: widget.heroTag,
                       child: SizedBox(
                         width: posterWidth,
                         child: AspectRatio(
@@ -250,57 +255,56 @@ class _DetailContentState extends State<_DetailContent> {
                                 ),
                               ),
                             ],
-                           const SizedBox(height: 13),
+                            const SizedBox(height: 13),
                             Wrap(
                               spacing: 7,
                               runSpacing: 7,
                               children: [
                                 if (media.voteAverage != null)
                                   _InfoChip(
-                                     icon: Broken.star_1,
+                                    icon: Broken.star_1,
                                     label: media.voteAverage!.toStringAsFixed(
                                       1,
                                     ),
                                   ),
                                 if (date?.isNotEmpty == true)
                                   _InfoChip(
-                                     icon: Broken.calendar_1,
+                                    icon: Broken.calendar_1,
                                     label: date!.split('-').first,
                                   ),
-                                if (media.originalLanguage?.isNotEmpty ==
-                                    true)
+                                if (media.originalLanguage?.isNotEmpty == true)
                                   _InfoChip(
                                     label: media.originalLanguage!
                                         .toUpperCase(),
                                   ),
-                                 if (media.voteCount != null)
-                                   _InfoChip(
-                                     icon: Broken.message_text,
-                                     label: '${media.voteCount} avis',
-                                   ),
+                                if (media.voteCount != null)
+                                  _InfoChip(
+                                    icon: Broken.message_text,
+                                    label: '${media.voteCount} avis',
+                                  ),
                               ],
                             ),
-                             const SizedBox(height: 11),
-                             Wrap(
-                               spacing: 7,
-                               runSpacing: 7,
-                               children: genres
-                                   .map((genre) => _InfoChip(label: genre))
-                                   .toList(growable: false),
-                             ),
+                            const SizedBox(height: 11),
+                            Wrap(
+                              spacing: 7,
+                              runSpacing: 7,
+                              children: genres
+                                  .map((genre) => _InfoChip(label: genre))
+                                  .toList(growable: false),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                     const SizedBox(width: 4),
-                     IconButton(
-                       tooltip: 'Voir les statistiques',
-                       onPressed: () => _showDetailsSheet(context),
-                       icon: const Icon(
-                         Broken.arrow_right_3,
-                         color: Colors.white70,
-                       ),
-                     ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: 'Voir les statistiques',
+                      onPressed: () => _showDetailsSheet(context),
+                      icon: const Icon(
+                        Broken.arrow_right_3,
+                        color: Colors.white70,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -308,30 +312,28 @@ class _DetailContentState extends State<_DetailContent> {
                   children: [
                     Expanded(
                       child: FilledButton.icon(
-                         onPressed: () => context.push(
-                           '/flixSearch',
-                           extra: media.displayTitle,
-                         ),
-                         icon: const Icon(Broken.play),
-                         label: const Text('Regarder'),
+                        onPressed: () => context.push(
+                          '/flixSearch',
+                          extra: media.displayTitle,
+                        ),
+                        icon: const Icon(Broken.play),
+                        label: const Text('Regarder'),
                       ),
                     ),
                     const SizedBox(width: 9),
-                     Expanded(
-                       child: FilledButton.tonalIcon(
-                         onPressed: widget.onDownload,
-                          icon: const Icon(Broken.document_download),
-                          label: const Text('Télécharger'),
-                       ),
-                     ),
-                     const SizedBox(width: 9),
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: widget.onDownload,
+                        icon: const Icon(Broken.document_download),
+                        label: const Text('Télécharger'),
+                      ),
+                    ),
+                    const SizedBox(width: 9),
                     IconButton.filledTonal(
                       onPressed: onFavoriteChanged,
                       tooltip: 'Ma liste',
                       icon: Icon(
-                        isFavorite
-                         ? Broken.tick_circle
-                             : Broken.add_circle,
+                        isFavorite ? Broken.tick_circle : Broken.add_circle,
                       ),
                     ),
                   ],
@@ -346,23 +348,23 @@ class _DetailContentState extends State<_DetailContent> {
                   ),
                 ),
                 const SizedBox(height: 9),
-                 _ExpandableSynopsis(
-                   text: media.overview?.isNotEmpty == true
-                       ? media.overview!
-                       : 'Aucun synopsis disponible.',
+                _ExpandableSynopsis(
+                  text: media.overview?.isNotEmpty == true
+                      ? media.overview!
+                      : 'Aucun synopsis disponible.',
                 ),
-                 const SizedBox(height: 25),
-                 _CastSection(media: media, cast: details.cast),
-                 if (media.mediaType == 'tv' && details.seasons.isNotEmpty) ...[
-                   const SizedBox(height: 24),
-                   _SeasonsSummary(seasons: details.seasons),
-                 ],
-                 const SizedBox(height: 28),
-                 _DetailTabs(
-                   index: tabIndex,
-                   isTv: media.mediaType == 'tv',
-                   onChanged: onTabChanged,
-                 ),
+                const SizedBox(height: 25),
+                _CastSection(media: media, cast: details.cast),
+                if (media.mediaType == 'tv' && details.seasons.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _SeasonsSummary(seasons: details.seasons),
+                ],
+                const SizedBox(height: 28),
+                _DetailTabs(
+                  index: tabIndex,
+                  isTv: media.mediaType == 'tv',
+                  onChanged: onTabChanged,
+                ),
                 const SizedBox(height: 20),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 220),
@@ -469,7 +471,9 @@ class _DetailTabs extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: index == i ? Colors.white.withValues(alpha: .14) : null,
+                    color: index == i
+                        ? Colors.white.withValues(alpha: .14)
+                        : null,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -512,35 +516,32 @@ class _ExpandableSynopsisState extends State<_ExpandableSynopsis> {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.text,
-              maxLines: _expanded ? null : 4,
-              overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white70,
-                height: 1.55,
-                fontSize: 15,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.text,
+            maxLines: _expanded ? null : 4,
+            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              height: 1.55,
+              fontSize: 15,
+            ),
+          ),
+          Align(
+            alignment: Alignment.center,
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: _expanded ? 'Réduire' : 'Lire plus',
+              onPressed: () => setState(() => _expanded = !_expanded),
+              icon: AnimatedRotation(
+                turns: _expanded ? .5 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: const Icon(Broken.arrow_down_1, color: Colors.white54),
               ),
             ),
-            Align(
-              alignment: Alignment.center,
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                tooltip: _expanded ? 'Réduire' : 'Lire plus',
-                onPressed: () => setState(() => _expanded = !_expanded),
-                icon: AnimatedRotation(
-                  turns: _expanded ? .5 : 0,
-                  duration: const Duration(milliseconds: 180),
-                   child: const Icon(
-                     Broken.arrow_down_1,
-                     color: Colors.white54,
-                   ),
-                ),
-              ),
-            ),
-          ],
+          ),
+        ],
       ),
     );
   }
@@ -567,9 +568,8 @@ class _MediaSection extends StatelessWidget {
                     physics: const BouncingScrollPhysics(),
                     itemCount: details.backdropPaths.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (_, index) => _WallpaperCard(
-                      path: details.backdropPaths[index],
-                    ),
+                    itemBuilder: (_, index) =>
+                        _WallpaperCard(path: details.backdropPaths[index]),
                   ),
                 ),
         ),
@@ -613,8 +613,9 @@ class _SeasonsSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleSeasons =
-        seasons.where((season) => season.seasonNumber > 0).toList(growable: false);
+    final visibleSeasons = seasons
+        .where((season) => season.seasonNumber > 0)
+        .toList(growable: false);
     if (visibleSeasons.isEmpty) return const SizedBox.shrink();
     return _Section(
       title: 'Saisons',
@@ -686,7 +687,8 @@ class _CastSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (cast.isEmpty) return const _EmptySection(message: 'Acteurs indisponibles.');
+    if (cast.isEmpty)
+      return const _EmptySection(message: 'Acteurs indisponibles.');
     return _Section(
       title: 'Acteurs',
       trailing: TextButton(
@@ -771,10 +773,7 @@ class _EpisodesSection extends StatefulWidget {
   final TmdbMedia media;
   final List<TmdbSeason> seasons;
 
-  const _EpisodesSection({
-    required this.media,
-    required this.seasons,
-  });
+  const _EpisodesSection({required this.media, required this.seasons});
 
   @override
   State<_EpisodesSection> createState() => _EpisodesSectionState();
@@ -867,10 +866,12 @@ class _EpisodesSectionState extends State<_EpisodesSection> {
             }
             return Column(
               children: episodes
-                  .map((episode) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _EpisodeCard(episode: episode),
-                      ))
+                  .map(
+                    (episode) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _EpisodeCard(episode: episode),
+                    ),
+                  )
                   .toList(growable: false),
             );
           },
@@ -1049,12 +1050,12 @@ class _VideosSection extends StatelessWidget {
                           ),
                         ),
                       ),
-                       const Center(
-                         child: Icon(
-                           Broken.video_play,
-                           color: Colors.white,
-                           size: 48,
-                         ),
+                      const Center(
+                        child: Icon(
+                          Broken.video_play,
+                          color: Colors.white,
+                          size: 48,
+                        ),
                       ),
                       Positioned(
                         left: 10,
@@ -1096,8 +1097,7 @@ class _DetailsSection extends StatelessWidget {
       MapEntry('Titre', media.displayTitle),
       if (details.originalTitle?.isNotEmpty == true)
         MapEntry('Titre original', details.originalTitle!),
-      if (media.mediaType.isNotEmpty)
-        MapEntry('Type', type),
+      if (media.mediaType.isNotEmpty) MapEntry('Type', type),
       if (media.releaseDate?.isNotEmpty == true)
         MapEntry('Date de sortie', media.releaseDate!),
       if (media.firstAirDate?.isNotEmpty == true)
@@ -1105,15 +1105,11 @@ class _DetailsSection extends StatelessWidget {
       if (details.lastAirDate?.isNotEmpty == true)
         MapEntry('Dernier épisode', details.lastAirDate!),
       if (details.type?.isNotEmpty == true) MapEntry('Format', details.type!),
-      if (details.status?.isNotEmpty == true)
-        MapEntry('Statut', status),
+      if (details.status?.isNotEmpty == true) MapEntry('Statut', status),
       if (details.runtime != null && details.runtime! > 0)
         MapEntry('Durée', '${details.runtime} min'),
       if (details.episodeRunTimes.isNotEmpty)
-        MapEntry(
-          'Durée épisode',
-          '${details.episodeRunTimes.join('–')} min',
-        ),
+        MapEntry('Durée épisode', '${details.episodeRunTimes.join('–')} min'),
       if (details.numberOfSeasons != null)
         MapEntry('Saisons', '${details.numberOfSeasons}'),
       if (details.numberOfEpisodes != null)
@@ -1124,8 +1120,7 @@ class _DetailsSection extends StatelessWidget {
         MapEntry('Langues parlées', details.spokenLanguages.join(', ')),
       if (details.originCountries.isNotEmpty)
         MapEntry('Pays d’origine', details.originCountries.join(', ')),
-      if (media.voteCount != null)
-        MapEntry('Votes TMDB', '${media.voteCount}'),
+      if (media.voteCount != null) MapEntry('Votes TMDB', '${media.voteCount}'),
       if (media.voteAverage != null)
         MapEntry('Note TMDB', media.voteAverage!.toStringAsFixed(1)),
       if (media.popularity != null || details.popularity != null)
@@ -1141,8 +1136,7 @@ class _DetailsSection extends StatelessWidget {
         MapEntry('En production', details.inProduction!),
       if (details.homepage?.isNotEmpty == true)
         MapEntry('Site officiel', details.homepage!),
-      if (details.imdbId?.isNotEmpty == true)
-        MapEntry('IMDb', details.imdbId!),
+      if (details.imdbId?.isNotEmpty == true) MapEntry('IMDb', details.imdbId!),
       if (details.productionCountries.isNotEmpty)
         MapEntry('Pays', details.productionCountries.join(', ')),
       if (details.productionCompanies.isNotEmpty)
@@ -1234,14 +1228,16 @@ class _RecommendationsSection extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           itemCount: items.length,
           separatorBuilder: (_, __) => const SizedBox(width: 11),
-          itemBuilder: (_, index) => TmdbPosterCard(
-            media: items[index],
-            width: 126,
-            onTap: () => context.push(
-              '/flixMediaDetail',
-              extra: items[index],
-            ),
-          ),
+          itemBuilder: (_, index) {
+            final media = items[index];
+            final source = 'recommendation-$index';
+            return TmdbPosterCard(
+              media: media,
+              heroTag: tmdbHeroTag(media, source),
+              width: 126,
+              onTap: () => pushTmdbMediaDetail(context, media, source: source),
+            );
+          },
         ),
       ),
     );
@@ -1288,11 +1284,7 @@ class _Section extends StatelessWidget {
   final Widget child;
   final Widget? trailing;
 
-  const _Section({
-    required this.title,
-    required this.child,
-    this.trailing,
-  });
+  const _Section({required this.title, required this.child, this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -1434,12 +1426,12 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
         if (itemCount > 1)
           Positioned(
             bottom: 17,
-             left: 20,
-             right: 20,
+            left: 20,
+            right: 20,
             child: Row(
-               mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                 for (var i = 0; i < itemCount; i++)
+                for (var i = 0; i < itemCount; i++)
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -1557,7 +1549,7 @@ class _PosterPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: const Color(0xFF272733),
-       child: Center(child: Icon(icon, color: Colors.white38, size: 34)),
+      child: Center(child: Icon(icon, color: Colors.white38, size: 34)),
     );
   }
 }
@@ -1636,7 +1628,7 @@ class _DetailError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-             const Icon(Broken.wifi, color: Colors.white54, size: 44),
+            const Icon(Broken.wifi, color: Colors.white54, size: 44),
             const SizedBox(height: 14),
             const Text(
               'Impossible de charger cette fiche',

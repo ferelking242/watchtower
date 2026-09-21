@@ -93,7 +93,8 @@ class TmdbMedia {
   );
 
   factory TmdbMedia.fromCreditJson(Map<String, dynamic> j) {
-    final type = j['media_type'] as String? ??
+    final type =
+        j['media_type'] as String? ??
         (j.containsKey('title') || j.containsKey('release_date')
             ? 'movie'
             : 'tv');
@@ -101,6 +102,17 @@ class TmdbMedia {
         ? TmdbMedia.fromMovieJson(j)
         : TmdbMedia.fromTvJson(j);
   }
+}
+
+/// Payload used by the media detail route.
+///
+/// The tag is created by the card that opened the page so repeated titles
+/// across different rails can still animate independently.
+class TmdbMediaDetailRoute {
+  final TmdbMedia media;
+  final String heroTag;
+
+  const TmdbMediaDetailRoute({required this.media, required this.heroTag});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -184,13 +196,12 @@ class TmdbCastMember {
       ? null
       : 'https://image.tmdb.org/t/p/w185$profilePath';
 
-  factory TmdbCastMember.fromJson(Map<String, dynamic> json) =>
-      TmdbCastMember(
-        id: (json['id'] as num?)?.toInt() ?? 0,
-        name: json['name'] as String? ?? 'Artiste',
-        character: json['character'] as String? ?? '',
-        profilePath: json['profile_path'] as String?,
-      );
+  factory TmdbCastMember.fromJson(Map<String, dynamic> json) => TmdbCastMember(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    name: json['name'] as String? ?? 'Artiste',
+    character: json['character'] as String? ?? '',
+    profilePath: json['profile_path'] as String?,
+  );
 }
 
 class TmdbCrewMember {
@@ -212,14 +223,13 @@ class TmdbCrewMember {
       ? null
       : 'https://image.tmdb.org/t/p/w185$profilePath';
 
-  factory TmdbCrewMember.fromJson(Map<String, dynamic> json) =>
-      TmdbCrewMember(
-        id: (json['id'] as num?)?.toInt() ?? 0,
-        name: json['name'] as String? ?? 'Artiste',
-        department: json['department'] as String? ?? '',
-        job: json['job'] as String? ?? '',
-        profilePath: json['profile_path'] as String?,
-      );
+  factory TmdbCrewMember.fromJson(Map<String, dynamic> json) => TmdbCrewMember(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    name: json['name'] as String? ?? 'Artiste',
+    department: json['department'] as String? ?? '',
+    job: json['job'] as String? ?? '',
+    profilePath: json['profile_path'] as String?,
+  );
 }
 
 class TmdbPersonRef {
@@ -290,8 +300,8 @@ class TmdbPersonDetails {
       credits.where((credit) => credit.mediaType == 'tv').toList();
 
   factory TmdbPersonDetails.fromJson(Map<String, dynamic> json) {
-    final combined =
-        (json['combined_credits'] as Map?)?.cast<String, dynamic>();
+    final combined = (json['combined_credits'] as Map?)
+        ?.cast<String, dynamic>();
     final cast = (combined?['cast'] as List? ?? const [])
         .whereType<Map>()
         .map((item) => TmdbMedia.fromCreditJson(item.cast<String, dynamic>()))
@@ -323,8 +333,7 @@ class TmdbPersonDetails {
         !imageProfiles.contains(json['profile_path'])) {
       imageProfiles.insert(0, json['profile_path'] as String);
     }
-    final externalIds =
-        (json['external_ids'] as Map?)?.cast<String, dynamic>();
+    final externalIds = (json['external_ids'] as Map?)?.cast<String, dynamic>();
     return TmdbPersonDetails(
       id: (json['id'] as num?)?.toInt() ?? 0,
       name: json['name'] as String? ?? 'Artiste',
@@ -340,9 +349,10 @@ class TmdbPersonDetails {
       instagramId: externalIds?['instagram_id'] as String?,
       twitterId: externalIds?['twitter_id'] as String?,
       popularity: (json['popularity'] as num?)?.toDouble(),
-      alsoKnownAs: (json['also_known_as'] as List?)
-              ?.whereType<String>()
-              .toList(growable: false) ??
+      alsoKnownAs:
+          (json['also_known_as'] as List?)?.whereType<String>().toList(
+            growable: false,
+          ) ??
           const [],
       profilePaths: imageProfiles,
       credits: credits,
@@ -374,13 +384,13 @@ class TmdbVideo {
       : 'https://$site.com/watch?v=$key';
 
   factory TmdbVideo.fromJson(Map<String, dynamic> json) => TmdbVideo(
-        key: json['key'] as String? ?? '',
-        name: json['name'] as String? ?? 'Vidéo',
-        site: json['site'] as String? ?? '',
-        type: json['type'] as String? ?? 'Video',
-        official: json['official'] as bool? ?? false,
-        languageCode: json['iso_639_1'] as String? ?? '',
-      );
+    key: json['key'] as String? ?? '',
+    name: json['name'] as String? ?? 'Vidéo',
+    site: json['site'] as String? ?? '',
+    type: json['type'] as String? ?? 'Video',
+    official: json['official'] as bool? ?? false,
+    languageCode: json['iso_639_1'] as String? ?? '',
+  );
 }
 
 class TmdbSeason {
@@ -400,18 +410,17 @@ class TmdbSeason {
     this.episodeCount = 0,
   });
 
-  String? get posterUrl => posterPath == null
-      ? null
-      : 'https://image.tmdb.org/t/p/w500$posterPath';
+  String? get posterUrl =>
+      posterPath == null ? null : 'https://image.tmdb.org/t/p/w500$posterPath';
 
   factory TmdbSeason.fromJson(Map<String, dynamic> json) => TmdbSeason(
-        seasonNumber: (json['season_number'] as num?)?.toInt() ?? 0,
-        name: json['name'] as String? ?? 'Saison',
-        overview: json['overview'] as String?,
-        airDate: json['air_date'] as String?,
-        posterPath: json['poster_path'] as String?,
-        episodeCount: (json['episode_count'] as num?)?.toInt() ?? 0,
-      );
+    seasonNumber: (json['season_number'] as num?)?.toInt() ?? 0,
+    name: json['name'] as String? ?? 'Saison',
+    overview: json['overview'] as String?,
+    airDate: json['air_date'] as String?,
+    posterPath: json['poster_path'] as String?,
+    episodeCount: (json['episode_count'] as num?)?.toInt() ?? 0,
+  );
 }
 
 class TmdbEpisode {
@@ -439,22 +448,21 @@ class TmdbEpisode {
     this.runtime,
   });
 
-  String? get stillUrl => stillPath == null
-      ? null
-      : 'https://image.tmdb.org/t/p/w500$stillPath';
+  String? get stillUrl =>
+      stillPath == null ? null : 'https://image.tmdb.org/t/p/w500$stillPath';
 
   factory TmdbEpisode.fromJson(Map<String, dynamic> json) => TmdbEpisode(
-        id: (json['id'] as num?)?.toInt() ?? 0,
-        episodeNumber: (json['episode_number'] as num?)?.toInt() ?? 0,
-        seasonNumber: (json['season_number'] as num?)?.toInt() ?? 0,
-        name: json['name'] as String? ?? 'Épisode',
-        overview: json['overview'] as String?,
-        airDate: json['air_date'] as String?,
-        stillPath: json['still_path'] as String?,
-        voteAverage: (json['vote_average'] as num?)?.toDouble(),
-        voteCount: (json['vote_count'] as num?)?.toInt(),
-        runtime: (json['runtime'] as num?)?.toInt(),
-      );
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    episodeNumber: (json['episode_number'] as num?)?.toInt() ?? 0,
+    seasonNumber: (json['season_number'] as num?)?.toInt() ?? 0,
+    name: json['name'] as String? ?? 'Épisode',
+    overview: json['overview'] as String?,
+    airDate: json['air_date'] as String?,
+    stillPath: json['still_path'] as String?,
+    voteAverage: (json['vote_average'] as num?)?.toDouble(),
+    voteCount: (json['vote_count'] as num?)?.toInt(),
+    runtime: (json['runtime'] as num?)?.toInt(),
+  );
 }
 
 class TmdbMediaDetails {
@@ -541,29 +549,30 @@ class TmdbMediaDetails {
         .map((item) => TmdbCrewMember.fromJson(item.cast<String, dynamic>()))
         .where((item) => item.name.isNotEmpty)
         .toList(growable: false);
-    final videos = ((json['videos'] as Map?)?['results'] as List? ?? [])
-        .whereType<Map>()
-        .map((item) => TmdbVideo.fromJson(item.cast<String, dynamic>()))
-        .where((item) => item.key.isNotEmpty && item.isYoutube)
-        .toList()
-      ..sort((a, b) {
-        int rank(TmdbVideo video) {
-          final typeRank = switch (video.type) {
-            'Trailer' => 0,
-            'Teaser' => 1,
-            'Featurette' => 2,
-            _ => 3,
-          };
-          final languageRank = switch (video.languageCode) {
-            'fr' => 0,
-            'en' => 1,
-            _ => 2,
-          };
-          return typeRank * 10 + languageRank;
-        }
+    final videos =
+        ((json['videos'] as Map?)?['results'] as List? ?? [])
+            .whereType<Map>()
+            .map((item) => TmdbVideo.fromJson(item.cast<String, dynamic>()))
+            .where((item) => item.key.isNotEmpty && item.isYoutube)
+            .toList()
+          ..sort((a, b) {
+            int rank(TmdbVideo video) {
+              final typeRank = switch (video.type) {
+                'Trailer' => 0,
+                'Teaser' => 1,
+                'Featurette' => 2,
+                _ => 3,
+              };
+              final languageRank = switch (video.languageCode) {
+                'fr' => 0,
+                'en' => 1,
+                _ => 2,
+              };
+              return typeRank * 10 + languageRank;
+            }
 
-        return rank(a).compareTo(rank(b));
-      });
+            return rank(a).compareTo(rank(b));
+          });
     final selectedVideos = videos.take(20).toList(growable: false);
     final images = (json['images'] as Map?)?['backdrops'] as List? ?? [];
     final backdropPaths = images
@@ -573,18 +582,17 @@ class TmdbMediaDetails {
         .where((path) => path.isNotEmpty)
         .take(8)
         .toList(growable: false);
-    final recommendations = ((json['recommendations'] as Map?)?['results']
-            as List? ??
-        [])
-        .whereType<Map>()
-        .map(
-          (item) => mediaType == 'movie'
-              ? TmdbMedia.fromMovieJson(item.cast<String, dynamic>())
-              : TmdbMedia.fromTvJson(item.cast<String, dynamic>()),
-        )
-        .where((item) => item.posterPath != null)
-        .take(20)
-        .toList(growable: false);
+    final recommendations =
+        ((json['recommendations'] as Map?)?['results'] as List? ?? [])
+            .whereType<Map>()
+            .map(
+              (item) => mediaType == 'movie'
+                  ? TmdbMedia.fromMovieJson(item.cast<String, dynamic>())
+                  : TmdbMedia.fromTvJson(item.cast<String, dynamic>()),
+            )
+            .where((item) => item.posterPath != null)
+            .take(20)
+            .toList(growable: false);
     final similar = ((json['similar'] as Map?)?['results'] as List? ?? [])
         .whereType<Map>()
         .map(
@@ -601,8 +609,7 @@ class TmdbMediaDetails {
         .where((season) => season.seasonNumber >= 0)
         .toList(growable: false);
     final providerRegion =
-        ((json['watch/providers'] as Map?)?['results'] as Map?)?['US']
-            as Map?;
+        ((json['watch/providers'] as Map?)?['results'] as Map?)?['US'] as Map?;
     final providerGroups = [
       providerRegion?['flatrate'],
       providerRegion?['free'],
@@ -615,34 +622,41 @@ class TmdbMediaDetails {
         .whereType<Map>()
         .map((item) => TmdbWatchProvider.fromJson(item.cast<String, dynamic>()))
         .where((item) => item.logoPath != null)
-        .fold<List<TmdbWatchProvider>>(
-          <TmdbWatchProvider>[],
-          (items, provider) {
-            if (items.every((item) => item.id != provider.id)) {
-              items.add(provider);
-            }
-            return items;
-          },
-        );
+        .fold<List<TmdbWatchProvider>>(<TmdbWatchProvider>[], (
+          items,
+          provider,
+        ) {
+          if (items.every((item) => item.id != provider.id)) {
+            items.add(provider);
+          }
+          return items;
+        });
 
-    final episodeRunTimes = (json['episode_run_time'] as List?)
+    final episodeRunTimes =
+        (json['episode_run_time'] as List?)
             ?.whereType<num>()
             .map((value) => value.toInt())
             .where((value) => value > 0)
             .toList(growable: false) ??
         const [];
-    final originCountries = (json['origin_country'] as List?)
+    final originCountries =
+        (json['origin_country'] as List?)
             ?.whereType<String>()
             .where((value) => value.isNotEmpty)
             .toList(growable: false) ??
         const [];
-    final spokenLanguages = (json['spoken_languages'] as List?)
+    final spokenLanguages =
+        (json['spoken_languages'] as List?)
             ?.whereType<Map>()
-            .map((item) => item['name'] as String? ?? item['iso_639_1'] as String? ?? '')
+            .map(
+              (item) =>
+                  item['name'] as String? ?? item['iso_639_1'] as String? ?? '',
+            )
             .where((value) => value.isNotEmpty)
             .toList(growable: false) ??
         const [];
-    final createdBy = (json['created_by'] as List?)
+    final createdBy =
+        (json['created_by'] as List?)
             ?.whereType<Map>()
             .map((item) => item['name'] as String? ?? '')
             .where((value) => value.isNotEmpty)
@@ -665,28 +679,36 @@ class TmdbMediaDetails {
       similar: similar,
       seasons: seasons,
       watchProviders: watchProviders,
-      originalTitle: json['original_title'] as String? ??
-          json['original_name'] as String?,
+      originalTitle:
+          json['original_title'] as String? ?? json['original_name'] as String?,
       popularity: (json['popularity'] as num?)?.toDouble(),
       budget: (json['budget'] as num?)?.toInt(),
       revenue: (json['revenue'] as num?)?.toInt(),
       homepage: json['homepage'] as String?,
-      imdbId: json['imdb_id'] as String? ??
+      imdbId:
+          json['imdb_id'] as String? ??
           ((json['external_ids'] as Map?)?['imdb_id'] as String?),
-      productionCountries: (json['production_countries'] as List?)
+      productionCountries:
+          (json['production_countries'] as List?)
               ?.whereType<Map>()
-              .map((item) =>
-                  item['name'] as String? ?? item['iso_3166_1'] as String? ?? '')
+              .map(
+                (item) =>
+                    item['name'] as String? ??
+                    item['iso_3166_1'] as String? ??
+                    '',
+              )
               .where((value) => value.isNotEmpty)
               .toList(growable: false) ??
           const [],
-      productionCompanies: (json['production_companies'] as List?)
+      productionCompanies:
+          (json['production_companies'] as List?)
               ?.whereType<Map>()
               .map((item) => item['name'] as String? ?? '')
               .where((value) => value.isNotEmpty)
               .toList(growable: false) ??
           const [],
-      networks: (json['networks'] as List?)
+      networks:
+          (json['networks'] as List?)
               ?.whereType<Map>()
               .map((item) => item['name'] as String? ?? '')
               .where((value) => value.isNotEmpty)
@@ -965,11 +987,7 @@ Future<List<TmdbEpisode>> fetchTmdbSeasonEpisodes(
   }
   final uri = Uri.parse(
     '$_tmdbBase/tv/${media.id}/season/$seasonNumber',
-  ).replace(
-    queryParameters: const {
-      'language': 'fr-FR',
-    },
-  );
+  ).replace(queryParameters: const {'language': 'fr-FR'});
   final res = await http
       .get(uri, headers: _headers)
       .timeout(const Duration(seconds: 20));

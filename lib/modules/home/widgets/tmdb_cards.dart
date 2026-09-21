@@ -1,5 +1,6 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
@@ -12,20 +13,32 @@ class TmdbPosterCard extends StatelessWidget {
   final TmdbMedia media;
   final VoidCallback onTap;
   final double width;
+  final String? heroTag;
 
   const TmdbPosterCard({
     super.key,
     required this.media,
     required this.onTap,
     this.width = 120,
+    this.heroTag,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
     final score = media.voteAverage;
+    final image = media.bestCover == null
+        ? const _TmdbImagePlaceholder()
+        : ExtendedImage.network(
+            media.bestCover!,
+            fit: BoxFit.cover,
+            cache: true,
+            loadStateChanged: (s) {
+              if (s.extendedImageLoadState == LoadState.completed) return null;
+              return const AppShimmerBlock();
+            },
+          );
 
     return GestureDetector(
       onTap: onTap,
@@ -38,22 +51,13 @@ class TmdbPosterCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (media.bestCover != null)
-                  ExtendedImage.network(
-                    media.bestCover!,
-                    fit: BoxFit.cover,
-                    cache: true,
-                    loadStateChanged: (s) {
-                      if (s.extendedImageLoadState == LoadState.completed)
-                        return null;
-                      return const AppShimmerBlock();
-                    },
-                  )
-                else
-                  Container(
-                    color: cs.surfaceContainerHighest,
-                    child: const Icon(Broken.video),
+                Hero(
+                  tag: heroTag ?? tmdbHeroTag(media),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: image,
                   ),
+                ),
                 // Bottom gradient
                 const Positioned.fill(
                   child: DecoratedBox(
@@ -163,12 +167,14 @@ class TmdbLandscapeCard extends StatelessWidget {
   final TmdbMedia media;
   final VoidCallback onTap;
   final double width;
+  final String? heroTag;
 
   const TmdbLandscapeCard({
     super.key,
     required this.media,
     required this.onTap,
     this.width = 220,
+    this.heroTag,
   });
 
   @override
@@ -189,19 +195,26 @@ class TmdbLandscapeCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (image != null)
-                  ExtendedImage.network(
-                    image,
-                    fit: BoxFit.cover,
-                    cache: true,
-                    loadStateChanged: (s) {
-                      if (s.extendedImageLoadState == LoadState.completed)
-                        return null;
-                      return const AppShimmerBlock(radius: 0);
-                    },
-                  )
-                else
-                  Container(color: cs.surfaceContainerHighest),
+                Hero(
+                  tag: heroTag ?? tmdbHeroTag(media),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: image != null
+                        ? ExtendedImage.network(
+                            image,
+                            fit: BoxFit.cover,
+                            cache: true,
+                            loadStateChanged: (s) {
+                              if (s.extendedImageLoadState ==
+                                  LoadState.completed) {
+                                return null;
+                              }
+                              return const AppShimmerBlock(radius: 0);
+                            },
+                          )
+                        : Container(color: cs.surfaceContainerHighest),
+                  ),
+                ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -315,12 +328,14 @@ class TmdbRankedCard extends StatelessWidget {
   final TmdbMedia media;
   final int rank;
   final VoidCallback onTap;
+  final String? heroTag;
 
   const TmdbRankedCard({
     super.key,
     required this.media,
     required this.rank,
     required this.onTap,
+    this.heroTag,
   });
 
   static const _rankColors = [
@@ -348,21 +363,25 @@ class TmdbRankedCard extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: AspectRatio(
-                      aspectRatio: 2 / 3,
-                      child: media.bestCover != null
-                          ? ExtendedImage.network(
-                              media.bestCover!,
-                              fit: BoxFit.cover,
-                              cache: true,
-                              loadStateChanged: (s) {
-                                if (s.extendedImageLoadState ==
-                                    LoadState.completed)
-                                  return null;
-                                return const AppShimmerBlock();
-                              },
-                            )
-                          : const AppShimmerBlock(),
+                    child: Hero(
+                      tag: heroTag ?? tmdbHeroTag(media),
+                      child: AspectRatio(
+                        aspectRatio: 2 / 3,
+                        child: media.bestCover != null
+                            ? ExtendedImage.network(
+                                media.bestCover!,
+                                fit: BoxFit.cover,
+                                cache: true,
+                                loadStateChanged: (s) {
+                                  if (s.extendedImageLoadState ==
+                                      LoadState.completed) {
+                                    return null;
+                                  }
+                                  return const AppShimmerBlock();
+                                },
+                              )
+                            : const AppShimmerBlock(),
+                      ),
                     ),
                   ),
                   Positioned(
@@ -407,6 +426,35 @@ class TmdbRankedCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+String tmdbHeroTag(TmdbMedia media, [String source = 'default']) =>
+    'tmdb-${media.mediaType}-${media.id}-$source';
+
+void pushTmdbMediaDetail(
+  BuildContext context,
+  TmdbMedia media, {
+  String source = 'default',
+}) {
+  context.push(
+    '/flixMediaDetail',
+    extra: TmdbMediaDetailRoute(
+      media: media,
+      heroTag: tmdbHeroTag(media, source),
+    ),
+  );
+}
+
+class _TmdbImagePlaceholder extends StatelessWidget {
+  const _TmdbImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: const Icon(Broken.video),
     );
   }
 }

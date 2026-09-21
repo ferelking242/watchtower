@@ -6,10 +6,7 @@ import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 enum TmdbCatalogKind { movies, series }
 
 class TmdbCatalogScreen extends ConsumerWidget {
-  const TmdbCatalogScreen({
-    super.key,
-    required this.kind,
-  });
+  const TmdbCatalogScreen({super.key, required this.kind});
 
   final TmdbCatalogKind kind;
 
@@ -39,10 +36,7 @@ class TmdbCatalogScreen extends ConsumerWidget {
         ),
         data: (data) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(tmdbHomeProvider),
-          child: _TmdbCatalogList(
-            kind: kind,
-            data: data,
-          ),
+          child: _TmdbCatalogList(kind: kind, data: data),
         ),
       ),
     );
@@ -50,10 +44,7 @@ class TmdbCatalogScreen extends ConsumerWidget {
 }
 
 class _TmdbCatalogList extends StatelessWidget {
-  const _TmdbCatalogList({
-    required this.kind,
-    required this.data,
-  });
+  const _TmdbCatalogList({required this.kind, required this.data});
 
   final TmdbCatalogKind kind;
   final TmdbHome data;
@@ -64,21 +55,36 @@ class _TmdbCatalogList extends StatelessWidget {
     final sections = isMovies
         ? <(String, IconData, List<TmdbMedia>)>[
             ('En ce moment', Icons.theaters_rounded, data.nowPlayingMovies),
-            ('Tendances de la semaine', Icons.local_fire_department_rounded,
-                data.trendingMovies),
-            ('Les mieux notés', Icons.emoji_events_rounded,
-                data.topRatedMovies),
+            (
+              'Tendances de la semaine',
+              Icons.local_fire_department_rounded,
+              data.trendingMovies,
+            ),
+            (
+              'Les mieux notés',
+              Icons.emoji_events_rounded,
+              data.topRatedMovies,
+            ),
             ('Films populaires', Icons.star_rounded, data.popularMovies),
             ('Prochainement', Icons.upcoming_rounded, data.upcomingMovies),
           ]
         : <(String, IconData, List<TmdbMedia>)>[
-            ('Tendances de la semaine', Icons.local_fire_department_rounded,
-                data.trendingTv),
+            (
+              'Tendances de la semaine',
+              Icons.local_fire_department_rounded,
+              data.trendingTv,
+            ),
             ('En cours de diffusion', Icons.live_tv_rounded, data.onTheAirTv),
-            ('Diffusées aujourd’hui', Icons.fiber_new_rounded,
-                data.airingTodayTv),
-            ('Les mieux notées', Icons.workspace_premium_rounded,
-                data.topRatedTv),
+            (
+              'Diffusées aujourd’hui',
+              Icons.fiber_new_rounded,
+              data.airingTodayTv,
+            ),
+            (
+              'Les mieux notées',
+              Icons.workspace_premium_rounded,
+              data.topRatedTv,
+            ),
             ('Séries populaires', Icons.star_rounded, data.popularTv),
           ];
 
@@ -95,11 +101,7 @@ class _TmdbCatalogList extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         for (final section in nonEmpty)
-          _TmdbSection(
-            title: section.$1,
-            icon: section.$2,
-            items: section.$3,
-          ),
+          _TmdbSection(title: section.$1, icon: section.$2, items: section.$3),
         if (nonEmpty.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 80),
@@ -131,13 +133,17 @@ class _TmdbSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 19, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                icon,
+                size: 19,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 8),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -150,10 +156,13 @@ class _TmdbSection extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
                 final media = visible[index];
+                final source = 'catalog-$index';
                 return TmdbPosterCard(
                   media: media,
                   width: 132,
-                  onTap: () => _showDetails(context, media),
+                  heroTag: tmdbHeroTag(media, source),
+                  onTap: () =>
+                      pushTmdbMediaDetail(context, media, source: source),
                 );
               },
             ),
@@ -176,9 +185,9 @@ class _TmdbSection extends StatelessWidget {
             children: [
               Text(
                 media.displayTitle,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               if (media.voteAverage != null)
@@ -198,10 +207,7 @@ class _TmdbSection extends StatelessWidget {
 }
 
 class _TmdbCatalogError extends StatelessWidget {
-  const _TmdbCatalogError({
-    required this.error,
-    required this.onRetry,
-  });
+  const _TmdbCatalogError({required this.error, required this.onRetry});
 
   final Object error;
   final VoidCallback onRetry;

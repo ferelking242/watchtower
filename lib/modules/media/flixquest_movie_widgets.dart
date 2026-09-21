@@ -711,22 +711,27 @@ class ScrollingMovies extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             itemCount: items.length,
             scrollDirection: Axis.horizontal,
-            itemBuilder: (context, index) => Padding(
-              padding: EdgeInsets.only(
-                left: index == 0 ? AppUI.pagePadding(context) : 10,
-                top: 8,
-                bottom: 8,
-              ),
-              child: SizedBox(
-                width: cardWidth,
-                child: TmdbPosterCard(
-                  media: items[index],
-                  width: cardWidth,
-                  onTap: () =>
-                      context.push('/flixMediaDetail', extra: items[index]),
+            itemBuilder: (context, index) {
+              final media = items[index];
+              final source = 'flix-poster-${title.hashCode}-$index';
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: index == 0 ? AppUI.pagePadding(context) : 10,
+                  top: 8,
+                  bottom: 8,
                 ),
-              ),
-            ),
+                child: SizedBox(
+                  width: cardWidth,
+                  child: TmdbPosterCard(
+                    media: media,
+                    heroTag: tmdbHeroTag(media, source),
+                    width: cardWidth,
+                    onTap: () =>
+                        pushTmdbMediaDetail(context, media, source: source),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -778,12 +783,17 @@ class ScrollingLandscapeMovies extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, index) => TmdbLandscapeCard(
-              media: items[index],
-              width: 238,
-              onTap: () =>
-                  context.push('/flixMediaDetail', extra: items[index]),
-            ),
+            itemBuilder: (context, index) {
+              final media = items[index];
+              final source = 'flix-landscape-${title.hashCode}-$index';
+              return TmdbLandscapeCard(
+                media: media,
+                heroTag: tmdbHeroTag(media, source),
+                width: 238,
+                onTap: () =>
+                    pushTmdbMediaDetail(context, media, source: source),
+              );
+            },
           ),
         ),
       ],
@@ -817,12 +827,17 @@ class RankedMovies extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) => TmdbRankedCard(
-              media: items[index],
-              rank: index + 1,
-              onTap: () =>
-                  context.push('/flixMediaDetail', extra: items[index]),
-            ),
+            itemBuilder: (context, index) {
+              final media = items[index];
+              final source = 'flix-ranked-${title.hashCode}-$index';
+              return TmdbRankedCard(
+                media: media,
+                heroTag: tmdbHeroTag(media, source),
+                rank: index + 1,
+                onTap: () =>
+                    pushTmdbMediaDetail(context, media, source: source),
+              );
+            },
           ),
         ),
       ],
@@ -864,10 +879,13 @@ class FeaturedMovieRail extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final media = uniqueItems[index];
+              final source = 'flix-featured-$index';
               return TmdbLandscapeCard(
                 media: media,
                 width: 280,
-                onTap: () => context.push('/flixMediaDetail', extra: media),
+                heroTag: tmdbHeroTag(media, source),
+                onTap: () =>
+                    pushTmdbMediaDetail(context, media, source: source),
               );
             },
           ),
@@ -1392,10 +1410,12 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
                         return const AppShimmerBlock(radius: 14);
                       }
                       final media = movies[index];
+                      final source = 'flix-catalog-$index';
                       return TmdbPosterCard(
                         media: media,
+                        heroTag: tmdbHeroTag(media, source),
                         onTap: () =>
-                            context.push('/flixMediaDetail', extra: media),
+                            pushTmdbMediaDetail(context, media, source: source),
                       );
                     },
                   ),
@@ -1716,11 +1736,16 @@ class _TmdbSearchResults extends StatelessWidget {
             mainAxisSpacing: 16,
           ),
           itemCount: items.length,
-          itemBuilder: (context, index) => TmdbPosterCard(
-            media: items[index],
-            width: double.infinity,
-            onTap: () => context.push('/flixMediaDetail', extra: items[index]),
-          ),
+          itemBuilder: (context, index) {
+            final media = items[index];
+            final source = 'flix-search-$index';
+            return TmdbPosterCard(
+              media: media,
+              width: double.infinity,
+              heroTag: tmdbHeroTag(media, source),
+              onTap: () => pushTmdbMediaDetail(context, media, source: source),
+            );
+          },
         );
       },
     );

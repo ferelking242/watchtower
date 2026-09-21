@@ -298,11 +298,17 @@ class _MediaRow extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 itemCount: items.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 11),
-                itemBuilder: (_, index) => TmdbPosterCard(
-                  media: items[index],
-                  width: 126,
-                  onTap: () => onTap(items[index]),
-                ),
+                itemBuilder: (_, index) {
+                  final media = items[index];
+                  final source = 'media-hub-${title.hashCode}-$index';
+                  return TmdbPosterCard(
+                    media: media,
+                    heroTag: tmdbHeroTag(media, source),
+                    width: 126,
+                    onTap: () =>
+                        pushTmdbMediaDetail(context, media, source: source),
+                  );
+                },
               ),
             ),
           ],

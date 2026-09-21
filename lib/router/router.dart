@@ -67,6 +67,7 @@ import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart'
     as nfile_home;
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
+import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/media_hub_screen.dart';
 import 'package:watchtower/modules/media/flixquest_movie_widgets.dart';
 import 'package:watchtower/modules/media/tmdb_media_detail_screen.dart';
@@ -467,9 +468,44 @@ class RouterNotifier extends ChangeNotifier {
       allowNullExtra: true,
       builder: (query) => TmdbSearchScreen(initialQuery: query),
     ),
-    _genericRoute<TmdbMedia>(
+    GoRoute(
       name: "flixMediaDetail",
-      builder: (media) => TmdbMediaDetailScreen(media: media),
+      path: "/flixMediaDetail",
+      pageBuilder: (context, state) {
+        final extra = state.extra;
+        final request = extra is TmdbMediaDetailRoute
+            ? extra
+            : TmdbMediaDetailRoute(
+                media: extra as TmdbMedia,
+                heroTag: tmdbHeroTag(extra),
+              );
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          transitionDuration: const Duration(milliseconds: 380),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          child: TmdbMediaDetailScreen(
+            media: request.media,
+            heroTag: request.heroTag,
+          ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+            return FadeTransition(
+              opacity: curved,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, .035),
+                  end: Offset.zero,
+                ).animate(curved),
+                child: child,
+              ),
+            );
+          },
+        );
+      },
     ),
     _genericRoute<TmdbMedia>(
       name: "flixCastCrew",
