@@ -339,17 +339,12 @@ class LandscapeDiscoveryCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Play button
-                Center(
-                  child: Container(
-                    width: 38, height: 38,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.20),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
-                    ),
-                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
-                  ),
+                // Play action anchored to the lower edge, inside a half-arc.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _LandscapeArcPlayButton(onPressed: onTap),
                 ),
                 // Title + score + episodes — bottom left
                 Positioned(
@@ -425,6 +420,104 @@ class LandscapeDiscoveryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LandscapeArcPlayButton extends StatelessWidget {
+  const _LandscapeArcPlayButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    return SizedBox(
+      height: 61,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _LandscapeArcPainter(surface),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onPressed,
+                customBorder: const CircleBorder(),
+                child: Ink(
+                  width: 39,
+                  height: 39,
+                  decoration: BoxDecoration(
+                    color: surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      width: 1.1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LandscapeArcPainter extends CustomPainter {
+  const _LandscapeArcPainter(this.surface);
+
+  final Color surface;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(0, size.height * 0.72)
+      ..cubicTo(
+        size.width * 0.10,
+        size.height * 0.12,
+        size.width * 0.90,
+        size.height * 0.12,
+        size.width,
+        size.height * 0.72,
+      )
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = surface);
+
+    final arc = Path()
+      ..moveTo(0, size.height * 0.72)
+      ..cubicTo(
+        size.width * 0.10,
+        size.height * 0.12,
+        size.width * 0.90,
+        size.height * 0.12,
+        size.width,
+        size.height * 0.72,
+      );
+    canvas.drawPath(
+      arc,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.48)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _LandscapeArcPainter oldDelegate) =>
+      oldDelegate.surface != surface;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

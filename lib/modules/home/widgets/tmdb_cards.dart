@@ -176,6 +176,19 @@ class TmdbLandscapeCard extends StatelessWidget {
                             : Container(color: cs.surfaceContainerHighest),
                       ),
                     ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: _TmdbArcPlayButton(
+                          background: cs.surface,
+                          onPressed: onTap,
+                          size: 82,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -543,8 +556,135 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
               ),
             ),
           ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: _TmdbArcPlayButton(
+                background: cs.surface,
+                onPressed: () => widget.onTap(widget.items[_page]),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+/// A lower-edge play action: the surface-coloured dome cuts into the artwork
+/// so the button feels attached to the hero frame, not floating in the image.
+class _TmdbArcPlayButton extends StatelessWidget {
+  const _TmdbArcPlayButton({
+    required this.background,
+    required this.onPressed,
+    this.size = 104,
+  });
+
+  final Color background;
+  final VoidCallback onPressed;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = size * 0.68;
+    return SizedBox(
+      width: size,
+      height: height,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _TmdbArcPainter(background: background),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(top: size * 0.10),
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onPressed,
+                customBorder: const CircleBorder(),
+                child: Ink(
+                  width: size * 0.52,
+                  height: size * 0.52,
+                  decoration: BoxDecoration(
+                    color: background,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      width: 1.25,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black54,
+                        blurRadius: 14,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 27,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TmdbArcPainter extends CustomPainter {
+  const _TmdbArcPainter({required this.background});
+
+  final Color background;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dome = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(0, size.height * 0.72)
+      ..cubicTo(
+        size.width * 0.10,
+        size.height * 0.16,
+        size.width * 0.90,
+        size.height * 0.16,
+        size.width,
+        size.height * 0.72,
+      )
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawPath(dome, Paint()..color = background);
+
+    final arc = Path()
+      ..moveTo(0, size.height * 0.72)
+      ..cubicTo(
+        size.width * 0.10,
+        size.height * 0.16,
+        size.width * 0.90,
+        size.height * 0.16,
+        size.width,
+        size.height * 0.72,
+      );
+    canvas.drawPath(
+      arc,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.50)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TmdbArcPainter oldDelegate) =>
+      oldDelegate.background != background;
 }
