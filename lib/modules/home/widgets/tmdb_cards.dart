@@ -118,6 +118,71 @@ class TmdbPosterCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Compact poster card — used by multi-row horizontal grids
+// ─────────────────────────────────────────────────────────────────────────────
+
+class TmdbCompactPosterCard extends StatelessWidget {
+  final TmdbMedia media;
+  final VoidCallback onTap;
+  final double width;
+
+  const TmdbCompactPosterCard({
+    super.key,
+    required this.media,
+    required this.onTap,
+    this.width = 104,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final image = media.bestCover;
+    return SizedBox(
+      width: width,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(11),
+                child: SizedBox(
+                  width: width,
+                  child: image == null
+                      ? const _TmdbImagePlaceholder()
+                      : ExtendedImage.network(
+                          image,
+                          fit: BoxFit.cover,
+                          cache: true,
+                          loadStateChanged: (s) {
+                            if (s.extendedImageLoadState == LoadState.completed) {
+                              return null;
+                            }
+                            return const AppShimmerBlock();
+                          },
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              media.displayTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TMDB Landscape card (16:9)
 // ─────────────────────────────────────────────────────────────────────────────
 

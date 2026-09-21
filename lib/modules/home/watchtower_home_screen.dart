@@ -417,6 +417,14 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         items: tmdb.topRatedMovies,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
+      _TmdbTonightSection(
+        items: [
+          ...tmdb.nowPlayingMovies,
+          ...tmdb.trendingMovies,
+          ...tmdb.popularMovies,
+        ].take(4).toList(),
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+      ),
       _TmdbLandscapeRow(
         title: 'Films en ce moment',
         icon: Icons.theaters_rounded,
@@ -424,12 +432,19 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         items: tmdb.nowPlayingMovies,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
-      _TmdbRow(
+      _TmdbUpcomingGrid(
         title: 'Prochainement',
-        icon: Icons.upcoming_rounded,
-        color: const Color(0xFF0984E3),
         items: tmdb.upcomingMovies,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+      ),
+      ..._tmdbCountryRows(
+        ctx,
+        [
+          ...tmdb.popularMovies,
+          ...tmdb.trendingMovies,
+          ...tmdb.topRatedMovies,
+        ],
+        itemLabel: 'Films',
       ),
     ];
   }
@@ -459,6 +474,15 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         items: tmdb.topRatedTv,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
+      _TmdbTonightSection(
+        items: [
+          ...tmdb.airingTodayTv,
+          ...tmdb.onTheAirTv,
+          ...tmdb.trendingTv,
+        ].take(4).toList(),
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+        title: 'À voir ce soir',
+      ),
       _TmdbRow(
         title: 'Diffusées aujourd\'hui',
         icon: Icons.fiber_new_rounded,
@@ -466,13 +490,56 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         items: tmdb.airingTodayTv,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
-      _TmdbLandscapeRow(
+      _TmdbUpcomingGrid(
         title: 'En cours de diffusion',
-        icon: Icons.live_tv_rounded,
-        color: const Color(0xFF2980B9),
         items: tmdb.onTheAirTv,
         onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
       ),
+      ..._tmdbCountryRows(
+        ctx,
+        [
+          ...tmdb.popularTv,
+          ...tmdb.trendingTv,
+          ...tmdb.topRatedTv,
+        ],
+        itemLabel: 'Séries',
+      ),
+    ];
+  }
+
+  List<Widget> _tmdbCountryRows(
+    BuildContext ctx,
+    List<TmdbMedia> source, {
+    required String itemLabel,
+  }) {
+    final unique = <int, TmdbMedia>{};
+    for (final media in source) {
+      unique[media.id] = media;
+    }
+
+    const definitions = [
+      ('fr', 'France', Color(0xFF4A69BD)),
+      ('en', 'États-Unis / Royaume-Uni', Color(0xFFE17055)),
+      ('ko', 'Corée du Sud', Color(0xFF9B59B6)),
+      ('ja', 'Japon', Color(0xFFE84393)),
+    ];
+
+    return [
+      for (final definition in definitions)
+        if (unique.values
+                .where((media) => media.originalLanguage == definition.$1)
+                .length >=
+            3)
+          _TmdbRow(
+            title: '$itemLabel · ${definition.$2}',
+            icon: Icons.public_rounded,
+            color: definition.$3,
+            items: unique.values
+                .where((media) => media.originalLanguage == definition.$1)
+                .take(6)
+                .toList(),
+            onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+          ),
     ];
   }
 
@@ -2080,6 +2147,278 @@ class _TmdbRow extends StatelessWidget {
                   width: 120,
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Upcoming grid — 3 rows, horizontal swipe, column-major order:
+// 1 4 7 / 2 5 8 / 3 6 9
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TmdbUpcomingGrid extends StatelessWidget {
+  final String title;
+  final List<TmdbMedia> items;
+  final void Function(TmdbMedia) onTap;
+
+  const _TmdbUpcomingGrid({
+    required this.title,
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(
+            title: title,
+            icon: Icons.upcoming_rounded,
+            color: const Color(0xFF0984E3),
+          ),
+          SizedBox(
+            height: 550,
+            child: GridView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              itemCount: items.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisExtent: 108,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) {
+                final media = items[index];
+                final source = 'home-upcoming-$title-$index';
+                return TmdbCompactPosterCard(
+                  media: media,
+                  width: 108,
+                  onTap: () =>
+                      pushTmdbMediaDetail(context, media, source: source),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tonight editorial block — one full-width feature + three compact picks
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TmdbTonightSection extends StatelessWidget {
+  final List<TmdbMedia> items;
+  final void Function(TmdbMedia) onTap;
+  final String title;
+
+  const _TmdbTonightSection({
+    required this.items,
+    required this.onTap,
+    this.title = 'À voir ce soir',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    final featured = items.first;
+    final picks = items.skip(1).take(3).toList();
+    final surface = Theme.of(context).colorScheme.surface;
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 26),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(
+              title: title,
+              icon: Icons.nightlight_round,
+              color: const Color(0xFF6C5CE7),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: GestureDetector(
+                onTap: () => onTap(featured),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 220,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _TmdbTonightImage(
+                          media: featured,
+                          background: surface,
+                        ),
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Color(0x12070D17),
+                                Color(0xF2070D17),
+                              ],
+                              stops: [0.18, 0.42, 1],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 16,
+                          right: 16,
+                          bottom: 15,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'SÉLECTION DU SOIR',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.72),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                featured.displayTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              if (featured.overview?.isNotEmpty == true) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  featured.overview!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.72),
+                                    fontSize: 11,
+                                    height: 1.25,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (picks.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < picks.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 10),
+                      Expanded(
+                        child: _TmdbTonightMiniCard(
+                          media: picks[i],
+                          onTap: () => onTap(picks[i]),
+                          background: surface,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TmdbTonightImage extends StatelessWidget {
+  final TmdbMedia media;
+  final Color background;
+
+  const _TmdbTonightImage({
+    required this.media,
+    required this.background,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final image = media.bannerImage ?? media.bestCover;
+    if (image == null) {
+      return ColoredBox(color: background);
+    }
+    return Image.network(
+      image,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => ColoredBox(color: background),
+    );
+  }
+}
+
+class _TmdbTonightMiniCard extends StatelessWidget {
+  final TmdbMedia media;
+  final VoidCallback onTap;
+  final Color background;
+
+  const _TmdbTonightMiniCard({
+    required this.media,
+    required this.onTap,
+    required this.background,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(11),
+            child: AspectRatio(
+              aspectRatio: 1.44,
+              child: _TmdbTonightImage(
+                media: media,
+                background: background,
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            media.displayTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
