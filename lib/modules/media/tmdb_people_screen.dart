@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
@@ -234,14 +235,14 @@ class _TmdbPersonScreenState extends State<TmdbPersonScreen> {
               if (person.placeOfBirth?.isNotEmpty == true) ...[
                 const SizedBox(height: 12),
                 _PersonInfoLine(
-                  icon: Icons.place_outlined,
+                   icon: Broken.location,
                   text: person.placeOfBirth!,
                 ),
               ],
               if (person.popularity != null) ...[
                 const SizedBox(height: 8),
                 _PersonInfoLine(
-                  icon: Icons.trending_up_rounded,
+                   icon: Broken.trend_up,
                   text: 'Popularité TMDB ${person.popularity!.toStringAsFixed(2)}',
                 ),
               ],
@@ -257,7 +258,7 @@ class _TmdbPersonScreenState extends State<TmdbPersonScreen> {
                           Uri.parse(person.homepage!),
                           mode: LaunchMode.externalApplication,
                         ),
-                        icon: const Icon(Icons.language_rounded, size: 16),
+                         icon: const Icon(Broken.global, size: 16),
                         label: const Text('Site'),
                       ),
                     if (person.imdbId?.isNotEmpty == true)
@@ -266,7 +267,7 @@ class _TmdbPersonScreenState extends State<TmdbPersonScreen> {
                           Uri.parse('https://www.imdb.com/name/${person.imdbId}'),
                           mode: LaunchMode.externalApplication,
                         ),
-                        icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                         icon: const Icon(Broken.export_3, size: 16),
                         label: const Text('IMDb'),
                       ),
                   ],
@@ -354,7 +355,7 @@ class _CastCrewRow extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(color: Colors.white54),
       ),
-      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+       trailing: const Icon(Broken.arrow_right_3, color: Colors.white38),
     );
   }
 }
@@ -376,7 +377,7 @@ class _PersonAvatar extends StatelessWidget {
         child: url == null
             ? const ColoredBox(
                 color: Color(0xFF252532),
-                child: Icon(Icons.person_rounded, color: Colors.white38),
+                 child: Icon(Broken.user, color: Colors.white38),
               )
             : ExtendedImage.network(
                 url!,

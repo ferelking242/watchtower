@@ -322,6 +322,7 @@ class TmdbVideo {
   final String site;
   final String type;
   final bool official;
+  final String languageCode;
 
   const TmdbVideo({
     required this.key,
@@ -329,6 +330,7 @@ class TmdbVideo {
     required this.site,
     required this.type,
     required this.official,
+    this.languageCode = '',
   });
 
   bool get isYoutube => site.toLowerCase() == 'youtube';
@@ -343,6 +345,81 @@ class TmdbVideo {
         site: json['site'] as String? ?? '',
         type: json['type'] as String? ?? 'Video',
         official: json['official'] as bool? ?? false,
+        languageCode: json['iso_639_1'] as String? ?? '',
+      );
+}
+
+class TmdbSeason {
+  final int seasonNumber;
+  final String name;
+  final String? overview;
+  final String? airDate;
+  final String? posterPath;
+  final int episodeCount;
+
+  const TmdbSeason({
+    required this.seasonNumber,
+    required this.name,
+    this.overview,
+    this.airDate,
+    this.posterPath,
+    this.episodeCount = 0,
+  });
+
+  String? get posterUrl => posterPath == null
+      ? null
+      : 'https://image.tmdb.org/t/p/w500$posterPath';
+
+  factory TmdbSeason.fromJson(Map<String, dynamic> json) => TmdbSeason(
+        seasonNumber: (json['season_number'] as num?)?.toInt() ?? 0,
+        name: json['name'] as String? ?? 'Saison',
+        overview: json['overview'] as String?,
+        airDate: json['air_date'] as String?,
+        posterPath: json['poster_path'] as String?,
+        episodeCount: (json['episode_count'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class TmdbEpisode {
+  final int id;
+  final int episodeNumber;
+  final int seasonNumber;
+  final String name;
+  final String? overview;
+  final String? airDate;
+  final String? stillPath;
+  final double? voteAverage;
+  final int? voteCount;
+  final int? runtime;
+
+  const TmdbEpisode({
+    required this.id,
+    required this.episodeNumber,
+    required this.seasonNumber,
+    required this.name,
+    this.overview,
+    this.airDate,
+    this.stillPath,
+    this.voteAverage,
+    this.voteCount,
+    this.runtime,
+  });
+
+  String? get stillUrl => stillPath == null
+      ? null
+      : 'https://image.tmdb.org/t/p/w500$stillPath';
+
+  factory TmdbEpisode.fromJson(Map<String, dynamic> json) => TmdbEpisode(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        episodeNumber: (json['episode_number'] as num?)?.toInt() ?? 0,
+        seasonNumber: (json['season_number'] as num?)?.toInt() ?? 0,
+        name: json['name'] as String? ?? 'Épisode',
+        overview: json['overview'] as String?,
+        airDate: json['air_date'] as String?,
+        stillPath: json['still_path'] as String?,
+        voteAverage: (json['vote_average'] as num?)?.toDouble(),
+        voteCount: (json['vote_count'] as num?)?.toInt(),
+        runtime: (json['runtime'] as num?)?.toInt(),
       );
 }
 
@@ -359,6 +436,8 @@ class TmdbMediaDetails {
   final List<TmdbVideo> videos;
   final List<String> backdropPaths;
   final List<TmdbMedia> recommendations;
+  final List<TmdbMedia> similar;
+  final List<TmdbSeason> seasons;
   final List<TmdbWatchProvider> watchProviders;
   final String? originalTitle;
   final double? popularity;
@@ -389,6 +468,8 @@ class TmdbMediaDetails {
     this.videos = const [],
     this.backdropPaths = const [],
     this.recommendations = const [],
+    this.similar = const [],
+    this.seasons = const [],
     this.watchProviders = const [],
     this.originalTitle,
     this.popularity,
@@ -430,9 +511,26 @@ class TmdbMediaDetails {
         .whereType<Map>()
         .map((item) => TmdbVideo.fromJson(item.cast<String, dynamic>()))
         .where((item) => item.key.isNotEmpty && item.isYoutube)
-        .where((item) => item.type == 'Trailer' || item.type == 'Teaser')
-        .take(12)
-        .toList(growable: false);
+        .toList()
+      ..sort((a, b) {
+        int rank(TmdbVideo video) {
+          final typeRank = switch (video.type) {
+            'Trailer' => 0,
+            'Teaser' => 1,
+            'Featurette' => 2,
+            _ => 3,
+          };
+          final languageRank = switch (video.languageCode) {
+            'fr' => 0,
+            'en' => 1,
+            _ => 2,
+          };
+          return typeRank * 10 + languageRank;
+        }
+
+        return rank(a).compareTo(rank(b));
+      });
+    final selectedVideos = videos.take(20).toList(growable: false);
     final images = (json['images'] as Map?)?['backdrops'] as List? ?? [];
     final backdropPaths = images
         .whereType<Map>()
@@ -452,6 +550,21 @@ class TmdbMediaDetails {
         )
         .where((item) => item.posterPath != null)
         .take(20)
+        .toList(growable: false);
+    final similar = ((json['similar'] as Map?)?['results'] as List? ?? [])
+        .whereType<Map>()
+        .map(
+          (item) => mediaType == 'movie'
+              ? TmdbMedia.fromMovieJson(item.cast<String, dynamic>())
+              : TmdbMedia.fromTvJson(item.cast<String, dynamic>()),
+        )
+        .where((item) => item.posterPath != null)
+        .take(20)
+        .toList(growable: false);
+    final seasons = (json['seasons'] as List? ?? [])
+        .whereType<Map>()
+        .map((item) => TmdbSeason.fromJson(item.cast<String, dynamic>()))
+        .where((season) => season.seasonNumber >= 0)
         .toList(growable: false);
     final providerRegion =
         ((json['watch/providers'] as Map?)?['results'] as Map?)?['US']
@@ -512,9 +625,11 @@ class TmdbMediaDetails {
       genres: genres,
       cast: cast,
       crew: crew,
-      videos: videos,
+      videos: selectedVideos,
       backdropPaths: backdropPaths,
       recommendations: recommendations,
+      similar: similar,
+      seasons: seasons,
       watchProviders: watchProviders,
       originalTitle: json['original_title'] as String? ??
           json['original_name'] as String?,
@@ -745,8 +860,9 @@ Future<TmdbMediaDetails> fetchTmdbMediaDetails(TmdbMedia media) async {
     queryParameters: {
       'language': 'fr-FR',
       'append_to_response':
-          'credits,videos,images,recommendations,watch/providers,external_ids',
+          'credits,videos,images,recommendations,similar,seasons,watch/providers,external_ids',
       'include_image_language': 'fr,null',
+      'include_video_language': 'fr-FR,en-US,null',
       'watch_region': 'US',
     },
   );
@@ -764,6 +880,39 @@ Future<TmdbMediaDetails> fetchTmdbMediaDetails(TmdbMedia media) async {
     json.cast<String, dynamic>(),
     media.mediaType,
   );
+}
+
+Future<List<TmdbEpisode>> fetchTmdbSeasonEpisodes(
+  TmdbMedia media,
+  int seasonNumber,
+) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
+  final uri = Uri.parse(
+    '$_tmdbBase/tv/${media.id}/season/$seasonNumber',
+  ).replace(
+    queryParameters: const {
+      'language': 'fr-FR',
+    },
+  );
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) {
+    throw StateError('TMDB season request failed (${res.statusCode}).');
+  }
+  final json = jsonDecode(res.body);
+  if (json is! Map) {
+    throw const FormatException('TMDB returned an invalid season payload.');
+  }
+  return (json['episodes'] as List? ?? [])
+      .whereType<Map>()
+      .map((item) => TmdbEpisode.fromJson(item.cast<String, dynamic>()))
+      .toList(growable: false);
 }
 
 Future<TmdbPersonDetails> fetchTmdbPersonDetails(TmdbPersonRef person) async {

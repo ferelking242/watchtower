@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
@@ -154,7 +157,11 @@ class _DetailContentState extends State<_DetailContent> {
           expandedHeight: width < 700 ? 330 : 430,
           pinned: true,
           backgroundColor: const Color(0xFF0B0B11),
-          leading: const BackButton(color: Colors.white),
+           leading: IconButton(
+             tooltip: 'Retour',
+             onPressed: () => context.pop(),
+             icon: const Icon(Broken.arrow_left, color: Colors.white),
+           ),
           title: AnimatedOpacity(
             duration: const Duration(milliseconds: 180),
             opacity: _showCollapsedTitle ? 1 : 0,
@@ -172,6 +179,7 @@ class _DetailContentState extends State<_DetailContent> {
           flexibleSpace: FlexibleSpaceBar(
             background: _BackdropCarousel(
               paths: backdrops,
+               videos: details.videos,
               fallback: media.backdropPath,
             ),
           ),
@@ -242,21 +250,21 @@ class _DetailContentState extends State<_DetailContent> {
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 16),
+                           const SizedBox(height: 13),
                             Wrap(
                               spacing: 7,
                               runSpacing: 7,
                               children: [
                                 if (media.voteAverage != null)
                                   _InfoChip(
-                                    icon: Icons.star_rounded,
+                                     icon: Broken.star_1,
                                     label: media.voteAverage!.toStringAsFixed(
                                       1,
                                     ),
                                   ),
                                 if (date?.isNotEmpty == true)
                                   _InfoChip(
-                                    icon: Icons.calendar_month_rounded,
+                                     icon: Broken.calendar_1,
                                     label: date!.split('-').first,
                                   ),
                                 if (media.originalLanguage?.isNotEmpty ==
@@ -265,19 +273,35 @@ class _DetailContentState extends State<_DetailContent> {
                                     label: media.originalLanguage!
                                         .toUpperCase(),
                                   ),
+                                 if (media.voteCount != null)
+                                   _InfoChip(
+                                     icon: Broken.message_text,
+                                     label: '${media.voteCount} avis',
+                                   ),
                               ],
                             ),
+                             const SizedBox(height: 11),
+                             Wrap(
+                               spacing: 7,
+                               runSpacing: 7,
+                               children: genres
+                                   .map((genre) => _InfoChip(label: genre))
+                                   .toList(growable: false),
+                             ),
                           ],
                         ),
                       ),
                     ),
+                     const SizedBox(width: 4),
+                     IconButton(
+                       tooltip: 'Voir les statistiques',
+                       onPressed: () => _showDetailsSheet(context),
+                       icon: const Icon(
+                         Broken.arrow_right_3,
+                         color: Colors.white70,
+                       ),
+                     ),
                   ],
-                ),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: genres.map((genre) => _InfoChip(label: genre)).toList(),
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -288,16 +312,16 @@ class _DetailContentState extends State<_DetailContent> {
                            '/flixSearch',
                            extra: media.displayTitle,
                          ),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                         label: const Text('Watch now'),
+                         icon: const Icon(Broken.play),
+                         label: const Text('Regarder'),
                       ),
                     ),
                     const SizedBox(width: 9),
                      Expanded(
                        child: FilledButton.tonalIcon(
                          onPressed: widget.onDownload,
-                         icon: const Icon(Icons.download_rounded),
-                         label: const Text('Download'),
+                          icon: const Icon(Broken.document_download),
+                          label: const Text('Télécharger'),
                        ),
                      ),
                      const SizedBox(width: 9),
@@ -306,8 +330,8 @@ class _DetailContentState extends State<_DetailContent> {
                       tooltip: 'Ma liste',
                       icon: Icon(
                         isFavorite
-                            ? Icons.check_rounded
-                            : Icons.add_rounded,
+                         ? Broken.tick_circle
+                             : Broken.add_circle,
                       ),
                     ),
                   ],
@@ -327,8 +351,18 @@ class _DetailContentState extends State<_DetailContent> {
                        ? media.overview!
                        : 'Aucun synopsis disponible.',
                 ),
-                const SizedBox(height: 26),
-                _DetailTabs(index: tabIndex, onChanged: onTabChanged),
+                 const SizedBox(height: 25),
+                 _CastSection(media: media, cast: details.cast),
+                 if (media.mediaType == 'tv' && details.seasons.isNotEmpty) ...[
+                   const SizedBox(height: 24),
+                   _SeasonsSummary(seasons: details.seasons),
+                 ],
+                 const SizedBox(height: 28),
+                 _DetailTabs(
+                   index: tabIndex,
+                   isTv: media.mediaType == 'tv',
+                   onChanged: onTabChanged,
+                 ),
                 const SizedBox(height: 20),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 220),
@@ -348,6 +382,20 @@ class _DetailContentState extends State<_DetailContent> {
       ],
     );
   }
+
+  void _showDetailsSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF14141D),
+      builder: (_) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: _DetailsSection(media: media, details: details),
+        ),
+      ),
+    );
+  }
 }
 
 class _TabBody extends StatelessWidget {
@@ -363,34 +411,45 @@ class _TabBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (index == 0) {
+      return _MediaSection(details: details);
+    }
     if (index == 1) {
-      return _VideosSection(videos: details.videos);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _RecommendationsSection(items: details.recommendations),
+          const SizedBox(height: 28),
+          _RecommendationsSection(
+            title: 'Similaires',
+            emptyMessage: 'Aucun titre similaire disponible.',
+            items: details.similar,
+          ),
+          const SizedBox(height: 28),
+          _ProvidersSection(providers: details.watchProviders),
+        ],
+      );
     }
-    if (index == 2) {
-      return _DetailsSection(media: media, details: details);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CastSection(media: media, cast: details.cast),
-        const SizedBox(height: 28),
-        _RecommendationsSection(items: details.recommendations),
-        const SizedBox(height: 28),
-        _ProvidersSection(providers: details.watchProviders),
-      ],
-    );
+    return media.mediaType == 'tv'
+        ? _EpisodesSection(media: media, seasons: details.seasons)
+        : _DetailsSection(media: media, details: details);
   }
 }
 
 class _DetailTabs extends StatelessWidget {
   final int index;
+  final bool isTv;
   final ValueChanged<int> onChanged;
 
-  const _DetailTabs({required this.index, required this.onChanged});
+  const _DetailTabs({
+    required this.index,
+    required this.isTv,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['Distribution', 'Bandes-annonces', 'Détails'];
+    final labels = ['Média', 'Recommandations', isTv ? 'Épisodes' : 'Détails'];
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -452,21 +511,7 @@ class _ExpandableSynopsisState extends State<_ExpandableSynopsis> {
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 9),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .045),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .24),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -488,14 +533,145 @@ class _ExpandableSynopsisState extends State<_ExpandableSynopsis> {
                 icon: AnimatedRotation(
                   turns: _expanded ? .5 : 0,
                   duration: const Duration(milliseconds: 180),
-                  child: const Icon(
-                    Icons.expand_more_rounded,
-                    color: Colors.white54,
-                  ),
+                   child: const Icon(
+                     Broken.arrow_down_1,
+                     color: Colors.white54,
+                   ),
                 ),
               ),
             ),
           ],
+      ),
+    );
+  }
+}
+
+class _MediaSection extends StatelessWidget {
+  final TmdbMediaDetails details;
+
+  const _MediaSection({required this.details});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Section(
+          title: 'Wallpapers',
+          child: details.backdropPaths.isEmpty
+              ? const _EmptySection(message: 'Aucun wallpaper disponible.')
+              : SizedBox(
+                  height: 142,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: details.backdropPaths.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (_, index) => _WallpaperCard(
+                      path: details.backdropPaths[index],
+                    ),
+                  ),
+                ),
+        ),
+        const SizedBox(height: 28),
+        _VideosSection(videos: details.videos),
+      ],
+    );
+  }
+}
+
+class _WallpaperCard extends StatelessWidget {
+  final String path;
+
+  const _WallpaperCard({required this.path});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: ExtendedImage.network(
+        'https://image.tmdb.org/t/p/w780$path',
+        width: 238,
+        height: 142,
+        fit: BoxFit.cover,
+        cache: true,
+        loadStateChanged: (state) {
+          if (state.extendedImageLoadState == LoadState.completed) {
+            return null;
+          }
+          return const AppShimmerBlock();
+        },
+      ),
+    );
+  }
+}
+
+class _SeasonsSummary extends StatelessWidget {
+  final List<TmdbSeason> seasons;
+
+  const _SeasonsSummary({required this.seasons});
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleSeasons =
+        seasons.where((season) => season.seasonNumber > 0).toList(growable: false);
+    if (visibleSeasons.isEmpty) return const SizedBox.shrink();
+    return _Section(
+      title: 'Saisons',
+      child: SizedBox(
+        height: 168,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          itemCount: visibleSeasons.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, index) {
+            final season = visibleSeasons[index];
+            return SizedBox(
+              width: 112,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: 112,
+                      height: 126,
+                      child: season.posterUrl == null
+                          ? const _PosterPlaceholder(icon: Broken.video)
+                          : ExtendedImage.network(
+                              season.posterUrl!,
+                              fit: BoxFit.cover,
+                              cache: true,
+                              loadStateChanged: (state) {
+                                if (state.extendedImageLoadState ==
+                                    LoadState.completed) {
+                                  return null;
+                                }
+                                return const AppShimmerBlock();
+                              },
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    season.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    '${season.episodeCount} épisodes',
+                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -510,9 +686,9 @@ class _CastSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (cast.isEmpty) return const _EmptySection(message: 'Distribution indisponible.');
+    if (cast.isEmpty) return const _EmptySection(message: 'Acteurs indisponibles.');
     return _Section(
-      title: 'Distribution',
+      title: 'Acteurs',
       trailing: TextButton(
         onPressed: () => context.push('/flixCastCrew', extra: media),
         child: const Text('Voir tout'),
@@ -545,7 +721,7 @@ class _CastSection extends StatelessWidget {
                         width: 92,
                         height: 112,
                         child: person.profileUrl == null
-                            ? const _PosterPlaceholder(icon: Icons.person)
+                            ? const _PosterPlaceholder(icon: Broken.user)
                             : ExtendedImage.network(
                                 person.profileUrl!,
                                 fit: BoxFit.cover,
@@ -591,6 +767,234 @@ class _CastSection extends StatelessWidget {
   }
 }
 
+class _EpisodesSection extends StatefulWidget {
+  final TmdbMedia media;
+  final List<TmdbSeason> seasons;
+
+  const _EpisodesSection({
+    required this.media,
+    required this.seasons,
+  });
+
+  @override
+  State<_EpisodesSection> createState() => _EpisodesSectionState();
+}
+
+class _EpisodesSectionState extends State<_EpisodesSection> {
+  late final List<TmdbSeason> _seasons;
+  late int _selectedSeason;
+  late Future<List<TmdbEpisode>> _episodes;
+
+  @override
+  void initState() {
+    super.initState();
+    _seasons = widget.seasons
+        .where((season) => season.seasonNumber > 0)
+        .toList(growable: false);
+    _selectedSeason = _seasons.isEmpty ? 1 : _seasons.first.seasonNumber;
+    _episodes = _loadEpisodes();
+  }
+
+  Future<List<TmdbEpisode>> _loadEpisodes() {
+    return fetchTmdbSeasonEpisodes(widget.media, _selectedSeason);
+  }
+
+  void _selectSeason(int seasonNumber) {
+    if (seasonNumber == _selectedSeason) return;
+    setState(() {
+      _selectedSeason = seasonNumber;
+      _episodes = _loadEpisodes();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_seasons.isEmpty) {
+      return const _EmptySection(message: 'Aucun épisode disponible.');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Section(
+          title: 'Épisodes',
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final season in _seasons) ...[
+                  ChoiceChip(
+                    selected: season.seasonNumber == _selectedSeason,
+                    label: Text(season.name),
+                    onSelected: (_) => _selectSeason(season.seasonNumber),
+                    avatar: const Icon(Broken.video, size: 15),
+                    labelStyle: TextStyle(
+                      color: season.seasonNumber == _selectedSeason
+                          ? Colors.white
+                          : Colors.white70,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    backgroundColor: Colors.white.withValues(alpha: .06),
+                    selectedColor: Colors.white.withValues(alpha: .18),
+                    side: BorderSide.none,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        FutureBuilder<List<TmdbEpisode>>(
+          future: _episodes,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Column(
+                children: [
+                  SizedBox(height: 120, child: AppShimmerBlock()),
+                  SizedBox(height: 10),
+                  SizedBox(height: 120, child: AppShimmerBlock()),
+                ],
+              );
+            }
+            if (snapshot.hasError) {
+              return const _EmptySection(
+                message: 'Impossible de charger les épisodes.',
+              );
+            }
+            final episodes = snapshot.data ?? const <TmdbEpisode>[];
+            if (episodes.isEmpty) {
+              return const _EmptySection(message: 'Aucun épisode disponible.');
+            }
+            return Column(
+              children: episodes
+                  .map((episode) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _EpisodeCard(episode: episode),
+                      ))
+                  .toList(growable: false),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _EpisodeCard extends StatelessWidget {
+  final TmdbEpisode episode;
+
+  const _EpisodeCard({required this.episode});
+
+  @override
+  Widget build(BuildContext context) {
+    final date = episode.airDate?.split('-').take(2).join('/');
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .055),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 142,
+              height: 84,
+              child: episode.stillUrl == null
+                  ? const _PosterPlaceholder(icon: Broken.video)
+                  : ExtendedImage.network(
+                      episode.stillUrl!,
+                      fit: BoxFit.cover,
+                      cache: true,
+                      loadStateChanged: (state) {
+                        if (state.extendedImageLoadState ==
+                            LoadState.completed) {
+                          return null;
+                        }
+                        return const AppShimmerBlock(radius: 0);
+                      },
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'E${episode.episodeNumber} · ${episode.name}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (episode.overview?.trim().isNotEmpty == true)
+                  Text(
+                    episode.overview!,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      height: 1.35,
+                      fontSize: 12,
+                    ),
+                  ),
+                const SizedBox(height: 7),
+                Wrap(
+                  spacing: 9,
+                  runSpacing: 4,
+                  children: [
+                    if (episode.voteAverage != null)
+                      _EpisodeMeta(
+                        icon: Broken.star_1,
+                        label: episode.voteAverage!.toStringAsFixed(1),
+                      ),
+                    if (date?.isNotEmpty == true)
+                      _EpisodeMeta(icon: Broken.calendar_1, label: date!),
+                    if (episode.runtime != null && episode.runtime! > 0)
+                      _EpisodeMeta(
+                        icon: Broken.clock,
+                        label: '${episode.runtime} min',
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EpisodeMeta extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _EpisodeMeta({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: Colors.white54),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 11),
+        ),
+      ],
+    );
+  }
+}
+
 class _VideosSection extends StatelessWidget {
   final List<TmdbVideo> videos;
 
@@ -602,7 +1006,7 @@ class _VideosSection extends StatelessWidget {
       return const _EmptySection(message: 'Aucune bande-annonce disponible.');
     }
     return _Section(
-      title: 'Bandes-annonces et vidéos',
+      title: 'Trailers et vidéos',
       child: SizedBox(
         height: 166,
         child: ListView.separated(
@@ -645,12 +1049,12 @@ class _VideosSection extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const Center(
-                        child: Icon(
-                          Icons.play_circle_fill_rounded,
-                          color: Colors.white,
-                          size: 48,
-                        ),
+                       const Center(
+                         child: Icon(
+                           Broken.video_play,
+                           color: Colors.white,
+                           size: 48,
+                         ),
                       ),
                       Positioned(
                         left: 10,
@@ -807,17 +1211,23 @@ String _formatMoney(int value) {
 }
 
 class _RecommendationsSection extends StatelessWidget {
+  final String title;
+  final String emptyMessage;
   final List<TmdbMedia> items;
 
-  const _RecommendationsSection({required this.items});
+  const _RecommendationsSection({
+    required this.items,
+    this.title = 'Recommandations',
+    this.emptyMessage = 'Aucune recommandation disponible.',
+  });
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const _EmptySection(message: 'Aucune recommandation disponible.');
+      return _EmptySection(message: emptyMessage);
     }
     return _Section(
-      title: 'Vous aimerez aussi',
+      title: title,
       child: SizedBox(
         height: 204,
         child: ListView.separated(
@@ -913,20 +1323,55 @@ class _Section extends StatelessWidget {
 
 class _BackdropCarousel extends StatefulWidget {
   final List<String> paths;
+  final List<TmdbVideo> videos;
   final String? fallback;
 
-  const _BackdropCarousel({required this.paths, required this.fallback});
+  const _BackdropCarousel({
+    required this.paths,
+    required this.videos,
+    required this.fallback,
+  });
 
   @override
   State<_BackdropCarousel> createState() => _BackdropCarouselState();
 }
 
 class _BackdropCarouselState extends State<_BackdropCarousel> {
-  final PageController _controller = PageController();
+  late final PageController _controller;
+  Timer? _timer;
   int _index = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: .88);
+    _startAutoPlay();
+  }
+
+  void _startAutoPlay() {
+    _timer?.cancel();
+    if (_itemCount <= 1) return;
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || !_controller.hasClients) return;
+      final next = (_index + 1) % _itemCount;
+      _controller.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  int get _itemCount {
+    final paths = widget.paths.isEmpty && widget.fallback != null
+        ? <String>[widget.fallback!]
+        : widget.paths;
+    return paths.length + (widget.videos.isEmpty ? 0 : 1);
+  }
+
+  @override
   void dispose() {
+    _timer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -937,6 +1382,14 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
         ? <String>[widget.fallback!]
         : widget.paths;
     if (paths.isEmpty) {
+      if (widget.videos.isEmpty) {
+        return const DecoratedBox(
+          decoration: BoxDecoration(color: Color(0xFF181822)),
+        );
+      }
+    }
+    final itemCount = paths.length + (widget.videos.isEmpty ? 0 : 1);
+    if (itemCount == 0) {
       return const DecoratedBox(
         decoration: BoxDecoration(color: Color(0xFF181822)),
       );
@@ -946,19 +1399,27 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
       children: [
         PageView.builder(
           controller: _controller,
-          itemCount: paths.length,
+          padEnds: false,
+          physics: const BouncingScrollPhysics(),
+          itemCount: itemCount,
           onPageChanged: (value) => setState(() => _index = value),
-          itemBuilder: (_, index) => ExtendedImage.network(
-            'https://image.tmdb.org/t/p/w1280${paths[index]}',
-            fit: BoxFit.cover,
-            cache: true,
-            loadStateChanged: (state) {
-              if (state.extendedImageLoadState == LoadState.completed) {
-                return null;
-              }
-              return const AppShimmerBlock();
-            },
-          ),
+          itemBuilder: (_, index) {
+            if (widget.videos.isNotEmpty && index == 0) {
+              return _TrailerHeroSlide(video: widget.videos.first);
+            }
+            final pathIndex = index - (widget.videos.isEmpty ? 0 : 1);
+            return ExtendedImage.network(
+              'https://image.tmdb.org/t/p/w1280${paths[pathIndex]}',
+              fit: BoxFit.cover,
+              cache: true,
+              loadStateChanged: (state) {
+                if (state.extendedImageLoadState == LoadState.completed) {
+                  return null;
+                }
+                return const AppShimmerBlock();
+              },
+            );
+          },
         ),
         const DecoratedBox(
           decoration: BoxDecoration(
@@ -970,15 +1431,15 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
             ),
           ),
         ),
-        if (paths.length > 1)
+        if (itemCount > 1)
           Positioned(
             bottom: 17,
-            left: 0,
-            right: 0,
+             left: 20,
+             right: 20,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                for (var i = 0; i < paths.length; i++)
+                 for (var i = 0; i < itemCount; i++)
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -993,6 +1454,65 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _TrailerHeroSlide extends StatelessWidget {
+  final TmdbVideo video;
+
+  const _TrailerHeroSlide({required this.video});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => launchUrl(
+        Uri.parse(video.watchUrl),
+        mode: LaunchMode.externalApplication,
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ExtendedImage.network(
+            'https://img.youtube.com/vi/${video.key}/maxresdefault.jpg',
+            fit: BoxFit.cover,
+            cache: true,
+            loadStateChanged: (state) {
+              if (state.extendedImageLoadState == LoadState.completed) {
+                return null;
+              }
+              return const AppShimmerBlock(radius: 0);
+            },
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black87],
+              ),
+            ),
+          ),
+          const Center(
+            child: Icon(Broken.video_play, color: Colors.white, size: 54),
+          ),
+          Positioned(
+            left: 18,
+            bottom: 28,
+            right: 18,
+            child: Text(
+              'Trailer · ${video.name}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1031,13 +1551,13 @@ class _InfoChip extends StatelessWidget {
 class _PosterPlaceholder extends StatelessWidget {
   final IconData icon;
 
-  const _PosterPlaceholder({this.icon = Icons.movie_creation_outlined});
+  const _PosterPlaceholder({this.icon = Broken.video});
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
       color: const Color(0xFF272733),
-      child: Center(child: Icon(icon, color: Colors.white38, size: 34)),
+       child: Center(child: Icon(icon, color: Colors.white38, size: 34)),
     );
   }
 }
@@ -1116,7 +1636,7 @@ class _DetailError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, color: Colors.white54, size: 44),
+             const Icon(Broken.wifi, color: Colors.white54, size: 44),
             const SizedBox(height: 14),
             const Text(
               'Impossible de charger cette fiche',
