@@ -22,6 +22,7 @@ class TmdbCastCrewScreen extends StatefulWidget {
 
 class _TmdbCastCrewScreenState extends State<TmdbCastCrewScreen> {
   late Future<TmdbMediaDetails> _details;
+  int _tabIndex = 0;
 
   @override
   void initState() {
@@ -33,11 +34,6 @@ class _TmdbCastCrewScreenState extends State<TmdbCastCrewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _tmdbBackground,
-      appBar: AppBar(
-        title: const Text('Cast & Crew'),
-        backgroundColor: _tmdbBackground,
-        foregroundColor: Colors.white,
-      ),
       body: FutureBuilder<TmdbMediaDetails>(
         future: _details,
         builder: (context, snapshot) {
@@ -53,103 +49,301 @@ class _TmdbCastCrewScreenState extends State<TmdbCastCrewScreen> {
             );
           }
           final details = snapshot.data!;
-          return CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          final isCrew = _tabIndex == 1;
+          return SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 18, 12),
+                  child: Row(
                     children: [
-                      Text(
-                        widget.media.displayTitle,
-                        style: const TextStyle(
+                      IconButton(
+                        tooltip: 'Retour',
+                        onPressed: () => context.pop(),
+                        icon: const Icon(
+                          Broken.arrow_left,
                           color: Colors.white,
-                          fontSize: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Cast And Crew',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 22),
-                      _PeopleSectionTitle(
-                        title: 'Acteurs',
-                        count: details.cast.length,
-                      ),
-                      const SizedBox(height: 10),
                     ],
                   ),
                 ),
-              ),
-              if (details.cast.isEmpty)
-                const SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverToBoxAdapter(child: _PeopleEmpty()),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverList.builder(
-                    itemCount: details.cast.length,
-                    itemBuilder: (_, index) {
-                      final person = details.cast[index];
-                      return _CastCrewRow(
-                        imageUrl: person.profileUrl,
-                        name: person.name,
-                        subtitle: person.character,
-                        onTap: () => context.push(
-                          '/flixPerson',
-                          extra: TmdbPersonRef(
-                            id: person.id,
-                            name: person.name,
-                            profilePath: person.profilePath,
-                          ),
-                        ),
-                      );
-                    },
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: _CastCrewSwitcher(
+                    index: _tabIndex,
+                    onChanged: (index) => setState(() => _tabIndex = index),
                   ),
                 ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 26, 16, 10),
-                sliver: SliverToBoxAdapter(
-                  child: _PeopleSectionTitle(
-                    title: 'Équipe',
-                    count: details.crew.length,
+                const SizedBox(height: 18),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _CastCrewPeopleList(
+                      key: ValueKey(_tabIndex),
+                      media: widget.media,
+                      details: details,
+                      crew: isCrew,
+                    ),
                   ),
                 ),
-              ),
-              if (details.crew.isEmpty)
-                const SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverToBoxAdapter(child: _PeopleEmpty()),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
-                  sliver: SliverList.builder(
-                    itemCount: details.crew.length,
-                    itemBuilder: (_, index) {
-                      final person = details.crew[index];
-                      return _CastCrewRow(
-                        imageUrl: person.profileUrl,
-                        name: person.name,
-                        subtitle: [
-                          person.department,
-                          person.job,
-                        ].where((value) => value.isNotEmpty).join(' • '),
-                        onTap: () => context.push(
-                          '/flixPerson',
-                          extra: TmdbPersonRef(
-                            id: person.id,
-                            name: person.name,
-                            profilePath: person.profilePath,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-            ],
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _CastCrewSwitcher extends StatelessWidget {
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  const _CastCrewSwitcher({required this.index, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1D1E22),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        children: [
+          _CastCrewTab(
+            selected: index == 0,
+            icon: Icons.people_outline_rounded,
+            label: 'Cast',
+            onTap: () => onChanged(0),
+          ),
+          _CastCrewTab(
+            selected: index == 1,
+            icon: Icons.handyman_outlined,
+            label: 'Crew',
+            onTap: () => onChanged(1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CastCrewTab extends StatelessWidget {
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _CastCrewTab({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF8DDBB7) : Colors.transparent,
+            borderRadius: BorderRadius.circular(26),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? const Color(0xFF101714) : Colors.white70,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? const Color(0xFF101714) : Colors.white70,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CastCrewPeopleList extends StatelessWidget {
+  final TmdbMedia media;
+  final TmdbMediaDetails details;
+  final bool crew;
+
+  const _CastCrewPeopleList({
+    super.key,
+    required this.media,
+    required this.details,
+    required this.crew,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (crew && details.crew.isEmpty || !crew && details.cast.isEmpty) {
+      return const _PeopleEmpty();
+    }
+    final count = crew ? details.crew.length : details.cast.length;
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+      physics: const BouncingScrollPhysics(),
+      itemCount: count,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, index) {
+        final castPerson = crew ? null : details.cast[index];
+        final crewPerson = crew ? details.crew[index] : null;
+        final personName = crewPerson?.name ?? castPerson!.name;
+        final personImage = crewPerson?.profileUrl ?? castPerson!.profileUrl;
+        final personId = crewPerson?.id ?? castPerson!.id;
+        final personProfilePath =
+            crewPerson?.profilePath ?? castPerson!.profilePath;
+        final subtitle = crew
+            ? 'Job : ${crewPerson!.job.isNotEmpty ? crewPerson.job : 'N/A'}'
+            : 'As : ${castPerson!.character.isNotEmpty ? castPerson.character : 'N/A'}';
+        final episodeLabel =
+            !crew &&
+                media.mediaType == 'tv' &&
+                (details.numberOfEpisodes ?? 0) > 0
+            ? '${details.numberOfEpisodes} épisodes'
+            : null;
+        return _CastCrewPersonCard(
+          imageUrl: personImage,
+          name: personName,
+          subtitle: subtitle,
+          meta: episodeLabel,
+          onTap: () => context.push(
+            '/flixPerson',
+            extra: TmdbPersonRef(
+              id: personId,
+              name: personName,
+              profilePath: personProfilePath,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CastCrewPersonCard extends StatelessWidget {
+  final String? imageUrl;
+  final String name;
+  final String subtitle;
+  final String? meta;
+  final VoidCallback onTap;
+
+  const _CastCrewPersonCard({
+    required this.imageUrl,
+    required this.name,
+    required this.subtitle,
+    required this.meta,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF202126),
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(13),
+          child: Row(
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: ClipOval(
+                  child: imageUrl == null
+                      ? const ColoredBox(
+                          color: Color(0xFF54565B),
+                          child: Icon(Broken.user, color: Colors.black54),
+                        )
+                      : ExtendedImage.network(
+                          imageUrl!,
+                          fit: BoxFit.cover,
+                          cache: true,
+                          loadStateChanged: (state) =>
+                              state.extendedImageLoadState ==
+                                  LoadState.completed
+                              ? null
+                              : const AppShimmerBlock(radius: 40),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (meta != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        meta!,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(Broken.arrow_right_3, color: Colors.white54),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -216,15 +410,17 @@ class _TmdbPersonScreenState extends State<TmdbPersonScreen>
                 leading: Padding(
                   padding: const EdgeInsetsDirectional.only(start: 12),
                   child: _PersonHeroButton(
-                    tooltip: MaterialLocalizations.of(context)
-                        .backButtonTooltip,
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).backButtonTooltip,
                     onPressed: () => context.pop(),
                   ),
                 ),
                 title: AnimatedBuilder(
                   animation: _scrollController,
                   builder: (context, _) {
-                    final visible = _scrollController.hasClients &&
+                    final visible =
+                        _scrollController.hasClients &&
                         _scrollController.offset > 250;
                     return AnimatedOpacity(
                       opacity: visible ? 1 : 0,
@@ -321,8 +517,8 @@ class _PersonHero extends StatelessWidget {
               cache: true,
               loadStateChanged: (state) =>
                   state.extendedImageLoadState == LoadState.completed
-                      ? null
-                      : const AppShimmerBlock(radius: 0),
+                  ? null
+                  : const AppShimmerBlock(radius: 0),
             ),
           ),
         const DecoratedBox(
@@ -393,10 +589,7 @@ class _PersonHeroButton extends StatelessWidget {
   final String tooltip;
   final VoidCallback onPressed;
 
-  const _PersonHeroButton({
-    required this.tooltip,
-    required this.onPressed,
-  });
+  const _PersonHeroButton({required this.tooltip, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -489,9 +682,7 @@ class _PersonTab extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: selected
-                      ? const Color(0xFFFF8A00)
-                      : Colors.white70,
+                  color: selected ? const Color(0xFFFF8A00) : Colors.white70,
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                 ),
@@ -722,7 +913,10 @@ class _ActorAvatar extends StatelessWidget {
       height: 112,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: .85), width: 3),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: .85),
+          width: 3,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .35),
@@ -743,8 +937,8 @@ class _ActorAvatar extends StatelessWidget {
                 cache: true,
                 loadStateChanged: (state) =>
                     state.extendedImageLoadState == LoadState.completed
-                        ? null
-                        : const AppShimmerBlock(radius: 60),
+                    ? null
+                    : const AppShimmerBlock(radius: 60),
               ),
       ),
     );
@@ -768,8 +962,8 @@ class _PersonImage extends StatelessWidget {
           cache: true,
           loadStateChanged: (state) =>
               state.extendedImageLoadState == LoadState.completed
-                  ? null
-                  : const AppShimmerBlock(radius: 0),
+              ? null
+              : const AppShimmerBlock(radius: 0),
         ),
       ),
     );
@@ -943,8 +1137,8 @@ class _PersonCreditCard extends StatelessWidget {
                       cache: true,
                       loadStateChanged: (state) =>
                           state.extendedImageLoadState == LoadState.completed
-                              ? null
-                              : const AppShimmerBlock(radius: 0),
+                          ? null
+                          : const AppShimmerBlock(radius: 0),
                     )
                   else
                     const ColoredBox(
@@ -1064,7 +1258,7 @@ class _CastCrewRow extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(color: Colors.white54),
       ),
-       trailing: const Icon(Broken.arrow_right_3, color: Colors.white38),
+      trailing: const Icon(Broken.arrow_right_3, color: Colors.white38),
     );
   }
 }
@@ -1086,7 +1280,7 @@ class _PersonAvatar extends StatelessWidget {
         child: url == null
             ? const ColoredBox(
                 color: Color(0xFF252532),
-                 child: Icon(Broken.user, color: Colors.white38),
+                child: Icon(Broken.user, color: Colors.white38),
               )
             : ExtendedImage.network(
                 url!,
@@ -1184,10 +1378,7 @@ class _PeopleSectionTitle extends StatelessWidget {
           ),
         ),
         if (count != null)
-          Text(
-            '$count',
-            style: const TextStyle(color: Colors.white54),
-          ),
+          Text('$count', style: const TextStyle(color: Colors.white54)),
       ],
     );
   }

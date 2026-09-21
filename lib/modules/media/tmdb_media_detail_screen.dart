@@ -127,7 +127,7 @@ class _DetailContentState extends State<_DetailContent> {
 
   void _handleScroll() {
     final shouldShow =
-        _scrollController.hasClients && _scrollController.offset > 190;
+        _scrollController.hasClients && _scrollController.offset > 220;
     if (shouldShow != _showCollapsedTitle && mounted) {
       setState(() => _showCollapsedTitle = shouldShow);
     }
@@ -144,13 +144,22 @@ class _DetailContentState extends State<_DetailContent> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    final expandedHeight = width < 700 ? 330.0 : 430.0;
     final double posterWidth = (width * .32).clamp(118.0, 190.0).toDouble();
     final date = media.releaseDate ?? media.firstAirDate;
-    final genres = details.genres.isNotEmpty
-        ? details.genres.map((genre) => genre.name).toList(growable: false)
-        : (media.mediaType == 'movie'
+    final genreNames = <String>{};
+    genreNames.addAll(
+      details.genres
+          .map((genre) => genre.name.trim())
+          .where((genre) => genre.isNotEmpty),
+    );
+    genreNames.addAll(
+      (media.mediaType == 'movie'
               ? tmdbMovieGenreNames(media.genreIds)
-              : tmdbTvGenreNames(media.genreIds));
+              : tmdbTvGenreNames(media.genreIds))
+          .where((genre) => genre.isNotEmpty),
+    );
+    final genres = genreNames.toList(growable: false);
     final backdrops = <String>[
       if (media.backdropPath != null) media.backdropPath!,
       ...details.backdropPaths.where((path) => path != media.backdropPath),
@@ -159,29 +168,53 @@ class _DetailContentState extends State<_DetailContent> {
     return CustomScrollView(
       slivers: [
         SliverAppBar(
-          expandedHeight: width < 700 ? 330 : 430,
+          expandedHeight: expandedHeight,
           pinned: true,
+          toolbarHeight: 64,
           backgroundColor: const Color(0xFF0B0B11),
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          scrolledUnderElevation: 0,
           leading: IconButton(
             tooltip: 'Retour',
             onPressed: () => context.pop(),
             icon: const Icon(Broken.arrow_left, color: Colors.white),
           ),
-          title: AnimatedOpacity(
-            duration: const Duration(milliseconds: 180),
-            opacity: _showCollapsedTitle ? 1 : 0,
-            child: Text(
-              media.displayTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
+          title: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, .18),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
               ),
             ),
+            child: _showCollapsedTitle
+                ? Text(
+                    media.displayTitle,
+                    key: const ValueKey('collapsed-title'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  )
+                : const SizedBox(
+                    key: ValueKey('empty-title'),
+                    width: 1,
+                    height: 1,
+                  ),
           ),
           flexibleSpace: FlexibleSpaceBar(
+            collapseMode: CollapseMode.parallax,
+            stretchModes: const [StretchMode.zoomBackground],
             background: _BackdropCarousel(
               paths: backdrops,
               videos: details.videos,
@@ -274,8 +307,9 @@ class _DetailContentState extends State<_DetailContent> {
                                   ),
                                 if (media.originalLanguage?.isNotEmpty == true)
                                   _InfoChip(
-                                    label: media.originalLanguage!
-                                        .toUpperCase(),
+                                    label: _shortLanguage(
+                                      media.originalLanguage!,
+                                    ),
                                   ),
                                 if (media.voteCount != null)
                                   _InfoChip(
@@ -309,31 +343,80 @@ class _DetailContentState extends State<_DetailContent> {
                 ),
                 const SizedBox(height: 20),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => context.push(
-                          '/flixSearch',
-                          extra: media.displayTitle,
+                      child: SizedBox(
+                        height: 50,
+                        child: FilledButton.icon(
+                          onPressed: () => context.push(
+                            '/flixSearch',
+                            extra: media.displayTitle,
+                          ),
+                          icon: const Icon(Broken.play, size: 20),
+                          label: const Text('Regarder'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFE50914),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
-                        icon: const Icon(Broken.play),
-                        label: const Text('Regarder'),
                       ),
                     ),
                     const SizedBox(width: 9),
                     Expanded(
-                      child: FilledButton.tonalIcon(
-                        onPressed: widget.onDownload,
-                        icon: const Icon(Broken.document_download),
-                        label: const Text('Télécharger'),
+                      child: SizedBox(
+                        height: 50,
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onDownload,
+                          icon: const Icon(Broken.document_download, size: 20),
+                          label: const Text('Télécharger'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.white.withValues(
+                              alpha: .07,
+                            ),
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: .18),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 9),
-                    IconButton.filledTonal(
-                      onPressed: onFavoriteChanged,
-                      tooltip: 'Ma liste',
-                      icon: Icon(
-                        isFavorite ? Broken.tick_circle : Broken.add_circle,
+                    SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: IconButton(
+                        onPressed: onFavoriteChanged,
+                        tooltip: isFavorite
+                            ? 'Retirer de ma liste'
+                            : 'Ajouter à ma liste',
+                        style: IconButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Colors.white.withValues(alpha: .10),
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: .18),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        icon: Icon(
+                          isFavorite ? Broken.tick_circle : Broken.add_circle,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ],
@@ -559,14 +642,23 @@ class _MediaSection extends StatelessWidget {
       children: [
         _Section(
           title: 'Wallpapers',
+          trailing: details.backdropPaths.length > 3
+              ? TextButton(
+                  onPressed: () => context.push(
+                    '/flixWallpapers',
+                    extra: details.backdropPaths,
+                  ),
+                  child: Text('Tout  ›'),
+                )
+              : null,
           child: details.backdropPaths.isEmpty
               ? const _EmptySection(message: 'Aucun wallpaper disponible.')
               : SizedBox(
-                  height: 142,
+                  height: 154,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    itemCount: details.backdropPaths.length,
+                    itemCount: details.backdropPaths.take(3).length,
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
                     itemBuilder: (_, index) =>
                         _WallpaperCard(path: details.backdropPaths[index]),
@@ -601,6 +693,95 @@ class _WallpaperCard extends StatelessWidget {
           }
           return const AppShimmerBlock();
         },
+      ),
+    );
+  }
+}
+
+class TmdbWallpaperGalleryScreen extends StatelessWidget {
+  final List<String> paths;
+
+  const TmdbWallpaperGalleryScreen({super.key, required this.paths});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = (paths.length / 2).ceil();
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B11),
+      appBar: AppBar(
+        title: Text('Wallpapers (${paths.length})'),
+        backgroundColor: const Color(0xFF0B0B11),
+        foregroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: paths.isEmpty
+          ? const _EmptySection(message: 'Aucun wallpaper disponible.')
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 32),
+              itemCount: rows,
+              itemBuilder: (_, rowIndex) {
+                final firstIndex = rowIndex * 2;
+                final secondIndex = firstIndex + 1;
+                final first = paths[firstIndex];
+                final second = secondIndex < paths.length
+                    ? paths[secondIndex]
+                    : null;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _WallpaperGalleryTile(
+                            path: first,
+                            seed: firstIndex,
+                          ),
+                        ),
+                        if (second != null) ...[
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _WallpaperGalleryTile(
+                              path: second,
+                              seed: secondIndex,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _WallpaperGalleryTile extends StatelessWidget {
+  final String path;
+  final int seed;
+
+  const _WallpaperGalleryTile({required this.path, required this.seed});
+
+  @override
+  Widget build(BuildContext context) {
+    final aspectRatio = seed.isEven ? 1.42 : 0.86;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: AspectRatio(
+        aspectRatio: aspectRatio,
+        child: ExtendedImage.network(
+          'https://image.tmdb.org/t/p/w780$path',
+          fit: BoxFit.cover,
+          cache: true,
+          loadStateChanged: (state) {
+            if (state.extendedImageLoadState == LoadState.completed) {
+              return null;
+            }
+            return const AppShimmerBlock(radius: 0);
+          },
+        ),
       ),
     );
   }
@@ -1336,20 +1517,20 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
   @override
   void initState() {
     super.initState();
-    _controller = PageController(viewportFraction: .88);
+    _controller = PageController();
     _startAutoPlay();
   }
 
   void _startAutoPlay() {
     _timer?.cancel();
     if (_itemCount <= 1) return;
-    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _timer = Timer.periodic(const Duration(seconds: 6), (_) {
       if (!mounted || !_controller.hasClients) return;
       final next = (_index + 1) % _itemCount;
       _controller.animateToPage(
         next,
-        duration: const Duration(milliseconds: 520),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 620),
+        curve: Curves.easeInOutCubic,
       );
     });
   }
@@ -1391,8 +1572,9 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
       children: [
         PageView.builder(
           controller: _controller,
-          padEnds: false,
-          physics: const BouncingScrollPhysics(),
+          pageSnapping: true,
+          allowImplicitScrolling: true,
+          physics: const PageScrollPhysics(parent: BouncingScrollPhysics()),
           itemCount: itemCount,
           onPageChanged: (value) => setState(() => _index = value),
           itemBuilder: (_, index) {
@@ -1425,21 +1607,21 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
         ),
         if (itemCount > 1)
           Positioned(
-            bottom: 17,
-            left: 20,
-            right: 20,
+            right: 16,
+            bottom: 16,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 for (var i = 0; i < itemCount; i++)
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    margin: const EdgeInsetsDirectional.only(start: 5),
                     width: i == _index ? 18 : 5,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: i == _index ? Colors.white : Colors.white38,
-                      borderRadius: BorderRadius.circular(5),
+                      color: Colors.white.withValues(
+                        alpha: i == _index ? .95 : .45,
+                      ),
+                      borderRadius: BorderRadius.circular(99),
                     ),
                   ),
               ],
@@ -1538,6 +1720,13 @@ class _InfoChip extends StatelessWidget {
       ),
     );
   }
+}
+
+String _shortLanguage(String code) {
+  final normalized = code.trim().toLowerCase();
+  if (normalized.isEmpty) return '';
+  if (normalized.length == 1) return normalized.toUpperCase();
+  return '${normalized[0].toUpperCase()}${normalized.substring(1)}';
 }
 
 class _PosterPlaceholder extends StatelessWidget {

@@ -580,7 +580,6 @@ class TmdbMediaDetails {
         .map((item) => item['file_path'] as String?)
         .whereType<String>()
         .where((path) => path.isNotEmpty)
-        .take(8)
         .toList(growable: false);
     final recommendations =
         ((json['recommendations'] as Map?)?['results'] as List? ?? [])

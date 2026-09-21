@@ -511,6 +511,10 @@ class RouterNotifier extends ChangeNotifier {
       name: "flixCastCrew",
       builder: (media) => TmdbCastCrewScreen(media: media),
     ),
+    _genericRoute<List<String>>(
+      name: "flixWallpapers",
+      builder: (paths) => TmdbWallpaperGalleryScreen(paths: paths),
+    ),
     _genericRoute<TmdbPersonRef>(
       name: "flixPerson",
       builder: (person) => TmdbPersonScreen(person: person),
