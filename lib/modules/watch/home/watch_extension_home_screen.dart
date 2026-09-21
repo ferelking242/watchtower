@@ -197,6 +197,14 @@ class _ExtensionFeed extends StatelessWidget {
     final all = combined;
     final sections = layout.home.sections;
     final hasDeclaredSections = sections.isNotEmpty;
+    final hasContent = all.isNotEmpty || hasDeclaredSections;
+    if (!hasContent) {
+      return _ExtensionEmpty(
+        source: source,
+        onSearch: onSearch,
+        onRefresh: onRefresh,
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: Stack(
@@ -210,12 +218,14 @@ class _ExtensionFeed extends StatelessWidget {
               ),
               slivers: [
                 SliverToBoxAdapter(
-                  child: _ExtensionHero(
-                    source: source,
-                    items: popular.isNotEmpty ? popular : latest,
-                    onSearch: onSearch,
-                    onOpen: onOpen,
-                  ),
+                  child: (popular.isNotEmpty || latest.isNotEmpty)
+                      ? _ExtensionHero(
+                          source: source,
+                          items: popular.isNotEmpty ? popular : latest,
+                          onSearch: onSearch,
+                          onOpen: onOpen,
+                        )
+                      : const SizedBox.shrink(),
                 ),
                 SliverList(
                   delegate: SliverChildListDelegate.fixed(
@@ -443,24 +453,27 @@ class _ExtensionHero extends StatelessWidget {
     );
     final heroItems = items.take(10).toList(growable: false);
 
-    return SizedBox(
-      width: double.infinity,
-      height: heroHeight,
-      child: heroItems.isEmpty
-          ? const AppShimmerBlock(radius: 0)
-          : AppCrossfadeCarousel(
-              itemCount: heroItems.length,
-              onItemTap: (index) => onOpen(heroItems[index]),
-              itemBuilder: (context, index) {
-                final item = heroItems[index];
-                return _ExtensionHeroCard(
-                  source: source,
-                  item: item,
-                  onSearch: onSearch,
-                  onOpen: () => onOpen(item),
-                );
-              },
-            ),
+    if (heroItems.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 30),
+      child: SizedBox(
+        width: double.infinity,
+        height: heroHeight,
+        child: AppCrossfadeCarousel(
+          itemCount: heroItems.length,
+          onItemTap: (index) => onOpen(heroItems[index]),
+          itemBuilder: (context, index) {
+            final item = heroItems[index];
+            return _ExtensionHeroCard(
+              source: source,
+              item: item,
+              onSearch: onSearch,
+              onOpen: () => onOpen(item),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -560,7 +573,7 @@ class _ExtensionHeroCard extends StatelessWidget {
         Positioned(
           left: 0,
           right: 0,
-          bottom: -29,
+          bottom: -25,
           child: Center(child: _ExtensionWatchButton(onPressed: onOpen)),
         ),
       ],
@@ -1416,19 +1429,77 @@ class _ExtensionFlixQuestLoading extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(
-                height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
-                child: const AppMediaRowShimmer(),
+              _ExtensionSkeletonSection(
+                titleWidth: 96,
+                child: SizedBox(
+                  height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
+                  child: const AppMediaRowShimmer(),
+                ),
               ),
-              const SizedBox(height: 158, child: AppLandscapeRowShimmer()),
-              const SizedBox(height: 208, child: AppRankedRowShimmer()),
-              const SizedBox(height: 172, child: AppLandscapeRowShimmer()),
-              const AppBannerRowShimmer(),
-              const AppGenreGridShimmer(),
+              _ExtensionSkeletonSection(
+                titleWidth: 124,
+                child: const SizedBox(
+                  height: 158,
+                  child: AppLandscapeRowShimmer(),
+                ),
+              ),
+              _ExtensionSkeletonSection(
+                titleWidth: 78,
+                child: const SizedBox(
+                  height: 208,
+                  child: AppRankedRowShimmer(),
+                ),
+              ),
+              _ExtensionSkeletonSection(
+                titleWidth: 110,
+                child: const SizedBox(
+                  height: 172,
+                  child: AppLandscapeRowShimmer(),
+                ),
+              ),
+              _ExtensionSkeletonSection(
+                titleWidth: 88,
+                child: const AppBannerRowShimmer(),
+              ),
+              _ExtensionSkeletonSection(
+                titleWidth: 104,
+                child: const AppGenreGridShimmer(),
+              ),
               const SizedBox(height: 112),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ExtensionSkeletonSection extends StatelessWidget {
+  final double titleWidth;
+  final Widget child;
+
+  const _ExtensionSkeletonSection({
+    required this.titleWidth,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+            child: AppShimmerBlock(
+              width: titleWidth,
+              height: 16,
+              radius: 5,
+            ),
+          ),
+          child,
+        ],
       ),
     );
   }

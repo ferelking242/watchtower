@@ -21,6 +21,7 @@ import 'package:watchtower/modules/more/settings/browse/extension_repositories_s
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -287,7 +288,7 @@ class _NativeToolsTab extends StatelessWidget {
         _NativeToolCard(
           label: 'File Manager',
           subtitle: 'Explorateur de fichiers avancé avec lecteurs',
-          icon: Icons.folder_rounded,
+          icon: Broken.folder,
           color: const Color(0xFFFFA726),
           onTap: () => context.push('/nfileHome'),
         ),
@@ -295,7 +296,7 @@ class _NativeToolsTab extends StatelessWidget {
         _NativeToolCard(
           label: 'Smart Library',
           subtitle: 'Découvre et organise tous tes médias locaux',
-          icon: Icons.auto_awesome_motion_rounded,
+          icon: Broken.category,
           color: const Color(0xFF5C6BC0),
           onTap: () => context.push('/smartLibrary'),
         ),
@@ -391,7 +392,7 @@ class _NativeToolCard extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              Broken.arrow_right,
               color: cs.onSurface.withValues(alpha: 0.35),
             ),
           ],
@@ -611,22 +612,23 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       // Music plugins (metadata/audio-source) live in the music module's
       // drift DB, not in the Isar `sources` table — mark the marketplace
       // entries matching an installed plugin as installed too.
-      final musicPluginIds = _all
-          .where(
-            (e) =>
-                e.contentType == ItemType.music && _musicPluginFor(e) != null,
-          )
-          .map((e) => e.id)
-          .toSet();
+      final musicPlugins = <int, PluginConfiguration>{};
+      for (final entry in _all.where((e) => e.contentType == ItemType.music)) {
+        final plugin = _musicPluginFor(entry);
+        if (plugin != null) musicPlugins[entry.id] = plugin;
+      }
       if (mounted) {
         setState(() {
           _installed = {
             ...sources.map((s) => s.id).whereType<int>(),
-            ...musicPluginIds,
+            ...musicPlugins.keys,
           };
           _installedVersions = {
             for (final s in sources)
               if (s.id != null && s.version != null) s.id!: s.version!,
+            ...musicPlugins.map(
+              (id, plugin) => MapEntry(id, plugin.version),
+            ),
           };
           _installedSources = {
             for (final s in sources)
@@ -804,7 +806,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _showToast(
             context,
             '${entry.name} installé',
-            icon: Icons.check_circle_rounded,
+            icon: Broken.tick_circle,
           );
         }
         return;
@@ -829,7 +831,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         _showToast(
           context,
           '${entry.name} installée',
-          icon: Icons.check_circle_rounded,
+          icon: Broken.tick_circle,
         );
       }
     } catch (e) {
@@ -838,7 +840,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           context,
           'Erreur : $e',
           isError: true,
-          icon: Icons.error_rounded,
+          icon: Broken.danger,
         );
       }
     } finally {
@@ -935,7 +937,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         _showToast(
           context,
           '${entry.name} désinstallée',
-          icon: Icons.delete_rounded,
+          icon: Broken.trash,
         );
       }
     } catch (e) {
@@ -1139,11 +1141,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       };
 
   static IconData _typeIcon(ItemType t) => switch (t) {
-    ItemType.anime => Icons.live_tv_rounded,
-    ItemType.manga => Icons.auto_stories_rounded,
-    ItemType.novel => Icons.menu_book_rounded,
-    ItemType.music => Icons.music_note_rounded,
-    _ => Icons.sports_esports_rounded,
+    ItemType.anime => Broken.video,
+    ItemType.manga => Broken.bookmark,
+    ItemType.novel => Broken.book_1,
+    ItemType.music => Broken.musicnote,
+    _ => Broken.game,
   };
 
   static Color _typeColor(ItemType t) => switch (t) {
@@ -1465,16 +1467,16 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       'Plugins',
     ];
     const icons = <IconData>[
-      Icons.apps_rounded,
-      Icons.live_tv_rounded,
-      Icons.auto_stories_rounded,
-      Icons.android_rounded,
-      Icons.smart_display_rounded,
-      Icons.menu_book_rounded,
-      Icons.sports_esports_rounded,
-      Icons.music_note_rounded,
-      Icons.extension_rounded,
-      Icons.memory_rounded,
+      Broken.category,
+      Broken.video,
+      Broken.bookmark,
+      Broken.cpu,
+      Broken.monitor,
+      Broken.book_1,
+      Broken.game,
+      Broken.musicnote,
+      Broken.box,
+      Broken.code,
     ];
     return Container(
       color: theme.scaffoldBackgroundColor,
@@ -2714,7 +2716,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         ? _repoShortLabel(_repoFilter[tab]!)
                         : 'Dépôt',
                     active: _repoFilter[tab] != null,
-                    icon: Icons.folder_outlined,
+                    icon: Broken.folder,
                     onTap: () => _showRepoMenu(tab, repos),
                   ),
                   const SizedBox(width: 7),
@@ -2724,7 +2726,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         ? _langCode(_langFilter[tab]!)
                         : 'Langue',
                     active: _langFilter[tab] != null,
-                    icon: Icons.language_outlined,
+                    icon: Broken.global,
                     onTap: () => _showLangMenu(tab, langs),
                   ),
                   const SizedBox(width: 7),
@@ -2734,7 +2736,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         ? _compatLabel(_progLangFilter[tab]!)
                         : 'Langage',
                     active: _progLangFilter[tab] != null,
-                    icon: Icons.code_outlined,
+                    icon: Broken.code,
                     onTap: () => _showProgLangMenu(tab, progLangs),
                   ),
                 ],
@@ -2757,7 +2759,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 alignment: Alignment.center,
                 children: [
                   Icon(
-                    Icons.tune_rounded,
+                    Broken.filter,
                     size: 18,
                     color: nActive > 0 ? cs.onPrimary : cs.onSurfaceVariant,
                   ),
@@ -2940,7 +2942,7 @@ class _HomeTab extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.system_update_alt_rounded,
+                        Broken.refresh_2,
                         color: Colors.orange.shade700,
                         size: 20,
                       ),
@@ -3352,7 +3354,7 @@ class _TypeTabState extends State<_TypeTab> {
                       children: [
                         TextButton.icon(
                           onPressed: () => state._loadAll(bypassCache: true),
-                          icon: const Icon(Icons.refresh_rounded),
+                          icon: const Icon(Broken.refresh_2),
                           label: const Text('Actualiser'),
                         ),
                         const SizedBox(width: 10),
@@ -3393,8 +3395,8 @@ class _TypeTabState extends State<_TypeTab> {
                                 ? 'Tout est à jour ✓'
                                 : '$upd mise${upd == 1 ? "" : "s"} à jour disponible${upd == 1 ? "" : "s"}',
                             icon: upd == 0
-                                ? Icons.check_circle_rounded
-                                : Icons.system_update_alt_rounded,
+                                ? Broken.tick_circle
+                                : Broken.refresh_2,
                           );
                         }
                       },
@@ -3402,7 +3404,7 @@ class _TypeTabState extends State<_TypeTab> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.refresh_rounded,
+                            Broken.refresh_2,
                             size: 13,
                             color: cs.primary,
                           ),
@@ -3519,7 +3521,7 @@ class _UpdatesSection extends StatelessWidget {
                       color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
                     ),
                     child: const Icon(
-                      Icons.system_update_alt_rounded,
+                      Broken.refresh_2,
                       color: Color(0xFFA78BFA),
                       size: 18,
                     ),
@@ -4045,7 +4047,7 @@ class _MassInstallSheetState extends State<_MassInstallSheet> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.download_rounded),
+                    : const Icon(Broken.document_download),
                 label: Text(
                   _running
                       ? 'Installation en cours…'
@@ -4195,7 +4197,7 @@ class _PlayStoreCard extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.check_circle_rounded,
+                                    Broken.tick_circle,
                                     size: 12,
                                     color: cs.primary,
                                   ),
@@ -4443,7 +4445,7 @@ class _CardAction extends StatelessWidget {
             ],
           ),
           child: Icon(
-            Icons.download_rounded,
+            Broken.document_download,
             size: 20,
             color: cs.onPrimaryContainer,
           ),
@@ -4462,7 +4464,7 @@ class _CardAction extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
-            Icons.system_update_alt_rounded,
+            Broken.refresh_2,
             size: 20,
             color: Colors.orange.shade600,
           ),
@@ -4481,7 +4483,7 @@ class _CardAction extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
-          Icons.settings_outlined,
+          Broken.setting_2,
           size: 18,
           color: cs.onSurfaceVariant,
         ),
@@ -4737,7 +4739,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
-                        Icons.download_rounded,
+                        Broken.document_download,
                         size: 20,
                         color: cs.onSurfaceVariant,
                       ),
@@ -4760,7 +4762,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
-                        Icons.settings_outlined,
+                        Broken.setting_2,
                         size: 18,
                         color: cs.primary,
                       ),
@@ -5277,7 +5279,7 @@ class _BannerCard extends StatelessWidget {
                                             ),
                                           ),
                                           child: const Icon(
-                                            Icons.settings_outlined,
+                                            Broken.setting_2,
                                             size: 15,
                                             color: Colors.white,
                                           ),
@@ -5350,7 +5352,7 @@ class _BannerCard extends StatelessWidget {
                                                     MainAxisAlignment.center,
                                                 children: [
                                                   Icon(
-                                                    Icons.check_rounded,
+                                                    Broken.check,
                                                     size: 14,
                                                     color: Colors.white,
                                                   ),
@@ -5510,7 +5512,7 @@ class _MiniCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
-                      Icons.settings_outlined,
+                      Broken.setting_2,
                       size: 15,
                       color: cs.onSurfaceVariant,
                     ),
@@ -5561,7 +5563,7 @@ class _MiniCard extends StatelessWidget {
                                   ),
                                 ),
                                 child: Icon(
-                                  Icons.check_rounded,
+                                  Broken.check,
                                   size: 14,
                                   color: cs.primary,
                                 ),
@@ -5585,7 +5587,7 @@ class _MiniCard extends StatelessWidget {
                                   ),
                                 )
                               : Icon(
-                                  Icons.download_rounded,
+                                  Broken.document_download,
                                   size: 15,
                                   color: cs.onPrimaryContainer,
                                 ),
@@ -6248,7 +6250,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                         .set(v),
                   ),
                   _LightSettingsTile(
-                    icon: Icons.system_update_alt_rounded,
+                    icon: Broken.refresh_2,
                     title: 'Mise à jour automatique',
                     subtitle: 'Sans confirmation',
                     value: autoUpdate,
@@ -6316,7 +6318,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                     ),
                   ),
                   _LightActionTile(
-                    icon: Icons.refresh_rounded,
+                    icon: Broken.refresh_2,
                     title: 'Recharger le catalogue',
                     onTap: () {
                       Navigator.pop(context);
@@ -6493,7 +6495,7 @@ class _LightActionTile extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+                            Broken.arrow_right,
               size: 18,
               color: cs.outlineVariant,
             ),
@@ -6954,7 +6956,7 @@ class _PickerTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       trailing: selected
-          ? Icon(Icons.check_rounded, size: 18, color: cs.primary)
+          ? Icon(Broken.check, size: 18, color: cs.primary)
           : null,
       tileColor: selected ? cs.primaryContainer.withValues(alpha: 0.3) : null,
     );
@@ -7401,7 +7403,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                         ),
                         const SizedBox(height: 6),
                         _FilterToggleTile(
-                          icon: Icons.system_update_alt_rounded,
+                          icon: Broken.refresh_2,
                           label: 'Mises à jour disponibles',
                           sub: 'Extensions avec une nouvelle version',
                           value: _withUpdatesOnly,
@@ -8044,7 +8046,7 @@ class _VersionHistorySheet extends StatelessWidget {
                           ),
                           child: Icon(
                             isCurrent
-                                ? Icons.check_circle_rounded
+                                ? Broken.tick_circle
                                 : Icons.history_rounded,
                             size: 20,
                             color: isCurrent ? cs.primary : cs.onSurfaceVariant,
@@ -8659,7 +8661,7 @@ class _WTToastState extends State<_WTToast>
                           Icon(
                             widget.icon ??
                                 (widget.isError
-                                    ? Icons.error_rounded
+                                    ? Broken.danger
                                     : Icons.info_rounded),
                             size: 18,
                             color: accent,
@@ -9726,7 +9728,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 ),
                 IconButton(
                   onPressed: widget.onRefresh,
-                  icon: const Icon(Icons.refresh_rounded, color: _muted),
+                  icon: const Icon(Broken.refresh_2, color: _muted),
                 ),
               ],
             ),
@@ -9776,7 +9778,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                   }),
                 ),
                 _AccountOption(
-                  icon: Icons.settings_outlined,
+                  icon: Broken.setting_2,
                   label: 'Préférences du Marketplace',
                   onTap: () => _showComingSoon('Préférences'),
                 ),
@@ -10563,7 +10565,7 @@ class _AccountOption extends StatelessWidget {
         style: const TextStyle(color: Colors.white, fontSize: 14),
       ),
       trailing: const Icon(
-        Icons.chevron_right_rounded,
+        Broken.arrow_right,
         color: _PlayStoreMarketplaceViewState._muted,
       ),
     );
