@@ -1,23 +1,21 @@
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
-import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
-import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 
-/// Source home that shares the visual language of the main Watchtower home
-/// without sharing its catalogue.
-///
-/// The main hub is backed by AniList/TMDB. This page is backed exclusively by
-/// [source]: its rows come from the source's ui-layout.json and its search
-/// calls the source's search provider.
+/// The Watch extension home deliberately uses the same composition as the
+/// FlixQuest movie home.  Only the data boundary is different: every card is
+/// supplied by the selected extension instead of TMDB.
 class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
   final Source source;
 
@@ -30,9 +28,8 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
 
 class _WatchExtensionHomeScreenState
     extends ConsumerState<WatchExtensionHomeScreen> {
-  final _scrollController = ScrollController();
-  final _headerOpacity = ValueNotifier<double>(0.12);
-  List<UiSection> _sections = const [];
+  final _feedController = ScrollController();
+  bool _showCompactHeader = false;
   bool _isSearching = false;
 
   Source get source => widget.source;
@@ -48,184 +45,733 @@ class _WatchExtensionHomeScreenState
         statusBarBrightness: Brightness.dark,
       ),
     );
-    _scrollController.addListener(_onScroll);
-    _loadLayout();
+    _feedController.addListener(_updateCompactHeader);
   }
 
-  @override
-  void dispose() {
-    _scrollController
-      ..removeListener(_onScroll)
-      ..dispose();
-    _headerOpacity.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final opacity = (0.12 + (_scrollController.offset / 260).clamp(0.0, 0.88))
-        .toDouble();
-    if ((opacity - _headerOpacity.value).abs() > 0.01) {
-      _headerOpacity.value = opacity;
+  void _updateCompactHeader() {
+    if (!_feedController.hasClients) return;
+    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
+      410.0,
+      500.0,
+    );
+    final shouldShow =
+        _feedController.offset >=
+        heroHeight - MediaQuery.paddingOf(context).top;
+    if (shouldShow != _showCompactHeader && mounted) {
+      setState(() => _showCompactHeader = shouldShow);
     }
-  }
-
-  Future<void> _loadLayout() async {
-    await LayoutRegistry.instance.load(source);
-    if (!mounted) return;
-    setState(() {
-      _sections = LayoutRegistry.instance.get(source).home.sections;
-    });
   }
 
   Future<void> _refresh() async {
     ref.invalidate(getPopularProvider(source: source, page: 1));
     ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
-    for (final section in _sections) {
-      ref.invalidate(
-        getCustomListProvider(source: source, listId: section.id, page: 1),
-      );
-    }
-    await _loadLayout();
+    await Future<void>.delayed(Duration.zero);
   }
 
-  void _openSearch() {
-    setState(() => _isSearching = true);
+  void _openItem(MManga item) {
+    if (item.link == null || item.link!.isEmpty) return;
+    pushToMangaReaderDetail(
+      ref: ref,
+      context: context,
+      getManga: item,
+      lang: source.lang ?? '',
+      source: source.name ?? '',
+      sourceId: source.id,
+      itemType: source.itemType,
+    );
   }
 
-  void _closeSearch() {
-    setState(() => _isSearching = false);
+  @override
+  void dispose() {
+    _feedController
+      ..removeListener(_updateCompactHeader)
+      ..dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isSearching) {
+      return _ExtensionSearchView(
+        source: source,
+        onClose: () => setState(() => _isSearching = false),
+        onOpen: _openItem,
+      );
+    }
+
+    final popularAsync = ref.watch(getPopularProvider(source: source, page: 1));
+    final latestAsync = ref.watch(
+      getLatestUpdatesProvider(source: source, page: 1),
+    );
+    final popular = popularAsync.value?.list ?? const <MManga>[];
+    final latest = latestAsync.value?.list ?? const <MManga>[];
+    final isLoading = popularAsync.isLoading || latestAsync.isLoading;
+
+    if (isLoading && popular.isEmpty && latest.isEmpty) {
+      return _ExtensionFlixQuestLoading(
+        source: source,
+        onSearch: () => setState(() => _isSearching = true),
+        onRefresh: _refresh,
+      );
+    }
+
+    final error = popularAsync.error ?? latestAsync.error;
+    if (error != null && popular.isEmpty && latest.isEmpty) {
+      return _ExtensionError(source: source, error: error, onRetry: _refresh);
+    }
+
+    return _ExtensionFeed(
+      source: source,
+      popular: popular,
+      latest: latest,
+      controller: _feedController,
+      showCompactHeader: _showCompactHeader,
+      onSearch: () => setState(() => _isSearching = true),
+      onOpen: _openItem,
+      onRefresh: _refresh,
+    );
+  }
+}
+
+class _ExtensionFeed extends StatelessWidget {
+  final Source source;
+  final List<MManga> popular;
+  final List<MManga> latest;
+  final ScrollController controller;
+  final bool showCompactHeader;
+  final VoidCallback onSearch;
+  final ValueChanged<MManga> onOpen;
+  final Future<void> Function() onRefresh;
+
+  const _ExtensionFeed({
+    required this.source,
+    required this.popular,
+    required this.latest,
+    required this.controller,
+    required this.showCompactHeader,
+    required this.onSearch,
+    required this.onOpen,
+    required this.onRefresh,
+  });
+
+  List<MManga> get combined {
+    final result = <MManga>[];
+    final seen = <String>{};
+    for (final item in [...popular, ...latest]) {
+      final key = item.link ?? item.name ?? '${item.hashCode}';
+      if (seen.add(key)) result.add(item);
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = combined;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: _isSearching
-          ? _ExtensionSearchView(source: source, onClose: _closeSearch)
-          : Stack(
-              children: [
-                RefreshIndicator(
-                  onRefresh: _refresh,
-                  displacement: 116,
-                  color: Theme.of(context).colorScheme.primary,
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(
-                      parent: ClampingScrollPhysics(),
-                    ),
-                    slivers: [
-                      const SliverToBoxAdapter(child: SizedBox(height: 108)),
-                      if (_sections.isEmpty) ...[
-                        _ExtensionFeedSection(
-                          source: source,
-                          feed: _ExtensionFeed.popular,
-                          title: 'Populaires',
-                          icon: Icons.local_fire_department_rounded,
-                          accent: const Color(0xFFE17055),
-                        ),
-                        _ExtensionFeedSection(
-                          source: source,
-                          feed: _ExtensionFeed.latest,
-                          title: 'Nouveautés',
-                          icon: Icons.fiber_new_rounded,
-                          accent: const Color(0xFF00B894),
-                        ),
-                      ] else
-                        for (final section in _sections)
-                          _ExtensionLayoutSection(
-                            source: source,
-                            section: section,
-                          ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 110)),
-                    ],
+      backgroundColor: const Color(0xFF0B0B11),
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: onRefresh,
+            child: CustomScrollView(
+              controller: controller,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _ExtensionHero(
+                    source: source,
+                    items: popular.isNotEmpty ? popular : latest,
+                    onSearch: onSearch,
+                    onOpen: onOpen,
                   ),
                 ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: _ExtensionHeader(
-                    source: source,
-                    opacity: _headerOpacity,
-                    onBack: () => context.pop(),
-                    onSearch: _openSearch,
-                  ),
+                SliverList(
+                  delegate: SliverChildListDelegate.fixed([
+                    _ExtensionPosterRail(
+                      title: 'Popular',
+                      items: popular,
+                      onOpen: onOpen,
+                    ),
+                    _ExtensionPosterRail(
+                      title: 'Trending this week',
+                      items: popular,
+                      onOpen: onOpen,
+                    ),
+                    _ExtensionPosterRail(
+                      title: 'Top rated',
+                      items: popular,
+                      onOpen: onOpen,
+                    ),
+                    _ExtensionRankedRail(
+                      title: 'Top 10 cette semaine',
+                      items: all.take(10).toList(growable: false),
+                      onOpen: onOpen,
+                    ),
+                    _ExtensionLandscapeRail(
+                      title: 'Now playing',
+                      items: latest,
+                      onOpen: onOpen,
+                    ),
+                    _ExtensionLandscapeRail(
+                      title: 'Upcoming',
+                      items: latest,
+                      onOpen: onOpen,
+                    ),
+                    _ExtensionLandscapeRail(
+                      title: 'À découvrir',
+                      items: all,
+                      width: 280,
+                      height: 204,
+                      onOpen: onOpen,
+                    ),
+                    _ExtensionBannerRail(
+                      title: 'À voir ce soir',
+                      items: latest.isNotEmpty ? latest : all,
+                      onOpen: onOpen,
+                    ),
+                    _ExtensionGenreGrid(items: all, onOpen: onOpen),
+                    const SizedBox(height: 112),
+                  ]),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: !showCompactHeader,
+              child: AnimatedSlide(
+                offset: showCompactHeader ? Offset.zero : const Offset(0, -1),
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  opacity: showCompactHeader ? 1 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: _ExtensionFeedOverlayHeader(
+                    source: source,
+                    onSearch: onSearch,
+                    onLiveTv: () => context.push('/liveTv'),
+                    onLibrary: () => context.push('/Library'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExtensionHero extends StatelessWidget {
+  final Source source;
+  final List<MManga> items;
+  final VoidCallback onSearch;
+  final ValueChanged<MManga> onOpen;
+
+  const _ExtensionHero({
+    required this.source,
+    required this.items,
+    required this.onSearch,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
+      410.0,
+      500.0,
+    );
+    final heroItems = items.take(10).toList(growable: false);
+
+    return SizedBox(
+      width: double.infinity,
+      height: heroHeight,
+      child: heroItems.isEmpty
+          ? const AppShimmerBlock(radius: 0)
+          : AppCrossfadeCarousel(
+              itemCount: heroItems.length,
+              onItemTap: (index) => onOpen(heroItems[index]),
+              itemBuilder: (context, index) {
+                final item = heroItems[index];
+                return _ExtensionHeroCard(
+                  source: source,
+                  item: item,
+                  onSearch: onSearch,
+                  onOpen: () => onOpen(item),
+                );
+              },
             ),
     );
   }
 }
 
-enum _ExtensionFeed { popular, latest }
-
-class _ExtensionHeader extends StatelessWidget {
+class _ExtensionHeroCard extends StatelessWidget {
   final Source source;
-  final ValueNotifier<double> opacity;
-  final VoidCallback onBack;
+  final MManga item;
   final VoidCallback onSearch;
+  final VoidCallback onOpen;
 
-  const _ExtensionHeader({
+  const _ExtensionHeroCard({
     required this.source,
-    required this.opacity,
-    required this.onBack,
+    required this.item,
     required this.onSearch,
+    required this.onOpen,
   });
 
   @override
   Widget build(BuildContext context) {
-    final sourceName = (source.name ?? '').trim();
-    final title = sourceName.isEmpty ? 'Extension vidéo' : sourceName;
-    final background = Theme.of(context).scaffoldBackgroundColor;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _ExtensionImage(url: item.imageUrl, fit: BoxFit.cover, radius: 0),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: [0, .42, 1],
+              colors: [Color(0x52000000), Color(0x15000000), Color(0xE6000000)],
+            ),
+          ),
+        ),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Row(
+              children: [
+                _ExtensionSourceIcon(source: source, size: 28),
+                const Spacer(),
+                _ExtensionIconButton(
+                  icon: Broken.bookmark,
+                  onPressed: () => context.push('/Library'),
+                  tooltip: 'Library',
+                ),
+                const SizedBox(width: 8),
+                _ExtensionLiveButton(onPressed: () => context.push('/liveTv')),
+                const SizedBox(width: 8),
+                _ExtensionIconButton(
+                  icon: Broken.search_normal,
+                  onPressed: onSearch,
+                  tooltip: 'Rechercher',
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          left: 24,
+          right: 24,
+          bottom: 28,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.name ?? source.name ?? 'Extension',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  height: 1.05,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (item.status != null)
+                _ExtensionHeroMetaChip(label: _statusLabel(item.status)),
+              if (item.description?.isNotEmpty == true) ...[
+                const SizedBox(height: 10),
+                Text(
+                  item.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    height: 1.3,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Center(child: _ExtensionWatchButton(onPressed: onOpen)),
+      ],
+    );
+  }
+}
 
-    return ValueListenableBuilder<double>(
-      valueListenable: opacity,
-      builder: (context, value, _) => Container(
-        color: background.withValues(alpha: value),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: MediaQuery.paddingOf(context).top),
-            SizedBox(
-              height: 58,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: onBack,
-                      tooltip: 'Retour',
-                      icon: const Icon(
-                        Icons.chevron_left_rounded,
-                        color: Colors.white,
-                        size: 30,
+class _ExtensionFeedOverlayHeader extends StatelessWidget {
+  final Source source;
+  final VoidCallback onSearch;
+  final VoidCallback onLiveTv;
+  final VoidCallback onLibrary;
+
+  const _ExtensionFeedOverlayHeader({
+    required this.source,
+    required this.onSearch,
+    required this.onLiveTv,
+    required this.onLibrary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF0B0B11),
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: .12),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 58,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: AppUI.pagePadding(context) - 8,
+              right: 8,
+            ),
+            child: Row(
+              children: [
+                _ExtensionSourceIcon(source: source, size: 30),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    source.name ?? 'Extension',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: onLiveTv,
+                  icon: const Icon(Broken.radio, size: 19),
+                  label: const Text('Live TV'),
+                ),
+                IconButton(
+                  tooltip: 'Library',
+                  onPressed: onLibrary,
+                  icon: const Icon(Broken.bookmark),
+                ),
+                IconButton(
+                  tooltip: 'Rechercher',
+                  onPressed: onSearch,
+                  icon: const Icon(Broken.search_normal),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionPosterRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+
+  const _ExtensionPosterRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    final cardWidth = AppUI.horizontalCardWidth(context);
+    return Column(
+      children: [
+        AppSectionHeader(title: title, actionLabel: 'All >'),
+        SizedBox(
+          width: double.infinity,
+          height: cardWidth * 1.5 + 62,
+          child: ListView.builder(
+            physics: const BouncingScrollPhysics(),
+            itemCount: items.length,
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(
+                left: index == 0 ? AppUI.pagePadding(context) : 10,
+                top: 8,
+                bottom: 8,
+              ),
+              child: _ExtensionPosterCard(
+                item: items[index],
+                width: cardWidth,
+                onTap: () => onOpen(items[index]),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionLandscapeRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final double width;
+  final double height;
+  final ValueChanged<MManga> onOpen;
+
+  const _ExtensionLandscapeRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.width = 238,
+    this.height = 184,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title, actionLabel: 'All >'),
+        SizedBox(
+          height: height,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => _ExtensionLandscapeCard(
+              item: items[index],
+              width: width,
+              onTap: () => onOpen(items[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionRankedRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+
+  const _ExtensionRankedRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title),
+        SizedBox(
+          height: 208,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, index) => _ExtensionRankedCard(
+              item: items[index],
+              rank: index + 1,
+              onTap: () => onOpen(items[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionBannerRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+
+  const _ExtensionBannerRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = items
+        .take(8)
+        .where((item) => item.imageUrl != null)
+        .toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title),
+        ...visible.map(
+          (item) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppUI.pagePadding(context),
+              0,
+              AppUI.pagePadding(context),
+              12,
+            ),
+            child: GestureDetector(
+              onTap: () => onOpen(item),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: AspectRatio(
+                  aspectRatio: 2.05,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _ExtensionImage(
+                        url: item.imageUrl,
+                        fit: BoxFit.cover,
+                        radius: 0,
                       ),
-                    ),
-                    _ExtensionSourceIcon(source: source),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Color(0xE6000000)],
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: onSearch,
-                      tooltip: 'Rechercher dans $title',
-                      icon: const Icon(
-                        Icons.search_rounded,
-                        color: Colors.white,
+                      Positioned(
+                        left: 14,
+                        right: 14,
+                        bottom: 12,
+                        child: Text(
+                          item.name ?? 'Sans titre',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(color: Colors.black, blurRadius: 8),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionGenreGrid extends StatelessWidget {
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+
+  const _ExtensionGenreGrid({required this.items, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final byGenre = <String, MManga>{};
+    for (final item in items) {
+      for (final genre in item.genre ?? const <String>[]) {
+        final name = genre.trim();
+        if (name.isNotEmpty) byGenre.putIfAbsent(name, () => item);
+      }
+    }
+    if (byGenre.isEmpty) return const SizedBox.shrink();
+    final genres = byGenre.entries.take(12).toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AppSectionHeader(title: 'Genres'),
+        SizedBox(
+          height: 186,
+          child: GridView.builder(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 132,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: genres.length,
+            itemBuilder: (_, index) {
+              final genre = genres[index];
+              return AppGenreTile(
+                label: genre.key,
+                imageUrl: genre.value.imageUrl,
+                fallbackImageUrl: genre.value.imageUrl,
+                onTap: () => onOpen(genre.value),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionPosterCard extends StatelessWidget {
+  final MManga item;
+  final double width;
+  final VoidCallback onTap;
+
+  const _ExtensionPosterCard({
+    required this.item,
+    required this.width,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: width,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppUI.cardRadius),
+              child: AspectRatio(
+                aspectRatio: AppUI.posterAspectRatio,
+                child: _ExtensionImage(url: item.imageUrl),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              item.name ?? 'Sans titre',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
               ),
             ),
           ],
@@ -235,38 +781,212 @@ class _ExtensionHeader extends StatelessWidget {
   }
 }
 
+class _ExtensionLandscapeCard extends StatelessWidget {
+  final MManga item;
+  final double width;
+  final VoidCallback onTap;
+
+  const _ExtensionLandscapeCard({
+    required this.item,
+    required this.width,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: width,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _ExtensionImage(url: item.imageUrl, fit: BoxFit.cover),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        width: 82,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0B0B11).withValues(alpha: .9),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(42),
+                          ),
+                        ),
+                        child: const Icon(
+                          Broken.play,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              item.name ?? 'Sans titre',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionRankedCard extends StatelessWidget {
+  final MManga item;
+  final int rank;
+  final VoidCallback onTap;
+
+  const _ExtensionRankedCard({
+    required this.item,
+    required this.rank,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rankColor = rank == 1
+        ? const Color(0xFFFFD700)
+        : rank == 2
+        ? const Color(0xFFC0C0C0)
+        : rank == 3
+        ? const Color(0xFFCD7F32)
+        : Colors.white.withValues(alpha: .4);
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 110,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AspectRatio(
+                      aspectRatio: AppUI.posterAspectRatio,
+                      child: _ExtensionImage(url: item.imageUrl),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -4,
+                    left: 4,
+                    child: Text(
+                      '$rank',
+                      style: TextStyle(
+                        fontSize: 52,
+                        fontWeight: FontWeight.w900,
+                        foreground: Paint()
+                          ..style = PaintingStyle.stroke
+                          ..strokeWidth = 3
+                          ..color = Colors.black.withValues(alpha: .6),
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -4,
+                    left: 4,
+                    child: Text(
+                      '$rank',
+                      style: TextStyle(
+                        fontSize: 52,
+                        fontWeight: FontWeight.w900,
+                        color: rankColor,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              item.name ?? 'Sans titre',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionImage extends StatelessWidget {
+  final String? url;
+  final BoxFit fit;
+  final double radius;
+
+  const _ExtensionImage({
+    required this.url,
+    this.fit = BoxFit.cover,
+    this.radius = AppUI.cardRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final child = url == null || url!.isEmpty
+        ? const AppShimmerBlock()
+        : ExtendedImage.network(
+            url!,
+            fit: fit,
+            cache: true,
+            loadStateChanged: (state) {
+              if (state.extendedImageLoadState == LoadState.completed) {
+                return null;
+              }
+              return const AppShimmerBlock();
+            },
+          );
+    return ClipRRect(borderRadius: BorderRadius.circular(radius), child: child);
+  }
+}
+
 class _ExtensionSourceIcon extends StatelessWidget {
   final Source source;
+  final double size;
 
-  const _ExtensionSourceIcon({required this.source});
+  const _ExtensionSourceIcon({required this.source, required this.size});
 
   @override
   Widget build(BuildContext context) {
     final url = source.iconUrl?.trim() ?? '';
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(size * .28),
       child: SizedBox(
-        width: 36,
-        height: 36,
+        width: size,
+        height: size,
         child: url.isEmpty
             ? const ColoredBox(
                 color: Color(0xFF263238),
-                child: Icon(
-                  Icons.extension_rounded,
-                  color: Colors.white70,
-                  size: 20,
-                ),
+                child: Icon(Icons.extension_rounded, color: Colors.white70),
               )
             : Image.network(
                 url,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => const ColoredBox(
                   color: Color(0xFF263238),
-                  child: Icon(
-                    Icons.extension_rounded,
-                    color: Colors.white70,
-                    size: 20,
-                  ),
+                  child: Icon(Icons.extension_rounded, color: Colors.white70),
                 ),
               ),
       ),
@@ -274,277 +994,246 @@ class _ExtensionSourceIcon extends StatelessWidget {
   }
 }
 
-class _ExtensionLayoutSection extends ConsumerWidget {
-  final Source source;
-  final UiSection section;
-
-  const _ExtensionLayoutSection({required this.source, required this.section});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(
-      getCustomListProvider(source: source, listId: section.id, page: 1),
-    );
-
-    return data.when(
-      loading: () =>
-          _ExtensionLoadingSection(title: section.title ?? section.id),
-      error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-      data: (pages) => _ExtensionSectionContent(
-        source: source,
-        section: section,
-        items: pages?.list ?? const [],
-      ),
-    );
-  }
-}
-
-class _ExtensionFeedSection extends ConsumerWidget {
-  final Source source;
-  final _ExtensionFeed feed;
-  final String title;
+class _ExtensionIconButton extends StatelessWidget {
   final IconData icon;
-  final Color accent;
+  final VoidCallback? onPressed;
+  final String? tooltip;
 
-  const _ExtensionFeedSection({
-    required this.source,
-    required this.feed,
-    required this.title,
+  const _ExtensionIconButton({
     required this.icon,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final data = feed == _ExtensionFeed.popular
-        ? ref.watch(getPopularProvider(source: source, page: 1))
-        : ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-
-    return data.when(
-      loading: () => _ExtensionLoadingSection(title: title),
-      error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-      data: (pages) => _ExtensionSectionContent(
-        source: source,
-        section: UiSection(
-          id: feed.name,
-          component: 'carousel',
-          title: title,
-          icon: icon.codePoint.toString(),
-          accent:
-              '#${accent.value.toRadixString(16).padLeft(8, '0').substring(2)}',
-        ),
-        items: pages?.list ?? const [],
-      ),
-    );
-  }
-}
-
-class _ExtensionSectionContent extends StatelessWidget {
-  final Source source;
-  final UiSection section;
-  final List<MManga> items;
-
-  const _ExtensionSectionContent({
-    required this.source,
-    required this.section,
-    required this.items,
+    required this.onPressed,
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty)
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-
-    final title = section.title?.trim().isNotEmpty == true
-        ? section.title!.trim()
-        : section.id;
-    final component = section.component.toLowerCase();
-    final isGrid = {
-      'grid',
-      'catalogue',
-      'discovergrid',
-      'masonry',
-      'statusposter',
-    }.contains(component);
-    final isCompact = {'compactrow', 'compact', 'ranked'}.contains(component);
-    final icon = _sectionIcon(section.icon);
-    final accent = _sectionAccent(context, section.accent);
-
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _ExtensionSectionHeader(title: title, icon: icon, accent: accent),
-          if (isGrid)
-            _ExtensionGrid(source: source, items: items)
-          else
-            _ExtensionPosterRow(
-              source: source,
-              items: items,
-              compact: isCompact,
-            ),
-        ],
+    return Material(
+      color: Colors.black.withValues(alpha: .22),
+      shape: const CircleBorder(),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon, color: Colors.white),
       ),
     );
   }
 }
 
-class _ExtensionSectionHeader extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color accent;
+class _ExtensionLiveButton extends StatelessWidget {
+  final VoidCallback onPressed;
 
-  const _ExtensionSectionHeader({
-    required this.title,
-    required this.icon,
-    required this.accent,
-  });
+  const _ExtensionLiveButton({required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 20,
-            decoration: BoxDecoration(
-              color: accent,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Icon(icon, color: accent, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExtensionPosterRow extends StatelessWidget {
-  final Source source;
-  final List<MManga> items;
-  final bool compact;
-
-  const _ExtensionPosterRow({
-    required this.source,
-    required this.items,
-    required this.compact,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final width = compact ? 92.0 : 122.0;
-    final height = compact ? 144.0 : 188.0;
-    return SizedBox(
-      height: height,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, index) => SizedBox(
-          width: width,
-          height: height,
-          child: MangaImageCardWidget(
-            source: source,
-            itemType: source.itemType,
-            getMangaDetail: items[index],
-            isComfortableGrid: false,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionGrid extends StatelessWidget {
-  final Source source;
-  final List<MManga> items;
-
-  const _ExtensionGrid({required this.source, required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 2 * 188.0 + 12 + 16,
-      child: GridView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-        itemCount: items.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisExtent: 122,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 12,
-        ),
-        itemBuilder: (_, index) => MangaImageCardWidget(
-          source: source,
-          itemType: source.itemType,
-          getMangaDetail: items[index],
-          isComfortableGrid: false,
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionLoadingSection extends StatelessWidget {
-  final String title;
-
-  const _ExtensionLoadingSection({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.surfaceContainerHighest;
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          SizedBox(
-            height: 188,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: 5,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, __) => SizedBox(
-                width: 122,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+    return Material(
+      color: Colors.black.withValues(alpha: .38),
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(22),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Broken.radio, color: Colors.white, size: 19),
+              SizedBox(width: 7),
+              Text(
+                'Live TV',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionWatchButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _ExtensionWatchButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: .58),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 58,
+          height: 58,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: .74)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .28),
+                blurRadius: 18,
+              ),
+            ],
+          ),
+          child: const Icon(Broken.play, color: Colors.white, size: 28),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionHeroMetaChip extends StatelessWidget {
+  final String label;
+
+  const _ExtensionHeroMetaChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: Colors.white.withValues(alpha: .14)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionFlixQuestLoading extends StatelessWidget {
+  final Source source;
+  final VoidCallback onSearch;
+  final Future<void> Function() onRefresh;
+
+  const _ExtensionFlixQuestLoading({
+    required this.source,
+    required this.onSearch,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B11),
+      body: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ExtensionFeedOverlayHeader(
+                source: source,
+                onSearch: onSearch,
+                onLiveTv: () => context.push('/liveTv'),
+                onLibrary: () => context.push('/Library'),
+              ),
+              AppHeroShimmer(
+                height: (MediaQuery.sizeOf(context).height * .48).clamp(
+                  410.0,
+                  500.0,
+                ),
+              ),
+              for (final title in const [
+                'Popular',
+                'Trending this week',
+                'Top rated',
+              ]) ...[
+                AppSectionHeader(title: title, actionLabel: 'All >'),
+                SizedBox(
+                  height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
+                  child: const AppMediaRowShimmer(),
+                ),
+              ],
+              for (final title in const ['Now playing', 'Upcoming']) ...[
+                AppSectionHeader(title: title, actionLabel: 'All >'),
+                const SizedBox(height: 158, child: AppLandscapeRowShimmer()),
+              ],
+              const AppSectionHeader(title: 'Top 10 cette semaine'),
+              const SizedBox(height: 208, child: AppRankedRowShimmer()),
+              const AppSectionHeader(title: 'À découvrir'),
+              const SizedBox(height: 172, child: AppLandscapeRowShimmer()),
+              const AppSectionHeader(title: 'À voir ce soir'),
+              const AppBannerRowShimmer(),
+              const AppGenreGridShimmer(),
+              const SizedBox(height: 112),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionError extends StatelessWidget {
+  final Source source;
+  final Object error;
+  final Future<void> Function() onRetry;
+
+  const _ExtensionError({
+    required this.source,
+    required this.error,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B11),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ExtensionSourceIcon(source: source, size: 56),
+              const SizedBox(height: 16),
+              Text(
+                '${source.name ?? 'Extension'} est temporairement indisponible',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Impossible de charger le catalogue de cette extension.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Réessayer'),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$error',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white24, fontSize: 10),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -553,8 +1242,13 @@ class _ExtensionLoadingSection extends StatelessWidget {
 class _ExtensionSearchView extends ConsumerStatefulWidget {
   final Source source;
   final VoidCallback onClose;
+  final ValueChanged<MManga> onOpen;
 
-  const _ExtensionSearchView({required this.source, required this.onClose});
+  const _ExtensionSearchView({
+    required this.source,
+    required this.onClose,
+    required this.onOpen,
+  });
 
   @override
   ConsumerState<_ExtensionSearchView> createState() =>
@@ -564,8 +1258,6 @@ class _ExtensionSearchView extends ConsumerStatefulWidget {
 class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
   final _controller = TextEditingController();
   String _submittedQuery = '';
-
-  Source get source => widget.source;
 
   @override
   void dispose() {
@@ -586,7 +1278,7 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
         ? null
         : ref.watch(
             searchProvider(
-              source: source,
+              source: widget.source,
               query: _submittedQuery,
               page: 1,
               filterList: const [],
@@ -594,8 +1286,9 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
           );
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFF0B0B11),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF0B0B11),
         leading: IconButton(
           onPressed: widget.onClose,
           icon: const Icon(Icons.chevron_left_rounded),
@@ -606,8 +1299,9 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
           autofocus: true,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _submit(),
+          style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Rechercher dans ${source.name ?? 'l’extension'}',
+            hintText: 'Rechercher dans ${widget.source.name ?? 'l’extension'}',
             border: InputBorder.none,
           ),
         ),
@@ -615,17 +1309,15 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
           IconButton(
             onPressed: _submit,
             tooltip: 'Rechercher',
-            icon: const Icon(Icons.search_rounded),
+            icon: const Icon(Broken.search_normal),
           ),
         ],
       ),
       body: _submittedQuery.isEmpty
-          ? Center(
+          ? const Center(
               child: Text(
                 'Recherchez une vidéo dans cette extension',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                style: TextStyle(color: Colors.white70),
               ),
             )
           : result!.when(
@@ -636,13 +1328,19 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                   child: Text(
                     'Recherche indisponible : $error',
                     textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70),
                   ),
                 ),
               ),
               data: (pages) {
                 final items = pages?.list ?? const <MManga>[];
                 if (items.isEmpty) {
-                  return const Center(child: Text('Aucun résultat'));
+                  return const Center(
+                    child: Text(
+                      'Aucun résultat',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  );
                 }
                 return GridView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
@@ -654,8 +1352,8 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                   ),
                   itemCount: items.length,
                   itemBuilder: (_, index) => MangaImageCardWidget(
-                    source: source,
-                    itemType: source.itemType,
+                    source: widget.source,
+                    itemType: widget.source.itemType,
                     getMangaDetail: items[index],
                     isComfortableGrid: false,
                   ),
@@ -666,29 +1364,7 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
   }
 }
 
-IconData _sectionIcon(String? value) {
-  final key = (value ?? '').toLowerCase();
-  return switch (key) {
-    'fire' || 'trending' || 'popular' => Icons.local_fire_department_rounded,
-    'new' || 'latest' => Icons.fiber_new_rounded,
-    'star' || 'featured' => Icons.star_rounded,
-    'category' || 'categories' => Icons.category_rounded,
-    'search' => Icons.search_rounded,
-    _ => Icons.play_circle_outline_rounded,
-  };
-}
-
-Color _sectionAccent(BuildContext context, String? value) {
-  final key = (value ?? '').toLowerCase();
-  final scheme = Theme.of(context).colorScheme;
-  if (key == 'primary') return scheme.primary;
-  if (key == 'secondary') return scheme.secondary;
-  if (key == 'tertiary') return scheme.tertiary;
-  if (key.startsWith('#')) {
-    final hex = key.substring(1);
-    final normalized = hex.length == 6 ? 'ff$hex' : hex;
-    final parsed = int.tryParse(normalized, radix: 16);
-    if (parsed != null) return Color(parsed);
-  }
-  return scheme.primary;
+String _statusLabel(Object? status) {
+  final value = status.toString().split('.').last;
+  return value == 'unknown' ? 'Extension' : value;
 }
