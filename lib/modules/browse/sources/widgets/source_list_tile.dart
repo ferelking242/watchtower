@@ -62,7 +62,7 @@ class SourceListTile extends StatelessWidget {
               'startGifId': null,
             });
           } else if (source.itemType == ItemType.anime) {
-            context.push('/watchHome', extra: (source, false));
+            context.push('/WatchtowerHome', extra: source);
           } else if (source.itemType == ItemType.novel) {
             context.push('/novelHome', extra: (source, false));
           } else {

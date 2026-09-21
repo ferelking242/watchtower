@@ -22,6 +22,8 @@ import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
+import 'package:watchtower/models/source.dart';
+import 'package:watchtower/services/layout_registry.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
@@ -55,7 +57,9 @@ enum _HomeTab {
 ///   │ Section rows …                  │
 ///   └──────────────────────────────────┘
 class WatchtowerHomeScreen extends ConsumerStatefulWidget {
-  const WatchtowerHomeScreen({super.key});
+  final Source? source;
+
+  const WatchtowerHomeScreen({this.source, super.key});
   @override
   ConsumerState<WatchtowerHomeScreen> createState() =>
       _WatchtowerHomeScreenState();
@@ -72,6 +76,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSourceLayout();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -81,6 +86,12 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       ),
     );
     _scroll.addListener(_updateOpacity);
+  }
+
+  Future<void> _loadSourceLayout() async {
+    final source = widget.source;
+    if (source == null || !source.providesHome) return;
+    await LayoutRegistry.instance.load(source);
   }
 
   void _updateOpacity() {

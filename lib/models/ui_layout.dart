@@ -193,8 +193,8 @@ class UiSection {
   );
 
   // ── Legacy bridge ─────────────────────────────────────────────────────────
-  // Both WatchHomeScreen and MangaHomeScreen still use Map<String,dynamic>
-  // internally. This bridge lets us wire the new system with zero widget changes.
+  // Source home renderers still use Map<String,dynamic> internally. This
+  // bridge keeps the declarative layout model compatible with them.
   Map<String, dynamic> toLegacyMap() => {
     'id': id,
     'component': component,
