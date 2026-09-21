@@ -72,6 +72,7 @@ import 'package:watchtower/modules/media/flixquest_movie_widgets.dart';
 import 'package:watchtower/modules/media/tmdb_media_detail_screen.dart';
 import 'package:watchtower/modules/media/tmdb_people_screen.dart';
 import 'package:watchtower/modules/media/live_tv_screen.dart';
+import 'package:watchtower/modules/profile/profile_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
@@ -319,6 +320,7 @@ class RouterNotifier extends ChangeNotifier {
       builder: (itemType) => ExtensionsLang(itemType: itemType),
     ),
     _genericRoute(name: "settings", child: const SettingsScreen()),
+    _genericRoute(name: "profile", child: const ProfileScreen()),
     _genericRoute(name: "appearance", child: const AppearanceScreen()),
     _genericRoute(name: "uiSettings", child: const UiSettingsScreen()),
     _genericRoute<Source>(

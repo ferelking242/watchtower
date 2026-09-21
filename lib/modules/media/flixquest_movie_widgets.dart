@@ -2,6 +2,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
@@ -1299,14 +1300,19 @@ class TmdbSearchScreen extends StatefulWidget {
 }
 
 class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
+  static const _recentSearchesKey = 'tmdb_recent_searches';
+
   final TextEditingController _controller = TextEditingController();
+  final List<String> _recentSearches = <String>[];
   String _query = '';
   Future<List<TmdbMedia>>? _movies;
   Future<List<TmdbMedia>>? _series;
+  Future<List<TmdbPersonRef>>? _people;
 
   @override
   void initState() {
     super.initState();
+    _loadRecentSearches();
     final initialQuery = widget.initialQuery?.trim();
     if (initialQuery != null && initialQuery.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1331,92 +1337,175 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
       _query = query;
       _movies = fetchTmdbMoviePage(path: '/search/movie?query=$encoded');
       _series = fetchTmdbTvPage(path: '/search/tv?query=$encoded');
+      _people = fetchTmdbPeoplePage(path: '/search/person?query=$encoded');
+    });
+    _rememberSearch(query);
+  }
+
+  Future<void> _loadRecentSearches() async {
+    final prefs = await SharedPreferences.getInstance();
+    final values = prefs.getStringList(_recentSearchesKey) ?? const <String>[];
+    if (!mounted) return;
+    setState(() {
+      _recentSearches
+        ..clear()
+        ..addAll(values);
     });
   }
 
+  Future<void> _rememberSearch(String query) async {
+    final prefs = await SharedPreferences.getInstance();
+    final next = <String>[
+      query,
+      ..._recentSearches.where((item) => item.toLowerCase() != query.toLowerCase()),
+    ].take(12).toList(growable: false);
+    await prefs.setStringList(_recentSearchesKey, next);
+    if (mounted) {
+      setState(() {
+        _recentSearches
+          ..clear()
+          ..addAll(next);
+      });
+    }
+  }
+
+  Future<void> _removeRecentSearch(String query) async {
+    final prefs = await SharedPreferences.getInstance();
+    final next = _recentSearches.where((item) => item != query).toList();
+    await prefs.setStringList(_recentSearchesKey, next);
+    if (mounted) {
+      setState(() {
+        _recentSearches
+          ..clear()
+          ..addAll(next);
+      });
+    }
+  }
+
+  Future<void> _clearRecentSearches() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_recentSearchesKey);
+    if (mounted) {
+      setState(() {
+        _recentSearches.clear();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final copy = _SearchCopy.of(context);
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: TextField(
-          controller: _controller,
-          autofocus: true,
-          textInputAction: TextInputAction.search,
-          onSubmitted: _search,
-          decoration: const InputDecoration(
-            hintText: 'Rechercher un film ou une série',
-            border: InputBorder.none,
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Rechercher',
-            onPressed: _search,
-            icon: const Icon(Icons.search_rounded),
-          ),
-        ],
-      ),
-      body: _query.isEmpty
-          ? _SearchEmptyState(color: colors)
-          : DefaultTabController(
-              length: 2,
-              child: Column(
-                children: [
-                  const TabBar(
-                    tabs: [
-                      Tab(text: 'Films'),
-                      Tab(text: 'Séries'),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _TmdbSearchResults(future: _movies!),
-                        _TmdbSearchResults(future: _series!),
-                      ],
+      body: SafeArea(
+        bottom: false,
+        child: DefaultTabController(
+          length: 3,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 10, 16, 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: copy.back,
+                      onPressed: () => context.pop(),
+                      icon: const Icon(Icons.arrow_back_rounded),
                     ),
-                  ),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        autofocus: true,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: _search,
+                        decoration: InputDecoration(
+                          hintText: copy.hint,
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _controller.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: copy.clear,
+                                  onPressed: () {
+                                    _controller.clear();
+                                    setState(() => _query = '');
+                                  },
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                          filled: true,
+                          fillColor: Colors.transparent,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: .8),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 1.6,
+                            ),
+                          ),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: copy.search,
+                      onPressed: _search,
+                      icon: const Icon(Icons.search_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                tabs: [
+                  Tab(text: copy.movies),
+                  Tab(text: copy.tvShows),
+                  Tab(text: copy.celebrities),
                 ],
               ),
-            ),
-    );
-  }
-}
-
-class _SearchEmptyState extends StatelessWidget {
-  const _SearchEmptyState({required this.color});
-
-  final ColorScheme color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.auto_awesome_rounded,
-              size: 58,
-              color: color.primary.withValues(alpha: .8),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Que veux-tu regarder ?',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Recherche directement dans le catalogue Movies et Series.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: color.onSurface.withValues(alpha: .55)),
-            ),
-          ],
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _query.isEmpty
+                        ? _RecentSearches(
+                            searches: _recentSearches,
+                            copy: copy,
+                            onSearch: _search,
+                            onRemove: _removeRecentSearch,
+                            onClear: _clearRecentSearches,
+                          )
+                        : _TmdbSearchResults(future: _movies!),
+                    _query.isEmpty
+                        ? _RecentSearches(
+                            searches: _recentSearches,
+                            copy: copy,
+                            onSearch: _search,
+                            onRemove: _removeRecentSearch,
+                            onClear: _clearRecentSearches,
+                          )
+                        : _TmdbSearchResults(future: _series!),
+                    _query.isEmpty
+                        ? _RecentSearches(
+                            searches: _recentSearches,
+                            copy: copy,
+                            onSearch: _search,
+                            onRemove: _removeRecentSearch,
+                            onClear: _clearRecentSearches,
+                          )
+                        : _TmdbPeopleResults(future: _people!),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1460,6 +1549,253 @@ class _TmdbSearchResults extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _TmdbPeopleResults extends StatelessWidget {
+  const _TmdbPeopleResults({required this.future});
+
+  final Future<List<TmdbPersonRef>> future;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<TmdbPersonRef>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _PeopleSearchShimmer();
+        }
+        if (snapshot.hasError || snapshot.data?.isEmpty != false) {
+          return const _SearchNoResults();
+        }
+        final people = snapshot.data!;
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
+          itemCount: people.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            final person = people[index];
+            return Card(
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
+                leading: CircleAvatar(
+                  radius: 28,
+                  backgroundImage: person.profileUrl == null
+                      ? null
+                      : NetworkImage(person.profileUrl!),
+                  child: person.profileUrl == null
+                      ? const Icon(Icons.person_outline_rounded)
+                      : null,
+                ),
+                title: Text(
+                  person.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: person.knownForDepartment == null
+                    ? null
+                    : Text(person.knownForDepartment!),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/flixPerson', extra: person),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _RecentSearches extends StatelessWidget {
+  const _RecentSearches({
+    required this.searches,
+    required this.copy,
+    required this.onSearch,
+    required this.onRemove,
+    required this.onClear,
+  });
+
+  final List<String> searches;
+  final _SearchCopy copy;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<String> onRemove;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    if (searches.isEmpty) {
+      return _SearchNoResults(
+        title: copy.startTitle,
+        message: copy.startMessage,
+        icon: Icons.manage_search_rounded,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 22, 12, 8),
+          child: Row(
+            children: [
+              Text(
+                copy.recent,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const Spacer(),
+              TextButton(onPressed: onClear, child: Text(copy.clearAll)),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 120),
+            itemCount: searches.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 4),
+            itemBuilder: (context, index) {
+              final search = searches[index];
+              return ListTile(
+                leading: const Icon(Icons.history_rounded),
+                title: Text(search),
+                trailing: IconButton(
+                  tooltip: copy.remove,
+                  onPressed: () => onRemove(search),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+                onTap: () => onSearch(search),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchNoResults extends StatelessWidget {
+  const _SearchNoResults({
+    this.title = 'No results',
+    this.message = 'Try another search.',
+    this.icon = Icons.search_off_rounded,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 58, color: colors.primary.withValues(alpha: .8)),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PeopleSearchShimmer extends StatelessWidget {
+  const _PeopleSearchShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: 8,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, __) => const SizedBox(
+        height: 76,
+        child: AppShimmerBlock(radius: 18),
+      ),
+    );
+  }
+}
+
+class _SearchCopy {
+  const _SearchCopy({
+    required this.back,
+    required this.clear,
+    required this.search,
+    required this.hint,
+    required this.movies,
+    required this.tvShows,
+    required this.celebrities,
+    required this.recent,
+    required this.clearAll,
+    required this.remove,
+    required this.startTitle,
+    required this.startMessage,
+  });
+
+  final String back;
+  final String clear;
+  final String search;
+  final String hint;
+  final String movies;
+  final String tvShows;
+  final String celebrities;
+  final String recent;
+  final String clearAll;
+  final String remove;
+  final String startTitle;
+  final String startMessage;
+
+  static _SearchCopy of(BuildContext context) {
+    if (Localizations.localeOf(context).languageCode == 'fr') {
+      return const _SearchCopy(
+        back: 'Retour',
+        clear: 'Effacer',
+        search: 'Rechercher',
+        hint: 'Rechercher un film, une série ou une célébrité',
+        movies: 'Films',
+        tvShows: 'Séries',
+        celebrities: 'Célébrités',
+        recent: 'Recherches récentes',
+        clearAll: 'Tout effacer',
+        remove: 'Supprimer',
+        startTitle: 'Que veux-tu regarder ?',
+        startMessage: 'Recherche dans le catalogue Films, Séries et Célébrités.',
+      );
+    }
+    return const _SearchCopy(
+      back: 'Back',
+      clear: 'Clear',
+      search: 'Search',
+      hint: 'Search for a movie, series or celebrity',
+      movies: 'Movies',
+      tvShows: 'TV Shows',
+      celebrities: 'Celebrities',
+      recent: 'Recent searches',
+      clearAll: 'Clear all',
+      remove: 'Remove',
+      startTitle: 'What do you want to watch?',
+      startMessage: 'Search the Movies, TV Shows and Celebrities catalog.',
     );
   }
 }

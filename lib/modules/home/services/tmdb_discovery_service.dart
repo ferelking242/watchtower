@@ -226,11 +226,13 @@ class TmdbPersonRef {
   final int id;
   final String name;
   final String? profilePath;
+  final String? knownForDepartment;
 
   const TmdbPersonRef({
     required this.id,
     required this.name,
     this.profilePath,
+    this.knownForDepartment,
   });
 
   String? get profileUrl => profilePath == null
@@ -817,6 +819,43 @@ Future<List<TmdbMedia>> fetchTmdbTvPage({
       .whereType<Map>()
       .map((e) => TmdbMedia.fromTvJson(e.cast<String, dynamic>()))
       .where((media) => media.posterPath != null)
+      .toList(growable: false);
+}
+
+Future<List<TmdbPersonRef>> fetchTmdbPeoplePage({
+  required String path,
+  int page = 1,
+}) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError(
+      'TMDB_READ_TOKEN is missing from this build. '
+      'Configure the GitHub Actions secret and dart-define.',
+    );
+  }
+  final baseUri = Uri.parse('$_tmdbBase$path');
+  final query = <String, String>{
+    ...baseUri.queryParameters,
+    'language': 'fr-FR',
+    'page': '$page',
+  };
+  final uri = baseUri.replace(queryParameters: query);
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return const [];
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  final results = data['results'] as List? ?? [];
+  return results
+      .whereType<Map>()
+      .map(
+        (item) => TmdbPersonRef(
+          id: (item['id'] as num?)?.toInt() ?? 0,
+          name: item['name'] as String? ?? 'Artiste',
+          profilePath: item['profile_path'] as String?,
+          knownForDepartment: item['known_for_department'] as String?,
+        ),
+      )
+      .where((person) => person.id != 0 && person.name.isNotEmpty)
       .toList(growable: false);
 }
 
