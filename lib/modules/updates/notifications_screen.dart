@@ -4,6 +4,7 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/models/update.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 
 class NotificationsScreen extends StatelessWidget {

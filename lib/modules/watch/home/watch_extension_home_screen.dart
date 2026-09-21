@@ -13,6 +13,7 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/modules/watch/home/extension_search_screen.dart';
@@ -58,6 +59,9 @@ class _WatchExtensionHomeScreenState
 
   Future<void> _loadLayout() async {
     await LayoutRegistry.instance.load(source);
+    if (source.providesHome && !LayoutRegistry.instance.has(source)) {
+      await LayoutDownloader.instance.download(source);
+    }
     if (!mounted) return;
     setState(() {
       _layout = LayoutRegistry.instance.get(source);
@@ -82,6 +86,17 @@ class _WatchExtensionHomeScreenState
   Future<void> _refresh() async {
     ref.invalidate(getPopularProvider(source: source, page: 1));
     ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
+    for (final section in _layout.home.sections) {
+      if (section.id != 'popular' && section.id != 'latest') {
+        ref.invalidate(
+          getCustomListProvider(
+            source: source,
+            listId: section.id,
+            page: 1,
+          ),
+        );
+      }
+    }
     await Future<void>.delayed(Duration.zero);
   }
 
@@ -217,16 +232,17 @@ class _ExtensionFeed extends StatelessWidget {
                 parent: BouncingScrollPhysics(),
               ),
               slivers: [
-                SliverToBoxAdapter(
-                  child: (popular.isNotEmpty || latest.isNotEmpty)
-                      ? _ExtensionHero(
-                          source: source,
-                          items: popular.isNotEmpty ? popular : latest,
-                          onSearch: onSearch,
-                          onOpen: onOpen,
-                        )
-                      : const SizedBox.shrink(),
-                ),
+                if (!hasDeclaredSections)
+                  SliverToBoxAdapter(
+                    child: (popular.isNotEmpty || latest.isNotEmpty)
+                        ? _ExtensionHero(
+                            source: source,
+                            items: popular.isNotEmpty ? popular : latest,
+                            onSearch: onSearch,
+                            onOpen: onOpen,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                 SliverList(
                   delegate: SliverChildListDelegate.fixed(
                     hasDeclaredSections
@@ -389,6 +405,30 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         items: items,
         width: 280,
         height: 204,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+      'compactRow' || 'metadataPoster' || 'statusPoster' => _ExtensionPosterRail(
+        title: title,
+        items: items,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+      'doubleFeature' ||
+      'editorialSplit' ||
+      'masonry' ||
+      'feed' => _ExtensionGridSection(
+        title: title,
+        items: items,
+        columns: section.columns,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+      'studioExplorer' ||
+      'universeExplorer' ||
+      'collectionTimeline' => _ExtensionLandscapeRail(
+        title: title,
+        items: items,
         onOpen: onOpen,
         onSeeAll: onSeeAll,
       ),
@@ -1492,14 +1532,69 @@ class _ExtensionSkeletonSection extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-            child: AppShimmerBlock(
+            child: SizedBox(
               width: titleWidth,
               height: 16,
-              radius: 5,
+              child: const AppShimmerBlock(radius: 5),
             ),
           ),
           child,
         ],
+      ),
+    );
+  }
+}
+
+class _ExtensionEmpty extends StatelessWidget {
+  final Source source;
+  final VoidCallback onSearch;
+  final Future<void> Function() onRefresh;
+
+  const _ExtensionEmpty({
+    required this.source,
+    required this.onSearch,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B11),
+      body: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 140, 24, 112),
+          children: [
+            _ExtensionSourceIcon(source: source, size: 56),
+            const SizedBox(height: 16),
+            const Text(
+              'Aucun contenu disponible',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Recherchez dans ${source.name ?? 'cette extension'} ou tirez pour actualiser.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: FilledButton.icon(
+                onPressed: onSearch,
+                icon: const Icon(Broken.search_normal),
+                label: const Text('Rechercher'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

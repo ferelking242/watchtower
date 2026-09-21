@@ -131,6 +131,16 @@ const SourceSchema = CollectionSchema(
       name: r'versionLast',
       type: IsarType.string,
     ),
+    r'uiLayout': PropertySchema(
+      id: 34,
+      name: r'uiLayout',
+      type: IsarType.string,
+    ),
+    r'uiLayoutVersion': PropertySchema(
+      id: 35,
+      name: r'uiLayoutVersion',
+      type: IsarType.string,
+    ),
   },
 
   estimateSize: _sourceEstimateSize,
@@ -269,6 +279,18 @@ int _sourceEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.uiLayout;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.uiLayoutVersion;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -317,6 +339,8 @@ void _sourceSerialize(
   writer.writeLong(offsets[31], object.updatedAt);
   writer.writeString(offsets[32], object.version);
   writer.writeString(offsets[33], object.versionLast);
+  writer.writeString(offsets[34], object.uiLayout);
+  writer.writeString(offsets[35], object.uiLayoutVersion);
 }
 
 Source _sourceDeserialize(
@@ -371,6 +395,8 @@ Source _sourceDeserialize(
         offsets[27],
       )] ??
       SourceCodeLanguage.dart;
+  object.uiLayout = reader.readStringOrNull(offsets[34]);
+  object.uiLayoutVersion = reader.readStringOrNull(offsets[35]);
   return object;
 }
 
@@ -459,6 +485,10 @@ P _sourceDeserializeProp<P>(
     case 32:
       return (reader.readStringOrNull(offset)) as P;
     case 33:
+      return (reader.readStringOrNull(offset)) as P;
+    case 34:
+      return (reader.readStringOrNull(offset)) as P;
+    case 35:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');

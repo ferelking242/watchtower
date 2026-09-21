@@ -276,7 +276,12 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute<(Source?, bool)>(
       name: "mangaHome",
-      builder: (id) => MangaHomeScreen(source: id.$1!, isLatest: id.$2),
+      builder: (id) {
+        final source = id.$1!;
+        return source.providesHome
+            ? WatchExtensionHomeScreen(source: source)
+            : MangaHomeScreen(source: source, isLatest: id.$2);
+      },
     ),
     _genericRoute<Source>(
       name: "watchExtensionHome",
@@ -303,7 +308,12 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute<(Source?, bool)>(
       name: "novelHome",
-      builder: (id) => NovelHomeScreen(source: id.$1!, isLatest: id.$2),
+      builder: (id) {
+        final source = id.$1!;
+        return source.providesHome
+            ? WatchExtensionHomeScreen(source: source)
+            : NovelHomeScreen(source: source, isLatest: id.$2);
+      },
     ),
     _genericRoute<int>(
       path: "/manga-reader/detail",

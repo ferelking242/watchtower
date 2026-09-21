@@ -55,13 +55,14 @@ class LayoutRegistry {
   /// Persist [jsonContent] to disk and update the memory cache.
   /// Called by [LayoutDownloader] after a successful download.
   Future<void> save(Source source, String jsonContent) async {
-    if (kIsWeb || source.id == null) return;
+    if (source.id == null) return;
     try {
+      final json = jsonDecode(jsonContent) as Map<String, dynamic>;
+      _cache[source.id!] = UiLayout.fromJson(json);
+      if (kIsWeb) return;
       final file = await _layoutFile(source);
       await file.parent.create(recursive: true);
       await file.writeAsString(jsonContent);
-      final json = jsonDecode(jsonContent) as Map<String, dynamic>;
-      _cache[source.id!] = UiLayout.fromJson(json);
       AppLogger.log(
         '[LayoutRegistry] Saved ${source.name}',
         tag: LogTag.extension_,
