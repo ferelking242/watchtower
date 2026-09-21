@@ -31,10 +31,10 @@ import 'nf_widgets/nf_app_bar.dart';
 import 'nf_widgets/nf_highlight_banner.dart';
 import 'nf_widgets/nf_menu_panel.dart';
 import 'nf_widgets/nf_movie_box.dart';
-import 'nf_widgets/nf_new_and_hot_tile.dart';
 import 'nf_widgets/nf_poster_image.dart';
 import 'nf_widgets/nf_utils.dart';
 import 'nf_widgets/nf_watch_history_row.dart';
+import 'nf_widgets/nf_curated_section.dart';
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/services/layout_registry.dart';
 
@@ -60,14 +60,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   bool get isLocal => source.name == 'local' && source.lang == '';
 
   // ── Catalogue state ───────────────────────────────────────────────────────
-  final List<MManga> _catalogueItems  = [];
-  int  _cataloguePage    = 1;
+  final List<MManga> _catalogueItems = [];
+  int _cataloguePage = 1;
   bool _catalogueHasNext = true;
   bool _catalogueLoading = false;
 
   // ── Search view state ──────────────────────────────────────────────────
-  bool   _isSearching  = false;
-  String _query        = '';
+  bool _isSearching = false;
+  String _query = '';
 
   // ── Sidebar menu (hamburger, right edge) ────────────────────────────────
   bool _menuOpen = false;
@@ -90,11 +90,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   // ── Voice search ──────────────────────────────────────────────────────────
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechAvailable = false;
-  bool _isListening     = false;
+  bool _isListening = false;
 
   // ── Scroll offset (drives app bar scrim — NO setState, see app bar) ────────
-  final ValueNotifier<double> _scrollOffsetNotifier =
-      ValueNotifier<double>(0);
+  final ValueNotifier<double> _scrollOffsetNotifier = ValueNotifier<double>(0);
 
   // ── Extension data ────────────────────────────────────────────────────────
   List<Map<String, dynamic>> _customLists = const [];
@@ -108,17 +107,18 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor:           Colors.transparent,
-      statusBarIconBrightness:  Brightness.light,
-      statusBarBrightness:      Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+    );
     _loadLayout();
     _initSpeech();
   }
 
   @override
-
   void dispose() {
     _suggestionTimer?.cancel();
     _speech.stop();
@@ -141,7 +141,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           .toList();
     });
   }
-
 
   // ── Voice search helpers ──────────────────────────────────────────────────
 
@@ -187,9 +186,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           _onQueryChanged(words);
         }
       },
-      listenFor:         const Duration(seconds: 10),
-      pauseFor:          const Duration(seconds: 3),
-      localeId:          'fr_FR',
+      listenFor: const Duration(seconds: 10),
+      pauseFor: const Duration(seconds: 3),
+      localeId: 'fr_FR',
     );
   }
 
@@ -199,13 +198,18 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     ref.invalidate(getPopularProvider(source: source, page: 1));
     ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
     for (final cl in _customLists) {
-      ref.invalidate(getCustomListProvider(
-          source: source, listId: cl['id'] as String, page: 1));
+      ref.invalidate(
+        getCustomListProvider(
+          source: source,
+          listId: cl['id'] as String,
+          page: 1,
+        ),
+      );
     }
     if (mounted) {
       setState(() {
         _catalogueItems.clear();
-        _cataloguePage    = 1;
+        _cataloguePage = 1;
         _catalogueHasNext = true;
         _catalogueLoading = false;
         _refreshKey++;
@@ -221,18 +225,20 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     if (_catalogueLoading || !_catalogueHasNext) return;
     setState(() => _catalogueLoading = true);
     try {
-      final hasCatList =
-          _customLists.any((cl) => cl['id'] == 'catalogue');
+      final hasCatList = _customLists.any((cl) => cl['id'] == 'catalogue');
       MPages? result;
       if (hasCatList) {
-        result = await ref.read(getCustomListProvider(
+        result = await ref.read(
+          getCustomListProvider(
             source: source,
             listId: 'catalogue',
-            page:   _cataloguePage)
-            .future);
+            page: _cataloguePage,
+          ).future,
+        );
       } else {
         result = await ref.read(
-            getPopularProvider(source: source, page: _cataloguePage).future);
+          getPopularProvider(source: source, page: _cataloguePage).future,
+        );
       }
       if (result != null) {
         _cataloguePage++;
@@ -254,7 +260,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     setState(() {
       _query = q;
       if (q.isEmpty) {
-        _suggestions    = [];
+        _suggestions = [];
         _committedQuery = '';
       }
     });
@@ -262,9 +268,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 
     _suggestionTimer = Timer(const Duration(milliseconds: 250), () async {
       try {
-        final snap = await ref.read(searchProvider(
-          source: source, query: q.trim(), page: 1, filterList: const [],
-        ).future);
+        final snap = await ref.read(
+          searchProvider(
+            source: source,
+            query: q.trim(),
+            page: 1,
+            filterList: const [],
+          ).future,
+        );
         if (!mounted) return;
         // Stale-response guard — the user may have kept typing.
         if (_searchCtrl.text.trim() != q.trim()) return;
@@ -273,8 +284,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             .toList();
         // Dedupe by title, keep order, max 5.
         final seen = <String>{};
-        final suggestions =
-            items.where((m) => seen.add(m.name!)).take(5).toList();
+        final suggestions = items
+            .where((m) => seen.add(m.name!))
+            .take(5)
+            .toList();
         setState(() => _suggestions = suggestions);
       } catch (_) {
         if (mounted) setState(() => _suggestions = []);
@@ -287,9 +300,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     _suggestionTimer?.cancel();
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
-      _query          = q;
+      _query = q;
       _committedQuery = q.trim();
-      _suggestions    = [];
+      _suggestions = [];
     });
   }
 
@@ -330,12 +343,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     setState(() => _selectedType = type);
     // Re-run the current query under the new type filter.
     if (_committedQuery.isNotEmpty) {
-      ref.invalidate(searchProvider(
-        source:     source,
-        query:      _committedQuery,
-        page:       1,
-        filterList: _searchFilters,
-      ));
+      ref.invalidate(
+        searchProvider(
+          source: source,
+          query: _committedQuery,
+          page: 1,
+          filterList: _searchFilters,
+        ),
+      );
     }
   }
 
@@ -352,9 +367,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   void _clearSearch() {
     _suggestionTimer?.cancel();
     setState(() {
-      _query          = '';
+      _query = '';
       _committedQuery = '';
-      _suggestions    = [];
+      _suggestions = [];
     });
     _searchCtrl.clear();
   }
@@ -380,14 +395,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     ).then((next) {
       if (!mounted || next == null || next.id == source.id) return;
       isar.writeTxnSync(() {
-        final sources = isar.sources
-            .where()
-            .findAllSync();
+        final sources = isar.sources.where().findAllSync();
         for (final candidate in sources) {
           if (candidate.itemType != source.itemType) continue;
-          isar.sources.putSync(candidate
-            ..lastUsed = candidate.id == next.id
-            ..updatedAt = DateTime.now().millisecondsSinceEpoch);
+          isar.sources.putSync(
+            candidate
+              ..lastUsed = candidate.id == next.id
+              ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+          );
         }
       });
       context.pushReplacement('/watchHome', extra: (next, false));
@@ -400,7 +415,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       _scrollCtrl.animateTo(
         0,
         duration: const Duration(milliseconds: 420),
-        curve:    Curves.easeOutCubic,
+        curve: Curves.easeOutCubic,
       );
     }
   }
@@ -410,37 +425,41 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
   void _menuOpenSearch() {
     _suggestionTimer?.cancel();
     setState(() {
-      _menuOpen       = false;
-      _isSearching    = true;
-      _query          = '';
+      _menuOpen = false;
+      _isSearching = true;
+      _query = '';
       _committedQuery = '';
-      _suggestions    = [];
-      _selectedType   = null;
+      _suggestions = [];
+      _selectedType = null;
     });
     _searchCtrl.clear();
   }
 
   void _menuOpenSection({
-    required String      title,
+    required String title,
     required _SectionKind kind,
-    String?              customListId,
+    String? customListId,
   }) {
     _closeMenu();
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _WatchSectionPage(
-        source:       source,
-        title:        title,
-        type:         kind,
-        customListId: customListId,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _WatchSectionPage(
+          source: source,
+          title: title,
+          type: kind,
+          customListId: customListId,
+        ),
       ),
-    ));
+    );
   }
 
   void _menuOpenCategories(List<Map<String, dynamic>> cats) {
     _closeMenu();
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _CategoryGridPage(source: source, categories: cats),
-    ));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _CategoryGridPage(source: source, categories: cats),
+      ),
+    );
   }
 
   /// Builds the ordered list of menu groups from the extension's home layout:
@@ -451,11 +470,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         .where((cl) => cl['layout'] == 'category')
         .toList();
     final regulars = _customLists
-        .where((cl) =>
-            cl['id'] != 'carousel' &&
-            cl['layout'] != 'category' &&
-            cl['id'] != 'catalogue' &&
-            cl['layout'] != '__tab__')
+        .where(
+          (cl) =>
+              cl['id'] != 'carousel' &&
+              cl['layout'] != 'category' &&
+              cl['id'] != 'catalogue' &&
+              cl['layout'] != '__tab__',
+        )
         .toList();
     final newHot = regulars
         .where((cl) => (cl['layout'] as String? ?? '') == 'new_hot')
@@ -463,79 +484,85 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     final seenTitles = <String>{};
     final rows = regulars
         .where((cl) => (cl['layout'] as String? ?? '') != 'new_hot')
-        .where((cl) => seenTitles
-            .add((cl['name'] as String? ?? cl['id'] as String).trim()))
+        .where(
+          (cl) => seenTitles.add(
+            (cl['name'] as String? ?? cl['id'] as String).trim(),
+          ),
+        )
         .toList();
-    final catalogueList =
-        _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
+    final catalogueList = _customLists
+        .where((cl) => cl['id'] == 'catalogue')
+        .firstOrNull;
 
     final groups = <NfMenuGroup>[];
 
     final explorer = <NfMenuTile>[
+      NfMenuTile(icon: Broken.home_1, label: 'Accueil', onTap: _menuGoHome),
       NfMenuTile(
-        icon:  Broken.home_1,
-        label: 'Accueil',
-        onTap: _menuGoHome,
-      ),
-      NfMenuTile(
-        icon:  Broken.search_normal_1,
+        icon: Broken.search_normal_1,
         label: 'Recherche',
         onTap: _menuOpenSearch,
         accent: true,
       ),
     ];
     if (cats.isNotEmpty) {
-      explorer.add(NfMenuTile(
-        icon:  Broken.category_2,
-        label: 'Catégories',
-        onTap: () => _menuOpenCategories(cats),
-      ));
+      explorer.add(
+        NfMenuTile(
+          icon: Broken.category_2,
+          label: 'Catégories',
+          onTap: () => _menuOpenCategories(cats),
+        ),
+      );
     }
     groups.add(NfMenuGroup(title: 'Explorer', tiles: explorer));
 
     final playlists = <NfMenuTile>[
       for (final row in rows)
         NfMenuTile(
-          icon:  Broken.play_circle,
+          icon: Broken.play_circle,
           label: row['name'] as String? ?? row['id'] as String,
           onTap: () => _menuOpenSection(
-            title:        row['name'] as String? ?? row['id'] as String,
-            kind:         _SectionKind.custom,
+            title: row['name'] as String? ?? row['id'] as String,
+            kind: _SectionKind.custom,
             customListId: row['id'] as String,
           ),
         ),
     ];
     if (newHot.isNotEmpty) {
-      playlists.add(NfMenuTile(
-        icon:  Broken.diamonds,
-        label: 'Nouveau & Populaire',
-        onTap: () => _menuOpenSection(
-          title:        'Nouveau & Populaire',
-          kind:         _SectionKind.custom,
-          customListId: newHot.first['id'] as String,
+      playlists.add(
+        NfMenuTile(
+          icon: Broken.diamonds,
+          label: 'Nouveau & Populaire',
+          onTap: () => _menuOpenSection(
+            title: 'Nouveau & Populaire',
+            kind: _SectionKind.custom,
+            customListId: newHot.first['id'] as String,
+          ),
         ),
-      ));
+      );
     }
     if (playlists.isNotEmpty) {
       groups.add(NfMenuGroup(title: 'Playlists', tiles: playlists));
     }
 
-    groups.add(NfMenuGroup(
-      title: 'Catalogue',
-      tiles: [
-        NfMenuTile(
-          icon:  Broken.grid_1,
-          label: 'Tout le catalogue',
-          onTap: () => _menuOpenSection(
-            title:        'Catalogue',
-            kind:         catalogueList != null
-                ? _SectionKind.custom
-                : _SectionKind.popular,
-            customListId: catalogueList?['id'] as String?,
+    groups.add(
+      NfMenuGroup(
+        title: 'Catalogue',
+        tiles: [
+          NfMenuTile(
+            icon: Broken.grid_1,
+            label: 'Tout le catalogue',
+            onTap: () => _menuOpenSection(
+              title: 'Catalogue',
+              kind: catalogueList != null
+                  ? _SectionKind.custom
+                  : _SectionKind.popular,
+              customListId: catalogueList?['id'] as String?,
+            ),
           ),
-        ),
-      ],
-    ));
+        ],
+      ),
+    );
 
     return groups;
   }
@@ -548,34 +575,33 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     return IgnorePointer(
       ignoring: !_menuOpen,
       child: Stack(
-        fit:        StackFit.expand,
+        fit: StackFit.expand,
         clipBehavior: Clip.hardEdge,
         children: [
           // ── Dim barrier ────────────────────────────────────────────────
           AnimatedOpacity(
             opacity: _menuOpen ? 1 : 0,
             duration: const Duration(milliseconds: 220),
-            curve:    Curves.easeOut,
+            curve: Curves.easeOut,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap:    _closeMenu,
-              child:    ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.62)),
+              onTap: _closeMenu,
+              child: ColoredBox(color: Colors.black.withValues(alpha: 0.62)),
             ),
           ),
           // ── Panel ──────────────────────────────────────────────────────
           Positioned(
-            top:    0,
+            top: 0,
             bottom: 0,
-            right:  0,
-            width:  panelW,
+            right: 0,
+            width: panelW,
             child: AnimatedSlide(
-              offset:  _menuOpen ? Offset.zero : const Offset(1, 0),
+              offset: _menuOpen ? Offset.zero : const Offset(1, 0),
               duration: const Duration(milliseconds: 320),
-              curve:    Curves.easeOutCubic,
+              curve: Curves.easeOutCubic,
               child: NfWatchMenuPanel(
-                source:  source,
-                groups:  _menuGroups(),
+                source: source,
+                groups: _menuGroups(),
                 onClose: _closeMenu,
               ),
             ),
@@ -584,8 +610,6 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       ),
     );
   }
-
-
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -603,26 +627,28 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       },
       child: Scaffold(
         backgroundColor: nfBackgroundColor,
-        extendBody:      true,
+        extendBody: true,
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 260),
           transitionBuilder: (child, anim) {
             final slide = Tween<Offset>(
               begin: const Offset(0, -0.06),
-              end:   Offset.zero,
+              end: Offset.zero,
             ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut));
             return FadeTransition(
               opacity: anim,
-              child:   SlideTransition(position: slide, child: child),
+              child: SlideTransition(position: slide, child: child),
             );
           },
           child: _isSearching
               ? KeyedSubtree(
                   key: const ValueKey('search'),
-                  child: _buildSearchView(context))
+                  child: _buildSearchView(context),
+                )
               : KeyedSubtree(
                   key: const ValueKey('home'),
-                  child: _buildNetflixHome(context)),
+                  child: _buildNetflixHome(context),
+                ),
         ),
       ),
     );
@@ -636,12 +662,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         .where((cl) => cl['layout'] == 'category')
         .toList();
     final regularLists = _customLists
-        .where((cl) =>
-            cl['id'] != 'carousel' &&
-            cl['layout'] != 'category' &&
-            cl['layout'] != 'banner' &&
-            cl['id'] != 'catalogue' &&
-            cl['layout'] != '__tab__')
+        .where(
+          (cl) =>
+              cl['id'] != 'carousel' &&
+              cl['layout'] != 'category' &&
+              cl['layout'] != 'banner' &&
+              cl['id'] != 'catalogue' &&
+              cl['layout'] != '__tab__',
+        )
         .toList();
     final newHotLists = regularLists
         .where((cl) => (cl['layout'] as String? ?? '') == 'new_hot')
@@ -657,10 +685,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         })
         .toList();
 
-    final catalogueList =
-        _customLists.where((cl) => cl['id'] == 'catalogue').firstOrNull;
-    final hasCustomHistory =
-        _customLists.any((cl) => cl['id'] == 'history');
+    final catalogueList = _customLists
+        .where((cl) => cl['id'] == 'catalogue')
+        .firstOrNull;
+    final hasCustomHistory = _customLists.any((cl) => cl['id'] == 'history');
 
     // ── Everything scrolls in ONE CustomScrollView: the hero is the first
     // sliver, so content can never overlap it (fixes items-over-carousel)
@@ -668,15 +696,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     return Stack(
       children: [
         RefreshIndicator(
-          onRefresh:       _onRefresh,
-          color:           Colors.white,
+          onRefresh: _onRefresh,
+          color: Colors.white,
           backgroundColor: const Color(0xFF1A1A1A),
           // displacement pushes the spinner below status bar
-          displacement:    _appBarH + 8,
+          displacement: _appBarH + 8,
           child: NotificationListener<ScrollNotification>(
             onNotification: (n) {
-              if (n is ScrollUpdateNotification ||
-                  n is ScrollEndNotification) {
+              if (n is ScrollUpdateNotification || n is ScrollEndNotification) {
                 final px = n.metrics.pixels;
                 // ValueNotifier only — no setState per scroll frame (jank fix).
                 if ((px - _scrollOffsetNotifier.value).abs() > 0.5) {
@@ -692,21 +719,26 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             },
             child: CustomScrollView(
               controller: _scrollCtrl,
-              physics:    const AlwaysScrollableScrollPhysics(
-                              parent: ClampingScrollPhysics()),
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              ),
               slivers: [
                 // ── Hero carousel (first sliver — scrolls with content) ───
                 SliverToBoxAdapter(
                   child: _HeroSection(
                     key: ValueKey('hero_$_refreshKey'),
-                    source:      source,
+                    source: source,
                     customLists: _customLists,
                     onTapManga: (manga) {
                       if (_tryOpenReel(ctx, manga, source)) return;
                       pushToMangaReaderDetail(
-                        ref: ref, context: ctx, getManga: manga,
-                        lang: source.lang!, source: source.name!,
-                        itemType: source.itemType, sourceId: source.id,
+                        ref: ref,
+                        context: ctx,
+                        getManga: manga,
+                        lang: source.lang!,
+                        source: source.name!,
+                        itemType: source.itemType,
+                        sourceId: source.id,
                       );
                     },
                   ),
@@ -715,8 +747,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                 // Keep the built-in continue-watching row only when the
                 // extension has not declared its own history section.
                 if (!hasCustomHistory)
-                  SliverToBoxAdapter(
-                      child: NfWatchHistoryRow(source: source)),
+                  SliverToBoxAdapter(child: NfWatchHistoryRow(source: source)),
 
                 // ── Category widgets ──────────────────────────────────────
                 if (categoryLists.isNotEmpty)
@@ -725,34 +756,43 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                   ),
 
                 // ── Content rows (spotlight / ranked / compact) ───────────
-                ...contentLists.map((cl) => SliverToBoxAdapter(
-                  child: _NfContentRow(
-                    source:  source,
-                    listId:  cl['id'] as String,
-                    title:   cl['name'] as String? ?? cl['id'] as String,
-                    component: cl['component'] as String? ??
-                        cl['layout'] as String? ??
-                        'spotlight',
-                    columns: cl['columns'] as int?,
-                    cardStyle: cl['cardStyle'] as String?,
-                    onSeeAll: () => Navigator.of(ctx).push(MaterialPageRoute(
-                      builder: (_) => _WatchSectionPage(
-                        source:       source,
-                        title:        cl['name'] as String? ?? '',
-                        type:         _SectionKind.custom,
-                        customListId: cl['id'] as String,
+                ...contentLists.map(
+                  (cl) => SliverToBoxAdapter(
+                    child: _NfContentRow(
+                      source: source,
+                      listId: cl['id'] as String,
+                      title: cl['name'] as String? ?? cl['id'] as String,
+                      component:
+                          cl['component'] as String? ??
+                          cl['layout'] as String? ??
+                          'spotlight',
+                      columns: cl['columns'] as int?,
+                      cardStyle: cl['cardStyle'] as String?,
+                      onSeeAll: () => Navigator.of(ctx).push(
+                        MaterialPageRoute(
+                          builder: (_) => _WatchSectionPage(
+                            source: source,
+                            title: cl['name'] as String? ?? '',
+                            type: _SectionKind.custom,
+                            customListId: cl['id'] as String,
+                          ),
+                        ),
                       ),
-                    )),
-                    onTapManga: (manga) {
-                      if (_tryOpenReel(ctx, manga, source)) return;
-                      pushToMangaReaderDetail(
-                        ref: ref, context: ctx, getManga: manga,
-                        lang: source.lang!, source: source.name!,
-                        itemType: source.itemType, sourceId: source.id,
-                      );
-                    },
+                      onTapManga: (manga) {
+                        if (_tryOpenReel(ctx, manga, source)) return;
+                        pushToMangaReaderDetail(
+                          ref: ref,
+                          context: ctx,
+                          getManga: manga,
+                          lang: source.lang!,
+                          source: source.name!,
+                          itemType: source.itemType,
+                          sourceId: source.id,
+                        );
+                      },
+                    ),
                   ),
-                )),
+                ),
 
                 // ── New & Hot section ─────────────────────────────────────
                 if (newHotLists.isNotEmpty) ...[
@@ -761,21 +801,25 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
                       child: Row(
                         children: [
-                          const Text('Nouveau & Populaire',
-                              style: TextStyle(
-                                  color:      Colors.white,
-                                  fontSize:   18,
-                                  fontWeight: FontWeight.bold)),
+                          const Text(
+                            'Nouveau & Populaire',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           const Spacer(),
                           SeeAllButton(
                             color: Colors.white70,
                             onTap: () => Navigator.of(ctx).push(
                               MaterialPageRoute(
                                 builder: (_) => _WatchSectionPage(
-                                  source:       source,
-                                  title:        'Nouveau & Populaire',
-                                  type:         _SectionKind.custom,
-                                  customListId: newHotLists.first['id'] as String,
+                                  source: source,
+                                  title: 'Nouveau & Populaire',
+                                  type: _SectionKind.custom,
+                                  customListId:
+                                      newHotLists.first['id'] as String,
                                 ),
                               ),
                             ),
@@ -784,29 +828,60 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                       ),
                     ),
                   ),
-                  ...newHotLists.expand((cl) => [
-                    SliverToBoxAdapter(
-                      child: Consumer(builder: (c, r, _) {
-                        final data = r.watch(getCustomListProvider(
-                            source: source,
-                            listId: cl['id'] as String,
-                            page:   1));
-                        return data.when(
-                          data: (d) {
-                            final items = d?.list ?? [];
-                            if (items.isEmpty) return const SizedBox.shrink();
-                            return Column(
-                              children: items.take(5).map((m) =>
-                                NfNewAndHotTile(manga: m, source: source),
-                              ).toList(),
-                            );
-                          },
-                          loading: () => _NfShimmerNewHot(),
-                          error:   (_, __) => const SizedBox.shrink(),
-                        );
-                      }),
+                  ...newHotLists.map(
+                    (cl) => SliverToBoxAdapter(
+                      child: Consumer(
+                        builder: (c, r, _) {
+                          final data = r.watch(
+                            getCustomListProvider(
+                              source: source,
+                              listId: cl['id'] as String,
+                              page: 1,
+                            ),
+                          );
+                          return data.when(
+                            data: (d) {
+                              final items = d?.list ?? [];
+                              if (items.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+                              return NfCuratedSection(
+                                title:
+                                    cl['name'] as String? ??
+                                    'Nouveau & Populaire',
+                                items: items.take(6).toList(),
+                                component: 'backdropWide',
+                                onSeeAll: () => Navigator.of(ctx).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => _WatchSectionPage(
+                                      source: source,
+                                      title: cl['name'] as String? ?? '',
+                                      type: _SectionKind.custom,
+                                      customListId: cl['id'] as String,
+                                    ),
+                                  ),
+                                ),
+                                onTapManga: (manga) {
+                                  if (_tryOpenReel(ctx, manga, source)) return;
+                                  pushToMangaReaderDetail(
+                                    ref: ref,
+                                    context: ctx,
+                                    getManga: manga,
+                                    lang: source.lang!,
+                                    source: source.name!,
+                                    itemType: source.itemType,
+                                    sourceId: source.id,
+                                  );
+                                },
+                              );
+                            },
+                            loading: () => _NfShimmerNewHot(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          );
+                        },
+                      ),
                     ),
-                  ]),
+                  ),
                 ],
 
                 // ── Catalogue header — golden-leaf divider + ALL at right ─
@@ -817,8 +892,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                       children: [
                         const Expanded(child: _GoldenDivider()),
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: ShaderMask(
                             shaderCallback: (bounds) => const LinearGradient(
                               colors: [
@@ -846,9 +920,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                           onTap: () => Navigator.of(ctx).push(
                             MaterialPageRoute(
                               builder: (_) => _WatchSectionPage(
-                                source:       source,
-                                title:        'Catalogue',
-                                type:         catalogueList != null
+                                source: source,
+                                title: 'Catalogue',
+                                type: catalogueList != null
                                     ? _SectionKind.custom
                                     : _SectionKind.popular,
                                 customListId: catalogueList?['id'] as String?,
@@ -863,16 +937,16 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 
                 // ── Catalogue grid ────────────────────────────────────────
                 _CatalogueSection(
-                  source:         source,
-                  items:          _catalogueItems,
-                  loading:        _catalogueLoading,
-                  hasNext:        _catalogueHasNext,
-                  catalogueList:  catalogueList,
+                  source: source,
+                  items: _catalogueItems,
+                  loading: _catalogueLoading,
+                  hasNext: _catalogueHasNext,
+                  catalogueList: catalogueList,
                   onFirstLoad: (items, hasNext) {
                     if (mounted && _catalogueItems.isEmpty) {
                       setState(() {
                         _catalogueItems.addAll(items);
-                        _cataloguePage    = 2;
+                        _cataloguePage = 2;
                         _catalogueHasNext = hasNext;
                       });
                     }
@@ -887,17 +961,17 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 
         // ── Floating app bar overlay ────────────────────────────────────
         Positioned(
-          top:   0,
-          left:  0,
+          top: 0,
+          left: 0,
           right: 0,
           child: NfWatchAppBarWidget(
             scrollOffsetNotifier: _scrollOffsetNotifier,
-            sourceName:   source.name ?? source.lang ?? 'Anime',
+            sourceName: source.name ?? source.lang ?? 'Anime',
             sourceIconUrl: source.iconUrl,
-            onSourceTap:  _openSourcePicker,
-            onMenuTap:    _openMenu,
-            canPop:       context.canPop(),
-            onBackTap:    () => context.pop(),
+            onSourceTap: _openSourcePicker,
+            onMenuTap: _openMenu,
+            canPop: context.canPop(),
+            onBackTap: () => context.pop(),
           ),
         ),
 
@@ -905,10 +979,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         Positioned.fill(child: _buildMenuOverlay()),
       ],
     );
-  }  // ── Category chips ─────────────────────────────────────────────────────────
+  } // ── Category chips ─────────────────────────────────────────────────────────
 
   Widget _buildCategoryChips(
-      BuildContext ctx, List<Map<String, dynamic>> cats) {
+    BuildContext ctx,
+    List<Map<String, dynamic>> cats,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -928,12 +1004,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               const Spacer(),
               SeeAllButton(
                 color: Colors.white70,
-                onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
-                  builder: (_) => _CategoryGridPage(
-                    source: source,
-                    categories: cats,
+                onTap: () => Navigator.of(ctx).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        _CategoryGridPage(source: source, categories: cats),
                   ),
-                )),
+                ),
               ),
             ],
           ),
@@ -942,14 +1018,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           height: 104,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding:         const EdgeInsets.fromLTRB(14, 4, 14, 8),
-            itemCount:       cats.length,
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+            itemCount: cats.length,
             itemBuilder: (_, i) {
-              final cl       = cats[i];
-              final listId   = cl['id']       as String;
-              final listName = cl['name']     as String? ?? listId;
-              final hexColor = cl['color']    as String? ?? '#1E2126';
-              final extImg   = cl['imageUrl'] as String? ?? '';
+              final cl = cats[i];
+              final listId = cl['id'] as String;
+              final listName = cl['name'] as String? ?? listId;
+              final hexColor = cl['color'] as String? ?? '#1E2126';
+              final extImg = cl['imageUrl'] as String? ?? '';
 
               Color fallback;
               try {
@@ -964,33 +1040,40 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               return Padding(
                 padding: const EdgeInsets.only(right: 10),
                 child: GestureDetector(
-                  onTap: () => Navigator.of(ctx).push(MaterialPageRoute(
-                    builder: (_) => _WatchSectionPage(
-                      source:       source,
-                      title:        listName,
-                      type:         _SectionKind.custom,
-                      customListId: listId,
+                  onTap: () => Navigator.of(ctx).push(
+                    MaterialPageRoute(
+                      builder: (_) => _WatchSectionPage(
+                        source: source,
+                        title: listName,
+                        type: _SectionKind.custom,
+                        customListId: listId,
+                      ),
                     ),
-                  )),
+                  ),
                   child: Consumer(
                     builder: (c, r, _) {
                       String bgUrl = extImg;
 
                       if (bgUrl.isEmpty) {
-                         final snap = r.watch(getCustomListProvider(
-                            source: source, listId: listId, page: 1));
+                        final snap = r.watch(
+                          getCustomListProvider(
+                            source: source,
+                            listId: listId,
+                            page: 1,
+                          ),
+                        );
                         bgUrl = snap.maybeWhen(
                           data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
                           orElse: () => '',
                         );
                       }
-                       return _CategoryCard(
-                         name: listName,
-                         imageUrl: bgUrl,
-                         fallback: fallback,
-                         width: 182,
-                         height: 104,
-                       );
+                      return _CategoryCard(
+                        name: listName,
+                        imageUrl: bgUrl,
+                        fallback: fallback,
+                        width: 182,
+                        height: 104,
+                      );
                     },
                   ),
                 ),
@@ -1012,8 +1095,13 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       children: [
         // ── Search bar ───────────────────────────────────────────────────
         Container(
-          color:   Colors.black,
-          padding: EdgeInsets.only(top: topPad + 4, left: 8, right: 8, bottom: 8),
+          color: Colors.black,
+          padding: EdgeInsets.only(
+            top: topPad + 4,
+            left: 8,
+            right: 8,
+            bottom: 8,
+          ),
           child: Row(
             children: [
               // Back — chevron "<" like every other screen
@@ -1023,10 +1111,10 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                 onTap: () {
                   _suggestionTimer?.cancel();
                   setState(() {
-                    _isSearching    = false;
-                    _query          = '';
+                    _isSearching = false;
+                    _query = '';
                     _committedQuery = '';
-                    _suggestions    = [];
+                    _suggestions = [];
                   });
                   _searchCtrl.clear();
                 },
@@ -1034,54 +1122,62 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
-                  controller:      _searchCtrl,
-                  autofocus:       true,
-                  style:           const TextStyle(color: Colors.white),
+                  controller: _searchCtrl,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white),
                   textInputAction: TextInputAction.search,
-                  onSubmitted:     (_) => _commitSearch(_query),
-                  decoration:  InputDecoration(
-                    hintText:  _isListening
-                        ? 'Je vous écoute…'
-                        : 'Rechercher…',
+                  onSubmitted: (_) => _commitSearch(_query),
+                  decoration: InputDecoration(
+                    hintText: _isListening ? 'Je vous écoute…' : 'Rechercher…',
                     hintStyle: TextStyle(
-                        color: _isListening
-                            ? Colors.redAccent.shade100
-                            : Colors.white54),
-                    border:    OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide:   BorderSide.none,
+                      color: _isListening
+                          ? Colors.redAccent.shade100
+                          : Colors.white54,
                     ),
-                    filled:      true,
-                    fillColor:   Colors.white12,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white12,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 11),
+                      horizontal: 18,
+                      vertical: 11,
+                    ),
                     // Right side of the field: mic when empty, X once typing.
                     suffixIcon: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 160),
                       child: _isListening
                           ? IconButton(
                               key: const ValueKey('stop'),
-                              icon: const Icon(Icons.stop_rounded,
-                                  size: 22, color: Colors.redAccent),
+                              icon: const Icon(
+                                Icons.stop_rounded,
+                                size: 22,
+                                color: Colors.redAccent,
+                              ),
                               onPressed: _startVoiceSearch,
                             )
                           : hasText
-                              ? IconButton(
-                                  key: const ValueKey('clear'),
-                                  icon: const Icon(Icons.close_rounded,
-                                      size: 20, color: Colors.white70),
-                                  onPressed: _clearSearch,
-                                )
-                              : IconButton(
-                                  key: const ValueKey('mic'),
-                                  icon: Icon(
-                                      _speechAvailable
-                                          ? Icons.mic_none_rounded
-                                          : Icons.mic_off_outlined,
-                                      size: 21,
-                                      color: Colors.white70),
-                                  onPressed: _startVoiceSearch,
-                                ),
+                          ? IconButton(
+                              key: const ValueKey('clear'),
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 20,
+                                color: Colors.white70,
+                              ),
+                              onPressed: _clearSearch,
+                            )
+                          : IconButton(
+                              key: const ValueKey('mic'),
+                              icon: Icon(
+                                _speechAvailable
+                                    ? Icons.mic_none_rounded
+                                    : Icons.mic_off_outlined,
+                                size: 21,
+                                color: Colors.white70,
+                              ),
+                              onPressed: _startVoiceSearch,
+                            ),
                     ),
                   ),
                   onChanged: _onQueryChanged,
@@ -1098,18 +1194,18 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             height: 46,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding:         const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               children: [
                 _SearchTypeTab(
-                  label:    'Tout',
+                  label: 'Tout',
                   selected: _selectedType == null,
-                  onTap:    () => _onTypeTabTap(null),
+                  onTap: () => _onTypeTabTap(null),
                 ),
                 for (final t in _contentTypes)
                   _SearchTypeTab(
-                    label:    t.capitalize(),
+                    label: t.capitalize(),
                     selected: _selectedType == t,
-                    onTap:    () => _onTypeTabTap(t),
+                    onTap: () => _onTypeTabTap(t),
                   ),
               ],
             ),
@@ -1150,34 +1246,36 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                           borderRadius: BorderRadius.circular(14),
                           child: ListView.builder(
                             shrinkWrap: true,
-                            padding:    EdgeInsets.zero,
-                            itemCount:  _suggestions.length,
+                            padding: EdgeInsets.zero,
+                            itemCount: _suggestions.length,
                             itemBuilder: (_, i) {
                               final m = _suggestions[i];
                               return InkWell(
                                 onTap: () => _onSuggestionTap(m),
                                 child: Container(
                                   height: 58,
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
                                   decoration: BoxDecoration(
                                     border: Border(
                                       bottom: i == _suggestions.length - 1
                                           ? BorderSide.none
                                           : BorderSide(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.06)),
+                                              color: Colors.white.withValues(
+                                                alpha: 0.06,
+                                              ),
+                                            ),
                                     ),
                                   ),
                                   child: Row(
                                     children: [
                                       ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(5),
+                                        borderRadius: BorderRadius.circular(5),
                                         child: ExtendedImage.network(
                                           m.imageUrl ?? '',
-                                          width:    32,
-                                          height:   46,
+                                          width: 32,
+                                          height: 46,
                                           fit: BoxFit.cover,
                                         ),
                                       ),
@@ -1188,15 +1286,17 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500),
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       ),
                                       const Icon(
-                                          Icons.north_west_rounded,
-                                          size: 15,
-                                          color: Colors.white30),
+                                        Icons.north_west_rounded,
+                                        size: 15,
+                                        color: Colors.white30,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -1222,9 +1322,12 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
         return pop.when(
           data: (d) => _buildGrid(ctx, d?.list ?? []),
           loading: () => _buildShimmerGrid(),
-          error:   (e, _) => Center(
-            child: Text(e.toString(),
-                style: const TextStyle(color: Colors.white60))),
+          error: (e, _) => Center(
+            child: Text(
+              e.toString(),
+              style: const TextStyle(color: Colors.white60),
+            ),
+          ),
         );
       },
     );
@@ -1235,23 +1338,33 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       builder: (c, r, _) {
         if (_committedQuery.isEmpty) return const SizedBox.shrink();
         final snap = r.watch(
-            searchProvider(source: source, query: _committedQuery, page: 1,
-                filterList: _searchFilters));
+          searchProvider(
+            source: source,
+            query: _committedQuery,
+            page: 1,
+            filterList: _searchFilters,
+          ),
+        );
         return snap.when(
           data: (d) {
             final items = d?.list ?? [];
             if (items.isEmpty) {
               return Center(
-                child: Text(ctx.l10n.no_result,
-                    style: const TextStyle(color: Colors.white60)),
+                child: Text(
+                  ctx.l10n.no_result,
+                  style: const TextStyle(color: Colors.white60),
+                ),
               );
             }
             return _buildGrid(ctx, items);
           },
           loading: () => _buildShimmerGrid(),
-          error:   (e, _) => Center(
-            child: Text(e.toString(),
-                style: const TextStyle(color: Colors.white60))),
+          error: (e, _) => Center(
+            child: Text(
+              e.toString(),
+              style: const TextStyle(color: Colors.white60),
+            ),
+          ),
         );
       },
     );
@@ -1263,9 +1376,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 140,
-        childAspectRatio:   0.65,
-        mainAxisSpacing:    8,
-        crossAxisSpacing:   8,
+        childAspectRatio: 0.65,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
       ),
       itemCount: 12,
       itemBuilder: (_, __) => _NfShimmerPosterTile(),
@@ -1277,15 +1390,15 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 140,
-        childAspectRatio:   0.65,
-        mainAxisSpacing:    8,
-        crossAxisSpacing:   8,
+        childAspectRatio: 0.65,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
       ),
       itemCount: items.length,
       itemBuilder: (c, i) => MangaImageCardWidget(
         getMangaDetail: items[i],
-        source:         source,
-        itemType:       source.itemType,
+        source: source,
+        itemType: source.itemType,
         isComfortableGrid: false,
       ),
     );
@@ -1298,9 +1411,9 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 // few items to the auto-rotating NfHeroCarousel. Lives INSIDE the scroll view.
 
 class _HeroSection extends ConsumerWidget {
-  final Source                     source;
+  final Source source;
   final List<Map<String, dynamic>> customLists;
-  final void Function(MManga)      onTapManga;
+  final void Function(MManga) onTapManga;
 
   const _HeroSection({
     super.key,
@@ -1316,10 +1429,13 @@ class _HeroSection extends ConsumerWidget {
         .firstOrNull;
 
     if (bannerDef != null) {
-      final data = ref.watch(getCustomListProvider(
+      final data = ref.watch(
+        getCustomListProvider(
           source: source,
           listId: bannerDef['id'] as String,
-          page:   1));
+          page: 1,
+        ),
+      );
       return data.when(
         data: (d) {
           final items = d?.list ?? [];
@@ -1327,7 +1443,7 @@ class _HeroSection extends ConsumerWidget {
           return _buildCarousel(items);
         },
         loading: () => _buildShimmerHero(context),
-        error:   (_, __) => _buildFallback(context, ref),
+        error: (_, __) => _buildFallback(context, ref),
       );
     }
     return _buildFallback(context, ref);
@@ -1342,21 +1458,21 @@ class _HeroSection extends ConsumerWidget {
         return _buildCarousel(items);
       },
       loading: () => _buildShimmerHero(ctx),
-      error:   (_, __) => _buildShimmerHero(ctx),
+      error: (_, __) => _buildShimmerHero(ctx),
     );
   }
 
   Widget _buildCarousel(List<MManga> items) {
     return NfHeroCarousel(
-      items:     items.take(5).toList(),
-      source:    source,
+      items: items.take(5).toList(),
+      source: source,
       onTapManga: onTapManga,
     );
   }
 
   Widget _buildShimmerHero(BuildContext ctx) {
     return NfHeroShimmerPlaceholder(
-      width:  MediaQuery.of(ctx).size.width,
+      width: MediaQuery.of(ctx).size.width,
       height: heroCarouselHeight(ctx),
     );
   }
@@ -1380,11 +1496,7 @@ class NfHeroShimmerPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShimmerSkeleton(
       enabled: true,
-      child: Container(
-        width:  width,
-        height: height,
-        color:  Colors.grey[900],
-      ),
+      child: Container(width: width, height: height, color: Colors.grey[900]),
     );
   }
 }
@@ -1393,13 +1505,13 @@ class NfHeroShimmerPlaceholder extends StatelessWidget {
 // One section: title + SeeAllButton + horizontal ListView of NfMovieBox.
 
 class _NfContentRow extends ConsumerWidget {
-  final Source                 source;
-  final String                 listId;
-  final String                 title;
-  final String                 component;
-  final int?                   columns;
-  final String?                cardStyle;
-  final VoidCallback?          onSeeAll;
+  final Source source;
+  final String listId;
+  final String title;
+  final String component;
+  final int? columns;
+  final String? cardStyle;
+  final VoidCallback? onSeeAll;
   final void Function(MManga)? onTapManga;
 
   const _NfContentRow({
@@ -1416,7 +1528,8 @@ class _NfContentRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(
-        getCustomListProvider(source: source, listId: listId, page: 1));
+      getCustomListProvider(source: source, listId: listId, page: 1),
+    );
 
     return data.when(
       data: (d) {
@@ -1451,10 +1564,29 @@ class _NfContentRow extends ConsumerWidget {
             onTapManga: onTapManga,
           );
         }
+        if (component == 'doubleFeature' ||
+            component == 'editorialSplit' ||
+            component == 'landscapeStacked' ||
+            component == 'backdropWide' ||
+            component == 'discoverGrid' ||
+            component == 'studioExplorer' ||
+            component == 'universeExplorer' ||
+            component == 'collectionTimeline' ||
+            component == 'metadataPoster' ||
+            component == 'statusPoster' ||
+            component == 'spotlight') {
+          return NfCuratedSection(
+            title: title,
+            items: items,
+            component: component,
+            onSeeAll: onSeeAll,
+            onTapManga: onTapManga,
+          );
+        }
         return _buildRow(context, items);
       },
       loading: () => _buildShimmerRow(context),
-      error:   (_, __) => _buildShimmerRow(context),
+      error: (_, __) => _buildShimmerRow(context),
     );
   }
 
@@ -1470,36 +1602,33 @@ class _NfContentRow extends ConsumerWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  color:      Colors.white,
-                  fontSize:   18.0,
+                  color: Colors.white,
+                  fontSize: 18.0,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
               if (onSeeAll != null)
-                SeeAllButton(
-                  color: Colors.white70,
-                  onTap: onSeeAll!,
-                ),
+                SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
             ],
           ),
         ),
 
-         // The JSON chooses the presentation: compact rows stay dense while
-         // spotlight/carousel rows get larger cards.
+        // The JSON chooses the presentation: compact rows stay dense while
+        // spotlight/carousel rows get larger cards.
         SizedBox(
-           height: component == 'compact' ? 166.0 : 220.0,
+          height: component == 'compact' ? 166.0 : 220.0,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding:         const EdgeInsets.only(left: 8, right: 8),
-            itemCount:       items.length,
+            padding: const EdgeInsets.only(left: 8, right: 8),
+            itemCount: items.length,
             itemBuilder: (_, i) => GestureDetector(
               onTap: () => onTapManga?.call(items[i]),
-               child: NfMovieBox(
-                manga:  items[i],
+              child: NfMovieBox(
+                manga: items[i],
                 source: source,
-                 compact: component == 'compact',
-                 cardStyle: cardStyle,
+                compact: component == 'compact',
+                cardStyle: cardStyle,
               ),
             ),
           ),
@@ -1517,9 +1646,10 @@ class _NfContentRow extends ConsumerWidget {
           child: ShimmerSkeleton(
             enabled: true,
             child: Container(
-              width:  140, height: 16,
+              width: 140,
+              height: 16,
               decoration: BoxDecoration(
-                color:        Colors.grey[900],
+                color: Colors.grey[900],
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -1566,9 +1696,14 @@ class _NfMasonryRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 18, 4, 8),
           child: Row(
             children: [
-              Text(title, style: const TextStyle(
-                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold,
-              )),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const Spacer(),
               if (onSeeAll != null)
                 SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
@@ -1593,8 +1728,7 @@ class _NfMasonryRow extends StatelessWidget {
                             accent: cardStyle == 'tag'
                                 ? const Color(0xFF00B8D4)
                                 : nfRedColor,
-                            onTap: () =>
-                                onTapManga?.call(buckets[column][i]),
+                            onTap: () => onTapManga?.call(buckets[column][i]),
                           ),
                       ],
                     ),
@@ -1708,9 +1842,14 @@ class _NfInlineGrid extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 18, 4, 8),
           child: Row(
             children: [
-              Text(title, style: const TextStyle(
-                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold,
-              )),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const Spacer(),
               if (onSeeAll != null)
                 SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
@@ -1767,9 +1906,14 @@ class _NfRankedRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 18, 4, 8),
           child: Row(
             children: [
-              Text(title, style: const TextStyle(
-                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold,
-              )),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const Spacer(),
               if (onSeeAll != null)
                 SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
@@ -1790,10 +1934,7 @@ class _NfRankedRow extends StatelessWidget {
                   Positioned.fill(
                     child: GestureDetector(
                       onTap: () => onTapManga?.call(items[i]),
-                      child: NfMovieBox(
-                        manga: items[i],
-                        source: source,
-                      ),
+                      child: NfMovieBox(manga: items[i], source: source),
                     ),
                   ),
                   Positioned(
@@ -1806,7 +1947,9 @@ class _NfRankedRow extends StatelessWidget {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 4),
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
                         child: Text(
                           '${i + 1}',
                           style: const TextStyle(
@@ -1838,16 +1981,16 @@ class _NfShimmerRow extends StatelessWidget {
         enabled: true,
         child: ListView(
           scrollDirection: Axis.horizontal,
-          physics:         const NeverScrollableScrollPhysics(),
-          padding:         const EdgeInsets.symmetric(horizontal: 8),
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           children: List.generate(
             6,
             (_) => Container(
-              width:  110,
+              width: 110,
               margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8.0),
-                color:        Colors.grey[900],
+                color: Colors.grey[900],
               ),
             ),
           ),
@@ -1873,14 +2016,19 @@ class _NfShimmerNewHot extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(color: Colors.black, width: width, height: width * 0.56),
+                Container(
+                  color: Colors.black,
+                  width: width,
+                  height: width * 0.56,
+                ),
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
-                    width:  200, height: 18,
+                    width: 200,
+                    height: 18,
                     decoration: BoxDecoration(
-                      color:        Colors.black,
+                      color: Colors.black,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -1903,7 +2051,7 @@ class _NfShimmerPosterTile extends StatelessWidget {
       enabled: true,
       child: Container(
         decoration: BoxDecoration(
-          color:        Colors.grey[900],
+          color: Colors.grey[900],
           borderRadius: BorderRadius.circular(8),
         ),
       ),
@@ -1914,10 +2062,10 @@ class _NfShimmerPosterTile extends StatelessWidget {
 // ── Catalogue sliver section ───────────────────────────────────────────────────
 
 class _CatalogueSection extends ConsumerWidget {
-  final Source               source;
-  final List<MManga>         items;
-  final bool                 loading;
-  final bool                 hasNext;
+  final Source source;
+  final List<MManga> items;
+  final bool loading;
+  final bool hasNext;
   final Map<String, dynamic>? catalogueList;
   final void Function(List<MManga> items, bool hasNext) onFirstLoad;
 
@@ -1937,10 +2085,13 @@ class _CatalogueSection extends ConsumerWidget {
 
     // Initial load via provider — hand off to parent state
     final snap = catalogueList != null
-        ? ref.watch(getCustomListProvider(
-            source: source,
-            listId: catalogueList!['id'] as String,
-            page:   1))
+        ? ref.watch(
+            getCustomListProvider(
+              source: source,
+              listId: catalogueList!['id'] as String,
+              page: 1,
+            ),
+          )
         : ref.watch(getPopularProvider(source: source, page: 1));
 
     return snap.when(
@@ -1962,34 +2113,34 @@ class _CatalogueSection extends ConsumerWidget {
   /// Centred catalogue grid — gutters on both sides, rounded poster cards
   /// with a subtle border + shadow (the "spotlight" effect), unlike the
   /// edge-to-edge rows above.
-  Widget _buildGrid(BuildContext ctx, List<MManga> list,
-      {bool shimmerOnly = false}) {
-    final all = shimmerOnly ? const <MManga>[] : (items.isNotEmpty ? items : list);
+  Widget _buildGrid(
+    BuildContext ctx,
+    List<MManga> list, {
+    bool shimmerOnly = false,
+  }) {
+    final all = shimmerOnly
+        ? const <MManga>[]
+        : (items.isNotEmpty ? items : list);
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 122,
-          childAspectRatio:   0.66,
-          mainAxisSpacing:    14,
-          crossAxisSpacing:   12,
+          childAspectRatio: 0.66,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 12,
         ),
-        delegate: SliverChildBuilderDelegate(
-          (c2, i) {
-            if (i >= all.length) return _NfShimmerPosterTile();
-            return _CatalogueCard(
-              child: MangaImageCardWidget(
-                getMangaDetail:    all[i],
-                source:            source,
-                itemType:          source.itemType,
-                isComfortableGrid: false,
-              ),
-            );
-          },
-          childCount: shimmerOnly
-              ? 12
-              : all.length + (loading ? 3 : 0),
-        ),
+        delegate: SliverChildBuilderDelegate((c2, i) {
+          if (i >= all.length) return _NfShimmerPosterTile();
+          return _CatalogueCard(
+            child: MangaImageCardWidget(
+              getMangaDetail: all[i],
+              source: source,
+              itemType: source.itemType,
+              isComfortableGrid: false,
+            ),
+          );
+        }, childCount: shimmerOnly ? 12 : all.length + (loading ? 3 : 0)),
       ),
     );
   }
@@ -2015,10 +2166,7 @@ class _CatalogueCard extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(11),
-        child: child,
-      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(11), child: child),
     );
   }
 }
@@ -2032,11 +2180,14 @@ bool _tryOpenReel(BuildContext context, MManga manga, Source source) {
   try {
     final data = jsonDecode(link) as Map<String, dynamic>;
     if (data['type'] != 'reel') return false;
-    context.pushNamed('reel', extra: {
-      'source':      source,
-      'listId':      (data['listId'] as String?) ?? 'trending',
-      'startGifId':  data['gifId'] as String?,
-    });
+    context.pushNamed(
+      'reel',
+      extra: {
+        'source': source,
+        'listId': (data['listId'] as String?) ?? 'trending',
+        'startGifId': data['gifId'] as String?,
+      },
+    );
     return true;
   } catch (_) {
     return false;
@@ -2050,10 +2201,10 @@ enum _SectionKind { popular, latest, custom }
 // ── Full-page section drill-down ───────────────────────────────────────────────
 
 class _WatchSectionPage extends ConsumerStatefulWidget {
-  final Source        source;
-  final String        title;
-  final _SectionKind  type;
-  final String?       customListId;
+  final Source source;
+  final String title;
+  final _SectionKind type;
+  final String? customListId;
 
   const _WatchSectionPage({
     required this.source,
@@ -2067,10 +2218,10 @@ class _WatchSectionPage extends ConsumerStatefulWidget {
 }
 
 class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
-  final List<MManga> _items    = [];
-  int  _page     = 1;
-  bool _loading  = true;
-  bool _hasNext  = true;
+  final List<MManga> _items = [];
+  int _page = 1;
+  bool _loading = true;
+  bool _hasNext = true;
   Object? _error;
   final _scroll = ScrollController();
 
@@ -2080,7 +2231,8 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
     _loadPage();
     _scroll.addListener(() {
       if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 400 &&
-          _hasNext && !_loading) {
+          _hasNext &&
+          !_loading) {
         _loadPage();
       }
     });
@@ -2094,24 +2246,31 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
 
   Future<void> _loadPage() async {
     if (_loading && _items.isNotEmpty) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       MPages? result;
       switch (widget.type) {
         case _SectionKind.custom:
-          result = await ref.read(getCustomListProvider(
-            source: widget.source,
-            listId: widget.customListId!,
-            page:   _page,
-          ).future);
+          result = await ref.read(
+            getCustomListProvider(
+              source: widget.source,
+              listId: widget.customListId!,
+              page: _page,
+            ).future,
+          );
           break;
         case _SectionKind.popular:
           result = await ref.read(
-              getPopularProvider(source: widget.source, page: _page).future);
+            getPopularProvider(source: widget.source, page: _page).future,
+          );
           break;
         case _SectionKind.latest:
           result = await ref.read(
-              getLatestUpdatesProvider(source: widget.source, page: _page).future);
+            getLatestUpdatesProvider(source: widget.source, page: _page).future,
+          );
           break;
       }
       if (!mounted) return;
@@ -2123,7 +2282,10 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _error = e; _loading = false; });
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
     }
   }
 
@@ -2141,23 +2303,25 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
             child: Row(
               children: [
                 NfCircleIconButton(
-                  icon:  Icons.arrow_back_ios_new_rounded,
+                  icon: Icons.arrow_back_ios_new_rounded,
                   onTap: () => Navigator.of(context).pop(),
-                  size:  20,
+                  size: 20,
                 ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 7),
+                    horizontal: 18,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
-                    color:        Colors.white.withValues(alpha: 0.10),
+                    color: Colors.white.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     widget.title,
                     style: const TextStyle(
-                      color:      Colors.white,
-                      fontSize:   14,
+                      color: Colors.white,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.3,
                     ),
@@ -2165,9 +2329,9 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
                 ),
                 const Spacer(),
                 NfCircleIconButton(
-                  icon:  Icons.tune_rounded,
+                  icon: Icons.tune_rounded,
                   onTap: () {},
-                  size:  20,
+                  size: 20,
                 ),
               ],
             ),
@@ -2179,48 +2343,50 @@ class _WatchSectionPageState extends ConsumerState<_WatchSectionPage> {
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 140,
-                childAspectRatio:   0.65,
-                mainAxisSpacing:    8,
-                crossAxisSpacing:   8,
+                childAspectRatio: 0.65,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
               ),
               itemCount: 12,
               itemBuilder: (_, __) => _NfShimmerPosterTile(),
             )
           : _items.isEmpty && _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_error.toString(),
-                          style: const TextStyle(color: Colors.white60)),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                          onPressed: _loadPage,
-                          child: const Text('Réessayer')),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _error.toString(),
+                    style: const TextStyle(color: Colors.white60),
                   ),
-                )
-              : GridView.builder(
-                  controller: _scroll,
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
-                  gridDelegate:
-                      const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 140,
-                    childAspectRatio:   0.65,
-                    mainAxisSpacing:    8,
-                    crossAxisSpacing:   8,
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _loadPage,
+                    child: const Text('Réessayer'),
                   ),
-                  itemCount: _items.length + (_loading ? 3 : 0),
-                  itemBuilder: (c, i) {
-                    if (i >= _items.length) return _NfShimmerPosterTile();
-                    return MangaImageCardWidget(
-                      getMangaDetail:    _items[i],
-                      source:            widget.source,
-                      itemType:          widget.source.itemType,
-                      isComfortableGrid: false,
-                    );
-                  },
-                ),
+                ],
+              ),
+            )
+          : GridView.builder(
+              controller: _scroll,
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 140,
+                childAspectRatio: 0.65,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+              ),
+              itemCount: _items.length + (_loading ? 3 : 0),
+              itemBuilder: (c, i) {
+                if (i >= _items.length) return _NfShimmerPosterTile();
+                return MangaImageCardWidget(
+                  getMangaDetail: _items[i],
+                  source: widget.source,
+                  itemType: widget.source.itemType,
+                  isComfortableGrid: false,
+                );
+              },
+            ),
     );
   }
 }
@@ -2257,9 +2423,7 @@ class _GoldenDivider extends StatelessWidget {
             width: 5,
             height: 5,
             transform: Matrix4.rotationZ(0.785398), // 45° diamond
-            decoration: const BoxDecoration(
-              color: Color(0xFFE7C66B),
-            ),
+            decoration: const BoxDecoration(color: Color(0xFFE7C66B)),
           ),
         ],
       ),
@@ -2270,13 +2434,10 @@ class _GoldenDivider extends StatelessWidget {
 // ── Category grid page — ALL categories on a clean 2-column grid ────────────
 
 class _CategoryGridPage extends StatelessWidget {
-  final Source                     source;
+  final Source source;
   final List<Map<String, dynamic>> categories;
 
-  const _CategoryGridPage({
-    required this.source,
-    required this.categories,
-  });
+  const _CategoryGridPage({required this.source, required this.categories});
 
   @override
   Widget build(BuildContext context) {
@@ -2290,9 +2451,9 @@ class _CategoryGridPage extends StatelessWidget {
             child: Row(
               children: [
                 NfCircleIconButton(
-                  icon:  Icons.arrow_back_ios_new_rounded,
+                  icon: Icons.arrow_back_ios_new_rounded,
                   onTap: () => Navigator.of(context).pop(),
-                  size:  20,
+                  size: 20,
                 ),
                 const Spacer(),
                 Text(
@@ -2320,11 +2481,11 @@ class _CategoryGridPage extends StatelessWidget {
         ),
         itemCount: categories.length,
         itemBuilder: (_, i) {
-          final cl       = categories[i];
-          final listId   = cl['id']       as String;
-          final listName = cl['name']     as String? ?? listId;
-          final hexColor = cl['color']    as String? ?? '#1E2126';
-          final extImg   = cl['imageUrl'] as String? ?? '';
+          final cl = categories[i];
+          final listId = cl['id'] as String;
+          final listName = cl['name'] as String? ?? listId;
+          final hexColor = cl['color'] as String? ?? '#1E2126';
+          final extImg = cl['imageUrl'] as String? ?? '';
 
           Color fallback;
           try {
@@ -2340,22 +2501,29 @@ class _CategoryGridPage extends StatelessWidget {
             builder: (context, ref, _) {
               var imageUrl = extImg;
               if (imageUrl.isEmpty) {
-                final snap = ref.watch(getCustomListProvider(
-                    source: source, listId: listId, page: 1));
+                final snap = ref.watch(
+                  getCustomListProvider(
+                    source: source,
+                    listId: listId,
+                    page: 1,
+                  ),
+                );
                 imageUrl = snap.maybeWhen(
                   data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
                   orElse: () => '',
                 );
               }
               return GestureDetector(
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => _WatchSectionPage(
-                    source: source,
-                    title: listName,
-                    type: _SectionKind.custom,
-                    customListId: listId,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => _WatchSectionPage(
+                      source: source,
+                      title: listName,
+                      type: _SectionKind.custom,
+                      customListId: listId,
+                    ),
                   ),
-                )),
+                ),
                 child: _CategoryCard(
                   name: listName,
                   imageUrl: imageUrl,
@@ -2419,8 +2587,8 @@ class _CategoryCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     loadStateChanged: (state) =>
                         state.extendedImageLoadState == LoadState.failed
-                            ? ColoredBox(color: fallback)
-                            : null,
+                        ? ColoredBox(color: fallback)
+                        : null,
                   )
                 : ColoredBox(color: fallback),
             DecoratedBox(
@@ -2449,9 +2617,7 @@ class _CategoryCard extends StatelessWidget {
                   fontSize: large ? 15 : 14,
                   fontWeight: FontWeight.w800,
                   height: 1.15,
-                  shadows: const [
-                    Shadow(color: Colors.black87, blurRadius: 7),
-                  ],
+                  shadows: const [Shadow(color: Colors.black87, blurRadius: 7)],
                 ),
               ),
             ),
@@ -2470,18 +2636,19 @@ class _WatchSourcePickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final sources = isar.sources
-        .where()
-        .findAllSync()
-        .where(
-          (s) =>
-              (s.isAdded ?? false) &&
-              (s.isActive ?? false) &&
-              s.itemType == current.itemType,
-        )
-        .where((s) => s.name != 'local')
-        .toList()
-      ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+    final sources =
+        isar.sources
+            .where()
+            .findAllSync()
+            .where(
+              (s) =>
+                  (s.isAdded ?? false) &&
+                  (s.isActive ?? false) &&
+                  s.itemType == current.itemType,
+            )
+            .where((s) => s.name != 'local')
+            .toList()
+          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
 
     return SafeArea(
       top: false,
@@ -2509,8 +2676,11 @@ class _WatchSourcePickerSheet extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                 child: Row(
                   children: [
-                    const Icon(Icons.swap_horiz_rounded,
-                        color: Colors.white70, size: 20),
+                    const Icon(
+                      Icons.swap_horiz_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
@@ -2555,30 +2725,37 @@ class _WatchSourcePickerSheet extends StatelessWidget {
                               onTap: () => Navigator.of(context).pop(candidate),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                                 child: Row(
                                   children: [
                                     Container(
                                       width: 42,
                                       height: 42,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.08),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.08,
+                                        ),
                                         borderRadius: BorderRadius.circular(11),
                                       ),
                                       clipBehavior: Clip.antiAlias,
                                       child: (candidate.iconUrl ?? '').isEmpty
-                                          ? const Icon(Icons.extension_rounded,
-                                              color: Colors.white70)
+                                          ? const Icon(
+                                              Icons.extension_rounded,
+                                              color: Colors.white70,
+                                            )
                                           : ExtendedImage.network(
                                               candidate.iconUrl!,
                                               fit: BoxFit.cover,
                                               loadStateChanged: (state) =>
                                                   state.extendedImageLoadState ==
-                                                          LoadState.failed
-                                                      ? const Icon(
-                                                          Icons.extension_rounded,
-                                                          color: Colors.white70)
-                                                      : null,
+                                                      LoadState.failed
+                                                  ? const Icon(
+                                                      Icons.extension_rounded,
+                                                      color: Colors.white70,
+                                                    )
+                                                  : null,
                                             ),
                                     ),
                                     const SizedBox(width: 12),
@@ -2598,7 +2775,8 @@ class _WatchSourcePickerSheet extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 3),
                                           Text(
-                                            (candidate.lang ?? '').toUpperCase(),
+                                            (candidate.lang ?? '')
+                                                .toUpperCase(),
                                             style: const TextStyle(
                                               color: Colors.white54,
                                               fontSize: 11,
@@ -2609,8 +2787,11 @@ class _WatchSourcePickerSheet extends StatelessWidget {
                                       ),
                                     ),
                                     if (selected)
-                                      Icon(Icons.check_circle_rounded,
-                                          color: cs.primary, size: 21),
+                                      Icon(
+                                        Icons.check_circle_rounded,
+                                        color: cs.primary,
+                                        size: 21,
+                                      ),
                                   ],
                                 ),
                               ),

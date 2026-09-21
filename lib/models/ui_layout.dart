@@ -19,23 +19,26 @@ class UiLayout {
   });
 
   factory UiLayout.fromJson(Map<String, dynamic> json) => UiLayout(
-        schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
-        home: HomeLayout.fromJson(
-            (json['home'] as Map<String, dynamic>?) ?? const {}),
-        browse: json['browse'] != null
-            ? BrowseLayout.fromJson(json['browse'] as Map<String, dynamic>)
-            : null,
-        detail: json['detail'] != null
-            ? DetailLayout.fromJson(json['detail'] as Map<String, dynamic>)
-            : null,
-        player: json['player'] != null
-            ? PlayerLayout.fromJson(json['player'] as Map<String, dynamic>)
-            : null,
-      );
+    schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
+    home: HomeLayout.fromJson(
+      (json['home'] as Map<String, dynamic>?) ?? const {},
+    ),
+    browse: json['browse'] != null
+        ? BrowseLayout.fromJson(json['browse'] as Map<String, dynamic>)
+        : null,
+    detail: json['detail'] != null
+        ? DetailLayout.fromJson(json['detail'] as Map<String, dynamic>)
+        : null,
+    player: json['player'] != null
+        ? PlayerLayout.fromJson(json['player'] as Map<String, dynamic>)
+        : null,
+  );
 
   /// No custom home sections — extension uses standard Popular/Latest/Search.
-  static const UiLayout empty =
-      UiLayout(schemaVersion: 1, home: HomeLayout(sections: []));
+  static const UiLayout empty = UiLayout(
+    schemaVersion: 1,
+    home: HomeLayout(sections: []),
+  );
 }
 
 /// Home screen layout: ordered list of sections.
@@ -44,10 +47,10 @@ class HomeLayout {
   const HomeLayout({required this.sections});
 
   factory HomeLayout.fromJson(Map<String, dynamic> json) => HomeLayout(
-        sections: ((json['sections'] as List<dynamic>?) ?? [])
-            .map((e) => UiSection.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+    sections: ((json['sections'] as List<dynamic>?) ?? [])
+        .map((e) => UiSection.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 /// Browse screen layout overrides.
@@ -59,18 +62,16 @@ class BrowseLayout {
   const BrowseLayout({this.popular, this.latest, this.search});
 
   factory BrowseLayout.fromJson(Map<String, dynamic> json) => BrowseLayout(
-        popular: json['popular'] != null
-            ? SectionPresentation.fromJson(
-                json['popular'] as Map<String, dynamic>)
-            : null,
-        latest: json['latest'] != null
-            ? SectionPresentation.fromJson(
-                json['latest'] as Map<String, dynamic>)
-            : null,
-        search: json['search'] != null
-            ? SearchLayout.fromJson(json['search'] as Map<String, dynamic>)
-            : null,
-      );
+    popular: json['popular'] != null
+        ? SectionPresentation.fromJson(json['popular'] as Map<String, dynamic>)
+        : null,
+    latest: json['latest'] != null
+        ? SectionPresentation.fromJson(json['latest'] as Map<String, dynamic>)
+        : null,
+    search: json['search'] != null
+        ? SearchLayout.fromJson(json['search'] as Map<String, dynamic>)
+        : null,
+  );
 }
 
 class SectionPresentation {
@@ -78,8 +79,11 @@ class SectionPresentation {
   final int? columns;
   final String? cardStyle;
 
-  const SectionPresentation(
-      {required this.component, this.columns, this.cardStyle});
+  const SectionPresentation({
+    required this.component,
+    this.columns,
+    this.cardStyle,
+  });
 
   factory SectionPresentation.fromJson(Map<String, dynamic> json) =>
       SectionPresentation(
@@ -96,12 +100,11 @@ class SearchLayout {
   const SearchLayout({this.results, this.filters});
 
   factory SearchLayout.fromJson(Map<String, dynamic> json) => SearchLayout(
-        results: json['results'] != null
-            ? SectionPresentation.fromJson(
-                json['results'] as Map<String, dynamic>)
-            : null,
-        filters: json['filters'] as String?,
-      );
+    results: json['results'] != null
+        ? SectionPresentation.fromJson(json['results'] as Map<String, dynamic>)
+        : null,
+    filters: json['filters'] as String?,
+  );
 }
 
 class DetailLayout {
@@ -109,14 +112,17 @@ class DetailLayout {
   final String? episodeList;
   final bool showRecommendations;
 
-  const DetailLayout(
-      {this.hero, this.episodeList, this.showRecommendations = true});
+  const DetailLayout({
+    this.hero,
+    this.episodeList,
+    this.showRecommendations = true,
+  });
 
   factory DetailLayout.fromJson(Map<String, dynamic> json) => DetailLayout(
-        hero: json['hero'] as String?,
-        episodeList: json['episodeList'] as String?,
-        showRecommendations: json['showRecommendations'] as bool? ?? true,
-      );
+    hero: json['hero'] as String?,
+    episodeList: json['episodeList'] as String?,
+    showRecommendations: json['showRecommendations'] as bool? ?? true,
+  );
 }
 
 class PlayerLayout {
@@ -138,7 +144,11 @@ class UiSection {
 
   /// Visual component:
   /// 'banner' | 'carousel' | 'ranked' | 'compactRow' | 'categoryPills' |
-  /// 'creatorRow' | 'grid' | 'newHot' | 'feed'
+  /// 'creatorRow' | 'grid' | 'newHot' | 'feed' plus the reusable curated
+  /// presentations: 'spotlight', 'doubleFeature', 'editorialSplit',
+  /// 'landscapeStacked', 'backdropWide', 'metadataPoster', 'statusPoster',
+  /// 'discoverGrid', 'studioExplorer', 'universeExplorer' and
+  /// 'collectionTimeline'.
   final String component;
 
   final String? title;
@@ -170,50 +180,60 @@ class UiSection {
   });
 
   factory UiSection.fromJson(Map<String, dynamic> json) => UiSection(
-        id: json['id'] as String,
-        component: json['component'] as String? ?? 'carousel',
-        title: json['title'] as String?,
-        icon: json['icon'] as String?,
-        accent: json['accent'] as String?,
-        columns: (json['columns'] as num?)?.toInt(),
-        cardStyle: json['cardStyle'] as String?,
-        seeAll: json['seeAll'] as bool? ?? false,
-        paginated: json['paginated'] as bool? ?? false,
-        requiresAuth: json['requiresAuth'] as bool? ?? false,
-      );
+    id: json['id'] as String,
+    component: json['component'] as String? ?? 'carousel',
+    title: json['title'] as String?,
+    icon: json['icon'] as String?,
+    accent: json['accent'] as String?,
+    columns: (json['columns'] as num?)?.toInt(),
+    cardStyle: json['cardStyle'] as String?,
+    seeAll: json['seeAll'] as bool? ?? false,
+    paginated: json['paginated'] as bool? ?? false,
+    requiresAuth: json['requiresAuth'] as bool? ?? false,
+  );
 
   // ── Legacy bridge ─────────────────────────────────────────────────────────
   // Both WatchHomeScreen and MangaHomeScreen still use Map<String,dynamic>
   // internally. This bridge lets us wire the new system with zero widget changes.
   Map<String, dynamic> toLegacyMap() => {
-        'id': id,
-        'component': component,
-        'layout': _toLegacyLayout(component),
-        'name': title,
-        'icon': icon,
-        'color': accent,
-        if (columns != null) 'columns': columns,
-        if (cardStyle != null) 'cardStyle': cardStyle,
-        if (seeAll) 'seeAll': id,
-      };
+    'id': id,
+    'component': component,
+    'layout': _toLegacyLayout(component),
+    'name': title,
+    'icon': icon,
+    'color': accent,
+    if (columns != null) 'columns': columns,
+    if (cardStyle != null) 'cardStyle': cardStyle,
+    if (seeAll) 'seeAll': id,
+  };
 
   static String _toLegacyLayout(String c) => switch (c) {
-        'banner'        => 'banner',
-        'hero'          => 'banner',
-        'carousel'      => 'spotlight',
-        'spotlight'     => 'spotlight',
-        'ranked'        => 'ranked',
-        'compactRow'    => 'compact',
-        'compact'       => 'compact',
-        'grid'          => 'catalogue',
-        'catalogue'     => 'catalogue',
-        'categoryPills' => 'category',
-        'category'      => 'category',
-        'newHot'        => 'new_hot',
-        'new_hot'       => 'new_hot',
-        'feed'          => 'spotlight',
-        'masonry'       => 'masonry',
-        'creatorRow'    => 'ranked',
-        _               => 'spotlight',
-      };
+    'banner' => 'banner',
+    'hero' => 'banner',
+    'carousel' => 'spotlight',
+    'spotlight' => 'spotlight',
+    'ranked' => 'ranked',
+    'compactRow' => 'compact',
+    'compact' => 'compact',
+    'grid' => 'catalogue',
+    'catalogue' => 'catalogue',
+    'categoryPills' => 'category',
+    'category' => 'category',
+    'newHot' => 'new_hot',
+    'new_hot' => 'new_hot',
+    'feed' => 'spotlight',
+    'masonry' => 'masonry',
+    'creatorRow' => 'ranked',
+    'doubleFeature' => 'doubleFeature',
+    'editorialSplit' => 'editorialSplit',
+    'landscapeStacked' => 'landscapeStacked',
+    'backdropWide' => 'backdropWide',
+    'metadataPoster' => 'metadataPoster',
+    'statusPoster' => 'statusPoster',
+    'discoverGrid' => 'discoverGrid',
+    'studioExplorer' => 'studioExplorer',
+    'universeExplorer' => 'universeExplorer',
+    'collectionTimeline' => 'collectionTimeline',
+    _ => 'spotlight',
+  };
 }
