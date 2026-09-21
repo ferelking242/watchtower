@@ -1,5 +1,6 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
 
@@ -51,7 +52,7 @@ class TmdbPosterCard extends StatelessWidget {
                 else
                   Container(
                     color: cs.surfaceContainerHighest,
-                    child: const Icon(Icons.movie_creation_outlined),
+                    child: const Icon(Broken.video),
                   ),
                 // Bottom gradient
                 const Positioned.fill(
@@ -84,7 +85,7 @@ class TmdbPosterCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.star_rounded,
+                            Broken.star,
                             size: 10,
                             color: Colors.amber,
                           ),
@@ -224,7 +225,7 @@ class TmdbLandscapeCard extends StatelessWidget {
                       ),
                     ),
                     child: const Icon(
-                      Icons.play_arrow_rounded,
+                      Broken.play,
                       color: Colors.white,
                       size: 22,
                     ),
@@ -255,7 +256,7 @@ class TmdbLandscapeCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
-                              Icons.star_rounded,
+                              Broken.star,
                               size: 12,
                               color: Colors.amberAccent,
                             ),
@@ -570,7 +571,7 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
                               Row(
                                 children: [
                                   const Icon(
-                                    Icons.star_rounded,
+                                    Broken.star,
                                     size: 14,
                                     color: Colors.amber,
                                   ),

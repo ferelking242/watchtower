@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 /// Visual primitives copied from FlixQuest's app_ui_components.dart.
 /// Data and navigation remain Watchtower-owned.
@@ -234,7 +235,7 @@ class AppFeedOverlayHeader extends StatelessWidget {
                   ),
                 IconButton(
                   onPressed: onSearchPressed,
-                  icon: const Icon(Icons.search_rounded),
+                  icon: const Icon(Broken.search_normal),
                 ),
               ],
             ),
@@ -274,7 +275,19 @@ class AppSectionHeader extends StatelessWidget {
             ),
           ),
           if (actionLabel != null)
-            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+            TextButton.icon(
+              onPressed: onAction,
+              icon: Text(
+                actionLabel == 'View all' || actionLabel == 'All >'
+                    ? 'All'
+                    : actionLabel!,
+              ),
+              label: const Icon(Broken.arrow_right_3, size: 17),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
         ],
       ),
     );
@@ -373,7 +386,16 @@ class AppGenreTile extends StatelessWidget {
                 },
               )
             else
-              ColoredBox(color: colors.surfaceContainerHigh),
+              ColoredBox(
+                color: colors.surfaceContainerHigh,
+                child: Center(
+                  child: Icon(
+                    Broken.video,
+                    color: Colors.white.withValues(alpha: .42),
+                    size: 27,
+                  ),
+                ),
+              ),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -402,7 +424,7 @@ class AppGenreTile extends StatelessWidget {
                     ),
                   ),
                   const Icon(
-                    Icons.chevron_right_rounded,
+                    Broken.arrow_right_3,
                     size: 18,
                     color: Colors.white70,
                   ),
@@ -642,10 +664,10 @@ class AppGenreGridShimmer extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: isTv ? 'TV genres' : 'Genres',
-          actionLabel: 'View all',
+          actionLabel: 'All >',
         ),
         SizedBox(
-          height: 158,
+          height: 164,
           child: GridView.builder(
             padding: EdgeInsets.symmetric(
               horizontal: AppUI.pagePadding(context),
@@ -653,10 +675,9 @@ class AppGenreGridShimmer extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisExtent: 184,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
+              crossAxisCount: 1,
+              mainAxisExtent: 154,
+              mainAxisSpacing: 12,
             ),
             itemCount: 8,
             itemBuilder: (_, __) => const AppGenreTileShimmer(),
@@ -950,7 +971,7 @@ class AppEmptyState extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  icon ?? Icons.movie_filter_rounded,
+                  icon ?? Broken.video,
                   size: 52,
                   color: colors.primary,
                 ),
@@ -1020,9 +1041,9 @@ class FlixQuestMediaLoading extends StatelessWidget {
               title: title,
               onSearchPressed: onSearchPressed,
               actionLabel: 'Live TV',
-              actionIcon: Icons.podcasts_rounded,
+              actionIcon: Broken.radio,
               onActionPressed: onLiveTVPressed,
-              utilityIcon: Icons.bookmark_border_rounded,
+              utilityIcon: Broken.bookmark,
               utilityTooltip: 'Bookmarks',
               onUtilityPressed: onBookmarksPressed,
             ),
@@ -1037,7 +1058,7 @@ class FlixQuestMediaLoading extends StatelessWidget {
               'Trending this week',
               'Top rated',
             ]) ...[
-              AppSectionHeader(title: sectionTitle, actionLabel: 'View all'),
+              AppSectionHeader(title: sectionTitle, actionLabel: 'All >'),
               SizedBox(
                 height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
                 child: const AppMediaRowShimmer(),
@@ -1047,7 +1068,7 @@ class FlixQuestMediaLoading extends StatelessWidget {
                 in isSeries
                     ? const ['Airing today', 'On the air']
                     : const ['Now playing', 'Upcoming']) ...[
-              AppSectionHeader(title: sectionTitle, actionLabel: 'View all'),
+              AppSectionHeader(title: sectionTitle, actionLabel: 'All >'),
               const SizedBox(height: 158, child: AppLandscapeRowShimmer()),
             ],
             if (!isSeries) ...[

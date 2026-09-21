@@ -1,18 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+
 class LiveTvScreen extends StatelessWidget {
   const LiveTvScreen({super.key});
 
   static const _channels = [
-    _LiveChannel('France 24', 'Actualités internationales', Icons.public_rounded,
-        'https://www.france24.com/fr/direct'),
-    _LiveChannel('Al Jazeera', 'News en direct', Icons.language_rounded,
-        'https://www.aljazeera.com/live'),
-    _LiveChannel('NASA TV', 'Science et espace', Icons.rocket_launch_rounded,
-        'https://www.nasa.gov/nasatv/'),
-    _LiveChannel('DW', 'Actualités européennes', Icons.travel_explore_rounded,
-        'https://www.dw.com/en/live-tv/s-100825'),
+    _LiveChannel(
+      'France 24',
+      'Actualités internationales',
+      Broken.people,
+      'https://www.france24.com/fr/direct',
+    ),
+    _LiveChannel(
+      'Al Jazeera',
+      'News en direct',
+      Broken.global,
+      'https://www.aljazeera.com/live',
+    ),
+    _LiveChannel(
+      'NASA TV',
+      'Science et espace',
+      Broken.video,
+      'https://www.nasa.gov/nasatv/',
+    ),
+    _LiveChannel(
+      'DW',
+      'Actualités européennes',
+      Broken.global,
+      'https://www.dw.com/en/live-tv/s-100825',
+    ),
   ];
 
   @override
@@ -38,19 +56,33 @@ class LiveTvScreen extends StatelessWidget {
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.live_tv_rounded, color: Colors.white, size: 30),
+                Icon(Broken.video, color: Colors.white, size: 30),
                 SizedBox(height: 14),
-                Text('Regarder en direct',
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                Text(
+                  'Regarder en direct',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 SizedBox(height: 6),
-                Text('Accédez aux pages officielles des chaînes depuis Watchtower.',
-                    style: TextStyle(color: Colors.white70, height: 1.4)),
+                Text(
+                  'Accédez aux pages officielles des chaînes depuis Watchtower.',
+                  style: TextStyle(color: Colors.white70, height: 1.4),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          const Text('Chaînes disponibles',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+          const Text(
+            'Chaînes disponibles',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: 12),
           ..._channels.map((channel) => _ChannelTile(channel: channel)),
         ],
@@ -75,7 +107,8 @@ class _ChannelTile extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     final uri = Uri.parse(channel.url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && context.mounted) {
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Impossible d’ouvrir la chaîne')),
       );
@@ -93,9 +126,18 @@ class _ChannelTile extends StatelessWidget {
           backgroundColor: const Color(0xFFE50914).withValues(alpha: 0.18),
           child: Icon(channel.icon, color: const Color(0xFFFF5A5F)),
         ),
-        title: Text(channel.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        subtitle: Text(channel.description, style: const TextStyle(color: Colors.white60)),
-        trailing: const Icon(Icons.open_in_new_rounded, color: Colors.white54),
+        title: Text(
+          channel.name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Text(
+          channel.description,
+          style: const TextStyle(color: Colors.white60),
+        ),
+        trailing: const Icon(Broken.arrow_right_3, color: Colors.white54),
         onTap: () => _open(context),
       ),
     );

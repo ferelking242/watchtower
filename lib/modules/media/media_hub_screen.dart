@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
@@ -29,9 +30,7 @@ class FlixMediaHomeScreen extends ConsumerWidget {
           isSeries: !isMovies,
           onSearchPressed: () => context.push('/flixSearch'),
           onLiveTVPressed: () => context.push('/liveTv'),
-          onBookmarksPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Liste locale des favoris')),
-          ),
+          onBookmarksPressed: () => context.push('/Library'),
           onRefresh: () async => ref.invalidate(tmdbHomeProvider),
         ),
         error: (error, _) => _MediaError(
@@ -46,6 +45,7 @@ class FlixMediaHomeScreen extends ConsumerWidget {
     );
   }
 }
+
 class _MediaHomeBody extends StatelessWidget {
   final MediaHubKind kind;
   final TmdbHome home;
@@ -106,6 +106,7 @@ class _MediaHomeBody extends StatelessWidget {
     );
   }
 }
+
 class _MediaHero extends StatelessWidget {
   final String title;
   final TmdbMedia? media;
@@ -178,7 +179,7 @@ class _MediaHero extends StatelessWidget {
                   const SizedBox(height: 18),
                   FilledButton.icon(
                     onPressed: onOpen,
-                    icon: const Icon(Icons.info_outline_rounded),
+                    icon: const Icon(Broken.info_circle),
                     label: const Text('Voir le détail'),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFFE50914),
@@ -310,6 +311,7 @@ class _MediaRow extends StatelessWidget {
     );
   }
 }
+
 class _MediaError extends StatelessWidget {
   final String title;
   final Object error;
@@ -329,7 +331,7 @@ class _MediaError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, color: Colors.white54, size: 44),
+            const Icon(Broken.wifi, color: Colors.white54, size: 44),
             const SizedBox(height: 14),
             Text(
               '$title est temporairement indisponible',

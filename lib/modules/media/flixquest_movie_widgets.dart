@@ -4,9 +4,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'flixquest_app_ui_components.dart';
+import 'tmdb_genres_screen.dart';
 
 /// FlixQuest's original Movies home composition, adapted only at the
 /// Watchtower data and navigation boundaries.
@@ -28,7 +30,6 @@ class MainMoviesDisplay extends StatefulWidget {
 
 class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
   final ScrollController _feedController = ScrollController();
-  final Set<int> _bookmarkedMovieIds = <int>{};
   bool _showCompactHeader = false;
 
   @override
@@ -54,12 +55,8 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
     context.push('/flixMediaDetail', extra: media);
   }
 
-  void _toggleBookmark(TmdbMedia media) {
-    setState(() {
-      if (!_bookmarkedMovieIds.add(media.id)) {
-        _bookmarkedMovieIds.remove(media.id);
-      }
-    });
+  void _openLibrary() {
+    context.push('/Library');
   }
 
   @override
@@ -73,11 +70,7 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
   @override
   Widget build(BuildContext context) {
     final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
-    final openBookmarks =
-        widget.onBookmarksPressed ??
-        () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Liste locale des favoris')),
-        );
+    final openLibrary = widget.onBookmarksPressed ?? _openLibrary;
     final openLiveTv = () => context.push('/liveTv');
 
     return Stack(
@@ -93,11 +86,9 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
               SliverToBoxAdapter(
                 child: DiscoverMovies(
                   movies: widget.home.trendingMovies,
-                  bookmarkedMovieIds: _bookmarkedMovieIds,
                   onSearchPressed: search,
                   onLiveTVPressed: openLiveTv,
-                  onBookmarksPressed: openBookmarks,
-                  onBookmarkToggled: _toggleBookmark,
+                  onLibraryPressed: openLibrary,
                   onMoviePressed: _openMedia,
                 ),
               ),
@@ -179,11 +170,11 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                   title: 'Movies',
                   onSearchPressed: search,
                   actionLabel: 'Live TV',
-                  actionIcon: Icons.podcasts_rounded,
+                  actionIcon: Broken.radio,
                   onActionPressed: openLiveTv,
-                  utilityIcon: Icons.bookmark_border_rounded,
-                  utilityTooltip: 'Bookmarks',
-                  onUtilityPressed: openBookmarks,
+                  utilityIcon: Broken.bookmark,
+                  utilityTooltip: 'Library',
+                  onUtilityPressed: openLibrary,
                 ),
               ),
             ),
@@ -213,7 +204,6 @@ class MainSeriesDisplay extends StatefulWidget {
 
 class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
   final ScrollController _feedController = ScrollController();
-  final Set<int> _bookmarkedIds = <int>{};
   bool _showCompactHeader = false;
 
   @override
@@ -239,10 +229,8 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
   void _openMedia(TmdbMedia media) =>
       context.push('/flixMediaDetail', extra: media);
 
-  void _toggleBookmark(TmdbMedia media) {
-    setState(() {
-      if (!_bookmarkedIds.add(media.id)) _bookmarkedIds.remove(media.id);
-    });
+  void _openLibrary() {
+    context.push('/Library');
   }
 
   @override
@@ -256,11 +244,7 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
   @override
   Widget build(BuildContext context) {
     final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
-    final bookmarks =
-        widget.onBookmarksPressed ??
-        () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Liste locale des favoris')),
-        );
+    final openLibrary = widget.onBookmarksPressed ?? _openLibrary;
     final liveTv = () => context.push('/liveTv');
 
     return Stack(
@@ -274,11 +258,9 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
             SliverToBoxAdapter(
               child: DiscoverMovies(
                 movies: widget.home.trendingTv,
-                bookmarkedMovieIds: _bookmarkedIds,
                 onSearchPressed: search,
                 onLiveTVPressed: liveTv,
-                onBookmarksPressed: bookmarks,
-                onBookmarkToggled: _toggleBookmark,
+                onLibraryPressed: openLibrary,
                 onMoviePressed: _openMedia,
               ),
             ),
@@ -344,11 +326,11 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                   title: 'Series',
                   onSearchPressed: search,
                   actionLabel: 'Live TV',
-                  actionIcon: Icons.podcasts_rounded,
+                  actionIcon: Broken.radio,
                   onActionPressed: liveTv,
-                  utilityIcon: Icons.bookmark_border_rounded,
-                  utilityTooltip: 'Bookmarks',
-                  onUtilityPressed: bookmarks,
+                  utilityIcon: Broken.bookmark,
+                  utilityTooltip: 'Library',
+                  onUtilityPressed: openLibrary,
                 ),
               ),
             ),
@@ -364,21 +346,17 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
 class DiscoverMovies extends StatelessWidget {
   const DiscoverMovies({
     required this.movies,
-    required this.bookmarkedMovieIds,
     required this.onSearchPressed,
     required this.onLiveTVPressed,
-    required this.onBookmarksPressed,
-    required this.onBookmarkToggled,
+    required this.onLibraryPressed,
     required this.onMoviePressed,
     super.key,
   });
 
   final List<TmdbMedia> movies;
-  final Set<int> bookmarkedMovieIds;
   final VoidCallback? onSearchPressed;
   final VoidCallback? onLiveTVPressed;
-  final VoidCallback? onBookmarksPressed;
-  final ValueChanged<TmdbMedia> onBookmarkToggled;
+  final VoidCallback onLibraryPressed;
   final ValueChanged<TmdbMedia> onMoviePressed;
 
   @override
@@ -399,7 +377,6 @@ class DiscoverMovies extends StatelessWidget {
               itemBuilder: (context, index) {
                 final movie = heroMovies[index];
                 final imagePath = movie.bannerImage ?? movie.bestCover;
-                final isBookmarked = bookmarkedMovieIds.contains(movie.id);
                 return Stack(
                   fit: StackFit.expand,
                   children: [
@@ -439,7 +416,7 @@ class DiscoverMovies extends StatelessWidget {
                                 width: 28,
                                 height: 28,
                                 placeholderBuilder: (_) => const Icon(
-                                  Icons.movie_rounded,
+                                  Broken.video,
                                   color: Colors.white,
                                   size: 28,
                                 ),
@@ -449,16 +426,9 @@ class DiscoverMovies extends StatelessWidget {
                                 _HeroLiveButton(onPressed: onLiveTVPressed!),
                                 const SizedBox(width: 8),
                               ],
-                              _HeroIconButton(
-                                icon: isBookmarked
-                                    ? Icons.bookmark
-                                    : Icons.bookmark_border,
-                                tooltip: 'Bookmarks',
-                                onPressed: () => onBookmarkToggled(movie),
-                              ),
                               const SizedBox(width: 8),
                               _HeroIconButton(
-                                icon: Icons.search_rounded,
+                                icon: Broken.search_normal,
                                 onPressed: onSearchPressed,
                               ),
                             ],
@@ -479,49 +449,58 @@ class DiscoverMovies extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 30,
+                              fontSize: 32,
                               height: 1.05,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            [
-                              if ((movie.releaseDate ?? '').length >= 4)
-                                movie.releaseDate!.substring(0, 4),
+                          Wrap(
+                            spacing: 7,
+                            runSpacing: 6,
+                            children: [
+                              if ((movie.releaseDate ??
+                                          movie.firstAirDate ??
+                                          '')
+                                      .length >=
+                                  4)
+                                _HeroMetaChip(
+                                  label:
+                                      (movie.releaseDate ?? movie.firstAirDate!)
+                                          .substring(0, 4),
+                                ),
                               if (movie.voteAverage != null)
-                                '★ ${movie.voteAverage!.toStringAsFixed(1)}',
-                              if ((movie.originalLanguage ?? '').isNotEmpty)
-                                movie.originalLanguage!.toUpperCase(),
-                            ].join('  •  '),
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
+                                _HeroMetaChip(
+                                  icon: Broken.star,
+                                  label: movie.voteAverage!.toStringAsFixed(1),
+                                ),
+                              _HeroMetaChip(
+                                label: movie.mediaType == 'movie'
+                                    ? 'FILM'
+                                    : 'SÉRIE',
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 18),
+                          if (movie.overview?.isNotEmpty == true) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              movie.overview!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                height: 1.3,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
                           Row(
                             children: [
-                              FilledButton.icon(
-                                onPressed: () => onMoviePressed(movie),
-                                icon: const Icon(Icons.play_arrow_rounded),
-                                label: const Text('Watch now'),
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
                               OutlinedButton.icon(
-                                onPressed: () => onBookmarkToggled(movie),
-                                icon: Icon(
-                                  isBookmarked
-                                      ? Icons.check_rounded
-                                      : Icons.add_rounded,
-                                ),
-                                label: const Text('Bookmark'),
+                                onPressed: onLibraryPressed,
+                                icon: const Icon(Broken.bookmark),
+                                label: const Text('Library'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.white,
                                   side: const BorderSide(color: Colors.white70),
@@ -534,6 +513,11 @@ class DiscoverMovies extends StatelessWidget {
                             ],
                           ),
                         ],
+                      ),
+                    ),
+                    Center(
+                      child: _HeroWatchButton(
+                        onPressed: () => onMoviePressed(movie),
                       ),
                     ),
                   ],
@@ -569,6 +553,90 @@ class _HeroIconButton extends StatelessWidget {
   }
 }
 
+class _HeroWatchButton extends StatelessWidget {
+  const _HeroWatchButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: .34),
+      borderRadius: BorderRadius.circular(28),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 11),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.white.withValues(alpha: .74)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .28),
+                blurRadius: 18,
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Broken.play, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Watch now',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroMetaChip extends StatelessWidget {
+  const _HeroMetaChip({required this.label, this.icon});
+
+  final String label;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: Colors.white.withValues(alpha: .14)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: Colors.amberAccent, size: 12),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HeroLiveButton extends StatelessWidget {
   const _HeroLiveButton({required this.onPressed});
 
@@ -587,7 +655,7 @@ class _HeroLiveButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.podcasts_rounded, color: Colors.white, size: 19),
+              Icon(Broken.radio, color: Colors.white, size: 19),
               SizedBox(width: 7),
               Text(
                 'Live TV',
@@ -624,7 +692,7 @@ class ScrollingMovies extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: 'View all',
+          actionLabel: 'All >',
           onAction: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -686,7 +754,7 @@ class ScrollingLandscapeMovies extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: discoverPath == null ? null : 'View all',
+          actionLabel: discoverPath == null ? null : 'All >',
           onAction: discoverPath == null
               ? null
               : () => Navigator.push(
@@ -835,11 +903,21 @@ class GenreListGrid extends StatelessWidget {
           children: [
             AppSectionHeader(
               title: isTv ? 'TV genres' : 'Genres',
-              actionLabel: 'View all',
-              onAction: () => _showAllGenres(context, genres),
+              actionLabel: 'All >',
+              onAction: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TmdbGenresScreen(
+                    title: isTv ? 'TV genres' : 'Genres',
+                    genres: genres,
+                    imageSource: imageSource,
+                    isTv: isTv,
+                  ),
+                ),
+              ),
             ),
             SizedBox(
-              height: 126,
+              height: 164,
               child: GridView.builder(
                 padding: EdgeInsets.symmetric(
                   horizontal: AppUI.pagePadding(context),
@@ -847,23 +925,27 @@ class GenreListGrid extends StatelessWidget {
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisExtent: 184,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
+                  crossAxisCount: 1,
+                  mainAxisExtent: 154,
+                  mainAxisSpacing: 12,
                 ),
                 itemCount: genres.length,
                 itemBuilder: (context, index) {
                   final genre = genres[index];
-                  final image = imageSource
+                  final genreImages = imageSource
                       .where((movie) => movie.genreIds.contains(genre.id))
                       .map((movie) => movie.bannerImage ?? movie.bestCover)
-                      .firstWhere((url) => url != null, orElse: () => null);
+                      .whereType<String>()
+                      .toList(growable: false);
+                  final image = genreImages.isNotEmpty
+                      ? genreImages.first
+                      : imageSource.isEmpty
+                      ? null
+                      : (imageSource[index % imageSource.length].bannerImage ??
+                            imageSource[index % imageSource.length].bestCover);
                   return AppGenreTile(
                     label: genre.name,
-                    // Prefer a streamed genre animation when one is available,
-                    // then fall back to a real TMDB backdrop from this feed.
-                    imageUrl: _genreGifUrl(genre.id) ?? image,
+                    imageUrl: image,
                     fallbackImageUrl: image,
                     onTap: () => Navigator.push(
                       context,
@@ -884,66 +966,6 @@ class GenreListGrid extends StatelessWidget {
         );
       },
     );
-  }
-
-  void _showAllGenres(BuildContext context, List<TmdbGenre> genres) {
-    final parentContext = context;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          children: [
-            Text(
-              isTv ? 'TV genres' : 'Genres',
-              style: Theme.of(sheetContext).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final genre in genres)
-                  ActionChip(
-                    label: Text(genre.name),
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      Navigator.push(
-                        parentContext,
-                        MaterialPageRoute(
-                          builder: (_) => TmdbMoviesListScreen(
-                            title: genre.name,
-                            path:
-                                '/discover/${isTv ? 'tv' : 'movie'}?with_genres=${genre.id}',
-                            isTv: isTv,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String? _genreGifUrl(int id) {
-    // These are public Giphy CDN URLs. Nothing is bundled in the application;
-    // unavailable animations naturally fall back to the TMDB image above.
-    const gifs = <int, String>{
-      28: 'https://media.giphy.com/media/JwaENCLHyE7cn0OvhT/giphy.gif',
-      12: 'https://media.giphy.com/media/3o7aD2saalBq0Q6Fag/giphy.gif',
-      16: 'https://media.giphy.com/media/26tn33aiTi1jkl6H6/giphy.gif',
-      27: 'https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif',
-      35: 'https://media.giphy.com/media/3o6Zt6D8P3RrL3nQ5G/giphy.gif',
-      878: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
-      10749: 'https://media.giphy.com/media/26FLdmIp6wJr91JAI/giphy.gif',
-      53: 'https://media.giphy.com/media/3o7TKsQ8UQJpY2sQfK/giphy.gif',
-    };
-    return gifs[id];
   }
 }
 
@@ -1127,7 +1149,7 @@ class _StreamingServiceCard extends StatelessWidget {
                 ),
               ),
               child: service.logoUrl == null
-                  ? const Icon(Icons.live_tv_rounded, color: Colors.white54)
+                  ? const Icon(Broken.video, color: Colors.white54)
                   : ExtendedImage.network(
                       service.logoUrl!,
                       fit: BoxFit.contain,
@@ -1284,8 +1306,8 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
       case 'title':
         items.sort(
           (a, b) => a.displayTitle.toLowerCase().compareTo(
-                b.displayTitle.toLowerCase(),
-              ),
+            b.displayTitle.toLowerCase(),
+          ),
         );
         break;
     }
@@ -1324,13 +1346,13 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
         leading: IconButton(
           tooltip: isFrench ? 'Retour' : 'Back',
           onPressed: () => context.pop(),
-          icon: const Icon(Icons.chevron_left_rounded),
+          icon: const Icon(Broken.arrow_left),
         ),
         actions: [
           IconButton(
             tooltip: isFrench ? 'Filtrer' : 'Filter',
             onPressed: _chooseSort,
-            icon: const Icon(Icons.tune_rounded),
+            icon: const Icon(Broken.filter),
           ),
         ],
       ),
@@ -1356,14 +1378,14 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
                   child: GridView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: AppUI.mediaGridColumns(context),
-                          childAspectRatio:
-                              AppUI.mediaGridChildAspectRatio(context),
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 12,
-                        ),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: AppUI.mediaGridColumns(context),
+                      childAspectRatio: AppUI.mediaGridChildAspectRatio(
+                        context,
+                      ),
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 12,
+                    ),
                     itemCount: movies.length + (_loading ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index >= movies.length) {
@@ -1403,17 +1425,15 @@ class _SortChoice extends StatelessWidget {
       onTap: onTap,
       leading: Icon(
         value == 'popular'
-            ? Icons.local_fire_department_rounded
+            ? Broken.star
             : value == 'rating'
-            ? Icons.star_rounded
-            : Icons.sort_by_alpha_rounded,
+            ? Broken.star
+            : Broken.sort,
         color: Colors.white70,
       ),
       title: Text(title, style: const TextStyle(color: Colors.white)),
       trailing: Icon(
-        selected == value
-            ? Icons.radio_button_checked_rounded
-            : Icons.radio_button_unchecked_rounded,
+        selected == value ? Broken.tick_circle : Broken.radio,
         color: selected == value ? Colors.orange : Colors.white38,
       ),
     );
@@ -1432,7 +1452,7 @@ class _CatalogError extends StatelessWidget {
       child: AppEmptyState(
         title: 'Catalogue indisponible',
         message: 'Impossible de charger $title pour le moment.',
-        icon: Icons.wifi_off_rounded,
+        icon: Broken.wifi,
         actionLabel: 'Réessayer',
         onAction: onRetry,
       ),
@@ -1510,7 +1530,9 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
     final prefs = await SharedPreferences.getInstance();
     final next = <String>[
       query,
-      ..._recentSearches.where((item) => item.toLowerCase() != query.toLowerCase()),
+      ..._recentSearches.where(
+        (item) => item.toLowerCase() != query.toLowerCase(),
+      ),
     ].take(12).toList(growable: false);
     await prefs.setStringList(_recentSearchesKey, next);
     if (mounted) {
@@ -1562,7 +1584,7 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
                     IconButton(
                       tooltip: copy.back,
                       onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
+                      icon: const Icon(Broken.arrow_left),
                     ),
                     Expanded(
                       child: TextField(
@@ -1572,7 +1594,7 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
                         onSubmitted: _search,
                         decoration: InputDecoration(
                           hintText: copy.hint,
-                          prefixIcon: const Icon(Icons.search_rounded),
+                          prefixIcon: const Icon(Broken.search_normal),
                           suffixIcon: _controller.text.isEmpty
                               ? null
                               : IconButton(
@@ -1581,17 +1603,16 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
                                     _controller.clear();
                                     setState(() => _query = '');
                                   },
-                                  icon: const Icon(Icons.close_rounded),
+                                  icon: const Icon(Broken.close_circle),
                                 ),
                           filled: true,
                           fillColor: Colors.transparent,
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                                  .withValues(alpha: .8),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: .8),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -1609,7 +1630,7 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
                     IconButton(
                       tooltip: copy.search,
                       onPressed: _search,
-                      icon: const Icon(Icons.search_rounded),
+                      icon: const Icon(Broken.search_normal),
                     ),
                   ],
                 ),
@@ -1682,7 +1703,7 @@ class _TmdbSearchResults extends StatelessWidget {
           return const AppEmptyState(
             title: 'Aucun résultat',
             message: 'Aucun film ou série ne correspond à cette recherche.',
-            icon: Icons.search_off_rounded,
+            icon: Broken.search_status,
           );
         }
         final items = snapshot.data!;
@@ -1742,7 +1763,7 @@ class _TmdbPeopleResults extends StatelessWidget {
                       ? null
                       : NetworkImage(person.profileUrl!),
                   child: person.profileUrl == null
-                      ? const Icon(Icons.person_outline_rounded)
+                      ? const Icon(Broken.people)
                       : null,
                 ),
                 title: Text(
@@ -1753,7 +1774,7 @@ class _TmdbPeopleResults extends StatelessWidget {
                 subtitle: person.knownForDepartment == null
                     ? null
                     : Text(person.knownForDepartment!),
-                trailing: const Icon(Icons.chevron_right_rounded),
+                trailing: const Icon(Broken.arrow_right_3),
                 onTap: () => context.push('/flixPerson', extra: person),
               ),
             );
@@ -1785,7 +1806,7 @@ class _RecentSearches extends StatelessWidget {
       return _SearchNoResults(
         title: copy.startTitle,
         message: copy.startMessage,
-        icon: Icons.manage_search_rounded,
+        icon: Broken.search_status,
       );
     }
     return Column(
@@ -1797,9 +1818,9 @@ class _RecentSearches extends StatelessWidget {
             children: [
               Text(
                 copy.recent,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               const Spacer(),
               TextButton(onPressed: onClear, child: Text(copy.clearAll)),
@@ -1814,12 +1835,12 @@ class _RecentSearches extends StatelessWidget {
             itemBuilder: (context, index) {
               final search = searches[index];
               return ListTile(
-                leading: const Icon(Icons.history_rounded),
+                leading: const Icon(Broken.clock),
                 title: Text(search),
                 trailing: IconButton(
                   tooltip: copy.remove,
                   onPressed: () => onRemove(search),
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(Broken.close_circle),
                 ),
                 onTap: () => onSearch(search),
               );
@@ -1835,7 +1856,7 @@ class _SearchNoResults extends StatelessWidget {
   const _SearchNoResults({
     this.title = 'No results',
     this.message = 'Try another search.',
-    this.icon = Icons.search_off_rounded,
+    this.icon = Broken.search_status,
   });
 
   final String title;
@@ -1856,9 +1877,9 @@ class _SearchNoResults extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1882,10 +1903,8 @@ class _PeopleSearchShimmer extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       itemCount: 8,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, __) => const SizedBox(
-        height: 76,
-        child: AppShimmerBlock(radius: 18),
-      ),
+      itemBuilder: (_, __) =>
+          const SizedBox(height: 76, child: AppShimmerBlock(radius: 18)),
     );
   }
 }
@@ -1933,7 +1952,8 @@ class _SearchCopy {
         clearAll: 'Tout effacer',
         remove: 'Supprimer',
         startTitle: 'Que veux-tu regarder ?',
-        startMessage: 'Recherche dans le catalogue Films, Séries et Célébrités.',
+        startMessage:
+            'Recherche dans le catalogue Films, Séries et Célébrités.',
       );
     }
     return const _SearchCopy(
