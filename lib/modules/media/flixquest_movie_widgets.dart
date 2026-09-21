@@ -1175,6 +1175,7 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
   bool _loading = false;
   bool _hasMore = true;
   int _page = 1;
+  String _sortMode = 'popular';
   Object? _error;
 
   @override
@@ -1221,6 +1222,76 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
     }
   }
 
+  Future<void> _chooseSort() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF151515),
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Sort and filter',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            _SortChoice(
+              title: 'Most Popular',
+              value: 'popular',
+              selected: _sortMode,
+              onTap: () => Navigator.pop(sheetContext, 'popular'),
+            ),
+            _SortChoice(
+              title: 'Highest rated',
+              value: 'rating',
+              selected: _sortMode,
+              onTap: () => Navigator.pop(sheetContext, 'rating'),
+            ),
+            _SortChoice(
+              title: 'A — Z',
+              value: 'title',
+              selected: _sortMode,
+              onTap: () => Navigator.pop(sheetContext, 'title'),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _sortMode = selected);
+    }
+  }
+
+  List<TmdbMedia> get _sortedMovies {
+    final items = [..._movies];
+    switch (_sortMode) {
+      case 'rating':
+        items.sort(
+          (a, b) => (b.voteAverage ?? 0).compareTo(a.voteAverage ?? 0),
+        );
+        break;
+      case 'title':
+        items.sort(
+          (a, b) => a.displayTitle.toLowerCase().compareTo(
+                b.displayTitle.toLowerCase(),
+              ),
+        );
+        break;
+    }
+    return items;
+  }
+
   @override
   void dispose() {
     _scrollController
@@ -1231,38 +1302,120 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final movies = _sortedMovies;
+    final isFrench = Localizations.localeOf(context).languageCode == 'fr';
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
-      body: _error != null && _movies.isEmpty
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        title: Text(
+          widget.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        leading: IconButton(
+          tooltip: isFrench ? 'Retour' : 'Back',
+          onPressed: () => context.pop(),
+          icon: const Icon(Icons.chevron_left_rounded),
+        ),
+        actions: [
+          IconButton(
+            tooltip: isFrench ? 'Filtrer' : 'Filter',
+            onPressed: _chooseSort,
+            icon: const Icon(Icons.tune_rounded),
+          ),
+        ],
+      ),
+      body: _error != null && movies.isEmpty
           ? _CatalogError(title: widget.title, onRetry: _loadPage)
-          : _movies.isEmpty && _loading
+          : movies.isEmpty && _loading
           ? const AppMediaGridShimmer()
-          : GridView.builder(
-              controller: _scrollController,
-              padding: EdgeInsets.fromLTRB(
-                AppUI.pagePadding(context),
-                12,
-                AppUI.pagePadding(context),
-                32,
-              ),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: AppUI.mediaGridColumns(context),
-                childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
-                crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
-                mainAxisSpacing: 16,
-              ),
-              itemCount: _movies.length + (_loading ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index >= _movies.length) {
-                  return const AppShimmerBlock();
-                }
-                final media = _movies[index];
-                return TmdbPosterCard(
-                  media: media,
-                  onTap: () => context.push('/flixMediaDetail', extra: media),
-                );
-              },
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+                  child: Text(
+                    isFrench ? 'Les plus populaires' : 'Most Popular',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GridView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                    gridDelegate:
+                        SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: AppUI.mediaGridColumns(context),
+                          childAspectRatio:
+                              AppUI.mediaGridChildAspectRatio(context),
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 12,
+                        ),
+                    itemCount: movies.length + (_loading ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= movies.length) {
+                        return const AppShimmerBlock(radius: 14);
+                      }
+                      final media = movies[index];
+                      return TmdbPosterCard(
+                        media: media,
+                        onTap: () =>
+                            context.push('/flixMediaDetail', extra: media),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
+    );
+  }
+}
+
+class _SortChoice extends StatelessWidget {
+  const _SortChoice({
+    required this.title,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String value;
+  final String selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(
+        value == 'popular'
+            ? Icons.local_fire_department_rounded
+            : value == 'rating'
+            ? Icons.star_rounded
+            : Icons.sort_by_alpha_rounded,
+        color: Colors.white70,
+      ),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      trailing: Icon(
+        selected == value
+            ? Icons.radio_button_checked_rounded
+            : Icons.radio_button_unchecked_rounded,
+        color: selected == value ? Colors.orange : Colors.white38,
+      ),
     );
   }
 }
