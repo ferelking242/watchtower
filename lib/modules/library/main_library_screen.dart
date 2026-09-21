@@ -44,21 +44,27 @@ const _kCarouselCopies = 1000;
 
 // ─── Type icons (Broken set) ─────────────────────────────────────────────────
 const _kTypeIcons = <ItemType, IconData>{
-  ItemType.anime:  Broken.video,
-  ItemType.manga:  Broken.book,
-  ItemType.novel:  Broken.document_text,
-  ItemType.music:  Broken.music,
-  ItemType.game:   Broken.game,
+  ItemType.anime: Broken.video,
+  ItemType.manga: Broken.book,
+  ItemType.novel: Broken.document_text,
+  ItemType.music: Broken.music,
+  ItemType.game: Broken.game,
 };
 
 String _typeLabel(ItemType type) {
   switch (type) {
-    case ItemType.anime:  return 'Watch';
-    case ItemType.manga:  return 'Manga';
-    case ItemType.novel:  return 'Novel';
-    case ItemType.music:  return 'Music';
-    case ItemType.game:   return 'Games';
-    default:              return 'Library';
+    case ItemType.anime:
+      return 'Watch';
+    case ItemType.manga:
+      return 'Manga';
+    case ItemType.novel:
+      return 'Novel';
+    case ItemType.music:
+      return 'Music';
+    case ItemType.game:
+      return 'Games';
+    default:
+      return 'Library';
   }
 }
 
@@ -156,7 +162,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               page >= _kTypes.length * (_kCarouselCopies - 1)) {
             final middlePage =
                 (_kCarouselCopies ~/ 2) * _kTypes.length +
-                    page % _kTypes.length;
+                page % _kTypes.length;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted || !_arcPageCtrl.hasClients) return;
               _arcPageCtrl.jumpToPage(middlePage);
@@ -217,16 +223,16 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             color: selected
                                 ? null
                                 : (isDark
-                                    ? cs.onSurface.withValues(alpha: 0.05)
-                                    : cs.onSurface.withValues(alpha: 0.05)),
+                                      ? cs.onSurface.withValues(alpha: 0.05)
+                                      : cs.onSurface.withValues(alpha: 0.05)),
                             // Outlined tab bar (user request): every tab gets
                             // a visible outline, selected keeps a bright one
                             border: Border.all(
                               color: selected
                                   ? cs.primary.withValues(alpha: 0.85)
                                   : (isDark
-                                      ? cs.onSurface.withValues(alpha: 0.22)
-                                      : cs.outline.withValues(alpha: 0.35)),
+                                        ? cs.onSurface.withValues(alpha: 0.22)
+                                        : cs.outline.withValues(alpha: 0.35)),
                               width: selected ? 1.5 : 1.0,
                             ),
                             boxShadow: selected
@@ -244,8 +250,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             color: selected
                                 ? cs.onSurface
                                 : (isDark
-                                    ? cs.onSurface.withValues(alpha: 0.54)
-                                    : cs.onSurface.withValues(alpha: 0.50)),
+                                      ? cs.onSurface.withValues(alpha: 0.54)
+                                      : cs.onSurface.withValues(alpha: 0.50)),
                             size: selected ? 20 : 17,
                           ),
                         ),
@@ -255,7 +261,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                           _typeLabel(type),
                           style: TextStyle(
                             fontSize: 10.5,
-                            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w400,
                             color: selected
                                 ? cs.primary
                                 : cs.onSurfaceVariant.withValues(alpha: 0.70),
@@ -295,16 +303,16 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             color: active
                 ? cs.primary.withValues(alpha: 0.90)
                 : (isDark
-                    ? cs.onSurface.withValues(alpha: 0.08)
-                    : cs.onSurface.withValues(alpha: 0.06)),
+                      ? cs.onSurface.withValues(alpha: 0.08)
+                      : cs.onSurface.withValues(alpha: 0.06)),
           ),
           child: Icon(
             icon,
             color: active
                 ? cs.onSurface
                 : (isDark
-                    ? cs.onSurface.withValues(alpha: 0.60)
-                    : cs.onSurface.withValues(alpha: 0.55)),
+                      ? cs.onSurface.withValues(alpha: 0.60)
+                      : cs.onSurface.withValues(alpha: 0.55)),
             size: 17,
           ),
         ),
@@ -327,7 +335,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 
-  // ── Filter overlay content (search-field filter icon) ─────────────────────
+  // ── Shared filter overlay content ─────────────────────────────────────────
   Widget _buildFilterOverlayContent(VoidCallback close) {
     if (_cachedSettings == null) return const SizedBox.shrink();
     return LibraryFilterSortMenu(
@@ -344,11 +352,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
-    final cs   = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final settingsAsync = ref.watch(getSettingsStreamProvider);
-    final mangaAsync    = ref.watch(
+    final mangaAsync = ref.watch(
       getAllMangaStreamProvider(categoryId: null, itemType: _currentType),
     );
     final catsAsync = ref.watch(
@@ -356,7 +364,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
 
     final settingsList = settingsAsync.asData?.value ?? <Settings>[];
-    final settings     = settingsList.isNotEmpty ? settingsList.first : null;
+    final settings = settingsList.isNotEmpty ? settingsList.first : null;
     if (settings != null) _cachedSettings = settings;
 
     final mangaList = mangaAsync.asData?.value ?? <Manga>[];
@@ -366,12 +374,34 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       data: (c) => c,
       orElse: () => <Category>[],
     );
+    final filterButton = AdaptiveOverlayMenuButton(
+      menuWidth: 250,
+      trigger: Tooltip(
+        message: l10n.filter,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isDark
+                ? cs.onSurface.withValues(alpha: 0.08)
+                : cs.onSurface.withValues(alpha: 0.06),
+          ),
+          child: Icon(
+            Broken.filter,
+            color: cs.onSurface.withValues(alpha: 0.60),
+            size: 17,
+          ),
+        ),
+      ),
+      contentBuilder: _buildFilterOverlayContent,
+    );
 
     final int? selectedCatId = _selectedCatIndex == 0
         ? null
         : (cats.length >= _selectedCatIndex
-            ? cats[_selectedCatIndex - 1].id
-            : null);
+              ? cats[_selectedCatIndex - 1].id
+              : null);
     final int extCatId = selectedCatId == null ? -1 : selectedCatId;
 
     return SafeArea(
@@ -406,7 +436,13 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     ),
                     const SizedBox(width: 6),
 
-                    // 2. Notifications
+                    // 2. Filter overlay
+                    if (!_showSearch) ...[
+                      filterButton,
+                      const SizedBox(width: 6),
+                    ],
+
+                    // 3. Notifications
                     _iconBtn(
                       icon: Broken.notification,
                       onTap: () => context.push('/updates'),
@@ -414,7 +450,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     ),
                     const SizedBox(width: 6),
 
-                    // 3. Three-dots menu
+                    // 4. Three-dots menu
                     _buildThreeDotsBtn(context, l10n, mangaList),
                   ],
                 ),
@@ -453,14 +489,15 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     itemType: _currentType,
                     presetInput: null,
                     hideOwnAppBar: true,
-                    externalSearchQuery:
-                        _showSearch ? _searchController.text : null,
+                    externalSearchQuery: _showSearch
+                        ? _searchController.text
+                        : null,
                     externalCategoryId: extCatId,
                   ),
           ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
   }
 
   // ── Animated search bar with filter overlay ────────────────────────────────
@@ -474,16 +511,14 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       decoration: BoxDecoration(
         color: focused
             ? (isDark ? cs.surfaceContainerHighest : cs.surface)
-            : (isDark
-                ? cs.surfaceContainerHigh
-                : cs.surfaceContainerHigh),
+            : (isDark ? cs.surfaceContainerHigh : cs.surfaceContainerHigh),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: focused
               ? cs.primary.withValues(alpha: 0.50)
               : (isDark
-                  ? cs.onSurface.withValues(alpha: 0.06)
-                  : cs.outline.withValues(alpha: 0.12)),
+                    ? cs.onSurface.withValues(alpha: 0.06)
+                    : cs.outline.withValues(alpha: 0.12)),
           width: focused ? 1.4 : 1.0,
         ),
         boxShadow: focused
@@ -503,9 +538,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           // Search icon
           Icon(
             Broken.search_normal_1,
-            color: focused
-                ? cs.primary
-                : cs.onSurface.withValues(alpha: 0.40),
+            color: focused ? cs.primary : cs.onSurface.withValues(alpha: 0.40),
             size: 18,
           ),
           const SizedBox(width: 10),
@@ -661,8 +694,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             color: selected
                 ? cs.primary.withValues(alpha: 0.60)
                 : (isDark
-                    ? cs.onSurface.withValues(alpha: 0.15)
-                    : cs.outline.withValues(alpha: 0.25)),
+                      ? cs.onSurface.withValues(alpha: 0.15)
+                      : cs.outline.withValues(alpha: 0.25)),
             width: selected ? 1.2 : 1.0,
           ),
         ),
@@ -702,7 +735,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           child: ArrowPopupMenuButton<int>(
             icon: Icon(
               Broken.more_2,
-              color: isDark ? cs.onSurface.withValues(alpha: 0.60) : cs.onSurface.withValues(alpha: 0.55),
+              color: isDark
+                  ? cs.onSurface.withValues(alpha: 0.60)
+                  : cs.onSurface.withValues(alpha: 0.55),
               size: 17,
             ),
             padding: EdgeInsets.zero,
@@ -710,57 +745,49 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             itemBuilder: (_) => [
               PopupMenuItem<int>(
                 value: 1,
-                child: Row(children: [
-                  const Icon(Broken.refresh_left_square, size: 18),
-                  const SizedBox(width: 12),
-                  Text(l10n.update_library),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Broken.refresh_left_square, size: 18),
+                    const SizedBox(width: 12),
+                    Text(l10n.update_library),
+                  ],
+                ),
               ),
               PopupMenuItem<int>(
                 value: 2,
-                child: Row(children: [
-                  const Icon(Broken.shuffle, size: 18),
-                  const SizedBox(width: 12),
-                  Text(l10n.open_random_entry),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Broken.shuffle, size: 18),
+                    const SizedBox(width: 12),
+                    Text(l10n.open_random_entry),
+                  ],
+                ),
               ),
               PopupMenuItem<int>(
                 value: 3,
-                child: Row(children: [
-                  const Icon(Broken.folder_add, size: 18),
-                  const SizedBox(width: 12),
-                  Text(l10n.import),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Broken.folder_add, size: 18),
+                    const SizedBox(width: 12),
+                    Text(l10n.import),
+                  ],
+                ),
               ),
               if (_currentType == ItemType.anime)
                 PopupMenuItem<int>(
                   value: 4,
-                  child: Row(children: [
-                    const Icon(Broken.video, size: 18),
-                    const SizedBox(width: 12),
-                    Text(l10n.torrent_stream),
-                  ]),
+                  child: Row(
+                    children: [
+                      const Icon(Broken.video, size: 18),
+                      const SizedBox(width: 12),
+                      Text(l10n.torrent_stream),
+                    ],
+                  ),
                 ),
               const PopupMenuItem<int>(
                 enabled: false,
                 value: 99,
                 child: Divider(height: 1, indent: 0, endIndent: 0),
-              ),
-              PopupMenuItem<int>(
-                value: 10,
-                child: Row(children: [
-                  const Icon(Broken.filter, size: 18),
-                  const SizedBox(width: 12),
-                  Text(l10n.filter),
-                ]),
-              ),
-              PopupMenuItem<int>(
-                value: 11,
-                child: Row(children: [
-                  const Icon(Broken.arrow_up_2, size: 18),
-                  const SizedBox(width: 12),
-                  Text(l10n.sort),
-                ]),
               ),
             ],
             onSelected: (v) {
@@ -782,28 +809,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 case 4:
                   addTorrent(context);
                   break;
-                case 10:
-                case 11:
-                  _showFilterSheet(context);
-                  break;
               }
             },
           ),
         ),
-      ),
-    );
-  }
-
-  void _showFilterSheet(BuildContext context) {
-    if (_cachedSettings == null) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _FilterSheet(
-        itemType: _currentType,
-        settings: _cachedSettings!,
-        entries: _cachedMangaList,
       ),
     );
   }
@@ -949,10 +958,7 @@ class _ManageCategoriesSheetState
                       ),
                       child: TextField(
                         controller: nameCtrl,
-                        style: TextStyle(
-                          color: cs.onSurface,
-                          fontSize: 14.5,
-                        ),
+                        style: TextStyle(color: cs.onSurface, fontSize: 14.5),
                         decoration: InputDecoration(
                           hintText: 'Category name',
                           hintStyle: TextStyle(
@@ -980,46 +986,47 @@ class _ManageCategoriesSheetState
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        Broken.tag,
-                        Broken.book,
-                        Broken.video,
-                        Broken.music,
-                        Broken.game,
-                        Broken.star_1,
-                        Broken.heart,
-                        Broken.flash_1,
-                        Broken.crown_1,
-                        Broken.cpu,
-                        Broken.danger,
-                        Broken.document_text,
-                      ].map((icon) {
-                        return GestureDetector(
-                          onTap: () {
-                            // Store selected icon for saving
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: icon == Broken.tag
-                                    ? cs.primary.withValues(alpha: 0.50)
-                                    : cs.outline.withValues(alpha: 0.08),
+                      children:
+                          [
+                            Broken.tag,
+                            Broken.book,
+                            Broken.video,
+                            Broken.music,
+                            Broken.game,
+                            Broken.star_1,
+                            Broken.heart,
+                            Broken.flash_1,
+                            Broken.crown_1,
+                            Broken.cpu,
+                            Broken.danger,
+                            Broken.document_text,
+                          ].map((icon) {
+                            return GestureDetector(
+                              onTap: () {
+                                // Store selected icon for saving
+                              },
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: cs.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: icon == Broken.tag
+                                        ? cs.primary.withValues(alpha: 0.50)
+                                        : cs.outline.withValues(alpha: 0.08),
+                                  ),
+                                ),
+                                child: Icon(
+                                  icon,
+                                  size: 18,
+                                  color: icon == Broken.tag
+                                      ? cs.primary
+                                      : cs.onSurface.withValues(alpha: 0.45),
+                                ),
                               ),
-                            ),
-                            child: Icon(
-                              icon,
-                              size: 18,
-                              color: icon == Broken.tag
-                                  ? cs.primary
-                                  : cs.onSurface.withValues(alpha: 0.45),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                            );
+                          }).toList(),
                     ),
                     const SizedBox(height: 24),
                     // Save button
@@ -1065,8 +1072,9 @@ class _ManageCategoriesSheetState
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final catsAsync =
-        ref.watch(getMangaCategorieStreamProvider(itemType: widget.itemType));
+    final catsAsync = ref.watch(
+      getMangaCategorieStreamProvider(itemType: widget.itemType),
+    );
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
       minChildSize: 0.4,
@@ -1074,8 +1082,7 @@ class _ManageCategoriesSheetState
       builder: (_, sc) => Container(
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
@@ -1101,11 +1108,7 @@ class _ManageCategoriesSheetState
                       color: cs.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Broken.tag,
-                      color: cs.primary,
-                      size: 22,
-                    ),
+                    child: Icon(Broken.tag, color: cs.primary, size: 22),
                   ),
                   const SizedBox(width: 14),
                   const Expanded(
@@ -1122,10 +1125,7 @@ class _ManageCategoriesSheetState
                         SizedBox(height: 3),
                         Text(
                           'Remove tabs you no longer need.\nTitles stay in your library.',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: Colors.grey,
-                          ),
+                          style: TextStyle(fontSize: 12.5, color: Colors.grey),
                         ),
                       ],
                     ),
@@ -1149,10 +1149,7 @@ class _ManageCategoriesSheetState
                 ],
               ),
             ),
-            Divider(
-              color: cs.outline.withValues(alpha: 0.15),
-              height: 20,
-            ),
+            Divider(color: cs.outline.withValues(alpha: 0.15), height: 20),
             // Category list + add field
             Expanded(
               child: catsAsync.when(
@@ -1192,8 +1189,7 @@ class _ManageCategoriesSheetState
                                   color: cs.onSurface.withValues(alpha: 0.38),
                                 ),
                                 border: InputBorder.none,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(
+                                contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 14,
                                   vertical: 12,
                                 ),
@@ -1227,8 +1223,7 @@ class _ManageCategoriesSheetState
                       child: TextButton(
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
-                          backgroundColor:
-                              cs.surfaceContainerHigh,
+                          backgroundColor: cs.surfaceContainerHigh,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -1282,14 +1277,16 @@ class _CatRow extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final count = ref
         .watch(
-          getAllMangaStreamProvider(
-              categoryId: cat.id, itemType: itemType),
+          getAllMangaStreamProvider(categoryId: cat.id, itemType: itemType),
         )
         .maybeWhen(data: (l) => l.length, orElse: () => 0);
     final totalCountAsync = ref.watch(
       getAllMangaStreamProvider(categoryId: null, itemType: itemType),
     );
-    final totalCount = totalCountAsync.maybeWhen(data: (l) => l.length, orElse: () => 1);
+    final totalCount = totalCountAsync.maybeWhen(
+      data: (l) => l.length,
+      orElse: () => 1,
+    );
     final percent = totalCount > 0 ? ((count / totalCount) * 100).round() : 0;
 
     // Reading count: items in category where isRead == false
@@ -1297,7 +1294,11 @@ class _CatRow extends ConsumerWidget {
         .watch(
           getAllMangaStreamProvider(categoryId: cat.id, itemType: itemType),
         )
-        .maybeWhen(data: (l) => l.where((m) => m.lastRead == null || m.lastRead == 0).length, orElse: () => 0);
+        .maybeWhen(
+          data: (l) =>
+              l.where((m) => m.lastRead == null || m.lastRead == 0).length,
+          orElse: () => 0,
+        );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1340,11 +1341,7 @@ class _CatRow extends ConsumerWidget {
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(
-                        Broken.tag,
-                        size: 17,
-                        color: cs.primary,
-                      ),
+                      child: Icon(Broken.tag, size: 17, color: cs.primary),
                     ),
                     const SizedBox(width: 12),
                     // Name + description
@@ -1409,11 +1406,7 @@ class _CatRow extends ConsumerWidget {
                       cs: cs,
                     ),
                     const SizedBox(width: 8),
-                    _statChip(
-                      icon: Broken.chart_2,
-                      label: '$percent%',
-                      cs: cs,
-                    ),
+                    _statChip(icon: Broken.chart_2, label: '$percent%', cs: cs),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1644,7 +1637,13 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: enabled ? cs.primary : cs.onSurface.withValues(alpha: 0.45)),
+              Icon(
+                icon,
+                size: 18,
+                color: enabled
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.45),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -1659,7 +1658,9 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
               Icon(
                 enabled ? Broken.eye : Broken.eye_slash,
                 size: 16,
-                color: enabled ? cs.primary : cs.onSurface.withValues(alpha: 0.25),
+                color: enabled
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.25),
               ),
             ],
           ),
