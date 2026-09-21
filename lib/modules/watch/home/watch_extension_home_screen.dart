@@ -7,11 +7,16 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
+import 'package:watchtower/modules/watch/home/extension_search_screen.dart';
+import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 
 /// The Watch extension home deliberately uses the same composition as the
 /// FlixQuest movie home.  Only the data boundary is different: every card is
@@ -31,6 +36,8 @@ class _WatchExtensionHomeScreenState
   final _feedController = ScrollController();
   bool _showCompactHeader = false;
   bool _isSearching = false;
+  bool _layoutReady = false;
+  UiLayout _layout = UiLayout.empty;
 
   Source get source => widget.source;
 
@@ -46,6 +53,16 @@ class _WatchExtensionHomeScreenState
       ),
     );
     _feedController.addListener(_updateCompactHeader);
+    _loadLayout();
+  }
+
+  Future<void> _loadLayout() async {
+    await LayoutRegistry.instance.load(source);
+    if (!mounted) return;
+    setState(() {
+      _layout = LayoutRegistry.instance.get(source);
+      _layoutReady = true;
+    });
   }
 
   void _updateCompactHeader() {
@@ -92,10 +109,18 @@ class _WatchExtensionHomeScreenState
   @override
   Widget build(BuildContext context) {
     if (_isSearching) {
-      return _ExtensionSearchView(
+      return ExtensionSearchScreen(
         source: source,
         onClose: () => setState(() => _isSearching = false),
         onOpen: _openItem,
+      );
+    }
+
+    if (!_layoutReady && source.providesHome) {
+      return _ExtensionFlixQuestLoading(
+        source: source,
+        onSearch: () => setState(() => _isSearching = true),
+        onRefresh: _refresh,
       );
     }
 
@@ -124,6 +149,7 @@ class _WatchExtensionHomeScreenState
       source: source,
       popular: popular,
       latest: latest,
+      layout: _layout,
       controller: _feedController,
       showCompactHeader: _showCompactHeader,
       onSearch: () => setState(() => _isSearching = true),
@@ -137,6 +163,7 @@ class _ExtensionFeed extends StatelessWidget {
   final Source source;
   final List<MManga> popular;
   final List<MManga> latest;
+  final UiLayout layout;
   final ScrollController controller;
   final bool showCompactHeader;
   final VoidCallback onSearch;
@@ -147,6 +174,7 @@ class _ExtensionFeed extends StatelessWidget {
     required this.source,
     required this.popular,
     required this.latest,
+    required this.layout,
     required this.controller,
     required this.showCompactHeader,
     required this.onSearch,
@@ -167,6 +195,8 @@ class _ExtensionFeed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final all = combined;
+    final sections = layout.home.sections;
+    final hasDeclaredSections = sections.isNotEmpty;
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: Stack(
@@ -188,53 +218,46 @@ class _ExtensionFeed extends StatelessWidget {
                   ),
                 ),
                 SliverList(
-                  delegate: SliverChildListDelegate.fixed([
-                    _ExtensionPosterRail(
-                      title: 'Popular',
-                      items: popular,
-                      onOpen: onOpen,
-                    ),
-                    _ExtensionPosterRail(
-                      title: 'Trending this week',
-                      items: popular,
-                      onOpen: onOpen,
-                    ),
-                    _ExtensionPosterRail(
-                      title: 'Top rated',
-                      items: popular,
-                      onOpen: onOpen,
-                    ),
-                    _ExtensionRankedRail(
-                      title: 'Top 10 cette semaine',
-                      items: all.take(10).toList(growable: false),
-                      onOpen: onOpen,
-                    ),
-                    _ExtensionLandscapeRail(
-                      title: 'Now playing',
-                      items: latest,
-                      onOpen: onOpen,
-                    ),
-                    _ExtensionLandscapeRail(
-                      title: 'Upcoming',
-                      items: latest,
-                      onOpen: onOpen,
-                    ),
-                    _ExtensionLandscapeRail(
-                      title: 'À découvrir',
-                      items: all,
-                      width: 280,
-                      height: 204,
-                      onOpen: onOpen,
-                    ),
-                    _ExtensionBannerRail(
-                      title: 'À voir ce soir',
-                      items: latest.isNotEmpty ? latest : all,
-                      onOpen: onOpen,
-                    ),
-                    _ExtensionGenreGrid(items: all, onOpen: onOpen),
-                    const SizedBox(height: 112),
-                  ]),
+                  delegate: SliverChildListDelegate.fixed(
+                    hasDeclaredSections
+                        ? sections
+                              .map(
+                                (section) => _ExtensionLayoutSection(
+                                  source: source,
+                                  section: section,
+                                  fallbackItems: all,
+                                  onOpen: onOpen,
+                                ),
+                              )
+                              .toList(growable: false)
+                        : [
+                            _ExtensionPosterRail(
+                              title: 'Popular',
+                              items: popular,
+                              onOpen: onOpen,
+                              onSeeAll: () => _openSection(
+                                context,
+                                source: source,
+                                id: 'popular',
+                                title: 'Popular',
+                              ),
+                            ),
+                            if (latest.isNotEmpty)
+                              _ExtensionPosterRail(
+                                title: 'Latest',
+                                items: latest,
+                                onOpen: onOpen,
+                                onSeeAll: () => _openSection(
+                                  context,
+                                  source: source,
+                                  id: 'latest',
+                                  title: 'Latest',
+                                ),
+                              ),
+                          ],
+                  ),
                 ),
+                const SliverToBoxAdapter(child: SizedBox(height: 112)),
               ],
             ),
           ),
@@ -263,6 +286,138 @@ class _ExtensionFeed extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+void _openSection(
+  BuildContext context, {
+  required Source source,
+  required String id,
+  required String title,
+}) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) =>
+          ExtensionSectionPage(source: source, sectionId: id, title: title),
+    ),
+  );
+}
+
+class _ExtensionLayoutSection extends ConsumerWidget {
+  final Source source;
+  final UiSection section;
+  final List<MManga> fallbackItems;
+  final ValueChanged<MManga> onOpen;
+
+  const _ExtensionLayoutSection({
+    required this.source,
+    required this.section,
+    required this.fallbackItems,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final content = switch (section.id) {
+      'popular' => ref.watch(getPopularProvider(source: source, page: 1)),
+      'latest' => ref.watch(getLatestUpdatesProvider(source: source, page: 1)),
+      _ => ref.watch(
+        getCustomListProvider(source: source, listId: section.id, page: 1),
+      ),
+    };
+
+    return content.when(
+      loading: () => _ExtensionLayoutSectionLoading(
+        title: section.title ?? section.id,
+        component: section.component,
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (pages) {
+        final items = pages?.list ?? fallbackItems;
+        if (items.isEmpty) return const SizedBox.shrink();
+        return _buildSection(context, items);
+      },
+    );
+  }
+
+  Widget _buildSection(BuildContext context, List<MManga> items) {
+    final title = section.title?.trim().isNotEmpty == true
+        ? section.title!.trim()
+        : section.id;
+    final onSeeAll = () =>
+        _openSection(context, source: source, id: section.id, title: title);
+
+    return switch (section.component) {
+      'banner' || 'hero' => _ExtensionBannerRail(
+        title: title,
+        items: items,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+      'ranked' || 'creatorRow' => _ExtensionRankedRail(
+        title: title,
+        items: items.take(10).toList(growable: false),
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+      'grid' || 'catalogue' || 'discoverGrid' => _ExtensionGridSection(
+        title: title,
+        items: items,
+        columns: section.columns,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+      'category' || 'categoryPills' => _ExtensionGenreGrid(
+        title: title,
+        items: items,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+      'landscapeStacked' || 'backdropWide' => _ExtensionLandscapeRail(
+        title: title,
+        items: items,
+        width: 280,
+        height: 204,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+      _ => _ExtensionPosterRail(
+        title: title,
+        items: items,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      ),
+    };
+  }
+}
+
+class _ExtensionLayoutSectionLoading extends StatelessWidget {
+  final String title;
+  final String component;
+
+  const _ExtensionLayoutSectionLoading({
+    required this.title,
+    required this.component,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (component == 'grid' || component == 'catalogue') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSectionHeader(title: title),
+          const SizedBox(height: 250, child: AppMediaGridShimmer()),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title),
+        const SizedBox(height: 220, child: AppMediaRowShimmer()),
+      ],
     );
   }
 }
@@ -326,6 +481,7 @@ class _ExtensionHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Stack(
+      clipBehavior: Clip.none,
       fit: StackFit.expand,
       children: [
         _ExtensionImage(url: item.imageUrl, fit: BoxFit.cover, radius: 0),
@@ -347,13 +503,13 @@ class _ExtensionHeroCard extends StatelessWidget {
               children: [
                 _ExtensionSourceIcon(source: source, size: 28),
                 const Spacer(),
+                _ExtensionLiveButton(onPressed: () => context.push('/liveTv')),
+                const SizedBox(width: 8),
                 _ExtensionIconButton(
                   icon: Broken.bookmark,
                   onPressed: () => context.push('/Library'),
                   tooltip: 'Library',
                 ),
-                const SizedBox(width: 8),
-                _ExtensionLiveButton(onPressed: () => context.push('/liveTv')),
                 const SizedBox(width: 8),
                 _ExtensionIconButton(
                   icon: Broken.search_normal,
@@ -401,7 +557,12 @@ class _ExtensionHeroCard extends StatelessWidget {
             ],
           ),
         ),
-        Center(child: _ExtensionWatchButton(onPressed: onOpen)),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: -29,
+          child: Center(child: _ExtensionWatchButton(onPressed: onOpen)),
+        ),
       ],
     );
   }
@@ -412,19 +573,21 @@ class _ExtensionFeedOverlayHeader extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onLiveTv;
   final VoidCallback onLibrary;
+  final bool transparent;
 
   const _ExtensionFeedOverlayHeader({
     required this.source,
     required this.onSearch,
     required this.onLiveTv,
     required this.onLibrary,
+    this.transparent = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF0B0B11),
-      elevation: 1,
+      color: transparent ? Colors.transparent : const Color(0xFF0B0B11),
+      elevation: transparent ? 0 : 1,
       shadowColor: Colors.black.withValues(alpha: .12),
       child: SafeArea(
         bottom: false,
@@ -475,11 +638,13 @@ class _ExtensionPosterRail extends StatelessWidget {
   final String title;
   final List<MManga> items;
   final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
 
   const _ExtensionPosterRail({
     required this.title,
     required this.items,
     required this.onOpen,
+    this.onSeeAll,
   });
 
   @override
@@ -488,7 +653,11 @@ class _ExtensionPosterRail extends StatelessWidget {
     final cardWidth = AppUI.horizontalCardWidth(context);
     return Column(
       children: [
-        AppSectionHeader(title: title, actionLabel: 'All >'),
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
         SizedBox(
           width: double.infinity,
           height: cardWidth * 1.5 + 62,
@@ -521,11 +690,13 @@ class _ExtensionLandscapeRail extends StatelessWidget {
   final double width;
   final double height;
   final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
 
   const _ExtensionLandscapeRail({
     required this.title,
     required this.items,
     required this.onOpen,
+    this.onSeeAll,
     this.width = 238,
     this.height = 184,
   });
@@ -536,7 +707,11 @@ class _ExtensionLandscapeRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(title: title, actionLabel: 'All >'),
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
         SizedBox(
           height: height,
           child: ListView.separated(
@@ -563,11 +738,13 @@ class _ExtensionRankedRail extends StatelessWidget {
   final String title;
   final List<MManga> items;
   final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
 
   const _ExtensionRankedRail({
     required this.title,
     required this.items,
     required this.onOpen,
+    this.onSeeAll,
   });
 
   @override
@@ -576,7 +753,11 @@ class _ExtensionRankedRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(title: title),
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
         SizedBox(
           height: 208,
           child: ListView.separated(
@@ -603,11 +784,13 @@ class _ExtensionBannerRail extends StatelessWidget {
   final String title;
   final List<MManga> items;
   final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
 
   const _ExtensionBannerRail({
     required this.title,
     required this.items,
     required this.onOpen,
+    this.onSeeAll,
   });
 
   @override
@@ -620,7 +803,11 @@ class _ExtensionBannerRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(title: title),
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
         ...visible.map(
           (item) => Padding(
             padding: EdgeInsets.fromLTRB(
@@ -683,10 +870,17 @@ class _ExtensionBannerRail extends StatelessWidget {
 }
 
 class _ExtensionGenreGrid extends StatelessWidget {
+  final String title;
   final List<MManga> items;
   final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
 
-  const _ExtensionGenreGrid({required this.items, required this.onOpen});
+  const _ExtensionGenreGrid({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.onSeeAll,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -703,7 +897,11 @@ class _ExtensionGenreGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AppSectionHeader(title: 'Genres'),
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
         SizedBox(
           height: 186,
           child: GridView.builder(
@@ -728,6 +926,60 @@ class _ExtensionGenreGrid extends StatelessWidget {
                 onTap: () => onOpen(genre.value),
               );
             },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionGridSection extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final int? columns;
+  final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
+
+  const _ExtensionGridSection({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.columns,
+    this.onSeeAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final crossAxisCount = (columns ?? 3).clamp(2, 5).toInt();
+    final visible = items.take(12).toList(growable: false);
+    final rows = (visible.length / crossAxisCount).ceil().clamp(1, 4).toInt();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
+        SizedBox(
+          height: rows * 215,
+          child: GridView.builder(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: visible.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 12,
+              childAspectRatio: .55,
+            ),
+            itemBuilder: (_, index) => _ExtensionPosterCard(
+              item: visible[index],
+              width: double.infinity,
+              onTap: () => onOpen(visible[index]),
+            ),
           ),
         ),
       ],
@@ -1140,38 +1392,37 @@ class _ExtensionFlixQuestLoading extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ExtensionFeedOverlayHeader(
-                source: source,
-                onSearch: onSearch,
-                onLiveTv: () => context.push('/liveTv'),
-                onLibrary: () => context.push('/Library'),
-              ),
-              AppHeroShimmer(
+              SizedBox(
                 height: (MediaQuery.sizeOf(context).height * .48).clamp(
                   410.0,
                   500.0,
                 ),
-              ),
-              for (final title in const [
-                'Popular',
-                'Trending this week',
-                'Top rated',
-              ]) ...[
-                AppSectionHeader(title: title, actionLabel: 'All >'),
-                SizedBox(
-                  height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
-                  child: const AppMediaRowShimmer(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const AppShimmerBlock(radius: 0),
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: _ExtensionFeedOverlayHeader(
+                        source: source,
+                        onSearch: onSearch,
+                        onLiveTv: () => context.push('/liveTv'),
+                        onLibrary: () => context.push('/Library'),
+                        transparent: true,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-              for (final title in const ['Now playing', 'Upcoming']) ...[
-                AppSectionHeader(title: title, actionLabel: 'All >'),
-                const SizedBox(height: 158, child: AppLandscapeRowShimmer()),
-              ],
-              const AppSectionHeader(title: 'Top 10 cette semaine'),
+              ),
+              SizedBox(
+                height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
+                child: const AppMediaRowShimmer(),
+              ),
+              const SizedBox(height: 158, child: AppLandscapeRowShimmer()),
               const SizedBox(height: 208, child: AppRankedRowShimmer()),
-              const AppSectionHeader(title: 'À découvrir'),
               const SizedBox(height: 172, child: AppLandscapeRowShimmer()),
-              const AppSectionHeader(title: 'À voir ce soir'),
               const AppBannerRowShimmer(),
               const AppGenreGridShimmer(),
               const SizedBox(height: 112),
