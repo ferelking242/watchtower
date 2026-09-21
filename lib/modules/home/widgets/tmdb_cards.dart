@@ -155,7 +155,8 @@ class TmdbCompactPosterCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           cache: true,
                           loadStateChanged: (s) {
-                            if (s.extendedImageLoadState == LoadState.completed) {
+                            if (s.extendedImageLoadState ==
+                                LoadState.completed) {
                               return null;
                             }
                             return const AppShimmerBlock();
@@ -288,6 +289,248 @@ class TmdbLandscapeCard extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Editorial section inspired by the categorized feed: one wide featured
+/// backdrop followed by a compact poster rail.
+class TmdbFeaturedStack extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<TmdbMedia> items;
+  final void Function(TmdbMedia) onTap;
+
+  const TmdbFeaturedStack({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    final featured = items.first;
+    final secondary = items.skip(1).take(6).toList(growable: false);
+    final width = MediaQuery.sizeOf(context).width;
+    final featureHeight = (width * .54).clamp(190.0, 280.0).toDouble();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _TmdbStackHeader(title: title, icon: icon, color: color),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _TmdbFeaturedBackdrop(
+            media: featured,
+            height: featureHeight,
+            onTap: () => onTap(featured),
+          ),
+        ),
+        if (secondary.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 198,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: secondary.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, index) => TmdbPosterCard(
+                media: secondary[index],
+                width: 110,
+                onTap: () => onTap(secondary[index]),
+                heroTag: tmdbHeroTag(
+                  secondary[index],
+                  'stack-${title.hashCode}',
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TmdbStackHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+
+  const _TmdbStackHeader({
+    required this.title,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 22,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TmdbFeaturedBackdrop extends StatelessWidget {
+  final TmdbMedia media;
+  final double height;
+  final VoidCallback onTap;
+
+  const _TmdbFeaturedBackdrop({
+    required this.media,
+    required this.height,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final date = media.mediaType == 'movie'
+        ? media.releaseDate
+        : media.firstAirDate;
+    final year = date != null && date.length >= 4 ? date.substring(0, 4) : null;
+    final image = media.bannerImage ?? media.bestCover;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: SizedBox(
+          height: height,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Hero(
+                tag: tmdbHeroTag(media, 'featured-${media.id}'),
+                child: image == null
+                    ? const _TmdbImagePlaceholder()
+                    : ExtendedImage.network(
+                        image,
+                        fit: BoxFit.cover,
+                        cache: true,
+                        loadStateChanged: (state) {
+                          if (state.extendedImageLoadState ==
+                              LoadState.completed) {
+                            return null;
+                          }
+                          return const AppShimmerBlock(radius: 0);
+                        },
+                      ),
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xE9000000)],
+                    stops: [0.38, 1],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 18,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      media.displayTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        if (year != null)
+                          Text(
+                            year,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                        if (year != null &&
+                            media.voteAverage != null &&
+                            media.voteAverage! > 0)
+                          const SizedBox(width: 12),
+                        if (media.voteAverage != null && media.voteAverage! > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .22),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Broken.star,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  media.voteAverage!.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

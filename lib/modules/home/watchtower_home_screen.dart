@@ -20,6 +20,7 @@ import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
+import 'package:watchtower/modules/home/widgets/tmdb_production_sections.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
 
@@ -395,7 +396,37 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   // ── TMDB Film tab ──────────────────────────────────────────────────────────
 
   List<Widget> _tmdbFilmTab(BuildContext ctx, TmdbHome tmdb) {
+    final all = _uniqueTmdb([
+      ...tmdb.trendingMovies,
+      ...tmdb.popularMovies,
+      ...tmdb.topRatedMovies,
+      ...tmdb.nowPlayingMovies,
+      ...tmdb.upcomingMovies,
+    ]);
+    final animation = all
+        .where((media) => media.genreIds.contains(16))
+        .toList();
     return [
+      if (all.isNotEmpty)
+        SliverToBoxAdapter(
+          child: TmdbFeaturedStack(
+            title: 'À la une',
+            icon: Icons.auto_awesome_rounded,
+            color: const Color(0xFFE84393),
+            items: all.take(8).toList(),
+            onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+          ),
+        ),
+      if (animation.length >= 2)
+        SliverToBoxAdapter(
+          child: TmdbFeaturedStack(
+            title: 'Animation',
+            icon: Icons.animation_rounded,
+            color: const Color(0xFF00B894),
+            items: animation.take(8).toList(),
+            onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+          ),
+        ),
       _TmdbRow(
         title: 'Films populaires',
         icon: Icons.star_rounded,
@@ -442,13 +473,48 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ...tmdb.trendingMovies,
         ...tmdb.topRatedMovies,
       ], itemLabel: 'Films'),
+      TmdbProductionSections(
+        items: all,
+        itemLabel: 'Films · Studio',
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+      ),
     ];
   }
 
   // ── TMDB Série tab ─────────────────────────────────────────────────────────
 
   List<Widget> _tmdbSerieTab(BuildContext ctx, TmdbHome tmdb) {
+    final all = _uniqueTmdb([
+      ...tmdb.trendingTv,
+      ...tmdb.popularTv,
+      ...tmdb.topRatedTv,
+      ...tmdb.airingTodayTv,
+      ...tmdb.onTheAirTv,
+    ]);
+    final animation = all
+        .where((media) => media.genreIds.contains(16))
+        .toList();
     return [
+      if (all.isNotEmpty)
+        SliverToBoxAdapter(
+          child: TmdbFeaturedStack(
+            title: 'À la une',
+            icon: Icons.auto_awesome_rounded,
+            color: const Color(0xFFE84393),
+            items: all.take(8).toList(),
+            onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+          ),
+        ),
+      if (animation.length >= 2)
+        SliverToBoxAdapter(
+          child: TmdbFeaturedStack(
+            title: 'Animation',
+            icon: Icons.animation_rounded,
+            color: const Color(0xFF00B894),
+            items: animation.take(8).toList(),
+            onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+          ),
+        ),
       _TmdbRow(
         title: 'Séries populaires',
         icon: Icons.star_rounded,
@@ -496,7 +562,20 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         ...tmdb.trendingTv,
         ...tmdb.topRatedTv,
       ], itemLabel: 'Séries'),
+      TmdbProductionSections(
+        items: all,
+        itemLabel: 'Séries · Studio',
+        onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+      ),
     ];
+  }
+
+  List<TmdbMedia> _uniqueTmdb(List<TmdbMedia> items) {
+    final unique = <int, TmdbMedia>{};
+    for (final item in items) {
+      unique[item.id] = item;
+    }
+    return unique.values.toList(growable: false);
   }
 
   List<Widget> _tmdbCountryRows(
@@ -522,15 +601,17 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
                 .where((media) => media.originalLanguage == definition.$1)
                 .length >=
             3)
-          _TmdbRow(
-            title: '$itemLabel · ${definition.$2}',
-            icon: Icons.public_rounded,
-            color: definition.$3,
-            items: unique.values
-                .where((media) => media.originalLanguage == definition.$1)
-                .take(6)
-                .toList(),
-            onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+          SliverToBoxAdapter(
+            child: TmdbFeaturedStack(
+              title: '$itemLabel · ${definition.$2}',
+              icon: Icons.public_rounded,
+              color: definition.$3,
+              items: unique.values
+                  .where((media) => media.originalLanguage == definition.$1)
+                  .take(8)
+                  .toList(),
+              onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
+            ),
           ),
     ];
   }
