@@ -460,7 +460,11 @@ class RouterNotifier extends ChangeNotifier {
       name: "watchtowerSearch",
       child: const WatchtowerSearchScreen(),
     ),
-    _genericRoute(name: "flixSearch", child: const TmdbSearchScreen()),
+    _genericRoute<String?>(
+      name: "flixSearch",
+      allowNullExtra: true,
+      builder: (query) => TmdbSearchScreen(initialQuery: query),
+    ),
     _genericRoute<TmdbMedia>(
       name: "flixMediaDetail",
       builder: (media) => TmdbMediaDetailScreen(media: media),

@@ -51,66 +51,98 @@ class _TmdbCastCrewScreenState extends State<TmdbCastCrewScreen> {
             );
           }
           final details = snapshot.data!;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-            children: [
-              Text(
-                widget.media.displayTitle,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 22),
-              _PeopleSectionTitle(
-                title: 'Acteurs',
-                count: details.cast.length,
-              ),
-              const SizedBox(height: 10),
-              if (details.cast.isEmpty)
-                const _PeopleEmpty()
-              else
-                ...details.cast.map(
-                  (person) => _CastCrewRow(
-                    imageUrl: person.profileUrl,
-                    name: person.name,
-                    subtitle: person.character,
-                    onTap: () => context.push(
-                      '/flixPerson',
-                      extra: TmdbPersonRef(
-                        id: person.id,
-                        name: person.name,
-                        profilePath: person.profilePath,
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.media.displayTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 22),
+                      _PeopleSectionTitle(
+                        title: 'Acteurs',
+                        count: details.cast.length,
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                   ),
                 ),
-              const SizedBox(height: 26),
-              _PeopleSectionTitle(
-                title: 'Équipe',
-                count: details.crew.length,
               ),
-              const SizedBox(height: 10),
-              if (details.crew.isEmpty)
-                const _PeopleEmpty()
+              if (details.cast.isEmpty)
+                const SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverToBoxAdapter(child: _PeopleEmpty()),
+                )
               else
-                ...details.crew.map(
-                  (person) => _CastCrewRow(
-                    imageUrl: person.profileUrl,
-                    name: person.name,
-                    subtitle: [
-                      person.department,
-                      person.job,
-                    ].where((value) => value.isNotEmpty).join(' • '),
-                    onTap: () => context.push(
-                      '/flixPerson',
-                      extra: TmdbPersonRef(
-                        id: person.id,
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList.builder(
+                    itemCount: details.cast.length,
+                    itemBuilder: (_, index) {
+                      final person = details.cast[index];
+                      return _CastCrewRow(
+                        imageUrl: person.profileUrl,
                         name: person.name,
-                        profilePath: person.profilePath,
-                      ),
-                    ),
+                        subtitle: person.character,
+                        onTap: () => context.push(
+                          '/flixPerson',
+                          extra: TmdbPersonRef(
+                            id: person.id,
+                            name: person.name,
+                            profilePath: person.profilePath,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 26, 16, 10),
+                sliver: SliverToBoxAdapter(
+                  child: _PeopleSectionTitle(
+                    title: 'Équipe',
+                    count: details.crew.length,
+                  ),
+                ),
+              ),
+              if (details.crew.isEmpty)
+                const SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverToBoxAdapter(child: _PeopleEmpty()),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                  sliver: SliverList.builder(
+                    itemCount: details.crew.length,
+                    itemBuilder: (_, index) {
+                      final person = details.crew[index];
+                      return _CastCrewRow(
+                        imageUrl: person.profileUrl,
+                        name: person.name,
+                        subtitle: [
+                          person.department,
+                          person.job,
+                        ].where((value) => value.isNotEmpty).join(' • '),
+                        onTap: () => context.push(
+                          '/flixPerson',
+                          extra: TmdbPersonRef(
+                            id: person.id,
+                            name: person.name,
+                            profilePath: person.profilePath,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
             ],

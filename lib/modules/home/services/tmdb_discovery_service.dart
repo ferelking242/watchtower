@@ -350,6 +350,7 @@ class TmdbMediaDetails {
   final int? runtime;
   final int? numberOfSeasons;
   final int? numberOfEpisodes;
+  final List<int> episodeRunTimes;
   final String? tagline;
   final String? status;
   final List<TmdbGenre> genres;
@@ -368,6 +369,9 @@ class TmdbMediaDetails {
   final List<String> productionCountries;
   final List<String> productionCompanies;
   final List<String> networks;
+  final List<String> originCountries;
+  final List<String> spokenLanguages;
+  final List<String> createdBy;
   final String? type;
   final String? lastAirDate;
   final String? inProduction;
@@ -376,6 +380,7 @@ class TmdbMediaDetails {
     this.runtime,
     this.numberOfSeasons,
     this.numberOfEpisodes,
+    this.episodeRunTimes = const [],
     this.tagline,
     this.status,
     this.genres = const [],
@@ -394,6 +399,9 @@ class TmdbMediaDetails {
     this.productionCountries = const [],
     this.productionCompanies = const [],
     this.networks = const [],
+    this.originCountries = const [],
+    this.spokenLanguages = const [],
+    this.createdBy = const [],
     this.type,
     this.lastAirDate,
     this.inProduction,
@@ -470,10 +478,35 @@ class TmdbMediaDetails {
           },
         );
 
+    final episodeRunTimes = (json['episode_run_time'] as List?)
+            ?.whereType<num>()
+            .map((value) => value.toInt())
+            .where((value) => value > 0)
+            .toList(growable: false) ??
+        const [];
+    final originCountries = (json['origin_country'] as List?)
+            ?.whereType<String>()
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false) ??
+        const [];
+    final spokenLanguages = (json['spoken_languages'] as List?)
+            ?.whereType<Map>()
+            .map((item) => item['name'] as String? ?? item['iso_639_1'] as String? ?? '')
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false) ??
+        const [];
+    final createdBy = (json['created_by'] as List?)
+            ?.whereType<Map>()
+            .map((item) => item['name'] as String? ?? '')
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false) ??
+        const [];
+
     return TmdbMediaDetails(
       runtime: (json['runtime'] as num?)?.toInt(),
       numberOfSeasons: (json['number_of_seasons'] as num?)?.toInt(),
       numberOfEpisodes: (json['number_of_episodes'] as num?)?.toInt(),
+      episodeRunTimes: episodeRunTimes,
       tagline: json['tagline'] as String?,
       status: json['status'] as String?,
       genres: genres,
@@ -510,6 +543,9 @@ class TmdbMediaDetails {
               .where((value) => value.isNotEmpty)
               .toList(growable: false) ??
           const [],
+      originCountries: originCountries,
+      spokenLanguages: spokenLanguages,
+      createdBy: createdBy,
       type: json['type'] as String?,
       lastAirDate: json['last_air_date'] as String?,
       inProduction: (json['in_production'] as bool?) == null

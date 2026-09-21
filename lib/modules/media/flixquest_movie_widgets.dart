@@ -1290,7 +1290,9 @@ class _CatalogError extends StatelessWidget {
 /// search. It searches the movie/series catalogue and never opens the
 /// extension global-search route.
 class TmdbSearchScreen extends StatefulWidget {
-  const TmdbSearchScreen({super.key});
+  const TmdbSearchScreen({super.key, this.initialQuery});
+
+  final String? initialQuery;
 
   @override
   State<TmdbSearchScreen> createState() => _TmdbSearchScreenState();
@@ -1301,6 +1303,17 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
   String _query = '';
   Future<List<TmdbMedia>>? _movies;
   Future<List<TmdbMedia>>? _series;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialQuery = widget.initialQuery?.trim();
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search(initialQuery);
+      });
+    }
+  }
 
   @override
   void dispose() {

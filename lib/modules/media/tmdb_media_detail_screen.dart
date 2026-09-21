@@ -64,7 +64,10 @@ class _TmdbMediaDetailScreenState extends State<TmdbMediaDetailScreen> {
             onFavoriteChanged: () =>
                 setState(() => _isFavorite = !_isFavorite),
             onShare: _shareMedia,
-            onDownload: () => context.push('/flixSearch'),
+            onDownload: () => context.push(
+              '/flixSearch',
+              extra: widget.media.displayTitle,
+            ),
           );
         },
       ),
@@ -281,7 +284,10 @@ class _DetailContentState extends State<_DetailContent> {
                   children: [
                     Expanded(
                       child: FilledButton.icon(
-                         onPressed: () => context.push('/flixSearch'),
+                         onPressed: () => context.push(
+                           '/flixSearch',
+                           extra: media.displayTitle,
+                         ),
                         icon: const Icon(Icons.play_arrow_rounded),
                          label: const Text('Watch now'),
                       ),
@@ -680,12 +686,14 @@ class _DetailsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final type = media.mediaType == 'movie' ? 'Film' : 'Série';
+    final status = _formatTmdbStatus(details.status);
     final rows = <MapEntry<String, String>>[
       MapEntry('Titre', media.displayTitle),
       if (details.originalTitle?.isNotEmpty == true)
         MapEntry('Titre original', details.originalTitle!),
       if (media.mediaType.isNotEmpty)
-        MapEntry('Type', media.mediaType == 'movie' ? 'Film' : 'Série'),
+        MapEntry('Type', type),
       if (media.releaseDate?.isNotEmpty == true)
         MapEntry('Date de sortie', media.releaseDate!),
       if (media.firstAirDate?.isNotEmpty == true)
@@ -694,21 +702,33 @@ class _DetailsSection extends StatelessWidget {
         MapEntry('Dernier épisode', details.lastAirDate!),
       if (details.type?.isNotEmpty == true) MapEntry('Format', details.type!),
       if (details.status?.isNotEmpty == true)
-        MapEntry('Statut', details.status!),
+        MapEntry('Statut', status),
       if (details.runtime != null && details.runtime! > 0)
         MapEntry('Durée', '${details.runtime} min'),
+      if (details.episodeRunTimes.isNotEmpty)
+        MapEntry(
+          'Durée épisode',
+          '${details.episodeRunTimes.join('–')} min',
+        ),
       if (details.numberOfSeasons != null)
         MapEntry('Saisons', '${details.numberOfSeasons}'),
       if (details.numberOfEpisodes != null)
         MapEntry('Épisodes', '${details.numberOfEpisodes}'),
       if (media.originalLanguage?.isNotEmpty == true)
         MapEntry('Langue originale', media.originalLanguage!.toUpperCase()),
+      if (details.spokenLanguages.isNotEmpty)
+        MapEntry('Langues parlées', details.spokenLanguages.join(', ')),
+      if (details.originCountries.isNotEmpty)
+        MapEntry('Pays d’origine', details.originCountries.join(', ')),
       if (media.voteCount != null)
         MapEntry('Votes TMDB', '${media.voteCount}'),
       if (media.voteAverage != null)
         MapEntry('Note TMDB', media.voteAverage!.toStringAsFixed(1)),
-      if (details.popularity != null)
-        MapEntry('Popularité', details.popularity!.toStringAsFixed(2)),
+      if (media.popularity != null || details.popularity != null)
+        MapEntry(
+          'Popularité',
+          (details.popularity ?? media.popularity)!.toStringAsFixed(2),
+        ),
       if (details.budget != null && details.budget! > 0)
         MapEntry('Budget', _formatMoney(details.budget!)),
       if (details.revenue != null && details.revenue! > 0)
@@ -725,6 +745,8 @@ class _DetailsSection extends StatelessWidget {
         MapEntry('Production', details.productionCompanies.join(', ')),
       if (details.networks.isNotEmpty)
         MapEntry('Réseaux', details.networks.join(', ')),
+      if (details.createdBy.isNotEmpty)
+        MapEntry('Créé par', details.createdBy.join(', ')),
     ];
     if (rows.isEmpty) {
       return const _EmptySection(message: 'Détails indisponibles.');
@@ -744,11 +766,16 @@ class _DetailsSection extends StatelessWidget {
                       style: const TextStyle(color: Colors.white54),
                     ),
                   ),
-                  Text(
-                    row.value,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: Text(
+                      row.value,
+                      textAlign: TextAlign.end,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -758,6 +785,18 @@ class _DetailsSection extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatTmdbStatus(String? value) {
+  return switch (value) {
+    'Released' => 'Sorti',
+    'Returning Series' => 'En cours',
+    'Ended' => 'Terminée',
+    'Canceled' || 'Cancelled' => 'Annulée',
+    'In Production' => 'En production',
+    'Planned' => 'Prévue',
+    _ => value ?? '—',
+  };
 }
 
 String _formatMoney(int value) {
@@ -1030,24 +1069,31 @@ class _DetailSkeleton extends StatelessWidget {
     return CustomScrollView(
       slivers: [
         const SliverAppBar(
-          expandedHeight: 330,
+          expandedHeight: 260,
           pinned: true,
           backgroundColor: Color(0xFF0B0B11),
           leading: BackButton(color: Colors.white),
         ),
         SliverPadding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
           sliver: SliverList(
             delegate: SliverChildListDelegate.fixed([
-              SizedBox(height: 190, child: AppShimmerBlock()),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 118, height: 176, child: AppShimmerBlock()),
+                  SizedBox(width: 14),
+                  Expanded(
+                    child: SizedBox(height: 126, child: AppShimmerBlock()),
+                  ),
+                ],
+              ),
               SizedBox(height: 18),
-              SizedBox(height: 34, child: AppShimmerBlock()),
-              SizedBox(height: 12),
-              SizedBox(height: 90, child: AppShimmerBlock()),
-              SizedBox(height: 24),
-              SizedBox(height: 44, child: AppShimmerBlock()),
-              SizedBox(height: 20),
-              SizedBox(height: 150, child: AppShimmerBlock()),
+              SizedBox(height: 88, child: AppShimmerBlock()),
+              SizedBox(height: 18),
+              SizedBox(height: 42, child: AppShimmerBlock()),
+              SizedBox(height: 22),
+              SizedBox(height: 170, child: AppShimmerBlock()),
             ]),
           ),
         ),
