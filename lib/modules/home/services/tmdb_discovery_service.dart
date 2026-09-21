@@ -249,8 +249,12 @@ class TmdbPersonDetails {
   final String? profilePath;
   final String? homepage;
   final String? imdbId;
+  final String? facebookId;
+  final String? instagramId;
+  final String? twitterId;
   final double? popularity;
   final List<String> alsoKnownAs;
+  final List<String> profilePaths;
   final List<TmdbMedia> credits;
 
   const TmdbPersonDetails({
@@ -264,14 +268,24 @@ class TmdbPersonDetails {
     this.profilePath,
     this.homepage,
     this.imdbId,
+    this.facebookId,
+    this.instagramId,
+    this.twitterId,
     this.popularity,
     this.alsoKnownAs = const [],
+    this.profilePaths = const [],
     this.credits = const [],
   });
 
   String? get profileUrl => profilePath == null
       ? null
       : 'https://image.tmdb.org/t/p/w500$profilePath';
+
+  List<TmdbMedia> get movies =>
+      credits.where((credit) => credit.mediaType == 'movie').toList();
+
+  List<TmdbMedia> get tvShows =>
+      credits.where((credit) => credit.mediaType == 'tv').toList();
 
   factory TmdbPersonDetails.fromJson(Map<String, dynamic> json) {
     final combined =
@@ -295,6 +309,20 @@ class TmdbPersonDetails {
         ),
       ),
     ];
+    final imageProfiles = ((json['images'] as Map?)?['profiles'] as List? ?? [])
+        .whereType<Map>()
+        .map((item) => item['file_path'] as String?)
+        .whereType<String>()
+        .where((path) => path.isNotEmpty)
+        .toSet()
+        .toList();
+    if (json['profile_path'] is String &&
+        (json['profile_path'] as String).isNotEmpty &&
+        !imageProfiles.contains(json['profile_path'])) {
+      imageProfiles.insert(0, json['profile_path'] as String);
+    }
+    final externalIds =
+        (json['external_ids'] as Map?)?.cast<String, dynamic>();
     return TmdbPersonDetails(
       id: (json['id'] as num?)?.toInt() ?? 0,
       name: json['name'] as String? ?? 'Artiste',
@@ -305,12 +333,16 @@ class TmdbPersonDetails {
       knownForDepartment: json['known_for_department'] as String?,
       profilePath: json['profile_path'] as String?,
       homepage: json['homepage'] as String?,
-      imdbId: json['imdb_id'] as String?,
+      imdbId: json['imdb_id'] as String? ?? externalIds?['imdb_id'] as String?,
+      facebookId: externalIds?['facebook_id'] as String?,
+      instagramId: externalIds?['instagram_id'] as String?,
+      twitterId: externalIds?['twitter_id'] as String?,
       popularity: (json['popularity'] as num?)?.toDouble(),
       alsoKnownAs: (json['also_known_as'] as List?)
               ?.whereType<String>()
               .toList(growable: false) ??
           const [],
+      profilePaths: imageProfiles,
       credits: credits,
     );
   }
@@ -925,7 +957,8 @@ Future<TmdbPersonDetails> fetchTmdbPersonDetails(TmdbPersonRef person) async {
   final uri = Uri.parse('$_tmdbBase/person/${person.id}').replace(
     queryParameters: const {
       'language': 'fr-FR',
-      'append_to_response': 'combined_credits,external_ids',
+      'append_to_response': 'combined_credits,external_ids,images',
+      'include_image_language': 'fr,null,en',
     },
   );
   final res = await http
