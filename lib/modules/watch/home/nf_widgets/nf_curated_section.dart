@@ -35,6 +35,7 @@ class NfCuratedSection extends StatelessWidget {
       'landscapeStacked' => _LandscapeStacked(items: items, onTap: onTapManga),
       'compact' => _LandscapeStacked(items: items, onTap: onTapManga),
       'backdropWide' => _BackdropGrid(items: items, onTap: onTapManga),
+      'eveningSpotlight' => _EveningSpotlight(items: items, onTap: onTapManga),
       'discoverGrid' => _DiscoverGrid(items: items, onTap: onTapManga),
       'studioExplorer' => _StudioGrid(items: items, onTap: onTapManga),
       'universeExplorer' || 'collectionTimeline' => _CollectionTimeline(
@@ -367,6 +368,98 @@ class _BackdropGrid extends StatelessWidget {
           onTap: () => onTap?.call(visible[index]),
           accent: nfRedColor,
         ),
+      ),
+    );
+  }
+}
+
+class _EveningSpotlight extends StatelessWidget {
+  const _EveningSpotlight({required this.items, this.onTap});
+
+  final List<MManga> items;
+  final void Function(MManga)? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final featured = items.first;
+    final small = items.skip(1).take(3).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _EveningCard(
+            manga: featured,
+            height: 190,
+            onTap: () => onTap?.call(featured),
+          ),
+          if (small.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < small.length; i++)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: i == 0 ? 0 : 6),
+                      child: _EveningCard(
+                        manga: small[i],
+                        height: 118,
+                        onTap: () => onTap?.call(small[i]),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _EveningCard extends StatelessWidget {
+  const _EveningCard({
+    required this.manga,
+    required this.height,
+    required this.onTap,
+  });
+
+  final MManga manga;
+  final double height;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(11),
+            child: NfPosterImage(
+              imageUrl: manga.imageUrl,
+              backdrop: true,
+              width: double.infinity,
+              height: height,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            manga.name ?? '',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: height > 150 ? 14 : 10.5,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
+        ],
       ),
     );
   }

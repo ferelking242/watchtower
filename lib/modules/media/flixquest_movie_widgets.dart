@@ -422,6 +422,12 @@ class DiscoverMovies extends StatelessWidget {
                                 ),
                               ),
                               const Spacer(),
+                              _HeroIconButton(
+                                icon: Broken.bookmark,
+                                onPressed: onLibraryPressed,
+                                tooltip: 'Library',
+                              ),
+                              const SizedBox(width: 8),
                               if (onLiveTVPressed != null) ...[
                                 _HeroLiveButton(onPressed: onLiveTVPressed!),
                                 const SizedBox(width: 8),
@@ -449,7 +455,7 @@ class DiscoverMovies extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 32,
+                              fontSize: 24,
                               height: 1.05,
                               fontWeight: FontWeight.w900,
                             ),
@@ -474,11 +480,6 @@ class DiscoverMovies extends StatelessWidget {
                                   icon: Broken.star,
                                   label: movie.voteAverage!.toStringAsFixed(1),
                                 ),
-                              _HeroMetaChip(
-                                label: movie.mediaType == 'movie'
-                                    ? 'FILM'
-                                    : 'SÉRIE',
-                              ),
                             ],
                           ),
                           if (movie.overview?.isNotEmpty == true) ...[
@@ -494,24 +495,6 @@ class DiscoverMovies extends StatelessWidget {
                               ),
                             ),
                           ],
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: onLibraryPressed,
-                                icon: const Icon(Broken.bookmark),
-                                label: const Text('Library'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: const BorderSide(color: Colors.white70),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ),
@@ -561,15 +544,17 @@ class _HeroWatchButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black.withValues(alpha: .34),
-      borderRadius: BorderRadius.circular(28),
+      color: Colors.black.withValues(alpha: .58),
+      shape: const CircleBorder(),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(28),
+        customBorder: const CircleBorder(),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 11),
+          width: 58,
+          height: 58,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
+            shape: BoxShape.circle,
             border: Border.all(color: Colors.white.withValues(alpha: .74)),
             boxShadow: [
               BoxShadow(
@@ -578,21 +563,7 @@ class _HeroWatchButton extends StatelessWidget {
               ),
             ],
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Broken.play, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Watch now',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
+          child: const Icon(Broken.play, color: Colors.white, size: 28),
         ),
       ),
     );

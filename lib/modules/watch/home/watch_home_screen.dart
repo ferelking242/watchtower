@@ -28,6 +28,7 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/ui/widgets/see_all_button.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'nf_widgets/nf_app_bar.dart';
+import 'nf_widgets/nf_favorite.dart';
 import 'nf_widgets/nf_highlight_banner.dart';
 import 'nf_widgets/nf_menu_panel.dart';
 import 'nf_widgets/nf_movie_box.dart';
@@ -102,6 +103,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
 
   // ── Refresh key — incremented on each pull-to-refresh to force hero rebuild
   int _refreshKey = 0;
+  MManga? _heroManga;
+  bool _heroLibraryAdded = false;
 
   @override
   void initState() {
@@ -217,6 +220,25 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     }
     // Allow providers to start rebuilding
     await Future<void>.delayed(const Duration(milliseconds: 400));
+  }
+
+  void _onHeroChanged(MManga manga) {
+    final changed =
+        _heroManga?.name != manga.name ||
+        _heroManga?.link != manga.link ||
+        _heroLibraryAdded != isMangaInList(source, manga);
+    if (changed && mounted) {
+      setState(() {
+        _heroManga = manga;
+        _heroLibraryAdded = isMangaInList(source, manga);
+      });
+    }
+  }
+
+  void _toggleHeroLibrary() {
+    final manga = _heroManga;
+    if (manga == null) return;
+    setState(() => _heroLibraryAdded = toggleMangaInList(source, manga));
   }
 
   // ── Catalogue pagination ──────────────────────────────────────────────────
@@ -661,6 +683,14 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
     final categoryLists = _customLists
         .where((cl) => cl['layout'] == 'category')
         .toList();
+    final tagLists = _customLists
+        .where(
+          (cl) =>
+              cl['layout'] == 'tag' ||
+              cl['layout'] == 'tags' ||
+              cl['component'] == 'tags',
+        )
+        .toList();
     final regularLists = _customLists
         .where(
           (cl) =>
@@ -729,6 +759,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                     key: ValueKey('hero_$_refreshKey'),
                     source: source,
                     customLists: _customLists,
+                    onCurrentChanged: _onHeroChanged,
                     onTapManga: (manga) {
                       if (_tryOpenReel(ctx, manga, source)) return;
                       pushToMangaReaderDetail(
@@ -754,6 +785,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                   SliverToBoxAdapter(
                     child: _buildCategoryChips(ctx, categoryLists),
                   ),
+                if (tagLists.isNotEmpty)
+                  SliverToBoxAdapter(child: _buildTagChips(ctx, tagLists)),
 
                 // ── Content rows (spotlight / ranked / compact) ───────────
                 ...contentLists.map(
@@ -850,7 +883,7 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                                     cl['name'] as String? ??
                                     'Nouveau & Populaire',
                                 items: items.take(6).toList(),
-                                component: 'backdropWide',
+                                component: 'eveningSpotlight',
                                 onSeeAll: () => Navigator.of(ctx).push(
                                   MaterialPageRoute(
                                     builder: (_) => _WatchSectionPage(
@@ -969,6 +1002,8 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
             sourceName: source.name ?? source.lang ?? 'Anime',
             sourceIconUrl: source.iconUrl,
             onSourceTap: _openSourcePicker,
+            onLibraryTap: _toggleHeroLibrary,
+            libraryAdded: _heroLibraryAdded,
             onMenuTap: _openMenu,
             canPop: context.canPop(),
             onBackTap: () => context.pop(),
@@ -1015,10 +1050,16 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
           ),
         ),
         SizedBox(
-          height: 104,
-          child: ListView.builder(
+          height: 164,
+          child: GridView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 150,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
             itemCount: cats.length,
             itemBuilder: (_, i) {
               final cl = cats[i];
@@ -1037,44 +1078,125 @@ class _WatchHomeScreenState extends ConsumerState<WatchHomeScreen> {
                 fallback = const Color(0xFF1E2126);
               }
 
-              return Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: GestureDetector(
-                  onTap: () => Navigator.of(ctx).push(
-                    MaterialPageRoute(
-                      builder: (_) => _WatchSectionPage(
-                        source: source,
-                        title: listName,
-                        type: _SectionKind.custom,
-                        customListId: listId,
-                      ),
+              return GestureDetector(
+                onTap: () => Navigator.of(ctx).push(
+                  MaterialPageRoute(
+                    builder: (_) => _WatchSectionPage(
+                      source: source,
+                      title: listName,
+                      type: _SectionKind.custom,
+                      customListId: listId,
                     ),
                   ),
-                  child: Consumer(
-                    builder: (c, r, _) {
-                      String bgUrl = extImg;
+                ),
+                child: Consumer(
+                  builder: (c, r, _) {
+                    String bgUrl = extImg;
 
-                      if (bgUrl.isEmpty) {
-                        final snap = r.watch(
-                          getCustomListProvider(
-                            source: source,
-                            listId: listId,
-                            page: 1,
-                          ),
-                        );
-                        bgUrl = snap.maybeWhen(
-                          data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
-                          orElse: () => '',
-                        );
-                      }
-                      return _CategoryCard(
-                        name: listName,
-                        imageUrl: bgUrl,
-                        fallback: fallback,
-                        width: 182,
-                        height: 104,
+                    if (bgUrl.isEmpty) {
+                      final snap = r.watch(
+                        getCustomListProvider(
+                          source: source,
+                          listId: listId,
+                          page: 1,
+                        ),
                       );
-                    },
+                      bgUrl = snap.maybeWhen(
+                        data: (d) => d?.list.firstOrNull?.imageUrl ?? '',
+                        orElse: () => '',
+                      );
+                    }
+                    return _CategoryCard(
+                      name: listName,
+                      imageUrl: bgUrl,
+                      fallback: fallback,
+                      width: 150,
+                      height: 70,
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTagChips(BuildContext ctx, List<Map<String, dynamic>> tags) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
+          child: Row(
+            children: [
+              const Text(
+                'Tags',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              SeeAllButton(
+                color: Colors.white70,
+                onTap: () => Navigator.of(ctx).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        _CategoryGridPage(source: source, categories: tags),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 96,
+          child: GridView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 142,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: tags.length,
+            itemBuilder: (_, i) {
+              final tag = tags[i];
+              final name = tag['name'] as String? ?? tag['id'] as String;
+              final listId = tag['id'] as String;
+              return GestureDetector(
+                onTap: () => Navigator.of(ctx).push(
+                  MaterialPageRoute(
+                    builder: (_) => _WatchSectionPage(
+                      source: source,
+                      title: name,
+                      type: _SectionKind.custom,
+                      customListId: listId,
+                    ),
+                  ),
+                ),
+                child: Container(
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Text(
+                    name,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               );
@@ -1414,11 +1536,13 @@ class _HeroSection extends ConsumerWidget {
   final Source source;
   final List<Map<String, dynamic>> customLists;
   final void Function(MManga) onTapManga;
+  final void Function(MManga) onCurrentChanged;
 
   const _HeroSection({
     super.key,
     required this.source,
     required this.customLists,
+    required this.onCurrentChanged,
     required this.onTapManga,
   });
 
@@ -1467,6 +1591,7 @@ class _HeroSection extends ConsumerWidget {
       items: items.take(5).toList(),
       source: source,
       onTapManga: onTapManga,
+      onCurrentChanged: onCurrentChanged,
     );
   }
 
@@ -1535,6 +1660,20 @@ class _NfContentRow extends ConsumerWidget {
       data: (d) {
         final items = d?.list ?? [];
         if (items.isEmpty) return const SizedBox.shrink();
+        final upcoming =
+            listId.toLowerCase().contains('upcoming') ||
+            title.toLowerCase().contains('upcoming') ||
+            title.toLowerCase().contains('à venir') ||
+            title.toLowerCase().contains('a venir');
+        if (upcoming) {
+          return _NfPagedPosterGrid(
+            title: title,
+            items: items,
+            source: source,
+            onSeeAll: onSeeAll,
+            onTapManga: onTapManga,
+          );
+        }
         if (component == 'masonry') {
           return _NfMasonryRow(
             title: title,
@@ -1875,6 +2014,130 @@ class _NfInlineGrid extends StatelessWidget {
               itemType: source.itemType,
               isComfortableGrid: false,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A horizontal pager made of 3 x 3 poster pages. Items are intentionally
+/// placed column-first so a page reads 1/4/7, 2/5/8, 3/6/9 as requested.
+class _NfPagedPosterGrid extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final Source source;
+  final VoidCallback? onSeeAll;
+  final void Function(MManga)? onTapManga;
+
+  const _NfPagedPosterGrid({
+    required this.title,
+    required this.items,
+    required this.source,
+    required this.onSeeAll,
+    required this.onTapManga,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = <List<MManga>>[];
+    for (var start = 0; start < items.length; start += 9) {
+      pages.add(items.skip(start).take(9).toList());
+    }
+
+    final width = MediaQuery.sizeOf(context).width;
+    final tileWidth = ((width - 48) / 3).clamp(78.0, 150.0);
+    final tileHeight = tileWidth * 1.56 + 34;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 4, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (onSeeAll != null)
+                SeeAllButton(color: Colors.white70, onTap: onSeeAll!),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: tileHeight * 3 + 12,
+          child: PageView.builder(
+            controller: PageController(viewportFraction: 1),
+            itemCount: pages.length,
+            itemBuilder: (context, page) {
+              final pageItems = pages[page];
+              final ordered = <MManga>[];
+              for (var row = 0; row < 3; row++) {
+                for (var column = 0; column < 3; column++) {
+                  final sourceIndex = column * 3 + row;
+                  if (sourceIndex < pageItems.length) {
+                    ordered.add(pageItems[sourceIndex]);
+                  } else {
+                    ordered.add(MManga(name: '', imageUrl: ''));
+                  }
+                }
+              }
+
+              return GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: ordered.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 0.58,
+                ),
+                itemBuilder: (_, index) {
+                  final item = ordered[index];
+                  if (item.name == null || item.name!.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return GestureDetector(
+                    onTap: () => onTapManga?.call(item),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: NfPosterImage(
+                              imageUrl: item.imageUrl,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.name!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ),
       ],

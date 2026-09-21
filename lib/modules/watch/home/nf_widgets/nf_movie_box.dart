@@ -1,6 +1,6 @@
 // Adapted from flutter_netflix — movie_box.dart
 // Removed: BLoC, Movie model, TMDB URL, netflix_symbol asset, laughs counter.
-// Added: MManga + Source, title overlay at bottom, tap → NfBottomSheet or direct nav.
+// Added: MManga + Source, title below the poster, tap → NfBottomSheet or direct nav.
 import 'package:flutter/material.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
@@ -19,88 +19,60 @@ class NfMovieBox extends StatelessWidget {
     this.cardStyle,
   });
 
-  final MManga      manga;
-  final Source      source;
+  final MManga manga;
+  final Source source;
   final EdgeInsets? padding;
-  final bool        fill;
-  final bool        compact;
-  final String?     cardStyle;
+  final bool fill;
+  final bool compact;
+  final String? cardStyle;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: padding ??
-          const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+      padding:
+          padding ?? const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
       child: GestureDetector(
         onTap: () => showModalBottomSheet(
-          context:           context,
-          useRootNavigator:  true,
-          backgroundColor:   nfBottomSheetColor,
+          context: context,
+          useRootNavigator: true,
+          backgroundColor: nfBottomSheetColor,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.only(
-              topLeft:  Radius.circular(12.0),
+              topLeft: Radius.circular(12.0),
               topRight: Radius.circular(12.0),
             ),
           ),
           builder: (ctx) => NfBottomSheet(manga: manga, source: source),
         ),
         child: SizedBox(
-           width:  compact ? 92.0 : 110.0,
-           height: compact ? 174.0 : 220.0,
-          child: Stack(
-            fit: StackFit.expand,
+          width: compact ? 100.0 : 118.0,
+          height: compact ? 185.0 : 218.0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Poster image
-              fill
-                  ? Positioned.fill(
-                      child: NfPosterImage(
-                        imageUrl: manga.imageUrl,
-                         width:    compact ? 92.0 : 110.0,
-                         height:   compact ? 174.0 : 220.0,
-                      ),
-                    )
-                  : NfPosterImage(
-                      imageUrl: manga.imageUrl,
-                       width:    compact ? 92.0 : 110.0,
-                       height:   compact ? 174.0 : 220.0,
-                    ),
-
-              // Bottom gradient + title — "tu rajoute juste le nom dessus"
-              Positioned(
-                bottom: 0,
-                left:   0,
-                right:  0,
-                child: Container(
-                  decoration: BoxDecoration(
-                     borderRadius: const BorderRadius.vertical(
-                       bottom: Radius.circular(8.0),
-                     ),
-                    gradient: LinearGradient(
-                      begin:  Alignment.bottomCenter,
-                      end:    Alignment.topCenter,
-                      colors: [
-                         Colors.black.withValues(
-                             alpha: cardStyle == 'thumbnail' ? 0.78 : 0.88),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 1.0],
-                    ),
+              SizedBox(
+                width: compact ? 100.0 : 118.0,
+                height: compact ? 150.0 : 178.0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: NfPosterImage(
+                    imageUrl: manga.imageUrl,
+                    width: compact ? 100.0 : 118.0,
+                    height: compact ? 150.0 : 178.0,
+                    fit: BoxFit.cover,
                   ),
-                   padding: EdgeInsets.fromLTRB(
-                     6, compact ? 14 : 18, 6, compact ? 6 : 7,
-                   ),
-                  child: Text(
-                    manga.name ?? '',
-                    maxLines:  2,
-                    overflow:  TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color:      Colors.white,
-                      fontSize:   11.5,
-                      fontWeight: FontWeight.w700,
-                      height:     1.25,
-                      shadows: [Shadow(color: Colors.black87, blurRadius: 6)],
-                    ),
-                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                manga.name ?? '',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
             ],

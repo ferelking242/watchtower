@@ -1,7 +1,7 @@
 // Watch hero carousel — evolution of the flutter_netflix highlight banner.
 // Design refs: Netflix / Disney+ mobile heroes — landscape backdrop,
 // gradient scrims (never a solid black bar), auto-rotation with dot indicator,
-// action row: Ma liste (library toggle) • Lecture (play) • Info (bottom sheet).
+// The hero keeps only one action: a centred play button.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,8 +10,6 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart'
     show pushToMangaReaderDetail;
-import 'nf_bottom_sheet.dart';
-import 'nf_favorite.dart';
 import 'nf_poster_image.dart';
 import 'nf_utils.dart';
 
@@ -32,11 +30,13 @@ class NfHeroCarousel extends ConsumerStatefulWidget {
     required this.items,
     required this.source,
     required this.onTapManga,
+    this.onCurrentChanged,
   });
 
   final List<MManga> items;
   final Source source;
   final void Function(MManga) onTapManga;
+  final void Function(MManga)? onCurrentChanged;
 
   @override
   ConsumerState<NfHeroCarousel> createState() => _NfHeroCarouselState();
@@ -49,12 +49,15 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
   final PageController _pageCtrl = PageController();
   Timer? _timer;
   int _page = 0;
-  bool _inList = false;
 
   @override
   void initState() {
     super.initState();
-    _syncListFlag(0);
+    if (widget.items.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onCurrentChanged?.call(widget.items.first);
+      });
+    }
     _armTimer();
   }
 
@@ -65,11 +68,11 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
     super.dispose();
   }
 
-  void _syncListFlag(int page) {
+  void _syncCurrentItem(int page) {
     final items = widget.items;
     if (items.isEmpty) return;
     final i = page.clamp(0, items.length - 1);
-    _inList = isMangaInList(widget.source, items[i]);
+    widget.onCurrentChanged?.call(items[i]);
   }
 
   void _armTimer() {
@@ -84,44 +87,22 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
   }
 
   void _onPageChanged(int page) {
-    setState(() {
-      _page = page;
-      _syncListFlag(page);
-    });
+    setState(() => _page = page);
+    _syncCurrentItem(page);
     _armTimer(); // restart countdown after manual swipe
   }
 
-  MManga get _current =>
-      widget.items[_page.clamp(0, widget.items.length - 1)];
-
-  void _toggleList() {
-    setState(() => _inList = toggleMangaInList(widget.source, _current));
-  }
+  MManga get _current => widget.items[_page.clamp(0, widget.items.length - 1)];
 
   void _play(MManga manga) => pushToMangaReaderDetail(
-        ref: ref,
-        context: context,
-        getManga: manga,
-        lang: widget.source.lang!,
-        source: widget.source.name!,
-        itemType: widget.source.itemType,
-        sourceId: widget.source.id,
-      );
-
-  void _info(MManga manga) {
-    showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      backgroundColor: nfBottomSheetColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12.0),
-          topRight: Radius.circular(12.0),
-        ),
-      ),
-      builder: (ctx) => NfBottomSheet(manga: manga, source: widget.source),
-    );
-  }
+    ref: ref,
+    context: context,
+    getManga: manga,
+    lang: widget.source.lang!,
+    source: widget.source.name!,
+    itemType: widget.source.itemType,
+    sourceId: widget.source.id,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -129,13 +110,7 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
     if (items.isEmpty) return const SizedBox.shrink();
     final width = MediaQuery.of(context).size.width;
     final height = heroCarouselHeight(context);
-    final topPad = MediaQuery.paddingOf(context).top;
-
     final current = _current;
-    final genres = (current.genre ?? const <String>[])
-        .where((g) => g.trim().isNotEmpty)
-        .take(3)
-        .toList();
 
     return SizedBox(
       width: width,
@@ -153,34 +128,34 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
               final manga = items[i];
               return GestureDetector(
                 onTap: () => widget.onTapManga(manga),
-                 child: Stack(
-                   fit: StackFit.expand,
-                   children: [
-                     // A muted cover keeps the taller frame cinematic.
-                     Opacity(
-                       opacity: 0.30,
-                       child: NfPosterImage(
-                         imageUrl: manga.imageUrl,
-                         original: true,
-                         borderRadius: BorderRadius.zero,
-                         width: width,
-                         height: height,
-                         fit: BoxFit.cover,
-                         alignment: Alignment.center,
-                       ),
-                     ),
-                     // Contain the real thumbnail so its edges are never cut.
-                     NfPosterImage(
-                       imageUrl: manga.imageUrl,
-                       original: true,
-                       borderRadius: BorderRadius.zero,
-                       width: width,
-                       height: height,
-                       fit: BoxFit.contain,
-                       alignment: Alignment.center,
-                     ),
-                   ],
-                 ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // A muted cover keeps the taller frame cinematic.
+                    Opacity(
+                      opacity: 0.30,
+                      child: NfPosterImage(
+                        imageUrl: manga.imageUrl,
+                        original: true,
+                        borderRadius: BorderRadius.zero,
+                        width: width,
+                        height: height,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                      ),
+                    ),
+                    // Contain the real thumbnail so its edges are never cut.
+                    NfPosterImage(
+                      imageUrl: manga.imageUrl,
+                      original: true,
+                      borderRadius: BorderRadius.zero,
+                      width: width,
+                      height: height,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                    ),
+                  ],
+                ),
               );
             },
           ),
@@ -212,69 +187,45 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   stops: [0.0, 0.45, 1.0],
-                  colors: [
-                    Colors.transparent,
-                    Colors.black54,
-                    Colors.black,
-                  ],
+                  colors: [Colors.transparent, Colors.black54, Colors.black],
                 ),
               ),
             ),
           ),
 
-          // ── Genre badge — corner chip under the app bar ─────────────────
-          if (genres.isNotEmpty)
-            Positioned(
-              top: topPad + kToolbarHeight + 10,
-              left: 16,
-              child: IgnorePointer(
-                child: Row(
-                  children: [
-                    for (var i = 0; i < genres.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 6),
-                      _HeroGenreChip(genre: genres[i]),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-          // ── Bottom content: title, dots, actions ─────────────────────────
+          // ── Bottom content: small left-aligned title and dots ─────────────
           Positioned(
-            bottom: 0,
+            bottom: 82,
             left: 0,
             right: 0,
             child: SafeArea(
               top: false,
               child: Padding(
-                padding:
-                    const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title
                     Text(
                       current.name ?? '',
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
+                      textAlign: TextAlign.left,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 25,
+                        fontSize: 19,
                         fontWeight: FontWeight.w900,
-                        height: 1.12,
-                        letterSpacing: -0.3,
+                        height: 1.1,
+                        letterSpacing: -0.15,
                         shadows: [
                           Shadow(color: Colors.black87, blurRadius: 16),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-
-                    // Page indicator dots
+                    const SizedBox(height: 8),
                     if (items.length > 1) ...[
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.start,
                         children: List.generate(items.length, (i) {
                           final active = i == _page;
                           return AnimatedContainer(
@@ -291,43 +242,47 @@ class _NfHeroCarouselState extends ConsumerState<NfHeroCarousel> {
                           );
                         }),
                       ),
-                      const SizedBox(height: 12),
                     ],
+                  ],
+                ),
+              ),
+            ),
+          ),
 
-                    // Action trio — Ma liste • Lecture • Info (equal weight,
-                    // fluid thirds so it never overflows on narrow screens)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _HeroAction(
-                            icon: _inList
-                                ? Icons.check_rounded
-                                : Icons.add_rounded,
-                            label: _inList ? 'Ajouté' : 'Ma liste',
-                            onTap: _toggleList,
-                            filled: false,
-                          ),
-                        ),
-                        Expanded(
-                          child: _HeroAction(
-                            icon: Icons.play_arrow_rounded,
-                            label: 'Lecture',
-                            onTap: () => _play(_current),
-                            filled: true,
-                          ),
-                        ),
-                        Expanded(
-                          child: _HeroAction(
-                            icon: Icons.info_outline_rounded,
-                            label: 'Info',
-                            onTap: () => _info(_current),
-                            filled: false,
-                          ),
+          // One clean play button cut into the image at the bottom centre.
+          Positioned(
+            bottom: 14,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              top: false,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => _play(_current),
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.62),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.76),
+                        width: 1.4,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black54,
+                          blurRadius: 16,
+                          offset: Offset(0, 4),
                         ),
                       ],
                     ),
-                  ],
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 31,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -352,9 +307,7 @@ class _HeroGenreChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
       child: Text(
         genre,

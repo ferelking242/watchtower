@@ -25,9 +25,9 @@ class NfCircleIconButton extends StatelessWidget {
     this.size = 22.0,
   });
 
-  final IconData     icon;
+  final IconData icon;
   final VoidCallback onTap;
-  final double       size;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -40,9 +40,7 @@ class NfCircleIconButton extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.black.withValues(alpha: 0.45),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.10),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
         ),
         child: Icon(icon, color: Colors.white, size: size),
       ),
@@ -60,20 +58,24 @@ class NfWatchAppBarWidget extends StatelessWidget {
     required this.sourceName,
     this.sourceIconUrl,
     this.onSourceTap,
+    this.onLibraryTap,
     this.onMenuTap,
     this.onBackTap,
     this.canPop = false,
+    this.libraryAdded = false,
   });
 
   /// Live scroll offset — listened via ValueListenableBuilder (no rebuilds
   /// of the parent screen).
   final ValueNotifier<double> scrollOffsetNotifier;
-  final String        sourceName;
-  final String?       sourceIconUrl;
+  final String sourceName;
+  final String? sourceIconUrl;
   final VoidCallback? onSourceTap;
+  final VoidCallback? onLibraryTap;
   final VoidCallback? onMenuTap;
   final VoidCallback? onBackTap;
-  final bool          canPop;
+  final bool canPop;
+  final bool libraryAdded;
 
   @override
   Widget build(BuildContext context) {
@@ -89,10 +91,12 @@ class NfWatchAppBarWidget extends StatelessWidget {
 
         // Round buttons melt into the solid bar once scrolled: over the hero
         // they are dark glass, on the resting bar they become subtle frost.
-        final btnColor =
-            Colors.black.withValues(alpha: 0.08 + 0.32 * (1 - curved));
-        final btnBorder =
-            Colors.white.withValues(alpha: 0.05 + 0.12 * (1 - curved));
+        final btnColor = Colors.black.withValues(
+          alpha: 0.08 + 0.32 * (1 - curved),
+        );
+        final btnBorder = Colors.white.withValues(
+          alpha: 0.05 + 0.12 * (1 - curved),
+        );
 
         Widget roundIcon({required IconData icon, VoidCallback? onTap}) {
           return GestureDetector(
@@ -121,7 +125,7 @@ class NfWatchAppBarWidget extends StatelessWidget {
             gradient: expanded
                 ? const LinearGradient(
                     begin: Alignment.topCenter,
-                    end:   Alignment.bottomCenter,
+                    end: Alignment.bottomCenter,
                     stops: [0.0, 0.6, 1.0],
                     colors: [
                       Colors.black87,
@@ -156,47 +160,47 @@ class NfWatchAppBarWidget extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 // ── Centre: extension icon + name (fades in on collapse) ──
-                 Opacity(
-                   opacity: curved,
-                   child: GestureDetector(
-                     behavior: HitTestBehavior.opaque,
-                     onTap: onSourceTap,
-                     child: Row(
-                       mainAxisSize: MainAxisSize.min,
-                       children: [
-                      if (sourceIconUrl != null && sourceIconUrl!.isNotEmpty) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(7),
-                          child: ExtendedImage.network(
-                            sourceIconUrl!,
-                            width: 24,
-                            height: 24,
-                            fit: BoxFit.cover,
-                            loadStateChanged: (state) =>
-                                state.extendedImageLoadState ==
-                                        LoadState.failed
-                                    ? const ColoredBox(
-                                        color: Color(0xFF1A1A1A))
-                                    : null,
+                Opacity(
+                  opacity: curved,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onSourceTap,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (sourceIconUrl != null &&
+                            sourceIconUrl!.isNotEmpty) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(7),
+                            child: ExtendedImage.network(
+                              sourceIconUrl!,
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.cover,
+                              loadStateChanged: (state) =>
+                                  state.extendedImageLoadState ==
+                                      LoadState.failed
+                                  ? const ColoredBox(color: Color(0xFF1A1A1A))
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 9),
+                        ],
+                        Flexible(
+                          child: Text(
+                            sourceName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 9),
                       ],
-                      Flexible(
-                        child: Text(
-                          sourceName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color:         Colors.white,
-                            fontSize:      18,
-                            fontWeight:    FontWeight.w900,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ),
-                       ],
-                     ),
+                    ),
                   ),
                 ),
                 // ── Left: back ────────────────────────────────────────────
@@ -204,18 +208,26 @@ class NfWatchAppBarWidget extends StatelessWidget {
                   left: 0,
                   child: canPop
                       ? roundIcon(
-                          icon:  Broken.arrow_left_2,
-                          onTap: onBackTap ??
-                              () => Navigator.of(context).pop(),
+                          icon: Broken.arrow_left_2,
+                          onTap: onBackTap ?? () => Navigator.of(context).pop(),
                         )
                       : const SizedBox(width: 42),
                 ),
-                // ── Right: hamburger → opens the sidebar menu ─────────────
+                // ── Right: library toggle + hamburger ──────────────────────
                 Positioned(
                   right: 0,
-                  child: roundIcon(
-                    icon:  Broken.menu_1,
-                    onTap: onMenuTap,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      roundIcon(
+                        icon: libraryAdded
+                            ? Icons.bookmark_added_rounded
+                            : Icons.bookmark_add_outlined,
+                        onTap: onLibraryTap,
+                      ),
+                      const SizedBox(width: 4),
+                      roundIcon(icon: Broken.menu_1, onTap: onMenuTap),
+                    ],
                   ),
                 ),
               ],
