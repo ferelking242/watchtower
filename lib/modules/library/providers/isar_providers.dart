@@ -11,21 +11,17 @@ Stream<List<Manga>> getAllMangaStream(
   required int? categoryId,
   required ItemType itemType,
 }) async* {
-  yield* categoryId == null
-      ? isar.mangas
-            .filter()
-            .favoriteEqualTo(true)
-            .and()
-            .itemTypeEqualTo(itemType)
-            .watch(fireImmediately: true)
-      : isar.mangas
-            .filter()
-            .favoriteEqualTo(true)
-            .categoriesIsNotEmpty()
-            .categoriesElementEqualTo(categoryId)
-            .and()
-            .itemTypeEqualTo(itemType)
-            .watch(fireImmediately: true);
+  // isar_community can reject filters on nullable bool properties. Observe
+  // the collection without a filter and keep the same predicates in Dart.
+  yield* isar.mangas.where().watch(fireImmediately: true).map(
+        (mangas) => mangas
+            .where((manga) =>
+                manga.favorite == true &&
+                manga.itemType == itemType &&
+                (categoryId == null ||
+                    manga.categories?.contains(categoryId) == true))
+            .toList(),
+      );
 }
 
 @riverpod
@@ -33,18 +29,14 @@ Stream<List<Manga>> getAllMangaWithoutCategoriesStream(
   Ref ref, {
   required ItemType itemType,
 }) async* {
-  yield* isar.mangas
-      .filter()
-      .favoriteEqualTo(true)
-      .categoriesIsEmpty()
-      .and()
-      .itemTypeEqualTo(itemType)
-      .or()
-      .categoriesIsNull()
-      .favoriteEqualTo(true)
-      .and()
-      .itemTypeEqualTo(itemType)
-      .watch(fireImmediately: true);
+  yield* isar.mangas.where().watch(fireImmediately: true).map(
+        (mangas) => mangas
+            .where((manga) =>
+                manga.favorite == true &&
+                manga.itemType == itemType &&
+                (manga.categories == null || manga.categories!.isEmpty))
+            .toList(),
+      );
 }
 
 @riverpod
