@@ -317,9 +317,21 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       contentBuilder: (_) => BrowseSourceFilterMenu(
         filters: _sourceFilters,
         availableSources: _installedSources(type),
+        searchQuery: _searchController.text,
+        onSearchChanged: _setSearchQuery,
         onChanged: (filters) => setState(() => _sourceFilters = filters),
       ),
     );
+  }
+
+  void _setSearchQuery(String value) {
+    if (_searchController.text != value) {
+      _searchController.value = TextEditingValue(
+        text: value,
+        selection: TextSelection.collapsed(offset: value.length),
+      );
+    }
+    if (mounted) setState(() {});
   }
 
   List<Widget> _appBarActions(BuildContext context) {
@@ -330,16 +342,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     return [
       if (_isSearch)
         SeachFormTextField(
-          onChanged: (_) => setState(() {}),
-          onPressed: () => setState(() {
+          onChanged: _setSearchQuery,
+          onPressed: () {
             _isSearch = false;
-            _searchController.clear();
-          }),
-          controller: _searchController,
-          onSuffixPressed: () {
-            _searchController.clear();
-            setState(() {});
+            _setSearchQuery('');
           },
+          controller: _searchController,
+          onSuffixPressed: () => _setSearchQuery(''),
           filterButton: filterButton,
         )
       else ...[

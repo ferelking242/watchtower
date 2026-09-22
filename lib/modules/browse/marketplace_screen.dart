@@ -169,69 +169,109 @@ String _mktConvertLang(Map<dynamic, dynamic> e) {
 List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
   final String body = args['body']!;
   final String url = args['url']!;
-  final List<dynamic> list;
+  dynamic decoded;
   try {
-    list = jsonDecode(body) as List;
+    decoded = jsonDecode(body);
   } catch (_) {
     return [];
   }
+  if (decoded is! List) return [];
+
   final results = <Map<String, dynamic>>[];
-  for (final dynamic raw in list) {
-    final e = raw as Map<dynamic, dynamic>;
-    if (e['pkg'] != null && e['sources'] != null) {
-      final sources = e['sources'] as List;
-      if (sources.isEmpty) continue;
-      final repoBase = url.replaceFirst('/index.min.json', '');
-      final iconUrl = _mktIconUrl('$repoBase/icon/${e['pkg']}.png');
-      final isAnime = (e['pkg'] as String).startsWith(
-        'eu.kanade.tachiyomi.animeextension',
-      );
-      final firstSrc = sources[0] as Map<dynamic, dynamic>;
-      final langs = sources.map((s) => (s['lang'] ?? 'en') as String).toSet();
-      final lang = langs.length == 1 ? langs.first.toLowerCase() : 'multi';
+  for (final raw in decoded) {
+    if (raw is! Map) continue;
+    final e = raw;
+    try {
+      final pkg = e['pkg'];
+      final rawSources = e['sources'];
+      if (pkg is String && rawSources is List) {
+        final sources = rawSources.whereType<Map>().toList();
+        if (sources.isEmpty) continue;
+        final firstSrc = sources.first;
+        final firstId = firstSrc['id'];
+        if (firstId == null) continue;
+        final repoBase = url.replaceFirst('/index.min.json', '');
+        final iconUrl = _mktIconUrl('$repoBase/icon/$pkg.png');
+        final isAnime = pkg.startsWith(
+          'eu.kanade.tachiyomi.animeextension',
+        );
+        final langs = sources
+            .map((s) => s['lang'])
+            .whereType<String>()
+            .map((language) => language.toLowerCase())
+            .toSet();
+        final lang = langs.length == 1 ? langs.first : 'multi';
+        results.add({
+          // Keep the same prefix as fetchSourcesList when it registers Mihon
+          // sources in Isar; otherwise installation reports success for an ID
+          // that Browse can never find.
+          'id': 'mihon-$firstId'.hashCode,
+          'name': (e['name'] is String
+              ? e['name']
+              : firstSrc['name'] is String
+                  ? firstSrc['name']
+                  : '?'),
+          'iconUrl': iconUrl,
+          'lang': lang,
+          'version': e['version'] is String ? e['version'] : '?',
+          'contentType': isAnime ? 1 : 0,
+          'compat': 2,
+          'isNsfw': e['nsfw'] is num && (e['nsfw'] as num).toInt() == 1,
+          'repoUrl': url,
+        });
+        continue;
+      }
+
+      final rawId = e['id'];
+      if (rawId is! num || e['name'] is! String) continue;
+      final rawItemType = e['itemType'];
+      final rawCompat = e['sourceCodeLanguage'];
+      final itemTypeIdx =
+          (rawItemType is num ? rawItemType.toInt() : 0).clamp(0, 4);
+      final compatIdx =
+          (rawCompat is num ? rawCompat.toInt() : 1).clamp(0, 2);
+      final rawSubCategories = e['subCategories'];
       results.add({
-        // Keep the same prefix as fetchSourcesList when it registers Mihon
-        // sources in Isar; otherwise installation reports success for an ID
-        // that Browse can never find.
-        'id': 'mihon-${firstSrc['id']}'.hashCode,
-        'name': (e['name'] ?? firstSrc['name'] ?? '?') as String,
-        'iconUrl': iconUrl,
-        'lang': lang,
-        'version': (e['version'] ?? '?') as String,
-        'contentType': isAnime ? 1 : 0,
-        'compat': 2,
-        'isNsfw': (e['nsfw'] as int? ?? 0) == 1,
-        'repoUrl': url,
-      });
-    } else if (e['id'] != null && e['name'] != null) {
-      final itemTypeIdx = (e['itemType'] as int? ?? 0).clamp(0, 4);
-      final compatIdx = (e['sourceCodeLanguage'] as int? ?? 1).clamp(0, 2);
-      results.add({
-        'id': (e['id'] as num).toInt(),
-        'name': (e['name'] ?? '?') as String,
-        'iconUrl': _mktIconUrl(e['iconUrl'] as String?),
-        'lang': (e['lang'] as String? ?? 'all').toLowerCase(),
-        'version': (e['version'] ?? '?') as String,
+        'id': rawId.toInt(),
+        'name': e['name'],
+        'iconUrl': _mktIconUrl(
+          e['iconUrl'] is String ? e['iconUrl'] as String : null,
+        ),
+        'lang': (e['lang'] is String ? e['lang'] as String : 'all')
+            .toLowerCase(),
+        'version': e['version'] is String ? e['version'] : '?',
         'contentType': itemTypeIdx,
         'compat': compatIdx,
-        'isNsfw': e['isNsfw'] as bool? ?? false,
+        'isNsfw': e['isNsfw'] is bool ? e['isNsfw'] as bool : false,
         'repoUrl': url,
-        'subCategories':
-            (e['subCategories'] as List<dynamic>?)?.cast<String>() ??
-            <String>[],
-        'requiresAccount': e['requiresAccount'] as bool? ?? false,
-        'hasDRM': e['hasDRM'] as bool? ?? false,
-        'isAggregator': e['isAggregator'] as bool? ?? false,
-        'paywall': e['paywall'] as String? ?? 'free',
-        'supportsComments': e['supportsComments'] as bool? ?? false,
-        'upstream': e['upstream'] as String? ?? '',
-        'description': (e['description'] ?? e['notes'] ?? '') as String? ?? '',
+        'subCategories': rawSubCategories is List
+            ? rawSubCategories.whereType<String>().toList()
+            : <String>[],
+        'requiresAccount':
+            e['requiresAccount'] is bool ? e['requiresAccount'] as bool : false,
+        'hasDRM': e['hasDRM'] is bool ? e['hasDRM'] as bool : false,
+        'isAggregator':
+            e['isAggregator'] is bool ? e['isAggregator'] as bool : false,
+        'paywall': e['paywall'] is String ? e['paywall'] : 'free',
+        'supportsComments': e['supportsComments'] is bool
+            ? e['supportsComments'] as bool
+            : false,
+        'upstream': e['upstream'] is String ? e['upstream'] : '',
+        'description': e['description'] is String
+            ? e['description']
+            : e['notes'] is String
+                ? e['notes']
+                : '',
         'sizeBytes': _parseMktSize(
           e['sizeBytes'] ?? e['size'] ?? e['downloadSize'],
         ),
-        'rating': (e['rating'] as num?)?.toDouble(),
-        'reviewCount': (e['reviewCount'] as num?)?.toInt(),
+        'rating': e['rating'] is num ? (e['rating'] as num).toDouble() : null,
+        'reviewCount':
+            e['reviewCount'] is num ? (e['reviewCount'] as num).toInt() : null,
       });
+    } catch (_) {
+      // One malformed catalogue entry must not blank every Marketplace tab.
+      continue;
     }
   }
   final seen = <String>{};
@@ -821,29 +861,34 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           repoUrl,
         );
         await pluginsNotifier.addPlugin(pluginConfig);
+        // addPlugin writes Drift synchronously, but the Riverpod watch stream
+        // can publish the new state on the next event-loop turn. Refreshing
+        // immediately can therefore report a successful install as missing.
 
         // Always set the newly installed plugin as default for its ability type.
-        // Give the DB watch stream time to propagate the state change.
-        for (int attempt = 0; attempt < 5; attempt++) {
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-          final cp = ref.read(metadataPluginsProvider).value;
-          if (cp != null) {
-            if (pluginConfig.abilities.contains(PluginAbilities.metadata)) {
-              try {
-                await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig);
-              } catch (_) {}
-            }
-            if (pluginConfig.abilities.contains(PluginAbilities.audioSource)) {
-              try {
-                await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig);
-              } catch (_) {}
-            }
+        // The SQL update is safe even while the provider is rebuilding.
+        if (pluginConfig.abilities.contains(PluginAbilities.metadata)) {
+          try {
+            await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig);
+          } catch (_) {}
+        }
+        if (pluginConfig.abilities.contains(PluginAbilities.audioSource)) {
+          try {
+            await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig);
+          } catch (_) {}
+        }
+        ref.invalidate(metadataPluginsProvider);
+
+        var installed = false;
+        for (int attempt = 0; attempt < 10; attempt++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          await _refreshInstalled();
+          if (_installed.contains(entry.id)) {
+            installed = true;
             break;
           }
         }
-
-        await _refreshInstalled();
-        if (!_installed.contains(entry.id)) {
+        if (!installed) {
           throw StateError(
             'Le plugin ${entry.name} n’a pas été enregistré après le téléchargement.',
           );

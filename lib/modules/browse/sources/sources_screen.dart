@@ -46,8 +46,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         .where(
           (source) =>
               source.itemType == widget.itemType &&
-              source.isAdded == true &&
-              source.isActive != false,
+              source.isAdded == true,
         )
         .where((source) => widget.filters.matches(source, widget.searchQuery))
         .toList();
@@ -87,14 +86,12 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: StreamBuilder(
+            child: StreamBuilder<List<Source>>(
               // Avoid Isar filters on nullable bool properties. The
               // collection is observed without filters and narrowed in Dart.
-              stream: isar.sources.where().watch(fireImmediately: true).map(
-                    _sourcesForCurrentType,
-                  ),
+              stream: isar.sources.where().watch(fireImmediately: true),
               initialData:
-                  _sourcesForCurrentType(isar.sources.where().findAllSync()),
+                  isar.sources.where().findAllSync(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return _SourcesLoadError(onRetry: () => setState(() {}));
@@ -105,10 +102,10 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   );
                 }
                 final showNSFW = ref.watch(showNSFWStateProvider);
-                List<Source> sources = snapshot.data!
+                List<Source> sources = _sourcesForCurrentType(
+                  snapshot.data ?? const <Source>[],
+                )
                     .where((e) => e.id != null)
-                    .where((e) => e.isAdded == true)
-                    .where((e) => e.isActive != false)
                     .where((e) => showNSFW || !(e.isNsfw ?? false))
                     // "local" source is always shown via the fixed section
                     // at the bottom of the column — exclude it from the

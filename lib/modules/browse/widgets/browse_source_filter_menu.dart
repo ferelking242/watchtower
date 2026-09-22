@@ -108,6 +108,8 @@ class BrowseSourceFilters {
         source.typeSource,
         source.sourceCodeUrl,
         source.repo?.name,
+        source.repo?.jsonUrl,
+        source.repo?.website,
         ...?source.subCategories,
         ...?source.contentSubtype,
       ].whereType<String>().join(' ').toLowerCase();
@@ -162,12 +164,16 @@ class BrowseSourceFilters {
 class BrowseSourceFilterMenu extends StatefulWidget {
   final BrowseSourceFilters filters;
   final List<Source> availableSources;
+  final String searchQuery;
+  final ValueChanged<String>? onSearchChanged;
   final ValueChanged<BrowseSourceFilters> onChanged;
 
   const BrowseSourceFilterMenu({
     super.key,
     required this.filters,
     required this.availableSources,
+    this.searchQuery = '',
+    this.onSearchChanged,
     required this.onChanged,
   });
 
@@ -180,6 +186,29 @@ enum _BrowseFilterLevel { root, nsfw, languages, tags }
 class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
   late BrowseSourceFilters _filters = widget.filters;
   _BrowseFilterLevel _level = _BrowseFilterLevel.root;
+  late final TextEditingController _searchController =
+      TextEditingController(text: widget.searchQuery);
+
+  @override
+  void didUpdateWidget(covariant BrowseSourceFilterMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchQuery != widget.searchQuery &&
+        _searchController.text != widget.searchQuery) {
+      _searchController.value = TextEditingValue(
+        text: widget.searchQuery,
+        selection: TextSelection.collapsed(offset: widget.searchQuery.length),
+      );
+    }
+    if (oldWidget.filters != widget.filters) {
+      _filters = widget.filters;
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _update(BrowseSourceFilters filters) {
     setState(() => _filters = filters);
@@ -344,18 +373,57 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
     );
   }
 
+  Widget _buildSearchField() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      child: TextField(
+        controller: _searchController,
+        onChanged: widget.onSearchChanged,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.search_rounded, size: 19),
+          suffixIcon: _searchController.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Effacer la recherche',
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    widget.onSearchChanged?.call('');
+                    setState(() {});
+                  },
+                ),
+          hintText: 'Rechercher une extension installée',
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: switch (_level) {
-        _BrowseFilterLevel.root => _buildRoot(),
-        _BrowseFilterLevel.nsfw => _buildNsfw(),
-        _BrowseFilterLevel.languages => _buildLanguages(),
-        _BrowseFilterLevel.tags => _buildTags(),
-      },
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildSearchField(),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: switch (_level) {
+            _BrowseFilterLevel.root => _buildRoot(),
+            _BrowseFilterLevel.nsfw => _buildNsfw(),
+            _BrowseFilterLevel.languages => _buildLanguages(),
+            _BrowseFilterLevel.tags => _buildTags(),
+          },
+        ),
+      ],
     );
   }
 }
