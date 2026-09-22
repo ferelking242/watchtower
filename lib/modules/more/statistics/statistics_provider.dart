@@ -57,18 +57,21 @@ Future<StatisticsData> getStatistics(
       .manga((q) => q.favoriteEqualTo(true).itemTypeEqualTo(itemType))
       .findAll();
 
-  final downloadedCount = await isar.downloads
+  final favoriteDownloads = await isar.downloads
       .filter()
       .chapter((q) => q.manga((m) => m.itemTypeEqualTo(itemType)))
       .chapter((q) => q.manga((m) => m.favoriteEqualTo(true)))
-      .isDownloadEqualTo(true)
-      .count();
+      .findAll();
+  final downloadedCount = favoriteDownloads
+      .where((download) => download.isDownload == true)
+      .length;
 
-  final totalDownloadedChapters = await isar.downloads
+  final typeDownloads = await isar.downloads
       .filter()
       .chapter((q) => q.manga((m) => m.itemTypeEqualTo(itemType)))
-      .isDownloadEqualTo(true)
-      .count();
+      .findAll();
+  final totalDownloadedChapters =
+      typeDownloads.where((download) => download.isDownload == true).length;
 
   final totalItems = items.length;
   final totalChapters = chapters.length;
