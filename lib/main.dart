@@ -55,6 +55,7 @@ import 'package:media_kit/media_kit.dart'
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:path/path.dart' as p;
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
@@ -99,7 +100,9 @@ void main(List<String> args) async {
       // Do not initialize the Flutter engine for CLI invocations. Besides
       // making startup faster, this keeps Linux CLI runs independent of an
       // X11/Wayland display so the same binary works in CI and SSH sessions.
-      WidgetsFlutterBinding.ensureInitialized();
+      final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+      final splashClock = Stopwatch()..start();
+      FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
       // Detect real device RAM and apply adaptive image-cache limits.
       // Must run before any other init so the cache is sized correctly from
       // the very first image load. Safe to await — it is a single fast
@@ -294,7 +297,17 @@ void main(List<String> args) async {
           ),
         ),
       );
-      // Remove the native splash immediately — the app renders its own first frame.
+      // Keep one branded native splash for a short, stable hand-off. Android 12+
+      // owns the system splash; flutter_native_splash keeps the same visual
+      // screen until Flutter has rendered its first frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final remaining = const Duration(milliseconds: 600) -
+            splashClock.elapsed;
+        Future<void>.delayed(
+          remaining.isNegative ? Duration.zero : remaining,
+          FlutterNativeSplash.remove,
+        );
+      });
       unawaited(_postLaunchInit(storage));
     },
     (Object error, StackTrace stack) {

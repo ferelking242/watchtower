@@ -53,6 +53,7 @@ dependencies:
   ffi: ^2.1.5
   http_interceptor: ^2.0.0
   js_packer: ^0.0.6
+  flutter_native_splash: ^2.4.8
   flutter_qjs:
     git:
       url: https://github.com/ferelking242/quickjsR.git

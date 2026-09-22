@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Native launch screen — plain black, no icon.
-     The Flutter app renders its own branded first frame instantly.
-     Showing an icon here just delays the real UI and confuses users
-     who already have the app icon on their home screen. -->
+<!-- One branded launch surface for Android versions before 12. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/black" />
+    <item android:drawable="@color/splash_background" />
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/splash_logo" />
+    </item>
 </layer-list>
