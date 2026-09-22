@@ -466,6 +466,12 @@ jobs:
           CXXFLAGS: "-Wno-unknown-warning-option"
         run: flutter build linux --release --no-pub --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
+      - name: Expose Watchtower Linux binary
+        run: |
+          BUNDLE="build/linux/x64/release/bundle"
+          test -x "$BUNDLE/mangayomi"
+          cp "$BUNDLE/mangayomi" "$BUNDLE/watchtower"
+
       - name: Test all extensions with the real Watchtower binary
         run: |
           set -o pipefail

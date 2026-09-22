@@ -1,14 +1,12 @@
 library database;
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/remote.dart';
 import 'package:encrypt/encrypt.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:watchtower/modules/music/models/database/database_connection.dart';
 import 'package:watchtower/modules/music/models/database/database.steps.dart';
 import 'package:watchtower/modules/music/models/lyrics.dart';
 import 'package:watchtower/modules/music/models/metadata/market.dart';
@@ -18,13 +16,11 @@ import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:flutter/material.dart' show ThemeMode, Colors;
 import 'package:flutter/widgets.dart' hide Table, Key, View;
 import 'package:watchtower/modules/music/modules/settings/color_scheme_picker_dialog.dart';
-import 'package:drift/native.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:watchtower/modules/music/services/youtube_engine/newpipe_engine.dart';
 import 'package:watchtower/modules/music/services/youtube_engine/youtube_explode_engine.dart';
 import 'package:watchtower/modules/music/services/youtube_engine/yt_dlp_engine.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
-import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 part 'database.g.dart';
 
@@ -62,7 +58,7 @@ part 'typeconverters/subtitle.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase() : super(createDatabaseConnection());
 
   @override
   int get schemaVersion => 10;
@@ -239,22 +235,4 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
   }
-}
-
-LazyDatabase _openConnection() {
-  // the LazyDatabase util lets us find the right location for the file async.
-  return LazyDatabase(() async {
-    // put the database file, called db.sqlite here, into the documents folder
-    // for your app.
-    final dbFolder = await getApplicationSupportDirectory();
-    final file = File(join(dbFolder.path, 'db.sqlite'));
-
-    // Also work around limitations on old Android versions
-    if (Platform.isAndroid) {
-      await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
-    }
-
-
-    return NativeDatabase.createInBackground(file);
-  });
 }

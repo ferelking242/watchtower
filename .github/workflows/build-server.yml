@@ -154,6 +154,12 @@ jobs:
           CXXFLAGS: "-Wno-unknown-warning-option"
         run: flutter build linux --release --no-pub
 
+      - name: Expose Watchtower Linux binary
+        run: |
+          BUNDLE="build/linux/x64/release/bundle"
+          test -x "$BUNDLE/mangayomi"
+          cp "$BUNDLE/mangayomi" "$BUNDLE/watchtower"
+
       - name: Smoke test the headless CLI
         run: |
           BUNDLE="build/linux/x64/release/bundle"
