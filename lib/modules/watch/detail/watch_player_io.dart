@@ -71,6 +71,59 @@ void _playerToast(String message) {
   }
 }
 
+/// Slider track with a restrained LED-like glow on the played segment.
+class _LedSliderTrackShape extends RoundedRectSliderTrackShape {
+  const _LedSliderTrackShape();
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool? isEnabled,
+    bool? isDiscrete,
+    required TextDirection textDirection,
+  }) {
+    final rect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+    final ledColor = sliderTheme.activeTrackColor ?? Colors.white;
+    final glowPaint = Paint()
+      ..color = ledColor.withValues(alpha: .55)
+      ..strokeWidth = (sliderTheme.trackHeight ?? 2.2) + 3
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    context.canvas.drawLine(
+      Offset(rect.left, rect.center.dy),
+      Offset(
+        thumbCenter.dx.clamp(rect.left, rect.right).toDouble(),
+        rect.center.dy,
+      ),
+      glowPaint,
+    );
+    super.paint(
+      context,
+      offset,
+      parentBox: parentBox,
+      sliderTheme: sliderTheme,
+      enableAnimation: enableAnimation,
+      thumbCenter: thumbCenter,
+      secondaryOffset: secondaryOffset,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+      textDirection: textDirection,
+    );
+  }
+}
+
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 class WatchInlinePlayer {
@@ -5855,10 +5908,29 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                       initialData: _p.state.playing,
                       builder: (_, snap) => GestureDetector(
                         onTap: () { _p.playOrPause(); _resetHideTimer(); },
-                        child: Icon(
-                          (snap.data ?? false) ? Broken.pause : Broken.play,
-                          color: Colors.white,
-                          size: 60,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: .42),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: .72),
+                              width: 1.2,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black54,
+                                blurRadius: 12,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            (snap.data ?? false) ? Broken.pause : Broken.play,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
@@ -6027,9 +6099,10 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                   trackHeight: 2.2,
                                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
                                   overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                                  activeTrackColor: Colors.white,
+                                  activeTrackColor: widget.accent,
                                   inactiveTrackColor: Colors.white24,
                                   thumbColor: Colors.white,
+                                  trackShape: const _LedSliderTrackShape(),
                                 ),
                                 child: Slider(
                                   value: progress,

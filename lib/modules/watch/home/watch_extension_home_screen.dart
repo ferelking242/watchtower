@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -263,12 +265,15 @@ class _ExtensionFeed extends StatelessWidget {
       backgroundColor: const Color(0xFF0B0B11),
       body: Stack(
         children: [
-          RefreshIndicator(
+          _AppleRefreshable(
             onRefresh: onRefresh,
             child: CustomScrollView(
               controller: controller,
               physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
+                // Keep the hero fixed while pulling to refresh. The custom
+                // indicator is painted above the feed instead of relying on
+                // iOS' expanding spinner/displacement.
+                parent: ClampingScrollPhysics(),
               ),
               slivers: [
                 if (!hasDeclaredSections)
@@ -351,6 +356,133 @@ class _ExtensionFeed extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _AppleRefreshable extends StatefulWidget {
+  final Future<void> Function() onRefresh;
+  final Widget child;
+
+  const _AppleRefreshable({
+    required this.onRefresh,
+    required this.child,
+  });
+
+  @override
+  State<_AppleRefreshable> createState() => _AppleRefreshableState();
+}
+
+class _AppleRefreshableState extends State<_AppleRefreshable> {
+  bool _isRefreshing = false;
+
+  void _setStatus(RefreshIndicatorStatus? status) {
+    final visible = status == RefreshIndicatorStatus.drag ||
+        status == RefreshIndicatorStatus.armed ||
+        status == RefreshIndicatorStatus.refresh;
+    if (visible != _isRefreshing && mounted) {
+      setState(() => _isRefreshing = visible);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top + 18;
+    return Stack(
+      children: [
+        RefreshIndicator.noSpinner(
+          onRefresh: widget.onRefresh,
+          onStatusChange: _setStatus,
+          child: widget.child,
+        ),
+        Positioned(
+          top: top,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: _isRefreshing ? 1 : 0,
+              duration: const Duration(milliseconds: 160),
+              child: const Center(child: _AppleRefreshDots()),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Small iPhone-style refresh affordance: eight dots orbit while the active
+/// dot gently lifts, without adding a layout row or pushing the hero image.
+class _AppleRefreshDots extends StatefulWidget {
+  const _AppleRefreshDots();
+
+  @override
+  State<_AppleRefreshDots> createState() => _AppleRefreshDotsState();
+}
+
+class _AppleRefreshDotsState extends State<_AppleRefreshDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, __) {
+          final phase = _controller.value * math.pi * 2;
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              for (var i = 0; i < 8; i++)
+                Transform.translate(
+                  offset: Offset(
+                    math.cos(i * math.pi / 4) * 11,
+                    math.sin(i * math.pi / 4) * 11,
+                  ),
+                  child: Transform.translate(
+                    offset: Offset(0, -2.4 * _dotPulse(i, phase)),
+                    child: Opacity(
+                      opacity: .28 + .72 * _dotPulse(i, phase),
+                      child: Container(
+                        width: 4.5,
+                        height: 4.5,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  double _dotPulse(int index, double phase) {
+    final distance = (phase - index * math.pi / 4) % (math.pi * 2);
+    final shortest = math.min(distance, math.pi * 2 - distance);
+    return (1 - shortest / (math.pi / 2)).clamp(0.0, 1.0).toDouble();
   }
 }
 
@@ -1561,11 +1693,11 @@ class _ExtensionFlixQuestLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
-      body: RefreshIndicator(
+      body: _AppleRefreshable(
         onRefresh: onRefresh,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
+            parent: ClampingScrollPhysics(),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1685,11 +1817,11 @@ class _ExtensionEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
-      body: RefreshIndicator(
+      body: _AppleRefreshable(
         onRefresh: onRefresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
+            parent: ClampingScrollPhysics(),
           ),
           padding: const EdgeInsets.fromLTRB(24, 140, 24, 112),
           children: [
