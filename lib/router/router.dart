@@ -15,7 +15,6 @@ import 'package:watchtower/modules/manga/manga_discovery_screen.dart';
 import 'package:watchtower/modules/browse/extension/edit_code.dart';
 import 'package:watchtower/modules/browse/extension/extension_detail.dart';
 import 'package:watchtower/modules/browse/extension/widgets/create_extension.dart';
-import 'package:watchtower/modules/browse/sources/sources_filter_screen.dart';
 import 'package:watchtower/modules/calendar/calendar_screen.dart';
 import 'package:watchtower/modules/calendar/schedule_screen.dart';
 import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
@@ -367,10 +366,6 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),
     _genericRoute(name: "track", child: const TrackScreen()),
     _genericRoute(name: "sync", child: const SyncScreen()),
-    _genericRoute<ItemType>(
-      name: "sourceFilter",
-      builder: (itemType) => SourcesFilterScreen(itemType: itemType),
-    ),
     _genericRoute<Map<String, dynamic>>(
       name: "mangawebview",
       builder: (data) => MangaWebView(

@@ -13,8 +13,11 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
+import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart';
+import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
@@ -30,6 +33,9 @@ enum BrowseSection { sources, extensions, marketplace }
 class _BrowseScreenState extends ConsumerState<BrowseScreen>
       with TickerProviderStateMixin {
     late TabController _tabBarController;
+    final _searchController = TextEditingController();
+    bool _isSearch = false;
+    BrowseSourceFilters _sourceFilters = const BrowseSourceFilters();
 
     List<ItemType> _types = [];
 
@@ -98,6 +104,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   @override
   void dispose() {
     _tabBarController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -274,12 +281,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     context.push('/mangaHome', extra: (src, false));
   }
 
-  // ── Browse settings ────────────────────────────────────────────────────────
-
-  void _openBrowseSettings(BuildContext context, ItemType type) {
-    context.push('/sourceFilter', extra: type);
-  }
-
   // ── How To ─────────────────────────────────────────────────────────────────
 
   void _openHowTo(BuildContext context, ItemType type) {
@@ -288,26 +289,77 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   // ── AppBar actions ─────────────────────────────────────────────────────────
 
+  List<Source> _installedSources(ItemType type) {
+    try {
+      return isar.sources.where().findAllSync().where(
+        (source) => source.itemType == type && source.isAdded == true,
+      ).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Widget _buildSourceFilterButton(BuildContext context, ItemType type) {
+    final theme = Theme.of(context);
+    final active = _sourceFilters.hasAny || _searchController.text.isNotEmpty;
+    return AdaptiveOverlayMenuButton(
+      menuWidth: 300,
+      trigger: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Icon(
+          Icons.filter_list_rounded,
+          size: 20,
+          color: active
+              ? theme.colorScheme.primary
+              : theme.hintColor.withValues(alpha: 0.8),
+        ),
+      ),
+      contentBuilder: (_) => BrowseSourceFilterMenu(
+        filters: _sourceFilters,
+        availableSources: _installedSources(type),
+        onChanged: (filters) => setState(() => _sourceFilters = filters),
+      ),
+    );
+  }
+
   List<Widget> _appBarActions(BuildContext context) {
     final theme = Theme.of(context);
     if (_types.isEmpty) return const [];
     final type = _activeType;
+    final filterButton = _buildSourceFilterButton(context, type);
     return [
-      GestureDetector(
-        onLongPress: () => context.push('/extensionDiagnostic', extra: type),
-        child: IconButton(
-          tooltip: 'Recherche globale · appui long = diagnostic',
-          splashRadius: 20,
-          onPressed: () => context.push('/globalSearch', extra: (null, type)),
-          icon: Icon(Icons.travel_explore_rounded, color: theme.hintColor),
+      if (_isSearch)
+        SeachFormTextField(
+          onChanged: (_) => setState(() {}),
+          onPressed: () => setState(() {
+            _isSearch = false;
+            _searchController.clear();
+          }),
+          controller: _searchController,
+          onSuffixPressed: () {
+            _searchController.clear();
+            setState(() {});
+          },
+          filterButton: filterButton,
+        )
+      else ...[
+        GestureDetector(
+          onLongPress: () => context.push('/extensionDiagnostic', extra: type),
+          child: IconButton(
+            tooltip: 'Recherche globale · appui long = diagnostic',
+            splashRadius: 20,
+            onPressed: () => context.push('/globalSearch', extra: (null, type)),
+            icon: Icon(Icons.travel_explore_rounded, color: theme.hintColor),
+          ),
         ),
-      ),
-      IconButton(
-        tooltip: 'Filtres sources',
-        splashRadius: 20,
-        onPressed: () => context.push('/sourceFilter', extra: type),
-        icon: Icon(Icons.filter_list_sharp, color: theme.hintColor),
-      ),
+        IconButton(
+          tooltip: 'Rechercher une extension installée',
+          splashRadius: 20,
+          onPressed: () => setState(() => _isSearch = true),
+          icon: Icon(Icons.search_rounded, color: theme.hintColor),
+        ),
+        filterButton,
+      ],
       ArrowPopupMenuButton<_SrcMenuAction>(
         tooltip: "Plus d'options",
         icon: Icon(Icons.more_vert, color: theme.hintColor),
@@ -343,13 +395,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               label: 'Diagnostic',
             ),
           ),
-          PopupMenuItem(
-            value: _SrcMenuAction.browseSettings,
-            child: _MenuRow(
-              icon: Icons.tune_rounded,
-              label: 'Paramètres Browse',
-            ),
-          ),
         ],
       ),
       const SizedBox(width: 4),
@@ -367,8 +412,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         _openRandomSource(context, type);
       case _SrcMenuAction.diagnostic:
         _runDiagnostics(context, type);
-      case _SrcMenuAction.browseSettings:
-        _openBrowseSettings(context, type);
     }
   }
 
@@ -475,7 +518,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         backgroundColor: theme.scaffoldBackgroundColor,
-        title: Text(l10n.browse, style: TextStyle(color: theme.hintColor)),
+        title: _isSearch
+            ? null
+            : Text(l10n.browse, style: TextStyle(color: theme.hintColor)),
         actions: _appBarActions(context),
         bottom: _buildTabBar(context, theme, l10n),
       ),
@@ -483,7 +528,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         controller: _tabBarController,
         physics: const ClampingScrollPhysics(),
         children: [
-          ..._types.map((t) => _BrowseTypeView(itemType: t)),
+          ..._types.map(
+            (t) => _BrowseTypeView(
+              itemType: t,
+              searchQuery: _searchController.text,
+              filters: _sourceFilters,
+            ),
+          ),
         ],
       ),
     );
@@ -499,7 +550,6 @@ enum _SrcMenuAction {
   howTo,
   openRandomSource,
   diagnostic,
-  browseSettings,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -546,7 +596,13 @@ extension _ItemTypeExt on ItemType {
 
 class _BrowseTypeView extends ConsumerStatefulWidget {
   final ItemType itemType;
-  const _BrowseTypeView({required this.itemType});
+  final String searchQuery;
+  final BrowseSourceFilters filters;
+  const _BrowseTypeView({
+    required this.itemType,
+    required this.searchQuery,
+    required this.filters,
+  });
 
   @override
   ConsumerState<_BrowseTypeView> createState() => _BrowseTypeViewState();
@@ -558,12 +614,16 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
       if (widget.itemType == ItemType.music) {
         return SourcesScreen(
           itemType: ItemType.music,
+          searchQuery: widget.searchQuery,
+          filters: widget.filters,
           onShowExtensions: () => context.push('/marketplace'),
         );
       }
       if (widget.itemType == ItemType.game) {
         return SourcesScreen(
           itemType: ItemType.game,
+          searchQuery: widget.searchQuery,
+          filters: widget.filters,
           onShowExtensions: () => context.push('/marketplace'),
         );
       }
@@ -571,6 +631,8 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
       // outils natifs vivent dans le Marketplace.)
       return SourcesScreen(
         itemType: widget.itemType,
+        searchQuery: widget.searchQuery,
+        filters: widget.filters,
         onShowExtensions: () => context.push('/marketplace'),
       );
     }

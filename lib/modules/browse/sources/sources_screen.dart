@@ -10,6 +10,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/browse/sources/widgets/source_list_tile.dart';
+import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
@@ -18,9 +19,13 @@ import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 class SourcesScreen extends ConsumerStatefulWidget {
   final ItemType itemType;
+  final String searchQuery;
+  final BrowseSourceFilters filters;
   final VoidCallback? onShowExtensions;
   const SourcesScreen({
     required this.itemType,
+    this.searchQuery = '',
+    this.filters = const BrowseSourceFilters(),
     this.onShowExtensions,
     super.key,
   });
@@ -35,10 +40,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
   List<Source> _sourcesForCurrentType(Iterable<Source> sources) {
     return sources
-        .where((source) =>
-            source.itemType == widget.itemType &&
-            source.isAdded == true &&
-            source.isActive != false)
+        .where((source) => source.itemType == widget.itemType)
+        .where((source) => widget.filters.matches(source, widget.searchQuery))
         .toList();
   }
 
@@ -96,9 +99,6 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 final showNSFW = ref.watch(showNSFWStateProvider);
                 List<Source> sources = snapshot.data!
                     .where((e) => e.id != null)
-                    .where((e) => e.isAdded == true)
-                    .where((e) => e.isActive != false)
-                    .where((e) => e.itemType == widget.itemType)
                     .where((e) => showNSFW || !(e.isNsfw ?? false))
                     // "local" source is always shown via the fixed section
                     // at the bottom of the column — exclude it from the
