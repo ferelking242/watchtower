@@ -6,16 +6,21 @@ part 'calendar_provider.g.dart';
 
 @riverpod
 Stream<List<Manga>> getCalendarStream(Ref ref, {ItemType? itemType}) async* {
-  yield* isar.mangas
-      .filter()
-      .favoriteEqualTo(true)
-      .itemTypeEqualTo(itemType ?? ItemType.manga)
-      .anyOf([
-        Status.ongoing,
-        Status.unknown,
-        Status.publishingFinished,
-      ], (q, status) => q.statusEqualTo(status))
-      .smartUpdateDaysIsNotNull()
-      .smartUpdateDaysGreaterThan(0)
-      .watch(fireImmediately: true);
+  const eligibleStatuses = {
+    Status.ongoing,
+    Status.unknown,
+    Status.publishingFinished,
+  };
+
+  // isar_community can reject filters on nullable bool properties. Observe
+  // the collection without a filter and keep the same predicates in Dart.
+  yield* isar.mangas.where().watch(fireImmediately: true).map(
+        (mangas) => mangas
+            .where((manga) =>
+                manga.favorite == true &&
+                manga.itemType == (itemType ?? ItemType.manga) &&
+                eligibleStatuses.contains(manga.status) &&
+                (manga.smartUpdateDays ?? 0) > 0)
+            .toList(),
+      );
 }
