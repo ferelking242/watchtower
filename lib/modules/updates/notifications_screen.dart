@@ -6,6 +6,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/services/layout_registry.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -16,6 +17,7 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   late Future<_NotificationData> _future;
+  final Set<int> _installing = {};
 
   @override
   void initState() {
@@ -122,9 +124,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             subtitle: Text(
                               'v${source.version} → v${source.versionLast}',
                             ),
-                            trailing: Icon(
-                              Broken.arrow_right,
-                              color: cs.onSurfaceVariant,
+                            trailing: FilledButton(
+                              onPressed:
+                                  source.id == null ||
+                                      _installing.contains(source.id)
+                                  ? null
+                                  : () => _install(source),
+                              child: _installing.contains(source.id)
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Installer'),
                             ),
                             onTap: () => context.push(
                               '/extension_detail',
@@ -155,6 +169,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _install(Source source) async {
+    final id = source.id;
+    if (id == null) return;
+    setState(() => _installing.add(id));
+    try {
+      await installExtensionUpdate(source);
+      await LayoutRegistry.instance.load(source);
+      if (source.uiLayout?.isNotEmpty == true &&
+          !LayoutRegistry.instance.has(source)) {
+        throw StateError('Le layout UI n’a pas été installé.');
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${source.name ?? 'Extension'} installée')),
+      );
+      setState(() => _future = _load());
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Installation impossible : $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _installing.remove(id));
+    }
   }
 }
 

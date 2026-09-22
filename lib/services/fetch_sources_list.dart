@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as rawHttp;
 import 'package:http_interceptor/http_interceptor.dart';
@@ -18,6 +19,7 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/more/settings/general/extension_cookie_manager_screen.dart'
     show autoRegisterExtensionCookieSlot;
 import 'package:watchtower/services/layout_downloader.dart';
+import 'package:watchtower/services/update_notification_service.dart';
 
 // ── Web proxy helper ─────────────────────────────────────────────────────────
 // Sur Flutter web, toutes les requêtes cross-origin sont bloquées par CORS.
@@ -58,8 +60,10 @@ Future<rawHttp.Response> _webProxyGet(String url) async {
   }
   final targetStatus = json['statusCode'] as int? ?? 200;
   final targetBody = json['body'] as String? ?? '';
-  final targetHeaders = (json['headers'] as Map?)
-          ?.map((k, v) => MapEntry(k.toString(), v.toString())) ??
+  final targetHeaders =
+      (json['headers'] as Map?)?.map(
+        (k, v) => MapEntry(k.toString(), v.toString()),
+      ) ??
       <String, String>{};
   return rawHttp.Response(targetBody, targetStatus, headers: targetHeaders);
 }
@@ -257,8 +261,8 @@ Future<void> fetchSourcesList({
         (source) =>
             source.itemType == itemType &&
             (source.appMinVerReq == null ||
-             source.appMinVerReq!.isEmpty ||
-             compareVersions(info.version, source.appMinVerReq!) > -1),
+                source.appMinVerReq!.isEmpty ||
+                compareVersions(info.version, source.appMinVerReq!) > -1),
       )
       .toList();
 
@@ -267,7 +271,8 @@ Future<void> fetchSourcesList({
       (source) => source.id == id,
       orElse: () => Source(),
     );
-    if (matchingSource.id != null && (matchingSource.sourceCodeUrl ?? '').isNotEmpty) {
+    if (matchingSource.id != null &&
+        (matchingSource.sourceCodeUrl ?? '').isNotEmpty) {
       AppLogger.log(
         'Installing "${matchingSource.name}" v${matchingSource.version} | repo=${repo?.name}',
         tag: LogTag.extension_,
@@ -308,7 +313,8 @@ Future<void> fetchSourcesList({
         .itemTypeEqualTo(itemType)
         .findAll();
     final existingMap = <int, Source>{
-      for (final s in allExisting) if (s.id != null) s.id!: s,
+      for (final s in allExisting)
+        if (s.id != null) s.id!: s,
     };
 
     final toAdd = <Source>[];
@@ -324,7 +330,8 @@ Future<void> fetchSourcesList({
       }
       final versionBumped =
           compareVersions(existing.version ?? '', source.version ?? '') < 0;
-      final layoutVersionBumped = source.uiLayoutVersion != null &&
+      final layoutVersionBumped =
+          source.uiLayoutVersion != null &&
           source.uiLayoutVersion != existing.uiLayoutVersion;
       final shouldUpdate =
           (existing.isAdded ?? false) && (versionBumped || layoutVersionBumped);
@@ -332,47 +339,53 @@ Future<void> fetchSourcesList({
       if (autoUpdateExtensions) {
         toAutoUpdate.add(source);
       } else {
-        toVersionBump.add(existing
-        ..versionLast      = source.version
-        ..additionalParams = source.additionalParams ?? "");
+        toVersionBump.add(
+          existing
+            ..versionLast = source.version
+            ..additionalParams = source.additionalParams ?? "",
+        );
       }
     }
 
     // Single transaction to register all new sources (isAdded = false)
     if (toAdd.isNotEmpty) {
       final now = DateTime.now().millisecondsSinceEpoch;
-      final built = toAdd.map((s) => Source()
-        ..sourceCodeUrl = s.sourceCodeUrl
-        ..id = s.id
-        ..sourceCode = ''
-        ..apiUrl = s.apiUrl ?? ''
-        ..baseUrl = s.baseUrl ?? ''
-        ..dateFormat = s.dateFormat ?? ''
-        ..dateFormatLocale = s.dateFormatLocale ?? ''
-        ..hasCloudflare = s.hasCloudflare ?? false
-        ..iconUrl = s.iconUrl
-        ..typeSource = s.typeSource ?? ''
-        ..lang = s.lang
-        ..isNsfw = s.isNsfw ?? false
-        ..name = s.name
-        ..version = s.version
-        ..versionLast = s.version
-        ..itemType = itemType
-        ..sourceCodeLanguage = s.sourceCodeLanguage
-        ..isFullData = s.isFullData ?? false
-        ..appMinVerReq = s.appMinVerReq ?? ''
-        ..isAdded = false
-        ..isActive = true
-        ..isPinned = false
-        ..lastUsed = false
-        ..isObsolete = false
-        ..isLocal = false
-        ..notes            = s.notes
-        ..additionalParams = s.additionalParams ?? ""
-        ..uiLayout = s.uiLayout
-        ..uiLayoutVersion = s.uiLayoutVersion
-        ..repo = repo
-        ..updatedAt = now).toList();
+      final built = toAdd
+          .map(
+            (s) => Source()
+              ..sourceCodeUrl = s.sourceCodeUrl
+              ..id = s.id
+              ..sourceCode = ''
+              ..apiUrl = s.apiUrl ?? ''
+              ..baseUrl = s.baseUrl ?? ''
+              ..dateFormat = s.dateFormat ?? ''
+              ..dateFormatLocale = s.dateFormatLocale ?? ''
+              ..hasCloudflare = s.hasCloudflare ?? false
+              ..iconUrl = s.iconUrl
+              ..typeSource = s.typeSource ?? ''
+              ..lang = s.lang
+              ..isNsfw = s.isNsfw ?? false
+              ..name = s.name
+              ..version = s.version
+              ..versionLast = s.version
+              ..itemType = itemType
+              ..sourceCodeLanguage = s.sourceCodeLanguage
+              ..isFullData = s.isFullData ?? false
+              ..appMinVerReq = s.appMinVerReq ?? ''
+              ..isAdded = false
+              ..isActive = true
+              ..isPinned = false
+              ..lastUsed = false
+              ..isObsolete = false
+              ..isLocal = false
+              ..notes = s.notes
+              ..additionalParams = s.additionalParams ?? ""
+              ..uiLayout = s.uiLayout
+              ..uiLayoutVersion = s.uiLayoutVersion
+              ..repo = repo
+              ..updatedAt = now,
+          )
+          .toList();
       await isar.writeTxn(() async => isar.sources.putAll(built));
       AppLogger.log(
         'Registered ${built.length} new source(s) from "${repo?.name}"',
@@ -383,6 +396,11 @@ Future<void> fetchSourcesList({
     // Single transaction for version-only bumps
     if (toVersionBump.isNotEmpty) {
       await isar.writeTxn(() async => isar.sources.putAll(toVersionBump));
+      unawaited(
+        WatchtowerNotificationService.instance.showExtensionUpdates(
+          toVersionBump,
+        ),
+      );
     }
 
     // Auto-updates still need individual downloads
@@ -393,7 +411,10 @@ Future<void> fetchSourcesList({
       );
       try {
         await _updateSource(source, androidProxyServer, repo, itemType);
-        AppLogger.log('Auto-update OK: "${source.name}"', tag: LogTag.extension_);
+        AppLogger.log(
+          'Auto-update OK: "${source.name}"',
+          tag: LogTag.extension_,
+        );
       } catch (e, st) {
         AppLogger.log(
           'Auto-update FAILED: "${source.name}"',
@@ -407,6 +428,42 @@ Future<void> fetchSourcesList({
   }
 
   checkIfSourceIsObsolete(sourceList, repo!, itemType);
+}
+
+/// Re-fetches one already installed extension from its owning repository.
+/// This is shared by the Marketplace and the in-app/native update
+/// notifications so both paths install the JS, catalogue metadata and UI
+/// layout through the same transaction.
+Future<void> installExtensionUpdate(Source source) async {
+  final id = source.id;
+  final repo = source.repo;
+  if (id == null || repo == null) {
+    throw StateError(
+      'Le dépôt de ${source.name ?? 'cette extension'} est introuvable.',
+    );
+  }
+  await fetchSourcesList(
+    id: id,
+    refresh: true,
+    androidProxyServer: '',
+    autoUpdateExtensions: true,
+    itemType: source.itemType,
+    repo: repo,
+  );
+  final installed = await isar.sources.get(id);
+  if (installed == null ||
+      installed.isAdded != true ||
+      (installed.sourceCode ?? '').trim().isEmpty) {
+    throw StateError(
+      'Le JavaScript de ${source.name ?? 'cette extension'} n’est pas installé.',
+    );
+  }
+  if (source.uiLayout?.isNotEmpty == true &&
+      installed.uiLayout?.isNotEmpty != true) {
+    throw StateError(
+      'Le layout JSON de ${source.name ?? 'cette extension'} est absent.',
+    );
+  }
 }
 
 Future<void> _updateSource(
@@ -424,7 +481,9 @@ Future<void> _updateSource(
   // IMPORTANT: on utilise la concaténation (+) et non l'interpolation Dart ('\${...}')
   // car \$ est un escape Dart qui produit le texte littéral '\${...}' — pas le timestamp.
   final _rawUrl = source.sourceCodeUrl!;
-  final _bustUrl = _rawUrl.contains('?') ? _rawUrl : _rawUrl + '?_=' + DateTime.now().millisecondsSinceEpoch.toString();
+  final _bustUrl = _rawUrl.contains('?')
+      ? _rawUrl
+      : _rawUrl + '?_=' + DateTime.now().millisecondsSinceEpoch.toString();
   final req = kIsWeb
       ? await _webProxyGet(_bustUrl)
       : await http.get(Uri.parse(_bustUrl));
@@ -470,7 +529,11 @@ Future<void> _updateSource(
       );
     } catch (_) {}
     try {
-      filterList = await fetchFilterListDalvik(http, source, androidProxyServer);
+      filterList = await fetchFilterListDalvik(
+        http,
+        source,
+        androidProxyServer,
+      );
     } catch (_) {}
     try {
       preferenceList = await fetchPreferencesDalvik(
@@ -524,15 +587,15 @@ Future<void> _updateSource(
     ..isFullData = source.isFullData ?? false
     ..appMinVerReq = source.appMinVerReq
     ..sourceCodeLanguage = source.sourceCodeLanguage
-     ..subCategories = source.subCategories
-     ..supportsComments = source.supportsComments
-     ..requiresAccount = source.requiresAccount
-     ..hasDRM = source.hasDRM
-     ..isAggregator = source.isAggregator
-     ..paywall = source.paywall
-     ..upstream = source.upstream
-     ..videoQualities = source.videoQualities
-     ..contentSubtype = source.contentSubtype
+    ..subCategories = source.subCategories
+    ..supportsComments = source.supportsComments
+    ..requiresAccount = source.requiresAccount
+    ..hasDRM = source.hasDRM
+    ..isAggregator = source.isAggregator
+    ..paywall = source.paywall
+    ..upstream = source.upstream
+    ..videoQualities = source.videoQualities
+    ..contentSubtype = source.contentSubtype
     ..additionalParams = source.additionalParams ?? ""
     ..isObsolete = false
     ..notes = source.notes
@@ -543,7 +606,14 @@ Future<void> _updateSource(
 
   await isar.writeTxn(() async => isar.sources.put(updatedSource));
   unawaited(autoRegisterExtensionCookieSlot(updatedSource));
-  unawaited(LayoutDownloader.instance.download(source)); // Download layout file on install/update
+  if (source.uiLayout?.isNotEmpty == true) {
+    final layoutSaved = await LayoutDownloader.instance.download(source);
+    if (!layoutSaved) {
+      throw StateError(
+        'Le layout UI de ${source.name} n’a pas pu être installé.',
+      );
+    }
+  }
 }
 
 Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
@@ -573,15 +643,15 @@ Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
     ..isFullData = source.isFullData ?? false
     ..appMinVerReq = source.appMinVerReq
     ..isObsolete = false
-     ..subCategories = source.subCategories
-     ..supportsComments = source.supportsComments
-     ..requiresAccount = source.requiresAccount
-     ..hasDRM = source.hasDRM
-     ..isAggregator = source.isAggregator
-     ..paywall = source.paywall
-     ..upstream = source.upstream
-     ..videoQualities = source.videoQualities
-     ..contentSubtype = source.contentSubtype
+    ..subCategories = source.subCategories
+    ..supportsComments = source.supportsComments
+    ..requiresAccount = source.requiresAccount
+    ..hasDRM = source.hasDRM
+    ..isAggregator = source.isAggregator
+    ..paywall = source.paywall
+    ..upstream = source.upstream
+    ..videoQualities = source.videoQualities
+    ..contentSubtype = source.contentSubtype
     ..notes = source.notes
     ..uiLayout = source.uiLayout
     ..uiLayoutVersion = source.uiLayoutVersion
@@ -589,7 +659,14 @@ Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
     ..updatedAt = DateTime.now().millisecondsSinceEpoch;
   await isar.writeTxn(() async => isar.sources.put(newSource));
   unawaited(autoRegisterExtensionCookieSlot(newSource));
-  unawaited(LayoutDownloader.instance.download(source)); // Download layout file for new source
+  if (source.uiLayout?.isNotEmpty == true) {
+    final layoutSaved = await LayoutDownloader.instance.download(source);
+    if (!layoutSaved) {
+      throw StateError(
+        'Le layout UI de ${source.name} n’a pas pu être installé.',
+      );
+    }
+  }
 }
 
 Future<void> checkIfSourceIsObsolete(
@@ -609,9 +686,7 @@ Future<void> checkIfSourceIsObsolete(
   // runtime. Read the collection without a filter and apply the equivalent
   // predicates in Dart.
   final sources = (await isar.sources.where().findAll())
-      .where(
-        (source) => source.itemType == itemType && source.isLocal == false,
-      )
+      .where((source) => source.itemType == itemType && source.isLocal == false)
       .toList();
 
   if (sources.isEmpty) return;
@@ -866,4 +941,3 @@ class _BodyShim {
   final String body;
   _BodyShim(this.body);
 }
-

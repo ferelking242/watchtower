@@ -4,7 +4,8 @@
 // Loaded from disk on demand; refreshed on extension install/update.
 
 import 'dart:convert';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/models/source.dart';
@@ -25,8 +26,7 @@ class LayoutRegistry {
   }
 
   /// Returns true if a layout is already in memory for this source.
-  bool has(Source source) =>
-      source.id != null && _cache.containsKey(source.id);
+  bool has(Source source) => source.id != null && _cache.containsKey(source.id);
 
   /// Load layout from disk for [source] and update the memory cache.
   /// No-op on web or if no id. Safe to call multiple times.
@@ -54,12 +54,20 @@ class LayoutRegistry {
 
   /// Persist [jsonContent] to disk and update the memory cache.
   /// Called by [LayoutDownloader] after a successful download.
-  Future<void> save(Source source, String jsonContent) async {
-    if (source.id == null) return;
+  Future<bool> save(Source source, String jsonContent) async {
+    if (source.id == null) return false;
     try {
-      final json = jsonDecode(jsonContent) as Map<String, dynamic>;
+      final decoded = jsonDecode(jsonContent);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('layout root must be an object');
+      }
+      final json = decoded;
+      if (json['schemaVersion'] is! num ||
+          json['home'] is! Map<String, dynamic>) {
+        throw const FormatException('layout schemaVersion/home is missing');
+      }
       _cache[source.id!] = UiLayout.fromJson(json);
-      if (kIsWeb) return;
+      if (kIsWeb) return true;
       final file = await _layoutFile(source);
       await file.parent.create(recursive: true);
       await file.writeAsString(jsonContent);
@@ -67,12 +75,14 @@ class LayoutRegistry {
         '[LayoutRegistry] Saved ${source.name}',
         tag: LogTag.extension_,
       );
+      return true;
     } catch (e) {
       AppLogger.log(
         '[LayoutRegistry] Save failed for ${source.name}: $e',
         logLevel: LogLevel.error,
         tag: LogTag.extension_,
       );
+      return false;
     }
   }
 

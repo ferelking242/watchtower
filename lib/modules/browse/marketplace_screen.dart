@@ -123,6 +123,9 @@ class _ExtEntry {
   final String repoUrl;
   final List<_ExtVersionEntry> versions;
   final List<String> subCategories;
+  final String? uiLayout;
+  final String? uiLayoutVersion;
+  final List<String> contentSubtype;
   final bool requiresAccount;
   final bool hasDRM;
   final bool isAggregator;
@@ -146,6 +149,9 @@ class _ExtEntry {
     required this.repoUrl,
     this.versions = const [],
     this.subCategories = const [],
+    this.uiLayout,
+    this.uiLayoutVersion,
+    this.contentSubtype = const [],
     this.requiresAccount = false,
     this.hasDRM = false,
     this.isAggregator = false,
@@ -247,6 +253,12 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'subCategories': rawSubCategories is List
             ? rawSubCategories.whereType<String>().toList()
             : <String>[],
+        'contentSubtype': e['contentSubtype'] is List
+            ? (e['contentSubtype'] as List).whereType<String>().toList()
+            : <String>[],
+        'uiLayout': e['uiLayout'] is String ? e['uiLayout'] : null,
+        'uiLayoutVersion':
+            e['uiLayoutVersion'] is String ? e['uiLayoutVersion'] : null,
         'requiresAccount':
             e['requiresAccount'] is bool ? e['requiresAccount'] as bool : false,
         'hasDRM': e['hasDRM'] is bool ? e['hasDRM'] as bool : false,
@@ -309,6 +321,10 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
           repoUrl: m['repoUrl'] as String,
           subCategories:
               (m['subCategories'] as List<dynamic>?)?.cast<String>() ?? [],
+          contentSubtype:
+              (m['contentSubtype'] as List<dynamic>?)?.cast<String>() ?? [],
+          uiLayout: m['uiLayout'] as String?,
+          uiLayoutVersion: m['uiLayoutVersion'] as String?,
           requiresAccount: m['requiresAccount'] as bool? ?? false,
           hasDRM: m['hasDRM'] as bool? ?? false,
           isAggregator: m['isAggregator'] as bool? ?? false,
@@ -1202,7 +1218,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (_installedOnly)
       list = list.where((e) => _installed.contains(e.id)).toList();
     if (_withUpdatesOnly)
-      list = list.where((e) => _hasUpdate(e.id, e.version)).toList();
+      list = list
+          .where((e) => _hasUpdate(e.id, e.version, e.uiLayoutVersion))
+          .toList();
     if (_sortBy == 'alpha') {
       list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     } else if (_sortBy == 'installed') {
@@ -2303,7 +2321,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           child: _BannerCard(
             entry: show[i],
             installed: _installed.contains(show[i].id),
-            hasUpdate: _hasUpdate(show[i].id, show[i].version),
+            hasUpdate: _hasUpdate(
+              show[i].id,
+              show[i].version,
+              show[i].uiLayoutVersion,
+            ),
             busy: _busy[show[i].id] == true,
             onInstall: () => _install(show[i]),
             onSettings: _installed.contains(show[i].id)
@@ -2328,7 +2350,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         itemBuilder: (ctx, i) => _MiniCard(
           entry: show[i],
           installed: _installed.contains(show[i].id),
-          hasUpdate: _hasUpdate(show[i].id, show[i].version),
+            hasUpdate: _hasUpdate(
+              show[i].id,
+              show[i].version,
+              show[i].uiLayoutVersion,
+            ),
           busy: _busy[show[i].id] == true,
           onInstall: () => _install(show[i]),
           onSettings: _installed.contains(show[i].id)
@@ -2620,7 +2646,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 itemBuilder: (ctx, i) => _MiniCard(
                   entry: _featured[i],
                   installed: _installed.contains(_featured[i].id),
-                  hasUpdate: _hasUpdate(_featured[i].id, _featured[i].version),
+                  hasUpdate: _hasUpdate(
+                    _featured[i].id,
+                    _featured[i].version,
+                    _featured[i].uiLayoutVersion,
+                  ),
                   busy: _busy[_featured[i].id] == true,
                   onInstall: () => _install(_featured[i]),
                   onSettings: _installed.contains(_featured[i].id)
@@ -2639,18 +2669,30 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Update detection ──────────────────────────────────────────────────────────
 
-  bool _hasUpdate(int id, String availableVersion) {
+  bool _hasUpdate(
+    int id,
+    String availableVersion, [
+    String? availableLayoutVersion,
+  ]) {
     final installed = _installedVersions[id];
     if (installed == null) return false;
     try {
-      return compareVersions(installed, availableVersion) < 0;
+      if (compareVersions(installed, availableVersion) < 0) return true;
+      final source = _installedSources[id];
+      return availableLayoutVersion != null &&
+          source?.uiLayoutVersion != null &&
+          source!.uiLayoutVersion != availableLayoutVersion;
     } catch (_) {
       return false;
     }
   }
 
   int get _updatableCount => _all
-      .where((e) => _installed.contains(e.id) && _hasUpdate(e.id, e.version))
+      .where(
+        (e) =>
+            _installed.contains(e.id) &&
+            _hasUpdate(e.id, e.version, e.uiLayoutVersion),
+      )
       .length;
 
   void _openSettings(int id) {
@@ -3475,7 +3517,7 @@ class _TypeTabState extends State<_TypeTab> {
         .where(
           (e) =>
               state._installed.contains(e.id) &&
-              state._hasUpdate(e.id, e.version),
+              state._hasUpdate(e.id, e.version, e.uiLayoutVersion),
         )
         .toList();
     return RefreshIndicator(
@@ -3606,6 +3648,7 @@ class _TypeTabState extends State<_TypeTab> {
                   hasUpdate: state._hasUpdate(
                     entries[i].id,
                     entries[i].version,
+                    entries[i].uiLayoutVersion,
                   ),
                   busy: state._busy[entries[i].id] == true,
                   onInstall: () => state._install(entries[i]),

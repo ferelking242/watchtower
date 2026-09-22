@@ -25,8 +25,9 @@ class LayoutDownloader {
     AppLogger.log('[LayoutDownloader] GET $url', tag: LogTag.extension_);
 
     try {
-      final response =
-          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
         AppLogger.log(
@@ -37,8 +38,11 @@ class LayoutDownloader {
         return false;
       }
 
-      await LayoutRegistry.instance.save(source, response.body);
-      return true;
+      final saved = await LayoutRegistry.instance.save(source, response.body);
+      if (!saved) {
+        throw const FormatException('ui-layout JSON invalide');
+      }
+      return saved;
     } catch (e) {
       AppLogger.log(
         '[LayoutDownloader] Failed for ${source.name}: $e',
@@ -50,6 +54,5 @@ class LayoutDownloader {
   }
 
   /// Remove cached layout for [source] (called on extension uninstall).
-  Future<void> remove(Source source) =>
-      LayoutRegistry.instance.remove(source);
+  Future<void> remove(Source source) => LayoutRegistry.instance.remove(source);
 }

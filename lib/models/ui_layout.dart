@@ -160,7 +160,10 @@ class UiSection {
   /// Optional presentation hints consumed by the generic home renderer.
   /// The extension chooses these values; Flutter only maps them to widgets.
   final int? columns;
+  final int? rows;
   final String? cardStyle;
+  final String? gridOrder;
+  final String? scrollDirection;
 
   final bool seeAll;
   final bool paginated;
@@ -173,7 +176,10 @@ class UiSection {
     this.icon,
     this.accent,
     this.columns,
+    this.rows,
     this.cardStyle,
+    this.gridOrder,
+    this.scrollDirection,
     this.seeAll = false,
     this.paginated = false,
     this.requiresAuth = false,
@@ -186,7 +192,10 @@ class UiSection {
     icon: json['icon'] as String?,
     accent: json['accent'] as String?,
     columns: (json['columns'] as num?)?.toInt(),
+    rows: (json['rows'] as num?)?.toInt(),
     cardStyle: json['cardStyle'] as String?,
+    gridOrder: json['gridOrder'] as String?,
+    scrollDirection: json['scrollDirection'] as String?,
     seeAll: json['seeAll'] as bool? ?? false,
     paginated: json['paginated'] as bool? ?? false,
     requiresAuth: json['requiresAuth'] as bool? ?? false,
@@ -203,7 +212,10 @@ class UiSection {
     'icon': icon,
     'color': accent,
     if (columns != null) 'columns': columns,
+    if (rows != null) 'rows': rows,
     if (cardStyle != null) 'cardStyle': cardStyle,
+    if (gridOrder != null) 'gridOrder': gridOrder,
+    if (scrollDirection != null) 'scrollDirection': scrollDirection,
     if (seeAll) 'seeAll': id,
   };
 

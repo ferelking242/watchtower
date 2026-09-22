@@ -106,7 +106,9 @@ class _WatchExtensionHomeScreenState
     if (sections.isEmpty) {
       futures
         ..add(ref.refresh(getPopularProvider(source: source, page: 1).future))
-        ..add(ref.refresh(getLatestUpdatesProvider(source: source, page: 1).future));
+        ..add(
+          ref.refresh(getLatestUpdatesProvider(source: source, page: 1).future),
+        );
     } else {
       for (final section in sections) {
         final future = switch (section.id) {
@@ -185,7 +187,8 @@ class _WatchExtensionHomeScreenState
     final latest =
         latestAsync?.whenOrNull(data: (pages) => pages)?.list ??
         const <MManga>[];
-    final isLoading = !hasDeclaredSections &&
+    final isLoading =
+        !hasDeclaredSections &&
         (popularAsync?.isLoading == true || latestAsync?.isLoading == true);
 
     if (isLoading && popular.isEmpty && latest.isEmpty) {
@@ -363,10 +366,7 @@ class _AppleRefreshable extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final Widget child;
 
-  const _AppleRefreshable({
-    required this.onRefresh,
-    required this.child,
-  });
+  const _AppleRefreshable({required this.onRefresh, required this.child});
 
   @override
   State<_AppleRefreshable> createState() => _AppleRefreshableState();
@@ -376,7 +376,8 @@ class _AppleRefreshableState extends State<_AppleRefreshable> {
   bool _isRefreshing = false;
 
   void _setStatus(RefreshIndicatorStatus? status) {
-    final visible = status == RefreshIndicatorStatus.drag ||
+    final visible =
+        status == RefreshIndicatorStatus.drag ||
         status == RefreshIndicatorStatus.armed ||
         status == RefreshIndicatorStatus.refresh;
     if (visible != _isRefreshing && mounted) {
@@ -534,9 +535,8 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         title: section.title ?? section.id,
         component: section.component,
       ),
-      error: (_, __) => _ExtensionLayoutSectionError(
-        title: section.title ?? section.id,
-      ),
+      error: (_, __) =>
+          _ExtensionLayoutSectionError(title: section.title ?? section.id),
       data: (pages) {
         final items = pages?.list ?? const <MManga>[];
         if (items.isEmpty) {
@@ -564,9 +564,15 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         onOpen: onOpen,
         onSeeAll: sectionAction,
       ),
-      'ranked' || 'creatorRow' || 'newHot' => _ExtensionRankedRail(
+      'ranked' || 'newHot' => _ExtensionRankedRail(
         title: title,
         items: items.take(10).toList(growable: false),
+        onOpen: onOpen,
+        onSeeAll: sectionAction,
+      ),
+      'creatorRow' => _ExtensionCreatorRail(
+        title: title,
+        items: items,
         onOpen: onOpen,
         onSeeAll: sectionAction,
       ),
@@ -574,6 +580,10 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         title: title,
         items: items,
         columns: section.columns,
+        rows: section.rows,
+        cardStyle: section.cardStyle,
+        gridOrder: section.gridOrder,
+        scrollDirection: section.scrollDirection,
         onOpen: onOpen,
         onSeeAll: sectionAction,
       ),
@@ -613,7 +623,7 @@ class _ExtensionLayoutSection extends ConsumerWidget {
       ),
       'studioExplorer' ||
       'universeExplorer' ||
-      'collectionTimeline' => _ExtensionLandscapeRail(
+      'collectionTimeline' => _ExtensionStudioRail(
         title: title,
         items: items,
         onOpen: onOpen,
@@ -710,10 +720,10 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _ExtensionLayoutSectionMessage(
-        title: title,
-        icon: Icons.cloud_off_rounded,
-        message: 'indisponible',
-      );
+    title: title,
+    icon: Icons.cloud_off_rounded,
+    message: 'indisponible',
+  );
 }
 
 class _ExtensionLayoutSectionEmpty extends StatelessWidget {
@@ -723,10 +733,10 @@ class _ExtensionLayoutSectionEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _ExtensionLayoutSectionMessage(
-        title: title,
-        icon: Icons.video_library_outlined,
-        message: 'aucun contenu',
-      );
+    title: title,
+    icon: Icons.video_library_outlined,
+    message: 'aucun contenu',
+  );
 }
 
 class _ExtensionHero extends StatelessWidget {
@@ -1246,6 +1256,10 @@ class _ExtensionGridSection extends StatelessWidget {
   final String title;
   final List<MManga> items;
   final int? columns;
+  final int? rows;
+  final String? cardStyle;
+  final String? gridOrder;
+  final String? scrollDirection;
   final ValueChanged<MManga> onOpen;
   final VoidCallback? onSeeAll;
 
@@ -1254,14 +1268,25 @@ class _ExtensionGridSection extends StatelessWidget {
     required this.items,
     required this.onOpen,
     this.columns,
+    this.rows,
+    this.cardStyle,
+    this.gridOrder,
+    this.scrollDirection,
     this.onSeeAll,
   });
 
   @override
   Widget build(BuildContext context) {
     final crossAxisCount = (columns ?? 3).clamp(2, 5).toInt();
-    final visible = items.take(12).toList(growable: false);
-    final rows = (visible.length / crossAxisCount).ceil().clamp(1, 4).toInt();
+    final gridRows = (rows ?? (items.length / crossAxisCount).ceil())
+        .clamp(1, 4)
+        .toInt();
+    final count = crossAxisCount * gridRows;
+    final source = items.take(count).toList(growable: false);
+    final visible = gridOrder == 'column'
+        ? _columnMajor(source, crossAxisCount, gridRows)
+        : source;
+    final isHorizontal = scrollDirection == 'horizontal';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1271,27 +1296,272 @@ class _ExtensionGridSection extends StatelessWidget {
           onAction: onSeeAll,
         ),
         SizedBox(
-          height: rows * 215,
+          height: isHorizontal ? gridRows * 166 : gridRows * 215,
           child: GridView.builder(
             padding: EdgeInsets.symmetric(
               horizontal: AppUI.pagePadding(context),
             ),
-            physics: const NeverScrollableScrollPhysics(),
+            scrollDirection: isHorizontal ? Axis.horizontal : Axis.vertical,
+            physics: isHorizontal
+                ? const BouncingScrollPhysics()
+                : const NeverScrollableScrollPhysics(),
             itemCount: visible.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
+              crossAxisCount: isHorizontal ? gridRows : crossAxisCount,
+              mainAxisExtent: isHorizontal ? 132 : null,
               mainAxisSpacing: 16,
               crossAxisSpacing: 12,
-              childAspectRatio: .55,
+              childAspectRatio: cardStyle == 'tag' ? 2.6 : .55,
             ),
-            itemBuilder: (_, index) => _ExtensionPosterCard(
-              item: visible[index],
-              width: double.infinity,
-              onTap: () => onOpen(visible[index]),
-            ),
+            itemBuilder: (_, index) => cardStyle == 'tag'
+                ? _ExtensionTagCard(
+                    item: visible[index],
+                    onTap: () => onOpen(visible[index]),
+                  )
+                : _ExtensionPosterCard(
+                    item: visible[index],
+                    width: double.infinity,
+                    onTap: () => onOpen(visible[index]),
+                  ),
           ),
         ),
       ],
+    );
+  }
+
+  List<MManga> _columnMajor(List<MManga> source, int columns, int rows) {
+    final ordered = <MManga>[];
+    for (var column = 0; column < columns; column++) {
+      for (var row = 0; row < rows; row++) {
+        final index = row * columns + column;
+        if (index < source.length) ordered.add(source[index]);
+      }
+    }
+    return ordered;
+  }
+}
+
+class _ExtensionCreatorRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
+
+  const _ExtensionCreatorRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.onSeeAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
+        SizedBox(
+          height: 154,
+          child: ListView.builder(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: items.length,
+            itemBuilder: (_, index) {
+              final item = items[index];
+              return GestureDetector(
+                onTap: () => onOpen(item),
+                child: SizedBox(
+                  width: 104,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 14),
+                    child: Column(
+                      children: [
+                        ClipOval(
+                          child: SizedBox(
+                            width: 88,
+                            height: 88,
+                            child: _ExtensionImage(
+                              url: item.imageUrl,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 9),
+                        Text(
+                          item.name ?? 'Pornstar',
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionStudioRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
+
+  const _ExtensionStudioRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.onSeeAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    final hero = items.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+          child: GestureDetector(
+            onTap: () => onOpen(hero),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: SizedBox(
+                height: 190,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _ExtensionImage(url: hero.imageUrl, fit: BoxFit.cover),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: .88),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 14,
+                      child: Text(
+                        hero.name ?? 'Studio',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (items.length > 1)
+          SizedBox(
+            height: 132,
+            child: ListView.builder(
+              padding: EdgeInsets.fromLTRB(
+                AppUI.pagePadding(context),
+                12,
+                AppUI.pagePadding(context),
+                0,
+              ),
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length - 1,
+              itemBuilder: (_, index) {
+                final item = items[index + 1];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _ExtensionLandscapeCard(
+                    item: item,
+                    width: 190,
+                    onTap: () => onOpen(item),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ExtensionTagCard extends StatelessWidget {
+  final MManga item;
+  final VoidCallback onTap;
+
+  const _ExtensionTagCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF173E46), Color(0xFF236B70)],
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.local_offer_rounded,
+              size: 16,
+              color: Color(0xFF9AF3E2),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                item.name ?? 'Tag',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
