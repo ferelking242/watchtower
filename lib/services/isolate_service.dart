@@ -10,6 +10,7 @@ import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/extension_worker_count.dart';
 import 'package:watchtower/utils/log/log.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/constant.dart';
@@ -22,12 +23,43 @@ class _IsolateData {
   _IsolateData({required this.sendPort, required this.rootIsolateToken});
 }
 
+class _ExtensionWorker {
+  Isolate? isolate;
+  ReceivePort? receivePort;
+  StreamSubscription? receiveSub;
+  SendPort? sendPort;
+}
+
+void _forwardExtensionLog(String message) {
+  LogLevel lvl = LogLevel.info;
+  String body = message;
+
+  if (message.startsWith('[EXT][DEBUG] ')) {
+    lvl = LogLevel.debug;
+    body = message.substring('[EXT][DEBUG] '.length);
+  } else if (message.startsWith('[EXT][INFO] ')) {
+    lvl = LogLevel.info;
+    body = message.substring('[EXT][INFO] '.length);
+  } else if (message.startsWith('[EXT][WARN] ')) {
+    lvl = LogLevel.warning;
+    body = message.substring('[EXT][WARN] '.length);
+  } else if (message.startsWith('[EXT][ERROR] ')) {
+    lvl = LogLevel.error;
+    body = message.substring('[EXT][ERROR] '.length);
+  } else if (message.startsWith('LoggerLevel.warning:')) {
+    lvl = LogLevel.warning;
+    body = message.replaceFirst('LoggerLevel.warning:', '');
+  }
+
+  AppLogger.log(body, logLevel: lvl, tag: LogTag.extension_);
+  if (kDebugMode) debugPrint(body);
+}
+
 class GetIsolateService {
   bool _isRunning = false;
-  Isolate? _getIsolateService;
-  ReceivePort? _receivePort;
-  StreamSubscription? _receiveSub;
-  SendPort? _sendPort;
+  final List<_ExtensionWorker> _workers = [];
+  final Map<String, _ExtensionWorker> _sourceWorkers = {};
+  int _nextWorker = 0;
 
   Future<void> start() async {
     if (!_isRunning) {
@@ -40,63 +72,61 @@ class GetIsolateService {
   }
 
   Future<void> _initGetIsolateService() async {
-    _receivePort = ReceivePort();
-
     final rootToken = RootIsolateToken.instance!;
+    final workerCount = getRecommendedExtensionWorkerCount();
+    try {
+      for (var i = 0; i < workerCount; i++) {
+        _workers.add(await _spawnWorker(rootToken));
+      }
+    } catch (_) {
+      await stop();
+      rethrow;
+    }
+    _isRunning = true;
+  }
 
-    _getIsolateService = await Isolate.spawn(
+  Future<_ExtensionWorker> _spawnWorker(RootIsolateToken rootToken) async {
+    final worker = _ExtensionWorker();
+    final receivePort = ReceivePort();
+    worker.receivePort = receivePort;
+    final handshake = Completer<SendPort>();
+
+    worker.receiveSub = receivePort.listen((message) {
+      if (message is SendPort) {
+        if (!handshake.isCompleted) handshake.complete(message);
+        return;
+      }
+      if (message is String) _forwardExtensionLog(message);
+    });
+
+    worker.isolate = await Isolate.spawn(
       _getIsolateServiceEntryPoint,
       _IsolateData(
-        sendPort: _receivePort!.sendPort,
+        sendPort: receivePort.sendPort,
         rootIsolateToken: rootToken,
       ),
     );
-
-    final completer = Completer<SendPort>();
-    _receiveSub = _receivePort!.listen((message) {
-      if (message is SendPort) {
-        completer.complete(message);
-      }
-      if (message is String) {
-        // ── Route structured extension logs from the isolate to AppLogger ──
-        // The JS extension service uses print('[EXT][LEVEL] …') inside the
-        // isolate Zone. We parse the prefix here and forward to AppLogger so
-        // those entries appear in the in-app log viewer and log file.
-        LogLevel lvl = LogLevel.info;
-        String body = message;
-
-        if (message.startsWith('[EXT][DEBUG] ')) {
-          lvl = LogLevel.debug;
-          body = message.substring('[EXT][DEBUG] '.length);
-        } else if (message.startsWith('[EXT][INFO] ')) {
-          lvl = LogLevel.info;
-          body = message.substring('[EXT][INFO] '.length);
-        } else if (message.startsWith('[EXT][WARN] ')) {
-          lvl = LogLevel.warning;
-          body = message.substring('[EXT][WARN] '.length);
-        } else if (message.startsWith('[EXT][ERROR] ')) {
-          lvl = LogLevel.error;
-          body = message.substring('[EXT][ERROR] '.length);
-        } else if (message.startsWith('LoggerLevel.warning:')) {
-          // Legacy path kept for backward compatibility
-          lvl = LogLevel.warning;
-          body = message.replaceFirst('LoggerLevel.warning:', '');
-        }
-
-        AppLogger.log(body, logLevel: lvl, tag: LogTag.extension_);
-
-        if (kDebugMode) debugPrint(body);
-      }
-    });
-
-    _sendPort = await completer.future.timeout(
-      // 5 s was too short on low-end devices → bumped to 20 s.
-      // The isolate does date formatting + QuickJS init which can take
-      // several seconds on cold first launch with a slow filesystem.
+    worker.sendPort = await handshake.future.timeout(
       const Duration(seconds: 20),
-      onTimeout: () => throw StateError('Isolate handshake timed out after 20 s'),
+      onTimeout: () =>
+          throw StateError('Extension worker handshake timed out after 20 s'),
     );
-    _isRunning = true;
+    return worker;
+  }
+
+  String _sourceKey(Source? source) =>
+      '${source?.id ?? source?.name ?? source?.hashCode}:'
+      '${source?.lang ?? ""}';
+
+  _ExtensionWorker _workerForSource(Source? source) {
+    final key = _sourceKey(source);
+    final existing = _sourceWorkers[key];
+    if (existing != null) return existing;
+
+    final worker = _workers[_nextWorker % _workers.length];
+    _nextWorker++;
+    _sourceWorkers[key] = worker;
+    return worker;
   }
 
   static Future<void> _getIsolateServiceEntryPoint(
@@ -352,7 +382,7 @@ class GetIsolateService {
     }
     // ── Native path ───────────────────────────────────────────────────────
 
-    if (_sendPort == null) {
+    if (!_isRunning || _workers.isEmpty) {
       AppLogger.log(
         'Isolate not running — cannot execute $serviceType for ${source?.name}',
         logLevel: LogLevel.error,
@@ -420,7 +450,8 @@ class GetIsolateService {
       }
     });
 
-    _sendPort!.send({
+    final worker = _workerForSource(source);
+    worker.sendPort!.send({
       'url': ?url,
       'page': ?page,
       'query': ?query,
@@ -437,18 +468,25 @@ class GetIsolateService {
   }
 
   Future<void> stop() async {
-    if (!_isRunning) {
+    if (!_isRunning && _workers.isEmpty) {
       return;
     }
 
-    _sendPort?.send('dispose');
-    _getIsolateService?.kill(priority: Isolate.immediate);
-    await _receiveSub?.cancel();
-    _receivePort?.close();
-    _receiveSub = null;
-    _sendPort = null;
-    _getIsolateService = null;
-    _receivePort = null;
+    final workers = List<_ExtensionWorker>.from(_workers);
+    _workers.clear();
+    _sourceWorkers.clear();
+    _nextWorker = 0;
+
+    for (final worker in workers) {
+      worker.sendPort?.send('dispose');
+      worker.isolate?.kill(priority: Isolate.immediate);
+    }
+    await Future.wait(
+      workers.map((worker) async {
+        await worker.receiveSub?.cancel();
+        worker.receivePort?.close();
+      }),
+    );
     _isRunning = false;
   }
 }

@@ -1,0 +1,1 @@
+int getRecommendedExtensionWorkerCount() => 1;
