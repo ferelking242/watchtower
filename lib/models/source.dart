@@ -171,7 +171,11 @@ class Source {
     isAdded = json['isAdded'];
     isFullData = json['isFullData'];
     isManga = json['isManga'];
-    itemType = ItemType.values[json['itemType'] ?? 0];
+    final itemTypeIndex =
+        json['itemType'] is num ? (json['itemType'] as num).toInt() : 0;
+    itemType = itemTypeIndex >= 0 && itemTypeIndex < ItemType.values.length
+        ? ItemType.values[itemTypeIndex]
+        : ItemType.manga;
     isNsfw = json['isNsfw'];
     isPinned = json['isPinned'];
     lang = (json['lang'] as String?)?.toLowerCase();
@@ -185,8 +189,13 @@ class Source {
     additionalParams = json['additionalParams'] ?? "";
     isObsolete = json['isObsolete'];
     isLocal = json['isLocal'];
-    sourceCodeLanguage =
-        SourceCodeLanguage.values[json['sourceCodeLanguage'] ?? 0];
+    final sourceCodeLanguageIndex = json['sourceCodeLanguage'] is num
+        ? (json['sourceCodeLanguage'] as num).toInt()
+        : 0;
+    sourceCodeLanguage = sourceCodeLanguageIndex >= 0 &&
+            sourceCodeLanguageIndex < SourceCodeLanguage.values.length
+        ? SourceCodeLanguage.values[sourceCodeLanguageIndex]
+        : SourceCodeLanguage.dart;
     notes = json['notes'] ?? "";
     customUserAgent = json['customUserAgent'] as String?;
     repo = json['repo'] != null ? Repo.fromJson(json['repo']) : null;

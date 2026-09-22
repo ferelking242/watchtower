@@ -243,29 +243,44 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
 
 List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
     .map(
-      (m) => _ExtEntry(
-        id: m['id'] as int,
-        name: m['name'] as String,
-        iconUrl: m['iconUrl'] as String?,
-        lang: m['lang'] as String,
-        version: m['version'] as String,
-        contentType: ItemType.values[m['contentType'] as int],
-        compat: SourceCodeLanguage.values[m['compat'] as int],
-        isNsfw: m['isNsfw'] as bool,
-        repoUrl: m['repoUrl'] as String,
-        subCategories:
-            (m['subCategories'] as List<dynamic>?)?.cast<String>() ?? [],
-        requiresAccount: m['requiresAccount'] as bool? ?? false,
-        hasDRM: m['hasDRM'] as bool? ?? false,
-        isAggregator: m['isAggregator'] as bool? ?? false,
-        paywall: m['paywall'] as String? ?? 'free',
-        supportsComments: m['supportsComments'] as bool? ?? false,
-        upstream: m['upstream'] as String? ?? '',
-        description: m['description'] as String? ?? '',
-        sizeBytes: _parseMktSize(m['sizeBytes']),
-        rating: (m['rating'] as num?)?.toDouble() ?? 4.2,
-        reviewCount: (m['reviewCount'] as num?)?.toInt() ?? 128,
-      ),
+      (m) {
+        final rawItemType = m['contentType'] is num
+            ? (m['contentType'] as num).toInt()
+            : -1;
+        final rawCompat =
+            m['compat'] is num ? (m['compat'] as num).toInt() : -1;
+        final itemType = rawItemType >= 0 &&
+                rawItemType < ItemType.values.length
+            ? ItemType.values[rawItemType]
+            : ItemType.manga;
+        final compat = rawCompat >= 0 &&
+                rawCompat < SourceCodeLanguage.values.length
+            ? SourceCodeLanguage.values[rawCompat]
+            : SourceCodeLanguage.javascript;
+        return _ExtEntry(
+          id: m['id'] as int,
+          name: m['name'] as String,
+          iconUrl: m['iconUrl'] as String?,
+          lang: m['lang'] as String,
+          version: m['version'] as String,
+          contentType: itemType,
+          compat: compat,
+          isNsfw: m['isNsfw'] as bool? ?? false,
+          repoUrl: m['repoUrl'] as String,
+          subCategories:
+              (m['subCategories'] as List<dynamic>?)?.cast<String>() ?? [],
+          requiresAccount: m['requiresAccount'] as bool? ?? false,
+          hasDRM: m['hasDRM'] as bool? ?? false,
+          isAggregator: m['isAggregator'] as bool? ?? false,
+          paywall: m['paywall'] as String? ?? 'free',
+          supportsComments: m['supportsComments'] as bool? ?? false,
+          upstream: m['upstream'] as String? ?? '',
+          description: m['description'] as String? ?? '',
+          sizeBytes: _parseMktSize(m['sizeBytes']),
+          rating: (m['rating'] as num?)?.toDouble() ?? 4.2,
+          reviewCount: (m['reviewCount'] as num?)?.toInt() ?? 128,
+        );
+      },
     )
     .toList();
 
@@ -828,6 +843,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         }
 
         await _refreshInstalled();
+        if (!_installed.contains(entry.id)) {
+          throw StateError(
+            'Le plugin ${entry.name} n’a pas été enregistré après le téléchargement.',
+          );
+        }
         if (mounted) {
           _showToast(
             context,

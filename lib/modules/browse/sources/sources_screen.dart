@@ -40,7 +40,15 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
 
   List<Source> _sourcesForCurrentType(Iterable<Source> sources) {
     return sources
-        .where((source) => source.itemType == widget.itemType)
+        // Browse is the installed-source surface. Repository/catalogue
+        // entries are persisted too, but must stay out of this screen until
+        // their source code has actually been installed.
+        .where(
+          (source) =>
+              source.itemType == widget.itemType &&
+              source.isAdded == true &&
+              source.isActive != false,
+        )
         .where((source) => widget.filters.matches(source, widget.searchQuery))
         .toList();
   }
@@ -99,6 +107,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 final showNSFW = ref.watch(showNSFWStateProvider);
                 List<Source> sources = snapshot.data!
                     .where((e) => e.id != null)
+                    .where((e) => e.isAdded == true)
+                    .where((e) => e.isActive != false)
                     .where((e) => showNSFW || !(e.isNsfw ?? false))
                     // "local" source is always shown via the fixed section
                     // at the bottom of the column — exclude it from the
