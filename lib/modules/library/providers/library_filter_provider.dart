@@ -10,11 +10,14 @@ part 'library_filter_provider.g.dart';
 /// Returns a [Set<int>] for O(1) lookup instead of per-chapter queries.
 @riverpod
 Set<int> downloadedChapterIds(Ref ref) {
+  // isar_community can reject filters on nullable bool properties at
+  // runtime. Read the collection without a filter and apply the predicate
+  // in Dart.
   final downloads = isar.downloads
-      .filter()
-      .isDownloadEqualTo(true)
-      .idProperty()
-      .findAllSync();
+      .where()
+      .findAllSync()
+      .where((download) => download.isDownload == true)
+      .map((download) => download.id);
   return downloads.whereType<int>().toSet();
 }
 
