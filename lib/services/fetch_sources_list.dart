@@ -19,6 +19,7 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/more/settings/general/extension_cookie_manager_screen.dart'
     show autoRegisterExtensionCookieSlot;
 import 'package:watchtower/services/layout_downloader.dart';
+import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 
 // ── Web proxy helper ─────────────────────────────────────────────────────────
@@ -339,11 +340,14 @@ Future<void> fetchSourcesList({
       if (autoUpdateExtensions) {
         toAutoUpdate.add(source);
       } else {
-        toVersionBump.add(
-          existing
-            ..versionLast = source.version
-            ..additionalParams = source.additionalParams ?? "",
-        );
+        if (layoutVersionBumped) {
+          existing.pendingUiLayoutVersion = source.uiLayoutVersion;
+        }
+        if (versionBumped) {
+          existing.versionLast = source.version;
+        }
+        existing.additionalParams = existing.persistedAdditionalParams;
+        toVersionBump.add(existing);
       }
     }
 
@@ -379,7 +383,7 @@ Future<void> fetchSourcesList({
               ..isObsolete = false
               ..isLocal = false
               ..notes = s.notes
-              ..additionalParams = s.additionalParams ?? ""
+               ..additionalParams = s.persistedAdditionalParams
               ..uiLayout = s.uiLayout
               ..uiLayoutVersion = s.uiLayoutVersion
               ..repo = repo
@@ -464,6 +468,48 @@ Future<void> installExtensionUpdate(Source source) async {
       'Le layout JSON de ${source.name ?? 'cette extension'} est absent.',
     );
   }
+  if (source.uiLayout?.isNotEmpty == true) {
+    await LayoutRegistry.instance.load(installed);
+    if (!LayoutRegistry.instance.has(installed)) {
+      throw StateError(
+        'Le layout JSON de ${source.name ?? 'cette extension'} n’est pas lisible.',
+      );
+    }
+  }
+  final expectsMetadata =
+      (source.subCategories?.isNotEmpty ?? false) ||
+      (source.contentSubtype?.isNotEmpty ?? false);
+  if (expectsMetadata &&
+      (installed.subCategories?.isNotEmpty != true ||
+          installed.contentSubtype?.isNotEmpty != true)) {
+    throw StateError(
+      'Les métadonnées de catégories de ${source.name ?? 'cette extension'} '
+      'n’ont pas été installées.',
+    );
+  }
+}
+
+/// Whether the installed copy still has either a JS or a layout update.
+bool hasPendingExtensionUpdate(Source source) {
+  final codeUpdate =
+      source.version != null &&
+      source.versionLast != null &&
+      compareVersions(source.version!, source.versionLast!) < 0;
+  return codeUpdate || source.pendingUiLayoutVersion?.isNotEmpty == true;
+}
+
+String extensionUpdateLabel(Source source) {
+  final codeUpdate =
+      source.version != null &&
+      source.versionLast != null &&
+      compareVersions(source.version!, source.versionLast!) < 0;
+  final layout = source.pendingUiLayoutVersion;
+  if (codeUpdate && layout?.isNotEmpty == true) {
+    return 'v${source.versionLast} + UI $layout';
+  }
+  if (codeUpdate) return 'v${source.versionLast}';
+  if (layout?.isNotEmpty == true) return 'UI $layout';
+  return 'mise à jour';
 }
 
 Future<void> _updateSource(
@@ -596,7 +642,7 @@ Future<void> _updateSource(
     ..upstream = source.upstream
     ..videoQualities = source.videoQualities
     ..contentSubtype = source.contentSubtype
-    ..additionalParams = source.additionalParams ?? ""
+    ..additionalParams = source.persistedAdditionalParams
     ..isObsolete = false
     ..notes = source.notes
     ..uiLayout = source.uiLayout
@@ -604,8 +650,6 @@ Future<void> _updateSource(
     ..repo = repo
     ..updatedAt = DateTime.now().millisecondsSinceEpoch;
 
-  await isar.writeTxn(() async => isar.sources.put(updatedSource));
-  unawaited(autoRegisterExtensionCookieSlot(updatedSource));
   if (source.uiLayout?.isNotEmpty == true) {
     final layoutSaved = await LayoutDownloader.instance.download(source);
     if (!layoutSaved) {
@@ -614,6 +658,8 @@ Future<void> _updateSource(
       );
     }
   }
+  await isar.writeTxn(() async => isar.sources.put(updatedSource));
+  unawaited(autoRegisterExtensionCookieSlot(updatedSource));
 }
 
 Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
@@ -652,13 +698,12 @@ Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
     ..upstream = source.upstream
     ..videoQualities = source.videoQualities
     ..contentSubtype = source.contentSubtype
+    ..additionalParams = source.persistedAdditionalParams
     ..notes = source.notes
     ..uiLayout = source.uiLayout
     ..uiLayoutVersion = source.uiLayoutVersion
     ..repo = repo
     ..updatedAt = DateTime.now().millisecondsSinceEpoch;
-  await isar.writeTxn(() async => isar.sources.put(newSource));
-  unawaited(autoRegisterExtensionCookieSlot(newSource));
   if (source.uiLayout?.isNotEmpty == true) {
     final layoutSaved = await LayoutDownloader.instance.download(source);
     if (!layoutSaved) {
@@ -667,6 +712,8 @@ Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
       );
     }
   }
+  await isar.writeTxn(() async => isar.sources.put(newSource));
+  unawaited(autoRegisterExtensionCookieSlot(newSource));
 }
 
 Future<void> checkIfSourceIsObsolete(

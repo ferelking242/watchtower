@@ -5,7 +5,11 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/update.dart';
-import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/services/fetch_sources_list.dart'
+    show
+        extensionUpdateLabel,
+        hasPendingExtensionUpdate,
+        installExtensionUpdate;
 import 'package:watchtower/services/layout_registry.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -38,9 +42,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             .where(
               (source) =>
                   source.isAdded == true &&
-                  source.version != null &&
-                  source.versionLast != null &&
-                  compareVersions(source.version!, source.versionLast!) < 0,
+                  hasPendingExtensionUpdate(source),
             )
             .toList()
           ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
@@ -122,7 +124,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             leading: _SourceIcon(source: source),
                             title: Text(source.name ?? 'Extension'),
                             subtitle: Text(
-                              'v${source.version} → v${source.versionLast}',
+                               extensionUpdateLabel(source),
                             ),
                             trailing: FilledButton(
                               onPressed:

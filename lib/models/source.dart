@@ -85,7 +85,7 @@ class Source {
 
   int? updatedAt;
 
-  // ── Extended metadata (read from index JSON, not persisted in Isar) ─────────
+  // ── Extended metadata (catalogue fields persisted in additionalParams) ─────
   List<String>? subCategories;
   bool? supportsComments;
   bool? requiresAccount;
@@ -103,6 +103,13 @@ class Source {
 
   /// Version of the downloaded layout file, compared against catalogue.
   String? uiLayoutVersion;
+
+  /// Newer layout metadata waiting to be installed.
+  ///
+  /// The current Isar schema predates the marketplace metadata fields, so
+  /// this value is persisted in the metadata envelope inside
+  /// [additionalParams] rather than being added as a second schema migration.
+  String? pendingUiLayoutVersion;
 
   Source({
     this.id = 0,
@@ -148,7 +155,63 @@ class Source {
     this.upstream,
     this.videoQualities,
     this.contentSubtype,
-  });
+  }) {
+    hydrateExtendedMetadata();
+  }
+
+  static const _metadataMarker = '__watchtower_metadata__=';
+
+  /// Rehydrates marketplace metadata after an Isar read.
+  ///
+  /// The extension runtime only relies on the existing free-form
+  /// `additionalParams` string, so the envelope is appended on its own line
+  /// and does not change legacy checks such as `contains('type=reel')`.
+  void hydrateExtendedMetadata() {
+    final value = additionalParams;
+    if (value == null) return;
+    final match = RegExp(
+      r'(?:^|\n)__watchtower_metadata__=([A-Za-z0-9_-]+)',
+    ).firstMatch(value);
+    if (match == null) return;
+    try {
+      final decoded = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(match.group(1)!))),
+      );
+      if (decoded is! Map) return;
+      final data = Map<String, dynamic>.from(decoded);
+      subCategories ??= (data['subCategories'] as List?)
+          ?.whereType<String>()
+          .toList(growable: false);
+      contentSubtype ??= (data['contentSubtype'] as List?)
+          ?.whereType<String>()
+          .toList(growable: false);
+      uiLayout ??= data['uiLayout'] as String?;
+      uiLayoutVersion ??= data['uiLayoutVersion'] as String?;
+      pendingUiLayoutVersion ??= data['pendingUiLayoutVersion'] as String?;
+    } catch (_) {
+      // Keep the original additionalParams value usable if an older build
+      // left malformed metadata behind.
+    }
+  }
+
+  /// Returns the value written to Isar while preserving legacy parameters.
+  String get persistedAdditionalParams {
+    final raw = (additionalParams ?? '')
+        .split('\n$_metadataMarker')
+        .first
+        .trimRight();
+    final metadata = <String, dynamic>{
+      if (subCategories != null) 'subCategories': subCategories,
+      if (contentSubtype != null) 'contentSubtype': contentSubtype,
+      if (uiLayout != null) 'uiLayout': uiLayout,
+      if (uiLayoutVersion != null) 'uiLayoutVersion': uiLayoutVersion,
+      if (pendingUiLayoutVersion != null)
+        'pendingUiLayoutVersion': pendingUiLayoutVersion,
+    };
+    if (metadata.isEmpty) return raw;
+    final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
+    return '$raw\n$_metadataMarker$encoded';
+  }
 
   FilterList? getFilterList() => filterList != null
       ? FilterList.fromJson(jsonDecode(filterList!) as Map<String, dynamic>)
@@ -211,6 +274,8 @@ class Source {
     contentSubtype = (json['contentSubtype'] as List<dynamic>?)?.cast<String>();
     uiLayout = json['uiLayout'] as String?;
     uiLayoutVersion = json['uiLayoutVersion'] as String?;
+    pendingUiLayoutVersion = json['pendingUiLayoutVersion'] as String?;
+    hydrateExtendedMetadata();
   }
 
   Map<String, dynamic> toJson() => {
@@ -241,7 +306,7 @@ class Source {
     'typeSource': typeSource,
     'version': version,
     'versionLast': versionLast,
-    'additionalParams': additionalParams,
+    'additionalParams': persistedAdditionalParams,
     'sourceCodeLanguage': sourceCodeLanguage.index,
     'isObsolete': isObsolete,
     'isLocal': isLocal,
@@ -260,6 +325,7 @@ class Source {
     'contentSubtype': contentSubtype,
     'uiLayout': uiLayout,
     'uiLayoutVersion': uiLayoutVersion,
+    'pendingUiLayoutVersion': pendingUiLayoutVersion,
   };
 
   bool get isTorrent => (typeSource?.toLowerCase() ?? "") == "torrent";

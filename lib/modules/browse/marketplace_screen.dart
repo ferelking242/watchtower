@@ -14,6 +14,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/services/layout_registry.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/browse/plugins_section.dart';
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
@@ -989,7 +990,36 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         'Aucune source active n’a été enregistrée.',
       );
     }
+    if (entry.uiLayout?.isNotEmpty == true) {
+      if (source.uiLayout != entry.uiLayout ||
+          source.uiLayoutVersion != entry.uiLayoutVersion) {
+        throw StateError(
+          'Le layout UI de ${entry.name} n’a pas été enregistré.',
+        );
+      }
+      await LayoutRegistry.instance.load(source);
+      if (!LayoutRegistry.instance.has(source)) {
+        throw StateError('Le layout UI de ${entry.name} est illisible.');
+      }
+    }
+    if (entry.subCategories.isNotEmpty &&
+        !_sameStrings(source.subCategories, entry.subCategories)) {
+      throw StateError(
+        'Les catégories de ${entry.name} n’ont pas été enregistrées.',
+      );
+    }
+    if (entry.contentSubtype.isNotEmpty &&
+        !_sameStrings(source.contentSubtype, entry.contentSubtype)) {
+      throw StateError(
+        'Les types de contenu de ${entry.name} n’ont pas été enregistrés.',
+      );
+    }
   }
+
+  bool _sameStrings(List<String>? actual, List<String> expected) =>
+      actual != null &&
+      actual.length == expected.length &&
+      actual.toSet().containsAll(expected);
 
   // ── Bulk install: parallel batches of 4, no toasts, single refresh ──────
   Future<void> _installBulk({

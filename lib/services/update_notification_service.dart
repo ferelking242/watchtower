@@ -183,7 +183,7 @@ class WatchtowerNotificationService {
       final names = updates
           .map(
             (source) =>
-                '${source.name ?? 'Extension'} v${source.versionLast ?? '?'}',
+                '${source.name ?? 'Extension'} ${_extensionUpdateLabel(source)}',
           )
           .join(', ');
       final androidDetails = AndroidNotificationDetails(
@@ -227,6 +227,20 @@ class WatchtowerNotificationService {
         tag: LogTag.network,
       );
     }
+  }
+
+  String _extensionUpdateLabel(Source source) {
+    final codeUpdate =
+        source.version != null &&
+        source.versionLast != null &&
+        source.version != source.versionLast;
+    final layout = source.pendingUiLayoutVersion;
+    if (codeUpdate && layout?.isNotEmpty == true) {
+      return 'v${source.versionLast} + UI $layout';
+    }
+    if (codeUpdate) return 'v${source.versionLast}';
+    if (layout?.isNotEmpty == true) return 'UI $layout';
+    return 'mise à jour';
   }
 
   Future<void> _openMediaNotification(NotificationResponse response) async {
