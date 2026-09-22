@@ -9,6 +9,9 @@ QueryExecutor createDatabaseConnection() => LazyDatabase(
 
 class _WebDatabaseExecutor extends QueryExecutor {
   @override
+  SqlDialect get dialect => SqlDialect.sqlite;
+
+  @override
   Future<bool> ensureOpen(QueryExecutorUser user) async => true;
 
   @override
