@@ -388,17 +388,8 @@ jobs:
 
           source = Path(sys.argv[1])
           text = source.read_text()
-          old = """    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));
-
-    if (expires >= 0)
-"""
-          new = """    GDateTime *expires_time = soup_cookie_get_expires(cookie);
-    gdouble expires = expires_time == nullptr
-        ? -1
-        : static_cast<gdouble>(g_date_time_to_unix(expires_time));
-
-    if (expires >= 0)
-"""
+          old = "    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));\n\n    if (expires >= 0)\n"
+          new = "    GDateTime *expires_time = soup_cookie_get_expires(cookie);\n    gdouble expires = expires_time == nullptr\n        ? -1\n        : static_cast<gdouble>(g_date_time_to_unix(expires_time));\n\n    if (expires >= 0)\n"
           if old not in text:
               raise SystemExit("desktop_webview_window GLib code was not found")
           source.write_text(text.replace(old, new, 1))
