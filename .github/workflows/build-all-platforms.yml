@@ -389,12 +389,28 @@ jobs:
           source = Path(sys.argv[1])
           text = source.read_text()
           old = "    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));\n\n    if (expires >= 0)\n"
-          new = "    GDateTime *expires_time = soup_cookie_get_expires(cookie);\n    gdouble expires = expires_time == nullptr\n        ? -1\n        : static_cast<gdouble>(g_date_time_to_unix(expires_time));\n\n    if (expires >= 0)\n"
+          new = "    SoupDate *expires_date = soup_cookie_get_expires(cookie);\n    gdouble expires = expires_date == nullptr\n        ? -1\n        : static_cast<gdouble>(soup_date_to_time_t(expires_date));\n\n    if (expires >= 0)\n"
           if old not in text:
               raise SystemExit("desktop_webview_window GLib code was not found")
           source.write_text(text.replace(old, new, 1))
           PY
           sed -i 's/ -Wno-deprecated-literal-operator//g' "$WEBVIEW_CMAKE"
+
+      - name: Remove unsupported WPE plugin from Flutter Linux graph
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          graph = Path(".flutter-plugins-dependencies")
+          data = json.loads(graph.read_text())
+          plugins = data.get("plugins", {}).get("linux", [])
+          data["plugins"]["linux"] = [
+              plugin for plugin in plugins
+              if plugin.get("name") != "flutter_inappwebview_linux"
+          ]
+          graph.write_text(json.dumps(data, indent=2) + "\n")
+          PY
 
       - name: Disable unsupported WPE WebKit plugin on Ubuntu 22.04
         run: |
