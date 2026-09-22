@@ -343,14 +343,12 @@ class AppGenreTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.imageUrl,
-    this.fallbackImageUrl,
     super.key,
   });
 
   final String label;
   final VoidCallback onTap;
   final String? imageUrl;
-  final String? fallbackImageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -370,18 +368,7 @@ class AppGenreTile extends StatelessWidget {
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,
-                errorWidget: fallbackImageUrl != null &&
-                        fallbackImageUrl != imageUrl
-                    ? cachedNetworkImage(
-                        imageUrl: fallbackImageUrl!,
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                        errorWidget: ColoredBox(
-                          color: colors.surfaceContainerHigh,
-                        ),
-                      )
-                    : ColoredBox(color: colors.surfaceContainerHigh),
+                errorWidget: ColoredBox(color: colors.surfaceContainerHigh),
               )
             else
               ColoredBox(

@@ -936,7 +936,6 @@ class GenreListGrid extends StatelessWidget {
                   return AppGenreTile(
                     label: genre.name,
                     imageUrl: image,
-                    fallbackImageUrl: image,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(

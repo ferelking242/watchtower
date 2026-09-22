@@ -1068,7 +1068,6 @@ class _ExtensionGenreGrid extends StatelessWidget {
               return AppGenreTile(
                 label: genre.key,
                 imageUrl: genre.value.imageUrl,
-                fallbackImageUrl: genre.value.imageUrl,
                 onTap: () => onOpen(genre.value),
               );
             },

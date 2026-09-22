@@ -72,6 +72,10 @@ final _memoryCache = _LRUCache<String, Uint8List>(
   sizeOf: (data) => data.length,
 );
 
+/// Prevents two widgets requesting the same uncached URL at the same time
+/// from starting two network downloads.
+final _inFlightImageLoads = <String, Future<Uint8List?>>{};
+
 /// Cache metadata for LRU eviction
 class _CacheMetadata {
   final String path;
@@ -269,7 +273,7 @@ class CustomExtendedNetworkImageProvider
     ImageDecoderCallback decode,
   ) async {
     assert(key == this);
-    final String md5Key = cacheKey ?? keyToMd5(key.url);
+    final String md5Key = _cacheKeyFor(key);
     ui.Codec? result;
     if (cache) {
       try {
@@ -282,9 +286,7 @@ class CustomExtendedNetworkImageProvider
           if (kDebugMode) print(e);
         }
       }
-    }
-
-    if (result == null) {
+    } else {
       try {
         final Uint8List? data = await _loadNetwork(key, chunkEvents);
         if (data != null) {
@@ -306,8 +308,38 @@ class CustomExtendedNetworkImageProvider
     return result;
   }
 
+  String _cacheKeyFor(CustomExtendedNetworkImageProvider key) {
+    return cacheKey ?? keyToMd5('${key.url}\n${_headersFingerprint()}');
+  }
+
+  String _headersFingerprint() {
+    if (headers == null || headers!.isEmpty) return '';
+    final entries = headers!.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+  }
+
   /// Get the image from cache folder.
   Future<Uint8List?> _loadCache(
+    CustomExtendedNetworkImageProvider key,
+    StreamController<ImageChunkEvent>? chunkEvents,
+    String md5Key,
+  ) async {
+    final pending = _inFlightImageLoads[md5Key];
+    if (pending != null) return pending;
+
+    final request = _loadCacheUncoalesced(key, chunkEvents, md5Key);
+    _inFlightImageLoads[md5Key] = request;
+    try {
+      return await request;
+    } finally {
+      if (identical(_inFlightImageLoads[md5Key], request)) {
+        _inFlightImageLoads.remove(md5Key);
+      }
+    }
+  }
+
+  Future<Uint8List?> _loadCacheUncoalesced(
     CustomExtendedNetworkImageProvider key,
     StreamController<ImageChunkEvent>? chunkEvents,
     String md5Key,
@@ -537,7 +569,7 @@ class CustomExtendedNetworkImageProvider
         timeRetry == other.timeRetry &&
         cache == other.cache &&
         cacheKey == other.cacheKey &&
-        //headers == other.headers &&
+        _headersFingerprint() == other._headersFingerprint() &&
         retries == other.retries &&
         imageCacheName == other.imageCacheName &&
         cacheMaxAge == other.cacheMaxAge;
@@ -553,7 +585,7 @@ class CustomExtendedNetworkImageProvider
     timeRetry,
     cache,
     cacheKey,
-    //headers,
+    _headersFingerprint(),
     retries,
     imageCacheName,
     cacheMaxAge,
@@ -567,7 +599,7 @@ class CustomExtendedNetworkImageProvider
   Future<Uint8List?> getNetworkImageData({
     StreamController<ImageChunkEvent>? chunkEvents,
   }) async {
-    final String uId = cacheKey ?? keyToMd5(url);
+    final String uId = _cacheKeyFor(this);
 
     if (cache) {
       return await _loadCache(this, chunkEvents, uId);
