@@ -1,4 +1,5 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:watchtower/modules/more/settings/browse/providers/browse_state_p
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/utils/language.dart';
+import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 class SourcesScreen extends ConsumerStatefulWidget {
   final ItemType itemType;
@@ -31,6 +33,29 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   final _scrollController = ScrollController();
   final Map<String, bool> _collapsed = {};
 
+  Future<void> _refreshSources() async {
+    final sources = isar.sources
+        .filter()
+        .itemTypeEqualTo(widget.itemType)
+        .isAddedEqualTo(true)
+        .findAllSync();
+
+    await Future.wait(
+      sources.take(24).map((source) async {
+        try {
+          await ref.read(
+            fetchItemSourcesListProvider(
+              id: source.id,
+              reFresh: true,
+              itemType: widget.itemType,
+            ).future,
+          );
+        } catch (_) {
+          // One unavailable extension must not cancel the refresh of the rest.
+        }
+      }),
+    ).timeout(const Duration(seconds: 25), onTimeout: () => <void>[]);
+  }
 
   @override
   void dispose() {
@@ -57,23 +82,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   .watch(fireImmediately: true),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Chargement…',
-                          style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ],
-                    ),
+                  return _SourcesSkeleton(
+                    colorScheme: Theme.of(context).colorScheme,
                   );
                 }
                 final showNSFW = ref.watch(showNSFWStateProvider);
@@ -86,7 +96,9 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                     // "local" source is always shown via the fixed section
                     // at the bottom of the column — exclude it from the
                     // grouped list so it never appears twice.
-                    .where((e) => !(e.name == 'local' && (e.lang ?? '').isEmpty))
+                    .where(
+                      (e) => !(e.name == 'local' && (e.lang ?? '').isEmpty),
+                    )
                     .toList();
                 {
                   final seen = <String>{};
@@ -103,17 +115,21 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 }
 
                 // Grouped view
-                final lastUsedEntries =
-                    sources.where((e) => e.lastUsed == true).toList();
-                final isPinnedEntries =
-                    sources.where((e) => e.isPinned == true).toList();
-                final allEntriesWithoutPinned =
-                    sources.where((e) => !(e.isPinned ?? false)).toList();
+                final lastUsedEntries = sources
+                    .where((e) => e.lastUsed == true)
+                    .toList();
+                final isPinnedEntries = sources
+                    .where((e) => e.isPinned == true)
+                    .toList();
+                final allEntriesWithoutPinned = sources
+                    .where((e) => !(e.isPinned ?? false))
+                    .toList();
 
                 final Map<String, List<Source>> grouped = {};
                 for (final src in allEntriesWithoutPinned) {
-                  final lang =
-                      completeLanguageName((src.lang ?? '').toLowerCase());
+                  final lang = completeLanguageName(
+                    (src.lang ?? '').toLowerCase(),
+                  );
                   grouped.putIfAbsent(lang, () => []).add(src);
                 }
                 for (final list in grouped.values) {
@@ -121,115 +137,130 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 }
                 final sortedLangs = grouped.keys.toList()..sort();
 
-                return Scrollbar(
-                  interactive: true,
-                  controller: _scrollController,
-                  thickness: 12,
-                  radius: const Radius.circular(10),
-                  child: CustomScrollView(
+                return RefreshIndicator(
+                  onRefresh: _refreshSources,
+                  color: Theme.of(context).colorScheme.primary,
+                  child: Scrollbar(
+                    interactive: true,
                     controller: _scrollController,
-                    slivers: [
-                      if (lastUsedEntries.isNotEmpty) ...[
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                                left: 12, right: 12, bottom: 2),
-                            child: Row(children: [
-                              Text(l10n.last_used,
-                                  style: const TextStyle(
+                    thickness: 12,
+                    radius: const Radius.circular(10),
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      slivers: [
+                        if (lastUsedEntries.isNotEmpty) ...[
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                left: 12,
+                                right: 12,
+                                bottom: 2,
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    l10n.last_used,
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13)),
-                              const SizedBox(width: 6),
-                              _CountBadge(count: lastUsedEntries.length),
-                            ]),
-                          ),
-                        ),
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (_, i) => SourceListTile(
-                              source: lastUsedEntries[i],
-                              itemType: widget.itemType,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _CountBadge(count: lastUsedEntries.length),
+                                ],
+                              ),
                             ),
-                            childCount: lastUsedEntries.length,
                           ),
-                        ),
-                      ],
-
-                      for (final lang in sortedLangs) ...[
-                        _CollapsibleLanguageHeader(
-                          lang: lang,
-                          count: grouped[lang]!.length,
-                          isCollapsed: _collapsed[lang] ?? false,
-                          onToggle: () => setState(() {
-                            _collapsed[lang] = !(_collapsed[lang] ?? false);
-                          }),
-                          langCode:
-                              grouped[lang]!.first.lang?.toLowerCase() ?? '',
-                        ),
-                        if (!(_collapsed[lang] ?? false))
                           SliverList(
                             delegate: SliverChildBuilderDelegate(
                               (_, i) => SourceListTile(
-                                source: grouped[lang]![i],
+                                source: lastUsedEntries[i],
                                 itemType: widget.itemType,
                               ),
-                              childCount: grouped[lang]!.length,
+                              childCount: lastUsedEntries.length,
                             ),
                           ),
-                      ],
+                        ],
 
-                      // ── Other / local source section ─────────────────
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                              left: 12, top: 10, bottom: 2),
-                          child: Text(
-                            l10n.other,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
+                        for (final lang in sortedLangs) ...[
+                          _CollapsibleLanguageHeader(
+                            lang: lang,
+                            count: grouped[lang]!.length,
+                            isCollapsed: _collapsed[lang] ?? false,
+                            onToggle: () => setState(() {
+                              _collapsed[lang] = !(_collapsed[lang] ?? false);
+                            }),
+                            langCode:
+                                grouped[lang]!.first.lang?.toLowerCase() ?? '',
                           ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: SourceListTile(
-                          source: Source(
-                            name: "local",
-                            lang: "",
-                            itemType: widget.itemType,
-                          ),
-                          itemType: widget.itemType,
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Card(
-                          margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                          elevation: 0,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer,
-                              child: Icon(
-                                Icons.auto_awesome_motion_rounded,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer,
+                          if (!(_collapsed[lang] ?? false))
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (_, i) => SourceListTile(
+                                  source: grouped[lang]![i],
+                                  itemType: widget.itemType,
+                                ),
+                                childCount: grouped[lang]!.length,
                               ),
                             ),
-                            title: const Text('Smart Library'),
-                            subtitle: const Text(
-                              'Discover and organize local media',
+                        ],
+
+                        // ── Other / local source section ─────────────────
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              left: 12,
+                              top: 10,
+                              bottom: 2,
                             ),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () => context.push('/smartLibrary'),
+                            child: Text(
+                              l10n.other,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      // Espace en bas : remonte la source locale au-dessus du dock
-                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                    ],
+                        SliverToBoxAdapter(
+                          child: SourceListTile(
+                            source: Source(
+                              name: "local",
+                              lang: "",
+                              itemType: widget.itemType,
+                            ),
+                            itemType: widget.itemType,
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: Card(
+                            margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                            elevation: 0,
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primaryContainer,
+                                child: Icon(
+                                  Icons.auto_awesome_motion_rounded,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                              title: const Text('Smart Library'),
+                              subtitle: const Text(
+                                'Discover and organize local media',
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => context.push('/smartLibrary'),
+                            ),
+                          ),
+                        ),
+                        // Espace en bas : remonte la source locale au-dessus du dock
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -241,6 +272,99 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   }
 }
 
+class _SourcesSkeleton extends StatelessWidget {
+  final ColorScheme colorScheme;
+
+  const _SourcesSkeleton({required this.colorScheme});
+
+  Widget _bone({
+    required double width,
+    required double height,
+    double radius = 8,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  Widget _sourceCard() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          _bone(width: 42, height: 42, radius: 10),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _bone(width: 150, height: 14),
+                const SizedBox(height: 8),
+                _bone(width: 94, height: 10, radius: 5),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          _bone(width: 42, height: 30, radius: 15),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effect = ShimmerEffect(
+      baseColor: colorScheme.surfaceContainerHigh,
+      highlightColor: colorScheme.surfaceContainerHighest,
+    );
+    return ShimmerSkeleton(
+      effect: effect,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 120),
+        children: [
+          Row(
+            children: [
+              _bone(width: 110, height: 15),
+              const Spacer(),
+              _bone(width: 76, height: 30, radius: 15),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _sourceCard(),
+          _sourceCard(),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _bone(width: 96, height: 15),
+              const Spacer(),
+              _bone(width: 42, height: 22, radius: 11),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _sourceCard(),
+          _sourceCard(),
+          _sourceCard(),
+          const SizedBox(height: 12),
+          _bone(width: double.infinity, height: 48, radius: 14),
+        ],
+      ),
+    );
+  }
+}
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
@@ -248,10 +372,7 @@ class _EmptyState extends StatelessWidget {
   final VoidCallback? onShowExtensions;
   final ItemType itemType;
 
-  const _EmptyState({
-    required this.onShowExtensions,
-    required this.itemType,
-  });
+  const _EmptyState({required this.onShowExtensions, required this.itemType});
 
   @override
   Widget build(BuildContext context) {
@@ -267,38 +388,29 @@ class _EmptyState extends StatelessWidget {
                   Icon(
                     Icons.extension_off_rounded,
                     size: 56,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.4),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     context.l10n.no_sources_installed,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.7),
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Installe une extension depuis le Marketplace',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.45),
-                        ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.45),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
@@ -309,10 +421,8 @@ class _EmptyState extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
-                    onPressed: () => context.push(
-                      '/localHowTo',
-                      extra: itemType,
-                    ),
+                    onPressed: () =>
+                        context.push('/localHowTo', extra: itemType),
                     icon: const Icon(Icons.help_outline_rounded, size: 18),
                     label: const Text('How To — Source Locale'),
                   ),
@@ -359,7 +469,9 @@ class _CollapsibleLanguageHeader extends StatelessWidget {
                 child: Text(
                   lang,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 13),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               _CountBadge(count: count),

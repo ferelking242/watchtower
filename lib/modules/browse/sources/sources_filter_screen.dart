@@ -7,10 +7,11 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/language.dart';
+import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 enum _NsfwFilter { all, nsfwOnly, sfw }
 
-  class SourcesFilterScreen extends ConsumerStatefulWidget {
+class SourcesFilterScreen extends ConsumerStatefulWidget {
   final ItemType itemType;
   const SourcesFilterScreen({required this.itemType, super.key});
 
@@ -26,27 +27,33 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
   String? _selectedLang;
 
   List<String> get _availableLangs {
-    final sources = isar.sources
-        .where()
-        .findAllSync();
-    return sources
-        .where(
-          (source) =>
-              (source.sourceCode ?? '').isNotEmpty &&
-              source.itemType == widget.itemType &&
-              (source.isAdded ?? false),
-        )
-        .map((s) => s.lang ?? '')
-        .where((l) => l.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    try {
+      final sources = isar.sources.where().findAllSync();
+      return sources
+          .where(
+            (source) =>
+                (source.sourceCode ?? '').isNotEmpty &&
+                source.itemType == widget.itemType &&
+                (source.isAdded ?? false),
+          )
+          .map((s) => s.lang ?? '')
+          .where((l) => l.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+    } catch (_) {
+      // The web Isar adapter can be unavailable for the first frame while
+      // storage is opening. Keep the filter page usable instead of rendering
+      // an opaque error surface.
+      return const [];
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(title: Text(l10n.sources)),
       body: Column(
         children: [
@@ -64,97 +71,172 @@ class _SourcesFilterScreenState extends ConsumerState<SourcesFilterScreen> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: StreamBuilder(
-           stream: isar.sources.where().watch(fireImmediately: true),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(child: Text('Aucune source installée'));
-            }
+              child: StreamBuilder<List<Source>>(
+                stream: isar.sources.where().watch(fireImmediately: true),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return _FilterSkeleton(
+                      colorScheme: Theme.of(context).colorScheme,
+                    );
+                  }
+                  if (snapshot.data!.isEmpty) {
+                    return const Center(child: Text('Aucune source installée'));
+                  }
 
-             final rawEntries = snapshot.data!
-                 .where(
-                   (source) =>
-                       (source.sourceCode ?? '').isNotEmpty &&
-                       source.itemType == widget.itemType &&
-                       (_selectedLang == null ||
-                           source.lang == _selectedLang),
-                 )
-                 .toList();
+                  final rawEntries = snapshot.data!
+                      .where(
+                        (source) =>
+                            (source.sourceCode ?? '').isNotEmpty &&
+                            source.itemType == widget.itemType &&
+                            (_selectedLang == null ||
+                                source.lang == _selectedLang),
+                      )
+                      .toList();
 
-              // Apply filters
-              bool Function(Source) nsfwTest = switch (_nsfwFilter) {
-                _NsfwFilter.all      => (_) => true,
-                _NsfwFilter.nsfwOnly => (s) => s.isNsfw ?? false,
-                _NsfwFilter.sfw      => (s) => !(s.isNsfw ?? false),
-              };
+                  // Apply filters
+                  bool Function(Source) nsfwTest = switch (_nsfwFilter) {
+                    _NsfwFilter.all => (_) => true,
+                    _NsfwFilter.nsfwOnly => (s) => s.isNsfw ?? false,
+                    _NsfwFilter.sfw => (s) => !(s.isNsfw ?? false),
+                  };
 
-              // Deduplicate: keep one entry per (name, lang) pair — prefer isActive=true
-            final Map<String, Source> deduped = {};
-            for (final src in rawEntries) {
-              final key = '${src.name ?? ''}_${src.lang?.toLowerCase() ?? ''}';
-              final prev = deduped[key];
-              if (prev == null) {
-                deduped[key] = src;
-              } else {
-                // prefer the active one, or the one with a non-empty iconUrl
-                if ((src.isActive ?? false) && !(prev.isActive ?? false)) {
-                  deduped[key] = src;
-                }
-              }
-            }
-            final entries = deduped.values
-                  .where(nsfwTest)
-                  .where((s) => !_showOnlyActive || (s.isActive ?? false))
-                  .toList();
+                  // Deduplicate: keep one entry per (name, lang) pair — prefer isActive=true
+                  final Map<String, Source> deduped = {};
+                  for (final src in rawEntries) {
+                    final key =
+                        '${src.name ?? ''}_${src.lang?.toLowerCase() ?? ''}';
+                    final prev = deduped[key];
+                    if (prev == null) {
+                      deduped[key] = src;
+                    } else {
+                      // prefer the active one, or the one with a non-empty iconUrl
+                      if ((src.isActive ?? false) &&
+                          !(prev.isActive ?? false)) {
+                        deduped[key] = src;
+                      }
+                    }
+                  }
+                  final entries = deduped.values
+                      .where(nsfwTest)
+                      .where((s) => !_showOnlyActive || (s.isActive ?? false))
+                      .toList();
 
-            // Group by language code
-            final Map<String, List<Source>> grouped = {};
-            for (final src in entries) {
-              final langCode = src.lang?.toLowerCase() ?? '';
-              grouped.putIfAbsent(langCode, () => []).add(src);
-            }
-            final sortedLangCodes = grouped.keys.toList()..sort();
+                  // Group by language code
+                  final Map<String, List<Source>> grouped = {};
+                  for (final src in entries) {
+                    final langCode = src.lang?.toLowerCase() ?? '';
+                    grouped.putIfAbsent(langCode, () => []).add(src);
+                  }
+                  final sortedLangCodes = grouped.keys.toList()..sort();
 
-            return CustomScrollView(
-              slivers: [
-                for (final langCode in sortedLangCodes) ...[
-                  _LanguageHeader(
-                    langCode: langCode,
-                    sources: grouped[langCode]!,
-                    allEntries: rawEntries,
-                    itemType: widget.itemType,
-                    isCollapsed: _collapsed[langCode] ?? false,
-                    onToggle: () {
-                      setState(() {
-                        _collapsed[langCode] =
-                            !(_collapsed[langCode] ?? false);
-                      });
+                  final list = CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      for (final langCode in sortedLangCodes) ...[
+                        _LanguageHeader(
+                          langCode: langCode,
+                          sources: grouped[langCode]!,
+                          allEntries: rawEntries,
+                          itemType: widget.itemType,
+                          isCollapsed: _collapsed[langCode] ?? false,
+                          onToggle: () {
+                            setState(() {
+                              _collapsed[langCode] =
+                                  !(_collapsed[langCode] ?? false);
+                            });
+                          },
+                        ),
+                        if (!(_collapsed[langCode] ?? false))
+                          SliverList(
+                            delegate: SliverChildBuilderDelegate((
+                              context,
+                              index,
+                            ) {
+                              final src = grouped[langCode]![index];
+                              return _SourceFilterTile(
+                                source: src,
+                                allEntries: rawEntries,
+                                langCode: langCode,
+                                itemType: widget.itemType,
+                              );
+                            }, childCount: grouped[langCode]!.length),
+                          ),
+                      ],
+                    ],
+                  );
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      setState(() {});
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 250),
+                      );
                     },
-                  ),
-                  if (!(_collapsed[langCode] ?? false))
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final src = grouped[langCode]![index];
-                          return _SourceFilterTile(
-                            source: src,
-                            allEntries: rawEntries,
-                            langCode: langCode,
-                            itemType: widget.itemType,
-                          );
-                        },
-                        childCount: grouped[langCode]!.length,
-                      ),
-                    ),
-                ],
-              ],
-            );
-          },
-        ),
+                    child: list,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _FilterSkeleton extends StatelessWidget {
+  final ColorScheme colorScheme;
+
+  const _FilterSkeleton({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final effect = ShimmerEffect(
+      baseColor: colorScheme.surfaceContainerHigh,
+      highlightColor: colorScheme.surfaceContainerHighest,
+    );
+    return ShimmerSkeleton(
+      effect: effect,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 72,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 96,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          ...List.generate(
+            7,
+            (_) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                height: 66,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-    ],
-  ),
     );
   }
 }
@@ -314,118 +396,163 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
-  class _FilterBar extends StatelessWidget {
-    final _NsfwFilter nsfwFilter;
-    final bool showOnlyActive;
-    final String? selectedLang;
-    final List<String> availableLangs;
-    final void Function(_NsfwFilter) onNsfwChanged;
-    final void Function(bool) onActiveChanged;
-    final void Function(String?) onLangChanged;
+class _FilterBar extends StatelessWidget {
+  final _NsfwFilter nsfwFilter;
+  final bool showOnlyActive;
+  final String? selectedLang;
+  final List<String> availableLangs;
+  final void Function(_NsfwFilter) onNsfwChanged;
+  final void Function(bool) onActiveChanged;
+  final void Function(String?) onLangChanged;
 
-    const _FilterBar({
-      required this.nsfwFilter,
-      required this.showOnlyActive,
-      this.selectedLang,
-      this.availableLangs = const [],
-      required this.onNsfwChanged,
-      required this.onActiveChanged,
-      required this.onLangChanged,
-    });
+  const _FilterBar({
+    required this.nsfwFilter,
+    required this.showOnlyActive,
+    this.selectedLang,
+    this.availableLangs = const [],
+    required this.onNsfwChanged,
+    required this.onActiveChanged,
+    required this.onLangChanged,
+  });
 
-    @override
-    Widget build(BuildContext context) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.filter_list_rounded, size: 14),
-                const SizedBox(width: 6),
-                const Text('Contenu', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                const SizedBox(width: 10),
-                Wrap(
-                  spacing: 6,
-                  children: [
-                    _FChip(label: 'Tout',      selected: nsfwFilter == _NsfwFilter.all,      onTap: () => onNsfwChanged(_NsfwFilter.all)),
-                    _FChip(label: 'Non-NSFW',  selected: nsfwFilter == _NsfwFilter.sfw,      onTap: () => onNsfwChanged(_NsfwFilter.sfw)),
-                    _FChip(label: 'NSFW',      selected: nsfwFilter == _NsfwFilter.nsfwOnly, onTap: () => onNsfwChanged(_NsfwFilter.nsfwOnly), color: Colors.red.shade400),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.toggle_on_rounded, size: 14),
-                const SizedBox(width: 6),
-                const Text('État', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                const SizedBox(width: 10),
-                _FChip(label: 'Actives seulement', selected: showOnlyActive, onTap: () => onActiveChanged(!showOnlyActive), color: Colors.green.shade400),
-              ],
-            ),
-            if (availableLangs.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.filter_list_rounded, size: 14),
+              const SizedBox(width: 6),
+              const Text(
+                'Contenu',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 10),
+              Wrap(
+                spacing: 6,
                 children: [
-                  const Icon(Icons.language_rounded, size: 14),
-                  const SizedBox(width: 6),
-                  const Text('Langue', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        _FChip(label: 'Toutes', selected: selectedLang == null, onTap: () => onLangChanged(null)),
-                        for (final lang in availableLangs.take(12))
-                          _FChip(label: lang.toUpperCase(), selected: selectedLang == lang, onTap: () => onLangChanged(lang == selectedLang ? null : lang)),
-                      ],
-                    ),
+                  _FChip(
+                    label: 'Tout',
+                    selected: nsfwFilter == _NsfwFilter.all,
+                    onTap: () => onNsfwChanged(_NsfwFilter.all),
+                  ),
+                  _FChip(
+                    label: 'Non-NSFW',
+                    selected: nsfwFilter == _NsfwFilter.sfw,
+                    onTap: () => onNsfwChanged(_NsfwFilter.sfw),
+                  ),
+                  _FChip(
+                    label: 'NSFW',
+                    selected: nsfwFilter == _NsfwFilter.nsfwOnly,
+                    onTap: () => onNsfwChanged(_NsfwFilter.nsfwOnly),
+                    color: Colors.red.shade400,
                   ),
                 ],
               ),
             ],
-          ],
-        ),
-      );
-    }
-  }
-
-  class _FChip extends StatelessWidget {
-    final String label;
-    final bool selected;
-    final VoidCallback onTap;
-    final Color? color;
-
-    const _FChip({required this.label, required this.selected, required this.onTap, this.color});
-
-    @override
-    Widget build(BuildContext context) {
-      final accent = color ?? Theme.of(context).colorScheme.primary;
-      return GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: selected ? accent.withValues(alpha: 0.18) : Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: selected ? accent : Colors.transparent, width: 1.2),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              color: selected ? accent : Theme.of(context).colorScheme.onSurface,
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.toggle_on_rounded, size: 14),
+              const SizedBox(width: 6),
+              const Text(
+                'État',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 10),
+              _FChip(
+                label: 'Actives seulement',
+                selected: showOnlyActive,
+                onTap: () => onActiveChanged(!showOnlyActive),
+                color: Colors.green.shade400,
+              ),
+            ],
+          ),
+          if (availableLangs.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.language_rounded, size: 14),
+                const SizedBox(width: 6),
+                const Text(
+                  'Langue',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _FChip(
+                        label: 'Toutes',
+                        selected: selectedLang == null,
+                        onTap: () => onLangChanged(null),
+                      ),
+                      for (final lang in availableLangs.take(12))
+                        _FChip(
+                          label: lang.toUpperCase(),
+                          selected: selectedLang == lang,
+                          onTap: () =>
+                              onLangChanged(lang == selectedLang ? null : lang),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _FChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = color ?? Theme.of(context).colorScheme.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected
+              ? accent.withValues(alpha: 0.18)
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? accent : Colors.transparent,
+            width: 1.2,
           ),
         ),
-      );
-    }
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? accent : Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      ),
+    );
   }
-  
+}

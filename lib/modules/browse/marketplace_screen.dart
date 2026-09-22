@@ -671,7 +671,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     final bustUrl = url.contains('?') ? url : url + bust;
     final r = await http
         .get(Uri.parse(bustUrl))
-        .timeout(const Duration(seconds: 35));
+        .timeout(const Duration(seconds: 12));
     if (r.statusCode != 200) {
       throw Exception('HTTP ${r.statusCode} pour $url');
     }
@@ -701,18 +701,41 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _cachedMihon = null;
       _cachedAniyomi = null;
       _cacheTime = null;
-      await _purgeJsDelivr();
+      try {
+        await _purgeJsDelivr().timeout(const Duration(seconds: 6));
+      } catch (_) {
+        // CDN purging is an optimisation; a slow purge must not block loading.
+      }
     }
     try {
-      final results = await Future.wait([
-        _fetch('$_kWtBase/index/manga.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kWtBase/index/watch.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kWtBase/index/novel.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kWtBase/index/music.json').catchError((_) => <_ExtEntry>[]),
-        _fetch('$_kWtBase/index/game.json').catchError((_) => <_ExtEntry>[]),
-        _fetchMihonMerged(_kMihonMangaRepos).catchError((_) => <_ExtEntry>[]),
-        _fetchMihonMerged(_kAniyomiAnimeRepos).catchError((_) => <_ExtEntry>[]),
-      ]);
+      final results =
+          await Future.wait<List<_ExtEntry>>([
+            _fetch(
+              '$_kWtBase/index/manga.json',
+            ).catchError((_) => <_ExtEntry>[]),
+            _fetch(
+              '$_kWtBase/index/watch.json',
+            ).catchError((_) => <_ExtEntry>[]),
+            _fetch(
+              '$_kWtBase/index/novel.json',
+            ).catchError((_) => <_ExtEntry>[]),
+            _fetch(
+              '$_kWtBase/index/music.json',
+            ).catchError((_) => <_ExtEntry>[]),
+            _fetch(
+              '$_kWtBase/index/game.json',
+            ).catchError((_) => <_ExtEntry>[]),
+            _fetchMihonMerged(
+              _kMihonMangaRepos,
+            ).catchError((_) => <_ExtEntry>[]),
+            _fetchMihonMerged(
+              _kAniyomiAnimeRepos,
+            ).catchError((_) => <_ExtEntry>[]),
+          ]).timeout(
+            const Duration(seconds: 20),
+            onTimeout: () =>
+                List<List<_ExtEntry>>.generate(7, (_) => <_ExtEntry>[]),
+          );
       if (mounted)
         setState(() {
           _all = results.take(5).expand((l) => l).toList();
@@ -1206,6 +1229,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             onEnableNsfw: () =>
                 ref.read(showNSFWStateProvider.notifier).set(true),
             onInstall: _install,
+            onSettings: _openSettings,
             onRefresh: () => _loadAll(bypassCache: true),
           ),
         ),
@@ -9005,6 +9029,7 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
   final bool showNsfw;
   final VoidCallback onEnableNsfw;
   final Future<void> Function(_ExtEntry entry) onInstall;
+  final ValueChanged<int> onSettings;
   final Future<void> Function() onRefresh;
 
   const _PlayStoreMarketplaceView({
@@ -9017,6 +9042,7 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
     required this.showNsfw,
     required this.onEnableNsfw,
     required this.onInstall,
+    required this.onSettings,
     required this.onRefresh,
   });
 
@@ -9269,64 +9295,71 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     if (widget.error != null && widget.entries.isEmpty) {
       return _buildError();
     }
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(child: _buildHeader()),
-        if (!_searching) ...[
-          _buildTabs(),
-          SliverToBoxAdapter(child: _buildSubcategoryRail()),
-          if (widget.loading && widget.entries.isEmpty)
-            const SliverToBoxAdapter(child: _LoadingRows())
-          else if (_tab == 3 && !widget.showNsfw)
-            SliverToBoxAdapter(child: _buildNsfwGate())
-          else ...[
-            SliverToBoxAdapter(child: _buildHero()),
+    return RefreshIndicator(
+      color: _green,
+      backgroundColor: _surfaceHigh,
+      onRefresh: widget.onRefresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(child: _buildHeader()),
+          if (!_searching) ...[
+            _buildTabs(),
+            SliverToBoxAdapter(child: _buildSubcategoryRail()),
+            if (widget.loading && widget.entries.isEmpty)
+              const SliverToBoxAdapter(child: _LoadingRows())
+            else if (_tab == 3 && !widget.showNsfw)
+              SliverToBoxAdapter(child: _buildNsfwGate())
+            else ...[
+              SliverToBoxAdapter(child: _buildHero()),
+              SliverToBoxAdapter(
+                child: _buildSectionTitle(
+                  _tab == 1
+                      ? 'Watch à découvrir'
+                      : _tab == 2
+                      ? 'Manga à découvrir'
+                      : _tab == 3
+                      ? 'Contenu +18'
+                      : _tab == 4
+                      ? 'Musique à découvrir'
+                      : _tab == 5
+                      ? 'Jeux à découvrir'
+                      : _tab == 6
+                      ? 'Romans à découvrir'
+                      : 'Recommandé pour vous',
+                ),
+              ),
+              _buildShelf(_featured),
+              SliverToBoxAdapter(
+                child: _buildSectionTitle(
+                  _tab == 2 ? 'Manga et webcomics' : 'À découvrir ensuite',
+                ),
+              ),
+              _buildShelf(_visible.skip(6).take(10).toList()),
+              SliverToBoxAdapter(
+                child: _buildSectionTitle('Toutes les extensions'),
+              ),
+              _buildRows(_visible.skip(16).take(36).toList()),
+            ],
+          ] else ...[
+            SliverToBoxAdapter(child: _buildSearchBar()),
             SliverToBoxAdapter(
               child: _buildSectionTitle(
-                _tab == 1
-                    ? 'Watch à découvrir'
-                    : _tab == 2
-                    ? 'Manga à découvrir'
-                    : _tab == 3
-                    ? 'Contenu +18'
-                    : _tab == 4
-                    ? 'Musique à découvrir'
-                    : _tab == 5
-                    ? 'Jeux à découvrir'
-                    : _tab == 6
-                    ? 'Romans à découvrir'
-                    : 'Recommandé pour vous',
+                _searchController.text.isEmpty
+                    ? 'Rechercher dans le catalogue'
+                    : 'Résultats de recherche',
               ),
             ),
-            _buildShelf(_featured),
-            SliverToBoxAdapter(
-              child: _buildSectionTitle(
-                _tab == 2 ? 'Manga et webcomics' : 'À découvrir ensuite',
-              ),
-            ),
-            _buildShelf(_visible.skip(6).take(10).toList()),
-            SliverToBoxAdapter(
-              child: _buildSectionTitle('Toutes les extensions'),
-            ),
-            _buildRows(_visible.skip(16).take(36).toList()),
+            if (_searchController.text.isEmpty)
+              SliverToBoxAdapter(child: _buildCategories(compact: true))
+            else
+              _buildRows(_visible.take(60).toList()),
           ],
-        ] else ...[
-          SliverToBoxAdapter(child: _buildSearchBar()),
-          SliverToBoxAdapter(
-            child: _buildSectionTitle(
-              _searchController.text.isEmpty
-                  ? 'Rechercher dans le catalogue'
-                  : 'Résultats de recherche',
-            ),
-          ),
-          if (_searchController.text.isEmpty)
-            SliverToBoxAdapter(child: _buildCategories(compact: true))
-          else
-            _buildRows(_visible.take(60).toList()),
+          const SliverToBoxAdapter(child: SizedBox(height: 28)),
         ],
-        const SliverToBoxAdapter(child: SizedBox(height: 28)),
-      ],
+      ),
     );
   }
 
@@ -9616,6 +9649,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               busy: widget.busy[entry.id] == true,
               onTap: () => _showDetails(entry),
               onInstall: () => widget.onInstall(entry),
+              onSettings: widget.installed.contains(entry.id)
+                  ? () => widget.onSettings(entry.id)
+                  : null,
             );
           },
         ),
@@ -9646,6 +9682,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         busy: widget.busy[entries[index].id] == true,
         onTap: () => _showDetails(entries[index]),
         onInstall: () => widget.onInstall(entries[index]),
+        onSettings: widget.installed.contains(entries[index].id)
+            ? () => widget.onSettings(entries[index].id)
+            : null,
       ),
     );
   }
@@ -9977,6 +10016,12 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         entry: entry,
         installed: widget.installed.contains(entry.id),
         busy: widget.busy[entry.id] == true,
+        onSettings: widget.installed.contains(entry.id)
+            ? () {
+                Navigator.pop(sheetContext);
+                widget.onSettings(entry.id);
+              }
+            : null,
         onInstall: () {
           Navigator.pop(sheetContext);
           widget.onInstall(entry);
@@ -9986,32 +10031,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   void _showNotifications(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: _surface,
-      builder: (_) => const Padding(
-        padding: EdgeInsets.fromLTRB(20, 24, 20, 36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Notifications',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Aucune nouvelle notification.',
-              style: TextStyle(color: _muted),
-            ),
-          ],
-        ),
-      ),
-    );
+    context.push('/notifications');
   }
 
   void _showComingSoon(String label) {
@@ -10091,6 +10111,7 @@ class _PlayStoreRow extends StatelessWidget {
   final bool busy;
   final VoidCallback onTap;
   final VoidCallback onInstall;
+  final VoidCallback? onSettings;
 
   const _PlayStoreRow({
     required this.entry,
@@ -10098,6 +10119,7 @@ class _PlayStoreRow extends StatelessWidget {
     required this.busy,
     required this.onTap,
     required this.onInstall,
+    this.onSettings,
   });
 
   @override
@@ -10180,21 +10202,37 @@ class _PlayStoreRow extends StatelessWidget {
                 ),
               )
             else
-              TextButton(
-                onPressed: installed ? null : onInstall,
-                style: TextButton.styleFrom(
-                  foregroundColor: _PlayStoreMarketplaceViewState._green,
-                  disabledForegroundColor: const Color(0xFF9B9B9F),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  minimumSize: const Size(0, 34),
-                ),
-                child: Text(
-                  installed ? 'Installée' : 'Installer',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: installed ? null : onInstall,
+                    style: TextButton.styleFrom(
+                      foregroundColor: _PlayStoreMarketplaceViewState._green,
+                      disabledForegroundColor: const Color(0xFF9B9B9F),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 34),
+                    ),
+                    child: Text(
+                      installed ? 'Installée' : 'Installer',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
+                  if (installed && onSettings != null)
+                    IconButton(
+                      onPressed: onSettings,
+                      tooltip: 'Paramètres',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(
+                        Broken.setting_2,
+                        color: _PlayStoreMarketplaceViewState._muted,
+                        size: 18,
+                      ),
+                    ),
+                ],
               ),
           ],
         ),
@@ -10209,6 +10247,7 @@ class _PlayStoreShelfCard extends StatelessWidget {
   final bool busy;
   final VoidCallback onTap;
   final VoidCallback onInstall;
+  final VoidCallback? onSettings;
 
   const _PlayStoreShelfCard({
     required this.entry,
@@ -10216,6 +10255,7 @@ class _PlayStoreShelfCard extends StatelessWidget {
     required this.busy,
     required this.onTap,
     required this.onInstall,
+    this.onSettings,
   });
 
   @override
@@ -10311,26 +10351,50 @@ class _PlayStoreShelfCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 height: 32,
-                child: FilledButton(
-                  onPressed: installed || busy ? null : onInstall,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFB7F4F0),
-                    foregroundColor: const Color(0xFF123437),
-                    disabledBackgroundColor: const Color(0xFF343438),
-                    disabledForegroundColor: const Color(0xFFA6A5AA),
-                    padding: EdgeInsets.zero,
-                    textStyle: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: installed || busy ? null : onInstall,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFB7F4F0),
+                          foregroundColor: const Color(0xFF123437),
+                          disabledBackgroundColor: const Color(0xFF343438),
+                          disabledForegroundColor: const Color(0xFFA6A5AA),
+                          padding: EdgeInsets.zero,
+                          textStyle: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        child: busy
+                            ? const SizedBox(
+                                width: 15,
+                                height: 15,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(installed ? 'Installée' : 'Installer'),
+                      ),
                     ),
-                  ),
-                  child: busy
-                      ? const SizedBox(
-                          width: 15,
-                          height: 15,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(installed ? 'Installée' : 'Installer'),
+                    if (installed && onSettings != null) ...[
+                      const SizedBox(width: 6),
+                      IconButton(
+                        onPressed: onSettings,
+                        tooltip: 'Paramètres',
+                        visualDensity: VisualDensity.compact,
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFF343438),
+                        ),
+                        icon: const Icon(
+                          Broken.setting_2,
+                          color: _PlayStoreMarketplaceViewState._muted,
+                          size: 17,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -10430,12 +10494,14 @@ class _PlayStoreDetails extends StatelessWidget {
   final bool installed;
   final bool busy;
   final VoidCallback onInstall;
+  final VoidCallback? onSettings;
 
   const _PlayStoreDetails({
     required this.entry,
     required this.installed,
     required this.busy,
     required this.onInstall,
+    this.onSettings,
   });
 
   @override
@@ -10503,28 +10569,49 @@ class _PlayStoreDetails extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: FilledButton(
-                onPressed: installed || busy ? null : onInstall,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _PlayStoreMarketplaceViewState._green,
-                  foregroundColor: Colors.black,
-                  disabledBackgroundColor: const Color(0xFF3B3B3D),
-                  disabledForegroundColor: const Color(0xFFB0B0B3),
-                ),
-                child: busy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        installed ? 'Extension installée' : 'Installer',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: FilledButton(
+                      onPressed: installed || busy ? null : onInstall,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _PlayStoreMarketplaceViewState._green,
+                        foregroundColor: Colors.black,
+                        disabledBackgroundColor: const Color(0xFF3B3B3D),
+                        disabledForegroundColor: const Color(0xFFB0B0B3),
                       ),
-              ),
+                      child: busy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              installed ? 'Extension installée' : 'Installer',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+                if (installed && onSettings != null) ...[
+                  const SizedBox(width: 10),
+                  IconButton(
+                    onPressed: onSettings,
+                    tooltip: 'Paramètres',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF343438),
+                    ),
+                    icon: const Icon(
+                      Broken.setting_2,
+                      color: _PlayStoreMarketplaceViewState._muted,
+                    ),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 25),
             const Text(
@@ -10742,45 +10829,95 @@ class _PlayStoreIcon extends StatelessWidget {
 class _LoadingRows extends StatelessWidget {
   const _LoadingRows();
 
+  Widget _bone({
+    required double width,
+    required double height,
+    double radius = 7,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: _PlayStoreMarketplaceViewState._surfaceHigh,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  Widget _card(int index) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 5, 14, 5),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _PlayStoreMarketplaceViewState._surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF303035)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _bone(width: 48, height: 48, radius: 12),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _bone(width: 130 + (index % 3) * 25.0, height: 14),
+                      const SizedBox(height: 7),
+                      _bone(width: 82, height: 10, radius: 5),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _bone(width: 36, height: 36, radius: 10),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _bone(width: double.infinity, height: 11, radius: 5),
+            const SizedBox(height: 7),
+            _bone(width: 210, height: 11, radius: 5),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _bone(width: 54, height: 20, radius: 6),
+                const SizedBox(width: 7),
+                _bone(width: 66, height: 20, radius: 6),
+                const SizedBox(width: 7),
+                _bone(width: 48, height: 20, radius: 6),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _bone(width: double.infinity, height: 34, radius: 17),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(
-        7,
-        (index) => Padding(
-          padding: const EdgeInsets.fromLTRB(18, 11, 18, 11),
-          child: Row(
-            children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: _PlayStoreMarketplaceViewState._surfaceHigh,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 12,
-                      width: 150 + index * 9.0,
-                      color: _PlayStoreMarketplaceViewState._surfaceHigh,
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      height: 9,
-                      width: 105,
-                      color: _PlayStoreMarketplaceViewState._surface,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return ShimmerSkeleton(
+      effect: const ShimmerEffect(
+        baseColor: Color(0xFF252527),
+        highlightColor: Color(0xFF3A3A3E),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
+            child: Row(
+              children: [
+                _bone(width: 94, height: 13),
+                const Spacer(),
+                _bone(width: 78, height: 30, radius: 15),
+              ],
+            ),
           ),
-        ),
+          ...List.generate(7, _card),
+        ],
       ),
     );
   }
