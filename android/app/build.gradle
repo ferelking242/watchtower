@@ -29,15 +29,15 @@ if (flutterVersionName == null) {
 }
 
 // The normal sideload/release artifact is ARM64-only. CI opts into every
-// Android ABI so phones, TVs, emulators, and legacy ARM devices all get a
-// real native artifact.
+// Android ABIs supported by the Flutter engine so phones, TVs, emulators,
+// and legacy ARM devices all get a real native artifact.
 def watchtowerCiAllAbis = project.findProperty('watchtowerCiAllAbis') == 'true'
 def watchtowerAbis = watchtowerCiAllAbis
-        ? ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
+        ? ['armeabi-v7a', 'arm64-v8a', 'x86_64']
         : ['arm64-v8a']
 def watchtowerNativeExcludes = watchtowerCiAllAbis
         ? []
-        : ['lib/armeabi-v7a/**', 'lib/x86/**', 'lib/x86_64/**']
+        : ['lib/armeabi-v7a/**', 'lib/x86_64/**']
 
 android {
     namespace "com.watchtower.app"

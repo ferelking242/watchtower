@@ -26,7 +26,7 @@ jobs:
     secrets: inherit
 
   # ────────────────────────────────────────────────────────────
-  # Android — split APKs per ABI (all supported Android architectures)
+  # Android — split APKs per ABI (all Android architectures supported by Flutter)
   # Signed with KEYSTORE_B64 secret → watchtower-debug.keystore → profile buildType
   # ────────────────────────────────────────────────────────────
   build-android:
@@ -40,8 +40,6 @@ jobs:
             target: android-arm
           - label: arm64-v8a
             target: android-arm64
-          - label: x86
-            target: android-x86
           - label: x86_64
             target: android-x64
 
@@ -112,7 +110,7 @@ jobs:
       - name: Install Rust Android cross targets
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: armv7-linux-androideabi,aarch64-linux-android,i686-linux-android,x86_64-linux-android
+          targets: armv7-linux-androideabi,aarch64-linux-android,x86_64-linux-android
 
       - name: Cache Rust (Android ${{ matrix.label }})
         uses: actions/cache@v5
@@ -261,7 +259,7 @@ jobs:
       - name: Install Rust Android cross targets
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: armv7-linux-androideabi,aarch64-linux-android,i686-linux-android,x86_64-linux-android
+          targets: armv7-linux-androideabi,aarch64-linux-android,x86_64-linux-android
 
       - name: Cache Rust (Android universal)
         uses: actions/cache@v5
@@ -1044,7 +1042,7 @@ jobs:
 
       - name: Build iOS Simulator app
         run: |
-          flutter build ios --simulator --profile --no-codesign \
+          flutter build ios --simulator --release --no-codesign \
             --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
           test -d build/ios/iphonesimulator/Runner.app
 
