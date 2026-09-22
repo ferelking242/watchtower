@@ -7,7 +7,7 @@
 [![Build Debug APK](https://github.com/ferelking242/watchtower/actions/workflows/build-debug.yml/badge.svg)](https://github.com/ferelking242/watchtower/actions/workflows/build-debug.yml)
 [![Build Profile APK](https://github.com/ferelking242/watchtower/actions/workflows/build-profile.yml/badge.svg)](https://github.com/ferelking242/watchtower/actions/workflows/build-profile.yml)
 [![Build Release APK](https://github.com/ferelking242/watchtower/actions/workflows/build-release.yml/badge.svg)](https://github.com/ferelking242/watchtower/actions/workflows/build-release.yml)
-[![Build Server](https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml/badge.svg)](https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml)
+[![Build Linux Headless CLI](https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml/badge.svg)](https://github.com/ferelking242/watchtower/actions/workflows/build-server.yml)
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/ferelking242/watchtower/blob/main/LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.38+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
@@ -49,8 +49,8 @@
       <sub>Android · iOS · Windows · Linux · macOS · Web</sub>
     </td>
     <td align="center">
-      <b>☁️ Serveur headless</b><br/>
-      <sub>Déploiement cloud (Railway, Render, Docker)</sub>
+      <b>🖥️ CLI headless</b><br/>
+      <sub>Linux, CI et SSH sans interface graphique</sub>
     </td>
     <td align="center">
       <b>🔒 Anti-bot & TLS</b><br/>
@@ -77,11 +77,8 @@ watchtower/
 │   ├── ffi/                      C bindings → Go torrent server
 │   └── src/rust/                 Rust bindings (EPUB, image, custom TLS)
 │
-├── server/                     ← Headless Node.js server (cloud)
-│   ├── server.js                 Express + QuickJS VM + bridges
-│   ├── src/bridges/              HTTP, DOM (Cheerio), crypto, prefs
-│   ├── Dockerfile
-│   └── docker-compose.yml
+├── lib/cli/                    ← Headless CLI on the real Watchtower runtime
+├── scripts/install-linux-headless.sh
 │
 ├── rust/                       ← Rust library (flutter_rust_bridge 2.x)
 └── go/                         ← BitTorrent client + HTTP streaming server
@@ -90,7 +87,7 @@ watchtower/
 | Mode | Files | When to use |
 |---|---|---|
 | **Embedded** | `lib/remote/` — shelf port 4567 | Installed app (phone / desktop) |
-| **Headless** | `server/` — standalone Node.js | Cloud: Railway, Render, VPS… |
+| **Headless** | `watchtower --cli ...` — real Flutter/QuickJS runtime | CI, Linux servers, SSH… |
 
 ---
 
@@ -102,34 +99,40 @@ watchtower/
 | **Android** (profile) | [Actions → Build Profile APK](https://github.com/ferelking242/watchtower/actions/workflows/build-profile.yml) |
 | **Android** (release) | [Actions → Build Release APK](https://github.com/ferelking242/watchtower/actions/workflows/build-release.yml) |
 | **Windows** x64 | [Actions → Build Windows x64](https://github.com/ferelking242/watchtower/actions/workflows/build-windows-x64.yml) |
-| **Docker** | `ghcr.io/ferelking242/watchtower-server:latest` |
+| **Linux headless** | `watchtower-linux-x64-headless.7z` via GitHub Actions |
 | **Web** | [watchtower-website-zeta.vercel.app/download](https://watchtower-website-zeta.vercel.app/download/) |
 
 ---
 
-## 🚀 Deploy the headless server
+## 🧰 Headless Linux CLI
 
-### ☁️ One-click
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https://github.com/ferelking242/watchtower&rootDirectory=server)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ferelking242/watchtower)
-
-### 🐳 Docker
+The Linux build contains the same extension runtime as the desktop application.
+It can run without X11 or Wayland:
 
 ```bash
-git clone https://github.com/ferelking242/watchtower.git
-cd watchtower/server
-cp .env.example .env   # fill API_KEY
-docker compose up -d
+./watchtower --cli help
+./watchtower --cli doctor --json
+./watchtower --cli extensions list --repo ./watchtower-extensions
+./watchtower --cli extensions test \
+  --repo ./watchtower-extensions \
+  --mode load \
+  --report extensions.json
 ```
 
-### 🟢 Node.js
+The `Build Linux Headless CLI` workflow publishes a `.7z` archive containing
+the binary, Flutter runtime files, and the installer:
 
 ```bash
-cd watchtower/server
-npm install
-API_KEY=mysecretkey PORT=8080 node server.js
+7z x watchtower-linux-x64-headless.7z -o./watchtower-linux
+sudo ./watchtower-linux/install-linux-headless.sh ./watchtower-linux
+# Or install as the current user:
+./watchtower-linux/install-linux-headless.sh ./watchtower-linux \
+  --prefix "$HOME/.local/share/watchtower"
 ```
+
+`load` validates that every catalog extension can be loaded by the real
+runtime. `smoke` adds catalogue operations, and `deep` also probes pagination
+and returned media URLs.
 
 ---
 

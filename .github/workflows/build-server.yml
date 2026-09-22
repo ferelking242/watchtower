@@ -1,97 +1,99 @@
-name: Build & Publish Server
+name: Build Linux Headless CLI
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'server/**'
+      - 'lib/cli/**'
+      - 'lib/main.dart'
+      - 'scripts/install-linux-headless.sh'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
       - '.github/workflows/build-server.yml'
   pull_request:
     paths:
-      - 'server/**'
+      - 'lib/cli/**'
+      - 'lib/main.dart'
+      - 'scripts/install-linux-headless.sh'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/build-server.yml'
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/watchtower-server
+permissions:
+  contents: read
 
 jobs:
-  test:
-    name: Smoke test (Node 20)
-    # The server source is local-only and is intentionally not versioned in
-    # this repository. Keep the workflow non-failing until server/ is added to
-    # Git; re-enable this job when server/package.json is tracked.
-    if: false
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: server
-
+  linux-cli:
+    name: Linux headless CLI
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          lfs: true
 
-      - name: Install dependencies
-        run: npm ci
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
 
-      - name: Syntax check
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux build dependencies
         run: |
-          for f in server.js src/api.js src/js-runtime.js src/extension-registry.js \
-                   src/rate-limiter.js src/bridges/http-bridge.js src/bridges/dom-bridge.js \
-                   src/bridges/crypto-bridge.js src/bridges/prefs-bridge.js; do
-            node --check "$f"
-          done
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config libunwind-dev \
+            libgtk-3-dev libwebkit2gtk-4.0-dev libwpewebkit-1.0-dev \
+            libsoup-3.0-dev liblzma-dev libblkid-dev libmount-dev \
+            libglib2.0-dev libdbus-1-dev libnotify-dev \
+            libayatana-appindicator3-dev libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad libasound2-dev libpulse-dev \
+            libxcb-xfixes0-dev libepoxy-dev libmpv-dev mpv p7zip-full
 
-      - name: Ping test
+      - name: Checkout extension catalog
+        uses: actions/checkout@v5
+        with:
+          repository: ferelking242/watchtower-extensions
+          path: watchtower-extensions
+          lfs: true
+
+      - name: Build Linux
         run: |
-          PORT=18080 node server.js &
-          PID=$!
-          sleep 3
-          curl -sf http://localhost:18080/api/ping | grep '"ok"'
-          kill $PID
+          flutter config --enable-linux-desktop
+          flutter pub get
+          flutter build linux --release
 
-  docker:
-    name: Docker image (GHCR)
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: read
-      packages: write
+      - name: Smoke test the headless CLI
+        run: |
+          BUNDLE="build/linux/x64/release/bundle"
+          "$BUNDLE/watchtower" --cli doctor --json
+          "$BUNDLE/watchtower" --cli help >/dev/null
+          "$BUNDLE/watchtower" --cli extensions list \
+            --repo "$GITHUB_WORKSPACE/watchtower-extensions" \
+            --json > "$GITHUB_WORKSPACE/watchtower-cli-catalog.json"
 
-    steps:
-      - uses: actions/checkout@v5
+      - name: Add installer to bundle
+        run: |
+          cp scripts/install-linux-headless.sh build/linux/x64/release/bundle/
+          chmod +x build/linux/x64/release/bundle/install-linux-headless.sh
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - name: Package Linux headless archive
+        run: |
+          cd build/linux/x64/release/bundle
+          7z a -t7z -mx=9 -mmt=2 \
+            ../../../../../watchtower-linux-x64-headless.7z .
+          cd -
+          ls -lh watchtower-linux-x64-headless.7z
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - name: Upload Linux headless artifact
+        uses: actions/upload-artifact@v5
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: server
-          file: server/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          name: watchtower-linux-x64-headless
+          path: watchtower-linux-x64-headless.7z
+          compression-level: 0
+          retention-days: 30

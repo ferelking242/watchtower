@@ -87,11 +87,14 @@ void main(List<String> args) async {
   // Zone-level catch-all for anything that slips through both layers
   runZonedGuarded(
     () async {
-      WidgetsFlutterBinding.ensureInitialized();
       if (!kIsWeb && args.isNotEmpty && args.first == '--cli') {
         final exitCode = await runWatchtowerCli(args.skip(1).toList());
         exitCode == 0 ? exit(0) : exit(exitCode);
       }
+      // Do not initialize the Flutter engine for CLI invocations. Besides
+      // making startup faster, this keeps Linux CLI runs independent of an
+      // X11/Wayland display so the same binary works in CI and SSH sessions.
+      WidgetsFlutterBinding.ensureInitialized();
       // Detect real device RAM and apply adaptive image-cache limits.
       // Must run before any other init so the cache is sized correctly from
       // the very first image load. Safe to await — it is a single fast
