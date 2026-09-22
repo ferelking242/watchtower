@@ -60,8 +60,12 @@ TransferItemType _itemTypeFor(ItemType mangaType, String path) {
 
 Future<List<LibraryEntry>> loadLibraryDownloads() async {
   try {
-    final downloads =
-        await isar.downloads.filter().isDownloadEqualTo(true).findAll();
+    // isar_community can reject filters on nullable bool properties at
+    // runtime. Read the collection without a filter and apply the predicate
+    // in Dart, as done by the download queue.
+    final downloads = (await isar.downloads.where().findAll())
+        .where((download) => download.isDownload == true)
+        .toList();
     if (downloads.isEmpty) return const [];
 
     await Future.wait(downloads.map((d) => d.chapter.load()));
