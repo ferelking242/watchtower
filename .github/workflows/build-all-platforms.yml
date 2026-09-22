@@ -396,6 +396,22 @@ jobs:
           PY
           sed -i 's/ -Wno-deprecated-literal-operator//g' "$WEBVIEW_CMAKE"
 
+      - name: Disable unsupported WPE WebKit plugin on Ubuntu 22.04
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          cmake = Path("linux/flutter/generated_plugins.cmake")
+          registrant = Path("linux/flutter/generated_plugin_registrant.cc")
+          for path in (cmake, registrant):
+              text = path.read_text()
+              text = re.sub(r"^\s*flutter_inappwebview_linux\s*\n", "", text, flags=re.MULTILINE)
+              text = re.sub(r"^\s*#include <flutter_inappwebview_linux/[^>]+>\n", "", text, flags=re.MULTILINE)
+              text = re.sub(r"\n?\s*g_autoptr\(FlPluginRegistrar\) flutter_inappwebview_linux_registrar =\n\s*fl_plugin_registry_get_registrar_for_plugin\(registry, [^;]+\);\n\s*flutter_inappwebview_linux_plugin_register_with_registrar\(flutter_inappwebview_linux_registrar\);\n", "\n", text)
+              path.write_text(text)
+          PY
+
       - name: Build Linux
         env:
           CFLAGS: "-Wno-unknown-warning-option"
