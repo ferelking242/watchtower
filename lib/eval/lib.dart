@@ -102,9 +102,8 @@ class ExtensionServiceRegistry {
   static void disposeSource(String sourceId) {
     final queue = _queues.remove(sourceId);
     if (queue != null) {
-      queue
-        ..generation++
-        ..disposing = true;
+      queue.generation++;
+      queue.disposing = true;
     }
 
     final svc = _cache.remove(sourceId);
@@ -126,9 +125,8 @@ class ExtensionServiceRegistry {
     final queues = Map<String, _ExtensionSourceQueue>.from(_queues);
     _queues.clear();
     for (final queue in queues.values) {
-      queue
-        ..generation++
-        ..disposing = true;
+      queue.generation++;
+      queue.disposing = true;
     }
 
     final services = Map<String, ExtensionService>.from(_cache);
