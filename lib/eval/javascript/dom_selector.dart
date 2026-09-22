@@ -343,31 +343,29 @@ import 'dart:convert';
   const String _kNativeDocumentJs = r"""
   class Document {
       constructor(html) {
-          this.html = html;
+          this.key = sendMessage(
+              "get_doc_element",
+              JSON.stringify([html, "parent"])
+          );
       }
       getElement(type) {
-          const key = sendMessage(
-              "get_doc_element",
-              JSON.stringify([this.html, type])
-          );
-          return new Element(key);
+          if (type === "documentElement" || type === "parent") {
+              return new Element(this.key);
+          }
+          const selector = type === "head" ? "head" : "body";
+          return new Element(sendMessage(
+              "ele_selectFirst",
+              JSON.stringify([selector, this.key])
+          ));
       }
-      get body() {
-          return this.getElement('body');
-      }
-      get documentElement() {
-          return this.getElement('documentElement');
-      }
-      get head() {
-          return this.getElement('head');
-      }
-      get parent() {
-          return this.getElement('parent');
-      }
+      get body() { return this.getElement('body'); }
+      get documentElement() { return this.getElement('documentElement'); }
+      get head() { return this.getElement('head'); }
+      get parent() { return this.getElement('parent'); }
       getString(type) {
           return sendMessage(
-              "get_doc_string",
-              JSON.stringify([this.html, type]));
+              "get_element_string",
+              JSON.stringify([type === "text" ? "text" : "outerHtml", this.key]));
       }
       get text() {
           return this.getString('text');
@@ -376,16 +374,15 @@ import 'dart:convert';
           return this.getString('outerHtml');
       }
       selectFirst(selector) {
-          const key = sendMessage(
-              "doc_select_first",
-              JSON.stringify([this.html, selector])
-          );
-          return new Element(key);
+          return new Element(sendMessage(
+              "ele_selectFirst",
+              JSON.stringify([selector, this.key])
+          ));
       }
       select(selector) {
           let elements = [];
           JSON.parse(
-              sendMessage("doc_select", JSON.stringify([this.html, selector]))
+              sendMessage("ele_select", JSON.stringify([selector, this.key]))
           ).forEach((key) => {
               elements.push(new Element(key));
           });
@@ -393,22 +390,22 @@ import 'dart:convert';
       }
       xpathFirst(xpath) {
           return sendMessage(
-              "doc_xpath_first",
-              JSON.stringify([this.html, xpath])
+              "ele_xpathFirst",
+              JSON.stringify([xpath, this.key])
           );
       }
       xpath(xpath) {
           return JSON.parse(sendMessage(
-              "doc_xpath",
-              JSON.stringify([this.html, xpath]))
-          );
+              "ele_xpath",
+              JSON.stringify([xpath, this.key])
+          ));
       }
       getElementsListBy(type, name) {
           name = name || '';
           let elements = [];
           JSON.parse(sendMessage(
-              "doc_get_elements_by",
-              JSON.stringify([this.html, type, name]))
+              "ele_get_elements_by",
+              JSON.stringify([type, name, this.key]))
           ).forEach((key) => {
               elements.push(new Element(key));
           });
@@ -425,21 +422,21 @@ import 'dart:convert';
       }
       getElementById(id) {
           const key = sendMessage(
-              "doc_get_element_by_id",
-              JSON.stringify([this.html, id])
+              "ele_selectFirst",
+              JSON.stringify(["#" + id, this.key])
           );
           return new Element(key);
       }
       attr(attr) {
           return sendMessage(
-              "doc_attr",
-              JSON.stringify([this.key, attr])
+              "ele_attr",
+              JSON.stringify([attr, this.key])
           );
       }
       hasAttr(attr) {
           return sendMessage(
-              "doc_has_attr",
-              JSON.stringify([this.html, attr])
+              "ele_has_attr",
+              JSON.stringify([attr, this.key])
           );
       }
   }
@@ -554,7 +551,7 @@ import 'dart:convert';
       hasAttr(attr) {
           return sendMessage(
               "ele_has_attr",
-              JSON.stringify([this.html, attr])
+              JSON.stringify([attr, this.key])
           );
       }
   }
