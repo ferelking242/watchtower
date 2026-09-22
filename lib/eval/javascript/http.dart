@@ -16,9 +16,22 @@ class JsHttpClient {
   JsHttpClient(this.runtime);
 
   void init() {
+    final clients = <String, InterceptedClient>{};
+
+    Map<String, dynamic> normalizeOptions(dynamic raw) {
+      final source = (raw as Map?)?.toMapStringDynamic ?? <String, dynamic>{};
+      final keys = source.keys.toList()..sort();
+      return {
+        for (final key in keys) key: source[key],
+      };
+    }
+
     InterceptedClient client(dynamic reqcopyWith) {
-      return MClient.init(
-        reqcopyWith: (reqcopyWith as Map?)?.toMapStringDynamic,
+      final options = normalizeOptions(reqcopyWith);
+      final cacheKey = jsonEncode(options);
+      return clients.putIfAbsent(
+        cacheKey,
+        () => MClient.init(reqcopyWith: options),
       );
     }
 
