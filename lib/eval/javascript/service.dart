@@ -6,6 +6,7 @@ import 'package:watchtower/eval/javascript/dom_selector.dart';
 import 'package:watchtower/eval/javascript/extractors.dart';
 import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/eval/javascript/preferences.dart';
+import 'package:watchtower/eval/javascript/runtime_config.dart';
 import 'package:watchtower/eval/javascript/utils.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
@@ -62,7 +63,12 @@ class JsExtensionService implements ExtensionService {
   void _init() {
     if (_isInitialized) return;
     _extDebug('$_id · init START');
-    runtime = getJavascriptRuntime();
+    runtime = getJavascriptRuntime(
+      stackSize: JsRuntimeConfig.stackSizeBytes,
+      timeout: JsRuntimeConfig.executionTimeoutMs,
+      memoryLimit: JsRuntimeConfig.memoryLimitBytes,
+      gcThreshold: JsRuntimeConfig.gcThresholdBytes,
+    );
     JsHttpClient(runtime).init();
     _jsDomSelector = JsDomSelector(runtime)..init();
     JsUtils(runtime).init();

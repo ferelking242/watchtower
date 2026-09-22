@@ -277,6 +277,10 @@
 
   JavascriptRuntime getJavascriptRuntime({
     Map<String, dynamic>? extraArgs = const {},
+    int stackSize = 1024 * 1024,
+    int? timeout,
+    int? memoryLimit,
+    int? gcThreshold,
   }) => QuickJsRuntime2();
 
   // ─── HandlePromises ───────────────────────────────────────────────────────────
