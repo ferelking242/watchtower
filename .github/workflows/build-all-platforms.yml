@@ -1,8 +1,8 @@
 name: Build All Platforms
 
 on:
-  # push:
-  #   branches: [ main, master ]
+  push:
+    branches: [ main, master ]
   workflow_dispatch:
 
 # Cancel in-progress runs on new push — only the latest commit matters
@@ -313,6 +313,13 @@ jobs:
         with:
           lfs: true
 
+      - name: Checkout extension catalog
+        uses: actions/checkout@v5
+        with:
+          repository: ferelking242/watchtower-extensions
+          path: watchtower-extensions
+          lfs: true
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.2'
@@ -365,6 +372,25 @@ jobs:
 
       - name: Build Linux
         run: flutter build linux --release --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
+
+      - name: Test all extensions with the real Watchtower binary
+        run: |
+          set -o pipefail
+          BUNDLE="build/linux/x64/release/bundle"
+          "$BUNDLE/watchtower" --cli doctor
+          "$BUNDLE/watchtower" --cli extensions test \
+            --repo "$GITHUB_WORKSPACE/watchtower-extensions" \
+            --mode load \
+            --concurrency 4 \
+            --timeout 45 \
+            --report "$GITHUB_WORKSPACE/watchtower-cli-report.json"
+
+      - name: Upload Watchtower CLI extension report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: watchtower-cli-extension-report
+          path: watchtower-cli-report.json
 
       - name: Package archive (7z LZMA2 max)
         run: |

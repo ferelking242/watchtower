@@ -63,6 +63,8 @@ import 'package:watchtower/services/mpv_config_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/mihon_auto_sync.dart';
 import 'package:watchtower/services/device_capabilities.dart';
+import 'cli/watchtower_cli.dart'
+    if (dart.library.js_interop) 'cli/watchtower_cli_stub.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:watchtower/modules/music/services/kv_store/encrypted_kv_store.dart';
 // --- NFile integration ---
@@ -86,6 +88,10 @@ void main(List<String> args) async {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      if (!kIsWeb && args.isNotEmpty && args.first == '--cli') {
+        final exitCode = await runWatchtowerCli(args.skip(1).toList());
+        exitCode == 0 ? exit(0) : exit(exitCode);
+      }
       // Detect real device RAM and apply adaptive image-cache limits.
       // Must run before any other init so the cache is sized correctly from
       // the very first image load. Safe to await — it is a single fast
