@@ -11,8 +11,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Web is kept as a reusable workflow so the same compatibility shims and
+  # Dart-to-JavaScript checks run both on direct Pages deploys and here.
+  build-web:
+    name: Web
+    uses: ./.github/workflows/build_web.yml
+    with:
+      deploy_pages: false
+    secrets: inherit
+
   # ────────────────────────────────────────────────────────────
-  # Android — split APKs per ABI (arm64-v8a and x86_64 only)
+  # Android — split APKs per ABI (all supported Android architectures)
   # Signed with KEYSTORE_B64 secret → watchtower-debug.keystore → profile buildType
   # ────────────────────────────────────────────────────────────
   build-android:
@@ -22,8 +31,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - label: armeabi-v7a
+            target: android-arm
           - label: arm64-v8a
             target: android-arm64
+          - label: x86
+            target: android-x86
           - label: x86_64
             target: android-x64
 
@@ -94,7 +107,7 @@ jobs:
       - name: Install Rust Android cross targets
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,x86_64-linux-android
+          targets: armv7-linux-androideabi,aarch64-linux-android,i686-linux-android,x86_64-linux-android
 
       - name: Cache Rust (Android ${{ matrix.label }})
         uses: actions/cache@v5
@@ -112,11 +125,9 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Flutter pub get
-        run: flutter pub get
-
       - name: Fix flutter_new_pipe_extractor missing assets dir
         run: |
+          flutter pub get
           find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
             mkdir -p "$dir/assets"
           done
@@ -126,7 +137,7 @@ jobs:
           # caching=true: safe because the Gradle Actions cache key above includes
           # all Dart sources — any code change busts the cache → no stale task output.
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
-          # The normal app is ARM64-only; the split matrix also validates x86_64.
+          # The normal app is ARM64-only; CI validates every Android ABI.
           ORG_GRADLE_PROJECT_watchtowerCiAllAbis: "true"
         run: |
           flutter build apk \
@@ -245,7 +256,7 @@ jobs:
       - name: Install Rust Android cross targets
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,x86_64-linux-android
+          targets: armv7-linux-androideabi,aarch64-linux-android,i686-linux-android,x86_64-linux-android
 
       - name: Cache Rust (Android universal)
         uses: actions/cache@v5
@@ -263,12 +274,17 @@ jobs:
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Flutter pub get
-        run: flutter pub get
+      - name: Flutter pub get and prepare plugin assets
+        run: |
+          flutter pub get
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
+            mkdir -p "$dir/assets"
+          done
 
       - name: Build Universal APK
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
+          ORG_GRADLE_PROJECT_watchtowerCiAllAbis: "true"
         run: flutter build apk --profile --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
@@ -367,7 +383,10 @@ jobs:
             gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
             libasound2-dev libpulse-dev libxcb-xfixes0-dev \
             libepoxy-dev libmpv-dev mpv \
-            p7zip-full golang-go || true
+            p7zip-full golang-go xvfb || true
+
+      - name: Ensure Xvfb is installed for CLI smoke tests
+        run: sudo apt-get install -y xvfb
 
       - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
         uses: dtolnay/rust-toolchain@stable
@@ -476,8 +495,10 @@ jobs:
         run: |
           set -o pipefail
           BUNDLE="build/linux/x64/release/bundle"
-          "$BUNDLE/watchtower" --cli doctor
-          "$BUNDLE/watchtower" --cli extensions test \
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$BUNDLE/watchtower" --cli doctor
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$BUNDLE/watchtower" --cli extensions test \
             --repo "$GITHUB_WORKSPACE/watchtower-extensions" \
             --mode load \
             --concurrency 4 \
@@ -540,18 +561,22 @@ jobs:
           test -n "$AUTH_SOURCE"
           python3 - "$AUTH_SOURCE" <<'PY'
           from pathlib import Path
+          import re
           import sys
 
           source = Path(sys.argv[1])
           text = source.read_text()
-          old = "    @available(macOS 10.15, *)\n    public func presentationAnchor(for session: ASWebAuthenticationSession)"
-          new = "    @available(macOS 10.14, *)\n    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
-          if old not in text:
+          method = "    @available(macOS 10.15, *)\n    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
+          pattern = r"(?m)^[ \t]*(?:@available\(macOS 10\.15, \*\)[ \t]*\n[ \t]*)?(?:@MainActor[ \t]+)?public func presentationAnchor\(for session: ASWebAuthenticationSession\)"
+          patched, count = re.subn(pattern, method, text, count=1)
+          if count != 1:
               raise SystemExit("flutter_inappwebview_macos authentication method was not found")
-          source.write_text(text.replace(old, new, 1))
+          source.write_text(patched)
           PY
 
       - name: Build macOS
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "12.0"
         run: flutter build macos --release --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
       - name: Package archive (zip -9)
@@ -966,3 +991,105 @@ jobs:
             -H "Priority: urgent" \
             -H "Tags: rotating_light" \
             -d "iOS build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+
+  # ────────────────────────────────────────────────────────────
+  # iOS Simulator — uploadable to Appetize and other simulator services
+  # This is intentionally a .zip containing Runner.app, not an IPA.
+  # ────────────────────────────────────────────────────────────
+  build-ios-simulator:
+    name: iOS Simulator (Appetize)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Install Rust simulator targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Cache pub and CocoaPods
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.cocoapods
+            ios/Pods
+          key: ios-simulator-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'ios/Podfile', 'ios/Podfile.lock') }}
+          restore-keys: ios-simulator-${{ runner.os }}-
+
+      - name: Flutter pub get and prepare plugin assets
+        run: |
+          flutter pub get
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
+            mkdir -p "$dir/assets"
+          done
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build iOS Simulator app
+        run: |
+          flutter build ios --simulator --profile --no-codesign \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
+          test -d build/ios/iphonesimulator/Runner.app
+
+      - name: Package simulator build
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphonesimulator/Runner.app \
+            Watchtower-iOS-Simulator.zip
+          ls -lh Watchtower-iOS-Simulator.zip
+
+      - name: Upload iOS Simulator artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: watchtower-ios-simulator
+          path: Watchtower-iOS-Simulator.zip
+          compression-level: 0
+          retention-days: 30
+
+  # Android TV uses the same all-ABI APK as the phone build. The manifest
+  # declares LEANBACK_LAUNCHER and no touchscreen requirement, so this is a
+  # separately labelled TV deliverable without a second divergent app flavor.
+  build-android-tv:
+    name: Android TV (Universal)
+    runs-on: ubuntu-latest
+    needs: build-android-universal
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: true
+
+      - name: Verify Android TV manifest
+        run: |
+          grep -q 'android.intent.category.LEANBACK_LAUNCHER' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.hardware.touchscreen.*required="false"' android/app/src/main/AndroidManifest.xml
+
+      - name: Download universal Android artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: android-universal
+          path: tv-artifact
+
+      - name: Publish Android TV artifact
+        run: |
+          test -f tv-artifact/watchtower-android-universal.7z
+          cp tv-artifact/watchtower-android-universal.7z watchtower-android-tv-universal.7z
+
+      - name: Upload Android TV artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: android-tv-universal
+          path: watchtower-android-tv-universal.7z
+          compression-level: 0
+          retention-days: 30

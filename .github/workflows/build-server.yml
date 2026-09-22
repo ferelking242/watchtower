@@ -54,7 +54,7 @@ jobs:
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-good \
             gstreamer1.0-plugins-bad libasound2-dev libpulse-dev \
-            libxcb-xfixes0-dev libepoxy-dev libmpv-dev mpv p7zip-full
+            libxcb-xfixes0-dev libepoxy-dev libmpv-dev mpv p7zip-full xvfb
 
       - name: Checkout extension catalog
         uses: actions/checkout@v5
@@ -67,6 +67,9 @@ jobs:
         run: |
           flutter config --enable-linux-desktop
           flutter pub get
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
+            mkdir -p "$dir/assets"
+          done
 
       - name: Fix Linux desktop_webview_window for current GLib and Clang
         run: |
@@ -163,9 +166,12 @@ jobs:
       - name: Smoke test the headless CLI
         run: |
           BUNDLE="build/linux/x64/release/bundle"
-          "$BUNDLE/watchtower" --cli doctor --json
-          "$BUNDLE/watchtower" --cli help >/dev/null
-          "$BUNDLE/watchtower" --cli extensions list \
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$BUNDLE/watchtower" --cli doctor --json
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$BUNDLE/watchtower" --cli help >/dev/null
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$BUNDLE/watchtower" --cli extensions list \
             --repo "$GITHUB_WORKSPACE/watchtower-extensions" \
             --json > "$GITHUB_WORKSPACE/watchtower-cli-catalog.json"
 

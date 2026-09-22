@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      deploy_pages:
+        description: Deploy the successful web build to GitHub Pages
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -381,14 +388,24 @@ jobs:
           --base-href /watchtower/
           --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
+      - name: Upload Web artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: watchtower-web
+          path: build/web
+          retention-days: 30
+
       - name: Configure GitHub Pages
+        if: ${{ github.event_name != 'workflow_call' || inputs.deploy_pages }}
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: ${{ github.event_name != 'workflow_call' || inputs.deploy_pages }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
       - name: Deploy to GitHub Pages
         id: deploy
+        if: ${{ github.event_name != 'workflow_call' || inputs.deploy_pages }}
         uses: actions/deploy-pages@v4

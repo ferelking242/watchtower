@@ -28,12 +28,15 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
-// The normal sideload/release artifact is ARM64-only. The all-platforms CI
-// workflow opts into x86_64 as well so its emulator build is a real artifact.
+// The normal sideload/release artifact is ARM64-only. CI opts into every
+// Android ABI so phones, TVs, emulators, and legacy ARM devices all get a
+// real native artifact.
 def watchtowerCiAllAbis = project.findProperty('watchtowerCiAllAbis') == 'true'
-def watchtowerAbis = watchtowerCiAllAbis ? ['arm64-v8a', 'x86_64'] : ['arm64-v8a']
+def watchtowerAbis = watchtowerCiAllAbis
+        ? ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
+        : ['arm64-v8a']
 def watchtowerNativeExcludes = watchtowerCiAllAbis
-        ? ['lib/armeabi-v7a/**', 'lib/x86/**']
+        ? []
         : ['lib/armeabi-v7a/**', 'lib/x86/**', 'lib/x86_64/**']
 
 android {
@@ -62,8 +65,8 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
-            // Keep normal artifacts ARM64-only; CI can opt into x86_64 for
-            // the emulator build with -PwatchtowerCiAllAbis=true.
+            // Keep normal artifacts ARM64-only; CI opts into every supported
+            // ABI with -PwatchtowerCiAllAbis=true.
             abiFilters(*watchtowerAbis)
         }
     }
@@ -71,7 +74,6 @@ android {
     packagingOptions {
         jniLibs {
             useLegacyPackaging false
-            // The release is intentionally ARM64-only. Keep this explicit in
             // Keep this explicit in addition to abiFilters so a future
             // plugin/AAR cannot reintroduce unsupported native libraries.
             excludes += watchtowerNativeExcludes
@@ -127,8 +129,8 @@ android {
            shrinkResources false
        }
    }
-   // Flutter selects the requested target platform; the CI split jobs pass
-   // -PwatchtowerCiAllAbis=true to allow the x86_64 variant.
+    // Flutter selects the requested target platform; CI passes
+    // -PwatchtowerCiAllAbis=true when it needs the full ABI matrix.
    splits {
        abi {
            enable false

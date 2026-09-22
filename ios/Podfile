@@ -43,8 +43,10 @@
       target.build_configurations.each do |config|
         # Keep every pod on the Flutter 3.47 iOS deployment target.
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-        config.build_settings['ARCHS'] = 'arm64'
-        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+        # Keep the standard architecture set so Apple Silicon simulator builds
+        # produce a usable arm64 .app while device builds remain arm64.
+        config.build_settings['ARCHS'] = '$(ARCHS_STANDARD)'
+        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = ''
         config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
       end
 
