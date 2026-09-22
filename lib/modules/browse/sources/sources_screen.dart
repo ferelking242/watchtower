@@ -33,12 +33,17 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   final _scrollController = ScrollController();
   final Map<String, bool> _collapsed = {};
 
+  List<Source> _sourcesForCurrentType(Iterable<Source> sources) {
+    return sources
+        .where((source) =>
+            source.itemType == widget.itemType &&
+            source.isAdded == true &&
+            source.isActive == true)
+        .toList();
+  }
+
   Future<void> _refreshSources() async {
-    final sources = isar.sources
-        .filter()
-        .itemTypeEqualTo(widget.itemType)
-        .isAddedEqualTo(true)
-        .findAllSync();
+    final sources = _sourcesForCurrentType(isar.sources.where().findAllSync());
 
     await Future.wait<void>(
       sources.take(24).map((source) async {
@@ -72,22 +77,13 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
           child: Padding(
             padding: const EdgeInsets.only(top: 4),
             child: StreamBuilder(
-              stream: isar.sources
-                  .filter()
-                  .isAddedEqualTo(true)
-                  .and()
-                  .isActiveEqualTo(true)
-                  .and()
-                  .itemTypeEqualTo(widget.itemType)
-                  .watch(fireImmediately: true),
-              initialData: isar.sources
-                  .filter()
-                  .isAddedEqualTo(true)
-                  .and()
-                  .isActiveEqualTo(true)
-                  .and()
-                  .itemTypeEqualTo(widget.itemType)
-                  .findAllSync(),
+              // Avoid Isar filters on nullable bool properties. The
+              // collection is observed without filters and narrowed in Dart.
+              stream: isar.sources.where().watch(fireImmediately: true).map(
+                    _sourcesForCurrentType,
+                  ),
+              initialData:
+                  _sourcesForCurrentType(isar.sources.where().findAllSync()),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return _SourcesLoadError(onRetry: () => setState(() {}));
