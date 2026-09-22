@@ -40,7 +40,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         .isAddedEqualTo(true)
         .findAllSync();
 
-    await Future.wait(
+    await Future.wait<void>(
       sources.take(24).map((source) async {
         try {
           await ref.read(

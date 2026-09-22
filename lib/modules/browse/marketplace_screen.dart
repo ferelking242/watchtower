@@ -22,6 +22,7 @@ import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
