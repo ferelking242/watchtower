@@ -1,5 +1,8 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
 import 'package:watchtower/eval/javascript/dom_selector.dart';
@@ -49,6 +52,12 @@ String _t(String s, [int max = 100]) =>
     s.length <= max ? s : '${s.substring(0, max)}…';
 
 class JsExtensionService implements ExtensionService {
+  static const _maxBytecodeCacheEntries = 32;
+  static const _maxBytecodeCacheBytes = 32 * 1024 * 1024;
+  static final LinkedHashMap<String, Uint8List> _bytecodeCache =
+      LinkedHashMap<String, Uint8List>();
+  static int _bytecodeCacheBytes = 0;
+
   late JavascriptRuntime runtime;
   @override
   late Source source;
@@ -59,6 +68,40 @@ class JsExtensionService implements ExtensionService {
 
   /// Human-readable identifier used in every log line: "ZinManga[fr]".
   String get _id => '${source.name ?? source.id}[${source.lang ?? "?"}]';
+
+  String _bytecodeCacheKey(String script) {
+    final digest = crypto.sha256.convert(utf8.encode(script)).toString();
+    return '${source.id}|${source.version}|${source.versionLast}|'
+        '${source.updatedAt}|$digest';
+  }
+
+  static Uint8List? _takeCachedBytecode(String key) {
+    final bytecode = _bytecodeCache.remove(key);
+    if (bytecode == null) return null;
+    _bytecodeCache[key] = bytecode;
+    return bytecode;
+  }
+
+  static void _removeCachedBytecode(String key) {
+    final bytecode = _bytecodeCache.remove(key);
+    if (bytecode != null) _bytecodeCacheBytes -= bytecode.length;
+  }
+
+  static void _storeBytecode(String key, Uint8List bytecode) {
+    if (bytecode.isEmpty || bytecode.length > _maxBytecodeCacheBytes) return;
+
+    _removeCachedBytecode(key);
+    while (_bytecodeCache.isNotEmpty &&
+        (_bytecodeCache.length >= _maxBytecodeCacheEntries ||
+            _bytecodeCacheBytes + bytecode.length > _maxBytecodeCacheBytes)) {
+      final oldestKey = _bytecodeCache.keys.first;
+      _removeCachedBytecode(oldestKey);
+    }
+
+    final copy = Uint8List.fromList(bytecode);
+    _bytecodeCache[key] = copy;
+    _bytecodeCacheBytes += copy.length;
+  }
 
   void _init() {
     if (_isInitialized) return;
@@ -273,9 +316,10 @@ function extLog(level, msg) {
       }
       return buf.toString();
     }
-    final _initResult = runtime.evaluate(
-      '${_normalizeJsExtensionCode(source.sourceCode ?? '')}\nvar extention = new DefaultExtension();',
-    );
+    final extensionScript =
+        '${_normalizeJsExtensionCode(source.sourceCode ?? '')}\n'
+        'var extention = new DefaultExtension();';
+    final _initResult = _evaluateExtensionScript(extensionScript);
     if (_initResult.isError) {
       _extError(
         '$_id · init FAILED ← JS CRASH (bug in extension code): ${_initResult.stringResult}',
@@ -286,6 +330,49 @@ function extLog(level, msg) {
     }
     _isInitialized = true;
     _extDebug('$_id · init OK');
+  }
+
+  JsEvalResult _evaluateExtensionScript(String script) {
+    if (kIsWeb) return runtime.evaluate(script);
+
+    final cacheKey = _bytecodeCacheKey(script);
+    final cachedBytecode = _takeCachedBytecode(cacheKey);
+    final Uint8List bytecode;
+    if (cachedBytecode != null) {
+      bytecode = cachedBytecode;
+      _extDebug('$_id · bytecode cache HIT (${bytecode.length} bytes)');
+    } else {
+      try {
+        final compiledBytecode = runtime.compile(
+          script,
+          'extension-${source.id ?? source.name ?? "unknown"}.js',
+        );
+        if (compiledBytecode.isEmpty) {
+          throw StateError('QuickJS returned empty bytecode');
+        }
+        bytecode = compiledBytecode;
+        _storeBytecode(cacheKey, bytecode);
+        _extDebug('$_id · bytecode compiled (${bytecode.length} bytes)');
+      } catch (error) {
+        _extWarn('$_id · bytecode compile unavailable; using source evaluation: $error');
+        return runtime.evaluate(script);
+      }
+    }
+
+    late final JsEvalResult result;
+    try {
+      result = runtime.evaluateBytecode(bytecode);
+    } catch (error) {
+      _removeCachedBytecode(cacheKey);
+      _extWarn('$_id · bytecode evaluation unavailable; retrying source evaluation: $error');
+      return runtime.evaluate(script);
+    }
+    if (result.isError) {
+      _removeCachedBytecode(cacheKey);
+      _extWarn('$_id · cached bytecode rejected; retrying source evaluation');
+      return runtime.evaluate(script);
+    }
+    return result;
   }
 
   @override
