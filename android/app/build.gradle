@@ -28,6 +28,14 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+// The normal sideload/release artifact is ARM64-only. The all-platforms CI
+// workflow opts into x86_64 as well so its emulator build is a real artifact.
+def watchtowerCiAllAbis = project.findProperty('watchtowerCiAllAbis') == 'true'
+def watchtowerAbis = watchtowerCiAllAbis ? ['arm64-v8a', 'x86_64'] : ['arm64-v8a']
+def watchtowerNativeExcludes = watchtowerCiAllAbis
+        ? ['lib/armeabi-v7a/**', 'lib/x86/**']
+        : ['lib/armeabi-v7a/**', 'lib/x86/**', 'lib/x86_64/**']
+
 android {
     namespace "com.watchtower.app"
     compileSdkVersion 36
@@ -54,9 +62,9 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
-            // Only ship arm64-v8a — other ABIs in the AAR are unused
-            // and add ~50 MB to the APK (armeabi-v7a, x86, x86_64).
-            abiFilters 'arm64-v8a'
+            // Keep normal artifacts ARM64-only; CI can opt into x86_64 for
+            // the emulator build with -PwatchtowerCiAllAbis=true.
+            abiFilters(*watchtowerAbis)
         }
     }
 
@@ -64,13 +72,9 @@ android {
         jniLibs {
             useLegacyPackaging false
             // The release is intentionally ARM64-only. Keep this explicit in
-            // addition to abiFilters so a future plugin/AAR cannot reintroduce
-            // emulator or 32-bit native libraries into the sideload APK.
-            excludes += [
-                'lib/armeabi-v7a/**',
-                'lib/x86/**',
-                'lib/x86_64/**',
-            ]
+            // Keep this explicit in addition to abiFilters so a future
+            // plugin/AAR cannot reintroduce unsupported native libraries.
+            excludes += watchtowerNativeExcludes
         }
     }
 
@@ -123,8 +127,8 @@ android {
            shrinkResources false
        }
    }
-   // ABI splits disabled — CI builds use --target-platform android-arm64 only.
-   // Re-enable and include x86_64 if a x86 build is ever needed.
+   // Flutter selects the requested target platform; the CI split jobs pass
+   // -PwatchtowerCiAllAbis=true to allow the x86_64 variant.
    splits {
        abi {
            enable false

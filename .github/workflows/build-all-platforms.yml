@@ -126,6 +126,8 @@ jobs:
           # caching=true: safe because the Gradle Actions cache key above includes
           # all Dart sources — any code change busts the cache → no stale task output.
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
+          # The normal app is ARM64-only; the split matrix also validates x86_64.
+          ORG_GRADLE_PROJECT_watchtowerCiAllAbis: "true"
         run: |
           flutter build apk \
             --profile \
@@ -400,39 +402,69 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
-          from pathlib import Path
-
-          graph = Path(".flutter-plugins-dependencies")
-          data = json.loads(graph.read_text())
-          plugins = data.get("plugins", {}).get("linux", [])
-          data["plugins"]["linux"] = [
-              plugin for plugin in plugins
-              if plugin.get("name") != "flutter_inappwebview_linux"
-          ]
-          graph.write_text(json.dumps(data, indent=2) + "\n")
-          PY
-
-      - name: Disable unsupported WPE WebKit plugin on Ubuntu 22.04
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
           import re
+          import shutil
+          from pathlib import Path
 
+          plugin_name = "flutter_inappwebview_linux"
+          graph = Path(".flutter-plugins-dependencies")
+          if graph.exists():
+              data = json.loads(graph.read_text())
+              plugins = data.get("plugins", {}).get("linux", [])
+              data["plugins"]["linux"] = [
+                  plugin for plugin in plugins
+                  if plugin.get("name") != plugin_name
+              ]
+              graph.write_text(json.dumps(data, indent=2) + "\n")
+
+          legacy_graph = Path(".flutter-plugins")
+          if legacy_graph.exists():
+              legacy_graph.write_text(
+                  "".join(
+                      line for line in legacy_graph.read_text().splitlines(True)
+                      if not line.startswith(plugin_name + "=")
+                  )
+              )
+
+          # Pub get may have generated these files before the graph was
+          # filtered. Remove the plugin from both generated representations.
           cmake = Path("linux/flutter/generated_plugins.cmake")
           registrant = Path("linux/flutter/generated_plugin_registrant.cc")
-          for path in (cmake, registrant):
-              text = path.read_text()
-              text = re.sub(r"^\s*flutter_inappwebview_linux\s*\n", "", text, flags=re.MULTILINE)
-              text = re.sub(r"^\s*#include <flutter_inappwebview_linux/[^>]+>\n", "", text, flags=re.MULTILINE)
-              text = re.sub(r"\n?\s*g_autoptr\(FlPluginRegistrar\) flutter_inappwebview_linux_registrar =\n\s*fl_plugin_registry_get_registrar_for_plugin\(registry, [^;]+\);\n\s*flutter_inappwebview_linux_plugin_register_with_registrar\(flutter_inappwebview_linux_registrar\);\n", "\n", text)
-              path.write_text(text)
+          if cmake.exists():
+              text = cmake.read_text()
+              text = re.sub(r"(?m)^\s*" + plugin_name + r"\s*\n", "", text)
+              cmake.write_text(text)
+          if registrant.exists():
+              text = registrant.read_text()
+              text = re.sub(
+                  r"(?m)^\s*#include <" + plugin_name + r"/[^>]+>\n",
+                  "",
+                  text,
+              )
+              text = re.sub(
+                  r"(?ms)^\s*g_autoptr\(FlPluginRegistrar\) "
+                  + plugin_name
+                  + r"_registrar =.*?"
+                  + plugin_name
+                  + r"_plugin_register_with_registrar\("
+                  + plugin_name
+                  + r"_registrar\);\n",
+                  "",
+                  text,
+              )
+              registrant.write_text(text)
+
+          shutil.rmtree(
+              "linux/flutter/ephemeral/.plugin_symlinks/" + plugin_name,
+              ignore_errors=True,
+          )
           PY
 
       - name: Build Linux
         env:
           CFLAGS: "-Wno-unknown-warning-option"
           CXXFLAGS: "-Wno-unknown-warning-option"
-        run: flutter build linux --release --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
+        run: flutter build linux --release --no-pub --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
       - name: Test all extensions with the real Watchtower binary
         run: |
@@ -506,8 +538,8 @@ jobs:
 
           source = Path(sys.argv[1])
           text = source.read_text()
-          old = "    public func presentationAnchor(for session: ASWebAuthenticationSession)"
-          new = "    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
+          old = "    @available(macOS 10.15, *)\n    public func presentationAnchor(for session: ASWebAuthenticationSession)"
+          new = "    @available(macOS 10.14, *)\n    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
           if old not in text:
               raise SystemExit("flutter_inappwebview_macos authentication method was not found")
           source.write_text(text.replace(old, new, 1))
