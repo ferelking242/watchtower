@@ -22,7 +22,6 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/widgets/loading_icon.dart';
-import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/auto_backup.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -159,15 +158,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     Future.microtask(() {
       if (mounted) {
         ref.read(checkForUpdateProvider(context: context));
-        for (var type in ItemType.values) {
-          ref.read(
-            fetchItemSourcesListProvider(
-              id: null,
-              reFresh: false,
-              itemType: type,
-            ),
-          );
-        }
+        // Browse reads the installed sources directly from Isar. Do not
+        // fetch every configured repository at app startup: that made each
+        // Browse tab show a loading skeleton and could flood the network
+        // before the user had opened the Marketplace.
         // Auto-show the floating log overlay if logs are enabled by default.
         final enableLogs = ref.read(logsStateProvider);
         if (enableLogs) {

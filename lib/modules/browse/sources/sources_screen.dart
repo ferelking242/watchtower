@@ -38,7 +38,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         .where((source) =>
             source.itemType == widget.itemType &&
             source.isAdded == true &&
-            source.isActive == true)
+            source.isActive != false)
         .toList();
   }
 
@@ -97,7 +97,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 List<Source> sources = snapshot.data!
                     .where((e) => e.id != null)
                     .where((e) => e.isAdded == true)
-                    .where((e) => e.isActive == true)
+                    .where((e) => e.isActive != false)
                     .where((e) => e.itemType == widget.itemType)
                     .where((e) => showNSFW || !(e.isNsfw ?? false))
                     // "local" source is always shown via the fixed section

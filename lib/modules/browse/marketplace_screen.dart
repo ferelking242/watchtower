@@ -791,8 +791,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Install ───────────────────────────────────────────────────────────────────
 
-  Future<void> _install(_ExtEntry entry) async {
-    if (_busy[entry.id] == true) return;
+  Future<bool> _install(_ExtEntry entry) async {
+    if (_busy[entry.id] == true) return false;
     setState(() => _busy[entry.id] = true);
     try {
       // Entrées music (ItemType.music) → plugin music (.smplug) via metadata
@@ -835,7 +835,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             icon: Broken.tick_circle,
           );
         }
-        return;
+        return true;
       }
 
       final proxyServer = ref.read(androidProxyServerStateProvider);
@@ -861,10 +861,12 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           icon: Broken.tick_circle,
         );
       }
+      return true;
     } catch (e) {
       if (mounted) {
         _showToast(context, 'Erreur : $e', isError: true, icon: Broken.danger);
       }
+      return false;
     } finally {
       if (mounted) setState(() => _busy.remove(entry.id));
     }
@@ -872,6 +874,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Silent core: no toasts, no setState ─────────────────────────────────
   Future<void> _installOneCore(_ExtEntry entry) async {
+    if (entry.contentType == ItemType.music) {
+      final repoUrl = entry.upstream.isNotEmpty ? entry.upstream : entry.repoUrl;
+      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
+      final pluginConfig = await pluginsNotifier.downloadAndCachePlugin(repoUrl);
+      await pluginsNotifier.addPlugin(pluginConfig);
+      return;
+    }
     final proxyServer = ref.read(androidProxyServerStateProvider);
     final repo = Repo(
       jsonUrl: entry.repoUrl,
@@ -904,10 +913,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Bulk install: parallel batches of 4, no toasts, single refresh ──────
   Future<void> _installBulk({
     required List<_ExtEntry> entries,
-    required void Function(int done, int total) onProgress,
+    required void Function(int done, int total, int failed) onProgress,
   }) async {
     if (entries.isEmpty) return;
     var done = 0;
+    var failed = 0;
     const batchSize = 4;
     for (int i = 0; i < entries.length; i += batchSize) {
       if (!mounted) break;
@@ -916,9 +926,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         batch.map((entry) async {
           try {
             await _installOneCore(entry);
-          } catch (_) {}
+          } catch (_) {
+            failed++;
+          }
           done++;
-          onProgress(done, entries.length);
+          onProgress(done, entries.length, failed);
         }),
       );
     }
@@ -3894,6 +3906,7 @@ class _MassInstallSheetState extends State<_MassInstallSheet> {
   SourceCodeLanguage? _selectedCompat;
   bool _running = false;
   int _done = 0;
+  int _failed = 0;
   int _total = 0;
 
   List<_ExtEntry> get _toInstall {
@@ -3915,11 +3928,17 @@ class _MassInstallSheetState extends State<_MassInstallSheet> {
     setState(() {
       _running = true;
       _done = 0;
+      _failed = 0;
       _total = list.length;
     });
     for (final entry in list) {
-      await widget.state._install(entry);
-      if (mounted) setState(() => _done++);
+      final installed = await widget.state._install(entry);
+      if (mounted) {
+        setState(() {
+          _done++;
+          if (!installed) _failed++;
+        });
+      }
     }
     if (mounted) setState(() => _running = false);
   }
@@ -4095,7 +4114,8 @@ class _MassInstallSheetState extends State<_MassInstallSheet> {
               ),
               const SizedBox(height: 6),
               Text(
-                '$_done / $_total installées…',
+                '$_done / $_total traitées'
+                '${_failed == 0 ? '' : ' · $_failed échec(s)'}',
                 style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 16),
@@ -8305,6 +8325,7 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
   final Set<ItemType> _selTypes = {};
   bool _running = false;
   int _done = 0;
+  int _failed = 0;
   int _total = 0;
 
   static const _typeItems = [
@@ -8344,15 +8365,17 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
     setState(() {
       _running = true;
       _done = 0;
+      _failed = 0;
       _total = entries.length;
     });
     await widget.state._installBulk(
       entries: entries,
-      onProgress: (done, total) {
+      onProgress: (done, total, failed) {
         if (mounted)
           setState(() {
             _done = done;
             _total = total;
+            _failed = failed;
           });
       },
     );
@@ -8608,7 +8631,8 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
-                        '$_done / $_total installées',
+                        '$_done / $_total traitées'
+                        '${_failed == 0 ? '' : ' · $_failed échec(s)'}',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,

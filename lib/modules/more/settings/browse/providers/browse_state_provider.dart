@@ -5,7 +5,6 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
@@ -221,16 +220,9 @@ class ExtensionsRepoState extends _$ExtensionsRepoState {
       };
       a;
     });
-    try {
-      final a = ref.refresh(
-        fetchItemSourcesListProvider(
-          id: null,
-          reFresh: false,
-          itemType: itemType,
-        ).future,
-      );
-      Future.wait([a]);
-    } catch (_) {}
+    // Changing repository settings must not implicitly download every index.
+    // Repository screens call an explicit refresh when the user requests it;
+    // Browse itself only reads already-installed sources from Isar.
   }
 }
 

@@ -294,6 +294,9 @@ Future<void> fetchSourcesList({
         logLevel: LogLevel.warning,
         tag: LogTag.extension_,
       );
+      throw StateError(
+        'No matching extension found for id=$id in ${repo?.jsonUrl ?? 'the repository'}',
+      );
     }
   } else {
     // ── Batch mode: one bulk DB read instead of N individual reads ────────────
