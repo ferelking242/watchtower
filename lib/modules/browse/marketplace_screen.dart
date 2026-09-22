@@ -190,7 +190,10 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       final langs = sources.map((s) => (s['lang'] ?? 'en') as String).toSet();
       final lang = langs.length == 1 ? langs.first.toLowerCase() : 'multi';
       results.add({
-        'id': 'ext-${firstSrc['id']}'.hashCode,
+        // Keep the same prefix as fetchSourcesList when it registers Mihon
+        // sources in Isar; otherwise installation reports success for an ID
+        // that Browse can never find.
+        'id': 'mihon-${firstSrc['id']}'.hashCode,
         'name': (e['name'] ?? firstSrc['name'] ?? '?') as String,
         'iconUrl': iconUrl,
         'lang': lang,
@@ -709,33 +712,31 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       }
     }
     try {
+      var failures = 0;
+      Future<List<_ExtEntry>> safe(Future<List<_ExtEntry>> request) async {
+        try {
+          return await request;
+        } catch (_) {
+          failures++;
+          return <_ExtEntry>[];
+        }
+      }
+
       final results =
           await Future.wait<List<_ExtEntry>>([
-            _fetch(
-              '$_kWtBase/index/manga.json',
-            ).catchError((_) => <_ExtEntry>[]),
-            _fetch(
-              '$_kWtBase/index/watch.json',
-            ).catchError((_) => <_ExtEntry>[]),
-            _fetch(
-              '$_kWtBase/index/novel.json',
-            ).catchError((_) => <_ExtEntry>[]),
-            _fetch(
-              '$_kWtBase/index/music.json',
-            ).catchError((_) => <_ExtEntry>[]),
-            _fetch(
-              '$_kWtBase/index/game.json',
-            ).catchError((_) => <_ExtEntry>[]),
-            _fetchMihonMerged(
-              _kMihonMangaRepos,
-            ).catchError((_) => <_ExtEntry>[]),
-            _fetchMihonMerged(
-              _kAniyomiAnimeRepos,
-            ).catchError((_) => <_ExtEntry>[]),
+            safe(_fetch('$_kWtBase/index/manga.json')),
+            safe(_fetch('$_kWtBase/index/watch.json')),
+            safe(_fetch('$_kWtBase/index/novel.json')),
+            safe(_fetch('$_kWtBase/index/music.json')),
+            safe(_fetch('$_kWtBase/index/game.json')),
+            safe(_fetchMihonMerged(_kMihonMangaRepos)),
+            safe(_fetchMihonMerged(_kAniyomiAnimeRepos)),
           ]).timeout(
             const Duration(seconds: 20),
-            onTimeout: () =>
-                List<List<_ExtEntry>>.generate(7, (_) => <_ExtEntry>[]),
+            onTimeout: () {
+              failures = 7;
+              return List<List<_ExtEntry>>.generate(7, (_) => <_ExtEntry>[]);
+            },
           );
       if (mounted)
         setState(() {
@@ -748,7 +749,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _cacheTime = DateTime.now();
           _loading = false;
           _refreshing = false;
-          _error = null;
+          _error =
+              _all.isEmpty && _mihonEntries.isEmpty && _aniyomiEntries.isEmpty
+              ? 'Échec du chargement de $failures dépôt(s).'
+              : null;
         });
       // Entries are loaded now — recompute the installed set (music
       // plugins included) so cards show their real state on first paint.
@@ -848,6 +852,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         autoUpdateExtensions: true,
         itemType: entry.contentType,
       );
+      await _verifyInstalled(entry);
       await _refreshInstalled();
       if (mounted) {
         _showToast(
@@ -881,6 +886,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       autoUpdateExtensions: true,
       itemType: entry.contentType,
     );
+    await _verifyInstalled(entry);
+  }
+
+  Future<void> _verifyInstalled(_ExtEntry entry) async {
+    final source = await isar.sources.get(entry.id);
+    if (source == null ||
+        source.isAdded != true ||
+        (source.sourceCode ?? '').trim().isEmpty) {
+      throw StateError(
+        'L’extension ${entry.name} n’a pas pu être installée. '
+        'Aucune source active n’a été enregistrée.',
+      );
+    }
   }
 
   // ── Bulk install: parallel batches of 4, no toasts, single refresh ──────
@@ -9276,10 +9294,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final contentWidth = width > 680 ? 620.0 : width;
     return Center(
       child: SizedBox(
-        width: contentWidth,
+        width: width,
         child: Column(
           children: [
             Expanded(
@@ -9387,7 +9404,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           ),
           _HeaderIcon(
             icon: Broken.notification,
-            badge: '3',
             onTap: () => _showNotifications(context),
           ),
           const SizedBox(width: 8),
@@ -10006,27 +10022,32 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   void _showDetails(_ExtEntry entry) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: _surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => _PlayStoreDetails(
-        entry: entry,
-        installed: widget.installed.contains(entry.id),
-        busy: widget.busy[entry.id] == true,
-        onSettings: widget.installed.contains(entry.id)
-            ? () {
-                Navigator.pop(sheetContext);
-                widget.onSettings(entry.id);
-              }
-            : null,
-        onInstall: () {
-          Navigator.pop(sheetContext);
-          widget.onInstall(entry);
-        },
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (pageContext) => Scaffold(
+          backgroundColor: _surface,
+          appBar: AppBar(
+            backgroundColor: _surface,
+            foregroundColor: Colors.white,
+            title: const Text('Détails'),
+          ),
+          body: _PlayStoreDetails(
+            entry: entry,
+            installed: widget.installed.contains(entry.id),
+            busy: widget.busy[entry.id] == true,
+            onSettings: widget.installed.contains(entry.id)
+                ? () {
+                    Navigator.pop(pageContext);
+                    widget.onSettings(entry.id);
+                  }
+                : null,
+            onInstall: () {
+              Navigator.pop(pageContext);
+              widget.onInstall(entry);
+            },
+          ),
+        ),
       ),
     );
   }
@@ -10106,6 +10127,19 @@ String _playSize(_ExtEntry entry) {
   return '$estimatedKb Ko';
 }
 
+String _playBadges(_ExtEntry entry) {
+  final labels = <String>[
+    ...entry.subCategories.take(2),
+    if (entry.requiresAccount) 'Compte',
+    if (entry.hasDRM) 'DRM',
+    if (entry.isAggregator) 'Agrégateur',
+    if (entry.paywall.trim().isNotEmpty &&
+        entry.paywall.toLowerCase() != 'free')
+      entry.paywall,
+  ];
+  return labels.join(' · ');
+}
+
 class _PlayStoreRow extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
@@ -10156,6 +10190,18 @@ class _PlayStoreRow extends StatelessWidget {
                       fontSize: 11,
                     ),
                   ),
+                   if (_playBadges(entry).isNotEmpty) ...[
+                     const SizedBox(height: 3),
+                     Text(
+                       _playBadges(entry),
+                       maxLines: 1,
+                       overflow: TextOverflow.ellipsis,
+                       style: const TextStyle(
+                         color: Color(0xFFD0CFD4),
+                         fontSize: 10.5,
+                       ),
+                     ),
+                   ],
                   const SizedBox(height: 3),
                   Row(
                     children: [
@@ -10317,6 +10363,19 @@ class _PlayStoreShelfCard extends StatelessWidget {
                   height: 1.25,
                 ),
               ),
+              if (_playBadges(entry).isNotEmpty) ...[
+                const SizedBox(height: 7),
+                Text(
+                  _playBadges(entry),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFB7F4F0),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const Spacer(),
               Row(
                 children: [
@@ -10633,12 +10692,22 @@ class _PlayStoreDetails extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
+            const Text(
+              'Informations',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 _DetailPill(label: 'Version ${entry.version}'),
                 _DetailPill(label: _playSize(entry)),
+                _DetailPill(label: 'Langue ${entry.lang.toUpperCase()}'),
                 _DetailPill(
                   label: entry.compat == SourceCodeLanguage.javascript
                       ? 'JavaScript'
@@ -10646,9 +10715,39 @@ class _PlayStoreDetails extends StatelessWidget {
                 ),
                 if (entry.requiresAccount)
                   const _DetailPill(label: 'Compte requis'),
+                if (entry.hasDRM) const _DetailPill(label: 'DRM'),
+                if (entry.isAggregator) const _DetailPill(label: 'Agrégateur'),
+                if (entry.paywall.trim().isNotEmpty &&
+                    entry.paywall.toLowerCase() != 'free')
+                  _DetailPill(label: 'Accès ${entry.paywall}'),
+                if (entry.supportsComments)
+                  const _DetailPill(label: 'Commentaires'),
+                ...entry.subCategories.map(
+                  (category) => _DetailPill(label: category),
+                ),
               ],
             ),
             const SizedBox(height: 22),
+            if (entry.upstream.isNotEmpty) ...[
+              const Text(
+                'Dépôt et provenance',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                entry.upstream,
+                style: const TextStyle(
+                  color: Color(0xFFD5D4D9),
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 18),
+            ],
             Text(
               'Mise à jour via le dépôt officiel Watchtower Extensions.',
               style: TextStyle(

@@ -69,15 +69,20 @@ import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:watchtower/modules/music/services/kv_store/encrypted_kv_store.dart';
 // --- NFile integration ---
 import 'package:provider/provider.dart';
-import 'package:watchtower/modules/plugin/nfile/providers/file_manager_provider.dart' as nfile_fm;
-import 'package:watchtower/modules/plugin/nfile/providers/media_provider.dart' as nfile_media;
-import 'package:watchtower/modules/plugin/nfile/services/preferences_service.dart' as nfile_prefs;
-import 'package:watchtower/modules/plugin/nfile/services/pin_service.dart' as nfile_pin;
-import 'package:watchtower/modules/plugin/nfile/services/network_connections_service.dart' as nfile_network;
-import 'package:watchtower/modules/plugin/nfile/services/recycle_bin_service.dart' as nfile_recycle;
+import 'package:watchtower/modules/plugin/nfile/providers/file_manager_provider.dart'
+    as nfile_fm;
+import 'package:watchtower/modules/plugin/nfile/providers/media_provider.dart'
+    as nfile_media;
+import 'package:watchtower/modules/plugin/nfile/services/preferences_service.dart'
+    as nfile_prefs;
+import 'package:watchtower/modules/plugin/nfile/services/pin_service.dart'
+    as nfile_pin;
+import 'package:watchtower/modules/plugin/nfile/services/network_connections_service.dart'
+    as nfile_network;
+import 'package:watchtower/modules/plugin/nfile/services/recycle_bin_service.dart'
+    as nfile_recycle;
 import 'package:watchtower/modules/music/l10n/generated/app_localizations.dart'
     as music_l10n;
-
 
 late Isar isar;
 DiscordRPC? discordRpc;
@@ -111,7 +116,9 @@ void main(List<String> args) async {
         // The music module previously used shadcn widgets; some tooltip interactions
         // can still trigger this on hover — it is harmless on mobile.
         final stack = details.stack?.toString() ?? '';
-        if (msg.contains('Null check operator') && stack.contains('tooltip.dart')) return;
+        if (msg.contains('Null check operator') &&
+            stack.contains('tooltip.dart'))
+          return;
         // Always print to browser console on web so we can diagnose issues
         debugPrint('[FlutterError] $msg\n${details.stack}');
         FlutterError.presentError(details);
@@ -146,14 +153,22 @@ void main(List<String> args) async {
         try {
           await RustLib.init();
         } catch (e, st) {
-          debugPrint('[main] RustLib.init() failed — app will run without Rust FFI: $e\n$st');
-          AppLogger.log('RustLib.init failed: $e\n$st', logLevel: LogLevel.error);
+          debugPrint(
+            '[main] RustLib.init() failed — app will run without Rust FFI: $e\n$st',
+          );
+          AppLogger.log(
+            'RustLib.init failed: $e\n$st',
+            logLevel: LogLevel.error,
+          );
         }
         try {
           await imgCropIsolate.start();
         } catch (e, st) {
           debugPrint('[main] imgCropIsolate.start() failed: $e\n$st');
-          AppLogger.log('imgCropIsolate.start failed: $e\n$st', logLevel: LogLevel.error);
+          AppLogger.log(
+            'imgCropIsolate.start failed: $e\n$st',
+            logLevel: LogLevel.error,
+          );
         }
         // getIsolateService.start() is intentionally called AFTER initDB below.
         // Both the main isolate and the background isolate call StorageProvider().initDB().
@@ -195,7 +210,7 @@ void main(List<String> args) async {
             Settings(
               mangaExtensionsRepo: [
                 Repo(
-                  jsonUrl: '$_wtBase/manga/index.json',
+                  jsonUrl: '$_wtBase/index/manga.json',
                   name: 'Watchtower – Manga',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
@@ -203,7 +218,7 @@ void main(List<String> args) async {
               ],
               animeExtensionsRepo: [
                 Repo(
-                  jsonUrl: '$_wtBase/watch/index.json',
+                  jsonUrl: '$_wtBase/index/watch.json',
                   name: 'Watchtower – Watch',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
@@ -211,7 +226,7 @@ void main(List<String> args) async {
               ],
               novelExtensionsRepo: [
                 Repo(
-                  jsonUrl: '$_wtBase/novel/index.json',
+                  jsonUrl: '$_wtBase/index/novel.json',
                   name: 'Watchtower – Novels',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
@@ -241,7 +256,9 @@ void main(List<String> args) async {
       final hivePath = (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
           ? "databases"
           : p.join("Watchtower", "databases");
-      await Hive.initFlutter(kIsWeb ? null : ((!kIsWeb && Platform.isAndroid) ? "" : hivePath));
+      await Hive.initFlutter(
+        kIsWeb ? null : ((!kIsWeb && Platform.isAndroid) ? "" : hivePath),
+      );
       Hive.registerAdapter(TrackSearchAdapter());
       await Hive.openBox('nav_display');
       await Hive.openBox('ui_prefs');
@@ -266,10 +283,15 @@ void main(List<String> args) async {
       runApp(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider(create: (_) => nfile_fm.FileManagerProvider()),
+            ChangeNotifierProvider(
+              create: (_) => nfile_fm.FileManagerProvider(),
+            ),
             ChangeNotifierProvider(create: (_) => nfile_media.MediaProvider()),
           ],
-          child: ProviderScope(child: MyApp(), retry: (retryCount, error) => null),
+          child: ProviderScope(
+            child: MyApp(),
+            retry: (retryCount, error) => null,
+          ),
         ),
       );
       // Remove the native splash immediately — the app renders its own first frame.
@@ -311,7 +333,8 @@ void _ensureLocalSources() {
             ..lastUsed = false
             ..itemType = type,
         );
-      } else if (!(existing.isAdded ?? false) || !(existing.isActive ?? false)) {
+      } else if (!(existing.isAdded ?? false) ||
+          !(existing.isActive ?? false)) {
         isar.sources.putSync(
           existing
             ..isAdded = true
@@ -334,7 +357,9 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
     // high-end devices don't spawn hundreds of isolates.
     final cores = Platform.numberOfProcessors;
     final poolSize = (cores * 2).clamp(8, 32);
-    debugPrint('[main] device has $cores CPU cores → isolate pool size = $poolSize');
+    debugPrint(
+      '[main] device has $cores CPU cores → isolate pool size = $poolSize',
+    );
     // Lazy init: configure the pool size now but defer isolate creation to
     // the first actual download.  The pool's submit methods already call
     // initialize() on first use — this avoids spawning 8–32 isolates at
@@ -372,17 +397,23 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
       }
     } catch (_) {}
     await cfResolutionWebviewServer();
-      // Only init notification service AFTER onboarding is complete.
-      // During onboarding the user grants notification permission manually.
-      // Calling init() here on first launch would trigger the system dialog
-      // immediately without user interaction.
-      if (!needsOnboarding) {
-        unawaited(BypassNotificationService.instance.init());
-        unawaited(WatchtowerNotificationService.instance.init().then((_) {
-          unawaited(WatchtowerNotificationService.instance.scheduleWeeklyReminder());
-          unawaited(WatchtowerNotificationService.instance.checkForUpdateAndNotify());
-        }));
-      }
+    // Only init notification service AFTER onboarding is complete.
+    // During onboarding the user grants notification permission manually.
+    // Calling init() here on first launch would trigger the system dialog
+    // immediately without user interaction.
+    if (!needsOnboarding) {
+      unawaited(BypassNotificationService.instance.init());
+      unawaited(
+        WatchtowerNotificationService.instance.init().then((_) {
+          unawaited(
+            WatchtowerNotificationService.instance.scheduleWeeklyReminder(),
+          );
+          unawaited(
+            WatchtowerNotificationService.instance.checkForUpdateAndNotify(),
+          );
+        }),
+      );
+    }
   }
 }
 
@@ -441,7 +472,9 @@ class _MyAppState extends ConsumerState<MyApp>
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       if (!kIsWeb) {
-        unawaited(WatchtowerNotificationService.instance.checkForUpdateAndNotify());
+        unawaited(
+          WatchtowerNotificationService.instance.checkForUpdateAndNotify(),
+        );
         // Re-run mpv setup in case the user just granted storage permission
         // from the onboarding screen or the system Settings app.
         // The function checks permission internally and is idempotent.
@@ -463,7 +496,7 @@ class _MyAppState extends ConsumerState<MyApp>
 
   @override
   Widget build(BuildContext context) {
-final followSystem = ref.watch(followSystemThemeStateProvider);
+    final followSystem = ref.watch(followSystemThemeStateProvider);
     final forcedDark = ref.watch(themeModeStateProvider);
     final themeMode = followSystem
         ? ThemeMode.system
@@ -473,12 +506,16 @@ final followSystem = ref.watch(followSystemThemeStateProvider);
     final pageTransStyle = ref.watch(pageTransitionStyleProvider);
 
     return MaterialApp.router(
-      theme: ref.watch(lightThemeProvider).copyWith(
-        pageTransitionsTheme: _buildPageTransitionsTheme(pageTransStyle),
-      ),
-      darkTheme: ref.watch(darkThemeProvider).copyWith(
-        pageTransitionsTheme: _buildPageTransitionsTheme(pageTransStyle),
-      ),
+      theme: ref
+          .watch(lightThemeProvider)
+          .copyWith(
+            pageTransitionsTheme: _buildPageTransitionsTheme(pageTransStyle),
+          ),
+      darkTheme: ref
+          .watch(darkThemeProvider)
+          .copyWith(
+            pageTransitionsTheme: _buildPageTransitionsTheme(pageTransStyle),
+          ),
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       locale: locale,
@@ -487,9 +524,9 @@ final followSystem = ref.watch(followSystemThemeStateProvider);
         music_l10n.AppLocalizations.delegate,
       ],
       supportedLocales: {
-          ...AppLocalizations.supportedLocales,
-          ...music_l10n.AppLocalizations.supportedLocales,
-        }.toList(),
+        ...AppLocalizations.supportedLocales,
+        ...music_l10n.AppLocalizations.supportedLocales,
+      }.toList(),
       builder: (context, child) {
         if (!kIsWeb && !Platform.isLinux) {
           final isUnlocked = ref.watch(appUnlockedStateProvider);
@@ -499,23 +536,27 @@ final followSystem = ref.watch(followSystemThemeStateProvider);
           }
         }
         if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
-          child = _MouseBackButtonHandler(router: router, child: child ?? const SizedBox.shrink());
+          child = _MouseBackButtonHandler(
+            router: router,
+            child: child ?? const SizedBox.shrink(),
+          );
         }
         // Apply UI scale from Advanced Settings
-          if (Hive.isBoxOpen('advanced_settings')) {
-            final box = Hive.box('advanced_settings');
-            final uiScale = (box.get('ui_scale', defaultValue: 1.0) as num).toDouble();
-            if (uiScale != 1.0) {
-              child = MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: TextScaler.linear(uiScale),
-                ),
-                child: child!,
-              );
-            }
+        if (Hive.isBoxOpen('advanced_settings')) {
+          final box = Hive.box('advanced_settings');
+          final uiScale = (box.get('ui_scale', defaultValue: 1.0) as num)
+              .toDouble();
+          if (uiScale != 1.0) {
+            child = MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(uiScale)),
+              child: child!,
+            );
           }
-          return child ?? const SizedBox.shrink();
-        },
+        }
+        return child ?? const SizedBox.shrink();
+      },
       routeInformationParser: router.routeInformationParser,
       routerDelegate: router.routerDelegate,
       routeInformationProvider: router.routeInformationProvider,
@@ -718,10 +759,13 @@ final followSystem = ref.watch(followSystemThemeStateProvider);
     // On first launch (onboarding not yet complete) the permission is not
     // granted yet — creating directories would throw Permission denied.
     if (!kIsWeb && Platform.isAndroid) {
-      final hasPermission = await StorageProvider()
-          .requestPermission(requestIfNeeded: false);
+      final hasPermission = await StorageProvider().requestPermission(
+        requestIfNeeded: false,
+      );
       if (!hasPermission) {
-        debugPrint('_setupMpvConfig: skipped — storage permission not granted yet');
+        debugPrint(
+          '_setupMpvConfig: skipped — storage permission not granted yet',
+        );
         return;
       }
     }
@@ -736,14 +780,14 @@ final followSystem = ref.watch(followSystemThemeStateProvider);
   }
 
   Future<void> _startExtensionServerAndSync() async {
-      await MExtensionServerPlatform(ref).startServer();
-      if (!kIsWeb && Platform.isAndroid) {
-        await Future.delayed(const Duration(seconds: 2));
-        unawaited(MihonAutoSync.run());
-      }
+    await MExtensionServerPlatform(ref).startServer();
+    if (!kIsWeb && Platform.isAndroid) {
+      await Future.delayed(const Duration(seconds: 2));
+      unawaited(MihonAutoSync.run());
     }
+  }
 
-      Future<void> _checkTrackerRefresh() async {
+  Future<void> _checkTrackerRefresh() async {
     final prefs = await isar.trackPreferences
         .filter()
         .syncIdIsNotNull()
@@ -805,7 +849,8 @@ PageTransitionsTheme _buildPageTransitionsTheme(int style) {
   PageTransitionsBuilder builder;
   switch (style) {
     case 1:
-      builder = const ZoomPageTransitionsBuilder();   // CupertinoPageTransitionsBuilder removed in Flutter 3.32
+      builder =
+          const ZoomPageTransitionsBuilder(); // CupertinoPageTransitionsBuilder removed in Flutter 3.32
     case 2:
       builder = const ZoomPageTransitionsBuilder();
     case 3:
@@ -813,9 +858,9 @@ PageTransitionsTheme _buildPageTransitionsTheme(int style) {
     default:
       builder = const FadeUpwardsPageTransitionsBuilder();
   }
-  return PageTransitionsTheme(builders: {
-    for (final p in TargetPlatform.values) p: builder,
-  });
+  return PageTransitionsTheme(
+    builders: {for (final p in TargetPlatform.values) p: builder},
+  );
 }
 
 class _NoTransitionBuilder extends PageTransitionsBuilder {
@@ -828,6 +873,5 @@ class _NoTransitionBuilder extends PageTransitionsBuilder {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) =>
-      child;
+  ) => child;
 }

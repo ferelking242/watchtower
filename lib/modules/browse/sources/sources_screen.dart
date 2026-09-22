@@ -80,7 +80,18 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   .and()
                   .itemTypeEqualTo(widget.itemType)
                   .watch(fireImmediately: true),
+              initialData: isar.sources
+                  .filter()
+                  .isAddedEqualTo(true)
+                  .and()
+                  .isActiveEqualTo(true)
+                  .and()
+                  .itemTypeEqualTo(widget.itemType)
+                  .findAllSync(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return _SourcesLoadError(onRetry: () => setState(() {}));
+                }
                 if (!snapshot.hasData) {
                   return _SourcesSkeleton(
                     colorScheme: Theme.of(context).colorScheme,
@@ -361,6 +372,50 @@ class _SourcesSkeleton extends StatelessWidget {
           const SizedBox(height: 12),
           _bone(width: double.infinity, height: 48, radius: 14),
         ],
+      ),
+    );
+  }
+}
+
+class _SourcesLoadError extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _SourcesLoadError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              color: colors.onSurfaceVariant,
+              size: 42,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Impossible de charger les extensions',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Réessaie après avoir vérifié la connexion.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
       ),
     );
   }
