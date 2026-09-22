@@ -584,12 +584,14 @@ Future<void> checkIfSourceIsObsolete(
   if (kIsWeb) return;
   if (sourceList.isEmpty) return;
 
-  final sources = await isar.sources
-      .filter()
-      .itemTypeEqualTo(itemType)
-      .and()
-      .isLocalEqualTo(false)
-      .findAll();
+  // isar_community can reject filters on nullable bool properties at
+  // runtime. Read the collection without a filter and apply the equivalent
+  // predicates in Dart.
+  final sources = (await isar.sources.where().findAll())
+      .where(
+        (source) => source.itemType == itemType && source.isLocal == false,
+      )
+      .toList();
 
   if (sources.isEmpty) return;
 
