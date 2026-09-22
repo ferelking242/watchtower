@@ -1,4 +1,3 @@
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +9,7 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/utils/cached_network.dart';
 
 /// Paginated destination for a layout section's "All" action.
 class ExtensionSectionPage extends ConsumerStatefulWidget {
@@ -230,11 +230,11 @@ class _ExtensionSectionCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: item.imageUrl?.isNotEmpty == true
-                  ? ExtendedImage.network(
-                      item.imageUrl!,
-                      fit: BoxFit.cover,
+                  ? cachedNetworkImage(
+                      imageUrl: item.imageUrl!,
                       width: double.infinity,
-                      cache: true,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
                     )
                   : const ColoredBox(
                       color: Color(0xFF22242C),

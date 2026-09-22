@@ -1,4 +1,3 @@
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +17,7 @@ import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/modules/watch/home/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
+import 'package:watchtower/utils/cached_network.dart';
 
 /// The Watch extension home deliberately uses the same composition as the
 /// FlixQuest movie home.  Only the data boundary is different: every card is
@@ -139,13 +139,20 @@ class _WatchExtensionHomeScreenState
       );
     }
 
-    final popularAsync = ref.watch(getPopularProvider(source: source, page: 1));
-    final latestAsync = ref.watch(
-      getLatestUpdatesProvider(source: source, page: 1),
-    );
-    final popular = popularAsync.value?.list ?? const <MManga>[];
-    final latest = latestAsync.value?.list ?? const <MManga>[];
-    final isLoading = popularAsync.isLoading || latestAsync.isLoading;
+    final hasDeclaredSections = _layout.home.sections.isNotEmpty;
+    // A declarative home owns its data requests section by section. Watching
+    // Popular/Latest here as well caused duplicate extension calls and made a
+    // custom home wait for unrelated built-in rails.
+    final popularAsync = hasDeclaredSections
+        ? null
+        : ref.watch(getPopularProvider(source: source, page: 1));
+    final latestAsync = hasDeclaredSections
+        ? null
+        : ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+    final popular = popularAsync?.valueOrNull?.list ?? const <MManga>[];
+    final latest = latestAsync?.valueOrNull?.list ?? const <MManga>[];
+    final isLoading = !hasDeclaredSections &&
+        (popularAsync?.isLoading == true || latestAsync?.isLoading == true);
 
     if (isLoading && popular.isEmpty && latest.isEmpty) {
       return _ExtensionFlixQuestLoading(
@@ -155,7 +162,7 @@ class _WatchExtensionHomeScreenState
       );
     }
 
-    final error = popularAsync.error ?? latestAsync.error;
+    final error = popularAsync?.error ?? latestAsync?.error;
     if (error != null && popular.isEmpty && latest.isEmpty) {
       return _ExtensionError(source: source, error: error, onRetry: _refresh);
     }
@@ -251,7 +258,6 @@ class _ExtensionFeed extends StatelessWidget {
                                 (section) => _ExtensionLayoutSection(
                                   source: source,
                                   section: section,
-                                  fallbackItems: all,
                                   onOpen: onOpen,
                                 ),
                               )
@@ -333,13 +339,11 @@ void _openSection(
 class _ExtensionLayoutSection extends ConsumerWidget {
   final Source source;
   final UiSection section;
-  final List<MManga> fallbackItems;
   final ValueChanged<MManga> onOpen;
 
   const _ExtensionLayoutSection({
     required this.source,
     required this.section,
-    required this.fallbackItems,
     required this.onOpen,
   });
 
@@ -353,15 +357,29 @@ class _ExtensionLayoutSection extends ConsumerWidget {
       ),
     };
 
+    // Riverpod can expose a loading/error state while retaining the previous
+    // value during refresh. Always render that value first so a carousel or
+    // rail does not disappear just because another page is being fetched.
+    final cachedItems = content.valueOrNull?.list;
+    if (cachedItems != null && cachedItems.isNotEmpty) {
+      return _buildSection(context, cachedItems);
+    }
+
     return content.when(
       loading: () => _ExtensionLayoutSectionLoading(
         title: section.title ?? section.id,
         component: section.component,
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, __) => _ExtensionLayoutSectionError(
+        title: section.title ?? section.id,
+      ),
       data: (pages) {
-        final items = pages?.list ?? fallbackItems;
-        if (items.isEmpty) return const SizedBox.shrink();
+        final items = pages?.list ?? const <MManga>[];
+        if (items.isEmpty) {
+          return _ExtensionLayoutSectionEmpty(
+            title: section.title ?? section.id,
+          );
+        }
         return _buildSection(context, items);
       },
     );
@@ -373,32 +391,33 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         : section.id;
     final onSeeAll = () =>
         _openSection(context, source: source, id: section.id, title: title);
+    final sectionAction = section.seeAll ? onSeeAll : null;
 
     return switch (section.component) {
       'banner' || 'hero' => _ExtensionBannerRail(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
-      'ranked' || 'creatorRow' => _ExtensionRankedRail(
+      'ranked' || 'creatorRow' || 'newHot' => _ExtensionRankedRail(
         title: title,
         items: items.take(10).toList(growable: false),
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
       'grid' || 'catalogue' || 'discoverGrid' => _ExtensionGridSection(
         title: title,
         items: items,
         columns: section.columns,
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
       'category' || 'categoryPills' => _ExtensionGenreGrid(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
       'landscapeStacked' || 'backdropWide' => _ExtensionLandscapeRail(
         title: title,
@@ -406,13 +425,17 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         width: 280,
         height: 204,
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
-      'compactRow' || 'metadataPoster' || 'statusPoster' => _ExtensionPosterRail(
+      'carousel' ||
+      'spotlight' ||
+      'compactRow' ||
+      'metadataPoster' ||
+      'statusPoster' => _ExtensionPosterRail(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
       'doubleFeature' ||
       'editorialSplit' ||
@@ -422,7 +445,7 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         items: items,
         columns: section.columns,
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
       'studioExplorer' ||
       'universeExplorer' ||
@@ -430,13 +453,13 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
       _ => _ExtensionPosterRail(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: onSeeAll,
+        onSeeAll: sectionAction,
       ),
     };
   }
@@ -453,7 +476,13 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (component == 'grid' || component == 'catalogue') {
+    if (component == 'grid' ||
+        component == 'catalogue' ||
+        component == 'discoverGrid' ||
+        component == 'masonry' ||
+        component == 'doubleFeature' ||
+        component == 'editorialSplit' ||
+        component == 'feed') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -470,6 +499,70 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ExtensionLayoutSectionMessage extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String message;
+
+  const _ExtensionLayoutSectionMessage({
+    required this.title,
+    required this.icon,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppUI.pagePadding(context),
+        8,
+        AppUI.pagePadding(context),
+        18,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.white38),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$title · $message',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white38, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExtensionLayoutSectionError extends StatelessWidget {
+  final String title;
+
+  const _ExtensionLayoutSectionError({required this.title});
+
+  @override
+  Widget build(BuildContext context) => _ExtensionLayoutSectionMessage(
+        title: title,
+        icon: Icons.cloud_off_rounded,
+        message: 'indisponible',
+      );
+}
+
+class _ExtensionLayoutSectionEmpty extends StatelessWidget {
+  final String title;
+
+  const _ExtensionLayoutSectionEmpty({required this.title});
+
+  @override
+  Widget build(BuildContext context) => _ExtensionLayoutSectionMessage(
+        title: title,
+        icon: Icons.video_library_outlined,
+        message: 'aucun contenu',
+      );
 }
 
 class _ExtensionHero extends StatelessWidget {
@@ -1252,16 +1345,15 @@ class _ExtensionImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = url == null || url!.isEmpty
         ? const AppShimmerBlock()
-        : ExtendedImage.network(
-            url!,
+        : cachedNetworkImage(
+            imageUrl: url!,
+            width: double.infinity,
+            height: double.infinity,
             fit: fit,
-            cache: true,
-            loadStateChanged: (state) {
-              if (state.extendedImageLoadState == LoadState.completed) {
-                return null;
-              }
-              return const AppShimmerBlock();
-            },
+            errorWidget: const ColoredBox(
+              color: Color(0xFF22242C),
+              child: Icon(Broken.video, color: Colors.white54),
+            ),
           );
     return ClipRRect(borderRadius: BorderRadius.circular(radius), child: child);
   }
@@ -1286,10 +1378,12 @@ class _ExtensionSourceIcon extends StatelessWidget {
                 color: Color(0xFF263238),
                 child: Icon(Icons.extension_rounded, color: Colors.white70),
               )
-            : Image.network(
-                url,
+            : cachedNetworkImage(
+                imageUrl: url,
+                width: size,
+                height: size,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const ColoredBox(
+                errorWidget: const ColoredBox(
                   color: Color(0xFF263238),
                   child: Icon(Icons.extension_rounded, color: Colors.white70),
                 ),

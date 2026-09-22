@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/utils/cached_network.dart';
 
 /// Visual primitives copied from FlixQuest's app_ui_components.dart.
 /// Data and navigation remain Watchtower-owned.
@@ -365,25 +365,23 @@ class AppGenreTile extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (imageUrl != null)
-              ExtendedImage.network(
-                imageUrl!,
+              cachedNetworkImage(
+                imageUrl: imageUrl!,
+                width: double.infinity,
+                height: double.infinity,
                 fit: BoxFit.cover,
-                cache: true,
-                loadStateChanged: (state) {
-                  if (state.extendedImageLoadState == LoadState.completed) {
-                    return null;
-                  }
-                  if (state.extendedImageLoadState == LoadState.failed &&
-                      fallbackImageUrl != null &&
-                      fallbackImageUrl != imageUrl) {
-                    return ExtendedImage.network(
-                      fallbackImageUrl!,
-                      fit: BoxFit.cover,
-                      cache: true,
-                    );
-                  }
-                  return ColoredBox(color: colors.surfaceContainerHigh);
-                },
+                errorWidget: fallbackImageUrl != null &&
+                        fallbackImageUrl != imageUrl
+                    ? cachedNetworkImage(
+                        imageUrl: fallbackImageUrl!,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        errorWidget: ColoredBox(
+                          color: colors.surfaceContainerHigh,
+                        ),
+                      )
+                    : ColoredBox(color: colors.surfaceContainerHigh),
               )
             else
               ColoredBox(

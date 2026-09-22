@@ -1,4 +1,3 @@
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +7,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
 import 'package:watchtower/services/search.dart';
+import 'package:watchtower/utils/cached_network.dart';
 
 /// Extension search deliberately mirrors the FlixQuest search layout while
 /// keeping its data and preferences isolated from the TMDB search screen.
@@ -275,11 +275,11 @@ class _ExtensionSearchCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: item.imageUrl?.isNotEmpty == true
-                  ? ExtendedImage.network(
-                      item.imageUrl!,
-                      fit: BoxFit.cover,
+                  ? cachedNetworkImage(
+                      imageUrl: item.imageUrl!,
                       width: double.infinity,
-                      cache: true,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
                     )
                   : const ColoredBox(
                       color: Color(0xFF22242C),
