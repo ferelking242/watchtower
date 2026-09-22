@@ -10,6 +10,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   # Web is kept as a reusable workflow so the same compatibility shims and
   # Dart-to-JavaScript checks run both on direct Pages deploys and here.
