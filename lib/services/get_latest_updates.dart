@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:isar_community/isar.dart';
@@ -18,41 +19,43 @@ Future<MPages?> getLatestUpdates(
   required Source source,
   required int page,
 }) async {
+  final keepAlive = ref.keepAlive();
+  final cacheTimer = Timer(const Duration(minutes: 2), keepAlive.close);
+  ref.onDispose(cacheTimer.cancel);
+
   // ── Web: route through remote server ────────────────────────────────────
-  if (kIsWeb) {
-    try {
-      if (RemoteClient.instance.isConfigured && source.id != null) {
-        final data = await RemoteClient.instance.get(
-          '/api/sources/${source.id}/latest',
-          params: {'page': '$page'},
-        );
-        final results = (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
-        if (results != null) {
-          return MPages(
-            list: results.map((m) => MManga(
+  if (kIsWeb && RemoteClient.instance.isConfigured && source.id != null) {
+    final data = await RemoteClient.instance.get(
+      '/api/sources/${source.id}/latest',
+      params: {'page': '$page'},
+    );
+    final results = (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
+    if (results == null) {
+      throw StateError('Remote latest response did not contain mangas');
+    }
+    return MPages(
+      list: results
+          .map(
+            (m) => MManga(
               name: m['name'] as String?,
               imageUrl: m['imageUrl'] as String?,
               link: m['link'] as String?,
               author: m['author'] as String?,
               description: m['description'] as String?,
-            )).toList(),
-            hasNextPage: data['hasNextPage'] as bool? ?? (results.length >= 20),
-          );
-        }
-      }
-    } catch (_) {}
-    // Fallback: most recently added items from MockIsar demo data
-    final result =
-        (await isar.mangas
-                .filter()
-                .itemTypeEqualTo(source.itemType)
-                .sortByDateAddedDesc()
-                .offset(max(0, page - 1) * 50)
-                .limit(50)
-                .findAll())
-            .map((e) => MManga(name: e.name, imageUrl: e.imageUrl, link: e.link))
-            .toList();
-    return MPages(list: result, hasNextPage: false);
+            ),
+          )
+          .toList(),
+      hasNextPage: data['hasNextPage'] as bool? ?? (results.length >= 20),
+    );
+  }
+
+  if (kIsWeb) {
+    return getIsolateService.get<MPages?>(
+      page: page,
+      source: source,
+      serviceType: 'getLatestUpdates',
+      proxyServer: ref.read(androidProxyServerStateProvider),
+    );
   }
 
   if (source.name == "local" && source.lang == "") {

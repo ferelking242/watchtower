@@ -39,6 +39,7 @@ class _WatchExtensionHomeScreenState
   bool _isSearching = false;
   bool _layoutReady = false;
   UiLayout _layout = UiLayout.empty;
+  Future<void>? _layoutLoadOperation;
 
   Source get source => widget.source;
 
@@ -57,7 +58,16 @@ class _WatchExtensionHomeScreenState
     _loadLayout();
   }
 
-  Future<void> _loadLayout() async {
+  Future<void> _loadLayout() {
+    final existing = _layoutLoadOperation;
+    if (existing != null) return existing;
+
+    final operation = _loadLayoutOnce();
+    _layoutLoadOperation = operation;
+    return operation;
+  }
+
+  Future<void> _loadLayoutOnce() async {
     await LayoutRegistry.instance.load(source);
     if (source.providesHome && !LayoutRegistry.instance.has(source)) {
       await LayoutDownloader.instance.download(source);
@@ -84,20 +94,38 @@ class _WatchExtensionHomeScreenState
   }
 
   Future<void> _refresh() async {
-    ref.invalidate(getPopularProvider(source: source, page: 1));
-    ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
-    for (final section in _layout.home.sections) {
-      if (section.id != 'popular' && section.id != 'latest') {
-        ref.invalidate(
-          getCustomListProvider(
-            source: source,
-            listId: section.id,
-            page: 1,
+    if (!_layoutReady && source.providesHome) {
+      await _loadLayout();
+      if (!mounted) return;
+    }
+
+    final futures = <Future<Object?>>[];
+    final sections = _layout.home.sections;
+    if (sections.isEmpty) {
+      futures
+        ..add(ref.refresh(getPopularProvider(source: source, page: 1).future))
+        ..add(ref.refresh(getLatestUpdatesProvider(source: source, page: 1).future));
+    } else {
+      for (final section in sections) {
+        final future = switch (section.id) {
+          'popular' => ref.refresh(
+            getPopularProvider(source: source, page: 1).future,
           ),
-        );
+          'latest' => ref.refresh(
+            getLatestUpdatesProvider(source: source, page: 1).future,
+          ),
+          _ => ref.refresh(
+            getCustomListProvider(
+              source: source,
+              listId: section.id,
+              page: 1,
+            ).future,
+          ),
+        };
+        futures.add(future);
       }
     }
-    await Future<void>.delayed(Duration.zero);
+    await Future.wait(futures);
   }
 
   void _openItem(MManga item) {
@@ -149,8 +177,12 @@ class _WatchExtensionHomeScreenState
     final latestAsync = hasDeclaredSections
         ? null
         : ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-    final popular = popularAsync?.valueOrNull?.list ?? const <MManga>[];
-    final latest = latestAsync?.valueOrNull?.list ?? const <MManga>[];
+    final popular =
+        popularAsync?.whenOrNull(data: (pages) => pages)?.list ??
+        const <MManga>[];
+    final latest =
+        latestAsync?.whenOrNull(data: (pages) => pages)?.list ??
+        const <MManga>[];
     final isLoading = !hasDeclaredSections &&
         (popularAsync?.isLoading == true || latestAsync?.isLoading == true);
 
@@ -360,7 +392,7 @@ class _ExtensionLayoutSection extends ConsumerWidget {
     // Riverpod can expose a loading/error state while retaining the previous
     // value during refresh. Always render that value first so a carousel or
     // rail does not disappear just because another page is being fetched.
-    final cachedItems = content.valueOrNull?.list;
+    final cachedItems = content.whenOrNull(data: (pages) => pages)?.list;
     if (cachedItems != null && cachedItems.isNotEmpty) {
       return _buildSection(context, cachedItems);
     }

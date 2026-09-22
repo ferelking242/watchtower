@@ -236,10 +236,24 @@ import 'dart:async';
           cors(Response.ok(jsonEncode({'ok': true, 'app': 'Watchtower'}),
               headers: {'Content-Type': 'application/json'})));
       router.get('/api/sources', (Request req) async => cors(await handler.getSources(req)));
+      router.get('/api/sources/<sourceId>/popular', (Request req, String sourceId) async =>
+          cors(await handler.getPopular(req, sourceId)));
+      router.get('/api/sources/<sourceId>/latest', (Request req, String sourceId) async =>
+          cors(await handler.getLatest(req, sourceId)));
+      router.get('/api/sources/<sourceId>/custom', (Request req, String sourceId) async =>
+          cors(await handler.getCustomList(req, sourceId)));
+      router.get('/api/sources/<sourceId>/search', (Request req, String sourceId) async =>
+          cors(await handler.search(req, sourceId)));
+      router.get('/api/sources/<sourceId>/filters', (Request req, String sourceId) async =>
+          cors(await handler.getFilters(req, sourceId)));
+      router.get('/api/sources/<sourceId>/videos', (Request req, String sourceId) async =>
+          cors(await handler.getVideos(req, sourceId)));
       router.get('/api/source/<sourceId>/popular', (Request req, String sourceId) async =>
           cors(await handler.getPopular(req, sourceId)));
       router.get('/api/source/<sourceId>/latest', (Request req, String sourceId) async =>
           cors(await handler.getLatest(req, sourceId)));
+      router.get('/api/source/<sourceId>/custom', (Request req, String sourceId) async =>
+          cors(await handler.getCustomList(req, sourceId)));
       router.get('/api/source/<sourceId>/search', (Request req, String sourceId) async =>
           cors(await handler.search(req, sourceId)));
       router.get('/api/source/<sourceId>/filters', (Request req, String sourceId) async =>

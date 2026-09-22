@@ -82,9 +82,36 @@ class RemoteApiHandler {
     } catch (e) { return _error(e.toString()); }
   }
 
+  Future<Response> getCustomList(Request req, String sourceId) async {
+    try {
+      final listId = req.url.queryParameters['listId'];
+      if (listId == null || listId.isEmpty) {
+        return _error('Missing listId param', status: 400);
+      }
+      final page = int.tryParse(req.url.queryParameters['page'] ?? '1') ?? 1;
+      final source = _findSource(sourceId);
+      if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
+      final result = await getIsolateService.get<MPages?>(
+        url: listId,
+        page: page,
+        source: source,
+        serviceType: 'getCustomList',
+        proxyServer: ref.read(androidProxyServerStateProvider),
+      );
+      return _json({
+        'mangas': _pagesToList(result),
+        'hasNextPage': result?.hasNextPage ?? false,
+      });
+    } catch (e) { return _error(e.toString()); }
+  }
+
   Future<Response> search(Request req, String sourceId) async {
     try {
-      final q = req.url.queryParameters['q'] ?? '';
+      final q = req.url.queryParameters['q'] ??
+          req.url.queryParameters['query'] ??
+          '';
       final page = int.tryParse(req.url.queryParameters['page'] ?? '1') ?? 1;
       final source = _findSource(sourceId);
       if (source == null) return _error('Source not found', status: 404);
