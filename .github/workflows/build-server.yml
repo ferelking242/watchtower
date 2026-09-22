@@ -63,11 +63,45 @@ jobs:
           path: watchtower-extensions
           lfs: true
 
-      - name: Build Linux
+      - name: Prepare Linux build
         run: |
           flutter config --enable-linux-desktop
           flutter pub get
-          flutter build linux --release
+
+      - name: Fix Linux desktop_webview_window for current GLib and Clang
+        run: |
+          WEBVIEW_SOURCE="$(find ~/.pub-cache/git -path '*/desktop_webview_window-*/packages/desktop_webview_window/linux/webview_window.cc' -print -quit)"
+          WEBVIEW_CMAKE="$(find ~/.pub-cache/hosted/pub.dev -path '*/flutter_inappwebview_linux-*/linux/CMakeLists.txt' -print -quit)"
+          test -n "$WEBVIEW_SOURCE"
+          test -n "$WEBVIEW_CMAKE"
+          python3 - "$WEBVIEW_SOURCE" <<'PY'
+          from pathlib import Path
+          import sys
+
+          source = Path(sys.argv[1])
+          text = source.read_text()
+          old = """    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));
+
+    if (expires >= 0)
+"""
+          new = """    GDateTime *expires_time = soup_cookie_get_expires(cookie);
+    gdouble expires = expires_time == nullptr
+        ? -1
+        : static_cast<gdouble>(g_date_time_to_unix(expires_time));
+
+    if (expires >= 0)
+"""
+          if old not in text:
+              raise SystemExit("desktop_webview_window GLib code was not found")
+          source.write_text(text.replace(old, new, 1))
+          PY
+          sed -i 's/ -Wno-deprecated-literal-operator//g' "$WEBVIEW_CMAKE"
+
+      - name: Build Linux
+        env:
+          CFLAGS: "-Wno-unknown-warning-option"
+          CXXFLAGS: "-Wno-unknown-warning-option"
+        run: flutter build linux --release
 
       - name: Smoke test the headless CLI
         run: |
