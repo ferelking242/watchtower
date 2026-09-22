@@ -503,10 +503,12 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   Future<void> _addDownloadsToLibrary() async {
     _toast("Vérification en cours…");
     try {
-      final downloads = await isar.downloads
-          .filter()
-          .isDownloadEqualTo(true)
-          .findAll();
+      // isar_community can reject filters on nullable bool properties at
+      // runtime. Read the collection without a filter and apply the
+      // predicate in Dart.
+      final downloads = (await isar.downloads.where().findAll())
+          .where((download) => download.isDownload == true)
+          .toList();
 
       int added = 0;
       for (final dl in downloads) {
