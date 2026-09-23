@@ -122,10 +122,15 @@ GoRouter router(Ref ref) {
   // needsOnboarding is set in main() before runApp() and imported from
   // onboarding_state.dart which is already imported in this file.
   final destination = needsOnboarding ? '/onboarding' : mainLocation;
+  // On web, a direct visit must win over the app's default destination so
+  // browser routes such as /component-gallery are not replaced by home.
+  // Native platforms have no browser location to preserve.
+  final useBrowserLocation = kIsWeb && !needsOnboarding;
 
   return GoRouter(
     observers: [],
-    initialLocation: destination,
+    initialLocation: useBrowserLocation ? null : destination,
+    overridePlatformDefaultLocation: !useBrowserLocation,
     debugLogDiagnostics: kDebugMode,
     refreshListenable: router,
     routes: [...router._routes],
