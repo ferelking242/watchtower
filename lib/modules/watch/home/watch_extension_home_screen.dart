@@ -991,7 +991,7 @@ class _ExtensionPosterRail extends StatelessWidget {
                 top: 8,
                 bottom: 8,
               ),
-              child: _ExtensionPosterCard(
+              child: ExtensionPosterCard(
                 item: items[index],
                 width: cardWidth,
                 onTap: () => onOpen(items[index]),
@@ -1042,7 +1042,7 @@ class _ExtensionLandscapeRail extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, index) => _ExtensionLandscapeCard(
+            itemBuilder: (_, index) => ExtensionLandscapeCard(
               item: items[index],
               width: width,
               onTap: () => onOpen(items[index]),
@@ -1088,7 +1088,7 @@ class _ExtensionRankedRail extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (_, index) => _ExtensionRankedCard(
+            itemBuilder: (_, index) => ExtensionRankedCard(
               item: items[index],
               rank: index + 1,
               onTap: () => onOpen(items[index]),
@@ -1314,11 +1314,11 @@ class _ExtensionGridSection extends StatelessWidget {
               childAspectRatio: cardStyle == 'tag' ? 2.6 : .55,
             ),
             itemBuilder: (_, index) => cardStyle == 'tag'
-                ? _ExtensionTagCard(
+                ? ExtensionTagCard(
                     item: visible[index],
                     onTap: () => onOpen(visible[index]),
                   )
-                : _ExtensionPosterCard(
+                : ExtensionPosterCard(
                     item: visible[index],
                     width: double.infinity,
                     onTap: () => onOpen(visible[index]),
@@ -1506,7 +1506,7 @@ class _ExtensionStudioRail extends StatelessWidget {
                 final item = items[index + 1];
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: _ExtensionLandscapeCard(
+                  child: ExtensionLandscapeCard(
                     item: item,
                     width: 190,
                     onTap: () => onOpen(item),
@@ -1520,11 +1520,11 @@ class _ExtensionStudioRail extends StatelessWidget {
   }
 }
 
-class _ExtensionTagCard extends StatelessWidget {
+class ExtensionTagCard extends StatelessWidget {
   final MManga item;
   final VoidCallback onTap;
 
-  const _ExtensionTagCard({required this.item, required this.onTap});
+  const ExtensionTagCard({required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1566,12 +1566,12 @@ class _ExtensionTagCard extends StatelessWidget {
   }
 }
 
-class _ExtensionPosterCard extends StatelessWidget {
+class ExtensionPosterCard extends StatelessWidget {
   final MManga item;
   final double width;
   final VoidCallback onTap;
 
-  const _ExtensionPosterCard({
+  const ExtensionPosterCard({
     required this.item,
     required this.width,
     required this.onTap,
@@ -1612,12 +1612,12 @@ class _ExtensionPosterCard extends StatelessWidget {
   }
 }
 
-class _ExtensionLandscapeCard extends StatelessWidget {
+class ExtensionLandscapeCard extends StatelessWidget {
   final MManga item;
   final double width;
   final VoidCallback onTap;
 
-  const _ExtensionLandscapeCard({
+  const ExtensionLandscapeCard({
     required this.item,
     required this.width,
     required this.onTap,
@@ -1680,12 +1680,12 @@ class _ExtensionLandscapeCard extends StatelessWidget {
   }
 }
 
-class _ExtensionRankedCard extends StatelessWidget {
+class ExtensionRankedCard extends StatelessWidget {
   final MManga item;
   final int rank;
   final VoidCallback onTap;
 
-  const _ExtensionRankedCard({
+  const ExtensionRankedCard({
     required this.item,
     required this.rank,
     required this.onTap,

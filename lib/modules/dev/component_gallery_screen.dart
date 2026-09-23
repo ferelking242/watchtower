@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
+import 'package:watchtower/modules/home/widgets/discovery_card.dart';
+import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
+import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 
-enum _GalleryFilter { all, cards, loading, layouts }
+enum _GalleryFilter { all, tmdb, anime, extensions, loading }
 
 class ComponentGalleryScreen extends StatefulWidget {
   const ComponentGalleryScreen({super.key});
@@ -14,37 +20,32 @@ class ComponentGalleryScreen extends StatefulWidget {
 class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   _GalleryFilter _filter = _GalleryFilter.all;
 
-  bool _shows(bool isLoading, bool isLayout) {
-    return switch (_filter) {
-      _GalleryFilter.all => true,
-      _GalleryFilter.cards => !isLoading && !isLayout,
-      _GalleryFilter.loading => isLoading,
-      _GalleryFilter.layouts => isLayout,
-    };
-  }
+  bool _shows(_GalleryFilter filter) =>
+      _filter == _GalleryFilter.all || _filter == filter;
 
   @override
   Widget build(BuildContext context) {
+    final padding = AppUI.pagePadding(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0D12),
+      backgroundColor: const Color(0xFF0B0D10),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
             elevation: 0,
-            backgroundColor: const Color(0xFF0B0D12).withValues(alpha: .94),
+            backgroundColor: const Color(0xFF0B0D10).withValues(alpha: .95),
             surfaceTintColor: Colors.transparent,
-            titleSpacing: AppUI.pagePadding(context),
+            titleSpacing: padding,
             title: const Row(
               children: [
-                _GalleryLogo(),
-                SizedBox(width: 12),
-                Text('Component library'),
+                _GalleryMark(),
+                SizedBox(width: 11),
+                Text('Component gallery'),
               ],
             ),
             actions: [
               Padding(
-                padding: EdgeInsets.only(right: AppUI.pagePadding(context) - 8),
+                padding: EdgeInsets.only(right: padding - 8),
                 child: IconButton(
                   tooltip: 'Fermer',
                   onPressed: () => Navigator.of(context).maybePop(),
@@ -55,12 +56,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppUI.pagePadding(context),
-                30,
-                AppUI.pagePadding(context),
-                24,
-              ),
+              padding: EdgeInsets.fromLTRB(padding, 32, padding, 26),
               child: _GalleryIntro(
                 filter: _filter,
                 onFilterChanged: (value) => setState(() => _filter = value),
@@ -68,64 +64,57 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
             ),
           ),
           SliverPadding(
-            padding: EdgeInsets.only(
-              left: AppUI.pagePadding(context),
-              right: AppUI.pagePadding(context),
-              bottom: 80,
-            ),
+            padding: EdgeInsets.fromLTRB(padding, 0, padding, 88),
             sliver: SliverList(
-              delegate: SliverChildListDelegate(
-                [
-                  if (_shows(false, false))
-                    _GallerySection(
-                      eyebrow: '01 · Cards',
-                      title: 'Poster cards',
-                      description:
-                          'La base des rails Popular, Latest et des grilles catalogue.',
-                      child: _PosterShowcase(),
-                    ),
-                  if (_shows(false, false))
-                    _GallerySection(
-                      eyebrow: '02 · Cards',
-                      title: 'Landscape & backdrop',
-                      description:
-                          'Pour les rails vidéo, les studios et les contenus éditoriaux.',
-                      child: _LandscapeShowcase(),
-                    ),
-                  if (_shows(false, false))
-                    _GallerySection(
-                      eyebrow: '03 · Cards',
-                      title: 'Ranked, creator & studio',
-                      description:
-                          'Les cartes dédiées aux classements, personnes et collections.',
-                      child: _EditorialShowcase(),
-                    ),
-                  if (_shows(false, true))
-                    _GallerySection(
-                      eyebrow: '04 · Layout',
-                      title: 'Hero, banner & rails',
-                      description:
-                          'Les compositions de page qui combinent plusieurs cards.',
-                      child: const _LayoutShowcase(),
-                    ),
-                  if (_shows(false, true))
-                    _GallerySection(
-                      eyebrow: '05 · Layout',
-                      title: 'Tags & category grid',
-                      description:
-                          'La grille horizontale 3×3 et les pills de catégories.',
-                      child: const _TagShowcase(),
-                    ),
-                  if (_shows(true, false))
-                    _GallerySection(
-                      eyebrow: '06 · Loading',
-                      title: 'Skeleton states',
-                      description:
-                          'Les placeholders à vérifier avant chaque intégration de layout.',
-                      child: const _SkeletonShowcase(),
-                    ),
+              delegate: SliverChildListDelegate([
+                if (_shows(_GalleryFilter.tmdb)) ...[
+                  _GallerySection(
+                    eyebrow: '01 · TMDB / FILMS & SÉRIES',
+                    title: 'Cartes utilisées par l’accueil cinéma',
+                    description:
+                        'Ces widgets sont ceux branchés aux rails Films et Séries, avec leurs images TMDB réelles.',
+                    child: const _TmdbCardsShowcase(),
+                  ),
+                  _GallerySection(
+                    eyebrow: '02 · TMDB / ÉDITORIAL',
+                    title: 'Featured, paysage et classement',
+                    description:
+                        'Les variantes éditoriales réelles gardent les mêmes données, ratios et interactions que l’application.',
+                    child: const _TmdbEditorialShowcase(),
+                  ),
                 ],
-              ),
+                if (_shows(_GalleryFilter.anime))
+                  _GallerySection(
+                    eyebrow: '03 · ANILIST / ANIME',
+                    title: 'Cartes de découverte anime',
+                    description:
+                        'Catalogue des six variantes réellement utilisées sur l’accueil et la recherche AniList.',
+                    child: const _AnimeCardsShowcase(),
+                  ),
+                if (_shows(_GalleryFilter.extensions))
+                  _GallerySection(
+                    eyebrow: '04 · WATCH EXTENSIONS',
+                    title: 'Cartes de WatchExtensionHomeScreen',
+                    description:
+                        'Les composants ont été rendus réutilisables ici : la galerie et l’accueil d’extension affichent les mêmes widgets.',
+                    child: const _ExtensionCardsShowcase(),
+                  ),
+                if (_shows(_GalleryFilter.loading))
+                  _GallerySection(
+                    eyebrow: '05 · LOADING / INTERACTION',
+                    title: 'Skeleton puis résultat',
+                    description:
+                        'Glissez horizontalement : la première page montre le chargement réel, la seconde les cartes réelles avec affiches distantes.',
+                    child: const _SwipeStateShowcase(),
+                  ),
+                _GallerySection(
+                  eyebrow: 'AUDIT · 23 SEPTEMBRE 2026',
+                  title: 'Ce qui est réellement couvert',
+                  description:
+                      'La galerie ne fabrique plus de rectangles de démonstration : chaque nom ci-dessous correspond à une implémentation utilisée dans l’application.',
+                  child: const _AuditSummary(),
+                ),
+              ]),
             ),
           ),
         ],
@@ -134,23 +123,21 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   }
 }
 
-class _GalleryLogo extends StatelessWidget {
-  const _GalleryLogo();
+class _GalleryMark extends StatelessWidget {
+  const _GalleryMark();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 34,
-      height: 34,
+    return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(11),
+        color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: const Icon(Icons.auto_awesome_rounded, size: 18),
+      child: const SizedBox(
+        width: 32,
+        height: 32,
+        child: Icon(Icons.grid_view_rounded, size: 17),
+      ),
     );
   }
 }
@@ -159,10 +146,7 @@ class _GalleryIntro extends StatelessWidget {
   final _GalleryFilter filter;
   final ValueChanged<_GalleryFilter> onFilterChanged;
 
-  const _GalleryIntro({
-    required this.filter,
-    required this.onFilterChanged,
-  });
+  const _GalleryIntro({required this.filter, required this.onFilterChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -171,22 +155,24 @@ class _GalleryIntro extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Toutes les pièces d’interface, au même endroit.',
+          'Les vraies cartes, au même endroit.',
           style: theme.textTheme.displaySmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w800,
-            letterSpacing: -.8,
+            letterSpacing: -.9,
+            height: 1.05,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 13),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
           child: Text(
-            'Une bibliothèque rapide pour comparer les cards, les rails, les '
-            'layouts et leurs skeleton loading avant de les brancher aux données.',
+            'Galerie auditée des composants utilisés par les écrans Films, Séries, '
+            'AniList et WatchExtensionHomeScreen. Les affiches viennent de TMDB '
+            'et les états de chargement réutilisent les skeletons de production.',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: Colors.white60,
-              height: 1.45,
+              height: 1.5,
             ),
           ),
         ),
@@ -195,29 +181,29 @@ class _GalleryIntro extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _GalleryFilterChip(
+            _GalleryChip(
               label: 'Tout',
-              icon: Icons.dashboard_customize_outlined,
+              icon: Icons.dashboard_outlined,
               selected: filter == _GalleryFilter.all,
               onTap: () => onFilterChanged(_GalleryFilter.all),
             ),
-            _GalleryFilterChip(
-              label: 'Cards',
-              icon: Icons.crop_portrait_outlined,
-              selected: filter == _GalleryFilter.cards,
-              onTap: () => onFilterChanged(_GalleryFilter.cards),
+            _GalleryChip(
+              label: 'Films / séries',
+              icon: Icons.local_movies_outlined,
+              selected: filter == _GalleryFilter.tmdb,
+              onTap: () => onFilterChanged(_GalleryFilter.tmdb),
             ),
-            _GalleryFilterChip(
-              label: 'Skeletons',
+            _GalleryChip(
+              label: 'Extensions',
+              icon: Icons.extension_outlined,
+              selected: filter == _GalleryFilter.extensions,
+              onTap: () => onFilterChanged(_GalleryFilter.extensions),
+            ),
+            _GalleryChip(
+              label: 'Skeleton',
               icon: Icons.hourglass_empty_rounded,
               selected: filter == _GalleryFilter.loading,
               onTap: () => onFilterChanged(_GalleryFilter.loading),
-            ),
-            _GalleryFilterChip(
-              label: 'Layouts',
-              icon: Icons.view_quilt_outlined,
-              selected: filter == _GalleryFilter.layouts,
-              onTap: () => onFilterChanged(_GalleryFilter.layouts),
             ),
           ],
         ),
@@ -226,13 +212,13 @@ class _GalleryIntro extends StatelessWidget {
   }
 }
 
-class _GalleryFilterChip extends StatelessWidget {
+class _GalleryChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _GalleryFilterChip({
+  const _GalleryChip({
     required this.label,
     required this.icon,
     required this.selected,
@@ -241,6 +227,7 @@ class _GalleryFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return FilterChip(
       selected: selected,
       onSelected: (_) => onTap(),
@@ -254,13 +241,13 @@ class _GalleryFilterChip extends StatelessWidget {
         color: selected ? Colors.white : Colors.white70,
         fontWeight: FontWeight.w700,
       ),
-      backgroundColor: const Color(0xFF171A23),
-      selectedColor: const Color(0xFF7048D8),
+      backgroundColor: const Color(0xFF161A20),
+      selectedColor: accent,
       checkmarkColor: Colors.white,
       side: BorderSide(
-        color: selected ? const Color(0xFF9C7BFF) : Colors.white12,
+        color: selected ? accent.withValues(alpha: .8) : Colors.white12,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
     );
   }
 }
@@ -281,289 +268,38 @@ class _GallerySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 44),
+      padding: const EdgeInsets.only(bottom: 46),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            eyebrow.toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFFB193FF),
-              fontSize: 11,
+            eyebrow,
+            style: TextStyle(
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: .9),
+              fontSize: 10,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
+              letterSpacing: 1.35,
             ),
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 8),
           Text(
             title,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 25,
+              fontSize: 24,
               fontWeight: FontWeight.w800,
-              letterSpacing: -.4,
+              letterSpacing: -.45,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Text(
             description,
-            style: const TextStyle(color: Colors.white54, height: 1.35),
+            style: const TextStyle(color: Colors.white54, height: 1.4),
           ),
           const SizedBox(height: 18),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _PosterShowcase extends StatelessWidget {
-  const _PosterShowcase();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GalleryPanel(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth < 640 ? 108.0 : 132.0;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 22,
-            children: [
-              for (final item in const [
-                ('Dune: Part Two', '2024 · 8.7', Color(0xFFB26E45)),
-                ('The Last of Us', 'S02 · 9.1', Color(0xFF355D65)),
-                ('Arcane', 'S01 · 8.8', Color(0xFF59426F)),
-                ('The Bear', 'S03 · 8.5', Color(0xFF8E4D31)),
-                ('Severance', 'S02 · 8.9', Color(0xFF426B73)),
-              ])
-                _GalleryPosterCard(
-                  title: item.$1,
-                  subtitle: item.$2,
-                  width: width,
-                  color: item.$3,
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _LandscapeShowcase extends StatelessWidget {
-  const _LandscapeShowcase();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GalleryPanel(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth < 640 ? 220.0 : 270.0;
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final item in const [
-                  ('Studio feature', 'A large banner with metadata', Color(0xFF5C3E87)),
-                  ('Landscape card', '16:9 video rail', Color(0xFF1E6871)),
-                  ('Backdrop card', 'Editorial discovery', Color(0xFF8A4933)),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 14),
-                    child: _GalleryLandscapeCard(
-                      title: item.$1,
-                      subtitle: item.$2,
-                      width: width,
-                      color: item.$3,
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _EditorialShowcase extends StatelessWidget {
-  const _EditorialShowcase();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GalleryPanel(
-      child: Wrap(
-        spacing: 22,
-        runSpacing: 26,
-        children: [
-          _GalleryRankedCard(
-            title: 'Top Rated',
-            items: const ['The Bear', 'Dune', 'Arcane'],
-          ),
-          const _GalleryCreatorCard(
-            name: 'Sofia Hart',
-            role: 'Pornstar / Creator',
-            color: Color(0xFF8656A4),
-          ),
-          const _GalleryStudioCard(
-            name: 'Neon Studios',
-            videos: '24 videos',
-            color: Color(0xFF305F67),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LayoutShowcase extends StatelessWidget {
-  const _LayoutShowcase();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GalleryPanel(
-      child: Column(
-        children: [
-          _GalleryHeroCard(
-            title: 'Hero / banner',
-            subtitle: 'The first content card anchors the whole page.',
-            color: const Color(0xFF563A83),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _GalleryMiniLayout(
-                  icon: Icons.view_carousel_outlined,
-                  title: 'Horizontal rail',
-                  detail: 'Popular · Latest · Compact',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _GalleryMiniLayout(
-                  icon: Icons.grid_view_rounded,
-                  title: 'Catalogue grid',
-                  detail: '3 columns · poster cards',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TagShowcase extends StatelessWidget {
-  const _TagShowcase();
-
-  @override
-  Widget build(BuildContext context) {
-    // Row-major Flutter grid data that renders column-major visually:
-    // 1 4 7 / 2 5 8 / 3 6 9.
-    const tags = [
-      (1, 'Anal'),
-      (4, 'Big Tits'),
-      (7, 'Lesbian'),
-      (2, 'Asian'),
-      (5, 'Casting'),
-      (8, 'Mature'),
-      (3, 'BDSM'),
-      (6, 'Homemade'),
-      (9, 'Russian'),
-    ];
-    return _GalleryPanel(
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: tags.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          mainAxisExtent: 76,
-        ),
-        itemBuilder: (context, index) => _GalleryTagCard(
-          number: tags[index].$1,
-          title: tags[index].$2,
-          width: double.infinity,
-          color: Color.lerp(
-            const Color(0xFF245D67),
-            const Color(0xFF7F4C82),
-            index / 8,
-          )!,
-        ),
-      ),
-    );
-  }
-}
-
-class _SkeletonShowcase extends StatelessWidget {
-  const _SkeletonShowcase();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GalleryPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SkeletonLabel(label: 'Poster row'),
-          SizedBox(
-            height: 210,
-            child: AppMediaRowShimmer(
-              itemWidth: MediaQuery.sizeOf(context).width < 650 ? 88 : 112,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const _SkeletonLabel(label: 'Poster grid'),
-          const SizedBox(height: 340, child: AppMediaGridShimmer()),
-          const SizedBox(height: 20),
-          const _SkeletonLabel(label: 'Hero + ranked + landscape'),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              return Column(
-                children: [
-                  AppHeroShimmer(
-                    height: width < 600 ? 190 : 240,
-                  ),
-                  const SizedBox(height: 18),
-                  const SizedBox(height: 190, child: AppRankedRowShimmer()),
-                  const SizedBox(height: 18),
-                  const SizedBox(height: 165, child: AppLandscapeRowShimmer()),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SkeletonLabel extends StatelessWidget {
-  final String label;
-
-  const _SkeletonLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          const Icon(Icons.animation_rounded, size: 14, color: Colors.white38),
-          const SizedBox(width: 7),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          _GalleryPanel(child: child),
         ],
       ),
     );
@@ -579,7 +315,7 @@ class _GalleryPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF12151D),
+        color: const Color(0xFF11151B),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10),
       ),
@@ -588,341 +324,509 @@ class _GalleryPanel extends StatelessWidget {
   }
 }
 
-class _GalleryPosterCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final double width;
-  final Color color;
+const _tmdbItems = <TmdbMedia>[
+  TmdbMedia(
+    id: 693134,
+    mediaType: 'movie',
+    titleEn: 'Dune : Deuxième partie',
+    titleFr: 'Dune : Deuxième partie',
+    posterPath: '/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
+    backdropPath: '/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
+    voteAverage: 8.2,
+    releaseDate: '2024-02-27',
+  ),
+  TmdbMedia(
+    id: 157336,
+    mediaType: 'movie',
+    titleEn: 'Interstellar',
+    titleFr: 'Interstellar',
+    posterPath: '/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+    backdropPath: '/pbrkL804c8yAv3zBZR4QPEafpAR.jpg',
+    voteAverage: 8.4,
+    releaseDate: '2014-11-05',
+  ),
+  TmdbMedia(
+    id: 872585,
+    mediaType: 'movie',
+    titleEn: 'Oppenheimer',
+    titleFr: 'Oppenheimer',
+    posterPath: '/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+    backdropPath: '/rLb2cwF3Pazuxaj0sRXQ037tGI1.jpg',
+    voteAverage: 8.1,
+    releaseDate: '2023-07-19',
+  ),
+  TmdbMedia(
+    id: 1399,
+    mediaType: 'tv',
+    titleEn: 'Game of Thrones',
+    titleFr: 'Game of Thrones',
+    posterPath: '/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
+    backdropPath: '/m0bV4D3dZQYjF4gUeR5Y4kK8v8c.jpg',
+    voteAverage: 8.4,
+    firstAirDate: '2011-04-17',
+  ),
+  TmdbMedia(
+    id: 94605,
+    mediaType: 'tv',
+    titleEn: 'Arcane',
+    titleFr: 'Arcane',
+    posterPath: '/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg',
+    backdropPath: '/rkB4LyZHo1NHXFEDHl8M3g1Q3Q.jpg',
+    voteAverage: 8.7,
+    firstAirDate: '2021-11-06',
+  ),
+];
 
-  const _GalleryPosterCard({
-    required this.title,
-    required this.subtitle,
-    required this.width,
-    required this.color,
-  });
+const _animeItems = <AnilistMedia>[
+  AnilistMedia(
+    id: 21,
+    type: 'ANIME',
+    titleEnglish: 'One Piece',
+    titleRomaji: 'One Piece',
+    coverLarge:
+        'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
+    bannerImage:
+        'https://image.tmdb.org/t/p/w1280/m0bV4D3dZQYjF4gUeR5Y4kK8v8c.jpg',
+    averageScore: 87,
+    format: 'TV',
+    episodes: 1122,
+    genres: ['Action', 'Aventure'],
+    countryOfOrigin: 'JP',
+  ),
+  AnilistMedia(
+    id: 16498,
+    type: 'ANIME',
+    titleEnglish: 'Attack on Titan',
+    titleRomaji: 'Shingeki no Kyojin',
+    coverLarge:
+        'https://image.tmdb.org/t/p/w500/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg',
+    bannerImage:
+        'https://image.tmdb.org/t/p/w1280/2LquGwEhbg3soxSCmYcW5s3j5Yw.jpg',
+    averageScore: 91,
+    format: 'TV',
+    episodes: 89,
+    genres: ['Action', 'Drame'],
+    countryOfOrigin: 'JP',
+  ),
+  AnilistMedia(
+    id: 52991,
+    type: 'ANIME',
+    titleEnglish: 'Frieren: Beyond Journey’s End',
+    titleRomaji: 'Sousou no Frieren',
+    coverLarge:
+        'https://image.tmdb.org/t/p/w500/edZf3G2qkU8aT5s8H3rY5yJ2XbG.jpg',
+    averageScore: 90,
+    format: 'TV',
+    episodes: 28,
+    genres: ['Fantasy', 'Aventure'],
+    countryOfOrigin: 'JP',
+  ),
+];
+
+final _extensionItems = [
+  MManga(
+    name: 'Dune : Deuxième partie',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
+    description: 'Un exemple de résultat fourni par une extension vidéo.',
+    genre: ['Science-fiction', 'Aventure'],
+  ),
+  MManga(
+    name: 'Interstellar',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+    genre: ['Drame', 'Science-fiction'],
+  ),
+  MManga(
+    name: 'Oppenheimer',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+    genre: ['Histoire', 'Drame'],
+  ),
+  MManga(
+    name: 'Arcane',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg',
+    genre: ['Animation', 'Drame'],
+  ),
+];
+
+class _TmdbCardsShowcase extends StatelessWidget {
+  const _TmdbCardsShowcase();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 2 / 3,
-            child: _GalleryImage(
-              color: color,
-              icon: Icons.movie_creation_outlined,
-              label: 'POSTER',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _ShowcaseLabel(
+          name: 'TmdbPosterCard',
+          detail: 'Poster standard · 2:3 · rail Films / Séries',
+        ),
+        SizedBox(
+          height: 214,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _tmdbItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => TmdbPosterCard(
+              media: _tmdbItems[index],
+              width: 112,
+              heroTag: 'gallery-poster-${_tmdbItems[index].id}',
+              onTap: () {},
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+        ),
+        const SizedBox(height: 24),
+        const _ShowcaseLabel(
+          name: 'TmdbCompactPosterCard',
+          detail: 'Poster compact · utilisé dans les grilles multi-lignes',
+        ),
+        SizedBox(
+          height: 174,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _tmdbItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, index) => TmdbCompactPosterCard(
+              media: _tmdbItems[index],
+              width: 92,
+              onTap: () {},
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _GalleryLandscapeCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final double width;
-  final Color color;
-
-  const _GalleryLandscapeCard({
-    required this.title,
-    required this.subtitle,
-    required this.width,
-    required this.color,
-  });
+class _TmdbEditorialShowcase extends StatelessWidget {
+  const _TmdbEditorialShowcase();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _GalleryImage(
-                  color: color,
-                  icon: Icons.play_circle_outline_rounded,
-                  label: '16 : 9',
-                ),
-                const Positioned(
-                  right: 10,
-                  bottom: 10,
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.white24,
-                    child: Icon(Icons.play_arrow_rounded, color: Colors.white),
-                  ),
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _ShowcaseLabel(
+          name: 'TmdbLandscapeCard',
+          detail: 'Paysage · 16:9 · rails Now playing / Airing today',
+        ),
+        SizedBox(
+          height: 158,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _tmdbItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => TmdbLandscapeCard(
+              media: _tmdbItems[index],
+              width: 228,
+              heroTag: 'gallery-landscape-${_tmdbItems[index].id}',
+              onTap: () {},
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+        ),
+        const SizedBox(height: 24),
+        const _ShowcaseLabel(
+          name: 'TmdbRankedCard',
+          detail: 'Classement · poster avec rang #1, #2, #3',
+        ),
+        SizedBox(
+          height: 194,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _tmdbItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, index) => TmdbRankedCard(
+              media: _tmdbItems[index],
+              rank: index + 1,
+              heroTag: 'gallery-ranked-${_tmdbItems[index].id}',
+              onTap: () {},
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _GalleryRankedCard extends StatelessWidget {
-  final String title;
-  final List<String> items;
-
-  const _GalleryRankedCard({required this.title, required this.items});
+class _AnimeCardsShowcase extends StatelessWidget {
+  const _AnimeCardsShowcase();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 250,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _ShowcaseLabel(
+          name: 'DiscoveryCard',
+          detail: 'Poster AniList standard · score, pays et format',
+        ),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _animeItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => DiscoveryCard(
+              media: _animeItems[index],
+              width: 116,
+              onTap: () {},
             ),
           ),
-          const SizedBox(height: 10),
-          for (var i = 0; i < items.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 9),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 30,
-                    child: Text(
-                      '${i + 1}',
-                      style: TextStyle(
-                        color: i == 0 ? const Color(0xFFFFC857) : Colors.white38,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
+        ),
+        const SizedBox(height: 24),
+        const _ShowcaseLabel(
+          name: 'FeaturedDiscoveryCard · SagaDiscoveryCard',
+          detail: 'Featured 3:4 et saga 16:10 · rails éditoriaux anime',
+        ),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _animeItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => index.isEven
+                ? FeaturedDiscoveryCard(media: _animeItems[index], onTap: () {})
+                : SagaDiscoveryCard(media: _animeItems[index], onTap: () {}),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const _ShowcaseLabel(
+          name:
+              'RankedDiscoveryCard · LandscapeDiscoveryCard · SpotlightDiscoveryCard',
+          detail: 'Rang, paysage 16:9 et spotlight cinématique',
+        ),
+        SizedBox(
+          height: 184,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _animeItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) {
+              final media = _animeItems[index];
+              return switch (index % 3) {
+                0 => RankedDiscoveryCard(
+                  media: media,
+                  rank: index + 1,
+                  onTap: () {},
+                ),
+                1 => LandscapeDiscoveryCard(media: media, onTap: () {}),
+                _ => SizedBox(
+                  width: 318,
+                  child: SpotlightDiscoveryCard(media: media, onTap: () {}),
+                ),
+              };
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionCardsShowcase extends StatelessWidget {
+  const _ExtensionCardsShowcase();
+
+  @override
+  Widget build(BuildContext context) {
+    final item = _extensionItems.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _ShowcaseLabel(
+          name: 'ExtensionPosterCard',
+          detail:
+              'Carte poster de WatchExtensionHomeScreen · résultat extension',
+        ),
+        SizedBox(
+          height: 210,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _extensionItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => ExtensionPosterCard(
+              item: _extensionItems[index],
+              width: 112,
+              onTap: () {},
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const _ShowcaseLabel(
+          name: 'ExtensionLandscapeCard',
+          detail: 'Carte paysage 16:9 avec action de lecture',
+        ),
+        SizedBox(
+          height: 158,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _extensionItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => ExtensionLandscapeCard(
+              item: _extensionItems[index],
+              width: 228,
+              onTap: () {},
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const _ShowcaseLabel(
+          name: 'ExtensionRankedCard · ExtensionTagCard · AppGenreTile',
+          detail:
+              'Classement, tag et tuile genre employés par les layouts d’extension',
+        ),
+        SizedBox(
+          height: 198,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 130,
+                height: 198,
+                child: ExtensionRankedCard(item: item, rank: 1, onTap: () {}),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 76,
+                      child: ExtensionTagCard(item: item, onTap: () {}),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: AppGenreTile(
+                        label: 'Science-fiction',
+                        imageUrl: item.imageUrl,
+                        onTap: () {},
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      items[i],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${8 + i}.${7 - i}',
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-        ],
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _GalleryCreatorCard extends StatelessWidget {
-  final String name;
-  final String role;
-  final Color color;
+class _SwipeStateShowcase extends StatefulWidget {
+  const _SwipeStateShowcase();
 
-  const _GalleryCreatorCard({
-    required this.name,
-    required this.role,
-    required this.color,
-  });
+  @override
+  State<_SwipeStateShowcase> createState() => _SwipeStateShowcaseState();
+}
+
+class _SwipeStateShowcaseState extends State<_SwipeStateShowcase> {
+  final _controller = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 150,
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 48,
-            backgroundColor: color,
-            child: const Icon(Icons.person_rounded, size: 48, color: Colors.white70),
+    return Column(
+      children: [
+        SizedBox(
+          height: 328,
+          child: PageView(
+            controller: _controller,
+            onPageChanged: (page) => setState(() => _page = page),
+            children: const [_LoadingStatePage(), _ResultStatePage()],
           ),
-          const SizedBox(height: 10),
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _StateDot(active: _page == 0),
+            const SizedBox(width: 6),
+            _StateDot(active: _page == 1),
+          ],
+        ),
+        const SizedBox(height: 9),
+        Text(
+          _page == 0
+              ? '1 / 2 · Skeleton de production'
+              : '2 / 2 · Résultat avec affiches TMDB',
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
-          const SizedBox(height: 3),
-          Text(
-            role,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _GalleryStudioCard extends StatelessWidget {
-  final String name;
-  final String videos;
-  final Color color;
-
-  const _GalleryStudioCard({
-    required this.name,
-    required this.videos,
-    required this.color,
-  });
+class _LoadingStatePage extends StatelessWidget {
+  const _LoadingStatePage();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 220,
-      child: Stack(
-        children: [
-          AspectRatio(
-            aspectRatio: 1.65,
-            child: _GalleryImage(
-              color: color,
-              icon: Icons.business_rounded,
-              label: 'STUDIO',
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _StateHeader(
+          icon: Icons.hourglass_top_rounded,
+          title: 'Loading state',
+          detail: 'AppMediaRowShimmer · AppLandscapeRowShimmer',
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 196,
+          child: AppMediaRowShimmer(
+            itemWidth: MediaQuery.sizeOf(context).width < 650 ? 88 : 108,
           ),
-          Positioned(
-            left: 12,
-            right: 12,
-            bottom: 10,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Text(
-                  videos,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _GalleryHeroCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color color;
-
-  const _GalleryHeroCard({
-    required this.title,
-    required this.subtitle,
-    required this.color,
-  });
+class _ResultStatePage extends StatelessWidget {
+  const _ResultStatePage();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 190,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _GalleryImage(
-            color: color,
-            icon: Icons.auto_awesome_motion_rounded,
-            label: 'HERO / BANNER',
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Color(0xE6000000)],
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _StateHeader(
+          icon: Icons.check_circle_outline_rounded,
+          title: 'Result state',
+          detail: 'TmdbPosterCard · image réseau réelle',
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 214,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _tmdbItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => TmdbPosterCard(
+              media: _tmdbItems[index],
+              width: 112,
+              heroTag: 'swipe-result-${_tmdbItems[index].id}',
+              onTap: () {},
             ),
           ),
-          Positioned(
-            left: 18,
-            right: 18,
-            bottom: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _GalleryMiniLayout extends StatelessWidget {
+class _StateHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final String detail;
 
-  const _GalleryMiniLayout({
+  const _StateHeader({
     required this.icon,
     required this.title,
     required this.detail,
@@ -930,31 +834,97 @@ class _GalleryMiniLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
+    final accent = Theme.of(context).colorScheme.primary;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: accent),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                detail,
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+        const Icon(Icons.swipe_rounded, color: Colors.white38, size: 18),
+      ],
+    );
+  }
+}
+
+class _StateDot extends StatelessWidget {
+  final bool active;
+
+  const _StateDot({required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: active ? 20 : 6,
+      height: 6,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .04),
-        borderRadius: BorderRadius.circular(14),
+        color: active ? Theme.of(context).colorScheme.primary : Colors.white24,
+        borderRadius: BorderRadius.circular(8),
       ),
+    );
+  }
+}
+
+class _ShowcaseLabel extends StatelessWidget {
+  final String name;
+  final String detail;
+
+  const _ShowcaseLabel({required this.name, required this.detail});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFFAE92FF)),
-          const SizedBox(width: 10),
+          Container(
+            width: 3,
+            height: 30,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  name,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   detail,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
@@ -965,112 +935,76 @@ class _GalleryMiniLayout extends StatelessWidget {
   }
 }
 
-class _GalleryTagCard extends StatelessWidget {
-  final int number;
-  final String title;
-  final double width;
-  final Color color;
+class _AuditSummary extends StatelessWidget {
+  const _AuditSummary();
 
-  const _GalleryTagCard({
-    required this.number,
-    required this.title,
-    required this.width,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: 76,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: ColoredBox(
-          color: color,
-          child: Stack(
-            children: [
-              Positioned(
-                right: -7,
-                top: -15,
-                child: Text(
-                  '$number',
-                  style: const TextStyle(
-                    color: Colors.white12,
-                    fontSize: 72,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 13,
-                right: 10,
-                bottom: 11,
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GalleryImage extends StatelessWidget {
-  final Color color;
-  final IconData icon;
-  final String label;
-
-  const _GalleryImage({
-    required this.color,
-    required this.icon,
-    required this.label,
-  });
+  static const _rows = [
+    (
+      'TMDB',
+      'TmdbPosterCard · TmdbCompactPosterCard · TmdbLandscapeCard · TmdbRankedCard',
+    ),
+    ('AniList', 'DiscoveryCard · RankedDiscoveryCard · LandscapeDiscoveryCard'),
+    (
+      'AniList éditorial',
+      'FeaturedDiscoveryCard · SagaDiscoveryCard · SpotlightDiscoveryCard',
+    ),
+    (
+      'Extensions',
+      'ExtensionPosterCard · ExtensionLandscapeCard · ExtensionRankedCard · ExtensionTagCard',
+    ),
+    (
+      'Commun',
+      'AppGenreTile · AppCrossfadeCarousel · AppMediaRowShimmer · AppMediaGridShimmer',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color, Color.lerp(color, Colors.black, .58)!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned(
-            right: -16,
-            top: -22,
-            child: Icon(icon, size: 120, color: Colors.white.withValues(alpha: .08)),
-          ),
-          Center(
-            child: Icon(icon, size: 30, color: Colors.white.withValues(alpha: .72)),
-          ),
-          Positioned(
-            left: 12,
-            bottom: 10,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-              ),
+    return Column(
+      children: [
+        for (var index = 0; index < _rows.length; index++)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: index == _rows.length - 1 ? 0 : 13,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 78,
+                  child: Text(
+                    _rows[index].$1,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    _rows[index].$2,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        const SizedBox(height: 16),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Conclusion : la galerie couvre les familles de cartes réellement appelées '
+            'par les écrans Films/Séries et WatchExtensionHomeScreen. Les cartes de '
+            'téléchargement, manga et musique restent hors de ce catalogue média.',
+            style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.45),
+          ),
+        ),
+      ],
     );
   }
 }
