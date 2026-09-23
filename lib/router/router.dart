@@ -55,7 +55,6 @@ import 'package:watchtower/modules/browse/global_search/global_search_screen.dar
 import 'package:watchtower/modules/main_view/main_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
-import 'package:watchtower/modules/library/main_library_screen.dart';
 import 'package:watchtower/modules/home/anilist_browse_screen.dart';
 import 'package:watchtower/modules/home/anilist_detail_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -122,15 +121,10 @@ GoRouter router(Ref ref) {
   // needsOnboarding is set in main() before runApp() and imported from
   // onboarding_state.dart which is already imported in this file.
   final destination = needsOnboarding ? '/onboarding' : mainLocation;
-  // On web, a direct visit must win over the app's default destination so
-  // browser routes such as /component-gallery are not replaced by home.
-  // Native platforms have no browser location to preserve.
-  final useBrowserLocation = kIsWeb && !needsOnboarding;
 
   return GoRouter(
     observers: [],
-    initialLocation: useBrowserLocation ? null : destination,
-    overridePlatformDefaultLocation: !useBrowserLocation,
+    initialLocation: destination,
     debugLogDiagnostics: kDebugMode,
     refreshListenable: router,
     routes: [...router._routes],
@@ -190,19 +184,12 @@ class RouterCurrentLocationState extends _$RouterCurrentLocationState {
 
 class RouterNotifier extends ChangeNotifier {
   List<RouteBase> get _routes => [
-    _genericRoute(
-      name: "componentGallery",
-      path: "/component-gallery",
-      child: const ComponentGalleryScreen(),
-    ),
     ShellRoute(
       builder: (context, state, child) => MainScreen(child: child),
       routes: [
-        _genericRoute<String?>(
+        _genericRoute(
           name: "Library",
-          allowNullExtra:
-              true, // opened from the dock without extra → presetInput=null is the normal state
-          builder: (id) => MainLibraryScreen(presetInput: id),
+          child: const ComponentGalleryScreen(),
         ),
         _genericRoute(
           name: "MangaLibrary",
