@@ -341,7 +341,7 @@ String _sourcePath(String root, Map<String, dynamic> metadata) {
   final parsed = Uri.tryParse(raw);
   final path = parsed?.path ?? raw;
   final marker = path.indexOf('/src/');
-  if (marker >= 0) return '$root${path.substring(marker + 1)}';
+  if (marker >= 0) return '$root/${path.substring(marker + 1)}';
   final pkgPath = metadata['pkgPath']?.toString() ?? '';
   if (pkgPath.startsWith('src/')) return '$root$pkgPath';
   return '$root/$pkgPath';

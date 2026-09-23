@@ -140,19 +140,21 @@ jobs:
           # caching=true: safe because the Gradle Actions cache key above includes
           # all Dart sources — any code change busts the cache → no stale task output.
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
-          # The normal app is ARM64-only; CI validates every Android ABI.
-          ORG_GRADLE_PROJECT_watchtowerCiAllAbis: "true"
+          # Keep the ABI filter aligned with the requested Flutter engine.
+          # The app module intentionally disables Gradle ABI splits, so using
+          # --split-per-abi here makes Flutter look for files Gradle never
+          # creates (app-<abi>-profile.apk) and reports a false build failure.
+          ORG_GRADLE_PROJECT_watchtowerCiAbi: "${{ matrix.label }}"
         run: |
           flutter build apk \
             --profile \
             --target-platform ${{ matrix.target }} \
-            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
-            --split-per-abi
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
       - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
         run: |
           mkdir -p artifacts apk_raw
-          TARGET_APK="build/app/outputs/flutter-apk/app-${{ matrix.label }}-profile.apk"
+          TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
           if [ ! -f "$TARGET_APK" ]; then
             echo "ERROR: $TARGET_APK not found. Available:"
             ls -lh build/app/outputs/flutter-apk/ || true
@@ -569,8 +571,8 @@ jobs:
 
           source = Path(sys.argv[1])
           text = source.read_text()
-          method = "    @available(macOS 10.15, *)\n    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
-          pattern = r"(?m)^[ \t]*(?:@available\(macOS 10\.15, \*\)[ \t]*\n[ \t]*)?(?:@MainActor[ \t]+)?public func presentationAnchor\(for session: ASWebAuthenticationSession\)"
+          method = "    @available(macOS 10.14, *)\n    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
+          pattern = r"(?m)^[ \t]*(?:@available\(macOS \d+\.\d+, \*\)[ \t]*\n[ \t]*)?(?:@MainActor[ \t]+)?public func presentationAnchor\(for session: ASWebAuthenticationSession\)"
           patched, count = re.subn(pattern, method, text, count=1)
           if count != 1:
               raise SystemExit("flutter_inappwebview_macos authentication method was not found")
@@ -1042,7 +1044,7 @@ jobs:
 
       - name: Build iOS Simulator app
         run: |
-          flutter build ios --simulator --release --no-codesign \
+          flutter build ios --simulator --debug --no-codesign \
             --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
           test -d build/ios/iphonesimulator/Runner.app
 

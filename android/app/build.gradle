@@ -32,8 +32,11 @@ if (flutterVersionName == null) {
 // Android ABIs supported by the Flutter engine so phones, TVs, emulators,
 // and legacy ARM devices all get a real native artifact.
 def watchtowerCiAllAbis = project.findProperty('watchtowerCiAllAbis') == 'true'
+def watchtowerCiAbi = project.findProperty('watchtowerCiAbi')?.toString()
 def watchtowerAbis = watchtowerCiAllAbis
         ? ['armeabi-v7a', 'arm64-v8a', 'x86_64']
+        : watchtowerCiAbi != null
+        ? [watchtowerCiAbi]
         : ['arm64-v8a']
 def watchtowerNativeExcludes = watchtowerCiAllAbis
         ? []

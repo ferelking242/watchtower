@@ -5,6 +5,9 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
+import 'package:watchtower/stubs/js_bytecode_stub.dart'
+    if (dart.library.ffi) 'package:watchtower/stubs/js_bytecode_native.dart'
+    as js_bytecode;
 import 'package:watchtower/eval/javascript/dom_selector.dart';
 import 'package:watchtower/eval/javascript/extractors.dart';
 import 'package:watchtower/eval/javascript/http.dart';
@@ -343,7 +346,8 @@ function extLog(level, msg) {
       _extDebug('$_id · bytecode cache HIT (${bytecode.length} bytes)');
     } else {
       try {
-        final compiledBytecode = runtime.compile(
+        final compiledBytecode = js_bytecode.compileJs(
+          runtime,
           script,
           'extension-${source.id ?? source.name ?? "unknown"}.js',
         );
@@ -361,7 +365,7 @@ function extLog(level, msg) {
 
     late final JsEvalResult result;
     try {
-      result = runtime.evaluateBytecode(bytecode);
+      result = js_bytecode.evalBytecode(runtime, bytecode);
     } catch (error) {
       _removeCachedBytecode(cacheKey);
       _extWarn('$_id · bytecode evaluation unavailable; retrying source evaluation: $error');
