@@ -180,6 +180,15 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
       return isFr ? (_kFrLabels[route] ?? base) : base;
     }
 
+    // Keep the component gallery easy to find from the menu even when
+    // Library is also present in the bottom dock.
+    const menuFirstRoutes = ['/Library'];
+    for (final r in menuFirstRoutes) {
+      final info = kWtRouteInfo[r];
+      if (info == null || !seen.add(r)) continue;
+      items.add(_MenuItem(route: r, label: label(r), icon: info.$2));
+    }
+
     for (final r in widget.overflowRoutes) {
       final info = kWtRouteInfo[r];
       if (info == null || !seen.add(r)) continue;
