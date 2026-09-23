@@ -81,6 +81,7 @@ import 'package:watchtower/modules/novel/home/novel_home_screen.dart';
 import 'package:watchtower/modules/watch/reel/reel_screen.dart';
 import 'package:watchtower/modules/watch/reel/creator_profile_screen.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
+import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
 import 'package:watchtower/modules/more/about/about_screen.dart';
 import 'package:watchtower/modules/more/about/log_viewer_screen.dart';
@@ -184,6 +185,11 @@ class RouterCurrentLocationState extends _$RouterCurrentLocationState {
 
 class RouterNotifier extends ChangeNotifier {
   List<RouteBase> get _routes => [
+    _genericRoute(
+      name: "componentGallery",
+      path: "/component-gallery",
+      child: const ComponentGalleryScreen(),
+    ),
     ShellRoute(
       builder: (context, state, child) => MainScreen(child: child),
       routes: [
