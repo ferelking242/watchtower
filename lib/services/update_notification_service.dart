@@ -530,18 +530,6 @@ class WatchtowerNotificationService {
     }
   }
 
-  int _compareVersions(String a, String b) {
-    final pa = a.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final pb = b.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final len = pa.length > pb.length ? pa.length : pb.length;
-    for (var i = 0; i < len; i++) {
-      final va = i < pa.length ? pa[i] : 0;
-      final vb = i < pb.length ? pb[i] : 0;
-      if (va < vb) return -1;
-      if (va > vb) return 1;
-    }
-    return 0;
-  }
   // ── Download complete notification ───────────────────────────────────────────
 
   /// Notification "Mise à jour prête à installer" — affiché quand le téléchargement

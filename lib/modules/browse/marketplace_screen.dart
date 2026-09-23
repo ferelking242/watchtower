@@ -11192,7 +11192,13 @@ class _LoadingRows extends StatelessWidget {
                     const SizedBox(width: 6),
                     _bone(width: 13, height: 13, radius: 7),
                     const SizedBox(width: 8),
-                    Expanded(child: _bone(height: 10, radius: 5)),
+                    Expanded(
+                      child: _bone(
+                        width: double.infinity,
+                        height: 10,
+                        radius: 5,
+                      ),
+                    ),
                   ],
                 ),
               ],
