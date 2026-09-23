@@ -2411,7 +2411,7 @@ class _TmdbTonightSection extends StatelessWidget {
                     for (var i = 0; i < picks.length; i++) ...[
                       if (i > 0) const SizedBox(width: 10),
                       Expanded(
-                        child: _TmdbTonightMiniCard(
+                        child: TmdbTonightMiniCard(
                           media: picks[i],
                           onTap: () => onTap(picks[i]),
                           background: surface,
@@ -2449,12 +2449,12 @@ class _TmdbTonightImage extends StatelessWidget {
   }
 }
 
-class _TmdbTonightMiniCard extends StatelessWidget {
+class TmdbTonightMiniCard extends StatelessWidget {
   final TmdbMedia media;
   final VoidCallback onTap;
   final Color background;
 
-  const _TmdbTonightMiniCard({
+  const TmdbTonightMiniCard({
     required this.media,
     required this.onTap,
     required this.background,
