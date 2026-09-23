@@ -388,6 +388,13 @@ jobs:
           --base-href /watchtower/
           --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
+      # GitHub Pages serves 404.html for deep links before Flutter can
+      # initialize the client-side router. Reusing the generated entry point
+      # keeps /watchtower/component-gallery and every other app route working
+      # on a direct visit or browser refresh.
+      - name: Add Flutter SPA fallback
+        run: cp build/web/index.html build/web/404.html
+
       - name: Upload Web artifact
         uses: actions/upload-artifact@v5
         with:
