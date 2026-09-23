@@ -629,7 +629,7 @@ class _GalleryPosterCard extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             subtitle,
-            style: const TextStyle(color: Colors.white45, fontSize: 11),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
           ),
         ],
       ),
@@ -690,7 +690,7 @@ class _GalleryLandscapeCard extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             subtitle,
-            style: const TextStyle(color: Colors.white45, fontSize: 11),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
           ),
         ],
       ),
@@ -795,7 +795,7 @@ class _GalleryCreatorCard extends StatelessWidget {
             role,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white45, fontSize: 11),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
           ),
         ],
       ),
@@ -954,7 +954,7 @@ class _GalleryMiniLayout extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   detail,
-                  style: const TextStyle(color: Colors.white45, fontSize: 11),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
                 ),
               ],
             ),
