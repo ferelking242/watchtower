@@ -87,13 +87,14 @@ class _LedSliderTrackShape extends RoundedRectSliderTrackShape {
     bool? isEnabled,
     bool? isDiscrete,
     required TextDirection textDirection,
+    double additionalActiveTrackHeight = 0.0,
   }) {
     final rect = getPreferredRect(
       parentBox: parentBox,
       offset: offset,
       sliderTheme: sliderTheme,
-      isEnabled: isEnabled,
-      isDiscrete: isDiscrete,
+      isEnabled: isEnabled ?? true,
+      isDiscrete: isDiscrete ?? false,
     );
     final ledColor = sliderTheme.activeTrackColor ?? Colors.white;
     final glowPaint = Paint()
@@ -117,9 +118,10 @@ class _LedSliderTrackShape extends RoundedRectSliderTrackShape {
       enableAnimation: enableAnimation,
       thumbCenter: thumbCenter,
       secondaryOffset: secondaryOffset,
-      isEnabled: isEnabled,
-      isDiscrete: isDiscrete,
+      isEnabled: isEnabled ?? true,
+      isDiscrete: isDiscrete ?? false,
       textDirection: textDirection,
+      additionalActiveTrackHeight: additionalActiveTrackHeight,
     );
   }
 }
@@ -6099,7 +6101,8 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                   trackHeight: 2.2,
                                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
                                   overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                                  activeTrackColor: widget.accent,
+                                  activeTrackColor:
+                                      Theme.of(context).primaryColor,
                                   inactiveTrackColor: Colors.white24,
                                   thumbColor: Colors.white,
                                   trackShape: const _LedSliderTrackShape(),
