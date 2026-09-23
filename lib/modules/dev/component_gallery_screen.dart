@@ -541,6 +541,35 @@ class _TmdbEditorialShowcase extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 24),
+        const _ShowcaseLabel(
+          name: 'TmdbFeaturedStack · TmdbHeroCarousel',
+          detail: 'Hero éditorial et stack featured avec swipe automatique',
+        ),
+        Builder(
+          builder: (context) {
+            final accent = Theme.of(context).colorScheme.primary;
+            return Column(
+              children: [
+                SizedBox(
+                  height: 290,
+                  child: TmdbHeroCarousel(
+                    items: _tmdbItems.take(4).toList(growable: false),
+                    onTap: (_) {},
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TmdbFeaturedStack(
+                  title: 'À voir cette semaine',
+                  icon: Icons.auto_awesome_rounded,
+                  color: accent,
+                  items: _tmdbItems,
+                  onTap: (_) {},
+                ),
+              ],
+            );
+          },
+        ),
       ],
     );
   }
@@ -567,6 +596,25 @@ class _AnimeCardsShowcase extends StatelessWidget {
             itemBuilder: (_, index) => DiscoveryCard(
               media: _animeItems[index],
               width: 116,
+              onTap: () {},
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const _ShowcaseLabel(
+          name: 'AnimatedDiscoveryCard',
+          detail: 'Même carte de découverte avec entrée animée différée',
+        ),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _animeItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => AnimatedDiscoveryCard(
+              media: _animeItems[index],
+              width: 116,
+              delay: Duration(milliseconds: index * 90),
               onTap: () {},
             ),
           ),
