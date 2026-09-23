@@ -39,6 +39,7 @@ import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/m_extension_server.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
@@ -442,6 +443,7 @@ class _MyAppState extends ConsumerState<MyApp>
   late AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
   Uri? lastUri;
+  bool _extensionRefreshInFlight = false;
 
   @override
   void initState() {
@@ -466,6 +468,10 @@ class _MyAppState extends ConsumerState<MyApp>
         unawaited(windowManager.focus());
       }
       unawaited(_startExtensionServerAndSync());
+      // Refresh installed extension repositories once after the first frame.
+      // This is the source of truth for both the in-app notification centre
+      // and the actionable native notification.
+      unawaited(_refreshInstalledExtensionUpdates());
       // Resume persisted queue work even when the user opens another section
       // first. The queue screen also kicks this provider, but downloads should
       // not depend on visiting that screen after an app restart.
@@ -485,6 +491,7 @@ class _MyAppState extends ConsumerState<MyApp>
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       if (!kIsWeb) {
+        unawaited(_refreshInstalledExtensionUpdates());
         unawaited(
           WatchtowerNotificationService.instance.checkForUpdateAndNotify(),
         );
@@ -504,6 +511,43 @@ class _MyAppState extends ConsumerState<MyApp>
       if (lockEnabled) {
         ref.read(appUnlockedStateProvider.notifier).lock();
       }
+    }
+  }
+
+  Future<void> _refreshInstalledExtensionUpdates() async {
+    if (kIsWeb || _extensionRefreshInFlight) return;
+    _extensionRefreshInFlight = true;
+    try {
+      final types = (await isar.sources.buildQuery<Source>().findAll())
+          .where(
+            (source) =>
+                source.isAdded == true &&
+                source.isLocal != true &&
+                source.sourceCodeLanguage != SourceCodeLanguage.dart,
+          )
+          .map((source) => source.itemType)
+          .toSet();
+      for (final type in types) {
+        try {
+          await ref.read(
+            fetchItemSourcesListProvider(
+              id: null,
+              reFresh: true,
+              itemType: type,
+            ).future,
+          );
+        } catch (error, stack) {
+          AppLogger.log(
+            'Startup extension update check failed for $type',
+            logLevel: LogLevel.warning,
+            tag: LogTag.repo,
+            error: error,
+            stackTrace: stack,
+          );
+        }
+      }
+    } finally {
+      _extensionRefreshInFlight = false;
     }
   }
 

@@ -1365,6 +1365,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           child: _PlayStoreMarketplaceView(
             entries: _all,
             installed: _installed,
+            installedVersions: _installedVersions,
             busy: _busy,
             loading: _loading,
             error: _error,
@@ -2710,8 +2711,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (compareVersions(installed, availableVersion) < 0) return true;
       final source = _installedSources[id];
       return availableLayoutVersion != null &&
-          source?.uiLayoutVersion != null &&
-          source!.uiLayoutVersion != availableLayoutVersion;
+          source?.uiLayoutVersion != availableLayoutVersion;
     } catch (_) {
       return false;
     }
@@ -9203,6 +9203,7 @@ class _BinaryTab extends StatelessWidget {
 class _PlayStoreMarketplaceView extends StatefulWidget {
   final List<_ExtEntry> entries;
   final Set<int> installed;
+  final Map<int, String> installedVersions;
   final Map<int, bool> busy;
   final bool loading;
   final String? error;
@@ -9216,6 +9217,7 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
   const _PlayStoreMarketplaceView({
     required this.entries,
     required this.installed,
+    required this.installedVersions,
     required this.busy,
     required this.loading,
     required this.error,
@@ -9240,6 +9242,24 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   bool _searching = false;
   bool _accountOpen = false;
   String _subCategory = 'Tout';
+
+  bool _hasUpdate(_ExtEntry entry) {
+    final installed = widget.installedVersions[entry.id];
+    if (installed == null) return false;
+    final left = installed.split('.').map((part) => int.tryParse(part) ?? 0);
+    final right = entry.version
+        .split('.')
+        .map((part) => int.tryParse(part) ?? 0);
+    final a = left.toList();
+    final b = right.toList();
+    final length = a.length > b.length ? a.length : b.length;
+    for (var index = 0; index < length; index++) {
+      final av = index < a.length ? a[index] : 0;
+      final bv = index < b.length ? b[index] : 0;
+      if (av != bv) return av < bv;
+    }
+    return false;
+  }
 
   static const _green = Color(0xFF8ED081);
   static const _surface = Color(0xFF1B1B1D);
@@ -9584,15 +9604,16 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Row(
         children: [
           Expanded(
             child: Container(
-              height: 50,
+              height: 48,
               decoration: BoxDecoration(
                 color: _surfaceHigh,
                 borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: const Color(0xFF353539)),
               ),
               child: TextField(
                 controller: _searchController,
@@ -9602,11 +9623,17 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 },
                 onChanged: _setSearch,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
+                textAlignVertical: TextAlignVertical.center,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
                   prefixIcon: const Icon(Icons.search_rounded, color: _muted),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
                   suffixIcon: _searching && _searchController.text.isNotEmpty
                       ? IconButton(
                           onPressed: () {
@@ -9616,6 +9643,10 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                           icon: const Icon(Icons.close_rounded, color: _muted),
                         )
                       : const Icon(Icons.mic_none_rounded, color: _muted),
+                  suffixIconConstraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 48,
+                  ),
                   hintText: 'Rechercher des extensions',
                   hintStyle: const TextStyle(color: _muted, fontSize: 14),
                 ),
@@ -10197,6 +10228,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           body: _PlayStoreDetails(
             entry: entry,
             installed: widget.installed.contains(entry.id),
+            installedVersion: widget.installedVersions[entry.id],
+            hasUpdate: _hasUpdate(entry),
             busy: widget.busy[entry.id] == true,
             onSettings: widget.installed.contains(entry.id)
                 ? () {
@@ -10714,6 +10747,8 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
 class _PlayStoreDetails extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
+  final String? installedVersion;
+  final bool hasUpdate;
   final bool busy;
   final VoidCallback onInstall;
   final VoidCallback? onSettings;
@@ -10721,6 +10756,8 @@ class _PlayStoreDetails extends StatelessWidget {
   const _PlayStoreDetails({
     required this.entry,
     required this.installed,
+    this.installedVersion,
+    this.hasUpdate = false,
     required this.busy,
     required this.onInstall,
     this.onSettings,
@@ -10759,6 +10796,23 @@ class _PlayStoreDetails extends StatelessWidget {
                           fontSize: 12,
                         ),
                       ),
+                      if (installed && installedVersion != null) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          hasUpdate
+                              ? 'Installée v$installedVersion · disponible v${entry.version}'
+                              : 'Installée v$installedVersion',
+                          style: TextStyle(
+                            color: hasUpdate
+                                ? Colors.orange.shade300
+                                : _PlayStoreMarketplaceViewState._muted,
+                            fontSize: 11,
+                            fontWeight: hasUpdate
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -10797,7 +10851,9 @@ class _PlayStoreDetails extends StatelessWidget {
                   child: SizedBox(
                     height: 46,
                     child: FilledButton(
-                      onPressed: installed || busy ? null : onInstall,
+                      onPressed: busy || (!hasUpdate && installed)
+                          ? null
+                          : onInstall,
                       style: FilledButton.styleFrom(
                         backgroundColor: _PlayStoreMarketplaceViewState._green,
                         foregroundColor: Colors.black,
@@ -10811,7 +10867,11 @@ class _PlayStoreDetails extends StatelessWidget {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
-                              installed ? 'Extension installée' : 'Installer',
+                              hasUpdate
+                                  ? 'Mettre à jour'
+                                  : installed
+                                  ? 'Extension installée'
+                                  : 'Installer',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -10867,7 +10927,11 @@ class _PlayStoreDetails extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _DetailPill(label: 'Version ${entry.version}'),
+                _DetailPill(
+                  label: installed && installedVersion != null
+                      ? 'Disponible v${entry.version}'
+                      : 'Version ${entry.version}',
+                ),
                 _DetailPill(label: _playSize(entry)),
                 _DetailPill(label: 'Langue ${entry.lang.toUpperCase()}'),
                 _DetailPill(
@@ -11108,53 +11172,35 @@ class _LoadingRows extends StatelessWidget {
 
   Widget _card(int index) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 5, 14, 5),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _PlayStoreMarketplaceViewState._surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF303035)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      padding: const EdgeInsets.fromLTRB(18, 9, 16, 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _bone(width: 54, height: 54, radius: 14),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _bone(width: 48, height: 48, radius: 12),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _bone(width: 130 + (index % 3) * 25.0, height: 14),
-                      const SizedBox(height: 7),
-                      _bone(width: 82, height: 10, radius: 5),
-                    ],
-                  ),
+                _bone(width: 130 + (index % 3) * 25.0, height: 14),
+                const SizedBox(height: 6),
+                _bone(width: 92, height: 10, radius: 5),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    _bone(width: 28, height: 11, radius: 5),
+                    const SizedBox(width: 6),
+                    _bone(width: 13, height: 13, radius: 7),
+                    const SizedBox(width: 8),
+                    Expanded(child: _bone(height: 10, radius: 5)),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                _bone(width: 36, height: 36, radius: 10),
               ],
             ),
-            const SizedBox(height: 12),
-            _bone(width: double.infinity, height: 11, radius: 5),
-            const SizedBox(height: 7),
-            _bone(width: 210, height: 11, radius: 5),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _bone(width: 54, height: 20, radius: 6),
-                const SizedBox(width: 7),
-                _bone(width: 66, height: 20, radius: 6),
-                const SizedBox(width: 7),
-                _bone(width: 48, height: 20, radius: 6),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _bone(width: double.infinity, height: 34, radius: 17),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          _bone(width: 54, height: 34, radius: 17),
+        ],
       ),
     );
   }

@@ -383,11 +383,21 @@ Future<void> fetchSourcesList({
               ..isObsolete = false
               ..isLocal = false
               ..notes = s.notes
-               ..additionalParams = s.persistedAdditionalParams
+              ..additionalParams = s.persistedAdditionalParams
               ..uiLayout = s.uiLayout
               ..uiLayoutVersion = s.uiLayoutVersion
+              ..subCategories = s.subCategories
+              ..supportsComments = s.supportsComments
+              ..requiresAccount = s.requiresAccount
+              ..hasDRM = s.hasDRM
+              ..isAggregator = s.isAggregator
+              ..paywall = s.paywall
+              ..upstream = s.upstream
+              ..videoQualities = s.videoQualities
+              ..contentSubtype = s.contentSubtype
               ..repo = repo
-              ..updatedAt = now,
+              ..updatedAt = now
+              ..hydrateExtendedMetadata(),
           )
           .toList();
       await isar.writeTxn(() async => isar.sources.putAll(built));
@@ -648,7 +658,8 @@ Future<void> _updateSource(
     ..uiLayout = source.uiLayout
     ..uiLayoutVersion = source.uiLayoutVersion
     ..repo = repo
-    ..updatedAt = DateTime.now().millisecondsSinceEpoch;
+    ..updatedAt = DateTime.now().millisecondsSinceEpoch
+    ..hydrateExtendedMetadata();
 
   if (source.uiLayout?.isNotEmpty == true) {
     final layoutSaved = await LayoutDownloader.instance.download(source);

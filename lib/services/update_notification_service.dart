@@ -233,7 +233,7 @@ class WatchtowerNotificationService {
     final codeUpdate =
         source.version != null &&
         source.versionLast != null &&
-        source.version != source.versionLast;
+        _compareVersions(source.version!, source.versionLast!) < 0;
     final layout = source.pendingUiLayoutVersion;
     if (codeUpdate && layout?.isNotEmpty == true) {
       return 'v${source.versionLast} + UI $layout';
@@ -241,6 +241,24 @@ class WatchtowerNotificationService {
     if (codeUpdate) return 'v${source.versionLast}';
     if (layout?.isNotEmpty == true) return 'UI $layout';
     return 'mise à jour';
+  }
+
+  int _compareVersions(String a, String b) {
+    final pa = a
+        .split(RegExp(r'[.+-]'))
+        .map((part) => int.tryParse(part) ?? 0)
+        .toList();
+    final pb = b
+        .split(RegExp(r'[.+-]'))
+        .map((part) => int.tryParse(part) ?? 0)
+        .toList();
+    final length = pa.length > pb.length ? pa.length : pb.length;
+    for (var index = 0; index < length; index++) {
+      final va = index < pa.length ? pa[index] : 0;
+      final vb = index < pb.length ? pb[index] : 0;
+      if (va != vb) return va < vb ? -1 : 1;
+    }
+    return 0;
   }
 
   Future<void> _openMediaNotification(NotificationResponse response) async {

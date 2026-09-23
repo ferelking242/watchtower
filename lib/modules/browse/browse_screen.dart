@@ -229,7 +229,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           .itemTypeEqualTo(type)
           .isAddedEqualTo(true)
           .findAllSync()
-          .where((s) => compareVersions(s.version ?? '', s.versionLast ?? '') < 0)
+              .where(hasPendingExtensionUpdate)
           .toList();
       int done = 0;
       for (final src in sources) {

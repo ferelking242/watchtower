@@ -179,9 +179,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _installing.add(id));
     try {
       await installExtensionUpdate(source);
-      await LayoutRegistry.instance.load(source);
-      if (source.uiLayout?.isNotEmpty == true &&
-          !LayoutRegistry.instance.has(source)) {
+      final installed = await isar.sources.get(id);
+      if (installed == null) {
+        throw StateError('La source installée est introuvable après téléchargement.');
+      }
+      await LayoutRegistry.instance.load(installed);
+      if (installed.uiLayout?.isNotEmpty == true &&
+          !LayoutRegistry.instance.has(installed)) {
         throw StateError('Le layout UI n’a pas été installé.');
       }
       if (!mounted) return;

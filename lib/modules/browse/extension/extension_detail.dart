@@ -23,6 +23,8 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/services/layout_downloader.dart';
+import 'package:watchtower/services/fetch_sources_list.dart'
+    show compareVersions;
 
 class ExtensionDetail extends ConsumerStatefulWidget {
   final Source source;
@@ -583,6 +585,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     final baseUrl = source.baseUrl ?? '';
     final isObsolete = source.isObsolete ?? false;
     final isAdded = source.isAdded ?? false;
+    final hasCodeUpdate =
+        source.version != null &&
+        source.versionLast != null &&
+        compareVersions(source.version!, source.versionLast!) < 0;
 
     String? typeBadge;
     IconData typeIcon = Icons.extension_rounded;
@@ -805,8 +811,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                               label: 'Cloudflare',
                               color: const Color(0xFFFF9800),
                             ),
-                          if ((source.versionLast ?? '') != '' &&
-                              (source.versionLast ?? '') != (source.version ?? ''))
+                          if (hasCodeUpdate)
                             _Chip(
                               icon: Icons.system_update_rounded,
                               label: 'v${source.versionLast}',
@@ -856,6 +861,12 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                           icon: Icons.verified_rounded,
                           label: 'Version',
                           value: source.version!,
+                        ),
+                      if (hasCodeUpdate)
+                        _InfoRow(
+                          icon: Icons.system_update_rounded,
+                          label: 'Disponible',
+                          value: source.versionLast!,
                         ),
                       if (source.lang != null)
                         _InfoRow(
