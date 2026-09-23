@@ -3,3 +3,4 @@
 - [Compatibilité Flutter](flutter-sdk-compatibility.md) — la validation locale exige Dart 3.11 ou plus récent.
 - [Push GitHub](github-push-auth.md) — l’API accepte Bearer, mais Git push exige Basic avec x-access-token et le PAT.
 - [Browse source boundary](browse-source-boundary.md) — Browse doit lire les sources installées persistées; les fetchs réseau restent explicites.
+- [Component gallery navigation](component-gallery-navigation.md) — la galerie est une destination interne de Library, pas une URL publique GitHub Pages.
