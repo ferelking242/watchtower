@@ -8,9 +8,6 @@ import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
-import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
-
-enum _GalleryCategory { tmdb, anilist, editorial, extensions, common }
 
 enum _GalleryState { result, skeleton }
 
@@ -29,7 +26,6 @@ enum _PreviewKind {
 }
 
 class _ComponentSpec {
-  final _GalleryCategory category;
   final String title;
   final String className;
   final String path;
@@ -39,7 +35,6 @@ class _ComponentSpec {
   final Widget Function(BuildContext context) result;
 
   const _ComponentSpec({
-    required this.category,
     required this.title,
     required this.className,
     required this.path,
@@ -61,7 +56,6 @@ class ComponentGalleryScreen extends StatefulWidget {
 
 class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   final _searchController = TextEditingController();
-  _GalleryCategory? _selectedCategory;
   _GalleryState _state = _GalleryState.result;
   String _query = '';
 
@@ -77,12 +71,9 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     final query = _query.trim().toLowerCase();
     return _components
         .where((component) {
-          final categoryMatches =
-              _selectedCategory == null ||
-              component.category == _selectedCategory;
           final textMatches =
               query.isEmpty || component.searchableText.contains(query);
-          return categoryMatches && textMatches;
+          return textMatches;
         })
         .toList(growable: false);
   }
@@ -91,7 +82,6 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     _searchController.clear();
     setState(() {
       _query = '';
-      _selectedCategory = null;
       _state = _GalleryState.result;
     });
   }
@@ -140,12 +130,9 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               child: _GalleryHeader(
                 queryController: _searchController,
                 query: _query,
-                selectedCategory: _selectedCategory,
                 state: _state,
                 resultCount: visible.length,
                 onQueryChanged: (query) => setState(() => _query = query),
-                onCategoryChanged: (category) =>
-                    setState(() => _selectedCategory = category),
                 onStateChanged: (state) => setState(() => _state = state),
               ),
             ),
@@ -154,20 +141,12 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
             padding: EdgeInsets.fromLTRB(padding, 0, padding, 88),
             sliver: visible.isEmpty
                 ? const SliverToBoxAdapter(child: _EmptyGalleryState())
-                : SliverList(
-                    delegate: SliverChildListDelegate([
-                      for (final category in _GalleryCategory.values)
-                        _CategorySection(
-                          category: category,
-                          state: _state,
-                          query: _query,
-                          components: visible
-                              .where(
-                                (component) => component.category == category,
-                              )
-                              .toList(growable: false),
-                        ),
-                    ]),
+                : SliverToBoxAdapter(
+                    child: _UnifiedGallery(
+                      components: visible,
+                      state: _state,
+                      showCompositions: _query.trim().isEmpty,
+                    ),
                   ),
           ),
         ],
@@ -198,21 +177,17 @@ class _GalleryMark extends StatelessWidget {
 class _GalleryHeader extends StatelessWidget {
   final TextEditingController queryController;
   final String query;
-  final _GalleryCategory? selectedCategory;
   final _GalleryState state;
   final int resultCount;
   final ValueChanged<String> onQueryChanged;
-  final ValueChanged<_GalleryCategory?> onCategoryChanged;
   final ValueChanged<_GalleryState> onStateChanged;
 
   const _GalleryHeader({
     required this.queryController,
     required this.query,
-    required this.selectedCategory,
     required this.state,
     required this.resultCount,
     required this.onQueryChanged,
-    required this.onCategoryChanged,
     required this.onStateChanged,
   });
 
@@ -235,8 +210,8 @@ class _GalleryHeader extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
           child: Text(
-            'Retrouvez les cartes réellement utilisées par Films, Séries, AniList '
-            'et WatchExtensionHomeScreen. Chaque aperçu conserve sa taille réelle, '
+            'Retrouvez toutes les cartes réellement utilisées dans l’application. '
+            'Chaque aperçu conserve sa taille réelle, '
             'son nom et son usage, en résultat ou en chargement.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white60,
@@ -290,112 +265,27 @@ class _GalleryHeader extends StatelessWidget {
         const SizedBox(height: 14),
         Row(
           children: [
-            const Icon(Icons.tune_rounded, size: 17, color: Colors.white54),
+            const Icon(Icons.grid_view_rounded, size: 17, color: Colors.white54),
             const SizedBox(width: 8),
-            const Text(
-              'Catégorie',
-              style: TextStyle(
+            Text(
+              '$resultCount aperçu${resultCount == 1 ? '' : 's'}',
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const Spacer(),
-            Text(
-              '$resultCount composant${resultCount == 1 ? '' : 's'}',
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-          ],
-        ),
-        const SizedBox(height: 7),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _CategoryChip(
-                label: 'Toutes',
-                icon: Icons.dashboard_customize_outlined,
-                selected: selectedCategory == null,
-                onTap: () => onCategoryChanged(null),
-              ),
-              for (final category in _GalleryCategory.values) ...[
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: _categoryLabel(category),
-                  icon: _categoryIcon(category),
-                  selected: selectedCategory == category,
-                  onTap: () => onCategoryChanged(category),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
             const Icon(
               Icons.visibility_rounded,
               size: 17,
               color: Colors.white54,
             ),
             const SizedBox(width: 8),
-            const Text(
-              'État de prévisualisation',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const Spacer(),
             _StateToggle(state: state, onChanged: onStateChanged),
           ],
         ),
       ],
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _CategoryChip({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return FilterChip(
-      selected: selected,
-      onSelected: (_) => onTap(),
-      avatar: Icon(
-        icon,
-        size: 16,
-        color: selected ? Colors.white : Colors.white54,
-      ),
-      label: Text(label),
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : Colors.white70,
-        fontWeight: FontWeight.w700,
-        fontSize: 11,
-      ),
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      backgroundColor: const Color(0xFF161A20),
-      selectedColor: accent,
-      checkmarkColor: Colors.white,
-      side: BorderSide(
-        color: selected ? accent.withValues(alpha: .8) : Colors.white12,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
     );
   }
 }
@@ -481,76 +371,58 @@ class _StateOption extends StatelessWidget {
   }
 }
 
-class _CategorySection extends StatelessWidget {
-  final _GalleryCategory category;
+class _UnifiedGallery extends StatelessWidget {
   final _GalleryState state;
-  final String query;
   final List<_ComponentSpec> components;
+  final bool showCompositions;
 
-  const _CategorySection({
-    required this.category,
+  const _UnifiedGallery({
     required this.state,
-    required this.query,
     required this.components,
+    required this.showCompositions,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (components.isEmpty) return const SizedBox.shrink();
-    final showCompositions =
-        query.trim().isEmpty && category == _GalleryCategory.tmdb;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 34),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(
-                _categoryIcon(category),
-                size: 17,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _categoryLabel(category),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.2,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${components.length}',
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ComponentGrid(components: components, state: state),
+        if (showCompositions) ...[
+          const SizedBox(height: 32),
+          const _UnifiedSectionLabel(
+            icon: Icons.layers_outlined,
+            label: 'Blocs composés',
           ),
-          const SizedBox(height: 4),
-          Text(
-            _categoryDescription(category),
-            style: const TextStyle(
-              color: Colors.white45,
-              fontSize: 11,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _ComponentGrid(components: components, state: state),
-          if (showCompositions) ...[
-            const SizedBox(height: 28),
-            _TmdbCompositions(state: state),
-          ],
+          const SizedBox(height: 12),
+          _ComposedBlocks(state: state),
         ],
-      ),
+      ],
+    );
+  }
+}
+
+class _UnifiedSectionLabel extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _UnifiedSectionLabel({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 7),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -742,10 +614,10 @@ class _CardSkeleton extends StatelessWidget {
   }
 }
 
-class _TmdbCompositions extends StatelessWidget {
+class _ComposedBlocks extends StatelessWidget {
   final _GalleryState state;
 
-  const _TmdbCompositions({required this.state});
+  const _ComposedBlocks({required this.state});
 
   @override
   Widget build(BuildContext context) {
@@ -753,9 +625,9 @@ class _TmdbCompositions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _CompositionHeader(
-          title: 'Compositions éditoriales',
+          title: 'Blocs composés',
           detail:
-              'Blocs complets qui assemblent plusieurs cartes TMDB dans l’accueil.',
+              'Blocs complets qui assemblent plusieurs cartes dans les écrans d’accueil.',
         ),
         if (state == _GalleryState.skeleton)
           const SizedBox(height: 220, child: AppBannerRowShimmer())
@@ -850,7 +722,7 @@ class _EmptyGalleryState extends StatelessWidget {
           ),
           SizedBox(height: 6),
           Text(
-            'Essayez un autre nom, une autre catégorie ou effacez la recherche.',
+            'Essayez un autre nom ou effacez la recherche.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
@@ -860,42 +732,12 @@ class _EmptyGalleryState extends StatelessWidget {
   }
 }
 
-String _categoryLabel(_GalleryCategory category) => switch (category) {
-  _GalleryCategory.tmdb => 'Films & séries',
-  _GalleryCategory.anilist => 'AniList',
-  _GalleryCategory.editorial => 'AniList éditorial',
-  _GalleryCategory.extensions => 'Extensions',
-  _GalleryCategory.common => 'Commun',
-};
-
-IconData _categoryIcon(_GalleryCategory category) => switch (category) {
-  _GalleryCategory.tmdb => Icons.movie_filter_outlined,
-  _GalleryCategory.anilist => Icons.animation_outlined,
-  _GalleryCategory.editorial => Icons.auto_awesome_outlined,
-  _GalleryCategory.extensions => Icons.extension_outlined,
-  _GalleryCategory.common => Icons.widgets_outlined,
-};
-
-String _categoryDescription(_GalleryCategory category) => switch (category) {
-  _GalleryCategory.tmdb =>
-    'Cartes des rails Films, Séries, sorties, grille compacte et classement.',
-  _GalleryCategory.anilist =>
-    'Cartes anime de découverte, classement, paysage et animation d’entrée.',
-  _GalleryCategory.editorial =>
-    'Cartes éditoriales AniList : mise en avant, saga et spotlight.',
-  _GalleryCategory.extensions =>
-    'Cartes renvoyées par WatchExtensionHomeScreen et ses layouts d’extension.',
-  _GalleryCategory.common =>
-    'Primitives partagées pour les genres, le swipe et les transitions.',
-};
-
 List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
-    category: _GalleryCategory.tmdb,
     title: 'Poster contenu',
     className: 'PosterCard',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Rails Films et Séries',
+    usage: 'Rails catalogue',
     icon: Icons.local_movies_outlined,
     kind: _PreviewKind.poster,
     result: (_) => PosterCard(
@@ -906,11 +748,10 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.tmdb,
     title: 'Poster compact',
     className: 'PosterCard(compact)',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Grille Upcoming multi-rangées',
+    usage: 'Grille multi-rangées',
     icon: Icons.grid_view_outlined,
     kind: _PreviewKind.compactPoster,
     result: (_) => PosterCard(
@@ -921,11 +762,10 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.tmdb,
     title: 'Carte paysage',
     className: 'LandscapeCard',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Rails Now playing et Airing today',
+    usage: 'Rails paysage',
     icon: Icons.panorama_outlined,
     kind: _PreviewKind.landscape,
     result: (_) => LandscapeCard(
@@ -936,11 +776,10 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.tmdb,
     title: 'Carte classée',
     className: 'RankedCard',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Top 10 Films et Séries',
+    usage: 'Classements',
     icon: Icons.leaderboard_outlined,
     kind: _PreviewKind.ranked,
     result: (_) => RankedCard(
@@ -951,7 +790,6 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.tmdb,
     title: 'Mini carte du soir',
     className: 'TmdbTonightMiniCard',
     path: 'lib/modules/home/watchtower_home_screen.dart',
@@ -968,50 +806,45 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.anilist,
     title: 'Poster découverte',
     className: 'DiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
-    usage: 'Rails de découverte AniList',
+    usage: 'Rails découverte',
     icon: Icons.animation_outlined,
     kind: _PreviewKind.poster,
     result: (_) =>
         DiscoveryCard(media: _animeItems[0], width: 116, onTap: () {}),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.anilist,
     title: 'Poster animé',
     className: 'AnimatedDiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
-    usage: 'Entrée animée des résultats anime',
+    usage: 'Entrée animée',
     icon: Icons.animation_rounded,
     kind: _PreviewKind.poster,
     result: (_) =>
         AnimatedDiscoveryCard(media: _animeItems[1], width: 116, onTap: () {}),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.anilist,
     title: 'Carte classée',
     className: 'RankedDiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
-    usage: 'Classements anime',
+    usage: 'Classements',
     icon: Icons.format_list_numbered_rounded,
     kind: _PreviewKind.ranked,
     result: (_) =>
         RankedDiscoveryCard(media: _animeItems[2], rank: 2, onTap: () {}),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.anilist,
     title: 'Carte paysage',
     className: 'LandscapeDiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
-    usage: 'Rails de sorties anime',
+    usage: 'Rails sorties',
     icon: Icons.landscape_outlined,
     kind: _PreviewKind.landscape,
     result: (_) => LandscapeDiscoveryCard(media: _animeItems[0], onTap: () {}),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.editorial,
     title: 'Carte mise en avant',
     className: 'FeaturedDiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
@@ -1021,7 +854,6 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => FeaturedDiscoveryCard(media: _animeItems[0], onTap: () {}),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.editorial,
     title: 'Carte saga',
     className: 'SagaDiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
@@ -1031,7 +863,6 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => SagaDiscoveryCard(media: _animeItems[1], onTap: () {}),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.editorial,
     title: 'Carte spotlight',
     className: 'SpotlightDiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
@@ -1044,11 +875,10 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.extensions,
-    title: 'Poster extension',
     className: 'PosterCard',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Rails de résultats extension',
+    title: 'Poster catalogue',
+    usage: 'Rails de résultats',
     icon: Icons.extension_outlined,
     kind: _PreviewKind.poster,
     result: (_) => PosterCard(
@@ -1058,11 +888,10 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.extensions,
-    title: 'Carte paysage extension',
+    title: 'Carte paysage',
     className: 'LandscapeCard',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Rails avec action de lecture',
+    usage: 'Rails avec lecture',
     icon: Icons.play_circle_outline_rounded,
     kind: _PreviewKind.landscape,
     result: (_) => LandscapeCard(
@@ -1072,11 +901,10 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.extensions,
-    title: 'Classement extension',
+    title: 'Classement',
     className: 'RankedCard',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Top des contenus extension',
+    usage: 'Top des contenus',
     icon: Icons.emoji_events_outlined,
     kind: _PreviewKind.ranked,
     result: (_) => SizedBox(
@@ -1090,11 +918,10 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.extensions,
     title: 'Carte tag',
     className: 'TagCard',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Grilles tag des extensions',
+    usage: 'Grilles de tags',
     icon: Icons.local_offer_outlined,
     kind: _PreviewKind.tag,
     result: (_) => SizedBox(
@@ -1106,11 +933,10 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.common,
     title: 'Tuile genre',
     className: 'AppGenreTile',
     path: 'lib/modules/media/content_cards.dart',
-    usage: 'Genres Films, Séries et extensions',
+    usage: 'Tuiles de genres',
     icon: Icons.category_outlined,
     kind: _PreviewKind.genre,
     result: (_) => SizedBox(
@@ -1124,7 +950,6 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    category: _GalleryCategory.common,
     title: 'Carrousel tactile',
     className: 'AppCrossfadeCarousel',
     path: 'lib/modules/media/content_cards.dart',
