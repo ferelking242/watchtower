@@ -62,7 +62,7 @@ class ComponentGalleryScreen extends StatefulWidget {
 class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   final _searchController = TextEditingController();
   _GalleryCategory? _selectedCategory;
-  _GalleryState _state = _GalleryState.skeleton;
+  _GalleryState _state = _GalleryState.result;
   String _query = '';
 
   @override
@@ -92,7 +92,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     setState(() {
       _query = '';
       _selectedCategory = null;
-      _state = _GalleryState.skeleton;
+      _state = _GalleryState.result;
     });
   }
 
@@ -136,7 +136,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(padding, 30, padding, 24),
+              padding: EdgeInsets.fromLTRB(padding, 18, padding, 18),
               child: _GalleryHeader(
                 queryController: _searchController,
                 query: _query,
@@ -157,7 +157,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 : SliverList(
                     delegate: SliverChildListDelegate([
                       for (final category in _GalleryCategory.values)
-                        _CategoryPanel(
+                        _CategorySection(
                           category: category,
                           state: _state,
                           query: _query,
@@ -224,27 +224,27 @@ class _GalleryHeader extends StatelessWidget {
       children: [
         Text(
           'Une référence claire pour chaque carte.',
-          style: theme.textTheme.displaySmall?.copyWith(
+          style: theme.textTheme.headlineSmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w800,
-            letterSpacing: -.9,
-            height: 1.05,
+            letterSpacing: -.6,
+            height: 1.1,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
           child: Text(
             'Retrouvez les cartes réellement utilisées par Films, Séries, AniList '
-            'et WatchExtensionHomeScreen. Chaque fiche indique son nom, son chemin, '
-            'son usage et montre le même emplacement en résultat ou en chargement.',
-            style: theme.textTheme.bodyLarge?.copyWith(
+            'et WatchExtensionHomeScreen. Chaque aperçu conserve sa taille réelle, '
+            'son nom et son usage, en résultat ou en chargement.',
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white60,
-              height: 1.5,
+              height: 1.4,
             ),
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 16),
         TextField(
           controller: queryController,
           onChanged: onQueryChanged,
@@ -266,23 +266,28 @@ class _GalleryHeader extends StatelessWidget {
                   ),
             filled: true,
             fillColor: const Color(0xFF161A20),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.white10),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.white10),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         Row(
           children: [
             const Icon(Icons.tune_rounded, size: 17, color: Colors.white54),
@@ -302,7 +307,7 @@ class _GalleryHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 7),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -325,7 +330,7 @@ class _GalleryHeader extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         Row(
           children: [
             const Icon(
@@ -342,30 +347,8 @@ class _GalleryHeader extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: SegmentedButton<_GalleryState>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(
-                      value: _GalleryState.skeleton,
-                      icon: Icon(Icons.hourglass_empty_rounded, size: 16),
-                      label: Text('Skeleton'),
-                    ),
-                    ButtonSegment(
-                      value: _GalleryState.result,
-                      icon: Icon(Icons.image_outlined, size: 16),
-                      label: Text('Résultat'),
-                    ),
-                  ],
-                  selected: {state},
-                  onSelectionChanged: (selection) =>
-                      onStateChanged(selection.first),
-                ),
-              ),
-            ),
+            const Spacer(),
+            _StateToggle(state: state, onChanged: onStateChanged),
           ],
         ),
       ],
@@ -401,7 +384,11 @@ class _CategoryChip extends StatelessWidget {
       labelStyle: TextStyle(
         color: selected ? Colors.white : Colors.white70,
         fontWeight: FontWeight.w700,
+        fontSize: 11,
       ),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       backgroundColor: const Color(0xFF161A20),
       selectedColor: accent,
       checkmarkColor: Colors.white,
@@ -413,13 +400,94 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
-class _CategoryPanel extends StatelessWidget {
+class _StateToggle extends StatelessWidget {
+  final _GalleryState state;
+  final ValueChanged<_GalleryState> onChanged;
+
+  const _StateToggle({required this.state, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF161A20),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _StateOption(
+            icon: Icons.image_outlined,
+            label: 'Résultat',
+            selected: state == _GalleryState.result,
+            onTap: () => onChanged(_GalleryState.result),
+          ),
+          _StateOption(
+            icon: Icons.hourglass_empty_rounded,
+            label: 'Skeleton',
+            selected: state == _GalleryState.skeleton,
+            onTap: () => onChanged(_GalleryState.skeleton),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StateOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _StateOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? accent.withValues(alpha: .22) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: selected ? accent : Colors.white54),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : Colors.white54,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategorySection extends StatelessWidget {
   final _GalleryCategory category;
   final _GalleryState state;
   final String query;
   final List<_ComponentSpec> components;
 
-  const _CategoryPanel({
+  const _CategorySection({
     required this.category,
     required this.state,
     required this.query,
@@ -429,98 +497,59 @@ class _CategoryPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (components.isEmpty) return const SizedBox.shrink();
-    final accent = Theme.of(context).colorScheme.primary;
     final showCompositions =
         query.trim().isEmpty && category == _GalleryCategory.tmdb;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: const Color(0xFF11151B),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 21, 22, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(bottom: 34),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: .14),
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Icon(
-                        _categoryIcon(category),
-                        size: 20,
-                        color: accent,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _categoryLabel(category),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -.3,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _categoryDescription(category),
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .06),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${components.length}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
+              Icon(
+                _categoryIcon(category),
+                size: 17,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(height: 20),
-              const Divider(color: Colors.white10, height: 1),
-              const SizedBox(height: 20),
-              _ComponentGrid(components: components, state: state),
-              if (showCompositions) ...[
-                const SizedBox(height: 25),
-                _TmdbCompositions(state: state),
-              ],
+              const SizedBox(width: 8),
+              Text(
+                _categoryLabel(category),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${components.length}',
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            _categoryDescription(category),
+            style: const TextStyle(
+              color: Colors.white45,
+              fontSize: 11,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _ComponentGrid(components: components, state: state),
+          if (showCompositions) ...[
+            const SizedBox(height: 28),
+            _TmdbCompositions(state: state),
+          ],
+        ],
       ),
     );
   }
@@ -534,31 +563,14 @@ class _ComponentGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1180
-            ? 4
-            : constraints.maxWidth >= 820
-            ? 3
-            : constraints.maxWidth >= 520
-            ? 2
-            : 1;
-        const gap = 14.0;
-        final tileWidth =
-            (constraints.maxWidth - gap * (columns - 1)) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          alignment: WrapAlignment.start,
-          children: [
-            for (final component in components)
-              SizedBox(
-                width: tileWidth,
-                child: _ComponentTile(component: component, state: state),
-              ),
-          ],
-        );
-      },
+    return Wrap(
+      spacing: 26,
+      runSpacing: 28,
+      alignment: WrapAlignment.start,
+      children: [
+        for (final component in components)
+          _ComponentTile(component: component, state: state),
+      ],
     );
   }
 }
@@ -573,139 +585,61 @@ class _ComponentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final previewHeight = _previewHeight(component.kind);
     final accent = Theme.of(context).colorScheme.primary;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF171C23),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(component.icon, size: 17, color: accent),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    component.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
-                Tooltip(
-                  message: state == _GalleryState.result
-                      ? 'Afficher le skeleton'
-                      : 'Afficher le résultat',
-                  child: Icon(
-                    state == _GalleryState.result
-                        ? Icons.image_outlined
-                        : Icons.hourglass_empty_rounded,
-                    size: 16,
-                    color: Colors.white38,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 11),
-            Container(
-              width: double.infinity,
-              height: previewHeight,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0D1015),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: state == _GalleryState.result
-                    ? component.result(context)
-                    : _CardSkeleton(kind: component.kind),
-              ),
-            ),
-            const SizedBox(height: 13),
-            _InfoLine(label: 'Nom', value: component.className),
-            const SizedBox(height: 6),
-            _InfoLine(label: 'Chemin', value: component.path),
-            const SizedBox(height: 6),
-            _InfoLine(label: 'Utilisé pour', value: component.usage),
-            const SizedBox(height: 11),
-            Row(
-              children: [
-                Icon(
-                  state == _GalleryState.result
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.hourglass_top_rounded,
-                  size: 14,
-                  color: state == _GalleryState.result
-                      ? Colors.greenAccent.shade400
-                      : Colors.amberAccent,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  state == _GalleryState.result
-                      ? 'Résultat chargé'
-                      : 'État de chargement',
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoLine extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoLine({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 68,
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+    return SizedBox(
+      width: _previewWidth(component.kind),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: previewHeight,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: state == _GalleryState.result
+                  ? component.result(context)
+                  : _CardSkeleton(kind: component.kind),
             ),
           ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            maxLines: 2,
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              Icon(component.icon, size: 14, color: accent),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  component.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Icon(
+                state == _GalleryState.result
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.hourglass_top_rounded,
+                size: 13,
+                color: state == _GalleryState.result
+                    ? Colors.greenAccent.shade400
+                    : Colors.amberAccent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${component.className} · ${component.usage}',
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 10.5,
-              height: 1.25,
+              color: Colors.white38,
+              fontSize: 9.5,
+              height: 1.2,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1349,4 +1283,18 @@ double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.tag => 86,
   _PreviewKind.genre => 132,
   _PreviewKind.carousel => 220,
+};
+
+double _previewWidth(_PreviewKind kind) => switch (kind) {
+  _PreviewKind.poster => 116,
+  _PreviewKind.compactPoster => 92,
+  _PreviewKind.landscape => 220,
+  _PreviewKind.ranked => 146,
+  _PreviewKind.mini => 170,
+  _PreviewKind.featured => 290,
+  _PreviewKind.saga => 220,
+  _PreviewKind.spotlight => 290,
+  _PreviewKind.tag => 260,
+  _PreviewKind.genre => 260,
+  _PreviewKind.carousel => 112,
 };
