@@ -161,8 +161,8 @@ class _ExtEntry {
     this.upstream = '',
     this.description = '',
     this.sizeBytes,
-    this.rating = 4.2,
-    this.reviewCount = 128,
+    this.rating = 0,
+    this.reviewCount = 0,
   });
 }
 
@@ -334,8 +334,8 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
           upstream: m['upstream'] as String? ?? '',
           description: m['description'] as String? ?? '',
           sizeBytes: _parseMktSize(m['sizeBytes']),
-          rating: (m['rating'] as num?)?.toDouble() ?? 4.2,
-          reviewCount: (m['reviewCount'] as num?)?.toInt() ?? 128,
+          rating: (m['rating'] as num?)?.toDouble() ?? 0,
+          reviewCount: (m['reviewCount'] as num?)?.toInt() ?? 0,
         );
       },
     )
@@ -1051,8 +1051,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Uninstall ─────────────────────────────────────────────────────────────────
 
   Future<void> _uninstall(_ExtEntry entry) async {
-    final source = _installedSources[entry.id];
-    if (source == null) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1079,17 +1077,41 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (confirmed != true || !mounted) return;
     setState(() => _busy[entry.id] = true);
     try {
-      await isar.writeTxn(() async {
-        final s = await isar.sources.get(source.id!);
-        if (s != null) {
+      if (entry.contentType == ItemType.music) {
+        final plugin = _musicPluginFor(entry);
+        if (plugin == null) {
+          throw StateError('Plugin audio introuvable dans le stockage local.');
+        }
+        await ref.read(metadataPluginsProvider.notifier).removePlugin(plugin);
+        ref.invalidate(metadataPluginsProvider);
+      } else {
+        final source = await isar.sources.get(entry.id);
+        if (source == null) {
+          throw StateError('Extension introuvable dans le stockage local.');
+        }
+        final prefsIds = await isar.sourcePreferences
+            .filter()
+            .sourceIdEqualTo(source.id!)
+            .findAll()
+            .then((items) => items.map((item) => item.id!).toList());
+        final prefsStringIds = await isar.sourcePreferenceStringValues
+            .filter()
+            .sourceIdEqualTo(source.id!)
+            .findAll()
+            .then((items) => items.map((item) => item.id).toList());
+        await isar.writeTxn(() async {
           await isar.sources.put(
-            s
+            source
               ..isAdded = false
-              ..sourceCode = null
+              ..sourceCode = ''
+              ..isPinned = false
               ..updatedAt = DateTime.now().millisecondsSinceEpoch,
           );
-        }
-      });
+          await isar.sourcePreferences.deleteAll(prefsIds);
+          await isar.sourcePreferenceStringValues.deleteAll(prefsStringIds);
+        });
+        await LayoutRegistry.instance.remove(source);
+      }
       await _refreshInstalled();
       if (mounted) {
         _showToast(context, '${entry.name} désinstallée', icon: Broken.trash);
@@ -9237,11 +9259,13 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
 class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
+  final _watchPager = PageController();
   int _tab = 0;
   int _bottomTab = 1;
   bool _searching = false;
+  bool _searchFocused = false;
   bool _accountOpen = false;
-  String _subCategory = 'Tout';
+  final List<String> _recentSearches = [];
 
   bool _hasUpdate(_ExtEntry entry) {
     final installed = widget.installedVersions[entry.id];
@@ -9269,6 +9293,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   @override
   void initState() {
     super.initState();
+    _searchFocus.addListener(_handleSearchFocus);
     if (widget.initialSearch) {
       _searching = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -9279,9 +9304,16 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
 
   @override
   void dispose() {
+    _searchFocus.removeListener(_handleSearchFocus);
     _searchController.dispose();
     _searchFocus.dispose();
+    _watchPager.dispose();
     super.dispose();
+  }
+
+  void _handleSearchFocus() {
+    if (!mounted || _searchFocused == _searchFocus.hasFocus) return;
+    setState(() => _searchFocused = _searchFocus.hasFocus);
   }
 
   List<_ExtEntry> get _visible {
@@ -9324,9 +9356,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             .toList();
         break;
     }
-    if (_subCategory != 'Tout') {
-      list = list.where(_matchesSubCategory).toList();
-    }
     list.sort((a, b) {
       final rating = _playRating(b).compareTo(_playRating(a));
       if (rating != 0) return rating;
@@ -9345,96 +9374,20 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     'Romans',
   ];
 
-  List<String> get _subCategories {
-    switch (_tab) {
-      case 1:
-        return const ['Tout', 'Anime', 'Films', 'Séries', 'Drama', '+18'];
-      case 2:
-        return const [
-          'Tout',
-          'Manga',
-          'Webtoon',
-          'Webcomic',
-          'Manhwa',
-          'Manhua',
-          'Pornhua',
-          'Pornwha',
-        ];
-      case 3:
-        return const [
-          'Tout',
-          'Tous les +18',
-          'Watch +18',
-          'Manga +18',
-          'Pornhua',
-          'Pornwha',
-        ];
-      case 4:
-        return const ['Tout', 'Audio', 'AnimeThemes', 'Podcasts', 'Karaoké'];
-      case 5:
-        return const ['Tout', 'ROMs', 'PC', 'Console', 'Émulation'];
-      case 6:
-        return const ['Tout', 'Light novels', 'Web novels', 'Romans'];
-      default:
-        return const ['Tout', 'Populaire', 'Nouveautés', 'JavaScript', 'Dart'];
-    }
-  }
-
-  String _entrySearchText(_ExtEntry entry) => [
-    entry.name,
-    entry.description,
-    ...entry.subCategories,
-  ].join(' ').toLowerCase();
-
-  bool _matchesSubCategory(_ExtEntry entry) {
-    final label = _subCategory.toLowerCase();
-    final searchText = _entrySearchText(entry);
-    switch (label) {
-      case 'anime':
-        return entry.contentType == ItemType.anime;
-      case 'manga':
-        return entry.contentType == ItemType.manga;
-      case '+18':
-      case 'tous les +18':
-        return entry.isNsfw;
-      case 'watch +18':
-        return entry.isNsfw && entry.contentType == ItemType.anime;
-      case 'manga +18':
-        return entry.isNsfw && entry.contentType == ItemType.manga;
-      case 'pornhua':
-      case 'pornwha':
-        // Older repositories do not expose subCategories yet. Keep both
-        // adult manga labels useful until the catalogue starts publishing
-        // the more precise taxonomy.
-        return entry.isNsfw && entry.contentType == ItemType.manga;
-      case 'audio':
-        return entry.contentType == ItemType.music;
-      case 'romans':
-        return entry.contentType == ItemType.novel;
-      case 'populaire':
-        return _playRating(entry) >= 4.5;
-      case 'nouveautés':
-        return entry.version.isNotEmpty;
-      default:
-        return searchText.contains(
-          label
-              .replaceAll('é', 'e')
-              .replaceAll('è', 'e')
-              .replaceAll('ê', 'e')
-              .replaceAll('+', ''),
-        );
-    }
-  }
+  static const _tabIcons = [
+    Broken.category,
+    Broken.video,
+    Broken.bookmark,
+    Broken.moon,
+    Broken.musicnote,
+    Broken.game,
+    Broken.book_1,
+  ];
 
   void _selectTab(int tab) {
     setState(() {
       _tab = tab;
-      _subCategory = 'Tout';
     });
-  }
-
-  void _selectSubCategory(String category) {
-    setState(() => _subCategory = category);
   }
 
   List<_ExtEntry> get _featured {
@@ -9453,8 +9406,93 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     return (preferred.isEmpty ? _visible : preferred).take(6).toList();
   }
 
+  List<_ExtEntry> _rankedWhere(bool Function(_ExtEntry entry) test,
+      {int limit = 10}) {
+    final entries = widget.entries
+        .where(test)
+        .where((entry) => widget.showNsfw || !entry.isNsfw)
+        .toList()
+      ..sort((a, b) {
+        final rating = _playRating(b).compareTo(_playRating(a));
+        if (rating != 0) return rating;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    return entries.take(limit).toList();
+  }
+
+  List<_ExtEntry> get _popularWatch => _rankedWhere(
+        (entry) => entry.contentType == ItemType.anime && !entry.isNsfw,
+      );
+
+  List<_ExtEntry> get _popularRead => _rankedWhere(
+        (entry) =>
+            entry.contentType == ItemType.manga ||
+            entry.contentType == ItemType.novel,
+      );
+
+  List<_ExtEntry> get _midnightWorld => _rankedWhere(
+        (entry) => entry.isNsfw && entry.contentType == ItemType.anime,
+      );
+
+  List<_ExtEntry> get _midnightLibrary => _rankedWhere(
+        (entry) =>
+            entry.isNsfw &&
+            (entry.contentType == ItemType.manga ||
+                entry.contentType == ItemType.novel),
+      );
+
+  List<_ExtEntry> get _watchCatalogue => _rankedWhere(
+        (entry) => entry.contentType == ItemType.anime,
+        limit: 200,
+      );
+
+  List<String> get _catalogueLanguages => widget.entries
+      .where((entry) => widget.showNsfw || !entry.isNsfw)
+      .map((entry) => entry.lang.toLowerCase())
+      .where((language) => language.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+
+  List<String> get _searchSuggestions {
+    final query = _searchController.text.trim().toLowerCase();
+    final names = widget.entries
+        .where((entry) => query.isEmpty || entry.name.toLowerCase().contains(query))
+        .map((entry) => entry.name)
+        .toSet()
+        .toList()
+      ..sort();
+    return names.take(6).toList();
+  }
+
+  List<String> get _popularSearches {
+    final types = <ItemType, String>{
+      ItemType.anime: 'Watch',
+      ItemType.manga: 'Manga',
+      ItemType.novel: 'Romans',
+      ItemType.music: 'Musique',
+      ItemType.game: 'Jeux',
+    };
+    return types.entries
+        .where((entry) => widget.entries.any((item) =>
+            item.contentType == entry.key &&
+            (widget.showNsfw || !item.isNsfw)))
+        .map((entry) => entry.value)
+        .toList();
+  }
+
   void _setSearch(String value) {
     setState(() {});
+  }
+
+  void _recordSearch() {
+    final value = _searchController.text.trim();
+    if (value.isEmpty) return;
+    setState(() {
+      _recentSearches.remove(value);
+      _recentSearches.insert(0, value);
+      if (_recentSearches.length > 6) _recentSearches.removeLast();
+    });
   }
 
   void _openSearch() {
@@ -9507,41 +9545,28 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           SliverToBoxAdapter(child: _buildHeader()),
           if (!_searching) ...[
             _buildTabs(),
-            SliverToBoxAdapter(child: _buildSubcategoryRail()),
             if (widget.loading && widget.entries.isEmpty)
               const SliverToBoxAdapter(child: _LoadingRows())
             else if (_tab == 3 && !widget.showNsfw)
               SliverToBoxAdapter(child: _buildNsfwGate())
+            else if (_tab == 0)
+              ..._buildForYou()
+            else if (_tab == 1)
+              ..._buildWatch()
             else ...[
               SliverToBoxAdapter(child: _buildHero()),
-              SliverToBoxAdapter(
-                child: _buildSectionTitle(
-                  _tab == 1
-                      ? 'Watch à découvrir'
-                      : _tab == 2
-                      ? 'Manga à découvrir'
-                      : _tab == 3
-                      ? 'Contenu +18'
-                      : _tab == 4
-                      ? 'Musique à découvrir'
-                      : _tab == 5
-                      ? 'Jeux à découvrir'
-                      : _tab == 6
-                      ? 'Romans à découvrir'
-                      : 'Recommandé pour vous',
-                ),
-              ),
+              SliverToBoxAdapter(child: _buildSectionTitle(_tabLabels[_tab])),
               _buildShelf(_featured),
               SliverToBoxAdapter(
                 child: _buildSectionTitle(
-                  _tab == 2 ? 'Manga et webcomics' : 'À découvrir ensuite',
+                  _tab == 2 ? 'Manga et webcomics' : 'Sources sélectionnées',
                 ),
               ),
-              _buildShelf(_visible.skip(6).take(10).toList()),
+              _buildShelf(_visible.take(10).toList()),
               SliverToBoxAdapter(
                 child: _buildSectionTitle('Toutes les extensions'),
               ),
-              _buildRows(_visible.skip(16).take(36).toList()),
+              _buildRows(_visible.take(60).toList()),
             ],
           ] else ...[
             SliverToBoxAdapter(child: _buildSearchBar()),
@@ -9553,7 +9578,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               ),
             ),
             if (_searchController.text.isEmpty)
-              SliverToBoxAdapter(child: _buildCategories(compact: true))
+              SliverToBoxAdapter(child: _buildSearchDiscovery())
             else
               _buildRows(_visible.take(60).toList()),
           ],
@@ -9613,7 +9638,12 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               decoration: BoxDecoration(
                 color: _surfaceHigh,
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: const Color(0xFF353539)),
+                border: Border.all(
+                  color: _searchFocused || _searchController.text.isNotEmpty
+                      ? _green.withValues(alpha: 0.8)
+                      : const Color(0xFF353539),
+                  width: _searchFocused ? 1.4 : 1,
+                ),
               ),
               child: TextField(
                 controller: _searchController,
@@ -9622,6 +9652,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                   if (!_searching) setState(() => _searching = true);
                 },
                 onChanged: _setSearch,
+                onSubmitted: (_) => _recordSearch(),
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 textAlignVertical: TextAlignVertical.center,
                 textInputAction: TextInputAction.search,
@@ -9670,6 +9701,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       pinned: true,
       delegate: _MarketplaceTabHeaderDelegate(
         labels: _tabLabels,
+        icons: _tabIcons,
         selected: _tab,
         onSelected: _selectTab,
       ),
@@ -9677,50 +9709,15 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildSubcategoryRail() {
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
-        scrollDirection: Axis.horizontal,
-        itemCount: _subCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, index) {
-          final category = _subCategories[index];
-          final selected = category == _subCategory;
-          return InkWell(
-            onTap: () => _selectSubCategory(category),
-            borderRadius: BorderRadius.circular(20),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: selected ? const Color(0xFFB7F4F0) : _surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: selected
-                      ? const Color(0xFFB7F4F0)
-                      : const Color(0xFF353539),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  category,
-                  style: TextStyle(
-                    color: selected ? const Color(0xFF123437) : _muted,
-                    fontSize: 12,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildHero() {
-    final entries = _featured;
+    return _buildHeroFor(_featured);
+  }
+
+  Widget _buildHeroFor(List<_ExtEntry> sourceEntries) {
+    final entries = sourceEntries.take(6).toList();
     if (entries.isEmpty) return const SizedBox(height: 8);
     return SizedBox(
       height: 176,
@@ -9801,6 +9798,392 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  List<Widget> _buildForYou() {
+    final watch = _popularWatch;
+    final read = _popularRead;
+    final midnightWorld = _midnightWorld;
+    final midnightLibrary = _midnightLibrary;
+    final widgets = <Widget>[
+      SliverToBoxAdapter(child: _buildHero()),
+      SliverToBoxAdapter(child: _buildSectionTitle('Popular to Watch')),
+      _buildShelf(watch),
+    ];
+
+    if (watch.isNotEmpty) {
+      widgets.add(_buildEditorialBreaker(
+        entry: watch.first,
+        eyebrow: 'Watchtower sélectionne',
+        title: 'Une meilleure façon de regarder',
+        accent: const Color(0xFF65C58A),
+      ));
+    }
+
+    widgets
+      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Popular to Read')))
+      ..add(_buildShelf(read));
+
+    if (read.isNotEmpty) {
+      widgets.add(_buildEditorialBreaker(
+        entry: read.first,
+        eyebrow: 'À lire maintenant',
+        title: 'Des sources pour tes prochaines histoires',
+        accent: const Color(0xFFEF6C92),
+      ));
+    }
+
+    if (widget.showNsfw &&
+        (midnightWorld.isNotEmpty || midnightLibrary.isNotEmpty)) {
+      widgets
+        ..add(SliverToBoxAdapter(child: _buildSectionTitle('Midnight World')))
+        ..add(_buildShelf(midnightWorld));
+      if (midnightWorld.isNotEmpty) {
+        widgets.add(_buildEditorialBreaker(
+          entry: midnightWorld.first,
+          eyebrow: 'Sélection Midnight',
+          title: 'Le meilleur du contenu adulte',
+          accent: const Color(0xFFE58AA0),
+        ));
+      }
+      widgets
+        ..add(SliverToBoxAdapter(child: _buildSectionTitle('Midnight Library')))
+        ..add(_buildShelf(midnightLibrary));
+    }
+
+    widgets
+      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Explore by Language')))
+      ..add(SliverToBoxAdapter(child: _buildLanguageExplorer()))
+      ..add(SliverToBoxAdapter(child: _buildSectionTitle('More from Marketplace')))
+      ..add(_buildRows(_visible.take(36).toList()));
+    return widgets;
+  }
+
+  List<Widget> _buildWatch() {
+    final entries = _watchCatalogue;
+    final spotlight = entries.take(6).toList();
+    return [
+      SliverToBoxAdapter(child: _buildHeroFor(spotlight)),
+      SliverToBoxAdapter(child: _buildSectionTitle('Watch spotlight')),
+      _buildShelf(spotlight),
+      if (spotlight.isNotEmpty)
+        _buildEditorialBreaker(
+          entry: spotlight.first,
+          eyebrow: 'Watch originals',
+          title: 'Trouve ta prochaine source vidéo',
+          accent: const Color(0xFF65C58A),
+        ),
+      SliverToBoxAdapter(child: _buildSectionTitle('All Watch extensions')),
+      _buildWatchPager(entries),
+    ];
+  }
+
+  Widget _buildWatchPager(List<_ExtEntry> entries) {
+    if (entries.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(18, 12, 18, 30),
+          child: Text(
+            'Aucune extension Watch ne correspond à cette sélection.',
+            style: TextStyle(color: _muted, fontSize: 13),
+          ),
+        ),
+      );
+    }
+    final pageCount = (entries.length + 8) ~/ 9;
+    return SliverToBoxAdapter(
+      child: Column(
+        children: [
+          SizedBox(
+            height: 342,
+            child: PageView.builder(
+              controller: _watchPager,
+              itemCount: pageCount,
+              itemBuilder: (_, page) {
+                final pageEntries = entries.skip(page * 9).take(9).toList();
+                final ordered = <_ExtEntry>[];
+                for (var column = 0; column < 3; column++) {
+                  for (var row = 0; row < 3; row++) {
+                    final index = column * 3 + row;
+                    if (index < pageEntries.length) {
+                      ordered.add(pageEntries[index]);
+                    }
+                  }
+                }
+                return GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: ordered.length,
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 9,
+                    mainAxisSpacing: 9,
+                    childAspectRatio: 0.72,
+                  ),
+                  itemBuilder: (_, index) {
+                    final entry = ordered[index];
+                    return _WatchGridCard(
+                      entry: entry,
+                      installed: widget.installed.contains(entry.id),
+                      busy: widget.busy[entry.id] == true,
+                      onTap: () => _showDetails(entry),
+                      onInstall: () => widget.onInstall(entry),
+                      onSettings: widget.installed.contains(entry.id)
+                          ? () => widget.onSettings(entry.id)
+                          : null,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          if (pageCount > 1)
+            AnimatedBuilder(
+              animation: _watchPager,
+              builder: (_, __) {
+                final page = _watchPager.hasClients
+                    ? (_watchPager.page ?? 0).round()
+                    : 0;
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    pageCount,
+                    (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: index == page ? 18 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: index == page ? _green : const Color(0xFF4C4C50),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          const SizedBox(height: 14),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditorialBreaker({
+    required _ExtEntry entry,
+    required String eyebrow,
+    required String title,
+    required Color accent,
+  }) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+        child: InkWell(
+          onTap: () => _showDetails(entry),
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            height: 128,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  accent.withValues(alpha: 0.36),
+                  const Color(0xFF202023),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: accent.withValues(alpha: 0.34)),
+            ),
+            child: Row(
+              children: [
+                _PlayStoreIcon(entry: entry, size: 78),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        eyebrow.toUpperCase(),
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${entry.name} · ${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _muted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_rounded, color: _muted),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageExplorer() {
+    final languages = _catalogueLanguages;
+    if (languages.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 124,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        scrollDirection: Axis.horizontal,
+        itemCount: languages.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, index) {
+          final language = languages[index];
+          final count = widget.entries
+              .where((entry) =>
+                  entry.lang.toLowerCase() == language &&
+                  (widget.showNsfw || !entry.isNsfw))
+              .length;
+          return InkWell(
+            onTap: () {
+              _searchController.text = language;
+              setState(() {
+                _searching = true;
+                _bottomTab = 2;
+              });
+              _searchFocus.requestFocus();
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Ink(
+              width: 132,
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF353539)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _MarketplaceScreenState._langFlag(language),
+                    style: const TextStyle(fontSize: 25),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    _MarketplaceScreenState._langDisplayName(language),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    '$count source${count == 1 ? '' : 's'}',
+                    style: const TextStyle(color: _muted, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _applySearch(String value) {
+    _searchController.text = value;
+    _searchController.selection = TextSelection.collapsed(offset: value.length);
+    _recordSearch();
+    setState(() {
+      _searching = true;
+      _bottomTab = 2;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+  }
+
+  Widget _buildSearchDiscovery() {
+    final suggestions = _searchSuggestions;
+    final popular = _popularSearches;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_recentSearches.isNotEmpty) ...[
+            _searchDiscoveryTitle('Recent Searches'),
+            ..._recentSearches.map(
+              (term) => _SearchDiscoveryRow(
+                icon: Icons.history_rounded,
+                label: term,
+                onTap: () => _applySearch(term),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (suggestions.isNotEmpty) ...[
+            _searchDiscoveryTitle('Search Suggestions'),
+            ...suggestions.map(
+              (term) => _SearchDiscoveryRow(
+                icon: Icons.search_rounded,
+                label: term,
+                onTap: () => _applySearch(term),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (popular.isNotEmpty) ...[
+            _searchDiscoveryTitle('Popular Searches'),
+            ...popular.map(
+              (term) => _SearchDiscoveryRow(
+                icon: Broken.category,
+                label: term,
+                onTap: () => _applySearch(term),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          _searchDiscoveryTitle('Browse / Explore'),
+          _buildCategories(compact: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _searchDiscoveryTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -10078,7 +10461,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                   onTap: () => setState(() {
                     _accountOpen = false;
                     _tab = 1;
-                    _subCategory = 'Tout';
                   }),
                 ),
                 _AccountOption(
@@ -10142,16 +10524,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 17,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? const Color(0xFF164C56)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Icon(
                       selected ? items[index].$2 : items[index].$1,
                       color: selected ? const Color(0xFFB7F4F0) : _muted,
@@ -10288,39 +10661,23 @@ String _playTypeLabel(_ExtEntry entry) => switch (entry.contentType) {
   _ => 'Jeux',
 };
 
-double _playRating(_ExtEntry entry) {
-  const curated = <String, double>{
-    'MangaDex': 4.8,
-    'Webtoons': 4.7,
-    'Comick': 4.6,
-    'AnimeThemes': 4.7,
-    'Deezer': 4.5,
-    'SoundCloud': 4.4,
-    'Batoto (v2)': 4.3,
-  };
-  final rating = curated[entry.name] ?? entry.rating;
-  return rating.clamp(3.7, 5.0);
-}
+double _playRating(_ExtEntry entry) => entry.rating.clamp(0.0, 5.0);
 
-int _playReviewCount(_ExtEntry entry) {
-  const curated = <String, int>{
-    'MangaDex': 1840,
-    'Webtoons': 1260,
-    'Comick': 980,
-    'AnimeThemes': 720,
-    'Deezer': 540,
-    'SoundCloud': 480,
-  };
-  return curated[entry.name] ?? entry.reviewCount;
-}
+int _playReviewCount(_ExtEntry entry) => entry.reviewCount;
 
 String _playSize(_ExtEntry entry) {
   if (entry.sizeBytes != null && entry.sizeBytes! > 0) {
     return _formatMktSize(entry.sizeBytes);
   }
-  final estimatedKb = 24 + (entry.id.abs() % 112);
-  return '$estimatedKb Ko';
+  return 'Taille inconnue';
 }
+
+String _playRatingLabel(_ExtEntry entry) =>
+    _playRating(entry) > 0 ? _playRating(entry).toStringAsFixed(1) : '—';
+
+String _playReviewLabel(_ExtEntry entry) => _playReviewCount(entry) > 0
+    ? '${_playReviewCount(entry)} avis'
+    : 'Avis non disponibles';
 
 String _playBadges(_ExtEntry entry) {
   final labels = <String>[
@@ -10401,7 +10758,7 @@ class _PlayStoreRow extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        _playRating(entry).toStringAsFixed(1),
+                        _playRatingLabel(entry),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -10575,7 +10932,7 @@ class _PlayStoreShelfCard extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    _playRating(entry).toStringAsFixed(1),
+                    _playRatingLabel(entry),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -10660,13 +11017,150 @@ class _PlayStoreShelfCard extends StatelessWidget {
   }
 }
 
+class _WatchGridCard extends StatelessWidget {
+  final _ExtEntry entry;
+  final bool installed;
+  final bool busy;
+  final VoidCallback onTap;
+  final VoidCallback onInstall;
+  final VoidCallback? onSettings;
+
+  const _WatchGridCard({
+    required this.entry,
+    required this.installed,
+    required this.busy,
+    required this.onTap,
+    required this.onInstall,
+    this.onSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Ink(
+        padding: const EdgeInsets.fromLTRB(9, 9, 9, 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFF202023),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF303035)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: _PlayStoreIcon(entry: entry, size: 52)),
+            const SizedBox(height: 7),
+            Text(
+              entry.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                height: 1.12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '${entry.lang.toUpperCase()} · ${_playRatingLabel(entry)} ★',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _PlayStoreMarketplaceViewState._muted,
+                fontSize: 9.5,
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              height: 25,
+              child: busy
+                  ? const Center(
+                      child: SizedBox(
+                        width: 13,
+                        height: 13,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      ),
+                    )
+                  : OutlinedButton(
+                      onPressed: installed ? onSettings : onInstall,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: installed
+                            ? _PlayStoreMarketplaceViewState._muted
+                            : _PlayStoreMarketplaceViewState._green,
+                        side: BorderSide(
+                          color: installed
+                              ? const Color(0xFF4C4C50)
+                              : _PlayStoreMarketplaceViewState._green
+                                  .withValues(alpha: 0.55),
+                        ),
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        textStyle: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: Text(installed ? 'Ouvrir' : 'Installer'),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchDiscoveryRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SearchDiscoveryRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(
+          children: [
+            Icon(icon, color: _PlayStoreMarketplaceViewState._muted, size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+            const Icon(
+              Icons.arrow_outward_rounded,
+              color: _PlayStoreMarketplaceViewState._muted,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
   final List<String> labels;
+  final List<IconData> icons;
   final int selected;
   final ValueChanged<int> onSelected;
 
   _MarketplaceTabHeaderDelegate({
     required this.labels,
+    required this.icons,
     required this.selected,
     required this.onSelected,
   });
@@ -10703,30 +11197,41 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
           final isSelected = index == selected;
           return GestureDetector(
             onTap: () => onSelected(index),
-            child: Stack(
-              alignment: Alignment.bottomCenter,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Center(
-                  child: Text(
-                    labels[index],
-                    style: TextStyle(
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icons[index],
+                      size: 15,
                       color: isSelected
-                          ? Colors.white
-                          : const Color(0xFFB9B8BE),
-                      fontSize: 13,
-                      fontWeight: isSelected
-                          ? FontWeight.w700
-                          : FontWeight.w500,
+                          ? const Color(0xFFB7F4F0)
+                          : const Color(0xFF85848A),
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Text(
+                      labels[index],
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFFB9B8BE),
+                        fontSize: 13,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 5),
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
                   width: isSelected ? 34 : 0,
                   height: 3,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFB7F4F0),
-                    borderRadius: BorderRadius.circular(3),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFB7F4F0),
                   ),
                 ),
               ],
@@ -10741,6 +11246,7 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _MarketplaceTabHeaderDelegate oldDelegate) =>
       oldDelegate.selected != selected ||
       oldDelegate.labels != labels ||
+      oldDelegate.icons != icons ||
       oldDelegate.onSelected != onSelected;
 }
 
@@ -10817,7 +11323,7 @@ class _PlayStoreDetails extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            _playRating(entry).toStringAsFixed(1),
+                            _playRatingLabel(entry),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
@@ -10831,7 +11337,7 @@ class _PlayStoreDetails extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            '${_playReviewCount(entry)} avis',
+                            _playReviewLabel(entry),
                             style: const TextStyle(
                               color: _PlayStoreMarketplaceViewState._muted,
                               fontSize: 12,
@@ -10923,34 +11429,47 @@ class _PlayStoreDetails extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Column(
               children: [
-                _DetailPill(
-                  label: installed && installedVersion != null
-                      ? 'Disponible v${entry.version}'
-                      : 'Version ${entry.version}',
+                _DetailInfoRow(
+                  label: 'Version',
+                  value: installed && installedVersion != null
+                      ? 'v$installedVersion · disponible v${entry.version}'
+                      : 'v${entry.version}',
                 ),
-                _DetailPill(label: _playSize(entry)),
-                _DetailPill(label: 'Langue ${entry.lang.toUpperCase()}'),
-                _DetailPill(
-                  label: entry.compat == SourceCodeLanguage.javascript
+                _DetailInfoRow(label: 'Taille', value: _playSize(entry)),
+                _DetailInfoRow(
+                  label: 'Langue',
+                  value: entry.lang.toUpperCase(),
+                ),
+                _DetailInfoRow(
+                  label: 'Technologie',
+                  value: entry.compat == SourceCodeLanguage.javascript
                       ? 'JavaScript'
                       : 'Watchtower',
                 ),
                 if (entry.requiresAccount)
-                  const _DetailPill(label: 'Compte requis'),
-                if (entry.hasDRM) const _DetailPill(label: 'DRM'),
-                if (entry.isAggregator) const _DetailPill(label: 'Agrégateur'),
-                if (entry.paywall.trim().isNotEmpty &&
-                    entry.paywall.toLowerCase() != 'free')
-                  _DetailPill(label: 'Accès ${entry.paywall}'),
+                  const _DetailInfoRow(
+                    label: 'Accès',
+                    value: 'Compte requis',
+                  ),
+                if (entry.hasDRM)
+                  const _DetailInfoRow(label: 'Lecture', value: 'DRM'),
+                if (entry.isAggregator)
+                  const _DetailInfoRow(
+                    label: 'Catalogue',
+                    value: 'Agrégateur',
+                  ),
                 if (entry.supportsComments)
-                  const _DetailPill(label: 'Commentaires'),
-                ...entry.subCategories.map(
-                  (category) => _DetailPill(label: category),
-                ),
+                  const _DetailInfoRow(
+                    label: 'Communauté',
+                    value: 'Commentaires',
+                  ),
+                if (entry.subCategories.isNotEmpty)
+                  _DetailInfoRow(
+                    label: 'Contenu',
+                    value: entry.subCategories.join(' · '),
+                  ),
               ],
             ),
             const SizedBox(height: 22),
@@ -10990,23 +11509,39 @@ class _PlayStoreDetails extends StatelessWidget {
   }
 }
 
-class _DetailPill extends StatelessWidget {
+class _DetailInfoRow extends StatelessWidget {
   final String label;
-  const _DetailPill({required this.label});
+  final String value;
+  const _DetailInfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF29292B),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        child: Text(
-          label,
-          style: const TextStyle(color: Color(0xFFD6D5DA), fontSize: 11),
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 104,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: _PlayStoreMarketplaceViewState._muted,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Color(0xFFE4E3E8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

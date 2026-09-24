@@ -540,39 +540,58 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     );
     if (confirmed != true || !mounted) return;
 
-    final sourcePrefsIds = isar.sourcePreferences
-        .filter()
-        .sourceIdEqualTo(source.id!)
-        .findAllSync()
-        .map((e) => e.id!)
-        .toList();
-    final sourcePrefsStringIds = isar.sourcePreferenceStringValues
-        .filter()
-        .sourceIdEqualTo(source.id!)
-        .findAllSync()
-        .map((e) => e.id)
-        .toList();
-    isar.writeTxnSync(() {
-      if (source.isObsolete ?? false) {
-        isar.sources.deleteSync(widget.source.id!);
-        ref
-            .read(synchingProvider(syncId: 1).notifier)
-            .addChangedPart(ActionType.removeExtension, source.id, '{}', false);
-      } else {
-        isar.sources.putSync(
-          widget.source
-            ..sourceCode = ''
-            ..isAdded = false
-            ..isPinned = false
-            ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-        );
+    final current = await isar.sources.get(source.id!);
+    if (current == null) {
+      if (mounted) {
+        botToast('Cette extension n’existe plus dans le stockage local.');
+        Navigator.pop(context);
       }
-      isar.sourcePreferences.deleteAllSync(sourcePrefsIds);
-      isar.sourcePreferenceStringValues.deleteAllSync(sourcePrefsStringIds);
-    });
-    unawaited(LayoutDownloader.instance.remove(source));
-
-    if (mounted) Navigator.pop(context, source);
+      return;
+    }
+    final sourcePrefsIds = await isar.sourcePreferences
+        .filter()
+        .sourceIdEqualTo(current.id!)
+        .findAll()
+        .then((items) => items.map((e) => e.id!).toList());
+    final sourcePrefsStringIds = await isar.sourcePreferenceStringValues
+        .filter()
+        .sourceIdEqualTo(current.id!)
+        .findAll()
+        .then((items) => items.map((e) => e.id).toList());
+    try {
+      await isar.writeTxn(() async {
+        if (current.isObsolete ?? false) {
+          await isar.sources.delete(current.id!);
+          ref
+              .read(synchingProvider(syncId: 1).notifier)
+              .addChangedPart(
+                ActionType.removeExtension,
+                current.id,
+                '{}',
+                false,
+              );
+        } else {
+          await isar.sources.put(
+            current
+              ..sourceCode = ''
+              ..isAdded = false
+              ..isPinned = false
+              ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+          );
+        }
+        await isar.sourcePreferences.deleteAll(sourcePrefsIds);
+        await isar.sourcePreferenceStringValues.deleteAll(sourcePrefsStringIds);
+      });
+      await LayoutDownloader.instance.remove(current);
+      if (mounted) {
+        botToast('Extension désinstallée.');
+        Navigator.pop(context, current);
+      }
+    } catch (error) {
+      if (mounted) {
+        botToast('Erreur lors de la désinstallation : $error');
+      }
+    }
   }
 
   @override
