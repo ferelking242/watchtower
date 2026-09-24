@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 
@@ -157,8 +159,8 @@ class _TmdbSection extends StatelessWidget {
               itemBuilder: (context, index) {
                 final media = visible[index];
                 final source = 'catalog-$index';
-                return TmdbPosterCard(
-                  media: media,
+                return PosterCard(
+                  item: ContentItem.fromTmdb(media),
                   width: 132,
                   heroTag: tmdbHeroTag(media, source),
                   onTap: () =>

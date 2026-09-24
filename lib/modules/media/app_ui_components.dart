@@ -5,7 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
-/// Visual primitives copied from FlixQuest's app_ui_components.dart.
+/// Shared visual primitives for the media, watch and discovery surfaces.
 /// Data and navigation remain Watchtower-owned.
 abstract final class AppUI {
   static const double phonePadding = 20;
@@ -76,7 +76,7 @@ class AppLoadingColors {
       Theme.of(context).brightness == Brightness.dark ? dark : light;
 }
 
-/// The original FlixQuest swipe-and-crossfade carousel behavior.
+/// Shared swipe-and-crossfade carousel behavior.
 class AppCrossfadeCarousel extends StatefulWidget {
   const AppCrossfadeCarousel({
     required this.itemCount,
@@ -994,8 +994,8 @@ class AppEmptyState extends StatelessWidget {
   }
 }
 
-class FlixQuestMediaLoading extends StatelessWidget {
-  const FlixQuestMediaLoading({
+class MediaHomeLoading extends StatelessWidget {
+  const MediaHomeLoading({
     required this.isSeries,
     this.onSearchPressed,
     this.onLiveTVPressed,

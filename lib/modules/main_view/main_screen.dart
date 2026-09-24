@@ -28,6 +28,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/services/sync_server.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';

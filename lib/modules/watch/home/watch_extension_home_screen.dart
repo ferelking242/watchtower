@@ -9,7 +9,8 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
-import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -21,9 +22,9 @@ import 'package:watchtower/modules/watch/home/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
-/// The Watch extension home deliberately uses the same composition as the
-/// FlixQuest movie home.  Only the data boundary is different: every card is
-/// supplied by the selected extension instead of TMDB.
+/// The Watch extension home uses the same media composition as the Hub.
+/// Only the data boundary is different: every card is supplied by the
+/// selected extension instead of TMDB.
 class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
   final Source source;
 
@@ -164,7 +165,7 @@ class _WatchExtensionHomeScreenState
     }
 
     if (!_layoutReady && source.providesHome) {
-      return _ExtensionFlixQuestLoading(
+      return _ExtensionHomeLoading(
         source: source,
         onSearch: () => setState(() => _isSearching = true),
         onRefresh: _refresh,
@@ -192,7 +193,7 @@ class _WatchExtensionHomeScreenState
         (popularAsync?.isLoading == true || latestAsync?.isLoading == true);
 
     if (isLoading && popular.isEmpty && latest.isEmpty) {
-      return _ExtensionFlixQuestLoading(
+      return _ExtensionHomeLoading(
         source: source,
         onSearch: () => setState(() => _isSearching = true),
         onRefresh: _refresh,
@@ -991,8 +992,8 @@ class _ExtensionPosterRail extends StatelessWidget {
                 top: 8,
                 bottom: 8,
               ),
-              child: ExtensionPosterCard(
-                item: items[index],
+              child: PosterCard(
+                item: ContentItem.fromManga(items[index]),
                 width: cardWidth,
                 onTap: () => onOpen(items[index]),
               ),
@@ -1042,8 +1043,8 @@ class _ExtensionLandscapeRail extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, index) => ExtensionLandscapeCard(
-              item: items[index],
+            itemBuilder: (_, index) => LandscapeCard(
+              item: ContentItem.fromManga(items[index]),
               width: width,
               onTap: () => onOpen(items[index]),
             ),
@@ -1088,8 +1089,8 @@ class _ExtensionRankedRail extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (_, index) => ExtensionRankedCard(
-              item: items[index],
+            itemBuilder: (_, index) => RankedCard(
+              item: ContentItem.fromManga(items[index]),
               rank: index + 1,
               onTap: () => onOpen(items[index]),
             ),
@@ -1314,12 +1315,12 @@ class _ExtensionGridSection extends StatelessWidget {
               childAspectRatio: cardStyle == 'tag' ? 2.6 : .55,
             ),
             itemBuilder: (_, index) => cardStyle == 'tag'
-                ? ExtensionTagCard(
-                    item: visible[index],
+                ? TagCard(
+                    item: ContentItem.fromManga(visible[index]),
                     onTap: () => onOpen(visible[index]),
                   )
-                : ExtensionPosterCard(
-                    item: visible[index],
+                : PosterCard(
+                    item: ContentItem.fromManga(visible[index]),
                     width: double.infinity,
                     onTap: () => onOpen(visible[index]),
                   ),
@@ -1506,8 +1507,8 @@ class _ExtensionStudioRail extends StatelessWidget {
                 final item = items[index + 1];
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: ExtensionLandscapeCard(
-                    item: item,
+                  child: LandscapeCard(
+                    item: ContentItem.fromManga(item),
                     width: 190,
                     onTap: () => onOpen(item),
                   ),
@@ -1516,249 +1517,6 @@ class _ExtensionStudioRail extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class ExtensionTagCard extends StatelessWidget {
-  final MManga item;
-  final VoidCallback onTap;
-
-  const ExtensionTagCard({required this.item, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF173E46), Color(0xFF236B70)],
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.local_offer_rounded,
-              size: 16,
-              color: Color(0xFF9AF3E2),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                item.name ?? 'Tag',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ExtensionPosterCard extends StatelessWidget {
-  final MManga item;
-  final double width;
-  final VoidCallback onTap;
-
-  const ExtensionPosterCard({
-    required this.item,
-    required this.width,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: width,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppUI.cardRadius),
-              child: AspectRatio(
-                aspectRatio: AppUI.posterAspectRatio,
-                child: _ExtensionImage(url: item.imageUrl),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              item.name ?? 'Sans titre',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ExtensionLandscapeCard extends StatelessWidget {
-  final MManga item;
-  final double width;
-  final VoidCallback onTap;
-
-  const ExtensionLandscapeCard({
-    required this.item,
-    required this.width,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: width,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _ExtensionImage(url: item.imageUrl, fit: BoxFit.cover),
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        width: 82,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0B0B11).withValues(alpha: .9),
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(42),
-                          ),
-                        ),
-                        child: const Icon(
-                          Broken.play,
-                          color: Colors.white,
-                          size: 26,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              item.name ?? 'Sans titre',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ExtensionRankedCard extends StatelessWidget {
-  final MManga item;
-  final int rank;
-  final VoidCallback onTap;
-
-  const ExtensionRankedCard({
-    required this.item,
-    required this.rank,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final rankColor = rank == 1
-        ? const Color(0xFFFFD700)
-        : rank == 2
-        ? const Color(0xFFC0C0C0)
-        : rank == 3
-        ? const Color(0xFFCD7F32)
-        : Colors.white.withValues(alpha: .4);
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 110,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: AspectRatio(
-                      aspectRatio: AppUI.posterAspectRatio,
-                      child: _ExtensionImage(url: item.imageUrl),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -4,
-                    left: 4,
-                    child: Text(
-                      '$rank',
-                      style: TextStyle(
-                        fontSize: 52,
-                        fontWeight: FontWeight.w900,
-                        foreground: Paint()
-                          ..style = PaintingStyle.stroke
-                          ..strokeWidth = 3
-                          ..color = Colors.black.withValues(alpha: .6),
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -4,
-                    left: 4,
-                    child: Text(
-                      '$rank',
-                      style: TextStyle(
-                        fontSize: 52,
-                        fontWeight: FontWeight.w900,
-                        color: rankColor,
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              item.name ?? 'Sans titre',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1948,12 +1706,12 @@ class _ExtensionHeroMetaChip extends StatelessWidget {
   }
 }
 
-class _ExtensionFlixQuestLoading extends StatelessWidget {
+class _ExtensionHomeLoading extends StatelessWidget {
   final Source source;
   final VoidCallback onSearch;
   final Future<void> Function() onRefresh;
 
-  const _ExtensionFlixQuestLoading({
+  const _ExtensionHomeLoading({
     required this.source,
     required this.onSearch,
     required this.onRefresh,

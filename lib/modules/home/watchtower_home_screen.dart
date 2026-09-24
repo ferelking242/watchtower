@@ -23,6 +23,8 @@ import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_production_sections.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
@@ -2175,7 +2177,7 @@ class _EmptySliver extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TMDB poster row — horizontal scroll of TmdbPosterCard
+// Shared poster row — horizontal scroll of PosterCard
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TmdbRow extends StatelessWidget {
@@ -2212,8 +2214,8 @@ class _TmdbRow extends StatelessWidget {
               itemBuilder: (_, i) {
                 final media = items[i];
                 final source = 'home-poster-${title.hashCode}-$i';
-                return TmdbPosterCard(
-                  media: media,
+                return PosterCard(
+                  item: ContentItem.fromTmdb(media),
                   heroTag: tmdbHeroTag(media, source),
                   onTap: () =>
                       pushTmdbMediaDetail(context, media, source: source),
@@ -2274,8 +2276,9 @@ class _TmdbUpcomingGrid extends StatelessWidget {
               itemBuilder: (context, index) {
                 final media = items[index];
                 final source = 'home-upcoming-$title-$index';
-                return TmdbCompactPosterCard(
-                  media: media,
+                return PosterCard(
+                  item: ContentItem.fromTmdb(media),
+                  compact: true,
                   width: 108,
                   onTap: () =>
                       pushTmdbMediaDetail(context, media, source: source),
@@ -2529,8 +2532,8 @@ class _TmdbLandscapeRow extends StatelessWidget {
               itemBuilder: (_, i) {
                 final media = items[i];
                 final source = 'home-landscape-${title.hashCode}-$i';
-                return TmdbLandscapeCard(
-                  media: media,
+                return LandscapeCard(
+                  item: ContentItem.fromTmdb(media),
                   heroTag: tmdbHeroTag(media, source),
                   onTap: () =>
                       pushTmdbMediaDetail(context, media, source: source),
@@ -2582,8 +2585,8 @@ class _TmdbRankedRow extends StatelessWidget {
               itemBuilder: (_, i) {
                 final media = items[i];
                 final source = 'home-ranked-${title.hashCode}-$i';
-                return TmdbRankedCard(
-                  media: media,
+                return RankedCard(
+                  item: ContentItem.fromTmdb(media),
                   heroTag: tmdbHeroTag(media, source),
                   rank: i + 1,
                   onTap: () =>

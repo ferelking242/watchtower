@@ -6,7 +6,8 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
-import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 
 enum _GalleryCategory { tmdb, anilist, editorial, extensions, common }
@@ -957,14 +958,14 @@ String _categoryDescription(_GalleryCategory category) => switch (category) {
 List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     category: _GalleryCategory.tmdb,
-    title: 'Poster cinéma',
-    className: 'TmdbPosterCard',
-    path: 'lib/modules/home/widgets/tmdb_cards.dart',
+    title: 'Poster contenu',
+    className: 'PosterCard',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Rails Films et Séries',
     icon: Icons.local_movies_outlined,
     kind: _PreviewKind.poster,
-    result: (_) => TmdbPosterCard(
-      media: _tmdbItems[0],
+    result: (_) => PosterCard(
+      item: ContentItem.fromTmdb(_tmdbItems[0]),
       width: 112,
       heroTag: 'gallery-tmdb-poster',
       onTap: () {},
@@ -973,24 +974,28 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     category: _GalleryCategory.tmdb,
     title: 'Poster compact',
-    className: 'TmdbCompactPosterCard',
-    path: 'lib/modules/home/widgets/tmdb_cards.dart',
+    className: 'PosterCard(compact)',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Grille Upcoming multi-rangées',
     icon: Icons.grid_view_outlined,
     kind: _PreviewKind.compactPoster,
-    result: (_) =>
-        TmdbCompactPosterCard(media: _tmdbItems[1], width: 92, onTap: () {}),
+    result: (_) => PosterCard(
+      item: ContentItem.fromTmdb(_tmdbItems[1]),
+      width: 92,
+      compact: true,
+      onTap: () {},
+    ),
   ),
   _ComponentSpec(
     category: _GalleryCategory.tmdb,
     title: 'Carte paysage',
-    className: 'TmdbLandscapeCard',
-    path: 'lib/modules/home/widgets/tmdb_cards.dart',
+    className: 'LandscapeCard',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Rails Now playing et Airing today',
     icon: Icons.panorama_outlined,
     kind: _PreviewKind.landscape,
-    result: (_) => TmdbLandscapeCard(
-      media: _tmdbItems[2],
+    result: (_) => LandscapeCard(
+      item: ContentItem.fromTmdb(_tmdbItems[2]),
       width: 220,
       heroTag: 'gallery-tmdb-landscape',
       onTap: () {},
@@ -999,13 +1004,13 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     category: _GalleryCategory.tmdb,
     title: 'Carte classée',
-    className: 'TmdbRankedCard',
-    path: 'lib/modules/home/widgets/tmdb_cards.dart',
+    className: 'RankedCard',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Top 10 Films et Séries',
     icon: Icons.leaderboard_outlined,
     kind: _PreviewKind.ranked,
-    result: (_) => TmdbRankedCard(
-      media: _tmdbItems[3],
+    result: (_) => RankedCard(
+      item: ContentItem.fromTmdb(_tmdbItems[3]),
       rank: 1,
       heroTag: 'gallery-tmdb-ranked',
       onTap: () {},
@@ -1107,24 +1112,27 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     category: _GalleryCategory.extensions,
     title: 'Poster extension',
-    className: 'ExtensionPosterCard',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    className: 'PosterCard',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Rails de résultats extension',
     icon: Icons.extension_outlined,
     kind: _PreviewKind.poster,
-    result: (_) =>
-        ExtensionPosterCard(item: _extensionItems[0], width: 112, onTap: () {}),
+    result: (_) => PosterCard(
+      item: ContentItem.fromManga(_extensionItems[0]),
+      width: 112,
+      onTap: () {},
+    ),
   ),
   _ComponentSpec(
     category: _GalleryCategory.extensions,
     title: 'Carte paysage extension',
-    className: 'ExtensionLandscapeCard',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    className: 'LandscapeCard',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Rails avec action de lecture',
     icon: Icons.play_circle_outline_rounded,
     kind: _PreviewKind.landscape,
-    result: (_) => ExtensionLandscapeCard(
-      item: _extensionItems[1],
+    result: (_) => LandscapeCard(
+      item: ContentItem.fromManga(_extensionItems[1]),
       width: 220,
       onTap: () {},
     ),
@@ -1132,16 +1140,16 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     category: _GalleryCategory.extensions,
     title: 'Classement extension',
-    className: 'ExtensionRankedCard',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    className: 'RankedCard',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Top des contenus extension',
     icon: Icons.emoji_events_outlined,
     kind: _PreviewKind.ranked,
     result: (_) => SizedBox(
       width: 110,
       height: 190,
-      child: ExtensionRankedCard(
-        item: _extensionItems[2],
+      child: RankedCard(
+        item: ContentItem.fromManga(_extensionItems[2]),
         rank: 1,
         onTap: () {},
       ),
@@ -1150,21 +1158,24 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     category: _GalleryCategory.extensions,
     title: 'Carte tag',
-    className: 'ExtensionTagCard',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    className: 'TagCard',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Grilles tag des extensions',
     icon: Icons.local_offer_outlined,
     kind: _PreviewKind.tag,
     result: (_) => SizedBox(
       width: 260,
-      child: ExtensionTagCard(item: _extensionItems[3], onTap: () {}),
+      child: TagCard(
+        item: ContentItem.fromManga(_extensionItems[3]),
+        onTap: () {},
+      ),
     ),
   ),
   _ComponentSpec(
     category: _GalleryCategory.common,
     title: 'Tuile genre',
     className: 'AppGenreTile',
-    path: 'lib/modules/media/flixquest_app_ui_components.dart',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Genres Films, Séries et extensions',
     icon: Icons.category_outlined,
     kind: _PreviewKind.genre,
@@ -1182,7 +1193,7 @@ List<_ComponentSpec> _buildComponents() => [
     category: _GalleryCategory.common,
     title: 'Carrousel tactile',
     className: 'AppCrossfadeCarousel',
-    path: 'lib/modules/media/flixquest_app_ui_components.dart',
+    path: 'lib/modules/media/content_cards.dart',
     usage: 'Swipe, fondu et autoplay commun',
     icon: Icons.swipe_rounded,
     kind: _PreviewKind.carousel,
@@ -1192,8 +1203,8 @@ List<_ComponentSpec> _buildComponents() => [
       child: AppCrossfadeCarousel(
         itemCount: 2,
         interval: const Duration(seconds: 5),
-        itemBuilder: (_, index) => TmdbPosterCard(
-          media: _tmdbItems[index],
+        itemBuilder: (_, index) => PosterCard(
+          item: ContentItem.fromTmdb(_tmdbItems[index]),
           width: 112,
           heroTag: 'gallery-crossfade-$index',
           onTap: () {},

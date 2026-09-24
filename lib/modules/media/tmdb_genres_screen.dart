@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
-import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
-import 'package:watchtower/modules/media/flixquest_movie_widgets.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
 
 class TmdbGenresScreen extends StatelessWidget {
   const TmdbGenresScreen({

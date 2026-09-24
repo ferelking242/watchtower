@@ -68,7 +68,7 @@ import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/media_hub_screen.dart';
-import 'package:watchtower/modules/media/flixquest_movie_widgets.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/tmdb_media_detail_screen.dart';
 import 'package:watchtower/modules/media/tmdb_people_screen.dart';
 import 'package:watchtower/modules/media/live_tv_screen.dart';
@@ -187,10 +187,7 @@ class RouterNotifier extends ChangeNotifier {
     ShellRoute(
       builder: (context, state, child) => MainScreen(child: child),
       routes: [
-        _genericRoute(
-          name: "Library",
-          child: const ComponentGalleryScreen(),
-        ),
+        _genericRoute(name: "Library", child: const ComponentGalleryScreen()),
         _genericRoute(
           name: "MangaLibrary",
           child: const MangaDiscoveryScreen(),
@@ -201,11 +198,11 @@ class RouterNotifier extends ChangeNotifier {
         ),
         _genericRoute(
           name: "MoviesLibrary",
-          child: const FlixMediaHomeScreen(kind: MediaHubKind.movies),
+          child: const MediaHomeScreen(kind: MediaHubKind.movies),
         ),
         _genericRoute(
           name: "SeriesLibrary",
-          child: const FlixMediaHomeScreen(kind: MediaHubKind.series),
+          child: const MediaHomeScreen(kind: MediaHubKind.series),
         ),
         _genericRoute(
           name: "NovelLibrary",

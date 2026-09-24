@@ -5,11 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
-/// Extension search deliberately mirrors the FlixQuest search layout while
+/// Extension search deliberately mirrors the shared media search layout while
 /// keeping its data and preferences isolated from the TMDB search screen.
 class ExtensionSearchScreen extends ConsumerStatefulWidget {
   final Source source;
@@ -247,65 +248,12 @@ class _ExtensionSearchResults extends StatelessWidget {
             mainAxisSpacing: 16,
           ),
           itemCount: items.length,
-          itemBuilder: (_, index) => _ExtensionSearchCard(
-            item: items[index],
+          itemBuilder: (_, index) => PosterCard(
+            item: ContentItem.fromManga(items[index]),
             onTap: () => onOpen(items[index]),
           ),
         );
       },
-    );
-  }
-}
-
-class _ExtensionSearchCard extends StatelessWidget {
-  final MManga item;
-  final VoidCallback onTap;
-
-  const _ExtensionSearchCard({required this.item, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: item.imageUrl?.isNotEmpty == true
-                  ? cachedNetworkImage(
-                      imageUrl: item.imageUrl!,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                    )
-                  : const ColoredBox(
-                      color: Color(0xFF22242C),
-                      child: Center(
-                        child: Icon(
-                          Broken.video,
-                          color: Colors.white54,
-                          size: 32,
-                        ),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item.name ?? 'Sans titre',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

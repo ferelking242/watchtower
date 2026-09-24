@@ -7,15 +7,16 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
-import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
-import 'package:watchtower/modules/media/flixquest_movie_widgets.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
 
 enum MediaHubKind { movies, series }
 
-class FlixMediaHomeScreen extends ConsumerWidget {
+class MediaHomeScreen extends ConsumerWidget {
   final MediaHubKind kind;
 
-  const FlixMediaHomeScreen({super.key, required this.kind});
+  const MediaHomeScreen({super.key, required this.kind});
 
   bool get isMovies => kind == MediaHubKind.movies;
 
@@ -26,7 +27,7 @@ class FlixMediaHomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: home.when(
-        loading: () => FlixQuestMediaLoading(
+        loading: () => MediaHomeLoading(
           isSeries: !isMovies,
           onSearchPressed: () => context.push('/flixSearch'),
           onLiveTVPressed: () => context.push('/liveTv'),
@@ -301,8 +302,8 @@ class _MediaRow extends StatelessWidget {
                 itemBuilder: (_, index) {
                   final media = items[index];
                   final source = 'media-hub-${title.hashCode}-$index';
-                  return TmdbPosterCard(
-                    media: media,
+                  return PosterCard(
+                    item: ContentItem.fromTmdb(media),
                     heroTag: tmdbHeroTag(media, source),
                     width: 126,
                     onTap: () =>

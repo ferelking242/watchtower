@@ -6,6 +6,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
@@ -203,60 +204,11 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         if (index >= items.length) {
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
         }
-        return _ExtensionSectionCard(
-          item: items[index],
+        return PosterCard(
+          item: ContentItem.fromManga(items[index]),
           onTap: () => _openItem(items[index]),
         );
       },
-    );
-  }
-}
-
-class _ExtensionSectionCard extends StatelessWidget {
-  final MManga item;
-  final VoidCallback onTap;
-
-  const _ExtensionSectionCard({required this.item, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: item.link?.isNotEmpty == true ? onTap : null,
-      borderRadius: BorderRadius.circular(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: item.imageUrl?.isNotEmpty == true
-                  ? cachedNetworkImage(
-                      imageUrl: item.imageUrl!,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                    )
-                  : const ColoredBox(
-                      color: Color(0xFF22242C),
-                      child: Center(
-                        child: Icon(Broken.video, color: Colors.white54),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item.name ?? 'Sans titre',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

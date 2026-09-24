@@ -7,11 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
-import 'flixquest_app_ui_components.dart';
+import 'app_ui_components.dart';
+import 'content_cards.dart';
 import 'tmdb_genres_screen.dart';
 
-/// FlixQuest's original Movies home composition, adapted only at the
-/// Watchtower data and navigation boundaries.
+/// Shared media home composition for the Movies and Series Hub pages.
 class MainMoviesDisplay extends StatefulWidget {
   const MainMoviesDisplay({
     required this.home,
@@ -185,7 +185,7 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
   }
 }
 
-/// The same FlixQuest feed composition used for television series.
+/// The same media feed composition used for television series.
 class MainSeriesDisplay extends StatefulWidget {
   const MainSeriesDisplay({
     required this.home,
@@ -341,7 +341,7 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
   }
 }
 
-/// The original FlixQuest hero entry point, retaining its cross-fade swipe
+/// The shared media hero entry point, retaining its cross-fade swipe
 /// transition while receiving Watchtower's TmdbMedia objects.
 class DiscoverMovies extends StatelessWidget {
   const DiscoverMovies({
@@ -693,8 +693,8 @@ class ScrollingMovies extends StatelessWidget {
                 ),
                 child: SizedBox(
                   width: cardWidth,
-                  child: TmdbPosterCard(
-                    media: media,
+                  child: PosterCard(
+                    item: ContentItem.fromTmdb(media),
                     heroTag: tmdbHeroTag(media, source),
                     width: cardWidth,
                     onTap: () =>
@@ -757,8 +757,8 @@ class ScrollingLandscapeMovies extends StatelessWidget {
             itemBuilder: (context, index) {
               final media = items[index];
               final source = 'flix-landscape-${title.hashCode}-$index';
-              return TmdbLandscapeCard(
-                media: media,
+              return LandscapeCard(
+                item: ContentItem.fromTmdb(media),
                 heroTag: tmdbHeroTag(media, source),
                 width: 238,
                 onTap: () =>
@@ -773,7 +773,7 @@ class ScrollingLandscapeMovies extends StatelessWidget {
 }
 
 /// A ranked rail breaks up the repeated poster rows and mirrors the Top 10
-/// treatment used by FlixQuest: the number is part of the card, not a badge
+/// treatment used by the media Hub: the number is part of the card, not a badge
 /// hidden below the image.
 class RankedMovies extends StatelessWidget {
   const RankedMovies({required this.title, required this.items, super.key});
@@ -801,8 +801,8 @@ class RankedMovies extends StatelessWidget {
             itemBuilder: (context, index) {
               final media = items[index];
               final source = 'flix-ranked-${title.hashCode}-$index';
-              return TmdbRankedCard(
-                media: media,
+              return RankedCard(
+                item: ContentItem.fromTmdb(media),
                 heroTag: tmdbHeroTag(media, source),
                 rank: index + 1,
                 onTap: () =>
@@ -851,8 +851,8 @@ class FeaturedMovieRail extends StatelessWidget {
             itemBuilder: (context, index) {
               final media = uniqueItems[index];
               final source = 'flix-featured-$index';
-              return TmdbLandscapeCard(
-                media: media,
+              return LandscapeCard(
+                item: ContentItem.fromTmdb(media),
                 width: 280,
                 heroTag: tmdbHeroTag(media, source),
                 onTap: () =>
@@ -1382,8 +1382,8 @@ class _TmdbMoviesListScreenState extends State<TmdbMoviesListScreen> {
                       }
                       final media = movies[index];
                       final source = 'flix-catalog-$index';
-                      return TmdbPosterCard(
-                        media: media,
+                      return PosterCard(
+                        item: ContentItem.fromTmdb(media),
                         heroTag: tmdbHeroTag(media, source),
                         onTap: () =>
                             pushTmdbMediaDetail(context, media, source: source),
@@ -1451,7 +1451,7 @@ class _CatalogError extends StatelessWidget {
   }
 }
 
-/// FlixQuest-style TMDB search kept separate from Watchtower's extension
+/// TMDB search kept separate from Watchtower's extension
 /// search. It searches the movie/series catalogue and never opens the
 /// extension global-search route.
 class TmdbSearchScreen extends StatefulWidget {
@@ -1710,8 +1710,8 @@ class _TmdbSearchResults extends StatelessWidget {
           itemBuilder: (context, index) {
             final media = items[index];
             final source = 'flix-search-$index';
-            return TmdbPosterCard(
-              media: media,
+            return PosterCard(
+              item: ContentItem.fromTmdb(media),
               width: double.infinity,
               heroTag: tmdbHeroTag(media, source),
               onTap: () => pushTmdbMediaDetail(context, media, source: source),

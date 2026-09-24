@@ -9,7 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
-import 'package:watchtower/modules/media/flixquest_app_ui_components.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 
 class TmdbMediaDetailScreen extends StatefulWidget {
   final TmdbMedia media;
@@ -1412,8 +1413,8 @@ class _RecommendationsSection extends StatelessWidget {
           itemBuilder: (_, index) {
             final media = items[index];
             final source = 'recommendation-$index';
-            return TmdbPosterCard(
-              media: media,
+            return PosterCard(
+              item: ContentItem.fromTmdb(media),
               heroTag: tmdbHeroTag(media, source),
               width: 126,
               onTap: () => pushTmdbMediaDetail(context, media, source: source),
