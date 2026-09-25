@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
@@ -122,10 +123,8 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen> {
       backgroundColor: const Color(0xFF0B0B11),
       body: SafeArea(
         bottom: false,
-        child: DefaultTabController(
-          length: 1,
-          child: Column(
-            children: [
+        child: Column(
+          children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(8, 10, 16, 12),
                 child: Row(
@@ -186,72 +185,165 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen> {
                   ],
                 ),
               ),
-              const TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                tabs: [Tab(text: 'Résultats')],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _query.isEmpty
-                        ? _ExtensionRecentSearches(
-                            searches: _recentSearches,
-                            onSearch: _search,
-                            onRemove: _removeRecentSearch,
-                            onClear: _clearRecentSearches,
-                          )
-                        : _ExtensionSearchResults(
-                            result: result!,
-                            onOpen: widget.onOpen,
-                          ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            Expanded(
+              child: _query.isEmpty
+                  ? _ExtensionRecentSearches(
+                      searches: _recentSearches,
+                      onSearch: _search,
+                      onRemove: _removeRecentSearch,
+                      onClear: _clearRecentSearches,
+                    )
+                  : _ExtensionSearchResults(
+                      key: ValueKey(_query),
+                      source: widget.source,
+                      query: _query,
+                      result: result!,
+                      onOpen: widget.onOpen,
+                    ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
-class _ExtensionSearchResults extends StatelessWidget {
-  final AsyncValue<dynamic> result;
+class _ExtensionSearchResults extends ConsumerStatefulWidget {
+  final Source source;
+  final String query;
+  final AsyncValue<MPages?> result;
   final ValueChanged<MManga> onOpen;
 
-  const _ExtensionSearchResults({required this.result, required this.onOpen});
+  const _ExtensionSearchResults({
+    required this.source,
+    required this.query,
+    required this.result,
+    required this.onOpen,
+    super.key,
+  });
+
+  @override
+  ConsumerState<_ExtensionSearchResults> createState() =>
+      _ExtensionSearchResultsState();
+}
+
+class _ExtensionSearchResultsState
+    extends ConsumerState<_ExtensionSearchResults> {
+  final _scrollController = ScrollController();
+  final _additionalItems = <MManga>[];
+  int _page = 1;
+  bool _loadingMore = false;
+  bool? _hasNextPage;
+  bool _initialFillScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.extentAfter < 420) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    final firstPage = widget.result.value;
+    if (_loadingMore || (_hasNextPage ?? firstPage?.hasNextPage) != true) {
+      return;
+    }
+    setState(() => _loadingMore = true);
+
+    final nextPage = _page + 1;
+    try {
+      final result = await ref.read(
+        searchProvider(
+          source: widget.source,
+          query: widget.query,
+          page: nextPage,
+          filterList: const [],
+        ).future,
+      );
+      if (!mounted) return;
+      final seen = {
+        for (final item in [...?firstPage?.list, ..._additionalItems])
+          item.link ?? item.name ?? '${item.hashCode}',
+      };
+      final newItems = (result?.list ?? const <MManga>[])
+          .where(
+            (item) => seen.add(item.link ?? item.name ?? '${item.hashCode}'),
+          )
+          .toList(growable: false);
+      setState(() {
+        _additionalItems.addAll(newItems);
+        _page = nextPage;
+        _hasNextPage = newItems.isNotEmpty && result?.hasNextPage == true;
+        _initialFillScheduled = false;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return result.when(
-      loading: () => const _ExtensionSearchGridShimmer(),
-      error: (error, _) => _ExtensionSearchEmpty(
+    final firstPage = widget.result.value;
+    final items = [...?firstPage?.list, ..._additionalItems];
+    if (widget.result.isLoading && items.isEmpty) {
+      return const AppMediaGridShimmer();
+    }
+    if (widget.result.hasError && items.isEmpty) {
+      return _ExtensionSearchEmpty(
         title: 'Recherche indisponible',
-        message: '$error',
+        message: '${widget.result.error}',
+      );
+    }
+    if (items.isEmpty) {
+      return const _ExtensionSearchEmpty(
+        title: 'Aucun résultat',
+        message: 'Aucun contenu ne correspond à cette recherche.',
+      );
+    }
+    if (!_initialFillScheduled &&
+        (_hasNextPage ?? firstPage?.hasNextPage) == true) {
+      _initialFillScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onScroll();
+      });
+    }
+    return GridView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.fromLTRB(
+        AppUI.pagePadding(context),
+        14,
+        AppUI.pagePadding(context),
+        120,
       ),
-      data: (pages) {
-        final items = (pages?.list as List<MManga>?) ?? const <MManga>[];
-        if (items.isEmpty) {
-          return const _ExtensionSearchEmpty(
-            title: 'Aucun résultat',
-            message: 'Aucun contenu ne correspond à cette recherche.',
-          );
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: AppUI.mediaGridColumns(context),
+        childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
+        crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: items.length + (_loadingMore ? 1 : 0),
+      itemBuilder: (_, index) {
+        if (index >= items.length) {
+          return const AppShimmerBlock(radius: AppUI.cardRadius);
         }
-        return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 150,
-            childAspectRatio: .56,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 16,
-          ),
-          itemCount: items.length,
-          itemBuilder: (_, index) => PosterCard(
-            item: ContentItem.fromManga(items[index]),
-            onTap: () => onOpen(items[index]),
-          ),
+        return PosterCard(
+          item: ContentItem.fromManga(items[index]),
+          width: double.infinity,
+          onTap: () => widget.onOpen(items[index]),
         );
       },
     );
@@ -356,25 +448,6 @@ class _ExtensionSearchEmpty extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ExtensionSearchGridShimmer extends StatelessWidget {
-  const _ExtensionSearchGridShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 8,
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 150,
-        childAspectRatio: .56,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 16,
-      ),
-      itemBuilder: (_, __) => const AppShimmerBlock(radius: 14),
     );
   }
 }

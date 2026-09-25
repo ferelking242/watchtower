@@ -13,6 +13,8 @@ class MManga {
 
   String? author;
 
+  String? collectionId;
+
   String? artist;
 
   Status? status;
@@ -23,6 +25,7 @@ class MManga {
 
   MManga({
     this.author,
+    this.collectionId,
     this.artist,
     this.genre,
     this.imageUrl,
@@ -40,6 +43,7 @@ class MManga {
       imageUrl: json['imageUrl'],
       description: json['description'],
       author: json['author'],
+      collectionId: json['collectionId'],
       artist: json['artist'],
       status: switch (json['status'] as int?) {
         0 => Status.ongoing,
@@ -64,6 +68,7 @@ class MManga {
       'imageUrl': imageUrl,
       'description': description,
       'author': author,
+      'collectionId': collectionId,
       'artist': artist,
       'status': status.toString().substringAfter("."),
       'genre': genre,

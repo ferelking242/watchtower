@@ -18,6 +18,7 @@ import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
+import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/modules/watch/home/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 import 'package:watchtower/utils/cached_network.dart';
@@ -41,6 +42,7 @@ class _WatchExtensionHomeScreenState
   bool _showCompactHeader = false;
   bool _isSearching = false;
   bool _layoutReady = false;
+  Object? _layoutError;
   UiLayout _layout = UiLayout.empty;
   Future<void>? _layoutLoadOperation;
 
@@ -71,15 +73,30 @@ class _WatchExtensionHomeScreenState
   }
 
   Future<void> _loadLayoutOnce() async {
-    await LayoutRegistry.instance.load(source);
-    if (source.providesHome && !LayoutRegistry.instance.has(source)) {
-      await LayoutDownloader.instance.download(source);
+    try {
+      await LayoutRegistry.instance.load(source);
+      if (source.providesHome && !LayoutRegistry.instance.has(source)) {
+        await LayoutDownloader.instance.download(source);
+      }
+      if (!mounted) return;
+      setState(() {
+        _layout = LayoutRegistry.instance.get(source);
+        _layoutReady = true;
+        _layoutError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _layoutError = error);
     }
+  }
+
+  Future<void> _retryLayout() async {
     if (!mounted) return;
     setState(() {
-      _layout = LayoutRegistry.instance.get(source);
-      _layoutReady = true;
+      _layoutError = null;
+      _layoutLoadOperation = null;
     });
+    await _loadLayout();
   }
 
   void _updateCompactHeader() {
@@ -135,6 +152,21 @@ class _WatchExtensionHomeScreenState
 
   void _openItem(MManga item) {
     if (item.link == null || item.link!.isEmpty) return;
+    final collection = ExtensionCollectionRoute.fromItem(item);
+    if (collection != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ExtensionSectionPage(
+            source: source,
+            sectionId: collection.listId,
+            title: item.name?.trim().isNotEmpty == true
+                ? item.name!.trim()
+                : source.name ?? 'Collection',
+          ),
+        ),
+      );
+      return;
+    }
     pushToMangaReaderDetail(
       ref: ref,
       context: context,
@@ -165,6 +197,14 @@ class _WatchExtensionHomeScreenState
     }
 
     if (!_layoutReady && source.providesHome) {
+      final layoutError = _layoutError;
+      if (layoutError != null) {
+        return _ExtensionError(
+          source: source,
+          error: layoutError,
+          onRetry: _retryLayout,
+        );
+      }
       return _ExtensionHomeLoading(
         source: source,
         onSearch: () => setState(() => _isSearching = true),
@@ -299,6 +339,7 @@ class _ExtensionFeed extends StatelessWidget {
                                 (section) => _ExtensionLayoutSection(
                                   source: source,
                                   section: section,
+                                  onSearch: onSearch,
                                   onOpen: onOpen,
                                 ),
                               )
@@ -505,11 +546,13 @@ void _openSection(
 class _ExtensionLayoutSection extends ConsumerWidget {
   final Source source;
   final UiSection section;
+  final VoidCallback onSearch;
   final ValueChanged<MManga> onOpen;
 
   const _ExtensionLayoutSection({
     required this.source,
     required this.section,
+    required this.onSearch,
     required this.onOpen,
   });
 
@@ -526,7 +569,7 @@ class _ExtensionLayoutSection extends ConsumerWidget {
     // Riverpod can expose a loading/error state while retaining the previous
     // value during refresh. Always render that value first so a carousel or
     // rail does not disappear just because another page is being fetched.
-    final cachedItems = content.whenOrNull(data: (pages) => pages)?.list;
+    final cachedItems = content.value?.list;
     if (cachedItems != null && cachedItems.isNotEmpty) {
       return _buildSection(context, cachedItems);
     }
@@ -559,6 +602,22 @@ class _ExtensionLayoutSection extends ConsumerWidget {
     final sectionAction = section.seeAll ? onSeeAll : null;
 
     return switch (section.component) {
+      'spotlight' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSectionHeader(
+            title: title,
+            actionLabel: sectionAction == null ? null : 'All >',
+            onAction: sectionAction,
+          ),
+          _ExtensionHero(
+            source: source,
+            items: items,
+            onSearch: onSearch,
+            onOpen: onOpen,
+          ),
+        ],
+      ),
       'banner' || 'hero' => _ExtensionBannerRail(
         title: title,
         items: items,
@@ -603,7 +662,6 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         onSeeAll: sectionAction,
       ),
       'carousel' ||
-      'spotlight' ||
       'compactRow' ||
       'metadataPoster' ||
       'statusPoster' => _ExtensionPosterRail(
@@ -651,6 +709,44 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (component == 'spotlight') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSectionHeader(title: title),
+          AppHeroShimmer(
+            height: (MediaQuery.sizeOf(context).height * .48).clamp(
+              410.0,
+              500.0,
+            ),
+          ),
+        ],
+      );
+    }
+    if (component == 'categoryPills') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSectionHeader(title: title),
+          SizedBox(
+            height: 58,
+            child: ListView.separated(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppUI.pagePadding(context),
+              ),
+              scrollDirection: Axis.horizontal,
+              itemCount: 7,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, __) => const SizedBox(
+                width: 84,
+                height: 32,
+                child: AppShimmerBlock(radius: 18),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     if (component == 'grid' ||
         component == 'catalogue' ||
         component == 'discoverGrid' ||
@@ -1205,6 +1301,18 @@ class _ExtensionGenreGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (items.isNotEmpty &&
+        items.every(
+          (item) => ExtensionCollectionRoute.fromItem(item) != null,
+        )) {
+      return _ExtensionCollectionRail(
+        title: title,
+        items: items,
+        onOpen: onOpen,
+        onSeeAll: onSeeAll,
+      );
+    }
+
     final byGenre = <String, MManga>{};
     for (final item in items) {
       for (final genre in item.genre ?? const <String>[]) {
@@ -1244,6 +1352,72 @@ class _ExtensionGenreGrid extends StatelessWidget {
                 label: genre.key,
                 imageUrl: genre.value.imageUrl,
                 onTap: () => onOpen(genre.value),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionCollectionRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
+
+  const _ExtensionCollectionRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.onSeeAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
+        SizedBox(
+          height: 54,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, index) {
+              final item = items[index];
+              return ActionChip(
+                onPressed: () => onOpen(item),
+                visualDensity: const VisualDensity(
+                  horizontal: -3,
+                  vertical: -3,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 7),
+                backgroundColor: const Color(0xFF1C2529),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.primary.withValues(
+                    alpha: .38,
+                  ),
+                ),
+                labelStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+                label: Text(item.name?.trim().isNotEmpty == true
+                    ? item.name!.trim()
+                    : 'Browse'),
               );
             },
           ),
