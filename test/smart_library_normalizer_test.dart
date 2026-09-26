@@ -58,5 +58,20 @@ void main() {
       expect(second.season, 1);
       expect(second.episode, 2);
     });
+
+    test('recognizes comic archive formats without indexing novels', () {
+      expect(
+        NameNormalizer.normalize('/Manga/One.Piece.Chapter.001.cb7').kind,
+        LocalMediaKind.manga,
+      );
+      expect(
+        NameNormalizer.normalize('/Downloads/Berserk Vol 02.zip').kind,
+        LocalMediaKind.manga,
+      );
+      expect(
+        NameNormalizer.normalize('/Books/Novel.epub').kind,
+        LocalMediaKind.novel,
+      );
+    });
   });
 }

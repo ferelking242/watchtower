@@ -101,6 +101,31 @@ class StorageProvider {
     return legacy.isGranted || legacy.isLimited;
   }
 
+  /// Requests only the Android video permission used by Smart Library.
+  ///
+  /// Manga archives are discovered through the explicitly consented
+  /// all-files scan or user-selected folders; photo and audio access are not
+  /// needed to build this library.
+  Future<bool> requestVideoPermission({bool requestIfNeeded = true}) async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+
+    if (await Permission.manageExternalStorage.isGranted ||
+        await Permission.storage.isGranted) {
+      return true;
+    }
+
+    final current = await Permission.videos.status;
+    if (current.isGranted || current.isLimited) return true;
+    if (!requestIfNeeded) return false;
+
+    final requested = await Permission.videos.request();
+    if (requested.isGranted || requested.isLimited) return true;
+
+    // Android 12 and earlier use READ_EXTERNAL_STORAGE instead.
+    final legacy = await Permission.storage.request();
+    return legacy.isGranted || legacy.isLimited;
+  }
+
   // Resolves the app's base "watchtower" folder on Android.
   //
   // Previously this always hardcoded /storage/emulated/0/watchtower/, even

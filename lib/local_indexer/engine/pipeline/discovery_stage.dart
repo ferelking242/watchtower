@@ -161,8 +161,9 @@ class DiscoveryStage {
 
 /// Rules used by Smart Library during fast discovery.
 ///
-/// The defaults intentionally include shared media folders such as DCIM,
-/// Downloads and Telegram while skipping caches and private Android data.
+/// The defaults intentionally index videos and manga archives only, while
+/// skipping caches and private Android data. Other media types can be enabled
+/// explicitly by a future scanner that owns those features.
 class ScanPolicy {
   final Set<String> allowedExtensions;
   final Set<String> ignoredDirectories;
@@ -175,8 +176,6 @@ class ScanPolicy {
       '.mkv', '.mp4', '.avi', '.mov', '.flv', '.wmv', '.mpeg', '.mpg', '.ts',
       '.m2ts', '.mts', '.m4v', '.webm', '.3gp',
       '.cbz', '.cbr', '.cbt', '.cb7', '.zip',
-      '.epub', '.mobi', '.azw3', '.fb2',
-      '.jpg', '.jpeg', '.png', '.webp', '.avif',
     },
     this.ignoredDirectories = const {
       '.git',

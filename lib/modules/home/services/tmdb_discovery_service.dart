@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:watchtower/services/tmdb_api_config.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TMDB Media model (compatible avec AnilistMedia pour réutiliser les widgets)
@@ -729,13 +730,9 @@ class TmdbMediaDetails {
 // TMDB API constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _tmdbBase = 'https://api.themoviedb.org/3';
-const _tmdbToken = String.fromEnvironment('TMDB_READ_TOKEN');
-
-const _headers = {
-  'Authorization': 'Bearer $_tmdbToken',
-  'Accept': 'application/json',
-};
+const _tmdbBase = tmdbApiBase;
+const _tmdbToken = tmdbReadToken;
+const _headers = tmdbApiHeaders;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fetch helpers

@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
+import 'package:watchtower/local_indexer/metadata/local_media_metadata.dart';
+import 'package:watchtower/local_indexer/metadata/local_metadata_resolver.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
+import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/providers/storage_provider.dart';
 
-enum _SmartLibraryFilter { all, movies, series, unknown }
+enum _SmartLibraryFilter { all, movies, series, manga, unknown }
 enum _SmartLibraryAction { refresh, fullRescan }
 
 /// The global, non-destructive media index.
@@ -16,7 +21,9 @@ enum _SmartLibraryAction { refresh, fullRescan }
 /// Local Source remains the explicit Watchtower/local reader. Smart Library
 /// only indexes accessible media and keeps the original paths untouched.
 class SmartLibraryScreen extends ConsumerStatefulWidget {
-  const SmartLibraryScreen({super.key});
+  final ItemType? itemType;
+
+  const SmartLibraryScreen({this.itemType, super.key});
 
   @override
   ConsumerState<SmartLibraryScreen> createState() => _SmartLibraryScreenState();
@@ -25,6 +32,7 @@ class SmartLibraryScreen extends ConsumerStatefulWidget {
 class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   _SmartLibraryFilter _filter = _SmartLibraryFilter.all;
   bool _starting = false;
+  int _metadataRefresh = 0;
 
   Future<List<String>> _scanRoots() async {
     final storage = StorageProvider();
@@ -33,19 +41,53 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       if (base != null) base.path,
     ];
 
-    // MediaStore is the primary Android discovery path. Request its split
-    // media permission when the user explicitly starts a scan. The shared
-    // filesystem walk remains opt-in and is added only when it is readable.
+    // MediaStore is the primary Android video-discovery path. Manga archives
+    // are ordinary files, so a recursive shared-storage scan needs the broader
+    // permission on Android. Ask only after explaining the scope to the user.
     if (!kIsWeb && Platform.isAndroid) {
-      await storage.requestMediaPermission(requestIfNeeded: true);
-    }
-    if (!kIsWeb &&
-        Platform.isAndroid &&
-        await storage.requestPermission(requestIfNeeded: false)) {
-      const sharedStorage = '/storage/emulated/0';
-      if (Directory(sharedStorage).existsSync()) roots.add(sharedStorage);
+      await storage.requestVideoPermission(requestIfNeeded: true);
+      var hasAllFilesAccess =
+          await storage.requestPermission(requestIfNeeded: false);
+      if (!hasAllFilesAccess && mounted) {
+        final proceed = await _confirmAllFilesAccess();
+        if (proceed) {
+          hasAllFilesAccess =
+              await storage.requestPermission(requestIfNeeded: true);
+        }
+      }
+      if (hasAllFilesAccess) {
+        const sharedStorage = '/storage/emulated/0';
+        if (Directory(sharedStorage).existsSync()) roots.add(sharedStorage);
+      }
     }
     return roots;
+  }
+
+  Future<bool> _confirmAllFilesAccess() async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Allow device library scan?'),
+        content: const Text(
+          'To find video files and manga archives outside Watchtower, '
+          'Android needs to grant access to all files. Watchtower will index '
+          'file names and basic file details only; it will not move, delete, '
+          'or upload your files. If you decline, the scan is limited to '
+          'videos Android exposes and Watchtower folders.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    return accepted ?? false;
   }
 
   Future<void> _scan({required bool fullRescan}) async {
@@ -66,6 +108,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       ref.invalidate(localIndexedCountProvider);
       ref.invalidate(localIndexedCountByKindProvider);
       ref.invalidate(recentlyIndexedProvider);
+      unawaited(_enrichMetadata());
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -77,8 +120,42 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     }
   }
 
+  Future<void> _enrichMetadata() async {
+    try {
+      final items = await ref.read(recentlyIndexedProvider.future);
+      final summary = await LocalMetadataResolver.instance.enrich(items);
+      if (!mounted) return;
+      setState(() => _metadataRefresh++);
+      ref.invalidate(recentlyIndexedProvider);
+      if (summary.tmdbUnavailable) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'TMDB metadata is unavailable in this build; AniList lookups still work.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      debugPrint('[SmartLibraryScreen] metadata enrichment failed: $error');
+    }
+  }
+
   List<LocalIndexedItem> _filterItems(List<LocalIndexedItem> items) {
     return items.where((item) {
+      if (item.kind == LocalMediaKind.novel) return false;
+      if (widget.itemType == ItemType.manga &&
+          item.kind != LocalMediaKind.manga &&
+          item.kind != LocalMediaKind.unknown) {
+        return false;
+      }
+      if (widget.itemType == ItemType.anime &&
+          item.kind != LocalMediaKind.anime &&
+          item.kind != LocalMediaKind.series &&
+          item.kind != LocalMediaKind.movie &&
+          item.kind != LocalMediaKind.unknown) {
+        return false;
+      }
       switch (_filter) {
         case _SmartLibraryFilter.all:
           return true;
@@ -87,6 +164,8 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         case _SmartLibraryFilter.series:
           return item.kind == LocalMediaKind.series ||
               item.kind == LocalMediaKind.anime;
+        case _SmartLibraryFilter.manga:
+          return item.kind == LocalMediaKind.manga;
         case _SmartLibraryFilter.unknown:
           return item.kind == LocalMediaKind.unknown;
       }
@@ -153,37 +232,22 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
                 icon: Icons.error_outline_rounded,
                 text: 'Library statistics unavailable: $error',
               ),
-              data: (value) => _StatsRow(counts: value),
+              data: (value) => _StatsRow(
+                counts: value,
+                itemType: widget.itemType,
+              ),
             ),
             const SizedBox(height: 18),
-            SegmentedButton<_SmartLibraryFilter>(
-              segments: const [
-                ButtonSegment(
-                  value: _SmartLibraryFilter.all,
-                  label: Text('All'),
-                  icon: Icon(Icons.apps_rounded),
-                ),
-                ButtonSegment(
-                  value: _SmartLibraryFilter.movies,
-                  label: Text('Movies'),
-                  icon: Icon(Icons.movie_creation_outlined),
-                ),
-                ButtonSegment(
-                  value: _SmartLibraryFilter.series,
-                  label: Text('Series'),
-                  icon: Icon(Icons.tv_rounded),
-                ),
-                ButtonSegment(
-                  value: _SmartLibraryFilter.unknown,
-                  label: Text('Unknown'),
-                  icon: Icon(Icons.help_outline_rounded),
-                ),
-              ],
-              selected: {_filter},
-              onSelectionChanged: (selection) {
-                setState(() => _filter = selection.first);
-              },
-              showSelectedIcon: false,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<_SmartLibraryFilter>(
+                segments: _filterSegments,
+                selected: {_filter},
+                onSelectionChanged: (selection) {
+                  setState(() => _filter = selection.first);
+                },
+                showSelectedIcon: false,
+              ),
             ),
             const SizedBox(height: 20),
             Text(
@@ -214,7 +278,12 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
                 }
                 return Column(
                   children: visible
-                      .map((item) => _MediaIndexTile(item: item))
+                      .map(
+                        (item) => _MediaIndexTile(
+                          item: item,
+                          metadataRefresh: _metadataRefresh,
+                        ),
+                      )
                       .toList(),
                 );
               },
@@ -223,6 +292,63 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         ),
       ),
     );
+  }
+
+  List<ButtonSegment<_SmartLibraryFilter>> get _filterSegments {
+    final type = widget.itemType;
+    if (type == ItemType.manga) {
+      return const [
+        ButtonSegment(
+          value: _SmartLibraryFilter.all,
+          label: Text('All'),
+          icon: Icon(Icons.apps_rounded),
+        ),
+        ButtonSegment(
+          value: _SmartLibraryFilter.manga,
+          label: Text('Manga'),
+          icon: Icon(Icons.menu_book_rounded),
+        ),
+        ButtonSegment(
+          value: _SmartLibraryFilter.unknown,
+          label: Text('Review'),
+          icon: Icon(Icons.help_outline_rounded),
+        ),
+      ];
+    }
+    final segments = <ButtonSegment<_SmartLibraryFilter>>[
+      const ButtonSegment(
+        value: _SmartLibraryFilter.all,
+        label: Text('All'),
+        icon: Icon(Icons.apps_rounded),
+      ),
+      const ButtonSegment(
+        value: _SmartLibraryFilter.movies,
+        label: Text('Movies'),
+        icon: Icon(Icons.movie_creation_outlined),
+      ),
+      const ButtonSegment(
+        value: _SmartLibraryFilter.series,
+        label: Text('Series'),
+        icon: Icon(Icons.tv_rounded),
+      ),
+    ];
+    if (type == null) {
+      segments.add(
+        const ButtonSegment(
+          value: _SmartLibraryFilter.manga,
+          label: Text('Manga'),
+          icon: Icon(Icons.menu_book_rounded),
+        ),
+      );
+    }
+    segments.add(
+      const ButtonSegment(
+        value: _SmartLibraryFilter.unknown,
+        label: Text('Review'),
+        icon: Icon(Icons.help_outline_rounded),
+      ),
+    );
+    return segments;
   }
 }
 
@@ -312,20 +438,32 @@ class _LibraryHeader extends StatelessWidget {
 
 class _StatsRow extends StatelessWidget {
   final Map<LocalMediaKind, int> counts;
+  final ItemType? itemType;
 
-  const _StatsRow({required this.counts});
+  const _StatsRow({required this.counts, required this.itemType});
 
   @override
   Widget build(BuildContext context) {
-    final stats = [
-      ('Videos', (counts[LocalMediaKind.movie] ?? 0) +
-          (counts[LocalMediaKind.series] ?? 0) +
-          (counts[LocalMediaKind.anime] ?? 0)),
-      ('Movies', counts[LocalMediaKind.movie] ?? 0),
-      ('Series', (counts[LocalMediaKind.series] ?? 0) +
-          (counts[LocalMediaKind.anime] ?? 0)),
-      ('Unknown', counts[LocalMediaKind.unknown] ?? 0),
-    ];
+    final stats = itemType == ItemType.manga
+        ? [
+            ('Manga', counts[LocalMediaKind.manga] ?? 0),
+            ('Review', counts[LocalMediaKind.unknown] ?? 0),
+          ]
+        : [
+            (
+              'Videos',
+              (counts[LocalMediaKind.movie] ?? 0) +
+                  (counts[LocalMediaKind.series] ?? 0) +
+                  (counts[LocalMediaKind.anime] ?? 0),
+            ),
+            ('Movies', counts[LocalMediaKind.movie] ?? 0),
+            (
+              'Series',
+              (counts[LocalMediaKind.series] ?? 0) +
+                  (counts[LocalMediaKind.anime] ?? 0),
+            ),
+            if (itemType == null) ('Manga', counts[LocalMediaKind.manga] ?? 0),
+          ];
     return Row(
       children: stats
           .map(
@@ -357,8 +495,12 @@ class _StatsRow extends StatelessWidget {
 
 class _MediaIndexTile extends StatelessWidget {
   final LocalIndexedItem item;
+  final int metadataRefresh;
 
-  const _MediaIndexTile({required this.item});
+  const _MediaIndexTile({
+    required this.item,
+    required this.metadataRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -371,38 +513,65 @@ class _MediaIndexTile extends StatelessWidget {
       LocalMediaKind.novel => Icons.article_outlined,
       LocalMediaKind.unknown => Icons.help_outline_rounded,
     };
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isUnknown
-              ? colors.errorContainer
-              : colors.secondaryContainer,
-          child: Icon(
-            icon,
-            color: isUnknown
-                ? colors.onErrorContainer
-                : colors.onSecondaryContainer,
+    return FutureBuilder<LocalMediaMetadata?>(
+      key: ValueKey('${item.id}:$metadataRefresh'),
+      future: LocalMediaMetadataStore.instance.get(item),
+      builder: (context, snapshot) {
+        final metadata = snapshot.data;
+        final detailParts = <String>[
+          if (item.episodeKey.isNotEmpty) item.episodeKey,
+          if (metadata?.year != null) '${metadata!.year}',
+          if (item.badge.isNotEmpty) item.badge,
+          if (metadata?.people.isNotEmpty == true)
+            'Avec ${metadata!.people.take(3).join(', ')}',
+          p.basename(item.filePath),
+        ];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          elevation: 0,
+          child: ListTile(
+            leading: metadata?.posterUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      metadata!.posterUrl!,
+                      width: 42,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _kindIcon(
+                        icon,
+                        isUnknown,
+                        colors,
+                      ),
+                    ),
+                  )
+                : _kindIcon(icon, isUnknown, colors),
+            title: Text(
+              metadata?.title ?? item.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              detailParts.join(' · '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: item.confidence < 0.5
+                ? const Icon(Icons.warning_amber_rounded)
+                : Text('${(item.confidence * 100).round()}%'),
           ),
-        ),
-        title: Text(
-          item.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          [
-            if (item.episodeKey.isNotEmpty) item.episodeKey,
-            if (item.badge.isNotEmpty) item.badge,
-            item.filePath,
-          ].join(' · '),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: item.confidence < 0.5
-            ? const Icon(Icons.warning_amber_rounded)
-            : Text('${(item.confidence * 100).round()}%'),
+        );
+      },
+    );
+  }
+
+  Widget _kindIcon(IconData icon, bool isUnknown, ColorScheme colors) {
+    return CircleAvatar(
+      backgroundColor:
+          isUnknown ? colors.errorContainer : colors.secondaryContainer,
+      child: Icon(
+        icon,
+        color: isUnknown ? colors.onErrorContainer : colors.onSecondaryContainer,
       ),
     );
   }

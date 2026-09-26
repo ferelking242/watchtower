@@ -281,6 +281,11 @@ class RouterNotifier extends ChangeNotifier {
       name: "watchExtensionHome",
       builder: (source) => WatchExtensionHomeScreen(source: source),
     ),
+    _genericRoute<ItemType>(
+      name: "localWatchHome",
+      builder: (itemType) =>
+          WatchExtensionHomeScreen.localLibrary(itemType: itemType),
+    ),
     _genericRoute<Map<String, dynamic>>(
       name: "reel",
       builder: (data) => ReelScreen(

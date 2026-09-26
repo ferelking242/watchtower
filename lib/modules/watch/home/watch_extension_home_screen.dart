@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
@@ -21,6 +22,7 @@ import 'package:watchtower/services/search.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/modules/watch/home/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
+import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
 /// The Watch extension home uses the same media composition as the Hub.
@@ -28,8 +30,19 @@ import 'package:watchtower/utils/cached_network.dart';
 /// selected extension instead of TMDB.
 class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
   final Source source;
+  final bool isLocalLibrary;
+  final ItemType? localItemType;
 
-  const WatchExtensionHomeScreen({required this.source, super.key});
+  const WatchExtensionHomeScreen({required this.source, super.key})
+    : isLocalLibrary = false,
+      localItemType = null;
+
+  WatchExtensionHomeScreen.localLibrary({
+    required ItemType itemType,
+    super.key,
+  }) : source = Source(name: 'local_smart_library', lang: '', itemType: itemType),
+       isLocalLibrary = true,
+       localItemType = itemType;
 
   @override
   ConsumerState<WatchExtensionHomeScreen> createState() =>
@@ -60,7 +73,7 @@ class _WatchExtensionHomeScreenState
       ),
     );
     _feedController.addListener(_updateCompactHeader);
-    _loadLayout();
+    if (!widget.isLocalLibrary) _loadLayout();
   }
 
   Future<void> _loadLayout() {
@@ -188,6 +201,12 @@ class _WatchExtensionHomeScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Smart Library is an on-device index, not an extension. Return before
+    // watching any extension providers or loading a remote layout.
+    if (widget.isLocalLibrary) {
+      return SmartLibraryScreen(itemType: widget.localItemType);
+    }
+
     if (_isSearching) {
       return ExtensionSearchScreen(
         source: source,

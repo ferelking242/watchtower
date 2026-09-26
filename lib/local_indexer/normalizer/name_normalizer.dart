@@ -186,7 +186,20 @@ class NameNormalizer {
   static LocalMediaKind _detectKind(String filename, EpisodeResult ep) {
     final ext = _extension(filename).toLowerCase();
     // Formats exclusivement manga/comics
-    if (const {'.cbz', '.cbr', '.cbt'}.contains(ext)) {
+    if (const {'.cbz', '.cbr', '.cbt', '.cb7'}.contains(ext)) {
+      return LocalMediaKind.manga;
+    }
+    // A plain ZIP is treated as manga only when its path or name gives a
+    // comic/chapter signal. This avoids indexing arbitrary ZIP downloads as
+    // manga while still supporting common manga archives.
+    if (ext == '.zip' &&
+        (RegExp(
+              r'(^|[/\\._ -])(manga|comic|comics|scanlation)([/\\._ -]|$)',
+            ).hasMatch(filename.toLowerCase()) ||
+            RegExp(
+              r'\b(ch(?:apter)?|vol(?:ume)?)\.?\s*\d+',
+              caseSensitive: false,
+            ).hasMatch(filename))) {
       return LocalMediaKind.manga;
     }
     // Novels

@@ -1,7 +1,7 @@
 /// Local Indexer — Moteur d'indexation local de Watchtower.
 ///
 /// Ce module transforme automatiquement tout le stockage local de l'appareil
-/// en une bibliothèque organisée (Anime, Séries, Films, Manga, Novels).
+/// en une bibliothèque organisée (anime, séries, films et manga).
 ///
 /// ## Architecture
 ///
