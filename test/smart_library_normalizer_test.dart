@@ -64,6 +64,17 @@ void main() {
         NameNormalizer.normalize('/Manga/One.Piece.Chapter.001.cb7').kind,
         LocalMediaKind.manga,
       );
+      final chapter = NameNormalizer.normalize(
+        '/Manga/One Piece/Chapter 12.cbz',
+      );
+      expect(chapter.title, 'One Piece');
+      expect(chapter.chapter, 12);
+      expect(chapter.kind, LocalMediaKind.manga);
+      final volume = NameNormalizer.normalize(
+        '/Manga/Berserk/Vol. 2/page.cbz',
+      );
+      expect(volume.title, 'Berserk');
+      expect(volume.volume, 2);
       expect(
         NameNormalizer.normalize('/Downloads/Berserk Vol 02.zip').kind,
         LocalMediaKind.manga,
