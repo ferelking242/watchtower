@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/eval/model/filter.dart';
-import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
+import 'package:watchtower/modules/widgets/filter_widget.dart';
 
 // ── Shared inline filter chips row ───────────────────────────────────────────
 // Used by BOTH manga_home_screen.dart and watch_home_screen.dart so the

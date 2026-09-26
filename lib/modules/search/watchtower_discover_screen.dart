@@ -15,7 +15,7 @@ import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
-import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
+import 'package:watchtower/modules/widgets/filter_widget.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_filter_list.dart';

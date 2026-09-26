@@ -151,7 +151,10 @@ class UiSection {
   final bool paginated;
   final bool requiresAuth;
   final int? columns;
+  final int? rows;
   final String? cardStyle;
+  final String? gridOrder;
+  final String? scrollDirection;
 
   const UiSection({
     required this.id,
@@ -163,7 +166,10 @@ class UiSection {
     this.paginated = false,
     this.requiresAuth = false,
     this.columns,
+    this.rows,
     this.cardStyle,
+    this.gridOrder,
+    this.scrollDirection,
   });
 
   factory UiSection.fromJson(Map<String, dynamic> json) => UiSection(
@@ -176,12 +182,15 @@ class UiSection {
         paginated: json['paginated'] as bool? ?? false,
         requiresAuth: json['requiresAuth'] as bool? ?? false,
         columns: (json['columns'] as num?)?.toInt(),
+        rows: (json['rows'] as num?)?.toInt(),
         cardStyle: json['cardStyle'] as String?,
+        gridOrder: json['gridOrder'] as String?,
+        scrollDirection: json['scrollDirection'] as String?,
       );
 
   // ── Legacy bridge ─────────────────────────────────────────────────────────
-  // Both WatchHomeScreen and MangaHomeScreen still use Map<String,dynamic>
-  // internally. This bridge lets us wire the new system with zero widget changes.
+  // Source home renderers still use Map<String, dynamic> internally. This
+  // bridge keeps the declarative layout model compatible with them.
   Map<String, dynamic> toLegacyMap() => {
         'id': id,
         'layout': _toLegacyLayout(component),
@@ -189,7 +198,10 @@ class UiSection {
         'icon': icon,
         'color': accent,
         if (columns != null) 'columns': columns,
+        if (rows != null) 'rows': rows,
         if (cardStyle != null) 'cardStyle': cardStyle,
+        if (gridOrder != null) 'gridOrder': gridOrder,
+        if (scrollDirection != null) 'scrollDirection': scrollDirection,
         if (seeAll) 'seeAll': id,
       };
 

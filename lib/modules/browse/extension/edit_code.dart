@@ -11,7 +11,7 @@ import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
+import 'package:watchtower/modules/widgets/filter_widget.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/app_font_family.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
