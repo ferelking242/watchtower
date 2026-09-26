@@ -11,7 +11,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
-import 'package:watchtower/modules/extension/home/content_extension_home_screen.dart';
+import 'package:watchtower/modules/extension/home/manga_novel_home_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/search.dart';
@@ -870,7 +870,7 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
                 Navigator.push(
                   context,
                   createRoute(
-                    page: ContentExtensionHomeScreen(source: widget.source),
+                    page: MangaNovelHomeScreen(source: widget.source),
                   ),
                 );
               },

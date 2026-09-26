@@ -28,16 +28,16 @@ import 'package:watchtower/utils/cached_network.dart';
 /// The Watch extension home uses the same media composition as the Hub.
 /// Only the data boundary is different: every card is supplied by the
 /// selected extension instead of TMDB.
-class ContentExtensionHomeScreen extends ConsumerStatefulWidget {
+class MangaNovelHomeScreen extends ConsumerStatefulWidget {
   final Source source;
   final bool isLocalLibrary;
   final ItemType? localItemType;
 
-  const ContentExtensionHomeScreen({required this.source, super.key})
+  const MangaNovelHomeScreen({required this.source, super.key})
     : isLocalLibrary = false,
       localItemType = null;
 
-  ContentExtensionHomeScreen.localLibrary({
+  MangaNovelHomeScreen.localLibrary({
     required ItemType itemType,
     super.key,
   }) : source = Source(name: 'local_smart_library', lang: '', itemType: itemType),
@@ -45,12 +45,12 @@ class ContentExtensionHomeScreen extends ConsumerStatefulWidget {
        localItemType = itemType;
 
   @override
-  ConsumerState<ContentExtensionHomeScreen> createState() =>
-      _ContentExtensionHomeScreenState();
+  ConsumerState<MangaNovelHomeScreen> createState() =>
+      _MangaNovelHomeScreenState();
 }
 
-class _ContentExtensionHomeScreenState
-    extends ConsumerState<ContentExtensionHomeScreen> {
+class _MangaNovelHomeScreenState
+    extends ConsumerState<MangaNovelHomeScreen> {
   final _feedController = ScrollController();
   bool _showCompactHeader = false;
   bool _isSearching = false;
