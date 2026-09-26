@@ -369,7 +369,7 @@ class ScanPolicy {
     this.minimumFileSize = 1,
     this.maximumDepth,
   })  : mode = LocalScanMode.manga,
-        allowedExtensions = {
+        allowedExtensions = const {
           ...DiscoveryStage.mangaArchiveExtensions,
           ...DiscoveryStage.mangaPageExtensions,
         },
