@@ -1,3 +1,4 @@
+- [Smart Library boundaries](smart-library-scan-boundaries.md) — keep Watch video discovery and Manga chapter/archive discovery as separate scan policies.
 - [Flutter build toolchain](flutter-build-toolchain.md) — le workspace local peut être en Dart 3.8; ce dépôt et `just_zstd` exigent Dart 3.11+, donc valider avec le Flutter CI 3.47.2.
 - [Flutter toolchain verification](flutter-toolchain.md) — use the repository’s Flutter 3.47.2 workflow when the local SDK is below the project minimum.
 - [Compatibilité Flutter](flutter-sdk-compatibility.md) — la validation locale exige Dart 3.11 ou plus récent.
