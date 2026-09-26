@@ -57,7 +57,9 @@ class AnalysisStage {
     final modifiedAt = payload['modifiedAt'] as int;
     final extension = payload['extension'] as String;
 
-    final result = NameNormalizer.normalize(path);
+    final result = NameNormalizer.normalize(
+      payload['analysisName'] as String? ?? path,
+    );
     final mime = _mimeOf(extension);
 
     return {
@@ -85,7 +87,7 @@ class AnalysisStage {
 
   /// Analyse en-process (sans isolate) pour les petits lots.
   static AnalysisResult analyzeSync(DiscoveredFile file) {
-    final result = NameNormalizer.normalize(file.path);
+    final result = NameNormalizer.normalize(file.analysisName ?? file.path);
     return AnalysisResult(
       discoveredFile: file,
       title: result.title,

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:path/path.dart' as p;
+import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 
 /// Surveillance du système de fichiers en temps réel.
 ///
@@ -13,13 +15,14 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 /// sans rescanner tout le disque.
 class FsWatcher {
   final List<String> _roots;
+  final LocalScanMode mode;
   final StreamController<FsEvent> _controller =
       StreamController<FsEvent>.broadcast();
 
   final List<StreamSubscription> _subs = [];
   bool _started = false;
 
-  FsWatcher(this._roots);
+  FsWatcher(this._roots, {this.mode = LocalScanMode.videos});
 
   /// Stream des événements du système de fichiers.
   Stream<FsEvent> get events => _controller.stream;
@@ -114,15 +117,22 @@ class FsWatcher {
     _controller.addError(error);
   }
 
-  static final _mediaExts = RegExp(
+  static final _videoExts = RegExp(
     r'\.(mkv|mp4|avi|mov|flv|wmv|ts|m2ts|mts|webm|m4v'
-    r'|cbz|cbr|cbt|cb7'
-    r'|epub|mobi|azw3'
     r')$',
     caseSensitive: false,
   );
+  static final _mangaArchiveExts = RegExp(
+    r'\.(cbz|cbr|cbt|cb7|zip)$',
+    caseSensitive: false,
+  );
+  bool _isMediaFile(String path) {
+    if (mode == LocalScanMode.videos) return _videoExts.hasMatch(path);
+    return _mangaArchiveExts.hasMatch(path) &&
+        (!_isZip(path) || DiscoveryStage.isLikelyMangaPath(path));
+  }
 
-  static bool _isMediaFile(String path) => _mediaExts.hasMatch(path);
+  bool _isZip(String path) => p.extension(path).toLowerCase() == '.zip';
 }
 
 /// Événement système de fichiers normalisé.

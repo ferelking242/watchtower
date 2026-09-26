@@ -144,13 +144,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     }
     // Android
     final s = await Permission.manageExternalStorage.status;
+    final legacyStorage = await Permission.storage.status;
     final n = await Permission.notification.status;
     final i = await Permission.requestInstallPackages.status;
     final o = await Permission.systemAlertWindow.status;
     final b = await Permission.ignoreBatteryOptimizations.status;
     if (!mounted) return;
     setState(() {
-      _storageGranted = s.isGranted;
+      _storageGranted = s.isGranted || legacyStorage.isGranted;
       _notifGranted   = n.isGranted;
       _installGranted = i.isGranted;
       _overlayGranted = o.isGranted;
@@ -165,20 +166,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     setState(() => _busyStorage = true);
     bool granted = false;
     try {
-      if (!kIsWeb && Platform.isAndroid) {
-        final status = await Permission.manageExternalStorage.status;
-        if (status.isPermanentlyDenied) {
-          // User tapped "Ne plus demander" — send them to system settings.
-          await openAppSettings();
-          final updated = await Permission.manageExternalStorage.status;
-          granted = updated.isGranted;
-        } else {
-          final result = await Permission.manageExternalStorage.request();
-          granted = result.isGranted;
-        }
-      } else {
-        granted = await StorageProvider().requestPermission();
-      }
+      granted = await StorageProvider().requestPermission();
     } catch (_) {}
     if (!mounted) return;
     setState(() {
@@ -951,7 +939,7 @@ class _PermissionsPage extends StatelessWidget {
               title: 'Stockage',
               subtitle: isIOS
                   ? 'Acces sandbox iOS — aucune action requise.'
-                  : 'Sauvegarder telechargements, covers et bibliotheque.',
+                  : 'Autoriser « accès à tous les fichiers » pour les téléchargements et Smart Library.',
               granted: storageGranted,
               busy: busyStorage,
               onTap: onStorage,

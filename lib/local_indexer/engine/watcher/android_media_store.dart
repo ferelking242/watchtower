@@ -55,11 +55,16 @@ class AndroidMediaStore {
     }
   }
 
-  /// Scan complémentaire pour les formats non indexés par MediaStore
-  /// (CBZ, EPUB, etc.) dans les dossiers typiques Watchtower.
+  /// Scan complémentaire pour les archives manga non indexées par MediaStore
+  /// dans les dossiers typiques Watchtower.
   static Future<List<String>> queryCustomFormats({
     required List<String> rootPaths,
-    List<String> extensions = const ['.cbz', '.cbr', '.epub', '.mobi'],
+    List<String> extensions = const [
+      '.cbz',
+      '.cbr',
+      '.cbt',
+      '.cb7',
+    ],
   }) async {
     if (!isAvailable) return [];
 

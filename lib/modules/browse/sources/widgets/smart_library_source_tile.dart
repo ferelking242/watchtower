@@ -36,14 +36,14 @@ class SmartLibrarySourceTile extends StatelessWidget {
             color: Colors.white,
           ),
         ),
-        title: const Text(
-          'Smart Library',
-          style: TextStyle(fontWeight: FontWeight.w700),
+        title: Text(
+          isManga ? 'Smart Library Manga' : 'Smart Library Watch',
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
           isManga
-              ? 'Index manga archives stored on this device'
-              : 'Index videos stored on this device',
+              ? 'Index CBZ et dossiers manga sur cet appareil'
+              : 'Index vidéos stockées sur cet appareil',
         ),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () => context.pushNamed('localWatchHome', extra: itemType),

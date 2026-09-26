@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
+import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/metadata/local_media_metadata.dart';
 import 'package:watchtower/local_indexer/metadata/local_metadata_resolver.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
@@ -41,53 +42,18 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       if (base != null) base.path,
     ];
 
-    // MediaStore is the primary Android video-discovery path. Manga archives
-    // are ordinary files, so a recursive shared-storage scan needs the broader
-    // permission on Android. Ask only after explaining the scope to the user.
+    // Storage permission is granted from the onboarding Permissions page.
+    // Smart Library never shows a second permission dialog: it simply uses
+    // the app folder when "all files" access has not been granted yet.
     if (!kIsWeb && Platform.isAndroid) {
-      await storage.requestVideoPermission(requestIfNeeded: true);
-      var hasAllFilesAccess =
+      final hasAllFilesAccess =
           await storage.requestPermission(requestIfNeeded: false);
-      if (!hasAllFilesAccess && mounted) {
-        final proceed = await _confirmAllFilesAccess();
-        if (proceed) {
-          hasAllFilesAccess =
-              await storage.requestPermission(requestIfNeeded: true);
-        }
-      }
       if (hasAllFilesAccess) {
         const sharedStorage = '/storage/emulated/0';
         if (Directory(sharedStorage).existsSync()) roots.add(sharedStorage);
       }
     }
     return roots;
-  }
-
-  Future<bool> _confirmAllFilesAccess() async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Allow device library scan?'),
-        content: const Text(
-          'To find video files and manga archives outside Watchtower, '
-          'Android needs to grant access to all files. Watchtower will index '
-          'file names and basic file details only; it will not move, delete, '
-          'or upload your files. If you decline, the scan is limited to '
-          'videos Android exposes and Watchtower folders.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Not now'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
-    return accepted ?? false;
   }
 
   Future<void> _scan({required bool fullRescan}) async {
@@ -98,13 +64,16 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       if (roots.isEmpty) {
         throw StateError('No accessible storage location was found.');
       }
+      final scanMode = widget.itemType == ItemType.manga
+          ? LocalScanMode.manga
+          : LocalScanMode.videos;
       final scan = ref.read(localIndexerScanProvider.notifier);
       if (fullRescan) {
-        await scan.fullRescan(roots);
+        await scan.fullRescan(roots, mode: scanMode);
       } else {
-        await scan.refresh(roots);
+        await scan.refresh(roots, mode: scanMode);
       }
-      await scan.startWatching(roots);
+      await scan.startWatching(roots, mode: scanMode);
       ref.invalidate(localIndexedCountProvider);
       ref.invalidate(localIndexedCountByKindProvider);
       ref.invalidate(recentlyIndexedProvider);
@@ -183,7 +152,11 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Smart Library'),
+        title: Text(
+          widget.itemType == ItemType.manga
+              ? 'Smart Library Manga'
+              : 'Smart Library Watch',
+        ),
         leading: const BackButton(),
         actions: [
           PopupMenuButton<_SmartLibraryAction>(
@@ -224,6 +197,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
               isScanning: isScanning,
               status: status,
               onScan: () => _scan(fullRescan: false),
+              isManga: widget.itemType == ItemType.manga,
             ),
             const SizedBox(height: 18),
             counts.when(
@@ -357,12 +331,14 @@ class _LibraryHeader extends StatelessWidget {
   final bool isScanning;
   final IndexerStatus? status;
   final VoidCallback onScan;
+  final bool isManga;
 
   const _LibraryHeader({
     required this.colors,
     required this.isScanning,
     required this.status,
     required this.onScan,
+    required this.isManga,
   });
 
   @override
@@ -392,7 +368,9 @@ class _LibraryHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(17),
             ),
             child: Icon(
-              Icons.auto_awesome_motion_rounded,
+              isManga
+                  ? Icons.auto_stories_rounded
+                  : Icons.video_library_rounded,
               color: colors.onPrimary,
               size: 29,
             ),
@@ -403,7 +381,9 @@ class _LibraryHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Your media, organized',
+                  isManga
+                      ? 'Manga, organisé localement'
+                      : 'Vidéos, organisées localement',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -412,7 +392,9 @@ class _LibraryHeader extends StatelessWidget {
                 Text(
                   isScanning
                       ? 'Scanning storage · $discovered found · $analyzed analyzed'
-                      : 'Fast local index · refreshes only what changed',
+                      : isManga
+                          ? 'CBZ et chapitres en dossiers · index local'
+                          : 'Vidéos uniquement · index local rapide',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],

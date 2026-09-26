@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
+import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/search/search_engine.dart';
 import 'package:watchtower/local_indexer/search/search_result.dart';
@@ -58,12 +59,15 @@ class LocalIndexerScan extends _$LocalIndexerScan {
   }
 
   /// Démarre un scan sur [roots].
-  Future<void> scan(List<String> roots) async {
+  Future<void> scan(
+    List<String> roots, {
+    LocalScanMode mode = LocalScanMode.videos,
+  }) async {
     state = const AsyncValue.loading();
     final engine = ref.read(localIndexerEngineProvider);
     try {
       await engine.initialize();
-      final stats = await engine.scan(roots);
+      final stats = await engine.scan(roots, mode: mode);
       state = AsyncValue.data(stats);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -71,15 +75,24 @@ class LocalIndexerScan extends _$LocalIndexerScan {
   }
 
   /// Refreshes the index without deleting persisted fingerprints.
-  Future<void> refresh(List<String> roots) => scan(roots);
+  Future<void> refresh(
+    List<String> roots, {
+    LocalScanMode mode = LocalScanMode.videos,
+  }) => scan(roots, mode: mode);
 
   /// A deliberate full verification still reuses unchanged file signatures.
-  Future<void> fullRescan(List<String> roots) => scan(roots);
+  Future<void> fullRescan(
+    List<String> roots, {
+    LocalScanMode mode = LocalScanMode.videos,
+  }) => scan(roots, mode: mode);
 
   /// Démarre la surveillance temps réel après un premier scan.
-  Future<void> startWatching(List<String> roots) async {
+  Future<void> startWatching(
+    List<String> roots, {
+    LocalScanMode mode = LocalScanMode.videos,
+  }) async {
     final engine = ref.read(localIndexerEngineProvider);
-    await engine.startWatching(roots);
+    await engine.startWatching(roots, mode: mode);
   }
 }
 

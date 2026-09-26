@@ -1,7 +1,7 @@
 /// Local Indexer — Moteur d'indexation local de Watchtower.
 ///
 /// Ce module transforme automatiquement tout le stockage local de l'appareil
-/// en une bibliothèque organisée (anime, séries, films et manga).
+/// en deux bibliothèques organisées : vidéos et manga.
 ///
 /// ## Architecture
 ///
@@ -79,7 +79,12 @@ export 'cache/file_cache.dart' show FileCache, CacheStats;
 export 'engine/indexer_engine.dart'
     show IndexerEngine, IndexerStatus, IndexerStats;
 export 'engine/pipeline/discovery_stage.dart'
-    show DiscoveryStage, DiscoveredFile, FileCategory, ScanPolicy;
+    show
+        DiscoveryStage,
+        DiscoveredFile,
+        FileCategory,
+        LocalScanMode,
+        ScanPolicy;
 export 'engine/watcher/fs_watcher.dart' show FsWatcher, FsEvent, FsEventType;
 export 'engine/watcher/android_media_store.dart'
     show AndroidMediaStore, MediaStoreEntry;

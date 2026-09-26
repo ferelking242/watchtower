@@ -111,6 +111,34 @@ class EpisodeDetector {
         }
       }
 
+      // Chapter 12 / Ch 12 / Volume 3 / Vol 3. Tokenization separates the
+      // word and number when filenames use spaces or dots.
+      if ({
+            'chapter',
+            'chap',
+            'ch',
+          }.contains(t.toLowerCase()) &&
+          i + 1 < tokens.length) {
+        final chapterNumber = int.tryParse(tokens[i + 1]);
+        if (chapterNumber != null) {
+          chapter ??= chapterNumber;
+          consumed.addAll({i, i + 1});
+          continue;
+        }
+      }
+      if ({
+            'volume',
+            'vol',
+          }.contains(t.toLowerCase()) &&
+          i + 1 < tokens.length) {
+        final volumeNumber = int.tryParse(tokens[i + 1]);
+        if (volumeNumber != null) {
+          volume ??= volumeNumber;
+          consumed.addAll({i, i + 1});
+          continue;
+        }
+      }
+
       // S01 standalone
       final m3 = _sX.firstMatch(t);
       if (m3 != null) {

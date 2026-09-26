@@ -127,13 +127,18 @@ class NameNormalizer {
         }
       }
     }
-    final title = _cleanTitle(rawTitle);
+    var title = _cleanTitle(rawTitle);
 
-    // ── 9. Clé canonique ──────────────────────────────────────────────────
-    final canonical = CanonicalKey.generate(title.isEmpty ? filename : title);
-
-    // ── 10. Type de média ─────────────────────────────────────────────────
+    // ── 9. Type de média ─────────────────────────────────────────────────
     final kind = _detectKind(filename, episode);
+    if (kind == LocalMediaKind.manga &&
+        title.isEmpty &&
+        episode.chapter != null) {
+      title = _mangaParentTitle(filename) ?? title;
+    }
+
+    // ── 10. Clé canonique ────────────────────────────────────────────────
+    final canonical = CanonicalKey.generate(title.isEmpty ? filename : title);
 
     // ── 11. Score de confiance ────────────────────────────────────────────
     final conf = _computeConfidence(
@@ -181,6 +186,29 @@ class NameNormalizer {
     final dot = name.lastIndexOf('.');
     if (dot > 0) name = name.substring(0, dot);
     return name.replaceAll(RegExp(r'[_\-\.]'), ' ').trim();
+  }
+
+  static String? _mangaParentTitle(String filename) {
+    final parts = filename
+        .split(RegExp(r'[/\\]'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    const mangaFolders = {
+      'manga',
+      'manhwa',
+      'manhua',
+      'comic',
+      'comics',
+      'scan',
+      'scans',
+    };
+    for (var i = 0; i < parts.length - 1; i++) {
+      if (mangaFolders.contains(parts[i].toLowerCase()) &&
+          i + 1 < parts.length - 1) {
+        return _cleanTitle(parts[i + 1]);
+      }
+    }
+    return null;
   }
 
   static LocalMediaKind _detectKind(String filename, EpisodeResult ep) {

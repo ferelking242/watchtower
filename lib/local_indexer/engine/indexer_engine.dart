@@ -31,13 +31,14 @@ class IndexerEngine {
   final LocalSearchEngine searchEngine;
   final FileCache _cache;
 
-  late final DiscoveryStage _discovery;
+  late DiscoveryStage _discovery;
   late final IsarWriterStage _writer;
   late final IsolatePool _pool;
   FsWatcher? _watcher;
 
   bool _initialized = false;
   bool _scanning = false;
+  LocalScanMode _activeMode = LocalScanMode.videos;
 
   final _statusController = StreamController<IndexerStatus>.broadcast();
   StreamSubscription? _watcherSub;
@@ -61,7 +62,10 @@ class IndexerEngine {
       entryPoint: AnalysisStage.isolateEntryPoint,
     );
 
-    _discovery = const DiscoveryStage(batchSize: 300);
+    _discovery = const DiscoveryStage(
+      batchSize: 300,
+      policy: ScanPolicy.videos(),
+    );
 
     _writer = IsarWriterStage(
       isar: _isar,
@@ -83,10 +87,18 @@ class IndexerEngine {
   ///
   /// Grâce au cache intelligent, les fichiers non modifiés sont ignorés.
   /// Seuls les nouveaux fichiers ou les fichiers modifiés sont analysés.
-  Future<IndexerStats> scan(List<String> roots) async {
+  Future<IndexerStats> scan(
+    List<String> roots, {
+    LocalScanMode mode = LocalScanMode.videos,
+  }) async {
     if (!_initialized) await initialize();
     if (_scanning) return IndexerStats.empty();
     _scanning = true;
+    final policy = mode == LocalScanMode.manga
+        ? const ScanPolicy.manga()
+        : const ScanPolicy.videos();
+    _discovery = DiscoveryStage(batchSize: 300, policy: policy);
+    _activeMode = mode;
 
     final stopwatch = Stopwatch()..start();
     int discovered = 0, cached = 0, analyzed = 0;
@@ -98,7 +110,7 @@ class IndexerEngine {
 
       // ── 1. Découverte ──────────────────────────────────────────────────────
       final mediaStoreFiles = <DiscoveredFile>[];
-      if (AndroidMediaStore.isAvailable) {
+      if (mode == LocalScanMode.videos && AndroidMediaStore.isAvailable) {
         try {
           final entries = await AndroidMediaStore.queryVideos();
           mediaStoreFiles.addAll(entries.map((entry) => DiscoveredFile(
@@ -152,8 +164,13 @@ class IndexerEngine {
       await _writer.close();
 
       // Purge des orphelins du cache (fichiers supprimés)
-      final orphans = await _cache.purgeOrphans();
-      final missingIndexed = await _removeMissingIndexedItems(roots);
+      final orphans = await _cache.purgeOrphans(
+        extensions: policy.allowedExtensions,
+      );
+      final missingIndexed = await _removeMissingIndexedItems(
+        roots,
+        extensions: policy.allowedExtensions,
+      );
 
       stopwatch.stop();
       final stats = IndexerStats(
@@ -181,11 +198,17 @@ class IndexerEngine {
   ///
   /// Chaque événement (create/modify/delete) déclenche une mise à jour
   /// ciblée de l'index — sans rescanner tout le disque.
-  Future<void> startWatching(List<String> roots) async {
+  Future<void> startWatching(
+    List<String> roots, {
+    LocalScanMode mode = LocalScanMode.videos,
+  }) async {
     if (!_initialized) await initialize();
     await stopWatching();
 
-    final watcher = FsWatcher(roots);
+    final watcher = FsWatcher(
+      roots,
+      mode: mode,
+    );
     _watcher = watcher;
     await watcher.start();
 
@@ -252,6 +275,7 @@ class IndexerEngine {
           'size': file.size,
           'modifiedAt': file.modifiedAt,
           'extension': file.extension,
+          'analysisName': file.analysisName,
         }));
 
     final maps = await Future.wait(futures);
@@ -291,7 +315,17 @@ class IndexerEngine {
       size: stat.size,
       modifiedAt: stat.modified.millisecondsSinceEpoch,
       extension: _ext(path),
+      analysisName: _activeMode == LocalScanMode.manga &&
+              (DiscoveryStage.mangaPageExtensions.contains(_ext(path)) ||
+                  DiscoveryStage.mangaArchiveExtensions.contains(_ext(path)))
+          ? DiscoveryStage.mangaAnalysisName(path)
+          : null,
     );
+    if (_activeMode == LocalScanMode.manga &&
+        DiscoveryStage.mangaPageExtensions.contains(_ext(path)) &&
+        !DiscoveryStage.isLikelyMangaPath(path)) {
+      return;
+    }
 
     final result = AnalysisStage.analyzeSync(discovered);
     await _writer.add(result);
@@ -313,7 +347,10 @@ class IndexerEngine {
     await _cache.evict(path);
   }
 
-  Future<int> _removeMissingIndexedItems(List<String> roots) async {
+  Future<int> _removeMissingIndexedItems(
+    List<String> roots, {
+    required Set<String> extensions,
+  }) async {
     final items = await _isar.localIndexedItems.where().findAll();
     final normalizedRoots = roots.map(_normalizeRoot).toList();
     final missing = items.where((item) {
@@ -321,7 +358,10 @@ class IndexerEngine {
       final belongsToScan = normalizedRoots.any(
         (root) => path == root || path.startsWith('$root/'),
       );
-      return belongsToScan && !File(item.filePath).existsSync();
+      final extension = _ext(item.filePath);
+      return belongsToScan &&
+          extensions.contains(extension) &&
+          !File(item.filePath).existsSync();
     }).toList();
     if (missing.isEmpty) return 0;
 

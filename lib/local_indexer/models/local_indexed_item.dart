@@ -88,6 +88,7 @@ class LocalIndexedItem {
       final p = part != null ? ' Pt.${part}' : '';
       return 'Ch.${chapter}$v$p';
     }
+    if (volume != null) return 'Vol.${volume}';
     if (episode != null) {
       final s = season?.toString().padLeft(2, '0') ?? '01';
       final e = episode!.toString().padLeft(2, '0');

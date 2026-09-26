@@ -1,5 +1,6 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:isar_community/isar.dart';
+import 'package:path/path.dart' as p;
 import 'package:watchtower/local_indexer/models/local_file_cache.dart';
 
 /// Gestionnaire du cache de fichiers.
@@ -97,12 +98,14 @@ class FileCache {
 
   /// Supprime toutes les entrées dont le fichier n'existe plus sur le disque.
   /// Retourne le nombre d'entrées supprimées.
-  Future<int> purgeOrphans() async {
+  Future<int> purgeOrphans({Set<String>? extensions}) async {
     final all = await _isar.localFileCaches.where().findAll();
     final toDelete = <int>[];
 
     for (final e in all) {
-      if (!File(e.filePath).existsSync()) {
+      final extension = p.extension(e.filePath).toLowerCase();
+      if ((extensions == null || extensions.contains(extension)) &&
+          !File(e.filePath).existsSync()) {
         toDelete.add(e.id);
         _ramCache.remove(e.filePath);
         _accessOrder.remove(e.filePath);
