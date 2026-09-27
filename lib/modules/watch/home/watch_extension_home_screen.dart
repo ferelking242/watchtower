@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -167,6 +168,10 @@ class _WatchExtensionHomeScreenState
     if (item.link == null || item.link!.isEmpty) return;
     final collection = ExtensionCollectionRoute.fromItem(item);
     if (collection != null) {
+      if (collection.listId.startsWith('playlist_')) {
+        unawaited(_playFirstFromCollection(collection.listId));
+        return;
+      }
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ExtensionSectionPage(
@@ -189,6 +194,34 @@ class _WatchExtensionHomeScreenState
       sourceId: source.id,
       itemType: source.itemType,
     );
+  }
+
+  Future<void> _playFirstFromCollection(String listId) async {
+    try {
+      final pages = await ref.read(
+        getCustomListProvider(source: source, listId: listId, page: 1).future,
+      );
+      MManga? first;
+      for (final item in pages?.list ?? const <MManga>[]) {
+        if (item.link?.trim().isNotEmpty == true) {
+          first = item;
+          break;
+        }
+      }
+      if (!mounted) return;
+      if (first == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucune vidéo disponible dans cette playlist.')),
+        );
+        return;
+      }
+      _openItem(first);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossible de charger la playlist : $error')),
+      );
+    }
   }
 
   @override
@@ -339,13 +372,20 @@ class _ExtensionFeed extends StatelessWidget {
                 parent: ClampingScrollPhysics(),
               ),
               slivers: [
+                SliverToBoxAdapter(
+                  child: _ExtensionFeedTopHeader(
+                    source: source,
+                    onSearch: onSearch,
+                    onLiveTv: () => context.push('/liveTv'),
+                    onLibrary: () => context.push('/Library'),
+                  ),
+                ),
                 if (!hasDeclaredSections)
                   SliverToBoxAdapter(
                     child: (popular.isNotEmpty || latest.isNotEmpty)
                         ? _ExtensionHero(
                             source: source,
                             items: popular.isNotEmpty ? popular : latest,
-                            onSearch: onSearch,
                             onOpen: onOpen,
                           )
                         : const SizedBox.shrink(),
@@ -632,7 +672,6 @@ class _ExtensionLayoutSection extends ConsumerWidget {
           _ExtensionHero(
             source: source,
             items: items,
-            onSearch: onSearch,
             onOpen: onOpen,
           ),
         ],
@@ -646,6 +685,18 @@ class _ExtensionLayoutSection extends ConsumerWidget {
       'ranked' || 'newHot' => _ExtensionRankedRail(
         title: title,
         items: items.take(10).toList(growable: false),
+        onOpen: onOpen,
+        onSeeAll: sectionAction,
+      ),
+      'rankedWide' => _ExtensionRankedWideRail(
+        title: title,
+        items: items.take(20).toList(growable: false),
+        onOpen: onOpen,
+        onSeeAll: sectionAction,
+      ),
+      'showcase' => _ExtensionShowcaseRail(
+        title: title,
+        items: items.take(8).toList(growable: false),
         onOpen: onOpen,
         onSeeAll: sectionAction,
       ),
@@ -667,6 +718,12 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         onSeeAll: sectionAction,
       ),
       'category' || 'categoryPills' => _ExtensionGenreGrid(
+        title: title,
+        items: items,
+        onOpen: onOpen,
+        onSeeAll: sectionAction,
+      ),
+      'collectionCards' || 'playlistCarousel' => _ExtensionCollectionCardRail(
         title: title,
         items: items,
         onOpen: onOpen,
@@ -766,6 +823,24 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
         ],
       );
     }
+    if (component == 'rankedWide') {
+      return _ExtensionSkeletonSection(
+        titleWidth: title.length.clamp(86, 180).toDouble(),
+        child: const _ExtensionRankedWideShimmer(),
+      );
+    }
+    if (component == 'showcase') {
+      return _ExtensionSkeletonSection(
+        titleWidth: title.length.clamp(86, 180).toDouble(),
+        child: const _ExtensionShowcaseShimmer(),
+      );
+    }
+    if (component == 'collectionCards' || component == 'playlistCarousel') {
+      return _ExtensionSkeletonSection(
+        titleWidth: title.length.clamp(86, 180).toDouble(),
+        child: const _ExtensionCollectionCardShimmer(),
+      );
+    }
     if (component == 'grid' ||
         component == 'catalogue' ||
         component == 'discoverGrid' ||
@@ -858,13 +933,11 @@ class _ExtensionLayoutSectionEmpty extends StatelessWidget {
 class _ExtensionHero extends StatelessWidget {
   final Source source;
   final List<MManga> items;
-  final VoidCallback onSearch;
   final ValueChanged<MManga> onOpen;
 
   const _ExtensionHero({
     required this.source,
     required this.items,
-    required this.onSearch,
     required this.onOpen,
   });
 
@@ -891,7 +964,6 @@ class _ExtensionHero extends StatelessWidget {
             return _ExtensionHeroCard(
               source: source,
               item: item,
-              onSearch: onSearch,
               onOpen: () => onOpen(item),
             );
           },
@@ -904,13 +976,11 @@ class _ExtensionHero extends StatelessWidget {
 class _ExtensionHeroCard extends StatelessWidget {
   final Source source;
   final MManga item;
-  final VoidCallback onSearch;
   final VoidCallback onOpen;
 
   const _ExtensionHeroCard({
     required this.source,
     required this.item,
-    required this.onSearch,
     required this.onOpen,
   });
 
@@ -928,31 +998,6 @@ class _ExtensionHeroCard extends StatelessWidget {
               end: Alignment.bottomCenter,
               stops: [0, .42, 1],
               colors: [Color(0x52000000), Color(0x15000000), Color(0xE6000000)],
-            ),
-          ),
-        ),
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: Row(
-              children: [
-                _ExtensionSourceIcon(source: source, size: 28),
-                const Spacer(),
-                _ExtensionLiveButton(onPressed: () => context.push('/liveTv')),
-                const SizedBox(width: 8),
-                _ExtensionIconButton(
-                  icon: Broken.bookmark,
-                  onPressed: () => context.push('/Library'),
-                  tooltip: 'Library',
-                ),
-                const SizedBox(width: 8),
-                _ExtensionIconButton(
-                  icon: Broken.search_normal,
-                  onPressed: onSearch,
-                  tooltip: 'Rechercher',
-                ),
-              ],
             ),
           ),
         ),
@@ -1000,6 +1045,77 @@ class _ExtensionHeroCard extends StatelessWidget {
           child: Center(child: _ExtensionWatchButton(onPressed: onOpen)),
         ),
       ],
+    );
+  }
+}
+
+class _ExtensionFeedTopHeader extends StatelessWidget {
+  final Source source;
+  final VoidCallback onSearch;
+  final VoidCallback onLiveTv;
+  final VoidCallback onLibrary;
+
+  const _ExtensionFeedTopHeader({
+    required this.source,
+    required this.onSearch,
+    required this.onLiveTv,
+    required this.onLibrary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF0B0B11),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Center(
+                child: Text(
+                  source.name ?? 'Extension',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: AppUI.pagePadding(context),
+                child: _ExtensionSourceIcon(source: source, size: 30),
+              ),
+              Positioned(
+                right: 4,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ExtensionIconButton(
+                      icon: Broken.radio,
+                      onPressed: onLiveTv,
+                      tooltip: 'Live TV',
+                    ),
+                    _ExtensionIconButton(
+                      icon: Broken.bookmark,
+                      onPressed: onLibrary,
+                      tooltip: 'Library',
+                    ),
+                    _ExtensionIconButton(
+                      icon: Broken.search_normal,
+                      onPressed: onSearch,
+                      tooltip: 'Rechercher',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1212,6 +1328,405 @@ class _ExtensionRankedRail extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ExtensionRankedWideRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
+
+  const _ExtensionRankedWideRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.onSeeAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title, actionLabel: 'All >', onAction: onSeeAll),
+        ...items.asMap().entries.map(
+          (entry) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppUI.pagePadding(context),
+              entry.key == 0 ? 4 : 0,
+              AppUI.pagePadding(context),
+              12,
+            ),
+            child: _ExtensionRankedWideCard(
+              item: entry.value,
+              rank: entry.key + 1,
+              onTap: () => onOpen(entry.value),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionRankedWideCard extends StatelessWidget {
+  final MManga item;
+  final int rank;
+  final VoidCallback onTap;
+
+  const _ExtensionRankedWideCard({
+    required this.item,
+    required this.rank,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        height: 88,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 156,
+              height: 88,
+              child: _ExtensionImage(
+                url: item.imageUrl,
+                fit: BoxFit.cover,
+                radius: 12,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                item.name?.trim().isNotEmpty == true
+                    ? item.name!.trim()
+                    : 'Sans titre',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  height: 1.15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '$rank',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: .92),
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionShowcaseRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
+
+  const _ExtensionShowcaseRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.onSeeAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title, actionLabel: 'All >', onAction: onSeeAll),
+        ...items.map(
+          (item) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppUI.pagePadding(context),
+              0,
+              AppUI.pagePadding(context),
+              12,
+            ),
+            child: _ExtensionShowcaseCard(
+              item: item,
+              onTap: () => onOpen(item),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionShowcaseCard extends StatelessWidget {
+  final MManga item;
+  final VoidCallback onTap;
+
+  const _ExtensionShowcaseCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = item.name?.trim().isNotEmpty == true
+        ? item.name!.trim()
+        : 'Sans titre';
+    final metadataValues = [
+      if (item.author?.trim().isNotEmpty == true) item.author!.trim(),
+      if (item.genre?.isNotEmpty == true) item.genre!.take(2).join(' · '),
+      if (item.description?.trim().isNotEmpty == true) item.description!.trim(),
+    ];
+    final metadata = metadataValues.isEmpty ? null : metadataValues.first;
+
+    return Material(
+      color: const Color(0xFF1A1B21),
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 128,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 92,
+                      height: 128,
+                      child: _ExtensionImage(
+                        url: item.imageUrl,
+                        fit: BoxFit.cover,
+                        radius: 10,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _ExtensionImage(
+                              url: item.imageUrl,
+                              fit: BoxFit.cover,
+                              radius: 0,
+                            ),
+                            ColoredBox(
+                              color: Colors.black.withValues(alpha: .27),
+                              child: const Center(
+                                child: Icon(
+                                  Broken.play,
+                                  color: Colors.white,
+                                  size: 38,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (metadata != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            metadata,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  FilledButton.icon(
+                    onPressed: onTap,
+                    icon: const Icon(Broken.play, size: 18),
+                    label: const Text('Jouer'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 10,
+                      ),
+                      backgroundColor: const Color(0xFF16C784),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionCollectionCardRail extends StatelessWidget {
+  final String title;
+  final List<MManga> items;
+  final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
+
+  const _ExtensionCollectionCardRail({
+    required this.title,
+    required this.items,
+    required this.onOpen,
+    this.onSeeAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title, actionLabel: 'All >', onAction: onSeeAll),
+        SizedBox(
+          height: 112,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, index) => _ExtensionCollectionCard(
+              item: items[index],
+              onTap: () => onOpen(items[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionCollectionCard extends StatelessWidget {
+  final MManga item;
+  final VoidCallback onTap;
+
+  const _ExtensionCollectionCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPlaylist =
+        item.collectionId?.startsWith('playlist_') == true ||
+        ExtensionCollectionRoute.fromItem(item)?.listId.startsWith('playlist_') ==
+            true;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 190,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          gradient: LinearGradient(
+            colors: isPlaylist
+                ? const [Color(0xFF303A70), Color(0xFF5964C8)]
+                : const [Color(0xFF174C50), Color(0xFF237F78)],
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (item.imageUrl?.trim().isNotEmpty == true)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: 84,
+                  child: _ExtensionImage(
+                    url: item.imageUrl,
+                    fit: BoxFit.cover,
+                    radius: 0,
+                  ),
+                ),
+              ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                width: 132,
+                padding: const EdgeInsets.fromLTRB(12, 12, 9, 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      (isPlaylist
+                              ? const Color(0xFF5964C8)
+                              : const Color(0xFF237F78))
+                          .withValues(alpha: .98),
+                    ],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isPlaylist
+                          ? Icons.playlist_play_rounded
+                          : Icons.local_offer_rounded,
+                      color: Colors.white70,
+                      size: 19,
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.name?.trim().isNotEmpty == true
+                          ? item.name!.trim()
+                          : 'Collection',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1728,7 +2243,12 @@ class _ExtensionImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = url == null || url!.isEmpty
-        ? const AppShimmerBlock()
+        ? const ColoredBox(
+            color: Color(0xFF22242C),
+            child: Center(
+              child: Icon(Broken.video, color: Colors.white54),
+            ),
+          )
         : cachedNetworkImage(
             imageUrl: url!,
             width: double.infinity,
@@ -1923,69 +2443,158 @@ class _ExtensionHomeLoading extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: (MediaQuery.sizeOf(context).height * .48).clamp(
-                  410.0,
-                  500.0,
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    const AppShimmerBlock(radius: 0),
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: _ExtensionFeedOverlayHeader(
-                        source: source,
-                        onSearch: onSearch,
-                        onLiveTv: () => context.push('/liveTv'),
-                        onLibrary: () => context.push('/Library'),
-                        transparent: true,
-                      ),
-                    ),
-                  ],
-                ),
+              _ExtensionFeedTopHeader(
+                source: source,
+                onSearch: onSearch,
+                onLiveTv: () => context.push('/liveTv'),
+                onLibrary: () => context.push('/Library'),
               ),
               _ExtensionSkeletonSection(
-                titleWidth: 96,
+                titleWidth: 154,
+                child: const _ExtensionRankedWideShimmer(),
+              ),
+              _ExtensionSkeletonSection(
+                titleWidth: 112,
+                child: const _ExtensionShowcaseShimmer(),
+              ),
+              _ExtensionSkeletonSection(
+                titleWidth: 126,
+                child: const _ExtensionCollectionCardShimmer(),
+              ),
+              _ExtensionSkeletonSection(
+                titleWidth: 94,
                 child: SizedBox(
-                  height: AppUI.horizontalCardWidth(context) * 1.5 + 46,
-                  child: const AppMediaRowShimmer(),
-                ),
-              ),
-              _ExtensionSkeletonSection(
-                titleWidth: 124,
-                child: const SizedBox(
-                  height: 158,
+                  height: 206,
                   child: AppLandscapeRowShimmer(),
                 ),
-              ),
-              _ExtensionSkeletonSection(
-                titleWidth: 78,
-                child: const SizedBox(
-                  height: 208,
-                  child: AppRankedRowShimmer(),
-                ),
-              ),
-              _ExtensionSkeletonSection(
-                titleWidth: 110,
-                child: const SizedBox(
-                  height: 172,
-                  child: AppLandscapeRowShimmer(),
-                ),
-              ),
-              _ExtensionSkeletonSection(
-                titleWidth: 88,
-                child: const AppBannerRowShimmer(),
-              ),
-              _ExtensionSkeletonSection(
-                titleWidth: 104,
-                child: const AppGenreGridShimmer(),
               ),
               const SizedBox(height: 112),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionRankedWideShimmer extends StatelessWidget {
+  const _ExtensionRankedWideShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < 4; index++)
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppUI.pagePadding(context),
+              index == 0 ? 4 : 0,
+              AppUI.pagePadding(context),
+              12,
+            ),
+            child: SizedBox(
+              height: 88,
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 156,
+                    height: 88,
+                    child: AppShimmerBlock(radius: 12),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: SizedBox(
+                      height: 38,
+                      child: AppShimmerBlock(radius: 6),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 32,
+                    height: 38,
+                    child: AppShimmerBlock(radius: 6),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ExtensionShowcaseShimmer extends StatelessWidget {
+  const _ExtensionShowcaseShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+      child: SizedBox(
+        height: 202,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1B21),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              children: [
+                const Expanded(
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 92,
+                        child: AppShimmerBlock(radius: 10),
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(child: AppShimmerBlock(radius: 10)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: SizedBox(
+                        height: 18,
+                        child: AppShimmerBlock(radius: 5),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 84,
+                      height: 38,
+                      child: AppShimmerBlock(radius: 10),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionCollectionCardShimmer extends StatelessWidget {
+  const _ExtensionCollectionCardShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 112,
+      child: ListView.separated(
+        padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+        scrollDirection: Axis.horizontal,
+        itemCount: 4,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, __) => const SizedBox(
+          width: 190,
+          height: 112,
+          child: AppShimmerBlock(radius: 15),
         ),
       ),
     );

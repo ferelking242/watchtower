@@ -118,6 +118,10 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
     if (item.link?.isNotEmpty != true) return;
     final collection = ExtensionCollectionRoute.fromItem(item);
     if (collection != null) {
+      if (collection.listId.startsWith('playlist_')) {
+        _playFirstFromCollection(collection.listId);
+        return;
+      }
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ExtensionSectionPage(
@@ -140,6 +144,38 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
       sourceId: widget.source.id,
       itemType: widget.source.itemType,
     );
+  }
+
+  Future<void> _playFirstFromCollection(String listId) async {
+    try {
+      final result = await ref.read(
+        getCustomListProvider(
+          source: widget.source,
+          listId: listId,
+          page: 1,
+        ).future,
+      );
+      MManga? first;
+      for (final item in result?.list ?? const <MManga>[]) {
+        if (item.link?.trim().isNotEmpty == true) {
+          first = item;
+          break;
+        }
+      }
+      if (!mounted) return;
+      if (first == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucune vidéo disponible dans cette playlist.')),
+        );
+        return;
+      }
+      _openItem(first);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossible de charger la playlist : $error')),
+      );
+    }
   }
 
   @override

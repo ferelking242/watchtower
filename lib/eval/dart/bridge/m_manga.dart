@@ -12,6 +12,7 @@ class MMangaBridge {
           artist: namedArgs.get<String?>('artist'),
           author: namedArgs.get<String?>('author'),
           description: namedArgs.get<String?>('description'),
+          collectionId: namedArgs.get<String?>('collectionId'),
           genre: namedArgs.get<List?>('genre')?.cast(),
           status: namedArgs.get<Status?>('status') ?? Status.unknown,
           imageUrl: namedArgs.get<String?>('imageUrl'),
@@ -26,6 +27,7 @@ class MMangaBridge {
       'artist': (visitor, target) => (target as MManga).artist,
       'author': (visitor, target) => (target as MManga).author,
       'description': (visitor, target) => (target as MManga).description,
+      'collectionId': (visitor, target) => (target as MManga).collectionId,
       'genre': (visitor, target) => (target as MManga).genre,
       'status': (visitor, target) => (target as MManga).status,
       'imageUrl': (visitor, target) => (target as MManga).imageUrl,
@@ -41,6 +43,8 @@ class MMangaBridge {
           (target as MManga).author = value as String?,
       'description': (visitor, target, value) =>
           (target as MManga).description = value as String?,
+      'collectionId': (visitor, target, value) =>
+          (target as MManga).collectionId = value as String?,
       'genre': (visitor, target, value) =>
           (target as MManga).genre = (value as List?)?.cast(),
       'status': (visitor, target, value) =>

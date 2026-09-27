@@ -36,8 +36,10 @@ Future<MPages?> getCustomList(
               name: m['name'] as String?,
               imageUrl: m['imageUrl'] as String?,
               link: m['link'] as String?,
+              collectionId: m['collectionId'] as String?,
               author: m['author'] as String?,
               description: m['description'] as String?,
+              genre: (m['genre'] as List?)?.map((e) => e.toString()).toList(),
             ),
           )
           .toList(),
