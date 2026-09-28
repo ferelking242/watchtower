@@ -5,9 +5,13 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
+import 'package:watchtower/modules/home/widgets/episode_card.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
 
 enum _GalleryState { result, skeleton }
 
@@ -23,6 +27,33 @@ enum _PreviewKind {
   tag,
   genre,
   carousel,
+  episode,
+  detailEpisode,
+  wallpaper,
+  season,
+  cast,
+  trailer,
+  extensionHero,
+  rankedWide,
+  showcase,
+  collection,
+  banner,
+  creator,
+  studio,
+  searchGrid,
+  searchList,
+  searchCinema,
+  manga,
+  mangaList,
+  marketplace,
+  marketplaceBanner,
+  marketplaceMini,
+  marketplaceShelf,
+  marketplaceGrid,
+  history,
+  historyGrid,
+  empty,
+  error,
 }
 
 class _ComponentSpec {
@@ -30,6 +61,7 @@ class _ComponentSpec {
   final String className;
   final String path;
   final String usage;
+  final String section;
   final IconData icon;
   final _PreviewKind kind;
   final Widget Function(BuildContext context) result;
@@ -39,6 +71,7 @@ class _ComponentSpec {
     required this.className,
     required this.path,
     required this.usage,
+    this.section = 'CATALOGUE & DISCOVERY',
     required this.icon,
     required this.kind,
     required this.result,
@@ -384,10 +417,23 @@ class _UnifiedGallery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final grouped = <String, List<_ComponentSpec>>{};
+    for (final component in components) {
+      grouped.putIfAbsent(component.section, () => <_ComponentSpec>[]).add(component);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ComponentGrid(components: components, state: state),
+        for (final entry in grouped.entries) ...[
+          _UnifiedSectionLabel(
+            icon: _sectionIcon(entry.key),
+            label: entry.key,
+          ),
+          const SizedBox(height: 12),
+          _ComponentGrid(components: entry.value, state: state),
+          if (entry.key != grouped.keys.last) const SizedBox(height: 32),
+        ],
         if (showCompositions) ...[
           const SizedBox(height: 32),
           const _UnifiedSectionLabel(
@@ -400,6 +446,17 @@ class _UnifiedGallery extends StatelessWidget {
       ],
     );
   }
+}
+
+IconData _sectionIcon(String section) {
+  if (section.contains('EXTENSION')) return Icons.extension_outlined;
+  if (section.contains('MANGA')) return Icons.menu_book_outlined;
+  if (section.contains('RECHERCHE')) return Icons.search_rounded;
+  if (section.contains('MARKETPLACE')) return Icons.storefront_outlined;
+  if (section.contains('HISTORIQUE')) return Icons.history_rounded;
+  if (section.contains('ÉTATS')) return Icons.checklist_rounded;
+  if (section.contains('DÉTAIL')) return Icons.movie_filter_outlined;
+  return Icons.grid_view_rounded;
 }
 
 class _UnifiedSectionLabel extends StatelessWidget {
@@ -609,6 +666,65 @@ class _CardSkeleton extends StatelessWidget {
           ],
         ),
       ),
+      _PreviewKind.episode ||
+      _PreviewKind.detailEpisode ||
+      _PreviewKind.trailer => const SizedBox(
+        width: 220,
+        height: 152,
+        child: AppShimmerBlock(radius: 12),
+      ),
+      _PreviewKind.wallpaper ||
+      _PreviewKind.extensionHero ||
+      _PreviewKind.studio ||
+      _PreviewKind.searchCinema ||
+      _PreviewKind.marketplaceBanner => const SizedBox(
+        width: 320,
+        height: 180,
+        child: AppShimmerBlock(radius: 16),
+      ),
+      _PreviewKind.season ||
+      _PreviewKind.cast ||
+      _PreviewKind.creator ||
+      _PreviewKind.manga ||
+      _PreviewKind.marketplaceMini => const SizedBox(
+        width: 112,
+        height: 168,
+        child: AppShimmerBlock(radius: 12),
+      ),
+      _PreviewKind.marketplace => const SizedBox(
+        width: 300,
+        height: 192,
+        child: AppShimmerBlock(radius: 16),
+      ),
+      _PreviewKind.rankedWide ||
+      _PreviewKind.searchList ||
+      _PreviewKind.history => const SizedBox(
+        width: 330,
+        height: 92,
+        child: AppShimmerBlock(radius: 12),
+      ),
+      _PreviewKind.showcase ||
+      _PreviewKind.collection ||
+      _PreviewKind.banner ||
+      _PreviewKind.marketplaceShelf ||
+      _PreviewKind.marketplaceGrid ||
+      _PreviewKind.historyGrid ||
+      _PreviewKind.mangaList => const SizedBox(
+        width: 300,
+        height: 190,
+        child: AppShimmerBlock(radius: 14),
+      ),
+      _PreviewKind.searchGrid => const SizedBox(
+        width: 112,
+        height: 178,
+        child: AppShimmerBlock(radius: 12),
+      ),
+      _PreviewKind.empty ||
+      _PreviewKind.error => const SizedBox(
+        width: 300,
+        height: 174,
+        child: AppShimmerBlock(radius: 18),
+      ),
     };
     return card;
   }
@@ -728,6 +844,1329 @@ class _EmptyGalleryState extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WallpaperPreview extends StatelessWidget {
+  final TmdbMedia media;
+
+  const _WallpaperPreview({required this.media});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 320,
+      height: 180,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ContentImage(url: media.bannerImage, radius: 0),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xF0000000)],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 12,
+              child: Text(
+                media.displayTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SeasonPreview extends StatelessWidget {
+  final TmdbMedia media;
+
+  const _SeasonPreview({required this.media});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 112,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AspectRatio(
+              aspectRatio: 2 / 3,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ContentImage(url: media.posterUrl, radius: 0),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(7),
+                      color: Colors.black.withValues(alpha: .72),
+                      child: const Text(
+                        'Saison 1',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '10 épisodes',
+            style: TextStyle(color: Colors.white60, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CastPreview extends StatelessWidget {
+  final TmdbMedia media;
+
+  const _CastPreview({required this.media});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 112,
+      child: Column(
+        children: [
+          ClipOval(
+            child: SizedBox(
+              width: 92,
+              height: 92,
+              child: ContentImage(url: media.posterUrl, radius: 0),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Acteur principal',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            media.displayTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white54, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrailerPreview extends StatelessWidget {
+  final TmdbMedia media;
+
+  const _TrailerPreview({required this.media});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 220,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ContentImage(url: media.bannerImage, radius: 0),
+                  const Center(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${media.displayTitle} · Bande-annonce',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExtensionHeroPreview extends StatelessWidget {
+  final MManga item;
+
+  const _ExtensionHeroPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 320,
+      height: 224,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ContentImage(url: item.imageUrl, radius: 0),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xF5000000)],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _GalleryBadge(label: 'À LA UNE'),
+                  const SizedBox(height: 8),
+                  Text(
+                    item.name ?? 'Sans titre',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Extension vidéo · 2024',
+                    style: TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionRankedWidePreview extends StatelessWidget {
+  final MManga item;
+  final int rank;
+
+  const _ExtensionRankedWidePreview({required this.item, required this.rank});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 330,
+      height: 88,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 48,
+            child: Text(
+              '$rank',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontSize: 44,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 66,
+              height: 88,
+              child: ContentImage(url: item.imageUrl, radius: 0),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name ?? 'Sans titre',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Extension · 8.6',
+                  style: TextStyle(color: Colors.white54, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExtensionShowcasePreview extends StatelessWidget {
+  final MManga item;
+
+  const _ExtensionShowcasePreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 300,
+      height: 192,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ContentImage(url: item.imageUrl, radius: 0),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xF0000000), Colors.transparent],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 14,
+              top: 14,
+              child: _GalleryBadge(label: 'SHOWCASE'),
+            ),
+            Positioned(
+              left: 14,
+              bottom: 14,
+              right: 90,
+              child: Text(
+                item.name ?? 'Sans titre',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const Positioned(
+              right: 15,
+              bottom: 15,
+              child: _PlayCircle(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionCollectionPreview extends StatelessWidget {
+  final MManga item;
+
+  const _ExtensionCollectionPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 190,
+      height: 112,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF17243C), Color(0xFF294B6B)],
+          ),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(14),
+              ),
+              child: SizedBox(
+                width: 76,
+                height: 112,
+                child: ContentImage(url: item.imageUrl, radius: 0),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'COLLECTION',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.name ?? 'Sans titre',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionBannerPreview extends StatelessWidget {
+  final MManga item;
+
+  const _ExtensionBannerPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 300,
+      height: 146,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ContentImage(url: item.imageUrl, radius: 0),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xE6000000)],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 12,
+              child: Text(
+                item.name ?? 'Sans titre',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionCreatorPreview extends StatelessWidget {
+  final MManga item;
+
+  const _ExtensionCreatorPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 112,
+      child: Column(
+        children: [
+          ClipOval(
+            child: SizedBox(
+              width: 98,
+              height: 98,
+              child: ContentImage(url: item.imageUrl, radius: 0),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item.name ?? 'Créateur',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          const Text(
+            '12 titres',
+            style: TextStyle(color: Colors.white54, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExtensionStudioPreview extends StatelessWidget {
+  final MManga item;
+
+  const _ExtensionStudioPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 300,
+      height: 176,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ContentImage(url: item.imageUrl, radius: 0),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xF0000000)],
+                ),
+              ),
+            ),
+            const Positioned(
+              left: 14,
+              top: 14,
+              child: _GalleryBadge(label: 'STUDIO'),
+            ),
+            Positioned(
+              left: 14,
+              bottom: 14,
+              child: Text(
+                item.name ?? 'Studio',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionCategoryPreview extends StatelessWidget {
+  final MManga item;
+
+  const _ExtensionCategoryPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 190,
+      height: 112,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ContentImage(url: item.imageUrl, radius: 0),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xDF000000)],
+                ),
+              ),
+            ),
+            const Positioned(
+              left: 10,
+              bottom: 10,
+              child: Text(
+                'Science-fiction',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExtensionGridPreview extends StatelessWidget {
+  final List<MManga> items;
+
+  const _ExtensionGridPreview({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 300,
+      height: 208,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final item in items.take(3)) ...[
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: ContentImage(url: item.imageUrl, radius: 0),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.name ?? 'Sans titre',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchGridPreview extends StatelessWidget {
+  final MManga item;
+
+  const _SearchGridPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 112,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: 112,
+              height: 150,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ContentImage(url: item.imageUrl, radius: 0),
+                  const Positioned(
+                    top: 7,
+                    right: 7,
+                    child: _GalleryBadge(label: '8.6'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            item.name ?? 'Sans titre',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchListPreview extends StatelessWidget {
+  final MManga item;
+
+  const _SearchListPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 330,
+      height: 88,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 58,
+              height: 76,
+              child: ContentImage(url: item.imageUrl, radius: 0),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name ?? 'Sans titre',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Manga · En cours',
+                  style: TextStyle(color: Colors.white54, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchCinemaPreview extends StatelessWidget {
+  final TmdbMedia media;
+
+  const _SearchCinemaPreview({required this.media});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 320,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          children: [
+            SizedBox(
+              height: 150,
+              child: ContentImage(url: media.bannerImage, radius: 0),
+            ),
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xEC000000)],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Text(
+                media.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketplaceCardPreview extends StatelessWidget {
+  const _MarketplaceCardPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 300,
+      height: 192,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _MarketplaceIcon(),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Video Source',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _GalleryBadge(label: 'v2.4'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Une extension vidéo communautaire pour Watchtower.',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.3),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              const Icon(Icons.star_rounded, color: Colors.amber, size: 15),
+              const SizedBox(width: 4),
+              const Text(
+                '4.8',
+                style: TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+              const Spacer(),
+              FilledButton.tonal(
+                onPressed: () {},
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(72, 30),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                child: const Text('Installer', style: TextStyle(fontSize: 10)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketplaceBannerPreview extends StatelessWidget {
+  const _MarketplaceBannerPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 320,
+      height: 166,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF195B61), Color(0xFF27375E)],
+        ),
+      ),
+      child: Stack(
+        children: [
+          const Positioned(
+            right: 12,
+            top: 10,
+            child: Icon(
+              Icons.extension_rounded,
+              size: 70,
+              color: Colors.white24,
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Trouvez votre prochaine source',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Extensions vérifiées pour votre catalogue.',
+                  style: TextStyle(color: Colors.white70, fontSize: 10),
+                ),
+                const SizedBox(height: 10),
+                FilledButton(
+                  onPressed: () {},
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(94, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: const Text('Explorer', style: TextStyle(fontSize: 10)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketplaceMiniPreview extends StatelessWidget {
+  const _MarketplaceMiniPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 138,
+      height: 182,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Expanded(child: _MarketplaceIcon(size: 54)),
+          const SizedBox(height: 8),
+          const Text(
+            'Anime World',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Source manga',
+            style: TextStyle(color: Colors.white54, fontSize: 9),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketplaceShelfPreview extends StatelessWidget {
+  const _MarketplaceShelfPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 300,
+      height: 192,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Recommandées pour vous',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 9),
+          Expanded(
+            child: Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  const Expanded(child: _MarketplaceMiniTile()),
+                  if (i < 2) const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketplaceMiniTile extends StatelessWidget {
+  const _MarketplaceMiniTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _MarketplaceIcon(size: 34),
+            SizedBox(height: 6),
+            Text(
+              'Extension',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.white70, fontSize: 9),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryPreview extends StatelessWidget {
+  final MManga item;
+
+  const _HistoryPreview({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 330,
+      height: 88,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: SizedBox(
+              width: 78,
+              height: 76,
+              child: ContentImage(url: item.imageUrl, radius: 0),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name ?? 'Sans titre',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                const Text(
+                  'Chapitre 24 · il y a 2 h',
+                  style: TextStyle(color: Colors.white54, fontSize: 10),
+                ),
+                const SizedBox(height: 7),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: const LinearProgressIndicator(
+                    value: .68,
+                    minHeight: 4,
+                    backgroundColor: Colors.white12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 9),
+          const Icon(Icons.more_vert_rounded, color: Colors.white54, size: 18),
+        ],
+      ),
+    );
+  }
+}
+
+class _LibraryGridPreview extends StatelessWidget {
+  final List<MManga> items;
+
+  const _LibraryGridPreview({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 300,
+      height: 208,
+      child: Row(
+        children: [
+          for (final item in items.take(3)) ...[
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: ContentImage(url: item.imageUrl, radius: 0),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.name ?? 'Sans titre',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryEmptyPreview extends StatelessWidget {
+  const _GalleryEmptyPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 300,
+      height: 174,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined, color: Colors.white54, size: 34),
+          SizedBox(height: 9),
+          Text(
+            'Aucun résultat',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Votre catalogue est vide pour le moment.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryErrorPreview extends StatelessWidget {
+  const _GalleryErrorPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 300,
+      height: 174,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF24191D),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: .26)),
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 34),
+          SizedBox(height: 9),
+          Text(
+            'Impossible de charger',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Réessayez dans quelques instants.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 10),
+          ),
+          SizedBox(height: 9),
+          Text(
+            'Réessayer',
+            style: TextStyle(
+              color: Colors.redAccent,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryBadge extends StatelessWidget {
+  final String label;
+
+  const _GalleryBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayCircle extends StatelessWidget {
+  const _PlayCircle();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary,
+        shape: BoxShape.circle,
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(10),
+        child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+      ),
+    );
+  }
+}
+
+class _MarketplaceIcon extends StatelessWidget {
+  final double size;
+
+  const _MarketplaceIcon({this.size = 44});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.tertiary,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(size * .25),
+      ),
+      child: Icon(Icons.extension_rounded, color: Colors.white, size: size * .48),
     );
   }
 }
@@ -971,6 +2410,322 @@ List<_ComponentSpec> _buildComponents() => [
       ),
     ),
   ),
+  _ComponentSpec(
+    section: 'ACCUEIL & LECTURE',
+    title: 'Carte épisode',
+    className: 'EpisodeCard',
+    path: 'lib/modules/home/widgets/episode_card.dart',
+    usage: 'Reprendre la lecture',
+    icon: Icons.play_circle_outline_rounded,
+    kind: _PreviewKind.episode,
+    result: (_) => EpisodeCard(
+      width: 220,
+      data: EpisodeCardData(
+        thumbnailUrl: _tmdbItems[4].bannerImage,
+        animeTitle: 'Arcane',
+        episodeNumber: 4,
+        episodeTitle: 'Happy Progress Day!',
+        progress: const EpisodeProgress(value: .62, timeLeft: '12 min'),
+      ),
+      onTap: () {},
+    ),
+  ),
+  _ComponentSpec(
+    section: 'ACCUEIL & LECTURE',
+    title: 'Épisode sans progression',
+    className: 'EpisodeCard',
+    path: 'lib/modules/home/widgets/episode_card.dart',
+    usage: 'Liste des épisodes',
+    icon: Icons.movie_outlined,
+    kind: _PreviewKind.detailEpisode,
+    result: (_) => EpisodeCard(
+      width: 220,
+      data: EpisodeCardData(
+        thumbnailUrl: _tmdbItems[1].bannerImage,
+        animeTitle: 'Interstellar',
+        episodeNumber: 1,
+        episodeTitle: 'Le voyage commence',
+      ),
+      onTap: () {},
+    ),
+  ),
+  _ComponentSpec(
+    section: 'DÉTAIL MÉDIA',
+    title: 'Wallpaper détail',
+    className: '_WallpaperCard',
+    path: 'lib/modules/media/tmdb_media_detail_screen.dart',
+    usage: 'En-tête détail film/série',
+    icon: Icons.wallpaper_outlined,
+    kind: _PreviewKind.wallpaper,
+    result: (_) => _WallpaperPreview(media: _tmdbItems[0]),
+  ),
+  _ComponentSpec(
+    section: 'DÉTAIL MÉDIA',
+    title: 'Carte saison',
+    className: '_SeasonsSummary',
+    path: 'lib/modules/media/tmdb_media_detail_screen.dart',
+    usage: 'Sélecteur de saisons',
+    icon: Icons.video_library_outlined,
+    kind: _PreviewKind.season,
+    result: (_) => _SeasonPreview(media: _tmdbItems[3]),
+  ),
+  _ComponentSpec(
+    section: 'DÉTAIL MÉDIA',
+    title: 'Carte casting',
+    className: '_CastSection',
+    path: 'lib/modules/media/tmdb_media_detail_screen.dart',
+    usage: 'Distribution principale',
+    icon: Icons.people_outline_rounded,
+    kind: _PreviewKind.cast,
+    result: (_) => _CastPreview(media: _tmdbItems[4]),
+  ),
+  _ComponentSpec(
+    section: 'DÉTAIL MÉDIA',
+    title: 'Carte bande-annonce',
+    className: '_TrailerHeroSlide',
+    path: 'lib/modules/media/tmdb_media_detail_screen.dart',
+    usage: 'Vidéos et trailers',
+    icon: Icons.ondemand_video_outlined,
+    kind: _PreviewKind.trailer,
+    result: (_) => _TrailerPreview(media: _tmdbItems[2]),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Hero extension',
+    className: '_ExtensionHeroCard',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout hero',
+    icon: Icons.open_in_full_rounded,
+    kind: _PreviewKind.extensionHero,
+    result: (_) => _ExtensionHeroPreview(item: _extensionItems[0]),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Classement horizontal',
+    className: '_ExtensionRankedWideCard',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout rankedWide',
+    icon: Icons.format_list_numbered_rounded,
+    kind: _PreviewKind.rankedWide,
+    result: (_) => _ExtensionRankedWidePreview(item: _extensionItems[1], rank: 2),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Carte showcase',
+    className: '_ExtensionShowcaseCard',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout showcase',
+    icon: Icons.auto_awesome_outlined,
+    kind: _PreviewKind.showcase,
+    result: (_) => _ExtensionShowcasePreview(item: _extensionItems[2]),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Collection',
+    className: '_ExtensionCollectionCard',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout collection',
+    icon: Icons.collections_bookmark_outlined,
+    kind: _PreviewKind.collection,
+    result: (_) => _ExtensionCollectionPreview(item: _extensionItems[3]),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Bannière extension',
+    className: '_ExtensionBannerRail',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout banner',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.banner,
+    result: (_) => _ExtensionBannerPreview(item: _extensionItems[0]),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Créateur',
+    className: '_ExtensionCreatorRail',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout creator',
+    icon: Icons.person_outline_rounded,
+    kind: _PreviewKind.creator,
+    result: (_) => _ExtensionCreatorPreview(item: _extensionItems[1]),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Studio',
+    className: '_ExtensionStudioRail',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout studio',
+    icon: Icons.business_outlined,
+    kind: _PreviewKind.studio,
+    result: (_) => _ExtensionStudioPreview(item: _extensionItems[2]),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Catégorie extension',
+    className: '_ExtensionGenreGrid',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout category',
+    icon: Icons.category_outlined,
+    kind: _PreviewKind.collection,
+    result: (_) => _ExtensionCategoryPreview(item: _extensionItems[3]),
+  ),
+  _ComponentSpec(
+    section: 'EXTENSIONS WATCH',
+    title: 'Grille extension',
+    className: '_ExtensionGridSection',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Layout grid',
+    icon: Icons.grid_4x4_rounded,
+    kind: _PreviewKind.marketplaceGrid,
+    result: (_) => _ExtensionGridPreview(items: _extensionItems),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Carte manga',
+    className: 'MangaImageCardWidget',
+    path: 'lib/modules/widgets/manga_image_card_widget.dart',
+    usage: 'Grille catalogue manga',
+    icon: Icons.menu_book_outlined,
+    kind: _PreviewKind.manga,
+    result: (_) => SizedBox(
+      width: 112,
+      height: 168,
+      child: MangaImageCardWidget(
+        source: _gallerySource,
+        itemType: ItemType.manga,
+        getMangaDetail: _extensionItems[0],
+        isComfortableGrid: false,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Tuile manga liste',
+    className: 'MangaImageCardListTileWidget',
+    path: 'lib/modules/widgets/manga_image_card_widget.dart',
+    usage: 'Résultats en liste',
+    icon: Icons.view_list_rounded,
+    kind: _PreviewKind.mangaList,
+    result: (_) => SizedBox(
+      width: 300,
+      height: 112,
+      child: MangaImageCardListTileWidget(
+        source: _gallerySource,
+        itemType: ItemType.manga,
+        getMangaDetail: _extensionItems[1],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'RECHERCHE',
+    title: 'Résultat recherche grille',
+    className: '_MediaCard',
+    path: 'lib/modules/search/watchtower_discover_screen.dart',
+    usage: 'Résultats compacts',
+    icon: Icons.grid_view_outlined,
+    kind: _PreviewKind.searchGrid,
+    result: (_) => _SearchGridPreview(item: _extensionItems[0]),
+  ),
+  _ComponentSpec(
+    section: 'RECHERCHE',
+    title: 'Résultat recherche liste',
+    className: '_MediaListTile',
+    path: 'lib/modules/search/watchtower_discover_screen.dart',
+    usage: 'Résultats détaillés',
+    icon: Icons.view_list_outlined,
+    kind: _PreviewKind.searchList,
+    result: (_) => _SearchListPreview(item: _extensionItems[1]),
+  ),
+  _ComponentSpec(
+    section: 'RECHERCHE',
+    title: 'Résultat recherche cinéma',
+    className: '_MediaCardCinema',
+    path: 'lib/modules/search/watchtower_discover_screen.dart',
+    usage: 'Résultat média paysage',
+    icon: Icons.local_movies_outlined,
+    kind: _PreviewKind.searchCinema,
+    result: (_) => _SearchCinemaPreview(media: _tmdbItems[2]),
+  ),
+  _ComponentSpec(
+    section: 'MARKETPLACE',
+    title: 'Carte extension',
+    className: '_PlayStoreCard',
+    path: 'lib/modules/browse/marketplace_screen.dart',
+    usage: 'Catalogue des extensions',
+    icon: Icons.extension_outlined,
+    kind: _PreviewKind.marketplace,
+    result: (_) => const _MarketplaceCardPreview(),
+  ),
+  _ComponentSpec(
+    section: 'MARKETPLACE',
+    title: 'Bannière marketplace',
+    className: '_BannerCard',
+    path: 'lib/modules/browse/marketplace_screen.dart',
+    usage: 'En-tête marketplace',
+    icon: Icons.campaign_outlined,
+    kind: _PreviewKind.marketplaceBanner,
+    result: (_) => const _MarketplaceBannerPreview(),
+  ),
+  _ComponentSpec(
+    section: 'MARKETPLACE',
+    title: 'Mini extension',
+    className: '_MiniCard',
+    path: 'lib/modules/browse/marketplace_screen.dart',
+    usage: 'Rails compacts',
+    icon: Icons.apps_outlined,
+    kind: _PreviewKind.marketplaceMini,
+    result: (_) => const _MarketplaceMiniPreview(),
+  ),
+  _ComponentSpec(
+    section: 'MARKETPLACE',
+    title: 'Étagère extensions',
+    className: '_RepoCarousel',
+    path: 'lib/modules/browse/marketplace_screen.dart',
+    usage: 'Sections de catalogue',
+    icon: Icons.view_stream_outlined,
+    kind: _PreviewKind.marketplaceShelf,
+    result: (_) => const _MarketplaceShelfPreview(),
+  ),
+  _ComponentSpec(
+    section: 'HISTORIQUE & BIBLIOTHÈQUE',
+    title: 'Ligne historique',
+    className: '_HistoryListItem',
+    path: 'lib/modules/history/history_screen.dart',
+    usage: 'Historique de lecture',
+    icon: Icons.history_rounded,
+    kind: _PreviewKind.history,
+    result: (_) => _HistoryPreview(item: _extensionItems[2]),
+  ),
+  _ComponentSpec(
+    section: 'HISTORIQUE & BIBLIOTHÈQUE',
+    title: 'Grille bibliothèque',
+    className: 'LibraryGridViewWidget',
+    path: 'lib/modules/library/widgets/library_gridview_widget.dart',
+    usage: 'Bibliothèque en grille',
+    icon: Icons.collections_outlined,
+    kind: _PreviewKind.historyGrid,
+    result: (_) => _LibraryGridPreview(items: _extensionItems),
+  ),
+  _ComponentSpec(
+    section: 'ÉTATS & FEEDBACK',
+    title: 'État vide',
+    className: '_ExtensionEmpty',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Aucune donnée dans une extension',
+    icon: Icons.inbox_outlined,
+    kind: _PreviewKind.empty,
+    result: (_) => const _GalleryEmptyPreview(),
+  ),
+  _ComponentSpec(
+    section: 'ÉTATS & FEEDBACK',
+    title: 'État erreur',
+    className: '_ExtensionError',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Échec de chargement extension',
+    icon: Icons.error_outline_rounded,
+    kind: _PreviewKind.error,
+    result: (_) => const _GalleryErrorPreview(),
+  ),
 ];
 
 const _tmdbItems = <TmdbMedia>[
@@ -1096,6 +2851,13 @@ final _extensionItems = [
   ),
 ];
 
+final _gallerySource = Source(
+  id: 999999,
+  name: 'Gallery Extension',
+  lang: 'fr',
+  itemType: ItemType.manga,
+);
+
 double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.poster => 210,
   _PreviewKind.compactPoster => 195,
@@ -1108,6 +2870,33 @@ double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.tag => 86,
   _PreviewKind.genre => 132,
   _PreviewKind.carousel => 220,
+  _PreviewKind.episode => 170,
+  _PreviewKind.detailEpisode => 170,
+  _PreviewKind.wallpaper => 180,
+  _PreviewKind.season => 168,
+  _PreviewKind.cast => 168,
+  _PreviewKind.trailer => 152,
+  _PreviewKind.extensionHero => 240,
+  _PreviewKind.rankedWide => 96,
+  _PreviewKind.showcase => 205,
+  _PreviewKind.collection => 126,
+  _PreviewKind.banner => 154,
+  _PreviewKind.creator => 168,
+  _PreviewKind.studio => 190,
+  _PreviewKind.searchGrid => 178,
+  _PreviewKind.searchList => 96,
+  _PreviewKind.searchCinema => 180,
+  _PreviewKind.manga => 168,
+  _PreviewKind.mangaList => 112,
+  _PreviewKind.marketplace => 205,
+  _PreviewKind.marketplaceBanner => 180,
+  _PreviewKind.marketplaceMini => 190,
+  _PreviewKind.marketplaceShelf => 205,
+  _PreviewKind.marketplaceGrid => 220,
+  _PreviewKind.history => 96,
+  _PreviewKind.historyGrid => 220,
+  _PreviewKind.empty => 174,
+  _PreviewKind.error => 174,
 };
 
 double _previewWidth(_PreviewKind kind) => switch (kind) {
@@ -1122,4 +2911,31 @@ double _previewWidth(_PreviewKind kind) => switch (kind) {
   _PreviewKind.tag => 260,
   _PreviewKind.genre => 260,
   _PreviewKind.carousel => 112,
+  _PreviewKind.episode => 220,
+  _PreviewKind.detailEpisode => 220,
+  _PreviewKind.wallpaper => 320,
+  _PreviewKind.season => 112,
+  _PreviewKind.cast => 112,
+  _PreviewKind.trailer => 220,
+  _PreviewKind.extensionHero => 320,
+  _PreviewKind.rankedWide => 330,
+  _PreviewKind.showcase => 300,
+  _PreviewKind.collection => 190,
+  _PreviewKind.banner => 300,
+  _PreviewKind.creator => 112,
+  _PreviewKind.studio => 300,
+  _PreviewKind.searchGrid => 112,
+  _PreviewKind.searchList => 330,
+  _PreviewKind.searchCinema => 320,
+  _PreviewKind.manga => 112,
+  _PreviewKind.mangaList => 300,
+  _PreviewKind.marketplace => 300,
+  _PreviewKind.marketplaceBanner => 320,
+  _PreviewKind.marketplaceMini => 138,
+  _PreviewKind.marketplaceShelf => 300,
+  _PreviewKind.marketplaceGrid => 300,
+  _PreviewKind.history => 330,
+  _PreviewKind.historyGrid => 300,
+  _PreviewKind.empty => 300,
+  _PreviewKind.error => 300,
 };
