@@ -17,11 +17,13 @@ class ExtensionSearchScreen extends ConsumerStatefulWidget {
   final Source source;
   final VoidCallback onClose;
   final ValueChanged<MManga> onOpen;
+  final String? initialQuery;
 
   const ExtensionSearchScreen({
     required this.source,
     required this.onClose,
     required this.onOpen,
+    this.initialQuery,
     super.key,
   });
 
@@ -40,7 +42,9 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController();
+    final initialQuery = widget.initialQuery?.trim() ?? '';
+    _controller = TextEditingController(text: initialQuery);
+    _query = initialQuery;
     _loadRecentSearches();
   }
 

@@ -33,8 +33,15 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
   final Source source;
   final bool isLocalLibrary;
   final ItemType? localItemType;
+  final String? initialSearchQuery;
+  final String? initialSectionId;
 
-  const WatchExtensionHomeScreen({required this.source, super.key})
+  const WatchExtensionHomeScreen({
+    required this.source,
+    this.initialSearchQuery,
+    this.initialSectionId,
+    super.key,
+  })
     : isLocalLibrary = false,
       localItemType = null;
 
@@ -43,7 +50,9 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
     super.key,
   }) : source = Source(name: 'local_smart_library', lang: '', itemType: itemType),
        isLocalLibrary = true,
-       localItemType = itemType;
+       localItemType = itemType,
+       initialSearchQuery = null,
+       initialSectionId = null;
 
   @override
   ConsumerState<WatchExtensionHomeScreen> createState() =>
@@ -54,7 +63,8 @@ class _WatchExtensionHomeScreenState
     extends ConsumerState<WatchExtensionHomeScreen> {
   final _feedController = ScrollController();
   bool _showCompactHeader = false;
-  bool _isSearching = false;
+  late bool _isSearching =
+      widget.initialSearchQuery?.trim().isNotEmpty == true;
   bool _layoutReady = false;
   Object? _layoutError;
   UiLayout _layout = UiLayout.empty;
@@ -243,8 +253,18 @@ class _WatchExtensionHomeScreenState
     if (_isSearching) {
       return ExtensionSearchScreen(
         source: source,
+        initialQuery: widget.initialSearchQuery,
         onClose: () => setState(() => _isSearching = false),
         onOpen: _openItem,
+      );
+    }
+
+    final initialSectionId = widget.initialSectionId;
+    if (initialSectionId != null && !widget.isLocalLibrary) {
+      return ExtensionSectionPage(
+        source: source,
+        sectionId: initialSectionId,
+        title: initialSectionId == 'latest' ? 'Latest' : initialSectionId,
       );
     }
 
