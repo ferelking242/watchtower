@@ -914,7 +914,7 @@ class _SeasonPreview extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ContentImage(url: media.posterUrl, radius: 0),
+                  ContentImage(url: media.bestCover, radius: 0),
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: Container(
@@ -961,7 +961,7 @@ class _CastPreview extends StatelessWidget {
             child: SizedBox(
               width: 92,
               height: 92,
-              child: ContentImage(url: media.posterUrl, radius: 0),
+              child: ContentImage(url: media.bestCover, radius: 0),
             ),
           ),
           const SizedBox(height: 8),
