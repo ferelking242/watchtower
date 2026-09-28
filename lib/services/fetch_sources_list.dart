@@ -313,6 +313,9 @@ Future<void> fetchSourcesList({
         .filter()
         .itemTypeEqualTo(itemType)
         .findAll();
+    for (final existing in allExisting) {
+      existing.hydrateExtendedMetadata();
+    }
     final existingMap = <int, Source>{
       for (final s in allExisting)
         if (s.id != null) s.id!: s,
@@ -501,6 +504,7 @@ Future<void> installExtensionUpdate(Source source) async {
 
 /// Whether the installed copy still has either a JS or a layout update.
 bool hasPendingExtensionUpdate(Source source) {
+  source.hydrateExtendedMetadata();
   final codeUpdate =
       source.version != null &&
       source.versionLast != null &&
@@ -509,6 +513,7 @@ bool hasPendingExtensionUpdate(Source source) {
 }
 
 String extensionUpdateLabel(Source source) {
+  source.hydrateExtendedMetadata();
   final codeUpdate =
       source.version != null &&
       source.versionLast != null &&

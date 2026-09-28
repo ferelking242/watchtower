@@ -687,6 +687,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     try {
       final allSrcs = await isar.sources.buildQuery<Source>().findAll();
       final sources = allSrcs.where((s) => s.isAdded == true).toList();
+      for (final source in sources) {
+        source.hydrateExtendedMetadata();
+      }
       // Music plugins (metadata/audio-source) live in the music module's
       // drift DB, not in the Isar `sources` table — mark the marketplace
       // entries matching an installed plugin as installed too.
@@ -984,6 +987,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   Future<void> _verifyInstalled(_ExtEntry entry) async {
     final source = await isar.sources.get(entry.id);
+    source?.hydrateExtendedMetadata();
     if (source == null ||
         source.isAdded != true ||
         (source.sourceCode ?? '').trim().isEmpty) {

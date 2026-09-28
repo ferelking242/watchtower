@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/settings.dart';
+import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/services/fetch_sources_list.dart'
     show
         extensionUpdateLabel,
+        fetchSourcesList,
         hasPendingExtensionUpdate,
         installExtensionUpdate;
 import 'package:watchtower/services/layout_registry.dart';
 
-class NotificationsScreen extends StatefulWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   late Future<_NotificationData> _future;
   final Set<int> _installing = {};
 
@@ -34,6 +40,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     Object? sourceError;
     try {
       sources = await isar.sources.buildQuery<Source>().findAll();
+      sourceError = await _refreshInstalledCatalog(sources);
+      sources = await isar.sources.buildQuery<Source>().findAll();
+      for (final source in sources) {
+        source.hydrateExtendedMetadata();
+      }
     } catch (error) {
       sourceError = error;
     }
@@ -60,6 +71,45 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ? 'Certaines notifications sont momentanément indisponibles.'
           : null,
     );
+  }
+
+  /// Refreshes catalogue metadata only. Notifications must never install an
+  /// extension as a side effect of being opened, even when automatic updates
+  /// are enabled globally.
+  Future<Object?> _refreshInstalledCatalog(List<Source> sources) async {
+    final types = sources
+        .where(
+          (source) =>
+              source.isAdded == true &&
+              source.isLocal != true &&
+              source.sourceCodeLanguage != SourceCodeLanguage.dart,
+        )
+        .map((source) => source.itemType)
+        .toSet();
+    if (types.isEmpty) return null;
+
+    final proxyServer = ref.read(androidProxyServerStateProvider);
+    Object? firstError;
+    await Future.wait(
+      types.map((type) async {
+        final repos = ref.read(extensionsRepoStateProvider(type));
+        for (final repo in repos) {
+          try {
+            await fetchSourcesList(
+              repo: repo,
+              refresh: true,
+              id: null,
+              androidProxyServer: proxyServer,
+              autoUpdateExtensions: false,
+              itemType: type,
+            );
+          } catch (error) {
+            firstError ??= error;
+          }
+        }
+      }),
+    );
+    return firstError;
   }
 
   void _retry() {
