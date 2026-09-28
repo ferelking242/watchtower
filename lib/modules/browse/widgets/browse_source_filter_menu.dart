@@ -381,7 +381,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
         onChanged: widget.onSearchChanged,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search_rounded, size: 19),
+          prefixIcon: const Icon(Broken.search_normal, size: 19),
           suffixIcon: _searchController.text.isEmpty
               ? null
               : IconButton(

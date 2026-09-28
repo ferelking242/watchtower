@@ -9,6 +9,7 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/browse/sources/widgets/source_list_tile.dart';
 import 'package:watchtower/modules/browse/sources/widgets/smart_library_source_tile.dart';
 import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart';
@@ -123,18 +124,34 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 }
 
                 if (sources.isEmpty) {
-                  return _EmptyState(
-                    onShowExtensions: widget.onShowExtensions,
-                    itemType: widget.itemType,
-                  );
+                  final hasInstalledExtension = (snapshot.data ?? const [])
+                      .any(
+                        (source) =>
+                            source.itemType == widget.itemType &&
+                            source.isAdded == true &&
+                            !(source.name == 'local' &&
+                                (source.lang ?? '').isEmpty),
+                      );
+                  return hasInstalledExtension
+                      ? const _NoMatchingSources()
+                      : _EmptyState(
+                          onShowExtensions: widget.onShowExtensions,
+                          itemType: widget.itemType,
+                        );
                 }
 
                 // Grouped view
-                final lastUsedEntries = sources
-                    .where((e) => e.lastUsed == true)
-                    .toList();
+                // Pinned sources must remain visible after toggling the pin.
+                // They are rendered in their own section instead of being
+                // removed from the language groups and silently disappearing.
                 final isPinnedEntries = sources
                     .where((e) => e.isPinned == true)
+                    .toList()
+                  ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+                final lastUsedEntries = sources
+                    .where(
+                      (e) => e.lastUsed == true && e.isPinned != true,
+                    )
                     .toList();
                 final allEntriesWithoutPinned = sources
                     .where((e) => !(e.isPinned ?? false))
@@ -158,11 +175,52 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   child: Scrollbar(
                     interactive: true,
                     controller: _scrollController,
-                    thickness: 12,
+                    thickness: 6,
                     radius: const Radius.circular(10),
                     child: CustomScrollView(
                       controller: _scrollController,
                       slivers: [
+                        if (isPinnedEntries.isNotEmpty) ...[
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                left: 12,
+                                right: 12,
+                                bottom: 2,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Broken.bookmark,
+                                    size: 15,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    l10n.pinned,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _CountBadge(count: isPinnedEntries.length),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (_, i) => SourceListTile(
+                                source: isPinnedEntries[i],
+                                itemType: widget.itemType,
+                              ),
+                              childCount: isPinnedEntries.length,
+                            ),
+                          ),
+                        ],
                         if (lastUsedEntries.isNotEmpty) ...[
                           SliverToBoxAdapter(
                             child: Padding(
@@ -473,6 +531,46 @@ class _EmptyState extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _NoMatchingSources extends StatelessWidget {
+  const _NoMatchingSources();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Broken.search_normal,
+              size: 46,
+              color: colors.primary.withValues(alpha: 0.45),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              context.l10n.no_result,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Aucune extension ne correspond à la recherche ou aux filtres.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurface.withValues(alpha: 0.55),
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
