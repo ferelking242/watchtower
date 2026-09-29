@@ -47,11 +47,7 @@ enum _PreviewKind {
   searchCinema,
   manga,
   mangaList,
-  marketplace,
-  marketplaceBanner,
-  marketplaceMini,
-  marketplaceShelf,
-  marketplaceGrid,
+  extensionGrid,
   history,
   historyGrid,
   empty,
@@ -457,7 +453,6 @@ IconData _sectionIcon(String section) {
   if (section.contains('EXTENSION')) return Icons.extension_outlined;
   if (section.contains('MANGA')) return Icons.menu_book_outlined;
   if (section.contains('RECHERCHE')) return Icons.search_rounded;
-  if (section.contains('MARKETPLACE')) return Icons.storefront_outlined;
   if (section.contains('HISTORIQUE')) return Icons.history_rounded;
   if (section.contains('ÉTATS')) return Icons.checklist_rounded;
   if (section.contains('DÉTAIL')) return Icons.movie_filter_outlined;
@@ -681,8 +676,7 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.wallpaper ||
       _PreviewKind.extensionHero ||
       _PreviewKind.studio ||
-      _PreviewKind.searchCinema ||
-      _PreviewKind.marketplaceBanner => const SizedBox(
+      _PreviewKind.searchCinema => const SizedBox(
         width: 320,
         height: 180,
         child: AppShimmerBlock(radius: 16),
@@ -690,16 +684,10 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.season ||
       _PreviewKind.cast ||
       _PreviewKind.creator ||
-      _PreviewKind.manga ||
-      _PreviewKind.marketplaceMini => const SizedBox(
+      _PreviewKind.manga => const SizedBox(
         width: 112,
         height: 168,
         child: AppShimmerBlock(radius: 12),
-      ),
-      _PreviewKind.marketplace => const SizedBox(
-        width: 300,
-        height: 192,
-        child: AppShimmerBlock(radius: 16),
       ),
       _PreviewKind.rankedWide ||
       _PreviewKind.searchList ||
@@ -711,8 +699,7 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.showcase ||
       _PreviewKind.collection ||
       _PreviewKind.banner ||
-      _PreviewKind.marketplaceShelf ||
-      _PreviewKind.marketplaceGrid ||
+      _PreviewKind.extensionGrid ||
       _PreviewKind.historyGrid ||
       _PreviewKind.mangaList => const SizedBox(
         width: 300,
@@ -1694,243 +1681,6 @@ class _SearchCinemaPreview extends StatelessWidget {
   }
 }
 
-class _MarketplaceCardPreview extends StatelessWidget {
-  const _MarketplaceCardPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 300,
-      height: 192,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF171C23),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const _MarketplaceIcon(),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Video Source',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              _GalleryBadge(label: 'v2.4'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Une extension vidéo communautaire pour Watchtower.',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.3),
-          ),
-          const Spacer(),
-          Row(
-            children: [
-              const Icon(Icons.star_rounded, color: Colors.amber, size: 15),
-              const SizedBox(width: 4),
-              const Text(
-                '4.8',
-                style: TextStyle(color: Colors.white70, fontSize: 10),
-              ),
-              const Spacer(),
-              FilledButton.tonal(
-                onPressed: () {},
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(72, 30),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-                child: const Text('Installer', style: TextStyle(fontSize: 10)),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MarketplaceBannerPreview extends StatelessWidget {
-  const _MarketplaceBannerPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 320,
-      height: 166,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF195B61), Color(0xFF27375E)],
-        ),
-      ),
-      child: Stack(
-        children: [
-          const Positioned(
-            right: 12,
-            top: 10,
-            child: Icon(
-              Icons.extension_rounded,
-              size: 70,
-              color: Colors.white24,
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomLeft,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Trouvez votre prochaine source',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  'Extensions vérifiées pour votre catalogue.',
-                  style: TextStyle(color: Colors.white70, fontSize: 10),
-                ),
-                const SizedBox(height: 10),
-                FilledButton(
-                  onPressed: () {},
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(94, 30),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  child: const Text('Explorer', style: TextStyle(fontSize: 10)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MarketplaceMiniPreview extends StatelessWidget {
-  const _MarketplaceMiniPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 138,
-      height: 182,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF171C23),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Expanded(child: _MarketplaceIcon(size: 54)),
-          const SizedBox(height: 8),
-          const Text(
-            'Anime World',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Source manga',
-            style: TextStyle(color: Colors.white54, fontSize: 9),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MarketplaceShelfPreview extends StatelessWidget {
-  const _MarketplaceShelfPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 300,
-      height: 192,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Recommandées pour vous',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 9),
-          Expanded(
-            child: Row(
-              children: [
-                for (var i = 0; i < 3; i++) ...[
-                  const Expanded(child: _MarketplaceMiniTile()),
-                  if (i < 2) const SizedBox(width: 8),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MarketplaceMiniTile extends StatelessWidget {
-  const _MarketplaceMiniTile();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF171C23),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.all(8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _MarketplaceIcon(size: 34),
-            SizedBox(height: 6),
-            Text(
-              'Extension',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white70, fontSize: 9),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _HistoryPreview extends StatelessWidget {
   final MManga item;
 
@@ -2165,30 +1915,6 @@ class _PlayCircle extends StatelessWidget {
         padding: EdgeInsets.all(10),
         child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
       ),
-    );
-  }
-}
-
-class _MarketplaceIcon extends StatelessWidget {
-  final double size;
-
-  const _MarketplaceIcon({this.size = 44});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.primary,
-            Theme.of(context).colorScheme.tertiary,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(size * .25),
-      ),
-      child: Icon(Icons.extension_rounded, color: Colors.white, size: size * .48),
     );
   }
 }
@@ -2654,7 +2380,7 @@ List<_ComponentSpec> _buildComponents() => [
     path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
     usage: 'Layout grid',
     icon: Icons.grid_4x4_rounded,
-    kind: _PreviewKind.marketplaceGrid,
+    kind: _PreviewKind.extensionGrid,
     result: (_) => ExtensionLayoutPreview(
       title: 'Catalogue',
       component: 'grid',
@@ -2730,46 +2456,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.local_movies_outlined,
     kind: _PreviewKind.searchCinema,
     result: (_) => _SearchCinemaPreview(media: _tmdbItems[2]),
-  ),
-  _ComponentSpec(
-    section: 'MARKETPLACE',
-    title: 'Carte extension',
-    className: '_PlayStoreCard',
-    path: 'lib/modules/browse/marketplace_screen.dart',
-    usage: 'Catalogue des extensions',
-    icon: Icons.extension_outlined,
-    kind: _PreviewKind.marketplace,
-    result: (_) => const _MarketplaceCardPreview(),
-  ),
-  _ComponentSpec(
-    section: 'MARKETPLACE',
-    title: 'Bannière marketplace',
-    className: '_BannerCard',
-    path: 'lib/modules/browse/marketplace_screen.dart',
-    usage: 'En-tête marketplace',
-    icon: Icons.campaign_outlined,
-    kind: _PreviewKind.marketplaceBanner,
-    result: (_) => const _MarketplaceBannerPreview(),
-  ),
-  _ComponentSpec(
-    section: 'MARKETPLACE',
-    title: 'Mini extension',
-    className: '_MiniCard',
-    path: 'lib/modules/browse/marketplace_screen.dart',
-    usage: 'Rails compacts',
-    icon: Icons.apps_outlined,
-    kind: _PreviewKind.marketplaceMini,
-    result: (_) => const _MarketplaceMiniPreview(),
-  ),
-  _ComponentSpec(
-    section: 'MARKETPLACE',
-    title: 'Étagère extensions',
-    className: '_RepoCarousel',
-    path: 'lib/modules/browse/marketplace_screen.dart',
-    usage: 'Sections de catalogue',
-    icon: Icons.view_stream_outlined,
-    kind: _PreviewKind.marketplaceShelf,
-    result: (_) => const _MarketplaceShelfPreview(),
   ),
   _ComponentSpec(
     section: 'HISTORIQUE & BIBLIOTHÈQUE',
@@ -3786,11 +3472,7 @@ double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.searchCinema => 180,
   _PreviewKind.manga => 168,
   _PreviewKind.mangaList => 112,
-  _PreviewKind.marketplace => 205,
-  _PreviewKind.marketplaceBanner => 180,
-  _PreviewKind.marketplaceMini => 190,
-  _PreviewKind.marketplaceShelf => 205,
-  _PreviewKind.marketplaceGrid => 220,
+  _PreviewKind.extensionGrid => 220,
   _PreviewKind.history => 96,
   _PreviewKind.historyGrid => 220,
   _PreviewKind.empty => 174,
@@ -3827,11 +3509,7 @@ double _previewWidth(_PreviewKind kind) => switch (kind) {
   _PreviewKind.searchCinema => 320,
   _PreviewKind.manga => 112,
   _PreviewKind.mangaList => 300,
-  _PreviewKind.marketplace => 300,
-  _PreviewKind.marketplaceBanner => 320,
-  _PreviewKind.marketplaceMini => 138,
-  _PreviewKind.marketplaceShelf => 300,
-  _PreviewKind.marketplaceGrid => 300,
+  _PreviewKind.extensionGrid => 300,
   _PreviewKind.history => 330,
   _PreviewKind.historyGrid => 300,
   _PreviewKind.empty => 300,
