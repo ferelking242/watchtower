@@ -130,9 +130,7 @@ class _WatchExtensionHomeScreenState
       480.0,
       590.0,
     );
-    final shouldShow =
-        _feedController.offset >=
-        heroHeight - MediaQuery.paddingOf(context).top;
+    final shouldShow = _feedController.offset >= heroHeight;
     if (shouldShow != _showCompactHeader && mounted) {
       setState(() => _showCompactHeader = shouldShow);
     }
@@ -393,14 +391,6 @@ class _ExtensionFeed extends StatelessWidget {
                 parent: ClampingScrollPhysics(),
               ),
               slivers: [
-                SliverToBoxAdapter(
-                  child: _ExtensionFeedTopHeader(
-                    source: source,
-                    onSearch: onSearch,
-                    onLiveTv: () => context.push('/liveTv'),
-                    onLibrary: () => context.push('/Library'),
-                  ),
-                ),
                 if (!hasDeclaredSections)
                   SliverToBoxAdapter(
                     child: (popular.isNotEmpty || latest.isNotEmpty)
@@ -467,6 +457,25 @@ class _ExtensionFeed extends StatelessWidget {
             left: 0,
             right: 0,
             child: IgnorePointer(
+              ignoring: showCompactHeader,
+              child: AnimatedOpacity(
+                opacity: showCompactHeader ? 0 : 1,
+                duration: const Duration(milliseconds: 180),
+                child: _ExtensionFeedTopHeader(
+                  source: source,
+                  onSearch: onSearch,
+                  onLibrary: () => context.push('/Library'),
+                  onSettings: () => context.push('/settings'),
+                  transparent: true,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
               ignoring: !showCompactHeader,
               child: AnimatedSlide(
                 offset: showCompactHeader ? Offset.zero : const Offset(0, -1),
@@ -478,8 +487,8 @@ class _ExtensionFeed extends StatelessWidget {
                   child: _ExtensionFeedOverlayHeader(
                     source: source,
                     onSearch: onSearch,
-                    onLiveTv: () => context.push('/liveTv'),
                     onLibrary: () => context.push('/Library'),
+                    onSettings: () => context.push('/settings'),
                   ),
                 ),
               ),
@@ -1082,20 +1091,24 @@ class _ExtensionHeroCard extends StatelessWidget {
 class _ExtensionFeedTopHeader extends StatelessWidget {
   final Source source;
   final VoidCallback onSearch;
-  final VoidCallback onLiveTv;
   final VoidCallback onLibrary;
+  final VoidCallback onSettings;
+  final bool transparent;
 
   const _ExtensionFeedTopHeader({
     required this.source,
     required this.onSearch,
-    required this.onLiveTv,
     required this.onLibrary,
+    required this.onSettings,
+    this.transparent = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF0B0B11),
+      color: transparent ? Colors.transparent : const Color(0xFF0B0B11),
+      elevation: transparent ? 0 : 1,
+      shadowColor: Colors.black.withValues(alpha: .12),
       child: SafeArea(
         bottom: false,
         child: SizedBox(
@@ -1116,18 +1129,14 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
                 ),
               ),
               Positioned(
-                left: AppUI.pagePadding(context),
-                child: _ExtensionSourceIcon(source: source, size: 30),
-              ),
-              Positioned(
                 right: 4,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _ExtensionIconButton(
-                      icon: Broken.radio,
-                      onPressed: onLiveTv,
-                      tooltip: 'Live TV',
+                      icon: Broken.search_normal,
+                      onPressed: onSearch,
+                      tooltip: 'Rechercher',
                     ),
                     _ExtensionIconButton(
                       icon: Broken.bookmark,
@@ -1135,9 +1144,9 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
                       tooltip: 'Library',
                     ),
                     _ExtensionIconButton(
-                      icon: Broken.search_normal,
-                      onPressed: onSearch,
-                      tooltip: 'Rechercher',
+                      icon: Broken.settings,
+                      onPressed: onSettings,
+                      tooltip: 'Paramètres',
                     ),
                   ],
                 ),
@@ -1153,15 +1162,15 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
 class _ExtensionFeedOverlayHeader extends StatelessWidget {
   final Source source;
   final VoidCallback onSearch;
-  final VoidCallback onLiveTv;
   final VoidCallback onLibrary;
+  final VoidCallback onSettings;
   final bool transparent;
 
   const _ExtensionFeedOverlayHeader({
     required this.source,
     required this.onSearch,
-    required this.onLiveTv,
     required this.onLibrary,
+    required this.onSettings,
     this.transparent = false,
   });
 
@@ -1180,11 +1189,10 @@ class _ExtensionFeedOverlayHeader extends StatelessWidget {
               left: AppUI.pagePadding(context) - 8,
               right: 8,
             ),
-            child: Row(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                _ExtensionSourceIcon(source: source, size: 30),
-                const SizedBox(width: 10),
-                Expanded(
+                Center(
                   child: Text(
                     source.name ?? 'Extension',
                     maxLines: 1,
@@ -1192,20 +1200,28 @@ class _ExtensionFeedOverlayHeader extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: onLiveTv,
-                  icon: const Icon(Broken.radio, size: 19),
-                  label: const Text('Live TV'),
-                ),
-                IconButton(
-                  tooltip: 'Library',
-                  onPressed: onLibrary,
-                  icon: const Icon(Broken.bookmark),
-                ),
-                IconButton(
-                  tooltip: 'Rechercher',
-                  onPressed: onSearch,
-                  icon: const Icon(Broken.search_normal),
+                Positioned(
+                  right: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Rechercher',
+                        onPressed: onSearch,
+                        icon: const Icon(Broken.search_normal),
+                      ),
+                      IconButton(
+                        tooltip: 'Library',
+                        onPressed: onLibrary,
+                        icon: const Icon(Broken.bookmark),
+                      ),
+                      IconButton(
+                        tooltip: 'Paramètres',
+                        onPressed: onSettings,
+                        icon: const Icon(Broken.settings),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -2476,8 +2492,8 @@ class _ExtensionHomeLoading extends StatelessWidget {
               _ExtensionFeedTopHeader(
                 source: source,
                 onSearch: onSearch,
-                onLiveTv: () => context.push('/liveTv'),
                 onLibrary: () => context.push('/Library'),
+                onSettings: () => context.push('/settings'),
               ),
               _ExtensionSkeletonSection(
                 titleWidth: 154,
