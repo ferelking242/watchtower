@@ -6,3 +6,4 @@
 - [Browse source boundary](browse-source-boundary.md) — Browse doit lire les sources installées persistées; les fetchs réseau restent explicites.
 - [Component gallery navigation](component-gallery-navigation.md) — la galerie est une destination interne de Library, pas une URL publique GitHub Pages.
 - [GitHub Actions availability](github-actions-availability.md) — les workflows de validation peuvent être désactivés côté dépôt; le push seul ne garantit pas un run CI.
+- [Component gallery fidelity](component-gallery-fidelity.md) — gallery entries must render production widgets and production section renderers, never visual duplicates.

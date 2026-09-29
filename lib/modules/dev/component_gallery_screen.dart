@@ -9,7 +9,9 @@ import 'package:watchtower/modules/home/widgets/episode_card.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/widgets/component_library.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 
@@ -54,6 +56,9 @@ enum _PreviewKind {
   historyGrid,
   empty,
   error,
+  libraryCard,
+  librarySection,
+  swipeSection,
 }
 
 class _ComponentSpec {
@@ -725,6 +730,21 @@ class _CardSkeleton extends StatelessWidget {
         height: 174,
         child: AppShimmerBlock(radius: 18),
       ),
+      _PreviewKind.libraryCard => const SizedBox(
+        width: 230,
+        height: 190,
+        child: AppShimmerBlock(radius: 14),
+      ),
+      _PreviewKind.librarySection => const SizedBox(
+        width: 340,
+        height: 220,
+        child: AppShimmerBlock(radius: 14),
+      ),
+      _PreviewKind.swipeSection => const SizedBox(
+        width: 340,
+        height: 520,
+        child: AppShimmerBlock(radius: 14),
+      ),
     };
     return card;
   }
@@ -1045,6 +1065,7 @@ class _TrailerPreview extends StatelessWidget {
   }
 }
 
+/*
 class _ExtensionHeroPreview extends StatelessWidget {
   final MManga item;
 
@@ -1519,6 +1540,7 @@ class _ExtensionGridPreview extends StatelessWidget {
   }
 }
 
+*/
 class _SearchGridPreview extends StatelessWidget {
   final MManga item;
 
@@ -2497,7 +2519,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout hero',
     icon: Icons.open_in_full_rounded,
     kind: _PreviewKind.extensionHero,
-    result: (_) => _ExtensionHeroPreview(item: _extensionItems[0]),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'À la une',
+      component: 'spotlight',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
@@ -2507,7 +2536,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout rankedWide',
     icon: Icons.format_list_numbered_rounded,
     kind: _PreviewKind.rankedWide,
-    result: (_) => _ExtensionRankedWidePreview(item: _extensionItems[1], rank: 2),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'Top extensions',
+      component: 'rankedWide',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
@@ -2517,7 +2553,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout showcase',
     icon: Icons.auto_awesome_outlined,
     kind: _PreviewKind.showcase,
-    result: (_) => _ExtensionShowcasePreview(item: _extensionItems[2]),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'Sélection',
+      component: 'showcase',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
@@ -2527,7 +2570,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout collection',
     icon: Icons.collections_bookmark_outlined,
     kind: _PreviewKind.collection,
-    result: (_) => _ExtensionCollectionPreview(item: _extensionItems[3]),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'Collections',
+      component: 'collectionCards',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
@@ -2537,7 +2587,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout banner',
     icon: Icons.view_carousel_outlined,
     kind: _PreviewKind.banner,
-    result: (_) => _ExtensionBannerPreview(item: _extensionItems[0]),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'Bannières',
+      component: 'banner',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
@@ -2547,7 +2604,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout creator',
     icon: Icons.person_outline_rounded,
     kind: _PreviewKind.creator,
-    result: (_) => _ExtensionCreatorPreview(item: _extensionItems[1]),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'Créateurs',
+      component: 'creatorRow',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
@@ -2557,7 +2621,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout studio',
     icon: Icons.business_outlined,
     kind: _PreviewKind.studio,
-    result: (_) => _ExtensionStudioPreview(item: _extensionItems[2]),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'Studios',
+      component: 'studioExplorer',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
@@ -2567,7 +2638,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout category',
     icon: Icons.category_outlined,
     kind: _PreviewKind.collection,
-    result: (_) => _ExtensionCategoryPreview(item: _extensionItems[3]),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'Catégories',
+      component: 'category',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
@@ -2577,7 +2655,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout grid',
     icon: Icons.grid_4x4_rounded,
     kind: _PreviewKind.marketplaceGrid,
-    result: (_) => _ExtensionGridPreview(items: _extensionItems),
+    result: (_) => ExtensionLayoutPreview(
+      title: 'Catalogue',
+      component: 'grid',
+      source: _gallerySource,
+      items: _extensionItems,
+      onOpen: (_) {},
+      onSeeAll: () {},
+    ),
   ),
   _ComponentSpec(
     section: 'MANGA & LECTURE',
@@ -2726,7 +2811,820 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.error,
     result: (_) => const _GalleryErrorPreview(),
   ),
+  _ComponentSpec(
+    section: 'SECTIONS RÉUTILISABLES',
+    title: 'Swipe 3 × 3',
+    className: 'ThreeColumnSwipeSection<T>',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: '3 colonnes × 3 lignes, pagination horizontale',
+    icon: Icons.swipe_rounded,
+    kind: _PreviewKind.swipeSection,
+    result: (_) => ThreeColumnSwipeSection<TmdbMedia>(
+      title: 'Sélection',
+      items: [..._tmdbItems, ..._tmdbItems].take(9).toList(growable: false),
+      itemHeight: 155,
+      itemBuilder: (_, item) => SizedBox(
+        width: 92,
+        child: PosterCard(
+          item: ContentItem.fromTmdb(item),
+          width: 92,
+          compact: true,
+          onTap: () {},
+        ),
+      ),
+    ),
+  ),
 ];
+
+/*
+List<_ComponentSpec> _buildLibraryComponents() => [
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · CARDS',
+    title: 'Classic poster',
+    className: 'ClassicPosterCard',
+    usage: 'Poster vertical réutilisable',
+    icon: Icons.local_movies_outlined,
+    result: (_) => ClassicPosterCard(item: _libraryItems[0]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · CARDS',
+    title: 'Compact media',
+    className: 'CompactMediaCard',
+    usage: 'Grilles denses et mobile',
+    icon: Icons.grid_view_outlined,
+    result: (_) => CompactMediaCard(item: _libraryItems[1]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · CARDS',
+    title: 'Landscape media',
+    className: 'LandscapeMediaCard',
+    usage: 'Rail paysage standard',
+    icon: Icons.panorama_outlined,
+    result: (_) => LandscapeMediaCard(item: _libraryItems[2]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · CARDS',
+    title: 'Featured media',
+    className: 'FeaturedMediaCard',
+    usage: 'Mise en avant avec overlay',
+    icon: Icons.star_border_rounded,
+    result: (_) => FeaturedMediaCard(item: _libraryItems[3]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · CARDS',
+    title: 'Hero media',
+    className: 'HeroMediaCard',
+    usage: 'Hero riche avec description',
+    icon: Icons.open_in_full_rounded,
+    result: (_) => HeroMediaCard(item: _libraryItems[4]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · LECTURE',
+    title: 'Episode library',
+    className: 'EpisodeLibraryCard',
+    usage: 'Screenshot, titre et durée',
+    icon: Icons.play_circle_outline_rounded,
+    result: (_) => EpisodeLibraryCard(item: _libraryItems[5]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · LECTURE',
+    title: 'Season',
+    className: 'SeasonLibraryCard',
+    usage: 'Saison et nombre d’épisodes',
+    icon: Icons.video_library_outlined,
+    result: (_) => SeasonLibraryCard(item: _libraryItems[6]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · LECTURE',
+    title: 'Continue watching',
+    className: 'ContinueWatchingCard',
+    usage: 'Reprise avec progression',
+    icon: Icons.history_rounded,
+    result: (_) => ContinueWatchingCard(item: _libraryItems[7]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · LECTURE',
+    title: 'Recently watched',
+    className: 'RecentlyWatchedCard',
+    usage: 'Historique de lecture',
+    icon: Icons.update_rounded,
+    result: (_) => RecentlyWatchedCard(item: _libraryItems[8]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · LECTURE',
+    title: 'Watchlist',
+    className: 'WatchlistCard',
+    usage: 'À regarder plus tard',
+    icon: Icons.bookmark_border_rounded,
+    result: (_) => WatchlistCard(item: _libraryItems[9]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · DISCOVERY',
+    title: 'Recommendation',
+    className: 'RecommendationCard',
+    usage: 'Suggestion éditoriale',
+    icon: Icons.recommend_rounded,
+    result: (_) => RecommendationCard(item: _libraryItems[2]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · DISCOVERY',
+    title: 'Similar media',
+    className: 'SimilarMediaCard',
+    usage: 'Contenus similaires',
+    icon: Icons.compare_arrows_rounded,
+    result: (_) => SimilarMediaCard(item: _libraryItems[1]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · DISCOVERY',
+    title: 'Trending',
+    className: 'TrendingCard',
+    usage: 'Tendance du moment',
+    icon: Icons.trending_up_rounded,
+    result: (_) => TrendingCard(item: _libraryItems[0]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · DISCOVERY',
+    title: 'Ranked media',
+    className: 'RankedMediaCard',
+    usage: 'Top avec rang visuel',
+    icon: Icons.format_list_numbered_rounded,
+    result: (_) => RankedMediaCard(item: _libraryItems[3], rank: 1),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · COLLECTIONS',
+    title: 'Collection',
+    className: 'CollectionCard',
+    usage: 'Collection éditoriale',
+    icon: Icons.collections_bookmark_outlined,
+    result: (_) => CollectionCard(item: _libraryItems[10]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · COLLECTIONS',
+    title: 'Saga',
+    className: 'SagaCard',
+    usage: 'Franchise avec backdrop',
+    icon: Icons.auto_stories_outlined,
+    result: (_) => SagaCard(item: _libraryItems[11]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · COLLECTIONS',
+    title: 'Saga collection',
+    className: 'SagaCollectionCard',
+    usage: 'Franchise avec plusieurs posters',
+    icon: Icons.view_carousel_outlined,
+    result: (_) => SagaCollectionCard(item: _libraryItems[10]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · COLLECTIONS',
+    title: 'Universe',
+    className: 'UniverseCard',
+    usage: 'Univers partagé',
+    icon: Icons.public_rounded,
+    result: (_) => UniverseCard(item: _libraryItems[11]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · COLLECTIONS',
+    title: 'Studio',
+    className: 'StudioCard',
+    usage: 'Catalogue d’un studio',
+    icon: Icons.business_outlined,
+    result: (_) => StudioCard(item: _libraryItems[2]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · COLLECTIONS',
+    title: 'Provider',
+    className: 'ProviderCard',
+    usage: 'Source de diffusion',
+    icon: Icons.play_circle_outline_rounded,
+    result: (_) => ProviderCard(item: _libraryItems[9]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · COLLECTIONS',
+    title: 'Genre / category',
+    className: 'GenreCard · CategoryCard',
+    usage: 'Découverte par taxonomie',
+    icon: Icons.category_outlined,
+    result: (_) => GenreCard(item: _libraryItems[10]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · COLLECTIONS',
+    title: 'Country / language',
+    className: 'CountryCard · LanguageCard',
+    usage: 'Filtres pays et langue',
+    icon: Icons.translate_rounded,
+    result: (_) => CountryCard(item: _libraryItems[11]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MUSIC',
+    title: 'Playlist',
+    className: 'PlaylistCard',
+    usage: 'Playlist carrée',
+    icon: Icons.queue_music_rounded,
+    result: (_) => PlaylistCard(item: _libraryItems[12]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MUSIC',
+    title: 'Playlist grid',
+    className: 'PlaylistGridCard',
+    usage: 'Grille de playlists',
+    icon: Icons.grid_view_rounded,
+    result: (_) => PlaylistGridCard(item: _libraryItems[13]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MUSIC',
+    title: 'Playlist featured',
+    className: 'PlaylistFeaturedCard',
+    usage: 'Playlist mise en avant',
+    icon: Icons.featured_play_list_outlined,
+    result: (_) => PlaylistFeaturedCard(item: _libraryItems[12]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MUSIC',
+    title: 'Album',
+    className: 'AlbumCard',
+    usage: 'Album avec artwork',
+    icon: Icons.album_outlined,
+    result: (_) => AlbumCard(item: _libraryItems[13]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MUSIC',
+    title: 'Artist',
+    className: 'ArtistCard',
+    usage: 'Artiste en avatar',
+    icon: Icons.person_outline_rounded,
+    result: (_) => ArtistCard(item: _libraryItems[14]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MUSIC',
+    title: 'Track',
+    className: 'TrackCard',
+    usage: 'Ligne titre, artiste et durée',
+    icon: Icons.music_note_rounded,
+    result: (_) => TrackCard(item: _libraryItems[15]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MUSIC',
+    title: 'Now playing',
+    className: 'NowPlayingCard',
+    usage: 'Titre actif avec progression',
+    icon: Icons.equalizer_rounded,
+    result: (_) => NowPlayingCard(item: _libraryItems[16]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MUSIC',
+    title: 'Music collection',
+    className: 'MusicCollectionCard',
+    usage: 'Collection musicale',
+    icon: Icons.library_music_outlined,
+    result: (_) => MusicCollectionCard(item: _libraryItems[13]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
+    title: 'Chapter',
+    className: 'ChapterCard',
+    usage: 'Chapitre et durée de lecture',
+    icon: Icons.menu_book_outlined,
+    result: (_) => ChapterCard(item: _libraryItems[17]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
+    title: 'Reading progress',
+    className: 'ReadingProgressCard',
+    usage: 'Progression de lecture',
+    icon: Icons.auto_stories_outlined,
+    result: (_) => ReadingProgressCard(item: _libraryItems[18]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
+    title: 'Library book',
+    className: 'LibraryBookCard',
+    usage: 'Livre dans la bibliothèque',
+    icon: Icons.book_outlined,
+    result: (_) => LibraryBookCard(item: _libraryItems[19]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
+    title: 'Author',
+    className: 'AuthorCard',
+    usage: 'Auteur en avatar',
+    icon: Icons.edit_outlined,
+    result: (_) => AuthorCard(item: _libraryItems[14]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
+    title: 'Series collection',
+    className: 'SeriesCollectionCard',
+    usage: 'Série éditoriale',
+    icon: Icons.collections_bookmark_outlined,
+    result: (_) => SeriesCollectionCard(item: _libraryItems[10]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
+    title: 'Reading continue / history',
+    className: 'ReadingContinueCard · ReadingHistoryCard',
+    usage: 'Reprise et historique manga',
+    icon: Icons.history_edu_rounded,
+    result: (_) => ReadingContinueCard(item: _libraryItems[18]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
+    title: 'Person / avatar',
+    className: 'PersonCard · AvatarCard',
+    usage: 'Personne et avatar',
+    icon: Icons.account_circle_outlined,
+    result: (_) => PersonCard(item: _libraryItems[14]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
+    title: 'Video',
+    className: 'VideoCard',
+    usage: 'Vidéo avec action play',
+    icon: Icons.ondemand_video_outlined,
+    result: (_) => VideoCard(item: _libraryItems[5]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
+    title: 'Spotlight',
+    className: 'SpotlightCard',
+    usage: 'Coup de cœur éditorial',
+    icon: Icons.highlight_rounded,
+    result: (_) => SpotlightCard(item: _libraryItems[4]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
+    title: 'Banner / wallpaper',
+    className: 'BannerCard · WallpaperCard',
+    usage: 'Bannière et backdrop',
+    icon: Icons.wallpaper_outlined,
+    result: (_) => BannerCard(item: _libraryItems[4]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
+    title: 'Promo / announcement',
+    className: 'PromoCard · AnnouncementCard',
+    usage: 'Message promotionnel',
+    icon: Icons.campaign_outlined,
+    result: (_) => PromoCard(item: _libraryItems[20]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
+    title: 'News',
+    className: 'NewsCard',
+    usage: 'Actualité éditoriale',
+    icon: Icons.newspaper_outlined,
+    result: (_) => NewsCard(item: _libraryItems[20]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
+    title: 'Profile',
+    className: 'ProfileCard',
+    usage: 'Profil avec métadonnées',
+    icon: Icons.badge_outlined,
+    result: (_) => ProfileCard(item: _libraryItems[14]),
+  ),
+  _libraryCardSpec(
+    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
+    title: 'Badge / tag',
+    className: 'BadgeCard · TagLibraryCard',
+    usage: 'Labels et attributs',
+    icon: Icons.local_offer_outlined,
+    result: (_) => BadgeCard(item: _libraryItems[20]),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Horizontal rail',
+    className: 'HorizontalRailSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Titre, action et contenu horizontal',
+    icon: Icons.view_stream_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibraryRailPreview(
+      title: 'Films populaires',
+      child: HorizontalRailSection<ComponentLibraryItem>(
+        title: 'Films populaires',
+        onSeeAll: () {},
+        height: 188,
+        items: _libraryItems.take(4).toList(),
+        itemBuilder: (_, item) => CompactMediaCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Compact rail',
+    className: 'CompactRailSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Rail dense pour reprise',
+    icon: Icons.view_agenda_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibraryRailPreview(
+      title: 'Continuer',
+      child: CompactRailSection<ComponentLibraryItem>(
+        title: 'Continuer',
+        items: _libraryItems.skip(7).take(4).toList(),
+        itemBuilder: (_, item) => ContinueWatchingCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Grid section',
+    className: 'GridSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Grille responsive',
+    icon: Icons.grid_4x4_rounded,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibrarySectionPreview(
+      child: GridSection<ComponentLibraryItem>(
+        title: 'Découvrir',
+        items: _libraryItems.take(4).toList(),
+        itemBuilder: (_, item) => CompactMediaCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Two / three columns',
+    className: 'TwoColumnSection · ThreeColumnSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Grilles adaptatives',
+    icon: Icons.table_rows_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibrarySectionPreview(
+      child: ThreeColumnSection<ComponentLibraryItem>(
+        title: 'Nouveautés',
+        items: _libraryItems.take(3).toList(),
+        itemBuilder: (_, item) => CompactMediaCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Featured / hero',
+    className: 'FeaturedSection · HeroSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Section avec item principal',
+    icon: Icons.featured_play_list_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibrarySectionPreview(
+      child: HeroSection<ComponentLibraryItem>(
+        title: 'À la une',
+        item: _libraryItems[4],
+        itemBuilder: (_, item) => HeroMediaCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Ranking section',
+    className: 'RankingSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Top avec rang injecté',
+    icon: Icons.leaderboard_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibrarySectionPreview(
+      child: RankingSection<ComponentLibraryItem>(
+        title: 'Top du moment',
+        items: _libraryItems.take(3).toList(),
+        itemBuilder: (_, item, rank) => RankedMediaCard(item: item, rank: rank),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Collection / saga',
+    className: 'CollectionSection · SagaSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Rails de regroupements',
+    icon: Icons.collections_bookmark_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibraryRailPreview(
+      title: 'Collections',
+      child: SagaSection<ComponentLibraryItem>(
+        title: 'Collections',
+        items: _libraryItems.skip(10).take(2).toList(),
+        itemBuilder: (_, item) => SagaCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Mixed / spotlight',
+    className: 'MixedContentSection · SpotlightSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Mélange et mise en avant',
+    icon: Icons.auto_awesome_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibrarySectionPreview(
+      child: SpotlightSection<ComponentLibraryItem>(
+        title: 'Coup de cœur',
+        item: _libraryItems[4],
+        itemBuilder: (_, item) => SpotlightCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Banner / carousel',
+    className: 'BannerSection · CarouselSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Bannières et carrousels',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibraryRailPreview(
+      title: 'Événements',
+      child: BannerSection<ComponentLibraryItem>(
+        title: 'Événements',
+        items: _libraryItems.skip(20).take(2).toList(),
+        itemBuilder: (_, item) => BannerCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Stacked / recent',
+    className: 'StackedCardSection · RecentlyAddedSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Cartes empilées et ajouts récents',
+    icon: Icons.layers_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibraryRailPreview(
+      title: 'Ajouts récents',
+      child: RecentlyAddedSection<ComponentLibraryItem>(
+        title: 'Ajouts récents',
+        items: _libraryItems.take(4).toList(),
+        itemBuilder: (_, item) => LandscapeMediaCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Continue watching',
+    className: 'ContinueWatchingSection',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Rail de reprise',
+    icon: Icons.play_circle_outline_rounded,
+    kind: _PreviewKind.librarySection,
+    result: (_) => _LibraryRailPreview(
+      title: 'Reprendre la lecture',
+      child: ContinueWatchingSection<ComponentLibraryItem>(
+        title: 'Reprendre la lecture',
+        items: _libraryItems.skip(7).take(3).toList(),
+        itemBuilder: (_, item) => ContinueWatchingCard(item: item),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · SECTIONS',
+    title: 'Swipe 3 × 3',
+    className: 'ThreeColumnSwipeSection<T>',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: '3 colonnes × 3 lignes, pagination horizontale',
+    icon: Icons.swipe_rounded,
+    kind: _PreviewKind.swipeSection,
+    result: (_) => _LibrarySectionPreview(
+      child: ThreeColumnSwipeSection<ComponentLibraryItem>(
+        title: 'Sélection',
+        items: _libraryItems.take(9).toList(),
+        itemHeight: 70,
+        itemBuilder: (_, item) => CompactMediaCard(item: item, width: 92),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · ÉTATS',
+    title: 'Loading / shimmer',
+    className: 'ComponentSectionState · ComponentSectionSkeleton',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'État de chargement partagé',
+    icon: Icons.hourglass_empty_rounded,
+    kind: _PreviewKind.librarySection,
+    result: (_) => const ComponentSectionSkeleton(height: 180),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · ÉTATS',
+    title: 'Empty',
+    className: 'ComponentSectionState',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'État vide réutilisable',
+    icon: Icons.inbox_outlined,
+    kind: _PreviewKind.librarySection,
+    result: (_) => const ComponentSectionState(state: ComponentViewState.empty),
+  ),
+  _ComponentSpec(
+    section: 'BIBLIOTHÈQUE · ÉTATS',
+    title: 'Error',
+    className: 'ComponentSectionState',
+    path: 'lib/modules/widgets/component_library.dart',
+    usage: 'Erreur avec retry',
+    icon: Icons.error_outline_rounded,
+    kind: _PreviewKind.librarySection,
+    result: (_) => ComponentSectionState(
+      state: ComponentViewState.error,
+      onRetry: () {},
+    ),
+  ),
+];
+
+_ComponentSpec _libraryCardSpec({
+  required String section,
+  required String title,
+  required String className,
+  required String usage,
+  required IconData icon,
+  required Widget Function(BuildContext context) result,
+}) =>
+    _ComponentSpec(
+      section: section,
+      title: title,
+      className: className,
+      path: 'lib/modules/widgets/component_library.dart',
+      usage: usage,
+      icon: icon,
+      kind: _PreviewKind.libraryCard,
+      result: result,
+    );
+
+class _LibrarySectionPreview extends StatelessWidget {
+  const _LibrarySectionPreview({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(width: 340, child: child);
+  }
+}
+
+class _LibraryRailPreview extends StatelessWidget {
+  const _LibraryRailPreview({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(width: 340, height: 215, child: child);
+  }
+}
+
+final _libraryItems = <ComponentLibraryItem>[
+  ComponentLibraryItem(
+    id: 'dune',
+    title: 'Dune : Deuxième partie',
+    subtitle: '2024 · Science-fiction',
+    description: 'Une longue description de démonstration pour tester la lisibilité.',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
+    backdropUrl: 'https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
+    rating: 8.2,
+    badge: 'NOUVEAU',
+    meta: 'Film · 2h 46',
+  ),
+  const ComponentLibraryItem(
+    id: 'no-image',
+    title: 'Titre sans image',
+    subtitle: 'État no image',
+    rating: 7.8,
+    badge: 'HD',
+  ),
+  ComponentLibraryItem(
+    id: 'interstellar',
+    title: 'Interstellar',
+    subtitle: '2014 · Drame',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+    backdropUrl: 'https://image.tmdb.org/t/p/w1280/pbrkL804c8yAv3zBZR4QPEafpAR.jpg',
+    rating: 8.4,
+    meta: 'Film · 2h 49',
+  ),
+  ComponentLibraryItem(
+    id: 'arcane',
+    title: 'Arcane',
+    subtitle: 'Série · Animation',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg',
+    backdropUrl: 'https://image.tmdb.org/t/p/w1280/rkB4LyZHo1NHXFEDHl8M3g1Q3Q.jpg',
+    rating: 8.7,
+    badge: 'TOP',
+    meta: 'Saison 2',
+  ),
+  ComponentLibraryItem(
+    id: 'one-piece',
+    title: 'One Piece : le voyage continue',
+    subtitle: '1122 épisodes · Aventure',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
+    backdropUrl: 'https://image.tmdb.org/t/p/w1280/m0bV4D3dZQYjF4gUeR5Y4kK8v8c.jpg',
+    rating: 8.7,
+    description: 'Une aventure sans fin, présentée dans un hero réutilisable.',
+    meta: 'Anime · 24 min',
+  ),
+  ComponentLibraryItem(
+    id: 'episode',
+    title: 'Épisode 04 · Progress Day!',
+    subtitle: 'Arcane · 42 min',
+    imageUrl: 'https://image.tmdb.org/t/p/w780/rkB4LyZHo1NHXFEDHl8M3g1Q3Q.jpg',
+    description: 'Une description suffisamment longue pour vérifier le clamp.',
+    progress: .62,
+    duration: const Duration(minutes: 42),
+  ),
+  const ComponentLibraryItem(
+    id: 'season',
+    title: 'Saison 2',
+    subtitle: '9 épisodes',
+    count: 9,
+    badge: '2024',
+  ),
+  ComponentLibraryItem(
+    id: 'continue',
+    title: 'Reprendre One Piece',
+    subtitle: 'Épisode 1089 · 12 min restantes',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
+    progress: .74,
+    duration: const Duration(minutes: 24),
+  ),
+  ComponentLibraryItem(
+    id: 'history',
+    title: 'The Last of Us',
+    subtitle: 'Vu hier · épisode 5',
+    imageUrl: 'https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg',
+    progress: 1,
+  ),
+  const ComponentLibraryItem(
+    id: 'watchlist',
+    title: 'À voir plus tard',
+    subtitle: '12 contenus',
+    badge: '12',
+  ),
+  ComponentLibraryItem(
+    id: 'collection',
+    title: 'Univers science-fiction',
+    subtitle: '18 films · 4 séries',
+    backdropUrl: 'https://image.tmdb.org/t/p/w1280/pbrkL804c8yAv3zBZR4QPEafpAR.jpg',
+    count: 18,
+  ),
+  ComponentLibraryItem(
+    id: 'saga',
+    title: 'Saga Dune',
+    subtitle: '3 films · Science-fiction',
+    backdropUrl: 'https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
+    count: 3,
+  ),
+  const ComponentLibraryItem(
+    id: 'playlist',
+    title: 'Night Drive',
+    subtitle: '32 titres',
+    badge: 'PLAYLIST',
+    count: 32,
+  ),
+  const ComponentLibraryItem(
+    id: 'album',
+    title: 'Random Access Memories',
+    subtitle: 'Daft Punk',
+    badge: 'ALBUM',
+  ),
+  const ComponentLibraryItem(
+    id: 'artist',
+    title: 'Daft Punk',
+    subtitle: 'Artiste',
+    badge: 'ARTIST',
+  ),
+  const ComponentLibraryItem(
+    id: 'track',
+    title: 'Instant Crush',
+    subtitle: 'Daft Punk · Random Access Memories',
+    duration: Duration(minutes: 5, seconds: 37),
+  ),
+  const ComponentLibraryItem(
+    id: 'now-playing',
+    title: 'Midnight City',
+    subtitle: 'M83 · Lecture en cours',
+    progress: .48,
+    duration: Duration(minutes: 4, seconds: 3),
+  ),
+  const ComponentLibraryItem(
+    id: 'chapter',
+    title: 'Chapitre 14 · Le dernier portail',
+    subtitle: '12 pages restantes',
+    progress: .38,
+  ),
+  const ComponentLibraryItem(
+    id: 'reading',
+    title: 'Solo Leveling',
+    subtitle: 'Chapitre 187 · 38%',
+    progress: .38,
+  ),
+  const ComponentLibraryItem(
+    id: 'book',
+    title: 'Le château ambulant',
+    subtitle: 'Manga · 4 tomes',
+    count: 4,
+  ),
+  const ComponentLibraryItem(
+    id: 'promo',
+    title: 'Nouvelle extension disponible',
+    subtitle: 'Découvrez les derniers catalogues ajoutés.',
+    badge: 'INFO',
+  ),
+];
+*/
 
 const _tmdbItems = <TmdbMedia>[
   TmdbMedia(

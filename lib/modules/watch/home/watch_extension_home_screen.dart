@@ -680,74 +680,121 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         _openSection(context, source: source, id: section.id, title: title);
     final sectionAction = section.seeAll ? onSeeAll : null;
 
-    return switch (section.component) {
+    return ExtensionLayoutPreview(
+      title: title,
+      component: section.component,
+      source: source,
+      items: items,
+      onOpen: onOpen,
+      onSeeAll: sectionAction,
+      columns: section.columns,
+      rows: section.rows,
+      cardStyle: section.cardStyle,
+      gridOrder: section.gridOrder,
+      scrollDirection: section.scrollDirection,
+    );
+  }
+}
+
+/// Shared renderer for an extension section.
+///
+/// The home screen uses this same entry point after loading its provider data.
+/// The component gallery can therefore document the real extension layouts
+/// without maintaining a second visual implementation.
+class ExtensionLayoutPreview extends StatelessWidget {
+  const ExtensionLayoutPreview({
+    required this.title,
+    required this.component,
+    required this.items,
+    required this.source,
+    required this.onOpen,
+    this.onSeeAll,
+    this.columns,
+    this.rows,
+    this.cardStyle,
+    this.gridOrder,
+    this.scrollDirection,
+    super.key,
+  });
+
+  final String title;
+  final String component;
+  final List<MManga> items;
+  final Source source;
+  final ValueChanged<MManga> onOpen;
+  final VoidCallback? onSeeAll;
+  final int? columns;
+  final int? rows;
+  final String? cardStyle;
+  final String? gridOrder;
+  final String? scrollDirection;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (component) {
       'spotlight' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppSectionHeader(
             title: title,
-            actionLabel: sectionAction == null ? null : 'All >',
-            onAction: sectionAction,
+            actionLabel: onSeeAll == null ? null : 'All >',
+            onAction: onSeeAll,
           ),
-          _ExtensionHero(
-            source: source,
-            items: items,
-            onOpen: onOpen,
-          ),
+          _ExtensionHero(source: source, items: items, onOpen: onOpen),
         ],
       ),
       'banner' || 'hero' => _ExtensionBannerRail(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'ranked' || 'newHot' => _ExtensionRankedRail(
         title: title,
         items: items.take(10).toList(growable: false),
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'rankedWide' => _ExtensionRankedWideRail(
         title: title,
         items: items.take(20).toList(growable: false),
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'showcase' => _ExtensionShowcaseRail(
         title: title,
         items: items.take(8).toList(growable: false),
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'creatorRow' => _ExtensionCreatorRail(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'grid' || 'catalogue' || 'discoverGrid' => _ExtensionGridSection(
         title: title,
         items: items,
-        columns: section.columns,
-        rows: section.rows,
-        cardStyle: section.cardStyle,
-        gridOrder: section.gridOrder,
-        scrollDirection: section.scrollDirection,
+        columns: columns,
+        rows: rows,
+        cardStyle: cardStyle,
+        gridOrder: gridOrder,
+        scrollDirection: scrollDirection,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'category' || 'categoryPills' => _ExtensionGenreGrid(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'collectionCards' || 'playlistCarousel' => _ExtensionCollectionCardRail(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'landscapeStacked' || 'backdropWide' => _ExtensionLandscapeRail(
         title: title,
@@ -755,16 +802,7 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         width: 280,
         height: 204,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
-      ),
-      'carousel' ||
-      'compactRow' ||
-      'metadataPoster' ||
-      'statusPoster' => _ExtensionPosterRail(
-        title: title,
-        items: items,
-        onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'doubleFeature' ||
       'editorialSplit' ||
@@ -772,9 +810,13 @@ class _ExtensionLayoutSection extends ConsumerWidget {
       'feed' => _ExtensionGridSection(
         title: title,
         items: items,
-        columns: section.columns,
+        columns: columns,
+        rows: rows,
+        cardStyle: cardStyle,
+        gridOrder: gridOrder,
+        scrollDirection: scrollDirection,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       'studioExplorer' ||
       'universeExplorer' ||
@@ -782,13 +824,13 @@ class _ExtensionLayoutSection extends ConsumerWidget {
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
       _ => _ExtensionPosterRail(
         title: title,
         items: items,
         onOpen: onOpen,
-        onSeeAll: sectionAction,
+        onSeeAll: onSeeAll,
       ),
     };
   }
