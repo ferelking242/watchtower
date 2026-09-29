@@ -47,7 +47,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-debug-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          key: gradle-debug-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'android/gradle.properties') }}
           restore-keys: |
             gradle-debug-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
             gradle-debug-${{ runner.os }}-
@@ -60,7 +60,7 @@ jobs:
             ~/.cargo/git
             rust/target
             rust_builder/target
-          key: rust-android-arm64-debug-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          key: rust-android-arm64-debug-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
           restore-keys: rust-android-arm64-debug-${{ runner.os }}-
 
       - name: Cache Android SDK extras (NDK 27, CMake)

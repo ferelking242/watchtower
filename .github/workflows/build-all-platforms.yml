@@ -119,7 +119,7 @@ jobs:
             ~/.cargo/git
             rust/target
             rust_builder/target
-          key: rust-android-${{ matrix.label }}-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          key: rust-android-${{ matrix.label }}-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
           restore-keys: rust-android-${{ matrix.label }}-${{ runner.os }}-
 
       - name: Decode keystore from secret
@@ -136,8 +136,8 @@ jobs:
 
       - name: Build APK — ${{ matrix.label }}
         env:
-          # caching=true: safe because the Gradle Actions cache key above includes
-          # all Dart sources — any code change busts the cache → no stale task output.
+          # Gradle's task cache fingerprints source inputs itself, so keep the
+          # Actions cache key tied to build configuration and dependencies only.
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
           # Keep the ABI filter aligned with the requested Flutter engine.
           # The app module intentionally disables Gradle ABI splits, so using
@@ -269,7 +269,7 @@ jobs:
             ~/.cargo/git
             rust/target
             rust_builder/target
-          key: rust-android-universal-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+          key: rust-android-universal-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
           restore-keys: rust-android-universal-${{ runner.os }}-
 
       - name: Decode keystore from secret
