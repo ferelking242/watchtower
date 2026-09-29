@@ -202,25 +202,53 @@ class SourceListTile extends StatelessWidget {
               : "${context.l10n.local_source} ${source.itemType.localized(context.l10n)}",
         ),
         trailing: !isLocal
-            ? IconButton(
-                padding: const EdgeInsets.all(0),
-                onPressed: () {
-                  isar.writeTxnSync(
-                    () => isar.sources.putSync(
-                      source
-                        ..isPinned = !(source.isPinned ?? false)
-                        ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (source.sourceCode?.isNotEmpty ?? false)
+                    IconButton(
+                      tooltip: 'Paramètres de l’extension',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
+                      onPressed: () => context.push(
+                        '/extension_detail',
+                        extra: source,
+                      ),
+                      icon: const Icon(Broken.setting_2, size: 20),
                     ),
-                  );
-                },
-                icon: Icon(
-                  (source.isPinned ?? false)
-                      ? Broken.bookmark
-                      : Broken.bookmark_2,
-                  color: (source.isPinned ?? false)
-                      ? context.primaryColor
-                      : null,
-                ),
+                  IconButton(
+                    tooltip: (source.isPinned ?? false)
+                        ? 'Désépingler'
+                        : 'Épingler',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                    onPressed: () {
+                      isar.writeTxnSync(
+                        () => isar.sources.putSync(
+                          source
+                            ..isPinned = !(source.isPinned ?? false)
+                            ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+                        ),
+                      );
+                    },
+                    icon: Icon(
+                      (source.isPinned ?? false)
+                          ? Broken.bookmark
+                          : Broken.bookmark_2,
+                      color: (source.isPinned ?? false)
+                          ? context.primaryColor
+                          : null,
+                    ),
+                  ),
+                ],
               )
             : null,
       ),

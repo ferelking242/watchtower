@@ -14,11 +14,11 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
 import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart';
-import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key});
@@ -34,7 +34,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       with TickerProviderStateMixin {
     late TabController _tabBarController;
     final _searchController = TextEditingController();
-    bool _isSearch = false;
     BrowseSourceFilters _sourceFilters = const BrowseSourceFilters();
 
     List<ItemType> _types = [];
@@ -307,7 +306,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       trigger: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Icon(
-          Icons.filter_list_rounded,
+          _searchController.text.isNotEmpty
+              ? Broken.filter_search
+              : _sourceFilters.hasAny
+                  ? Broken.filter_tick
+                  : Broken.filter,
           size: 20,
           color: active
               ? theme.colorScheme.primary
@@ -340,38 +343,19 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final type = _activeType;
     final filterButton = _buildSourceFilterButton(context, type);
     return [
-      if (_isSearch)
-        SeachFormTextField(
-          onChanged: _setSearchQuery,
-          onPressed: () {
-            _isSearch = false;
-            _setSearchQuery('');
-          },
-          controller: _searchController,
-          onSuffixPressed: () => _setSearchQuery(''),
-          filterButton: filterButton,
-        )
-      else ...[
-        GestureDetector(
-          onLongPress: () => context.push('/extensionDiagnostic', extra: type),
-          child: IconButton(
-            tooltip: 'Recherche globale · appui long = diagnostic',
-            splashRadius: 20,
-            onPressed: () => context.push('/globalSearch', extra: (null, type)),
-            icon: Icon(Icons.travel_explore_rounded, color: theme.hintColor),
-          ),
-        ),
-        IconButton(
-          tooltip: 'Rechercher une extension installée',
+      GestureDetector(
+        onLongPress: () => context.push('/extensionDiagnostic', extra: type),
+        child: IconButton(
+          tooltip: 'Recherche globale · appui long = diagnostic',
           splashRadius: 20,
-          onPressed: () => setState(() => _isSearch = true),
-          icon: Icon(Icons.search_rounded, color: theme.hintColor),
+          onPressed: () => context.push('/globalSearch', extra: (null, type)),
+          icon: Icon(Icons.travel_explore_rounded, color: theme.hintColor),
         ),
-        filterButton,
-      ],
+      ),
+      filterButton,
       ArrowPopupMenuButton<_SrcMenuAction>(
         tooltip: "Plus d'options",
-        icon: Icon(Icons.more_vert, color: theme.hintColor),
+        icon: Icon(Broken.more_2, color: theme.hintColor),
         onSelected: (action) => _handleSrcMenuAction(context, type, action),
         itemBuilder: (ctx) => [
           PopupMenuItem(
@@ -527,9 +511,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         backgroundColor: theme.scaffoldBackgroundColor,
-        title: _isSearch
-            ? null
-            : Text(l10n.browse, style: TextStyle(color: theme.hintColor)),
+        title: Text(l10n.browse, style: TextStyle(color: theme.hintColor)),
         actions: _appBarActions(context),
         bottom: _buildTabBar(context, theme, l10n),
       ),
