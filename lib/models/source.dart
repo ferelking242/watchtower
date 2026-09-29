@@ -1,0 +1,354 @@
+import 'dart:convert';
+
+import 'package:isar_community/isar.dart';
+import 'package:watchtower/eval/model/filter.dart';
+import 'package:watchtower/eval/model/m_source.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/settings.dart';
+part 'source.g.dart';
+
+@collection
+@Name("Sources")
+class Source {
+  Id? id;
+
+  String? name;
+
+  String? baseUrl;
+
+  String? lang;
+
+  bool? isActive;
+
+  bool? isAdded;
+
+  bool? isPinned;
+
+  bool? isNsfw;
+
+  String? sourceCode;
+
+  String? sourceCodeUrl;
+
+  String? typeSource;
+
+  String? iconUrl;
+
+  bool? isFullData;
+
+  bool? hasCloudflare;
+
+  bool? lastUsed;
+
+  String? dateFormat;
+
+  String? dateFormatLocale;
+
+  String? apiUrl;
+
+  String? version;
+
+  String? versionLast;
+
+  String? headers;
+
+  /// For Mihon ext
+  bool? supportLatest;
+
+  /// For Mihon ext
+  String? filterList;
+
+  /// For Mihon ext
+  String? preferenceList;
+
+  bool? isManga;
+
+  @enumerated
+  late ItemType itemType;
+
+  String? appMinVerReq;
+
+  String? additionalParams;
+
+  bool? isLocal;
+
+  bool? isObsolete;
+
+  @enumerated
+  SourceCodeLanguage sourceCodeLanguage = SourceCodeLanguage.dart;
+
+  String? notes;
+
+  String? customUserAgent;
+
+  Repo? repo;
+
+  int? updatedAt;
+
+  // ── Extended metadata (catalogue fields persisted in additionalParams) ─────
+  List<String>? subCategories;
+  bool? supportsComments;
+  bool? requiresAccount;
+  bool? hasDRM;
+  bool? isAggregator;
+  String? paywall;
+  String? upstream;
+  List<String>? videoQualities;
+  List<String>? contentSubtype;
+
+  /// Path to the ui-layout JSON in the extensions repo.
+  /// Example: "ui-layouts/redgifs.json"
+  /// Null = no custom layout (standard Popular/Latest/Search only).
+  String? uiLayout;
+
+  /// Version of the downloaded layout file, compared against catalogue.
+  String? uiLayoutVersion;
+
+  /// Newer layout metadata waiting to be installed.
+  ///
+  /// The current Isar schema predates the marketplace metadata fields, so
+  /// this value is persisted in the metadata envelope inside
+  /// [additionalParams] rather than being added as a second schema migration.
+  String? pendingUiLayoutVersion;
+
+  Source({
+    this.id = 0,
+    this.name = '',
+    this.baseUrl = '',
+    this.lang = '',
+    this.typeSource = '',
+    this.iconUrl = '',
+    this.dateFormat = '',
+    this.dateFormatLocale = '',
+    this.isActive = true,
+    this.isAdded = false,
+    this.isNsfw = false,
+    this.isFullData = false,
+    this.hasCloudflare = false,
+    this.isPinned = false,
+    this.lastUsed = false,
+    this.apiUrl = "",
+    this.sourceCodeUrl = "",
+    this.version = "0.0.1",
+    this.versionLast = "0.0.1",
+    this.sourceCode = '',
+    this.headers = '',
+    this.supportLatest,
+    this.filterList,
+    this.preferenceList,
+    this.isManga,
+    this.itemType = ItemType.manga,
+    this.appMinVerReq = "",
+    this.additionalParams = "",
+    this.isLocal = false,
+    this.isObsolete = false,
+    this.notes = '',
+    this.customUserAgent,
+    this.repo,
+    this.updatedAt = 0,
+    this.subCategories,
+    this.supportsComments,
+    this.requiresAccount,
+    this.hasDRM,
+    this.isAggregator,
+    this.paywall,
+    this.upstream,
+    this.videoQualities,
+    this.contentSubtype,
+  }) {
+    hydrateExtendedMetadata();
+  }
+
+  static const _metadataMarker = '__watchtower_metadata__=';
+
+  /// Rehydrates marketplace metadata after an Isar read.
+  ///
+  /// The extension runtime only relies on the existing free-form
+  /// `additionalParams` string, so the envelope is appended on its own line
+  /// and does not change legacy checks such as `contains('type=reel')`.
+  void hydrateExtendedMetadata() {
+    final value = additionalParams;
+    if (value == null) return;
+    final match = RegExp(
+      r'(?:^|\n)__watchtower_metadata__=([A-Za-z0-9_-]+)',
+    ).firstMatch(value);
+    if (match == null) return;
+    try {
+      final decoded = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(match.group(1)!))),
+      );
+      if (decoded is! Map) return;
+      final data = Map<String, dynamic>.from(decoded);
+      subCategories ??= (data['subCategories'] as List?)
+          ?.whereType<String>()
+          .toList(growable: false);
+      contentSubtype ??= (data['contentSubtype'] as List?)
+          ?.whereType<String>()
+          .toList(growable: false);
+      uiLayout ??= data['uiLayout'] as String?;
+      uiLayoutVersion ??= data['uiLayoutVersion'] as String?;
+      pendingUiLayoutVersion ??= data['pendingUiLayoutVersion'] as String?;
+    } catch (_) {
+      // Keep the original additionalParams value usable if an older build
+      // left malformed metadata behind.
+    }
+  }
+
+  /// Returns the value written to Isar while preserving legacy parameters.
+  String get persistedAdditionalParams {
+    final raw = (additionalParams ?? '')
+        .split('\n$_metadataMarker')
+        .first
+        .trimRight();
+    final metadata = <String, dynamic>{
+      if (subCategories != null) 'subCategories': subCategories,
+      if (contentSubtype != null) 'contentSubtype': contentSubtype,
+      if (uiLayout != null) 'uiLayout': uiLayout,
+      if (uiLayoutVersion != null) 'uiLayoutVersion': uiLayoutVersion,
+      if (pendingUiLayoutVersion != null)
+        'pendingUiLayoutVersion': pendingUiLayoutVersion,
+    };
+    if (metadata.isEmpty) return raw;
+    final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
+    return '$raw\n$_metadataMarker$encoded';
+  }
+
+  FilterList? getFilterList() => filterList != null
+      ? FilterList.fromJson(jsonDecode(filterList!) as Map<String, dynamic>)
+      : null;
+
+  Source.fromJson(Map<String, dynamic> json) {
+    apiUrl = json['apiUrl'];
+    appMinVerReq = json['appMinVerReq'];
+    baseUrl = json['baseUrl'];
+    dateFormat = json['dateFormat'];
+    dateFormatLocale = json['dateFormatLocale'];
+    hasCloudflare = json['hasCloudflare'];
+    headers = json['headers'];
+    supportLatest = json['supportLatest'];
+    filterList = json['filterList'];
+    preferenceList = json['preferenceList'];
+    iconUrl = json['iconUrl'];
+    id = json['id'] is int ? json['id'] : null;
+    isActive = json['isActive'];
+    isAdded = json['isAdded'];
+    isFullData = json['isFullData'];
+    isManga = json['isManga'];
+    final itemTypeIndex =
+        json['itemType'] is num ? (json['itemType'] as num).toInt() : 0;
+    itemType = itemTypeIndex >= 0 && itemTypeIndex < ItemType.values.length
+        ? ItemType.values[itemTypeIndex]
+        : ItemType.manga;
+    isNsfw = json['isNsfw'];
+    isPinned = json['isPinned'];
+    lang = (json['lang'] as String?)?.toLowerCase();
+    lastUsed = json['lastUsed'];
+    name = json['name'];
+    sourceCode = json['sourceCode'];
+    sourceCodeUrl = json['sourceCodeUrl'];
+    typeSource = json['typeSource'];
+    version = json['version'];
+    versionLast = json['versionLast'];
+    additionalParams = json['additionalParams'] ?? "";
+    isObsolete = json['isObsolete'];
+    isLocal = json['isLocal'];
+    final sourceCodeLanguageIndex = json['sourceCodeLanguage'] is num
+        ? (json['sourceCodeLanguage'] as num).toInt()
+        : 0;
+    sourceCodeLanguage = sourceCodeLanguageIndex >= 0 &&
+            sourceCodeLanguageIndex < SourceCodeLanguage.values.length
+        ? SourceCodeLanguage.values[sourceCodeLanguageIndex]
+        : SourceCodeLanguage.dart;
+    notes = json['notes'] ?? "";
+    customUserAgent = json['customUserAgent'] as String?;
+    repo = json['repo'] != null ? Repo.fromJson(json['repo']) : null;
+    updatedAt = json['updatedAt'];
+    subCategories = (json['subCategories'] as List<dynamic>?)?.cast<String>();
+    supportsComments = json['supportsComments'] as bool?;
+    requiresAccount = json['requiresAccount'] as bool?;
+    hasDRM = json['hasDRM'] as bool?;
+    isAggregator = json['isAggregator'] as bool?;
+    paywall = json['paywall'] as String?;
+    upstream = json['upstream'] as String?;
+    videoQualities = (json['videoQualities'] as List<dynamic>?)?.cast<String>();
+    contentSubtype = (json['contentSubtype'] as List<dynamic>?)?.cast<String>();
+    uiLayout = json['uiLayout'] as String?;
+    uiLayoutVersion = json['uiLayoutVersion'] as String?;
+    pendingUiLayoutVersion = json['pendingUiLayoutVersion'] as String?;
+    hydrateExtendedMetadata();
+  }
+
+  Map<String, dynamic> toJson() => {
+    'apiUrl': apiUrl,
+    'appMinVerReq': appMinVerReq,
+    'baseUrl': baseUrl,
+    'dateFormat': dateFormat,
+    'dateFormatLocale': dateFormatLocale,
+    'hasCloudflare': hasCloudflare,
+    'headers': headers,
+    'supportLatest': supportLatest,
+    'filterList': filterList,
+    'preferenceList': preferenceList,
+    'iconUrl': iconUrl,
+    'id': id,
+    'isActive': isActive,
+    'isAdded': isAdded,
+    'isFullData': isFullData,
+    'isManga': isManga,
+    'itemType': itemType.index,
+    'isNsfw': isNsfw,
+    'isPinned': isPinned,
+    'lang': lang,
+    'lastUsed': lastUsed,
+    'name': name,
+    'sourceCode': sourceCode,
+    'sourceCodeUrl': sourceCodeUrl,
+    'typeSource': typeSource,
+    'version': version,
+    'versionLast': versionLast,
+    'additionalParams': persistedAdditionalParams,
+    'sourceCodeLanguage': sourceCodeLanguage.index,
+    'isObsolete': isObsolete,
+    'isLocal': isLocal,
+    'notes': notes,
+    'customUserAgent': customUserAgent,
+    'repo': repo?.toJson(),
+    'updatedAt': updatedAt ?? 0,
+    'subCategories': subCategories,
+    'supportsComments': supportsComments,
+    'requiresAccount': requiresAccount,
+    'hasDRM': hasDRM,
+    'isAggregator': isAggregator,
+    'paywall': paywall,
+    'upstream': upstream,
+    'videoQualities': videoQualities,
+    'contentSubtype': contentSubtype,
+    'uiLayout': uiLayout,
+    'uiLayoutVersion': uiLayoutVersion,
+    'pendingUiLayoutVersion': pendingUiLayoutVersion,
+  };
+
+  bool get isTorrent => (typeSource?.toLowerCase() ?? "") == "torrent";
+
+  /// True when the extension ships a ui-layout JSON that declares home sections.
+  /// Mirrors Aidoku's `source.features.providesHome`.
+  /// Used to show/hide the "Accueil" pill tab in every source home screen.
+  bool get providesHome => uiLayout != null && uiLayout!.isNotEmpty;
+
+  MSource toMSource() {
+    return MSource(
+      id: id,
+      name: name,
+      hasCloudflare: hasCloudflare,
+      isFullData: isFullData,
+      lang: lang,
+      baseUrl: baseUrl,
+      apiUrl: apiUrl,
+      dateFormat: dateFormat,
+      dateFormatLocale: dateFormatLocale,
+      additionalParams: additionalParams,
+    );
+  }
+}
+
+enum SourceCodeLanguage { dart, javascript, mihon }

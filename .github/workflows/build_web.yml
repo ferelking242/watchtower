@@ -1,0 +1,411 @@
+name: Build & Deploy Flutter Web → GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      deploy_pages:
+        description: Deploy the successful web build to GitHub Pages
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The native-only web stubs were removed from the current source tree
+      # when desktop/server targets were split out. Keep the original stubs
+      # as the CI compatibility layer, restored from the last web revision.
+      - name: Restore historical web stubs
+        run: git restore --source=45cd9978^ -- web_stubs
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-web-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-web-
+
+      - name: Patch pubspec with web stubs
+        run: |
+          python3 << 'PYEOF'
+          import re
+
+          with open('pubspec.yaml', 'r', encoding='utf-8') as handle:
+              lines = handle.readlines()
+
+          stubs = {
+              'media_kit': 'web_stubs/media_kit',
+              'media_kit_video': 'web_stubs/media_kit_video',
+              'media_kit_libs_video': 'web_stubs/media_kit_libs_video',
+              'volume_controller': 'web_stubs/volume_controller',
+              'screen_brightness': 'web_stubs/screen_brightness',
+              'wakelock_plus': 'web_stubs/wakelock_plus',
+              'local_notifier': 'web_stubs/local_notifier',
+              'tray_manager': 'web_stubs/tray_manager',
+              'titlebar_buttons': 'web_stubs/titlebar_buttons',
+              'smtc_windows': 'web_stubs/smtc_windows',
+              'home_widget': 'web_stubs/home_widget',
+              'metadata_god': 'web_stubs/metadata_god',
+              'flutter_new_pipe_extractor': 'web_stubs/flutter_new_pipe_extractor',
+              'sqlite3_flutter_libs': 'web_stubs/sqlite3_flutter_libs',
+              'ffi': 'web_stubs/ffi',
+              'sqlite3': 'web_stubs/sqlite3',
+              'just_zstd': 'web_stubs/just_zstd',
+              'excel': 'web_stubs/excel',
+              'excel2003': 'web_stubs/excel2003',
+              'docx_to_text': 'web_stubs/docx_to_text',
+              'ftpconnect': 'web_stubs/ftpconnect',
+              'sqflite': 'web_stubs/sqflite',
+              'dart_lz4': 'web_stubs/dart_lz4',
+              'receive_sharing_intent': 'web_stubs/receive_sharing_intent',
+              'open_filex': 'web_stubs/open_filex',
+              'flutter_avif': 'web_stubs/flutter_avif',
+              'flutter_avif_android': 'web_stubs/flutter_avif_android',
+              'flutter_avif_platform_interface': 'web_stubs/flutter_avif_platform_interface',
+              'dartssh2': 'web_stubs/dartssh2',
+              'on_audio_query': 'web_stubs/on_audio_query',
+              'on_audio_query_platform_interface': 'web_stubs/on_audio_query_platform_interface',
+              'local_auth': 'web_stubs/local_auth',
+              'window_manager': 'web_stubs/window_manager',
+              'desktop_webview_window': 'web_stubs/desktop_webview_window',
+              'flutter_discord_rpc_fork': 'web_stubs/flutter_discord_rpc_fork',
+          }
+
+          dep_start = next(
+              (index for index, line in enumerate(lines)
+               if line.rstrip() == 'dependency_overrides:'),
+              None,
+          )
+          if dep_start is None:
+              lines.extend(['\n', 'dependency_overrides:\n'])
+              dep_start = len(lines) - 1
+
+          i = dep_start + 1
+          while i < len(lines):
+              line = lines[i]
+              if line.strip() and not line.startswith((' ', '\t')):
+                  break
+              matched = next(
+                  (package for package in stubs
+                   if re.match(r'  ' + re.escape(package) + r':(?:\s|$)',
+                               line.rstrip('\n'))),
+                  None,
+              )
+              if matched is None:
+                  i += 1
+                  continue
+              end = i + 1
+              while end < len(lines):
+                  next_line = lines[end]
+                  if next_line.strip() and len(next_line) - len(next_line.lstrip()) <= 2:
+                      break
+                  end += 1
+              del lines[i:end]
+
+          lines[dep_start + 1:dep_start + 1] = [
+              f'  {package}:\n    path: {path}\n'
+              for package, path in stubs.items()
+          ]
+          with open('pubspec.yaml', 'w', encoding='utf-8') as handle:
+              handle.writelines(lines)
+          PYEOF
+
+      - name: Align web compatibility shims
+        run: |
+          python3 << 'PYEOF'
+          from pathlib import Path
+
+          on_audio = Path('web_stubs/on_audio_query/lib/on_audio_query.dart')
+          on_audio.write_text(r'''
+          import 'dart:typed_data';
+          import 'package:flutter/material.dart';
+
+          class SongModel {
+            final Map<String, dynamic> _data;
+            SongModel(Map<String, dynamic> data) : _data = data;
+
+            int get id => (_data['id'] as int?) ?? 0;
+            String get title => (_data['title'] as String?) ?? '';
+            String get displayName => (_data['display_name'] as String?) ?? title;
+            String get data => (_data['data'] as String?) ?? '';
+            String? get album => _data['album'] as String?;
+            String? get artist => _data['artist'] as String?;
+            int? get duration => _data['duration'] as int?;
+            int get size => (_data['size'] as int?) ?? 0;
+            int? get dateAdded => _data['date_added'] as int?;
+            int? get dateModified => _data['date_modified'] as int?;
+            Map<String, dynamic> getMap() => _data;
+          }
+
+          enum OrderType { ASC_OR_SMALLER, DESC_GREATER }
+          enum SortType { TITLE, DATE_ADDED, SIZE, DURATION, DISPLAY_NAME }
+          enum AudiosFrom { ALBUM, ARTIST, GENRE, PLAYLIST }
+          enum UriType { EXTERNAL, INTERNAL }
+          enum ArtworkType { AUDIO, VIDEO }
+
+          class OnAudioQuery {
+            Future<bool> permissionsStatus() async => false;
+            Future<bool> permissionsRequest() async => false;
+            Future<List<SongModel>> querySongs({
+              OrderType? orderType,
+              SortType? sortType,
+              bool? ignoreCase,
+              UriType? uriType,
+            }) async => <SongModel>[];
+            Future<List<Map<String, dynamic>>> queryAudiosFrom(
+              AudiosFrom type,
+              Object filter,
+            ) async => <Map<String, dynamic>>[];
+            Future<Uint8List?> queryArtwork(
+              int id,
+              ArtworkType type, {
+              int? size,
+              int? quality,
+            }) async => null;
+          }
+
+          class QueryArtworkWidget extends StatelessWidget {
+            final int id;
+            final ArtworkType type;
+            final BorderRadius? artworkBorder;
+            final BoxFit? artworkFit;
+            final double? artworkWidth;
+            final double? artworkHeight;
+            final int? size;
+            final int? quality;
+            final Widget? nullArtworkWidget;
+
+            const QueryArtworkWidget({
+              super.key,
+              required this.id,
+              required this.type,
+              this.artworkBorder,
+              this.artworkFit,
+              this.artworkWidth,
+              this.artworkHeight,
+              this.size,
+              this.quality,
+              this.nullArtworkWidget,
+            });
+
+            @override
+            Widget build(BuildContext context) =>
+                nullArtworkWidget ?? const SizedBox.shrink();
+          }
+          ''', encoding='utf-8')
+
+          media_kit = Path('web_stubs/media_kit/lib/media_kit.dart')
+          media_text = media_kit.read_text(encoding='utf-8')
+          media_text = media_text.replace(
+              'final bool ready;', 'final bool? ready;')
+          media_kit.write_text(media_text, encoding='utf-8')
+
+          media_video = Path('web_stubs/media_kit_video/lib/media_kit_video.dart')
+          video_text = media_video.read_text(encoding='utf-8')
+          video_text = video_text.replace(
+              'final bool enableHardwareAcceleration;\n'
+              '    const VideoControllerConfiguration({this.enableHardwareAcceleration = true});',
+              'final bool enableHardwareAcceleration;\n'
+              '    final String? hwdec;\n'
+              '    const VideoControllerConfiguration({\n'
+              '      this.enableHardwareAcceleration = true,\n'
+              '      this.hwdec,\n'
+              '    });')
+          media_video.write_text(video_text, encoding='utf-8')
+
+          sqlite = Path('web_stubs/sqlite3/lib/common.dart')
+          sqlite_text = sqlite.read_text(encoding='utf-8')
+          sqlite_text = sqlite_text.replace(
+              'class Database extends CommonDatabase {\n',
+              'class _HandleStub { int get address => 0; }\n\n'
+              'class Database extends CommonDatabase {\n'
+              '  dynamic get handle => _HandleStub();\n')
+          sqlite_text = sqlite_text.replace(
+              '  @override\n  void execute(String sql, [List<Object?> parameters = const []]) {}',
+              '  @override\n  void execute(String sql, [List<Object?> parameters = const []]) {}\n\n'
+              '  ResultSet select(String sql, [List<Object?> parameters = const []]) =>\n'
+              '      ResultSet([], <Map<String, dynamic>>[]);')
+          sqlite_text = sqlite_text.replace(
+              'final sqlite3 = Sqlite3();',
+              'final sqlite3 = Sqlite3();\n\n'
+              'extension Sqlite3WebPointerShim on Sqlite3 {\n'
+              '  Sqlite3 fromPointer(dynamic pointer) => this;\n'
+              '}')
+          sqlite.write_text(sqlite_text, encoding='utf-8')
+
+          sqflite = Path('web_stubs/sqflite/lib/src/database.dart')
+          sqflite_text = sqflite.read_text(encoding='utf-8')
+          if 'class DatabaseException' not in sqflite_text:
+              sqflite.write_text(
+                  'class DatabaseException implements Exception {\n'
+                  '  final String message;\n'
+                  '  const DatabaseException(this.message);\n'
+                  '  bool isDuplicateColumnError([String? column]) => false;\n'
+                  '  @override String toString() => message;\n'
+                  '}\n\n' + sqflite_text,
+                  encoding='utf-8')
+
+          ftp = Path('web_stubs/ftpconnect/lib/ftpconnect.dart')
+          ftp_text = ftp.read_text(encoding='utf-8')
+          ftp_text = ftp_text.replace(
+              'Future<bool> downloadFile(String remoteFile, dynamic localFile) async =>',
+              'Future<bool> downloadFile(String remoteFile, dynamic localFile, '
+              '{Function? onProgress}) async =>')
+          ftp_text = ftp_text.replace(
+              'Future<bool> uploadFile(dynamic localFile, {String? remoteFileName}) async =>',
+              'Future<bool> uploadFile(dynamic localFile, {String? remoteFileName, '
+              'String? sRemoteName, Function? onProgress}) async =>')
+          ftp_text = ftp_text.replace(
+              'Future<bool> makeDirectory(String dir) async =>',
+              'Future<bool> createFolderIfNotExist(String dir) async => true;\n'
+              '  Future<bool> makeDirectory(String dir) async =>')
+          ftp.write_text(ftp_text, encoding='utf-8')
+
+          excel = Path('web_stubs/excel2003/lib/excel2003.dart')
+          excel.write_text(r'''
+          // Web stub for excel2003 — legacy XLS viewing is unavailable on web.
+          class XlsReader {
+            XlsReader._();
+            static XlsReader fromBytes(List<int> bytes) => XlsReader._();
+            List<String> get sheetNames => const <String>[];
+            dynamic sheetByName(String name) => null;
+          }
+          ''', encoding='utf-8')
+          PYEOF
+
+      - name: Stub native-only Dart pub-cache files
+        run: |
+          python3 << 'PYEOF'
+          import glob
+          import os
+
+          pub_cache = os.path.expanduser('~/.pub-cache/hosted/pub.dev')
+          rust_stub = (
+              '// Web stub\n'
+              'void initializeRustLibWatchtower() {}\n'
+              'void initializeRustLibWatchtowerFull({dynamic staticLib}) {}\n'
+          )
+          for path in glob.glob(f'{pub_cache}/rust_lib_watchtower-*/lib/*.dart'):
+              with open(path, 'w', encoding='utf-8') as handle:
+                  handle.write(rust_stub)
+
+          qjs_stub = (
+              '// Web stub\n'
+              'class FlutterQjs { static void setUp({dynamic maxStack, dynamic memLimit}) {} }\n'
+              'class QjsEngine { dynamic evaluate(String s) => null; void dispose() {} '
+              'void setModuleHandler(dynamic h) {} void setHostPromiseRejectionHandler(dynamic h) {} }\n'
+          )
+          for path in glob.glob(f'{pub_cache}/flutter_qjs-*/lib/*.dart'):
+              with open(path, 'w', encoding='utf-8') as handle:
+                  handle.write(qjs_stub)
+
+          for path in glob.glob(f'{pub_cache}/drift-*/lib/src/sqlite3/database_tracker.dart'):
+              with open(path, 'w', encoding='utf-8') as handle:
+                  handle.write(
+                      "import 'package:sqlite3/sqlite3.dart';\n\n"
+                      "DatabaseTracker tracker(Sqlite3 sqlite3) => "
+                      "_instance ??= DatabaseTracker(sqlite3);\n"
+                      "DatabaseTracker? _instance;\n\n"
+                      "class DatabaseTracker {\n"
+                      "  DatabaseTracker(Sqlite3 sqlite3);\n"
+                      "  void markOpened(String path, Database openedDb) {}\n"
+                      "  void markClosed(Database db) {}\n"
+                      "  void closeExisting() {}\n"
+                      "}\n")
+          PYEOF
+
+      - name: Patch pseudom CSSParser for dart2js
+        run: |
+          python3 << 'PYEOF'
+          import glob
+          import os
+          import re
+
+          for path in glob.glob(
+              os.path.expanduser('~/.pub-cache/hosted/pub.dev/'
+                                 'pseudom-*/lib/src/csslib/CSSParser.dart')):
+              with open(path, 'r', encoding='utf-8') as handle:
+                  content = handle.read()
+              patched = re.sub(r'(?<=& )-?\d{16,}', '0', content)
+              if patched != content:
+                  with open(path, 'w', encoding='utf-8') as handle:
+                      handle.write(patched)
+          PYEOF
+
+      - name: Patch large generated integer literals for dart2js
+        run: |
+          python3 << 'PYEOF'
+          import glob
+          import re
+
+          js_max = 9007199254740991
+
+          def replace(match):
+              return '0' if int(match.group(1)) > js_max else match.group(0)
+
+          for path in glob.glob('lib/**/*.g.dart', recursive=True):
+              with open(path, 'r', encoding='utf-8') as handle:
+                  content = handle.read()
+              patched = re.sub(r'\b(\d{10,})\b', replace, content)
+              if patched != content:
+                  with open(path, 'w', encoding='utf-8') as handle:
+                      handle.write(patched)
+          PYEOF
+
+      - name: Build Web
+        run: >
+          flutter build web --release --no-tree-shake-icons
+          --base-href /watchtower/
+          --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
+
+      - name: Upload Web artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: watchtower-web
+          path: build/web
+          retention-days: 30
+
+      - name: Configure GitHub Pages
+        if: ${{ github.event_name != 'workflow_call' || inputs.deploy_pages }}
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: ${{ github.event_name != 'workflow_call' || inputs.deploy_pages }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        if: ${{ github.event_name != 'workflow_call' || inputs.deploy_pages }}
+        uses: actions/deploy-pages@v4

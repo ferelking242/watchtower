@@ -1,0 +1,197 @@
+name: Build Linux Headless CLI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'lib/cli/**'
+      - 'lib/main.dart'
+      - 'scripts/install-linux-headless.sh'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/build-server.yml'
+  pull_request:
+    paths:
+      - 'lib/cli/**'
+      - 'lib/main.dart'
+      - 'scripts/install-linux-headless.sh'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/build-server.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-cli:
+    name: Linux headless CLI
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config libunwind-dev \
+            libgtk-3-dev libwebkit2gtk-4.0-dev libwpewebkit-1.0-dev \
+            libwpebackend-fdo-1.0-dev \
+            libsoup-3.0-dev liblzma-dev libblkid-dev libmount-dev \
+            libglib2.0-dev libdbus-1-dev libnotify-dev \
+            libayatana-appindicator3-dev libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad libasound2-dev libpulse-dev \
+            libxcb-xfixes0-dev libepoxy-dev libmpv-dev mpv p7zip-full xvfb
+
+      - name: Checkout extension catalog
+        uses: actions/checkout@v5
+        with:
+          repository: ferelking242/watchtower-extensions
+          path: watchtower-extensions
+          lfs: true
+
+      - name: Prepare Linux build
+        run: |
+          flutter config --enable-linux-desktop
+          flutter pub get
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
+            mkdir -p "$dir/assets"
+          done
+
+      - name: Fix Linux desktop_webview_window for current GLib and Clang
+        run: |
+          WEBVIEW_SOURCE="$(find ~/.pub-cache/git -path '*/desktop_webview_window-*/packages/desktop_webview_window/linux/webview_window.cc' -print -quit)"
+          WEBVIEW_CMAKE="$(find ~/.pub-cache/hosted/pub.dev -path '*/flutter_inappwebview_linux-*/linux/CMakeLists.txt' -print -quit)"
+          test -n "$WEBVIEW_SOURCE"
+          test -n "$WEBVIEW_CMAKE"
+          python3 - "$WEBVIEW_SOURCE" <<'PY'
+          from pathlib import Path
+          import sys
+
+          source = Path(sys.argv[1])
+          text = source.read_text()
+          old = "    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));\n\n    if (expires >= 0)\n"
+          new = "    SoupDate *expires_date = soup_cookie_get_expires(cookie);\n    gdouble expires = expires_date == nullptr\n        ? -1\n        : static_cast<gdouble>(soup_date_to_time_t(expires_date));\n\n    if (expires >= 0)\n"
+          if old not in text:
+              raise SystemExit("desktop_webview_window GLib code was not found")
+          source.write_text(text.replace(old, new, 1))
+          PY
+          sed -i 's/ -Wno-deprecated-literal-operator//g' "$WEBVIEW_CMAKE"
+
+      - name: Remove unsupported WPE plugin from Flutter Linux graph
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          import shutil
+          from pathlib import Path
+
+          plugin_name = "flutter_inappwebview_linux"
+          graph = Path(".flutter-plugins-dependencies")
+          if graph.exists():
+              data = json.loads(graph.read_text())
+              plugins = data.get("plugins", {}).get("linux", [])
+              data["plugins"]["linux"] = [
+                  plugin for plugin in plugins
+                  if plugin.get("name") != plugin_name
+              ]
+              graph.write_text(json.dumps(data, indent=2) + "\n")
+
+          legacy_graph = Path(".flutter-plugins")
+          if legacy_graph.exists():
+              legacy_graph.write_text(
+                  "".join(
+                      line for line in legacy_graph.read_text().splitlines(True)
+                      if not line.startswith(plugin_name + "=")
+                  )
+              )
+
+          cmake = Path("linux/flutter/generated_plugins.cmake")
+          registrant = Path("linux/flutter/generated_plugin_registrant.cc")
+          if cmake.exists():
+              text = cmake.read_text()
+              text = re.sub(r"(?m)^\s*" + plugin_name + r"\s*\n", "", text)
+              cmake.write_text(text)
+          if registrant.exists():
+              text = registrant.read_text()
+              text = re.sub(
+                  r"(?m)^\s*#include <" + plugin_name + r"/[^>]+>\n",
+                  "",
+                  text,
+              )
+              text = re.sub(
+                  r"(?ms)^\s*g_autoptr\(FlPluginRegistrar\) "
+                  + plugin_name
+                  + r"_registrar =.*?"
+                  + plugin_name
+                  + r"_plugin_register_with_registrar\("
+                  + plugin_name
+                  + r"_registrar\);\n",
+                  "",
+                  text,
+              )
+              registrant.write_text(text)
+
+          shutil.rmtree(
+              "linux/flutter/ephemeral/.plugin_symlinks/" + plugin_name,
+              ignore_errors=True,
+          )
+          PY
+
+      - name: Build Linux
+        env:
+          CFLAGS: "-Wno-unknown-warning-option"
+          CXXFLAGS: "-Wno-unknown-warning-option"
+        run: flutter build linux --release --no-pub
+
+      - name: Expose Watchtower Linux binary
+        run: |
+          BUNDLE="build/linux/x64/release/bundle"
+          test -x "$BUNDLE/mangayomi"
+          cp "$BUNDLE/mangayomi" "$BUNDLE/watchtower"
+
+      - name: Smoke test the headless CLI
+        run: |
+          BUNDLE="build/linux/x64/release/bundle"
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$BUNDLE/watchtower" --cli doctor --json
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$BUNDLE/watchtower" --cli help >/dev/null
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$BUNDLE/watchtower" --cli extensions list \
+            --repo "$GITHUB_WORKSPACE/watchtower-extensions" \
+            --json > "$GITHUB_WORKSPACE/watchtower-cli-catalog.json"
+
+      - name: Add installer to bundle
+        run: |
+          cp scripts/install-linux-headless.sh build/linux/x64/release/bundle/
+          chmod +x build/linux/x64/release/bundle/install-linux-headless.sh
+
+      - name: Package Linux headless archive
+        run: |
+          cd build/linux/x64/release/bundle
+          7z a -t7z -mx=9 -mmt=2 \
+            ../../../../../watchtower-linux-x64-headless.7z .
+          cd -
+          ls -lh watchtower-linux-x64-headless.7z
+
+      - name: Upload Linux headless artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: watchtower-linux-x64-headless
+          path: watchtower-linux-x64-headless.7z
+          compression-level: 0
+          retention-days: 30

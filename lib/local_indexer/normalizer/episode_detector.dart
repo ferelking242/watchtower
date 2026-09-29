@@ -1,0 +1,214 @@
+/// Étape 5 du pipeline : Détection saison / épisode / chapitre / volume.
+
+class EpisodeResult {
+  final int? season;
+  final int? episode;
+  final int? chapter;
+  final int? volume;
+  final int? part;
+
+  /// Indices des tokens qui ont servi à construire ce résultat
+  /// (à retirer de la liste avant extraction du titre).
+  final Set<int> consumedIndices;
+
+  const EpisodeResult({
+    this.season,
+    this.episode,
+    this.chapter,
+    this.volume,
+    this.part,
+    required this.consumedIndices,
+  });
+
+  bool get isEmpty =>
+      season == null &&
+      episode == null &&
+      chapter == null &&
+      volume == null &&
+      part == null;
+}
+
+class EpisodeDetector {
+  // S01E05 / S1E5 / S01E005
+  static final _sXeX = RegExp(
+    r'^[Ss](\d{1,3})[Ee](\d{1,4})(?:[Ee](\d{1,4}))?$',
+  );
+
+  // 1x05 / 01x05
+  static final _seasonXEpisode = RegExp(r'^(\d{1,3})[Xx](\d{1,4})$');
+
+  // E05 / E5 standalone
+  static final _eX = RegExp(r'^[Ee](\d{1,4})$');
+
+  // S01 standalone
+  static final _sX = RegExp(r'^[Ss](\d{1,3})$');
+
+  // Episode 5 / Ep.5 / EP05
+  static final _epWord = RegExp(
+    r'^(?:Episode|Ep\.?|EP)(\d{1,4})$',
+    caseSensitive: false,
+  );
+
+  // Chapter / Ch. / Ch
+  static final _chap = RegExp(
+    r'^(?:Chapter|Ch\.?|Chap\.?)(\d{1,5})(?:\.(\d+))?$',
+    caseSensitive: false,
+  );
+
+  // Volume / Vol. / Vol
+  static final _vol = RegExp(
+    r'^(?:Volume|Vol\.?)(\d{1,4})$',
+    caseSensitive: false,
+  );
+
+  // Numéro standalone : 01, 001, 1080 is excluded by QualityDetector
+  // Valide seulement si entre 1 et 4 chiffres, pas déjà résolution
+  static final _bareNumber = RegExp(r'^0*(\d{1,4})$');
+
+  // Résolutions connues à ne pas confondre avec des épisodes
+  static const _resolutions = {'2160', '1080', '720', '480', '360', '4096', '2048'};
+
+  static EpisodeResult detect(List<String> tokens) {
+    int? season, episode, chapter, volume, part;
+    final consumed = <int>{};
+
+    for (var i = 0; i < tokens.length; i++) {
+      final t = tokens[i];
+
+      // S01E05
+      final m1 = _sXeX.firstMatch(t);
+      if (m1 != null) {
+        season ??= int.parse(m1.group(1)!);
+        episode ??= int.parse(m1.group(2)!);
+        consumed.add(i);
+        continue;
+      }
+
+      // 1x05
+      final mx = _seasonXEpisode.firstMatch(t);
+      if (mx != null) {
+        season ??= int.parse(mx.group(1)!);
+        episode ??= int.parse(mx.group(2)!);
+        consumed.add(i);
+        continue;
+      }
+
+      // "Season 1 Episode 2"
+      if (t.toLowerCase() == 'season' && i + 1 < tokens.length) {
+        final seasonNumber = int.tryParse(tokens[i + 1]);
+        if (seasonNumber != null) {
+          season ??= seasonNumber;
+          consumed.addAll({i, i + 1});
+          continue;
+        }
+      }
+      if (t.toLowerCase() == 'episode' && i + 1 < tokens.length) {
+        final episodeNumber = int.tryParse(tokens[i + 1]);
+        if (episodeNumber != null) {
+          episode ??= episodeNumber;
+          consumed.addAll({i, i + 1});
+          continue;
+        }
+      }
+
+      // Chapter 12 / Ch 12 / Volume 3 / Vol 3. Tokenization separates the
+      // word and number when filenames use spaces or dots.
+      if ({
+            'chapter',
+            'chap',
+            'ch',
+          }.contains(t.toLowerCase()) &&
+          i + 1 < tokens.length) {
+        final chapterNumber = int.tryParse(tokens[i + 1]);
+        if (chapterNumber != null) {
+          chapter ??= chapterNumber;
+          consumed.addAll({i, i + 1});
+          continue;
+        }
+      }
+      if ({
+            'volume',
+            'vol',
+          }.contains(t.toLowerCase()) &&
+          i + 1 < tokens.length) {
+        final volumeNumber = int.tryParse(tokens[i + 1]);
+        if (volumeNumber != null) {
+          volume ??= volumeNumber;
+          consumed.addAll({i, i + 1});
+          continue;
+        }
+      }
+
+      // S01 standalone
+      final m3 = _sX.firstMatch(t);
+      if (m3 != null) {
+        season ??= int.parse(m3.group(1)!);
+        consumed.add(i);
+        continue;
+      }
+
+      // E05 standalone
+      final m2 = _eX.firstMatch(t);
+      if (m2 != null) {
+        episode ??= int.parse(m2.group(1)!);
+        consumed.add(i);
+        continue;
+      }
+
+      // Episode word
+      final m4 = _epWord.firstMatch(t);
+      if (m4 != null) {
+        episode ??= int.parse(m4.group(1)!);
+        consumed.add(i);
+        continue;
+      }
+
+      // Chapter
+      final m5 = _chap.firstMatch(t);
+      if (m5 != null) {
+        chapter = int.parse(m5.group(1)!);
+        consumed.add(i);
+        continue;
+      }
+
+      // Volume
+      final m6 = _vol.firstMatch(t);
+      if (m6 != null) {
+        volume = int.parse(m6.group(1)!);
+        consumed.add(i);
+        continue;
+      }
+    }
+
+    // Heuristique : si on n'a pas trouvé d'épisode et qu'il reste un bare
+    // number isolé au milieu ou à la fin (ex: "Naruto 014"), on le prend.
+    if (episode == null && chapter == null) {
+      for (var i = 0; i < tokens.length; i++) {
+        if (consumed.contains(i)) continue;
+        final m = _bareNumber.firstMatch(tokens[i]);
+        if (m == null) continue;
+        final n = int.parse(m.group(1)!);
+        // Ignorer si c'est une résolution connue
+        if (_resolutions.contains(n.toString())) continue;
+        // Four-digit numbers in the year range belong to a movie title,
+        // not to an episode number (e.g. Interstellar.2014 or 1917.2019).
+        if (n >= 1900 && n <= 2099) continue;
+        // Ne prendre que si c'est dans un range raisonnable pour un épisode
+        if (n >= 1 && n <= 9999) {
+          episode = n;
+          consumed.add(i);
+          break;
+        }
+      }
+    }
+
+    return EpisodeResult(
+      season: season,
+      episode: episode,
+      chapter: chapter,
+      volume: volume,
+      part: part,
+      consumedIndices: consumed,
+    );
+  }
+}

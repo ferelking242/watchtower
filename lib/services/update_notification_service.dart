@@ -1,0 +1,698 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:watchtower/router/router.dart';
+import 'package:watchtower/models/source.dart';
+import 'package:watchtower/services/silent_installer_service.dart';
+import 'package:watchtower/utils/log/logger.dart';
+
+const int _kUpdateNotifId = 9910;
+const int _kReminderNotifId = 9911;
+const int _kProgressNotifId = 9912;
+int _nextMediaNotifId = 10000;
+
+const String _kUpdateChannelId = 'watchtower_updates';
+const String _kUpdateChannelName = 'Mises à jour';
+const String _kReminderChannelId = 'watchtower_reminders';
+const String _kReminderChannelName = 'Rappels';
+const String _kDownloadChannelId = 'watchtower_downloads';
+const String _kDownloadChannelName = 'Téléchargements';
+
+const String _kActionDownload = 'action_download';
+const String _kActionWhatsNew = 'action_whats_new';
+const String _kActionInstall = 'action_install';
+const String _kActionInstallExtensions = 'action_install_extensions';
+const String _kActionPlay = 'action_play';
+
+class WatchtowerNotificationService {
+  WatchtowerNotificationService._();
+  static final WatchtowerNotificationService instance =
+      WatchtowerNotificationService._();
+
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+
+  bool _initialized = false;
+  Completer<void>? _initCompleter;
+  String? _pendingDownloadUrl;
+  String? _pendingReleaseUrl;
+  String? _pendingInstallPath;
+  final Map<int, String> _pendingMediaPaths = {};
+
+  bool get _supported => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  Future<void> init() async {
+    if (_initialized || !_supported) return;
+    if (_initCompleter != null) return _initCompleter!.future;
+    _initCompleter = Completer<void>();
+    try {
+      const androidInit = AndroidInitializationSettings(
+        '@mipmap/launcher_icon',
+      );
+      const iosInit = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+      const initSettings = InitializationSettings(
+        android: androidInit,
+        iOS: iosInit,
+      );
+
+      await _plugin.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _handleAction,
+        onDidReceiveBackgroundNotificationResponse: _handleBackgroundAction,
+      );
+
+      if (Platform.isAndroid) {
+        final androidPlugin = _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+
+        await androidPlugin?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _kUpdateChannelId,
+            _kUpdateChannelName,
+            description: 'Notifications de mise à jour de Watchtower',
+            importance: Importance.high,
+            playSound: true,
+            enableVibration: true,
+          ),
+        );
+
+        await androidPlugin?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _kReminderChannelId,
+            _kReminderChannelName,
+            description: 'Rappels pour revenir regarder du contenu',
+            importance: Importance.defaultImportance,
+            playSound: false,
+            enableVibration: false,
+          ),
+        );
+
+        await androidPlugin?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _kDownloadChannelId,
+            _kDownloadChannelName,
+            description: 'Résultats des téléchargements Watchtower',
+            importance: Importance.defaultImportance,
+            playSound: false,
+            enableVibration: false,
+          ),
+        );
+
+        _requestAndroidPermissionWhenReady(androidPlugin);
+      } else if (Platform.isIOS) {
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >()
+            ?.requestPermissions(alert: true, badge: true, sound: true);
+      }
+
+      _initialized = true;
+      _initCompleter!.complete();
+    } catch (e) {
+      AppLogger.log(
+        'WatchtowerNotificationService init failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+    }
+  }
+
+  void _handleAction(NotificationResponse response) {
+    final actionId = response.actionId;
+    final isExtensionUpdate =
+        response.payload?.contains('"type":"extension_updates"') == true;
+    // Tapping the notification body (no action id) when install is pending.
+    if ((actionId == null || actionId == _kActionInstall) &&
+        _pendingInstallPath != null) {
+      unawaited(_installPending());
+    } else if (isExtensionUpdate &&
+        (actionId == null || actionId == _kActionInstallExtensions)) {
+      unawaited(_openExtensionNotifications());
+    } else if (actionId == null || actionId == _kActionPlay) {
+      unawaited(_openMediaNotification(response));
+    } else if (actionId == _kActionInstallExtensions) {
+      unawaited(_openExtensionNotifications());
+    } else if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
+      unawaited(_downloadOrOpen(_pendingDownloadUrl!));
+    } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {
+      unawaited(
+        launchUrl(
+          Uri.parse(_pendingReleaseUrl!),
+          mode: LaunchMode.externalApplication,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openExtensionNotifications() async {
+    for (var attempt = 0; attempt < 8; attempt++) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        GoRouter.of(context).push('/notifications');
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+  }
+
+  /// Posts an actionable native notification when installed extensions have
+  /// either a new JS version or a new UI layout version.
+  Future<void> showExtensionUpdates(List<Source> updates) async {
+    if (updates.isEmpty || !_supported) return;
+    try {
+      if (!_initialized) await init();
+      final names = updates
+          .map(
+            (source) =>
+                '${source.name ?? 'Extension'} ${_extensionUpdateLabel(source)}',
+          )
+          .join(', ');
+      final androidDetails = AndroidNotificationDetails(
+        _kUpdateChannelId,
+        _kUpdateChannelName,
+        channelDescription: 'Notifications de mise à jour de Watchtower',
+        importance: Importance.high,
+        priority: Priority.high,
+        ticker: 'Mise à jour d’extension',
+        styleInformation: BigTextStyleInformation(
+          names,
+          contentTitle:
+              '${updates.length} mise${updates.length == 1 ? '' : 's'} à jour disponible${updates.length == 1 ? '' : 's'}',
+          summaryText: 'Extensions',
+        ),
+        actions: const [
+          AndroidNotificationAction(
+            _kActionInstallExtensions,
+            'Installer',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+        ],
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      await _plugin.show(
+        _kUpdateNotifId + 1,
+        'Mise à jour d’extension disponible',
+        names,
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+        payload: jsonEncode({'type': 'extension_updates'}),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showExtensionUpdates failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  String _extensionUpdateLabel(Source source) {
+    final codeUpdate =
+        source.version != null &&
+        source.versionLast != null &&
+        _compareVersions(source.version!, source.versionLast!) < 0;
+    final layout = source.pendingUiLayoutVersion;
+    if (codeUpdate && layout?.isNotEmpty == true) {
+      return 'v${source.versionLast} + UI $layout';
+    }
+    if (codeUpdate) return 'v${source.versionLast}';
+    if (layout?.isNotEmpty == true) return 'UI $layout';
+    return 'mise à jour';
+  }
+
+  int _compareVersions(String a, String b) {
+    final pa = a
+        .split(RegExp(r'[.+-]'))
+        .map((part) => int.tryParse(part) ?? 0)
+        .toList();
+    final pb = b
+        .split(RegExp(r'[.+-]'))
+        .map((part) => int.tryParse(part) ?? 0)
+        .toList();
+    final length = pa.length > pb.length ? pa.length : pb.length;
+    for (var index = 0; index < length; index++) {
+      final va = index < pa.length ? pa[index] : 0;
+      final vb = index < pb.length ? pb[index] : 0;
+      if (va != vb) return va < vb ? -1 : 1;
+    }
+    return 0;
+  }
+
+  Future<void> _openMediaNotification(NotificationResponse response) async {
+    Map<String, dynamic>? data;
+    if (response.payload != null && response.payload!.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(response.payload!);
+        if (decoded is Map) data = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    final notificationId = response.id ?? -1;
+    final path = data?['path'] as String? ?? _pendingMediaPaths[notificationId];
+    final chapterId = (data?['chapterId'] as num?)?.toInt();
+    if (path == null || path.isEmpty) return;
+
+    // The notification should return to Watchtower's own player. The chapter
+    // id is part of the payload so this still works after a process restart;
+    // the in-memory path map is only a fast path while the app is alive.
+    if (chapterId != null) {
+      for (var attempt = 0; attempt < 5; attempt++) {
+        final context = navigatorKey.currentContext;
+        if (context != null) {
+          GoRouter.of(context).push('/animePlayerView', extra: chapterId);
+          return;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+    }
+
+    // If the notification was created without a chapter id (for example an
+    // older queued notification), retain a safe fallback for that item.
+    try {
+      const channel = MethodChannel('watchtower/download_service');
+      await channel.invokeMethod<void>('openFile', {'filePath': path});
+    } catch (e) {
+      AppLogger.log(
+        'Unable to open completed media: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  Future<void> _installPending() async {
+    final path = _pendingInstallPath;
+    if (path == null) return;
+    try {
+      const channel = MethodChannel('com.watchtower.app.apk_install');
+      await channel.invokeMethod('installApk', {'filePath': path});
+    } catch (e) {
+      AppLogger.log(
+        '_installPending error: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  Future<void> _downloadOrOpen(String url) async {
+    if (!_supported) return;
+    try {
+      final status = await SilentInstallerService.instance.checkStatus();
+      if (status == SilentInstallStatus.active) {
+        await _showProgressNotif();
+        await SilentInstallerService.instance.downloadAndInstall(
+          url,
+          onProgress: _updateProgressNotif,
+        );
+        await _plugin.cancel(_kProgressNotifId);
+      } else {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _showProgressNotif() async {
+    if (!_initialized) await init();
+    const details = AndroidNotificationDetails(
+      _kUpdateChannelId,
+      _kUpdateChannelName,
+      channelDescription: 'Notifications de mise à jour de Watchtower',
+      importance: Importance.low,
+      priority: Priority.low,
+      showProgress: true,
+      maxProgress: 100,
+      progress: 0,
+      onlyAlertOnce: true,
+    );
+    await _plugin.show(
+      _kProgressNotifId,
+      'Téléchargement de la mise à jour…',
+      '0 %',
+      const NotificationDetails(android: details),
+    );
+  }
+
+  Future<void> _updateProgressNotif(double progress) async {
+    final pct = (progress * 100).round();
+    final details = AndroidNotificationDetails(
+      _kUpdateChannelId,
+      _kUpdateChannelName,
+      importance: Importance.low,
+      priority: Priority.low,
+      showProgress: true,
+      maxProgress: 100,
+      progress: pct,
+      onlyAlertOnce: true,
+    );
+    await _plugin.show(
+      _kProgressNotifId,
+      'Téléchargement de la mise à jour…',
+      '$pct %',
+      NotificationDetails(android: details),
+    );
+  }
+
+  /// Notification "Mise à jour disponible !" style Mihon.
+  /// Affiche les boutons [Télécharger] et [Quoi de neuf].
+  Future<void> showUpdateAvailable({
+    required String version,
+    required String downloadUrl,
+    required String releaseUrl,
+  }) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    _pendingDownloadUrl = downloadUrl;
+    _pendingReleaseUrl = releaseUrl;
+
+    try {
+      final androidDetails = AndroidNotificationDetails(
+        _kUpdateChannelId,
+        _kUpdateChannelName,
+        channelDescription: 'Notifications de mise à jour de Watchtower',
+        importance: Importance.high,
+        priority: Priority.high,
+        ticker: 'Mise à jour disponible',
+        styleInformation: BigTextStyleInformation(
+          'Watchtower $version est disponible.',
+          contentTitle: 'Mise à jour disponible !',
+          summaryText: version,
+        ),
+        actions: const [
+          AndroidNotificationAction(
+            _kActionDownload,
+            'Télécharger',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+          AndroidNotificationAction(
+            _kActionWhatsNew,
+            'Quoi de neuf',
+            showsUserInterface: true,
+            cancelNotification: false,
+          ),
+        ],
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      await _plugin.show(
+        _kUpdateNotifId,
+        'Mise à jour disponible !',
+        version,
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showUpdateAvailable failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  /// Programme un rappel hebdomadaire du type
+  /// "Films, animés et séries t'attendent — viens regarder !"
+  Future<void> scheduleWeeklyReminder() async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    try {
+      await _plugin.cancel(_kReminderNotifId);
+
+      const androidDetails = AndroidNotificationDetails(
+        _kReminderChannelId,
+        _kReminderChannelName,
+        channelDescription: 'Rappels pour revenir regarder du contenu',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        playSound: false,
+        enableVibration: false,
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: false,
+        presentSound: false,
+      );
+
+      await _plugin.periodicallyShow(
+        _kReminderNotifId,
+        '\u{1F4FA} Watchtower',
+        "Films, animés et séries t'attendent — viens regarder !",
+        RepeatInterval.weekly,
+        const NotificationDetails(android: androidDetails, iOS: iosDetails),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    } catch (e) {
+      AppLogger.log(
+        'scheduleWeeklyReminder failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  /// Vérifie GitHub et envoie une notification si une mise à jour est disponible.
+  Future<void> checkForUpdateAndNotify() async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final res = await http
+          .get(
+            Uri.parse(
+              'https://api.github.com/repos/ferelking242/watchtower/releases?page=1&per_page=1',
+            ),
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (res.statusCode != 200) return;
+      final decoded = jsonDecode(res.body);
+      if (decoded is! List) return;
+      final releases = decoded as List<dynamic>;
+      if (releases.isEmpty) return;
+
+      final latest = releases.first as Map<String, dynamic>;
+      final tagName = (latest['tag_name'] as String? ?? '').trim();
+      final latestVersion = tagName
+          .replaceFirst(RegExp(r'^v'), '')
+          .split('-')
+          .first;
+
+      if (latestVersion.isEmpty) return;
+      if (_compareVersions(info.version, latestVersion) < 0) {
+        final assets = latest['assets'] as List<dynamic>;
+        final downloadUrl = assets.isNotEmpty
+            ? (assets.first['browser_download_url'] as String? ?? '')
+            : '';
+        final releaseUrl = latest['html_url'] as String? ?? '';
+
+        await showUpdateAvailable(
+          version: latestVersion,
+          downloadUrl: downloadUrl,
+          releaseUrl: releaseUrl,
+        );
+      }
+    } catch (e) {
+      AppLogger.log(
+        'checkForUpdateAndNotify failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  // ── Download complete notification ───────────────────────────────────────────
+
+  /// Notification "Mise à jour prête à installer" — affiché quand le téléchargement
+  /// en arrière-plan se termine. L'action [Installer] déclenche l'installation.
+  Future<void> showDownloadComplete({
+    required String version,
+    required String filePath,
+  }) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    _pendingInstallPath = filePath;
+
+    // Cancel any lingering progress notification
+    try {
+      await _plugin.cancel(_kProgressNotifId);
+    } catch (_) {}
+
+    try {
+      // Note: NOT const — uses runtime `version` for string interpolation.
+      final androidDetails = AndroidNotificationDetails(
+        _kUpdateChannelId,
+        _kUpdateChannelName,
+        channelDescription: 'Notifications de mise à jour de Watchtower',
+        importance: Importance.high,
+        priority: Priority.high,
+        ticker: 'Mise à jour prête',
+        styleInformation: BigTextStyleInformation(
+          'Appuyez pour installer Watchtower $version',
+          contentTitle: 'Prêt à installer',
+        ),
+        actions: const [
+          AndroidNotificationAction(
+            _kActionInstall,
+            'Installer maintenant',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+        ],
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      await _plugin.show(
+        _kUpdateNotifId,
+        'Watchtower $version prêt à installer',
+        'Appuyez pour installer',
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showDownloadComplete failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  /// Notification shown once a video has been merged into its final file.
+  /// It uses its own channel, rather than the update channel, so Android does
+  /// not group media results with APK/update notifications.
+  Future<void> showMediaDownloadComplete({
+    required String title,
+    required String filePath,
+    int? chapterId,
+  }) async {
+    if (!_supported) return;
+    try {
+      if (!_initialized) await init();
+    } catch (_) {
+      return;
+    }
+    final id = _nextMediaNotifId++;
+    _pendingMediaPaths[id] = filePath;
+    try {
+      final androidDetails = AndroidNotificationDetails(
+        _kDownloadChannelId,
+        _kDownloadChannelName,
+        channelDescription: 'Résultats des téléchargements Watchtower',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        ticker: 'Téléchargement réussi',
+        styleInformation: BigTextStyleInformation(
+          title,
+          contentTitle: 'Téléchargement réussi',
+        ),
+        actions: const [
+          AndroidNotificationAction(
+            _kActionPlay,
+            'Jouer',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+        ],
+      );
+      await _plugin.show(
+        id,
+        'Téléchargement réussi',
+        title,
+        NotificationDetails(android: androidDetails),
+        payload: jsonEncode(<String, dynamic>{
+          'path': filePath,
+          if (chapterId != null) 'chapterId': chapterId,
+        }),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showMediaDownloadComplete failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  void _requestAndroidPermissionWhenReady(
+    AndroidFlutterLocalNotificationsPlugin? androidPlugin,
+  ) {
+    if (androidPlugin == null) return;
+
+    Future<void> request() async {
+      try {
+        await androidPlugin.requestNotificationsPermission();
+      } catch (e) {
+        AppLogger.log('Android notification permission deferred: $e');
+      }
+    }
+
+    // AndroidFlutterLocalNotificationsPlugin needs an attached Activity.
+    // init() can run before Flutter has rendered the first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => request());
+  }
+
+  /// Met à jour la notification de progression du téléchargement.
+  Future<void> showDownloadProgress(int received, int total) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    final pct = total > 0 ? ((received / total) * 100).round() : 0;
+    final details = AndroidNotificationDetails(
+      _kUpdateChannelId,
+      _kUpdateChannelName,
+      importance: Importance.low,
+      priority: Priority.low,
+      showProgress: true,
+      maxProgress: 100,
+      progress: pct,
+      onlyAlertOnce: true,
+      ongoing: true,
+      playSound: false,
+      enableVibration: false,
+    );
+    try {
+      await _plugin.show(
+        _kProgressNotifId,
+        'Téléchargement Watchtower…',
+        '$pct %',
+        NotificationDetails(android: details),
+      );
+    } catch (_) {}
+  }
+}
+
+@pragma('vm:entry-point')
+void _handleBackgroundAction(NotificationResponse response) {
+  WatchtowerNotificationService.instance._handleAction(response);
+}

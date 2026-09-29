@@ -1,0 +1,5 @@
+modules = ["python-base-3.13", "nodejs-24"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["flutter"]

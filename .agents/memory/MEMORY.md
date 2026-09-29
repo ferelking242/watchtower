@@ -1,0 +1,9 @@
+- [Smart Library boundaries](smart-library-scan-boundaries.md) — keep Watch video discovery and Manga chapter/archive discovery as separate scan policies.
+- [Flutter build toolchain](flutter-build-toolchain.md) — le workspace local peut être en Dart 3.8; ce dépôt et `just_zstd` exigent Dart 3.11+, donc valider avec le Flutter CI 3.47.2.
+- [Flutter toolchain verification](flutter-toolchain.md) — use the repository’s Flutter 3.47.2 workflow when the local SDK is below the project minimum.
+- [Compatibilité Flutter](flutter-sdk-compatibility.md) — la validation locale exige Dart 3.11 ou plus récent.
+- [Push GitHub](github-push-auth.md) — l’API accepte Bearer, mais Git push exige Basic avec x-access-token et le PAT.
+- [Browse source boundary](browse-source-boundary.md) — Browse doit lire les sources installées persistées; les fetchs réseau restent explicites.
+- [Component gallery navigation](component-gallery-navigation.md) — la galerie est une destination interne de Library, pas une URL publique GitHub Pages.
+- [GitHub Actions availability](github-actions-availability.md) — les workflows de validation peuvent être désactivés côté dépôt; le push seul ne garantit pas un run CI.
+- [Component gallery fidelity](component-gallery-fidelity.md) — gallery entries must render production widgets and production section renderers, never visual duplicates.
