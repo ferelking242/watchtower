@@ -39,9 +39,7 @@ class MediaHomeScreen extends ConsumerWidget {
           error: error,
           onRetry: () => ref.invalidate(tmdbHomeProvider),
         ),
-        data: (data) => isMovies
-            ? MainMoviesDisplay(home: data)
-            : MainSeriesDisplay(home: data),
+        data: (data) => MainMediaDisplay(home: data, isTv: !isMovies),
       ),
     );
   }

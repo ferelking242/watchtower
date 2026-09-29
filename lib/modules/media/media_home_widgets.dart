@@ -9,7 +9,190 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'app_ui_components.dart';
 import 'content_cards.dart';
+import 'media_content_sections.dart';
 import 'tmdb_genres_screen.dart';
+
+/// One feed composition for both Hub destinations. Only the selected data
+/// lists and the catalogue paths change between films and series.
+class MainMediaDisplay extends StatefulWidget {
+  const MainMediaDisplay({
+    required this.home,
+    required this.isTv,
+    this.onSearchPressed,
+    this.onBookmarksPressed,
+    super.key,
+  });
+
+  final TmdbHome home;
+  final bool isTv;
+  final VoidCallback? onSearchPressed;
+  final VoidCallback? onBookmarksPressed;
+
+  @override
+  State<MainMediaDisplay> createState() => _MainMediaDisplayState();
+}
+
+class _MainMediaDisplayState extends State<MainMediaDisplay> {
+  final _feedController = ScrollController();
+  bool _showCompactHeader = false;
+
+  List<TmdbMedia> get _trending =>
+      widget.isTv ? widget.home.trendingTv : widget.home.trendingMovies;
+  List<TmdbMedia> get _popular =>
+      widget.isTv ? widget.home.popularTv : widget.home.popularMovies;
+  List<TmdbMedia> get _topRated =>
+      widget.isTv ? widget.home.topRatedTv : widget.home.topRatedMovies;
+  List<TmdbMedia> get _firstLatest =>
+      widget.isTv ? widget.home.airingTodayTv : widget.home.nowPlayingMovies;
+  List<TmdbMedia> get _secondLatest =>
+      widget.isTv ? widget.home.onTheAirTv : widget.home.upcomingMovies;
+
+  @override
+  void initState() {
+    super.initState();
+    _feedController.addListener(_updateCompactHeader);
+  }
+
+  void _updateCompactHeader() {
+    if (!_feedController.hasClients || !mounted) return;
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
+    );
+    final shouldShow = _feedController.offset >=
+        heroHeight - MediaQuery.paddingOf(context).top;
+    if (shouldShow != _showCompactHeader) {
+      setState(() => _showCompactHeader = shouldShow);
+    }
+  }
+
+  @override
+  void dispose() {
+    _feedController
+      ..removeListener(_updateCompactHeader)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
+    final library =
+        widget.onBookmarksPressed ?? () => context.push('/Library');
+    final liveTv = () => context.push('/liveTv');
+    final kind = widget.isTv ? 'Series' : 'Movies';
+    final latestPath = widget.isTv ? null : '/movie/now_playing';
+    final upcomingPath = widget.isTv ? null : '/movie/upcoming';
+
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: () async {},
+          child: CustomScrollView(
+            controller: _feedController,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: DiscoverMovies(
+                  movies: _trending,
+                  onSearchPressed: search,
+                  onLiveTVPressed: liveTv,
+                  onLibraryPressed: library,
+                  onMoviePressed: (media) =>
+                      context.push('/flixMediaDetail', extra: media),
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildListDelegate.fixed([
+                  ScrollingMovies(
+                    title: 'Popular',
+                    items: _popular,
+                    discoverPath: widget.isTv ? '/tv/popular' : '/movie/popular',
+                    isTv: widget.isTv,
+                  ),
+                  ScrollingMovies(
+                    title: 'Trending this week',
+                    items: _trending,
+                    discoverPath: widget.isTv
+                        ? '/trending/tv/week'
+                        : '/trending/movie/week',
+                    isTv: widget.isTv,
+                  ),
+                  ScrollingMovies(
+                    title: 'Top rated',
+                    items: _topRated,
+                    discoverPath:
+                        widget.isTv ? '/tv/top_rated' : '/movie/top_rated',
+                    isTv: widget.isTv,
+                  ),
+                  RankedMovies(
+                    title: 'Top 10 cette semaine',
+                    items: _trending.take(10).toList(growable: false),
+                  ),
+                  ScrollingLandscapeMovies(
+                    title: widget.isTv ? 'Airing today' : 'Now playing',
+                    items: _firstLatest,
+                    discoverPath: latestPath,
+                    isTv: widget.isTv,
+                  ),
+                  ScrollingLandscapeMovies(
+                    title: widget.isTv ? 'On the air' : 'Upcoming',
+                    items: _secondLatest,
+                    discoverPath: upcomingPath,
+                    isTv: widget.isTv,
+                  ),
+                  FeaturedMovieRail(
+                    title: 'À découvrir',
+                    items: [..._popular, ..._trending],
+                  ),
+                  FullWidthMovieBanners(
+                    title: widget.isTv ? 'À voir bientôt' : 'À voir ce soir',
+                    items: [..._firstLatest, ..._secondLatest],
+                  ),
+                  GenreListGrid(
+                    isTv: widget.isTv,
+                    imageSource: [..._trending, ..._popular, ..._topRated],
+                  ),
+                  MoviesFromWatchProviders(isTv: widget.isTv),
+                  const SizedBox(height: 112),
+                ]),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            ignoring: !_showCompactHeader,
+            child: AnimatedSlide(
+              offset: _showCompactHeader ? Offset.zero : const Offset(0, -1),
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              child: AnimatedOpacity(
+                opacity: _showCompactHeader ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: AppFeedOverlayHeader(
+                  title: kind,
+                  onSearchPressed: search,
+                  actionLabel: 'Live TV',
+                  actionIcon: Broken.radio,
+                  onActionPressed: liveTv,
+                  utilityIcon: Broken.bookmark,
+                  utilityTooltip: 'Library',
+                  onUtilityPressed: library,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 /// Shared media home composition for the Movies and Series Hub pages.
 class MainMoviesDisplay extends StatefulWidget {
@@ -40,9 +223,9 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
 
   void _updateCompactHeader() {
     if (!mounted) return;
-    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
-      410.0,
-      500.0,
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
     );
     final threshold = heroHeight - MediaQuery.paddingOf(context).top;
     final shouldShow = _feedController.offset >= threshold;
@@ -214,9 +397,9 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
 
   void _updateCompactHeader() {
     if (!mounted) return;
-    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
-      410.0,
-      500.0,
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
     );
     final shouldShow =
         _feedController.offset >=
@@ -270,24 +453,29 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                   title: 'Popular',
                   items: widget.home.popularTv,
                   discoverPath: '/tv/popular',
+                  isTv: true,
                 ),
                 ScrollingMovies(
                   title: 'Trending this week',
                   items: widget.home.trendingTv,
                   discoverPath: '/trending/tv/week',
+                  isTv: true,
                 ),
                 ScrollingMovies(
                   title: 'Top rated',
                   items: widget.home.topRatedTv,
                   discoverPath: '/tv/top_rated',
+                  isTv: true,
                 ),
                 ScrollingLandscapeMovies(
                   title: 'Airing today',
                   items: widget.home.airingTodayTv,
+                  isTv: true,
                 ),
                 ScrollingLandscapeMovies(
                   title: 'On the air',
                   items: widget.home.onTheAirTv,
+                  isTv: true,
                 ),
                 FullWidthMovieBanners(
                   title: 'À voir bientôt',
@@ -361,9 +549,9 @@ class DiscoverMovies extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
-      410.0,
-      500.0,
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
     );
     final heroMovies = movies.take(10).toList(growable: false);
     return SizedBox(
@@ -445,13 +633,13 @@ class DiscoverMovies extends StatelessWidget {
                     Positioned(
                       left: 24,
                       right: 24,
-                      bottom: 28,
+                      bottom: 78,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             movie.displayTitle,
-                            maxLines: 2,
+                            maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
@@ -486,7 +674,7 @@ class DiscoverMovies extends StatelessWidget {
                             const SizedBox(height: 10),
                             Text(
                               movie.overview!,
-                              maxLines: 2,
+                              maxLines: 4,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white70,
@@ -498,9 +686,14 @@ class DiscoverMovies extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Center(
-                      child: _HeroWatchButton(
-                        onPressed: () => onMoviePressed(movie),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 18,
+                      child: Center(
+                        child: _HeroWatchButton(
+                          onPressed: () => onMoviePressed(movie),
+                        ),
                       ),
                     ),
                   ],
@@ -648,12 +841,14 @@ class ScrollingMovies extends StatelessWidget {
     required this.title,
     required this.items,
     required this.discoverPath,
+    this.isTv = false,
     super.key,
   });
 
   final String title;
   final List<TmdbMedia> items;
   final String discoverPath;
+  final bool isTv;
 
   @override
   Widget build(BuildContext context) {
@@ -671,6 +866,7 @@ class ScrollingMovies extends StatelessWidget {
                 title: title,
                 path: discoverPath,
                 initialItems: items,
+                isTv: isTv,
               ),
             ),
           ),
@@ -715,12 +911,14 @@ class ScrollingLandscapeMovies extends StatelessWidget {
     required this.title,
     required this.items,
     this.discoverPath,
+    this.isTv = false,
     super.key,
   });
 
   final String title;
   final List<TmdbMedia> items;
   final String? discoverPath;
+  final bool isTv;
 
   @override
   Widget build(BuildContext context) {
@@ -740,6 +938,7 @@ class ScrollingLandscapeMovies extends StatelessWidget {
                       title: title,
                       path: discoverPath!,
                       initialItems: items,
+                      isTv: isTv,
                     ),
                   ),
                 ),
@@ -1057,7 +1256,9 @@ class _FullWidthMovieBanner extends StatelessWidget {
 }
 
 class MoviesFromWatchProviders extends StatelessWidget {
-  const MoviesFromWatchProviders({super.key});
+  const MoviesFromWatchProviders({this.isTv = false, super.key});
+
+  final bool isTv;
 
   @override
   Widget build(BuildContext context) {
@@ -1095,7 +1296,8 @@ class MoviesFromWatchProviders extends StatelessWidget {
                         builder: (_) => TmdbMoviesListScreen(
                           title: service.name,
                           path:
-                              '/discover/movie?watch_region=US&with_watch_providers=${service.id}&with_watch_monetization_types=flatrate',
+                              '/discover/${isTv ? 'tv' : 'movie'}?watch_region=US&with_watch_providers=${service.id}&with_watch_monetization_types=flatrate',
+                          isTv: isTv,
                         ),
                       ),
                     ),

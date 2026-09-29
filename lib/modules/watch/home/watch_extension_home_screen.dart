@@ -13,6 +13,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/media_content_sections.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -125,9 +126,9 @@ class _WatchExtensionHomeScreenState
 
   void _updateCompactHeader() {
     if (!_feedController.hasClients) return;
-    final heroHeight = (MediaQuery.sizeOf(context).height * .48).clamp(
-      410.0,
-      500.0,
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
     );
     final shouldShow =
         _feedController.offset >=
@@ -403,10 +404,13 @@ class _ExtensionFeed extends StatelessWidget {
                 if (!hasDeclaredSections)
                   SliverToBoxAdapter(
                     child: (popular.isNotEmpty || latest.isNotEmpty)
-                        ? _ExtensionHero(
-                            source: source,
-                            items: popular.isNotEmpty ? popular : latest,
-                            onOpen: onOpen,
+                        ? MediaHeroCarousel(
+                            items: (popular.isNotEmpty ? popular : latest)
+                                .map(ContentItem.fromManga)
+                                .toList(growable: false),
+                            onOpen: (index) => onOpen(
+                              (popular.isNotEmpty ? popular : latest)[index],
+                            ),
                           )
                         : const SizedBox.shrink(),
                   ),
@@ -424,10 +428,12 @@ class _ExtensionFeed extends StatelessWidget {
                               )
                               .toList(growable: false)
                         : [
-                            _ExtensionPosterRail(
+                            MediaPosterRail(
                               title: 'Popular',
-                              items: popular,
-                              onOpen: onOpen,
+                              items: popular
+                                  .map(ContentItem.fromManga)
+                                  .toList(growable: false),
+                              onOpen: (index) => onOpen(popular[index]),
                               onSeeAll: () => _openSection(
                                 context,
                                 source: source,
@@ -436,10 +442,12 @@ class _ExtensionFeed extends StatelessWidget {
                               ),
                             ),
                             if (latest.isNotEmpty)
-                              _ExtensionPosterRail(
+                                MediaPosterRail(
                                 title: 'Latest',
-                                items: latest,
-                                onOpen: onOpen,
+                                  items: latest
+                                      .map(ContentItem.fromManga)
+                                      .toList(growable: false),
+                                  onOpen: (index) => onOpen(latest[index]),
                                 onSeeAll: () => _openSection(
                                   context,
                                   source: source,
@@ -731,105 +739,65 @@ class ExtensionLayoutPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final contentItems = items
+        .map(ContentItem.fromManga)
+        .toList(growable: false);
     return switch (component) {
-      'spotlight' => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppSectionHeader(
-            title: title,
-            actionLabel: onSeeAll == null ? null : 'All >',
-            onAction: onSeeAll,
-          ),
-          _ExtensionHero(source: source, items: items, onOpen: onOpen),
-        ],
+      'spotlight' => MediaHeroCarousel(
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
       ),
-      'banner' || 'hero' => _ExtensionBannerRail(
+      'banner' || 'hero' => MediaBannerRail(
         title: title,
-        items: items,
-        onOpen: onOpen,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
       ),
-      'ranked' || 'newHot' => _ExtensionRankedRail(
+      'ranked' || 'newHot' || 'rankedWide' => MediaRankedRail(
         title: title,
-        items: items.take(10).toList(growable: false),
-        onOpen: onOpen,
+        items: contentItems.take(20).toList(growable: false),
+        onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
       ),
-      'rankedWide' => _ExtensionRankedWideRail(
+      'showcase' ||
+      'creatorRow' ||
+      'landscapeStacked' ||
+      'backdropWide' ||
+      'studioExplorer' ||
+      'universeExplorer' ||
+      'collectionTimeline' => MediaLandscapeRail(
         title: title,
-        items: items.take(20).toList(growable: false),
-        onOpen: onOpen,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
       ),
-      'showcase' => _ExtensionShowcaseRail(
-        title: title,
-        items: items.take(8).toList(growable: false),
-        onOpen: onOpen,
-        onSeeAll: onSeeAll,
-      ),
-      'creatorRow' => _ExtensionCreatorRail(
-        title: title,
-        items: items,
-        onOpen: onOpen,
-        onSeeAll: onSeeAll,
-      ),
-      'grid' || 'catalogue' || 'discoverGrid' => _ExtensionGridSection(
-        title: title,
-        items: items,
-        columns: columns,
-        rows: rows,
-        cardStyle: cardStyle,
-        gridOrder: gridOrder,
-        scrollDirection: scrollDirection,
-        onOpen: onOpen,
-        onSeeAll: onSeeAll,
-      ),
-      'category' || 'categoryPills' => _ExtensionGenreGrid(
-        title: title,
-        items: items,
-        onOpen: onOpen,
-        onSeeAll: onSeeAll,
-      ),
-      'collectionCards' || 'playlistCarousel' => _ExtensionCollectionCardRail(
-        title: title,
-        items: items,
-        onOpen: onOpen,
-        onSeeAll: onSeeAll,
-      ),
-      'landscapeStacked' || 'backdropWide' => _ExtensionLandscapeRail(
-        title: title,
-        items: items,
-        width: 280,
-        height: 204,
-        onOpen: onOpen,
-        onSeeAll: onSeeAll,
-      ),
+      'grid' ||
+      'catalogue' ||
+      'discoverGrid' ||
+      'category' ||
+      'categoryPills' ||
       'doubleFeature' ||
       'editorialSplit' ||
       'masonry' ||
-      'feed' => _ExtensionGridSection(
+      'feed' => MediaGridSection(
         title: title,
-        items: items,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
         columns: columns,
         rows: rows,
-        cardStyle: cardStyle,
-        gridOrder: gridOrder,
         scrollDirection: scrollDirection,
-        onOpen: onOpen,
         onSeeAll: onSeeAll,
       ),
-      'studioExplorer' ||
-      'universeExplorer' ||
-      'collectionTimeline' => _ExtensionStudioRail(
+      'collectionCards' || 'playlistCarousel' => MediaPosterRail(
         title: title,
-        items: items,
-        onOpen: onOpen,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
       ),
-      _ => _ExtensionPosterRail(
+      _ => MediaPosterRail(
         title: title,
-        items: items,
-        onOpen: onOpen,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
       ),
     };

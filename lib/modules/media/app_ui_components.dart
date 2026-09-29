@@ -146,28 +146,88 @@ class _AppCrossfadeCarouselState extends State<AppCrossfadeCarousel> {
         _advance(velocity < 0 ? 1 : -1);
         _restartTimer();
       },
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 850),
-        reverseDuration: const Duration(milliseconds: 650),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        layoutBuilder: (currentChild, previousChildren) => Stack(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
           fit: StackFit.expand,
           children: [
-            ...previousChildren,
-            if (currentChild != null) currentChild,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 850),
+              reverseDuration: const Duration(milliseconds: 650),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  ...previousChildren,
+                  if (currentChild != null) currentChild,
+                ],
+              ),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 1.025, end: 1).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: KeyedSubtree(
+                key: ValueKey(_index),
+                child: widget.itemBuilder(context, _index),
+              ),
+            ),
+            if (widget.itemCount > 1)
+              Positioned(
+                right: 18,
+                bottom: 16,
+                child: IgnorePointer(
+                  child: _CarouselDots(
+                    count: widget.itemCount,
+                    index: _index,
+                  ),
+                ),
+              ),
           ],
         ),
-        transitionBuilder: (child, animation) => FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 1.025, end: 1).animate(animation),
-            child: child,
-          ),
-        ),
-        child: KeyedSubtree(
-          key: ValueKey(_index),
-          child: widget.itemBuilder(context, _index),
+      ),
+    );
+  }
+}
+
+class _CarouselDots extends StatelessWidget {
+  const _CarouselDots({required this.count, required this.index});
+
+  final int count;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleCount = count.clamp(1, 7).toInt();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: .18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var dot = 0; dot < visibleCount; dot++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                margin: EdgeInsets.only(right: dot == visibleCount - 1 ? 0 : 5),
+                width: dot == index % visibleCount ? 16 : 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: dot == index % visibleCount
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: .42),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+          ],
         ),
       ),
     );
