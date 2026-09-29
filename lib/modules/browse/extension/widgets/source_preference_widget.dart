@@ -4,6 +4,8 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';
 import 'package:watchtower/modules/manga/detail/widgets/chapter_filter_list_tile_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/get_source_preference.dart';
+import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -56,6 +58,11 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
                             pref.value = value;
                           });
                           setPreferenceSetting(preference, widget.source);
+                          if (preference.key == extensionKeepSessionKey &&
+                              value == false &&
+                              (widget.source.baseUrl?.isNotEmpty ?? false)) {
+                            MClient.deleteAllCookies(widget.source.baseUrl!);
+                          }
                         },
                         dialogTitle: pref.dialogTitle ?? "",
                         dialogMessage: pref.dialogMessage ?? "",

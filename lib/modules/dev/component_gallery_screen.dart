@@ -3477,6 +3477,9 @@ double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.historyGrid => 220,
   _PreviewKind.empty => 174,
   _PreviewKind.error => 174,
+  _PreviewKind.libraryCard => 190,
+  _PreviewKind.librarySection => 220,
+  _PreviewKind.swipeSection => 520,
 };
 
 double _previewWidth(_PreviewKind kind) => switch (kind) {
@@ -3514,4 +3517,7 @@ double _previewWidth(_PreviewKind kind) => switch (kind) {
   _PreviewKind.historyGrid => 300,
   _PreviewKind.empty => 300,
   _PreviewKind.error => 300,
+  _PreviewKind.libraryCard => 230,
+  _PreviewKind.librarySection => 340,
+  _PreviewKind.swipeSection => 340,
 };

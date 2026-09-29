@@ -161,6 +161,67 @@ class Source {
 
   static const _metadataMarker = '__watchtower_metadata__=';
 
+  Map<String, dynamic> _metadataValues() {
+    final value = additionalParams;
+    if (value == null) return <String, dynamic>{};
+    final match = RegExp(
+      r'(?:^|\n)__watchtower_metadata__=([A-Za-z0-9_-]+)',
+    ).firstMatch(value);
+    if (match == null) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(match.group(1)!))),
+      );
+      return decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  /// Languages supported by the extension's catalogue entry.
+  ///
+  /// The index uses `langs`, while the persisted Source model predates that
+  /// field. Store it in the existing metadata envelope so no Isar migration
+  /// is needed.
+  List<String> get supportedLanguages {
+    final values = _metadataValues()['languages'];
+    if (values is! List) return const [];
+    return values
+        .whereType<String>()
+        .map((value) => value.trim().toLowerCase())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  void setSupportedLanguages(Iterable<String>? values) {
+    final normalized = (values ?? const <String>[])
+        .map((value) => value.trim().toLowerCase())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final raw = (additionalParams ?? '')
+        .split('\n$_metadataMarker')
+        .first
+        .trimRight();
+    final metadata = _metadataValues();
+    if (normalized.isEmpty) {
+      metadata.remove('languages');
+    } else {
+      metadata['languages'] = normalized;
+    }
+    if (metadata.isEmpty) {
+      additionalParams = raw;
+      return;
+    }
+    final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
+    additionalParams = raw.isEmpty
+        ? '$_metadataMarker$encoded'
+        : '$raw\n$_metadataMarker$encoded';
+  }
+
   /// Rehydrates marketplace metadata after an Isar read.
   ///
   /// The extension runtime only relies on the existing free-form
@@ -203,6 +264,7 @@ class Source {
     final metadata = <String, dynamic>{
       if (subCategories != null) 'subCategories': subCategories,
       if (contentSubtype != null) 'contentSubtype': contentSubtype,
+      if (supportedLanguages.isNotEmpty) 'languages': supportedLanguages,
       if (uiLayout != null) 'uiLayout': uiLayout,
       if (uiLayoutVersion != null) 'uiLayoutVersion': uiLayoutVersion,
       if (pendingUiLayoutVersion != null)
@@ -250,6 +312,10 @@ class Source {
     version = json['version'];
     versionLast = json['versionLast'];
     additionalParams = json['additionalParams'] ?? "";
+    final languages = json['langs'];
+    if (languages is List) {
+      setSupportedLanguages(languages.whereType<String>());
+    }
     isObsolete = json['isObsolete'];
     isLocal = json['isLocal'];
     final sourceCodeLanguageIndex = json['sourceCodeLanguage'] is num

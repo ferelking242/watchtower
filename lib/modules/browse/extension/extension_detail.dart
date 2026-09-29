@@ -21,6 +21,7 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/fetch_sources_list.dart'
@@ -60,9 +61,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     try {
       if (source.sourceCodeLanguage == SourceCodeLanguage.mihon &&
           source.preferenceList != null) {
-        return (jsonDecode(source.preferenceList!) as List)
+        final preferences = (jsonDecode(source.preferenceList!) as List)
             .map((e) => SourcePreference.fromJson(e))
             .toList();
+        return withWatchtowerDefaults(source, preferences);
       }
       return getSourcePreference(source: source)
           .map((e) => getSourcePreferenceEntry(e.key!, source.id!))
@@ -669,18 +671,18 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  child: Icon(Icons.language_rounded, color: cs.onSurface),
+                  child: Icon(Broken.global, color: cs.onSurface),
                 ),
               ),
               // Supprimer l'extension
               IconButton(
                 tooltip: 'Désinstaller l\'extension',
-                icon: Icon(Icons.delete_outline_rounded, color: cs.error),
+                icon: Icon(Broken.trash, color: cs.error),
                 onPressed: _confirmUninstall,
               ),
               // Menu 3 points — actions avancées
               PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: cs.onSurface),
+                icon: Icon(Broken.more, color: cs.onSurface),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 onSelected: (value) async {

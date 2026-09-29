@@ -1344,6 +1344,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   @override
   void initState() {
     super.initState();
+    unawaited(MClient.restoreCookiesToWebView(widget.url));
     _currentFraction = widget.initialFraction;
     _animCtrl = AnimationController(
       vsync: this,

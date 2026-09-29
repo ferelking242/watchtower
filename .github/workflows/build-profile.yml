@@ -52,9 +52,8 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-profile-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          key: gradle-profile-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'android/gradle.properties') }}
           restore-keys: |
-            gradle-profile-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
             gradle-profile-${{ runner.os }}-
 
       # Cache Rust — rust_lib_watchtower compile aarch64-linux-android (~150-200s sans cache)

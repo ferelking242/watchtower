@@ -8,6 +8,7 @@ import 'package:watchtower/modules/more/settings/browse/providers/browse_state_p
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/get_source_preference.dart';
 import 'package:watchtower/services/youtube_watch_resolver.dart';
 import 'package:watchtower/services/torrent_server.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -66,8 +67,18 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
             v['originalUrl'] as String? ?? v['url'] as String? ?? '',
             headers: (v['headers'] as Map?)?.cast<String, String>(),
           )).toList();
+          final source = getSource(
+            epManga.lang!,
+            epManga.source!,
+            sourceId,
+          );
           keepAlive.close();
-          return (videos, false, <String>[], null);
+          return (
+            _applySourcePreferences(source, videos),
+            false,
+            <String>[],
+            null,
+          );
         }
       }
     } catch (e) {
@@ -327,6 +338,7 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       }
     }
 
+    videos = _applySourcePreferences(source, videos);
     result = (videos, false, infoHashes, mpvDirectory);
     keepAlive.close();
     return result;
@@ -344,4 +356,97 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
     // a recoverable "no playable source" state.
     return (<Video>[], false, <String>[], null);
   }
+}
+
+List<Video> _applySourcePreferences(Source? source, List<Video> videos) {
+  if (source == null || videos.length < 2 || source.id == null) return videos;
+
+  try {
+    final qualityPreference =
+        getSourcePreferenceEntry(extensionDefaultQualityKey, source.id!);
+    final quality = qualityPreference.listPreference;
+    final fallbackPreference =
+        getSourcePreferenceEntry(extensionQualityFallbackKey, source.id!);
+    final fallback = fallbackPreference.listPreference;
+    final desired = quality == null ||
+            quality.valueIndex == null ||
+            quality.entryValues == null ||
+            quality.valueIndex! < 0 ||
+            quality.valueIndex! >= quality.entryValues!.length
+        ? null
+        : quality.entryValues![quality.valueIndex!].trim();
+    final fallbackMode = fallback == null ||
+            fallback.valueIndex == null ||
+            fallback.entryValues == null ||
+            fallback.valueIndex! < 0 ||
+            fallback.valueIndex! >= fallback.entryValues!.length
+        ? 'lower'
+        : fallback.entryValues![fallback.valueIndex!];
+
+    final languagePreference =
+        getSourcePreferenceEntry(extensionLanguagesKey, source.id!);
+    final selectedLanguages =
+        languagePreference.multiSelectListPreference?.values
+            ?.map((value) => value.toLowerCase())
+            .where((value) => value.isNotEmpty && value != 'all')
+            .toSet() ??
+        const <String>{};
+    var ordered = videos;
+    if (selectedLanguages.isNotEmpty) {
+      final matches = videos
+          .where(
+            (video) => selectedLanguages.any(
+              (language) => video.quality.toLowerCase().contains(language),
+            ),
+          )
+          .toList();
+      if (matches.isNotEmpty) {
+        ordered = [...matches, ...videos.where((video) => !matches.contains(video))];
+      }
+    }
+
+    if (desired == null || desired.isEmpty || desired.toLowerCase() == 'auto') {
+      return ordered;
+    }
+    final exact = ordered.firstWhere(
+      (video) => _sameQuality(video.quality, desired),
+      orElse: () => ordered.first,
+    );
+    if (_sameQuality(exact.quality, desired)) {
+      return [exact, ...ordered.where((video) => !identical(video, exact))];
+    }
+
+    final desiredNumber = _qualityNumber(desired);
+    if (desiredNumber == null) return ordered;
+    final numbered = ordered
+        .map((video) => (video: video, number: _qualityNumber(video.quality)))
+        .where((entry) => entry.number != null)
+        .toList();
+    if (numbered.isEmpty) return ordered;
+    final candidates = fallbackMode == 'higher'
+        ? numbered.where((entry) => entry.number! >= desiredNumber).toList()
+        : numbered.where((entry) => entry.number! <= desiredNumber).toList();
+    candidates.sort(
+      (a, b) => fallbackMode == 'higher'
+          ? a.number!.compareTo(b.number!)
+          : b.number!.compareTo(a.number!),
+    );
+    final selected = candidates.isNotEmpty ? candidates.first.video : numbered.first.video;
+    return [selected, ...ordered.where((video) => !identical(video, selected))];
+  } catch (_) {
+    // Preferences must never prevent an extension from returning streams.
+    return videos;
+  }
+}
+
+bool _sameQuality(String actual, String desired) {
+  if (actual.trim().toLowerCase() == desired.trim().toLowerCase()) return true;
+  final actualNumber = _qualityNumber(actual);
+  final desiredNumber = _qualityNumber(desired);
+  return actualNumber != null && actualNumber == desiredNumber;
+}
+
+int? _qualityNumber(String value) {
+  final match = RegExp(r'(\d{3,4})').firstMatch(value);
+  return match == null ? null : int.tryParse(match.group(1)!);
 }

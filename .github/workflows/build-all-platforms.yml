@@ -66,18 +66,17 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
-      # Gradle cache keyed on gradle files + pubspec + all Dart sources.
-      # Including lib/** ensures any Dart change invalidates the cache,
-      # making it safe to enable Gradle build caching (caching=true below).
+      # Gradle caches are dependency/build-system state, not Dart source
+      # output. Flutter's own build directory is invalidated by the source
+      # graph; keeping lib/** out here preserves Gradle hits across Dart edits.
       - name: Cache Gradle
         uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'android/gradle.properties') }}
           restore-keys: |
-            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
             gradle-${{ runner.os }}-
 
       - name: Cache Android SDK extras (NDK, CMake)
@@ -231,9 +230,8 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'lib/**/*.dart') }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'android/gradle.properties') }}
           restore-keys: |
-            gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock') }}
             gradle-${{ runner.os }}-
 
       - name: Cache Android SDK extras (NDK, CMake)

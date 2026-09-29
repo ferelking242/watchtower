@@ -134,6 +134,40 @@ class MClient {
     return {HttpHeaders.cookieHeader: cookies};
   }
 
+  /// Copies the persisted extension session into the native WebView cookie
+  /// store before navigation. The HTTP client and WebView use different
+  /// cookie stores on mobile, so persistence in Isar alone is not enough.
+  static Future<void> restoreCookiesToWebView(String url) async {
+    if (url.isEmpty || kIsWeb) return;
+    final cookieHeader = getCookiesPref(url)[HttpHeaders.cookieHeader];
+    if (cookieHeader == null || cookieHeader.trim().isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return;
+    final manager = flutter_inappwebview.CookieManager.instance(
+      webViewEnvironment: webViewEnvironment,
+    );
+    for (final raw in cookieHeader.split(';')) {
+      final separator = raw.indexOf('=');
+      if (separator <= 0) continue;
+      final name = raw.substring(0, separator).trim();
+      final value = raw.substring(separator + 1).trim();
+      if (name.isEmpty) continue;
+      try {
+        await manager.setCookie(
+          url: flutter_inappwebview.WebUri(url),
+          name: name,
+          value: value,
+          domain: uri.host,
+          path: '/',
+          isSecure: uri.scheme == 'https',
+        );
+      } catch (_) {
+        // A malformed individual cookie must not prevent the WebView from
+        // opening with the remaining session state.
+      }
+    }
+  }
+
   static Future<void> setCookie(
     String url,
     String ua,
@@ -198,11 +232,26 @@ class MClient {
 
   static Future<void> deleteAllCookies(String url) async {
     final settings = await isar.settings.get(kSettingsId);
-    if (settings == null) return;
-    final oldCookies = settings.cookiesList ?? [];
     final host = Uri.parse(url).host;
-    settings.cookiesList = removeCookiesForHost(oldCookies, host);
-    await isar.writeTxn(() => isar.settings.put(settings));
+    if (settings != null) {
+      final oldCookies = settings.cookiesList ?? [];
+      settings.cookiesList = removeCookiesForHost(oldCookies, host);
+      await isar.writeTxn(() => isar.settings.put(settings));
+    }
+    if (!kIsWeb) {
+      try {
+        await flutter_inappwebview.CookieManager.instance(
+          webViewEnvironment: webViewEnvironment,
+        ).deleteCookies(
+          url: flutter_inappwebview.WebUri(url),
+          domain: host,
+          path: '/',
+        );
+      } catch (_) {
+        // Cookie persistence is best effort on platforms without a native
+        // WebView cookie store.
+      }
+    }
   }
 }
 
