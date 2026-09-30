@@ -4,8 +4,8 @@ import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -43,13 +43,19 @@ class WatchtowerNotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  bool _installingExtensionsFromNotification = false;
   Completer<void>? _initCompleter;
+  Future<String?> Function()? _extensionUpdateInstaller;
   String? _pendingDownloadUrl;
   String? _pendingReleaseUrl;
   String? _pendingInstallPath;
   final Map<int, String> _pendingMediaPaths = {};
 
   bool get _supported => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  void registerExtensionUpdateInstaller(Future<String?> Function() installer) {
+    _extensionUpdateInstaller = installer;
+  }
 
   Future<void> init() async {
     if (_initialized || !_supported) return;
@@ -123,8 +129,14 @@ class WatchtowerNotificationService {
             ?.requestPermissions(alert: true, badge: true, sound: true);
       }
 
+      final launchDetails = await _plugin.getNotificationAppLaunchDetails();
       _initialized = true;
       _initCompleter!.complete();
+      final launchResponse = launchDetails?.notificationResponse;
+      if (launchDetails?.didNotificationLaunchApp == true &&
+          launchResponse != null) {
+        _handleAction(launchResponse);
+      }
     } catch (e) {
       AppLogger.log(
         'WatchtowerNotificationService init failed: $e',
@@ -144,13 +156,12 @@ class WatchtowerNotificationService {
     if ((actionId == null || actionId == _kActionInstall) &&
         _pendingInstallPath != null) {
       unawaited(_installPending());
-    } else if (isExtensionUpdate &&
-        (actionId == null || actionId == _kActionInstallExtensions)) {
+    } else if (actionId == _kActionInstallExtensions) {
+      unawaited(_installExtensionsFromNotification());
+    } else if (isExtensionUpdate && actionId == null) {
       unawaited(_openExtensionNotifications());
     } else if (actionId == null || actionId == _kActionPlay) {
       unawaited(_openMediaNotification(response));
-    } else if (actionId == _kActionInstallExtensions) {
-      unawaited(_openExtensionNotifications());
     } else if (actionId == _kActionDownload && _pendingDownloadUrl != null) {
       unawaited(_downloadOrOpen(_pendingDownloadUrl!));
     } else if (actionId == _kActionWhatsNew && _pendingReleaseUrl != null) {
@@ -160,6 +171,49 @@ class WatchtowerNotificationService {
           mode: LaunchMode.externalApplication,
         ),
       );
+    }
+  }
+
+  Future<void> _installExtensionsFromNotification() async {
+    if (_installingExtensionsFromNotification) return;
+    _installingExtensionsFromNotification = true;
+    try {
+      await _performExtensionInstallAction();
+    } finally {
+      _installingExtensionsFromNotification = false;
+    }
+  }
+
+  Future<void> _performExtensionInstallAction() async {
+    final installer = _extensionUpdateInstaller;
+    if (installer == null) {
+      await _openExtensionNotifications();
+      return;
+    }
+
+    String? message;
+    try {
+      message = await installer();
+    } catch (error, stackTrace) {
+      message = 'Installation des extensions impossible.';
+      AppLogger.log(
+        'Notification extension update action failed: $error\n$stackTrace',
+        logLevel: LogLevel.error,
+        tag: LogTag.network,
+      );
+    }
+
+    await _openExtensionNotifications();
+    if (message == null) return;
+    for (var attempt = 0; attempt < 8; attempt++) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
   }
 
@@ -202,7 +256,7 @@ class WatchtowerNotificationService {
         actions: const [
           AndroidNotificationAction(
             _kActionInstallExtensions,
-            'Voir',
+            'Installer',
             showsUserInterface: true,
             cancelNotification: true,
           ),

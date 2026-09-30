@@ -240,7 +240,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text('Mettre à jour'),
+                                  : const Text('Installer'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: Colors.green.shade700,
                                 foregroundColor: Colors.white,

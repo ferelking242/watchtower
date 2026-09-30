@@ -9362,11 +9362,29 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         break;
     }
     list.sort((a, b) {
+      final aNeedsUpdate = _hasUpdate(a);
+      final bNeedsUpdate = _hasUpdate(b);
+      if (aNeedsUpdate != bNeedsUpdate) return aNeedsUpdate ? -1 : 1;
       final rating = _playRating(b).compareTo(_playRating(a));
       if (rating != 0) return rating;
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
     return list;
+  }
+
+  List<_ExtEntry> get _availableUpdates {
+    final updates = widget.entries
+        .where(
+          (entry) =>
+              widget.installed.contains(entry.id) &&
+              _hasUpdate(entry) &&
+              (widget.showNsfw || !entry.isNsfw),
+        )
+        .toList()
+      ..sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+    return updates;
   }
 
   static const _tabLabels = [
@@ -9418,6 +9436,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         .where((entry) => widget.showNsfw || !entry.isNsfw)
         .toList()
       ..sort((a, b) {
+        final aNeedsUpdate = _hasUpdate(a);
+        final bNeedsUpdate = _hasUpdate(b);
+        if (aNeedsUpdate != bNeedsUpdate) return aNeedsUpdate ? -1 : 1;
         final rating = _playRating(b).compareTo(_playRating(a));
         if (rating != 0) return rating;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
@@ -9808,11 +9829,18 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   List<Widget> _buildForYou() {
+    final updates = _availableUpdates;
     final watch = _popularWatch;
     final read = _popularRead;
     final midnightWorld = _midnightWorld;
     final midnightLibrary = _midnightLibrary;
     final widgets = <Widget>[
+      if (updates.isNotEmpty) ...[
+        SliverToBoxAdapter(
+          child: _buildSectionTitle('Mises à jour disponibles'),
+        ),
+        _buildShelf(updates),
+      ],
       SliverToBoxAdapter(child: _buildHero()),
       SliverToBoxAdapter(child: _buildSectionTitle('Popular to Watch')),
       _buildShelf(watch),
@@ -11342,11 +11370,11 @@ class _PlayStoreDetails extends StatelessWidget {
                         const SizedBox(height: 5),
                         Text(
                           hasUpdate
-                              ? 'Installée v$installedVersion · disponible v${entry.version}'
+                              ? 'Mise à jour disponible · v${entry.version}'
                               : 'Installée v$installedVersion',
                           style: TextStyle(
                             color: hasUpdate
-                                ? Colors.orange.shade300
+                                ? _PlayStoreMarketplaceViewState._green
                                 : _PlayStoreMarketplaceViewState._muted,
                             fontSize: 11,
                             fontWeight: hasUpdate

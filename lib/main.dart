@@ -40,6 +40,8 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
+import 'package:watchtower/services/fetch_sources_list.dart'
+    show hasPendingExtensionUpdate, installExtensionUpdate;
 import 'package:watchtower/services/m_extension_server.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
@@ -302,8 +304,8 @@ void main(List<String> args) async {
       // owns the system splash; flutter_native_splash keeps the same visual
       // screen until Flutter has rendered its first frame.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final remaining = const Duration(milliseconds: 600) -
-            splashClock.elapsed;
+        final remaining =
+            const Duration(milliseconds: 600) - splashClock.elapsed;
         Future<void>.delayed(
           remaining.isNegative ? Duration.zero : remaining,
           FlutterNativeSplash.remove,
@@ -416,6 +418,9 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
     // Calling init() here on first launch would trigger the system dialog
     // immediately without user interaction.
     if (!needsOnboarding) {
+      WatchtowerNotificationService.instance.registerExtensionUpdateInstaller(
+        _installPendingExtensionsFromNotification,
+      );
       unawaited(BypassNotificationService.instance.init());
       unawaited(
         WatchtowerNotificationService.instance.init().then((_) {
@@ -429,6 +434,47 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
       );
     }
   }
+}
+
+Future<String?> _installPendingExtensionsFromNotification() async {
+  final sources = await isar.sources.buildQuery<Source>().findAll();
+  final updates =
+      sources
+          .where(
+            (source) =>
+                source.isAdded == true &&
+                source.isLocal != true &&
+                source.sourceCodeLanguage != SourceCodeLanguage.dart &&
+                hasPendingExtensionUpdate(source),
+          )
+          .toList()
+        ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+
+  if (updates.isEmpty) return 'Aucune mise à jour d’extension en attente.';
+
+  var installedCount = 0;
+  final failedNames = <String>[];
+  for (final source in updates) {
+    try {
+      await installExtensionUpdate(source);
+      installedCount++;
+    } catch (error, stackTrace) {
+      failedNames.add(source.name ?? 'Extension');
+      AppLogger.log(
+        'Notification extension update failed for ${source.name}: $error\n$stackTrace',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  if (failedNames.isEmpty) {
+    return '$installedCount extension${installedCount == 1 ? '' : 's'} mise'
+        '${installedCount == 1 ? '' : 's'} à jour.';
+  }
+  return '$installedCount installée${installedCount == 1 ? '' : 's'} · '
+      '${failedNames.length} échec${failedNames.length == 1 ? '' : 's'} : '
+      '${failedNames.join(', ')}';
 }
 
 class MyApp extends ConsumerStatefulWidget {
