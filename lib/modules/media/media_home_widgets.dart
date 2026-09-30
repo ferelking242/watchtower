@@ -147,13 +147,33 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     title: 'À découvrir',
                     items: [..._popular, ..._trending],
                   ),
-                  FullWidthMovieBanners(
-                    title: widget.isTv ? 'À voir bientôt' : 'À voir ce soir',
-                    items: [..._firstLatest, ..._secondLatest],
+                  TmdbFeaturedStack(
+                    title: 'À voir cette semaine',
+                    icon: Icons.event_available_rounded,
+                    color: const Color(0xFF00B894),
+                    items: [
+                      ..._trending,
+                      ..._firstLatest,
+                      ..._secondLatest,
+                    ].take(8).toList(growable: false),
+                    onTap: (media) =>
+                        context.push('/flixMediaDetail', extra: media),
                   ),
+                  DocumentarySections(isTv: widget.isTv),
+                  const RealityAndTalkSections(),
                   GenreListGrid(
                     isTv: widget.isTv,
                     imageSource: [..._trending, ..._popular, ..._topRated],
+                  ),
+                  TmdbTagListSection(
+                    title: 'Catégories',
+                    tags: tmdbCategoryTags,
+                    isTv: widget.isTv,
+                  ),
+                  TmdbTagListSection(
+                    title: 'Histoires',
+                    tags: tmdbPlotKeywords,
+                    isTv: widget.isTv,
                   ),
                   MoviesFromWatchProviders(isTv: widget.isTv),
                   const SizedBox(height: 112),
@@ -315,12 +335,16 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                       ...widget.home.trendingMovies,
                     ],
                   ),
-                  FullWidthMovieBanners(
-                    title: 'À voir ce soir',
+                  TmdbFeaturedStack(
+                    title: 'À voir cette semaine',
+                    icon: Icons.event_available_rounded,
+                    color: const Color(0xFF00B894),
                     items: [
+                      ...widget.home.trendingMovies,
                       ...widget.home.nowPlayingMovies,
                       ...widget.home.upcomingMovies,
-                    ],
+                    ].take(8).toList(growable: false),
+                    onTap: (media) => _openMedia(media),
                   ),
                   GenreListGrid(
                     imageSource: [
@@ -477,13 +501,19 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                   items: widget.home.onTheAirTv,
                   isTv: true,
                 ),
-                FullWidthMovieBanners(
-                  title: 'À voir bientôt',
+                TmdbFeaturedStack(
+                  title: 'À voir cette semaine',
+                  icon: Icons.event_available_rounded,
+                  color: const Color(0xFF00B894),
                   items: [
+                    ...widget.home.trendingTv,
                     ...widget.home.airingTodayTv,
                     ...widget.home.onTheAirTv,
-                  ],
+                  ].take(8).toList(growable: false),
+                  onTap: _openMedia,
                 ),
+                DocumentarySections(isTv: true),
+                const RealityAndTalkSections(),
                 GenreListGrid(
                   isTv: true,
                   imageSource: [
@@ -492,6 +522,17 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                     ...widget.home.topRatedTv,
                   ],
                 ),
+                TmdbTagListSection(
+                  title: 'Catégories',
+                  tags: tmdbCategoryTags,
+                  isTv: true,
+                ),
+                TmdbTagListSection(
+                  title: 'Histoires',
+                  tags: tmdbPlotKeywords,
+                  isTv: true,
+                ),
+                const MoviesFromWatchProviders(isTv: true),
                 const SizedBox(height: 112),
               ]),
             ),
@@ -1077,6 +1118,7 @@ class GenreListGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usedCovers = <String>{};
     return FutureBuilder<List<TmdbGenre>>(
       future: isTv ? fetchTmdbTvGenres() : fetchTmdbMovieGenres(),
       builder: (context, snapshot) {
@@ -1121,17 +1163,28 @@ class GenreListGrid extends StatelessWidget {
                 itemCount: genres.length,
                 itemBuilder: (context, index) {
                   final genre = genres[index];
+                  // Prefer covers matched to the genre, then rotate through
+                  // unused images so no two tiles share the same artwork.
                   final genreImages = imageSource
                       .where((movie) => movie.genreIds.contains(genre.id))
                       .map((movie) => movie.bannerImage ?? movie.bestCover)
                       .whereType<String>()
                       .toList(growable: false);
-                  final image = genreImages.isNotEmpty
-                      ? genreImages.first
-                      : imageSource.isEmpty
-                      ? null
-                      : (imageSource[index % imageSource.length].bannerImage ??
-                            imageSource[index % imageSource.length].bestCover);
+                  String? image;
+                  if (genreImages.isNotEmpty) {
+                    image = genreImages[genre.id.abs() % genreImages.length];
+                  } else if (imageSource.isNotEmpty) {
+                    final used = usedCovers.toSet();
+                    final candidate = imageSource
+                        .where((movie) =>
+                            !used.contains(movie.bannerImage ?? movie.bestCover))
+                        .toList(growable: false);
+                    final pool = candidate.isNotEmpty ? candidate : imageSource;
+                    final picked =
+                        pool[(genre.id.abs() + index * 7) % pool.length];
+                    image = picked.bannerImage ?? picked.bestCover;
+                  }
+                  if (image != null) usedCovers.add(image);
                   return AppGenreTile(
                     label: genre.name,
                     imageUrl: image,
@@ -1157,103 +1210,6 @@ class GenreListGrid extends StatelessWidget {
   }
 }
 
-class FullWidthMovieBanners extends StatelessWidget {
-  const FullWidthMovieBanners({
-    required this.title,
-    required this.items,
-    super.key,
-  });
-
-  final String title;
-  final List<TmdbMedia> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final banners = items
-        .where((movie) => movie.bannerImage != null)
-        .take(8)
-        .toList(growable: false);
-    if (banners.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppSectionHeader(title: title),
-        ...banners.map(
-          (movie) => Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppUI.pagePadding(context),
-              0,
-              AppUI.pagePadding(context),
-              12,
-            ),
-            child: _FullWidthMovieBanner(movie: movie),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FullWidthMovieBanner extends StatelessWidget {
-  const _FullWidthMovieBanner({required this.movie});
-
-  final TmdbMedia movie;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/flixMediaDetail', extra: movie),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: AspectRatio(
-          aspectRatio: 2.05,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ExtendedImage.network(
-                movie.bannerImage!,
-                fit: BoxFit.cover,
-                cache: true,
-                loadStateChanged: (state) {
-                  if (state.extendedImageLoadState == LoadState.completed) {
-                    return null;
-                  }
-                  return const AppShimmerBlock(radius: 0);
-                },
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Color(0xE6000000)],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 14,
-                right: 14,
-                bottom: 12,
-                child: Text(
-                  movie.displayTitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 8)],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class MoviesFromWatchProviders extends StatelessWidget {
   const MoviesFromWatchProviders({this.isTv = false, super.key});
@@ -1358,6 +1314,406 @@ class _StreamingServiceCard extends StatelessWidget {
               ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Discover rails & tag sections (documentaires, téléréalité, catégories…)
+// ───────────────────────────────────────────────────────────────────────────
+
+/// Horizontal rail backed by any TMDB /discover query, with a shimmer row
+/// while the request is in flight and graceful disappearance when it fails.
+class AppDiscoverRail extends StatefulWidget {
+  const AppDiscoverRail({
+    required this.title,
+    required this.query,
+    this.isTv = false,
+    this.landscape = true,
+    super.key,
+  });
+
+  final String title;
+  final String query;
+  final bool isTv;
+  final bool landscape;
+
+  @override
+  State<AppDiscoverRail> createState() => _AppDiscoverRailState();
+}
+
+class _AppDiscoverRailState extends State<AppDiscoverRail> {
+  late Future<List<TmdbMedia>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = fetchTmdbDiscover(isTv: widget.isTv, query: widget.query);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<TmdbMedia>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <TmdbMedia>[];
+        if (items.isEmpty) {
+          if (snapshot.connectionState != ConnectionState.done &&
+              !snapshot.hasError) {
+            return _DiscoverRailSkeleton(
+              title: widget.title,
+              landscape: widget.landscape,
+            );
+          }
+          return const SizedBox.shrink();
+        }
+        final deduped = <int, TmdbMedia>{
+          for (final media in items) media.id: media,
+        }.values.toList(growable: false);
+        final railHeight = widget.landscape
+            ? 184.0
+            : AppUI.horizontalCardWidth(context) * 1.5 + 62;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppSectionHeader(title: widget.title),
+            SizedBox(
+              height: railHeight,
+              child: ListView.separated(
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppUI.pagePadding(context),
+                ),
+                physics: const BouncingScrollPhysics(),
+                scrollDirection: Axis.horizontal,
+                itemCount: deduped.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final media = deduped[index];
+                  final source = 'discover-${widget.title.hashCode}-$index';
+                  final card = widget.landscape
+                      ? LandscapeCard(
+                          item: ContentItem.fromTmdb(media),
+                          heroTag: tmdbHeroTag(media, source),
+                          width: 238,
+                          onTap: () => pushTmdbMediaDetail(
+                            context,
+                            media,
+                            source: source,
+                          ),
+                        )
+                      : PosterCard(
+                          item: ContentItem.fromTmdb(media),
+                          heroTag: tmdbHeroTag(media, source),
+                          width: AppUI.horizontalCardWidth(context),
+                          onTap: () => pushTmdbMediaDetail(
+                            context,
+                            media,
+                            source: source,
+                          ),
+                        );
+                  return SizedBox(
+                    width: widget.landscape
+                        ? 238
+                        : AppUI.horizontalCardWidth(context),
+                    child: card,
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DiscoverRailSkeleton extends StatelessWidget {
+  const _DiscoverRailSkeleton({required this.title, required this.landscape});
+
+  final String title;
+  final bool landscape;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: title),
+        SizedBox(
+          height: landscape ? 184 : 210,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const NeverScrollableScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            itemCount: 5,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, __) => SizedBox(
+              width: landscape ? 238 : AppUI.horizontalCardWidth(context),
+              child: const AppShimmerBlock(radius: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Hub block: the documentary genre (99) plus TMDB-provided documentary
+/// sub-flavours via keywords (nature, musique, sport, espace).
+class DocumentarySections extends StatelessWidget {
+  const DocumentarySections({this.isTv = false, super.key});
+
+  final bool isTv;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppDiscoverRail(
+          title: 'Documentaires',
+          isTv: isTv,
+          query: 'with_genres=99&sort_by=popularity.desc',
+        ),
+        for (final keyword in tmdbDocumentaryKeywords)
+          AppDiscoverRail(
+            title: 'Docu · ${keyword.name}',
+            isTv: isTv,
+            query:
+                'with_genres=99&with_keywords=${keyword.id}&sort_by=popularity.desc',
+          ),
+      ],
+    );
+  }
+}
+
+/// Hub block: reality-TV, romance-reality and talk-show rails (TV genres
+/// 10764, 10767 + the “love triangle” keyword that TMDB uses for dating shows).
+class RealityAndTalkSections extends StatelessWidget {
+  const RealityAndTalkSections({this.isTv = true, super.key});
+
+  final bool isTv;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppDiscoverRail(
+          title: 'Téléréalité',
+          isTv: isTv,
+          query: tmdbRealityTvQuery,
+        ),
+        AppDiscoverRail(
+          title: "Shows d'amour",
+          isTv: isTv,
+          query: tmdbLoveRealityTvQuery,
+        ),
+        AppDiscoverRail(
+          title: 'Talk-shows',
+          isTv: isTv,
+          query: tmdbTalkShowQuery,
+        ),
+      ],
+    );
+  }
+}
+
+/// Horizontal tag grid used by the hub “Catégories” and “Histoires” sections.
+/// Each tile resolves its own representative cover from TMDB discover, so no
+/// two tiles ever share the same fallback image.
+class TmdbTagListSection extends StatefulWidget {
+  const TmdbTagListSection({
+    required this.title,
+    required this.tags,
+    required this.isTv,
+    this.extraQuery = '',
+    super.key,
+  });
+
+  final String title;
+  final List<TmdbGenre> tags;
+  final bool isTv;
+  final String extraQuery;
+
+  @override
+  State<TmdbTagListSection> createState() => _TmdbTagListSectionState();
+}
+
+class _TmdbTagListSectionState extends State<TmdbTagListSection> {
+  final Map<int, String?> _covers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCovers());
+  }
+
+  Future<void> _loadCovers() async {
+    // Fetch every tag cover in parallel so the grid fills quickly.
+    await Future.wait([
+      for (final tag in widget.tags) _loadCover(tag.id),
+    ]);
+  }
+
+  Future<void> _loadCover(int tagId) async {
+    if (_covers.containsKey(tagId) || !mounted) return;
+    final cover = await fetchTmdbTagPoster(
+      tagId: tagId,
+      isTv: widget.isTv,
+      extraQuery: widget.extraQuery,
+    );
+    if (!mounted) return;
+    setState(() => _covers[tagId] = cover);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.tags.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(title: widget.title),
+        SizedBox(
+          height: 168,
+          child: ListView.separated(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            physics: const BouncingScrollPhysics(),
+            scrollDirection: Axis.horizontal,
+            itemCount: widget.tags.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final tag = widget.tags[index];
+              return TmdbTagTile(
+                tag: tag,
+                isTv: widget.isTv,
+                extraQuery: widget.extraQuery,
+                cover: _covers[tag.id],
+                onCoverNeeded: () => _loadCover(tag.id),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One discover tag: its own cover (fetched, never a shared fallback), a
+/// deterministic accent gradient while loading, and navigation to the list.
+class TmdbTagTile extends StatelessWidget {
+  const TmdbTagTile({
+    required this.tag,
+    required this.isTv,
+    required this.extraQuery,
+    required this.onCoverNeeded,
+    this.cover,
+    super.key,
+  });
+
+  final TmdbGenre tag;
+  final bool isTv;
+  final String extraQuery;
+  final VoidCallback onCoverNeeded;
+  final String? cover;
+
+  static const _accents = <Color>[
+    Color(0xFF6C5CE7),
+    Color(0xFF00B894),
+    Color(0xFFE17055),
+    Color(0xFF0984E3),
+    Color(0xFFE84393),
+    Color(0xFF2AA198),
+    Color(0xFF8E44AD),
+    Color(0xFFF39C12),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _accents[tag.id % _accents.length];
+    final path =
+        '/discover/${isTv ? 'tv' : 'movie'}?with_keywords=${tag.id}${extraQuery.isEmpty ? '' : '&$extraQuery'}';
+    return SizedBox(
+      width: 148,
+      child: Material(
+        color: const Color(0xFF14161C),
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            onCoverNeeded();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TmdbMoviesListScreen(
+                  title: tag.name,
+                  path: path,
+                  isTv: isTv,
+                ),
+              ),
+            );
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (cover != null)
+                ExtendedImage.network(cover!, fit: BoxFit.cover, cache: true)
+              else
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        accent.withValues(alpha: .55),
+                        const Color(0xFF0B0D10),
+                      ],
+                    ),
+                  ),
+                ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xD9000000)],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 12,
+                right: 10,
+                bottom: 10,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        tag.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Broken.arrow_right_3,
+                      color: Colors.white70,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

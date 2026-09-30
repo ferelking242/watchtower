@@ -34,6 +34,7 @@ enum _PreviewKind {
   mediaSection,
   providersSection,
   carousel,
+  featuredStack,
   episode,
   detailEpisode,
   wallpaper,
@@ -427,24 +428,45 @@ class _UnifiedGallery extends StatelessWidget {
     for (final component in components) {
       grouped.putIfAbsent(component.section, () => <_ComponentSpec>[]).add(component);
     }
+    // Keep the catalogue in a stable, readable order instead of an
+    // insertion-order soup where section labels end up interleaved.
+    const orderedSections = <String>[
+      'CATALOGUE & DISCOVERY',
+      'FILMS & SÉRIES · SECTIONS',
+      'ACCUEIL & LECTURE',
+      'DÉTAIL MÉDIA',
+      'EXTENSIONS WATCH',
+      'MANGA & LECTURE',
+      'RECHERCHE',
+      'HISTORIQUE & BIBLIOTHÈQUE',
+      'ÉTATS & FEEDBACK',
+      'SECTIONS RÉUTILISABLES',
+    ];
+    final orderedEntries = <MapEntry<String, List<_ComponentSpec>>>[
+      ...orderedSections.where(grouped.containsKey).map(
+            (section) => MapEntry(section, grouped[section]!),
+          ),
+      ...grouped.entries.where((entry) => !orderedSections.contains(entry.key)),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final entry in grouped.entries) ...[
+        for (final entry in orderedEntries) ...[
           _UnifiedSectionLabel(
             icon: _sectionIcon(entry.key),
             label: entry.key,
+            count: entry.value.length,
           ),
           const SizedBox(height: 12),
           _ComponentGrid(components: entry.value, state: state),
-          if (entry.key != grouped.keys.last) const SizedBox(height: 32),
+          if (entry.key != orderedEntries.last.key) const SizedBox(height: 32),
         ],
         if (showCompositions) ...[
-          const SizedBox(height: 32),
+          const SizedBox(height: 40),
           const _UnifiedSectionLabel(
             icon: Icons.layers_outlined,
-            label: 'Blocs composés',
+            label: 'BLOCS COMPOSÉS',
           ),
           const SizedBox(height: 12),
           _ComposedBlocks(state: state),
@@ -461,14 +483,24 @@ IconData _sectionIcon(String section) {
   if (section.contains('HISTORIQUE')) return Icons.history_rounded;
   if (section.contains('ÉTATS')) return Icons.checklist_rounded;
   if (section.contains('DÉTAIL')) return Icons.movie_filter_outlined;
+  if (section.contains('ACCUEIL')) return Icons.home_outlined;
+  if (section.contains('SECTIONS RÉUTILISABLES')) {
+    return Icons.dashboard_customize_outlined;
+  }
+  if (section.contains('SECTIONS')) return Icons.view_carousel_outlined;
   return Icons.grid_view_rounded;
 }
 
 class _UnifiedSectionLabel extends StatelessWidget {
   final IconData icon;
   final String label;
+  final int count;
 
-  const _UnifiedSectionLabel({required this.icon, required this.label});
+  const _UnifiedSectionLabel({
+    required this.icon,
+    required this.label,
+    this.count = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -483,6 +515,28 @@ class _UnifiedSectionLabel extends StatelessWidget {
             fontSize: 15,
             fontWeight: FontWeight.w800,
           ),
+        ),
+        if (count > 0) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Divider(color: Colors.white10, thickness: 1, height: 1),
         ),
       ],
     );
@@ -588,11 +642,15 @@ class _ComponentTile extends StatelessWidget {
           const SizedBox(height: 7),
           SizedBox(
             height: previewHeight,
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: state == _GalleryState.result
-                  ? component.result(context)
-                  : _CardSkeleton(kind: component.kind),
+            // ClipRect keeps any oversized composition from painting over
+            // neighbouring tiles (the "elements on elements" mess).
+            child: ClipRect(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: state == _GalleryState.result
+                    ? component.result(context)
+                    : _CardSkeleton(kind: component.kind),
+              ),
             ),
           ),
         ],
@@ -705,6 +763,30 @@ class _CardSkeleton extends StatelessWidget {
         ),
       ),
       _PreviewKind.providersSection => const AppStreamingServicesShimmer(),
+      _PreviewKind.featuredStack => SizedBox(
+        width: 300,
+        height: 220,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(
+              width: 120,
+              height: 16,
+              child: AppShimmerBlock(radius: 5),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: AppShimmerBlock(radius: 14)),
+                  const SizedBox(width: 10),
+                  Expanded(child: AppShimmerBlock(radius: 14)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
       _PreviewKind.carousel => SizedBox(
         width: 112,
         height: 190,
@@ -798,17 +880,23 @@ class _ComposedBlocks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Two composed blocks, each wrapped in its own copyable name chip so the
+    // class name can be copied like every other gallery entry.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _CompositionHeader(
-          title: 'Blocs composés',
-          detail:
-              'Blocs complets qui assemblent plusieurs cartes dans les écrans d’accueil.',
+        _CopyableNameChip(
+          icon: Icons.auto_awesome_motion_outlined,
+          name: 'TmdbHeroCarousel',
+          usage: 'Hero plein écran avec pagination automatique',
         ),
         if (state == _GalleryState.skeleton)
-          const SizedBox(height: 220, child: AppBannerRowShimmer())
-        else ...[
+          const SizedBox(
+            width: 340,
+            height: 270,
+            child: AppBannerRowShimmer(),
+          )
+        else
           SizedBox(
             height: 270,
             child: TmdbHeroCarousel(
@@ -816,60 +904,85 @@ class _ComposedBlocks extends StatelessWidget {
               onTap: (_) {},
             ),
           ),
-          const SizedBox(height: 15),
-          TmdbFeaturedStack(
-            title: 'À voir cette semaine',
-            icon: Icons.auto_awesome_rounded,
-            color: Theme.of(context).colorScheme.primary,
-            items: _tmdbItems,
-            onTap: (_) {},
-          ),
-        ],
+        const SizedBox(height: 26),
+        _CopyableNameChip(
+          icon: Icons.auto_awesome_rounded,
+          name: 'TmdbFeaturedStack',
+          usage: 'Vedette + rail de posters',
+        ),
+        TmdbFeaturedStack(
+          title: 'À voir cette semaine',
+          icon: Icons.auto_awesome_rounded,
+          color: Theme.of(context).colorScheme.primary,
+          items: _tmdbItems,
+          onTap: (_) {},
+        ),
       ],
     );
   }
 }
 
-class _CompositionHeader extends StatelessWidget {
-  final String title;
-  final String detail;
+/// Copyable class-name chip for the composed-blocks area.
+class _CopyableNameChip extends StatelessWidget {
+  const _CopyableNameChip({
+    required this.icon,
+    required this.name,
+    required this.usage,
+  });
 
-  const _CompositionHeader({required this.title, required this.detail});
+  final IconData icon;
+  final String name;
+  final String usage;
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.layers_outlined,
-            size: 18,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
+      padding: const EdgeInsets.only(bottom: 7),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () async {
+          await Clipboard.setData(ClipboardData(text: name));
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text('$name copié'),
+                duration: const Duration(milliseconds: 1200),
+              ),
+            );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(
+            children: [
+              Icon(icon, size: 14, color: accent),
+              const SizedBox(width: 6),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  usage,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    color: Colors.white38,
+                    fontSize: 9.5,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  detail,
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
-                ),
-              ],
-            ),
+              ),
+              const Icon(Icons.copy_rounded, size: 13, color: Colors.white54),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2067,7 +2180,7 @@ List<_ComponentSpec> _buildComponents() => [
         AnimatedDiscoveryCard(media: _animeItems[1], width: 116, onTap: () {}),
   ),
   _ComponentSpec(
-    title: 'Carte classée',
+    title: 'Classée découverte',
     className: 'RankedDiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
     usage: 'Classements',
@@ -2077,7 +2190,7 @@ List<_ComponentSpec> _buildComponents() => [
         RankedDiscoveryCard(media: _animeItems[2], rank: 2, onTap: () {}),
   ),
   _ComponentSpec(
-    title: 'Carte paysage',
+    title: 'Paysage découverte',
     className: 'LandscapeDiscoveryCard',
     path: 'lib/modules/home/widgets/discovery_card.dart',
     usage: 'Rails sorties',
@@ -2144,6 +2257,28 @@ List<_ComponentSpec> _buildComponents() => [
         label: 'Science-fiction',
         imageUrl: _extensionItems[0].imageUrl,
         onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carrousel tactile',
+    className: 'AppCrossfadeCarousel',
+    path: 'lib/modules/media/content_cards.dart',
+    usage: 'Swipe, fondu et autoplay commun',
+    icon: Icons.swipe_rounded,
+    kind: _PreviewKind.carousel,
+    result: (_) => SizedBox(
+      width: 112,
+      height: 190,
+      child: AppCrossfadeCarousel(
+        itemCount: 2,
+        interval: const Duration(seconds: 5),
+        itemBuilder: (_, index) => PosterCard(
+          item: ContentItem.fromTmdb(_tmdbItems[index]),
+          width: 112,
+          heroTag: 'gallery-crossfade-$index',
+          onTap: () {},
+        ),
       ),
     ),
   ),
@@ -2237,26 +2372,7 @@ List<_ComponentSpec> _buildComponents() => [
   ),
   _ComponentSpec(
     section: 'FILMS & SÉRIES · SECTIONS',
-    title: 'Bannières plein écran',
-    className: 'FullWidthMovieBanners',
-    path: 'lib/modules/media/media_home_widgets.dart',
-    usage: 'À voir ce soir · À voir bientôt',
-    icon: Icons.view_agenda_outlined,
-    kind: _PreviewKind.mediaSection,
-    result: (_) => SizedBox(
-      width: 340,
-      height: 240,
-      child: ClipRect(
-        child: FullWidthMovieBanners(
-          title: 'À voir ce soir',
-          items: _tmdbItems,
-        ),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'FILMS & SÉRIES · SECTIONS',
-    title: 'Services de streaming',
+    title: 'Rail des services',
     className: 'MoviesFromWatchProviders',
     path: 'lib/modules/media/media_home_widgets.dart',
     usage: 'Section des plateformes disponibles',
@@ -2265,28 +2381,6 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => const SizedBox(
       width: 340,
       child: MoviesFromWatchProviders(),
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Carrousel tactile',
-    className: 'AppCrossfadeCarousel',
-    path: 'lib/modules/media/content_cards.dart',
-    usage: 'Swipe, fondu et autoplay commun',
-    icon: Icons.swipe_rounded,
-    kind: _PreviewKind.carousel,
-    result: (_) => SizedBox(
-      width: 112,
-      height: 190,
-      child: AppCrossfadeCarousel(
-        itemCount: 2,
-        interval: const Duration(seconds: 5),
-        itemBuilder: (_, index) => PosterCard(
-          item: ContentItem.fromTmdb(_tmdbItems[index]),
-          width: 112,
-          heroTag: 'gallery-crossfade-$index',
-          onTap: () {},
-        ),
-      ),
     ),
   ),
   _ComponentSpec(
@@ -3586,9 +3680,10 @@ double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.spotlight => 165,
   _PreviewKind.tag => 86,
   _PreviewKind.genre => 132,
-  _PreviewKind.genreSection => 214,
-  _PreviewKind.mediaSection => 240,
-  _PreviewKind.providersSection => 170,
+  _PreviewKind.genreSection => 248,
+  _PreviewKind.mediaSection => 270,
+  _PreviewKind.providersSection => 200,
+  _PreviewKind.featuredStack => 480,
   _PreviewKind.carousel => 220,
   _PreviewKind.episode => 170,
   _PreviewKind.detailEpisode => 170,
@@ -3615,7 +3710,7 @@ double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.error => 174,
   _PreviewKind.libraryCard => 190,
   _PreviewKind.librarySection => 220,
-  _PreviewKind.swipeSection => 520,
+  _PreviewKind.swipeSection => 580,
 };
 
 double _previewWidth(_PreviewKind kind) => switch (kind) {
@@ -3632,6 +3727,7 @@ double _previewWidth(_PreviewKind kind) => switch (kind) {
   _PreviewKind.genreSection => 340,
   _PreviewKind.mediaSection => 340,
   _PreviewKind.providersSection => 340,
+  _PreviewKind.featuredStack => 340,
   _PreviewKind.carousel => 112,
   _PreviewKind.episode => 220,
   _PreviewKind.detailEpisode => 220,

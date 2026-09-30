@@ -1060,6 +1060,100 @@ final tmdbHomeProvider = FutureProvider.autoDispose<TmdbHome>(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Discover + keyword sections (documentaires, téléréalité, talk-shows…)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Generic discover fetch used by keyword-driven hub sections.
+Future<List<TmdbMedia>> fetchTmdbDiscover({
+  required bool isTv,
+  required String query,
+  int page = 1,
+}) => isTv
+    ? fetchTmdbTvPage(path: '/discover/tv?$query', page: page)
+    : fetchTmdbMoviePage(path: '/discover/movie?$query', page: page);
+
+/// Documentary flavours: TMDB genre 99 refined with verified keywords
+/// (https://www.themoviedb.org/keyword/<id>-<slug>).
+const tmdbDocumentaryKeywords = <TmdbGenre>[
+  TmdbGenre(id: 221355, name: 'Nature'),
+  TmdbGenre(id: 246377, name: 'Musique'),
+  TmdbGenre(id: 159290, name: 'Sport'),
+  TmdbGenre(id: 156836, name: 'Espace'),
+];
+
+/// Reality-TV / talk-show / romance-reality hub queries. TV genres:
+/// 10764 = Réalité, 10767 = Talk-show, 128 = keyword "love triangle".
+const tmdbRealityTvQuery = 'with_genres=10764';
+const tmdbLoveRealityTvQuery = 'with_genres=10764&with_keywords=128';
+const tmdbLoveRealityMovieQuery = 'with_genres=10749';
+const tmdbTalkShowQuery = 'with_genres=10767';
+
+/// Verified TMDB keyword tags shown in the hub “Catégories” section. Each id
+/// maps to a real TMDB keyword so /discover returns a true catalogue.
+const tmdbCategoryTags = <TmdbGenre>[
+  TmdbGenre(id: 9715, name: 'Super-héros'),
+  TmdbGenre(id: 12377, name: 'Zombie'),
+  TmdbGenre(id: 3133, name: 'Vampire'),
+  TmdbGenre(id: 616, name: 'Sorcière'),
+  TmdbGenre(id: 2343, name: 'Magie'),
+  TmdbGenre(id: 4379, name: 'Voyage dans le temps'),
+  TmdbGenre(id: 10349, name: 'Survival'),
+  TmdbGenre(id: 10714, name: 'Tueur en série'),
+  TmdbGenre(id: 128, name: 'Triangle amoureux'),
+  TmdbGenre(id: 1936, name: 'Chantage'),
+  TmdbGenre(id: 3801, name: 'Voyage spatial'),
+  TmdbGenre(id: 156836, name: 'Course à l\'espace'),
+  TmdbGenre(id: 207445, name: 'Vie en prison'),
+  TmdbGenre(id: 3398, name: 'Sortie de prison'),
+  TmdbGenre(id: 10327, name: 'Non-morts'),
+  TmdbGenre(id: 15095, name: 'Soif de vengeance'),
+];
+
+/// Plot / story-hook tags shown in the hub “Histoires” section.
+const tmdbPlotKeywords = <TmdbGenre>[
+  TmdbGenre(id: 128, name: 'Triangle amoureux'),
+  TmdbGenre(id: 10714, name: 'Tueur en série'),
+  TmdbGenre(id: 15095, name: 'Vengeance'),
+  TmdbGenre(id: 1936, name: 'Chantage'),
+  TmdbGenre(id: 207445, name: 'Vie en prison'),
+  TmdbGenre(id: 3398, name: 'Seconde chance'),
+  TmdbGenre(id: 4379, name: 'Boucle temporelle'),
+  TmdbGenre(id: 10349, name: 'Lutte pour survivre'),
+  TmdbGenre(id: 12377, name: 'Épidémie zombie'),
+  TmdbGenre(id: 3133, name: 'Malédiction'),
+];
+
+const _tmdbKeywordPosterCache = <int, String?>{};
+
+/// Fetches a representative poster for a keyword/genre-discover tag. The
+/// result is cached so hub sections do not spam TMDB on rebuilds.
+Future<String?> fetchTmdbTagPoster({
+  required int tagId,
+  required bool isTv,
+  String extraQuery = '',
+}) async {
+  final cacheKey = tagId * 2 + (isTv ? 1 : 0);
+  if (_tmdbKeywordPosterCache.containsKey(cacheKey)) {
+    return _tmdbKeywordPosterCache[cacheKey];
+  }
+  try {
+    final query =
+        'with_keywords=$tagId${extraQuery.isEmpty ? '' : '&$extraQuery'}';
+    final results = await fetchTmdbDiscover(
+      isTv: isTv,
+      query: query,
+    ).timeout(const Duration(seconds: 12));
+    final cover = results.isEmpty
+        ? null
+        : (results.first.bestCover ?? results.first.bannerImage);
+    _tmdbKeywordPosterCache[cacheKey] = cover;
+    return cover;
+  } catch (_) {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Genre name helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
