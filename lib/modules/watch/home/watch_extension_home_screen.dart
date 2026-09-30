@@ -465,7 +465,8 @@ class _ExtensionFeed extends StatelessWidget {
                   source: source,
                   onSearch: onSearch,
                   onLibrary: () => context.push('/Library'),
-                  onSettings: () => context.push('/settings'),
+                  onSettings: () =>
+                      context.push('/extension_detail', extra: source),
                   transparent: true,
                 ),
               ),
@@ -488,7 +489,8 @@ class _ExtensionFeed extends StatelessWidget {
                     source: source,
                     onSearch: onSearch,
                     onLibrary: () => context.push('/Library'),
-                    onSettings: () => context.push('/settings'),
+                    onSettings: () =>
+                        context.push('/extension_detail', extra: source),
                   ),
                 ),
               ),
@@ -825,17 +827,11 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (component == 'spotlight') {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppSectionHeader(title: title),
-          AppHeroShimmer(
-            height: (MediaQuery.sizeOf(context).height * .48).clamp(
-              410.0,
-              500.0,
-            ),
-          ),
-        ],
+      return AppHeroShimmer(
+        height: (MediaQuery.sizeOf(context).height * .56).clamp(
+          480.0,
+          590.0,
+        ),
       );
     }
     if (component == 'categoryPills') {
@@ -1113,45 +1109,45 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
         bottom: false,
         child: SizedBox(
           height: 64,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(
-                child: Text(
-                  source.name ?? 'Extension',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            child: Row(
+              children: [
+                _ExtensionSourceIcon(source: source, size: 30),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    source.name?.trim().isNotEmpty == true
+                        ? source.name!.trim()
+                        : 'Extension',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                right: 4,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ExtensionIconButton(
-                      icon: Broken.search_normal,
-                      onPressed: onSearch,
-                      tooltip: 'Rechercher',
-                    ),
-                    _ExtensionIconButton(
-                      icon: Broken.bookmark,
-                      onPressed: onLibrary,
-                      tooltip: 'Library',
-                    ),
-                    _ExtensionIconButton(
-                      icon: Broken.settings,
-                      onPressed: onSettings,
-                      tooltip: 'Paramètres',
-                    ),
-                  ],
+                _ExtensionIconButton(
+                  icon: Broken.search_normal,
+                  onPressed: onSearch,
+                  tooltip: 'Rechercher',
                 ),
-              ),
-            ],
+                _ExtensionIconButton(
+                  icon: Broken.bookmark,
+                  onPressed: onLibrary,
+                  tooltip: 'Library',
+                ),
+                _ExtensionIconButton(
+                  icon: Broken.setting_2,
+                  onPressed: onSettings,
+                  tooltip: 'Paramètres de l’extension',
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1185,43 +1181,41 @@ class _ExtensionFeedOverlayHeader extends StatelessWidget {
         child: SizedBox(
           height: 58,
           child: Padding(
-            padding: EdgeInsets.only(
-              left: AppUI.pagePadding(context) - 8,
-              right: 8,
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
             ),
-            child: Stack(
-              alignment: Alignment.center,
+            child: Row(
               children: [
-                Center(
+                _ExtensionSourceIcon(source: source, size: 28),
+                const SizedBox(width: 9),
+                Expanded(
                   child: Text(
-                    source.name ?? 'Extension',
+                    source.name?.trim().isNotEmpty == true
+                        ? source.name!.trim()
+                        : 'Extension',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-                Positioned(
-                  right: 0,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'Rechercher',
-                        onPressed: onSearch,
-                        icon: const Icon(Broken.search_normal),
-                      ),
-                      IconButton(
-                        tooltip: 'Library',
-                        onPressed: onLibrary,
-                        icon: const Icon(Broken.bookmark),
-                      ),
-                      IconButton(
-                        tooltip: 'Paramètres',
-                        onPressed: onSettings,
-                        icon: const Icon(Broken.settings),
-                      ),
-                    ],
-                  ),
+                IconButton(
+                  tooltip: 'Rechercher',
+                  onPressed: onSearch,
+                  icon: const Icon(Broken.search_normal),
+                ),
+                IconButton(
+                  tooltip: 'Library',
+                  onPressed: onLibrary,
+                  icon: const Icon(Broken.bookmark),
+                ),
+                IconButton(
+                  tooltip: 'Paramètres de l’extension',
+                  onPressed: onSettings,
+                  icon: const Icon(Broken.setting_2),
                 ),
               ],
             ),
@@ -2493,7 +2487,14 @@ class _ExtensionHomeLoading extends StatelessWidget {
                 source: source,
                 onSearch: onSearch,
                 onLibrary: () => context.push('/Library'),
-                onSettings: () => context.push('/settings'),
+                onSettings: () =>
+                    context.push('/extension_detail', extra: source),
+              ),
+              AppHeroShimmer(
+                height: (MediaQuery.sizeOf(context).height * .56).clamp(
+                  480.0,
+                  590.0,
+                ),
               ),
               _ExtensionSkeletonSection(
                 titleWidth: 154,

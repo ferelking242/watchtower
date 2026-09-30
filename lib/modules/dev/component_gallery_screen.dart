@@ -2240,9 +2240,9 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Hero extension',
-    className: '_ExtensionHeroCard',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
-    usage: 'Layout hero',
+    className: 'MediaHeroCarousel',
+    path: 'lib/modules/media/media_content_sections.dart',
+    usage: 'Layout spotlight · carrousel plein écran',
     icon: Icons.open_in_full_rounded,
     kind: _PreviewKind.extensionHero,
     result: (_) => ExtensionLayoutPreview(
@@ -2257,9 +2257,9 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Classement horizontal',
-    className: '_ExtensionRankedWideCard',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
-    usage: 'Layout rankedWide',
+    className: 'MediaRankedRail → RankedCard',
+    path: 'lib/modules/media/media_content_sections.dart',
+    usage: 'Layouts ranked · rankedWide',
     icon: Icons.format_list_numbered_rounded,
     kind: _PreviewKind.rankedWide,
     result: (_) => ExtensionLayoutPreview(
@@ -2274,9 +2274,9 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Carte showcase',
-    className: '_ExtensionShowcaseCard',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
-    usage: 'Layout showcase',
+    className: 'MediaLandscapeRail → LandscapeCard',
+    path: 'lib/modules/media/media_content_sections.dart',
+    usage: 'Layouts showcase · landscapeStacked',
     icon: Icons.auto_awesome_outlined,
     kind: _PreviewKind.showcase,
     result: (_) => ExtensionLayoutPreview(
@@ -2290,10 +2290,10 @@ List<_ComponentSpec> _buildComponents() => [
   ),
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
-    title: 'Collection',
-    className: '_ExtensionCollectionCard',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
-    usage: 'Layout collection',
+    title: 'Collection / playlist',
+    className: 'MediaPosterRail → PosterCard',
+    path: 'lib/modules/media/media_content_sections.dart',
+    usage: 'Layouts collectionCards · playlistCarousel',
     icon: Icons.collections_bookmark_outlined,
     kind: _PreviewKind.collection,
     result: (_) => ExtensionLayoutPreview(
@@ -2308,8 +2308,8 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Bannière extension',
-    className: '_ExtensionBannerRail',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    className: 'MediaBannerRail',
+    path: 'lib/modules/media/media_content_sections.dart',
     usage: 'Layout banner',
     icon: Icons.view_carousel_outlined,
     kind: _PreviewKind.banner,
@@ -2325,9 +2325,9 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Créateur',
-    className: '_ExtensionCreatorRail',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
-    usage: 'Layout creator',
+    className: 'MediaLandscapeRail → LandscapeCard',
+    path: 'lib/modules/media/media_content_sections.dart',
+    usage: 'Layout creatorRow',
     icon: Icons.person_outline_rounded,
     kind: _PreviewKind.creator,
     result: (_) => ExtensionLayoutPreview(
@@ -2342,9 +2342,9 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Studio',
-    className: '_ExtensionStudioRail',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
-    usage: 'Layout studio',
+    className: 'MediaLandscapeRail → LandscapeCard',
+    path: 'lib/modules/media/media_content_sections.dart',
+    usage: 'Layout studioExplorer',
     icon: Icons.business_outlined,
     kind: _PreviewKind.studio,
     result: (_) => ExtensionLayoutPreview(
@@ -2359,9 +2359,9 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Catégorie extension',
-    className: '_ExtensionGenreGrid',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
-    usage: 'Layout category',
+    className: 'MediaGridSection → PosterCard',
+    path: 'lib/modules/media/media_content_sections.dart',
+    usage: 'Layouts category · categoryPills',
     icon: Icons.category_outlined,
     kind: _PreviewKind.collection,
     result: (_) => ExtensionLayoutPreview(
@@ -2376,8 +2376,8 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Grille extension',
-    className: '_ExtensionGridSection',
-    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    className: 'MediaGridSection → PosterCard',
+    path: 'lib/modules/media/media_content_sections.dart',
     usage: 'Layout grid',
     icon: Icons.grid_4x4_rounded,
     kind: _PreviewKind.extensionGrid,
