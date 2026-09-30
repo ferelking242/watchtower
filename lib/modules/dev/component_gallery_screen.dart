@@ -8,6 +8,9 @@ import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/episode_card.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
+import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
+import 'package:watchtower/modules/manga/home/widgets/enum_manga_home_widget.dart';
+import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
@@ -53,6 +56,11 @@ enum _PreviewKind {
   searchCinema,
   manga,
   mangaList,
+  mangaHome,
+  mangaHomeRail,
+  mangaUpdateFeed,
+  mangaRanking,
+  mangaVote,
   extensionGrid,
   history,
   historyGrid,
@@ -551,13 +559,16 @@ class _ComponentGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 26,
-      runSpacing: 28,
-      alignment: WrapAlignment.start,
+    // One preview per row keeps every card fully visible and prevents
+    // overlapping compositions, especially for the wide manga sections.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final component in components)
-          _ComponentTile(component: component, state: state),
+        for (var i = 0; i < components.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: i == components.length - 1 ? 0 : 36),
+            child: _ComponentTile(component: components[i], state: state),
+          ),
       ],
     );
   }
@@ -824,6 +835,31 @@ class _CardSkeleton extends StatelessWidget {
         width: 112,
         height: 168,
         child: AppShimmerBlock(radius: 12),
+      ),
+      _PreviewKind.mangaHome => const SizedBox(
+        width: 168,
+        height: 252,
+        child: AppShimmerBlock(radius: 16),
+      ),
+      _PreviewKind.mangaHomeRail => const SizedBox(
+        width: 340,
+        height: 900,
+        child: AppShimmerBlock(radius: 18),
+      ),
+      _PreviewKind.mangaUpdateFeed => const SizedBox(
+        width: 340,
+        height: 190,
+        child: AppShimmerBlock(radius: 18),
+      ),
+      _PreviewKind.mangaRanking => const SizedBox(
+        width: 340,
+        height: 430,
+        child: AppShimmerBlock(radius: 20),
+      ),
+      _PreviewKind.mangaVote => const SizedBox(
+        width: 340,
+        height: 180,
+        child: AppShimmerBlock(radius: 18),
       ),
       _PreviewKind.rankedWide ||
       _PreviewKind.searchList ||
@@ -2653,6 +2689,317 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Vedette manga',
+    className: 'MangaFeaturedCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Rail "À la une" du home manga',
+    icon: Icons.local_fire_department_rounded,
+    kind: _PreviewKind.mangaHome,
+    result: (_) => SizedBox(
+      width: 168,
+      height: 252,
+      child: MangaFeaturedCard(
+        item: ContentItem.fromManga(_extensionItems[0]),
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Carte chapitre manga',
+    className: 'MangaChapterCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Rails "Nouveaux chapitres"',
+    icon: Icons.book_outlined,
+    kind: _PreviewKind.mangaHome,
+    result: (_) => SizedBox(
+      width: 112,
+      height: 200,
+      child: MangaChapterCard(
+        item: ContentItem.fromManga(_extensionItems[1]),
+        badge: '144',
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Reprise de lecture',
+    className: 'MangaResumeCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Section "Reprendre la lecture"',
+    icon: Icons.play_circle_outline_rounded,
+    kind: _PreviewKind.mangaList,
+    result: (_) => SizedBox(
+      width: 330,
+      height: 112,
+      child: MangaResumeCard(
+        item: ContentItem.fromManga(_extensionItems[2]),
+        subtitle: 'Chapitre 148 · il y a 2 h',
+        progress: 0.42,
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Spotlight manga',
+    className: 'MangaSpotlightCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Hero du home manga',
+    icon: Icons.auto_awesome_rounded,
+    kind: _PreviewKind.banner,
+    result: (_) => SizedBox(
+      width: 320,
+      height: 180,
+      child: MangaSpotlightCard(
+        item: ContentItem.fromManga(_extensionItems[3]),
+        height: 180,
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Genre manga',
+    className: 'MangaGenreCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Rail "Genres" du home manga',
+    icon: Icons.category_outlined,
+    kind: _PreviewKind.collection,
+    result: (_) => SizedBox(
+      width: 118,
+      height: 84,
+      child: MangaGenreCard(
+        label: 'Shonen',
+        imageUrl: _extensionItems[0].imageUrl,
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Ligne mise à jour',
+    className: 'MangaUpdateRow',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Liste "Dernières mises à jour"',
+    icon: Icons.update_rounded,
+    kind: _PreviewKind.searchList,
+    result: (_) => SizedBox(
+      width: 330,
+      height: 84,
+      child: MangaUpdateRow(
+        item: ContentItem.fromManga(_extensionItems[0]),
+        subtitle: 'Chapitre 147',
+        time: '2 h',
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Bannière manga',
+    className: 'MangaBannerCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Section pleine largeur du home manga',
+    icon: Icons.panorama_outlined,
+    kind: _PreviewKind.banner,
+    result: (_) => SizedBox(
+      width: 320,
+      height: 156,
+      child: MangaBannerCard(
+        item: ContentItem.fromManga(_extensionItems[2]),
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Top 3 manga',
+    className: 'MangaTop3Card',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Rail "Top 3" triptyque',
+    icon: Icons.emoji_events_outlined,
+    kind: _PreviewKind.ranked,
+    result: (_) => SizedBox(
+      width: 132,
+      height: 132,
+      child: MangaTop3Card(
+        items: _extensionItems
+            .take(3)
+            .map(ContentItem.fromManga)
+            .toList(growable: false),
+        rank: 1,
+        onTap: (_) {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Mise à jour chapitres',
+    className: 'MangaLatestUpdateCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Feed "Latest Chapter Updates"',
+    icon: Icons.schedule_rounded,
+    kind: _PreviewKind.mangaUpdateFeed,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 190,
+      child: MangaLatestUpdateCard(
+        item: ContentItem.fromManga(_extensionItems[0]),
+        time: '10m',
+        chapters: const [
+          'Ch. 2 - The Border Villa…',
+          'Vol. 1 Ch. 1 - The Border…',
+        ],
+        onChapterTap: (_) {},
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Top Ranking manga',
+    className: 'MangaRankingCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Classement Daily / Weekly / Monthly',
+    icon: Icons.emoji_events_rounded,
+    kind: _PreviewKind.mangaRanking,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 430,
+      child: MangaRankingCard(
+        items: _extensionItems
+            .map(ContentItem.fromManga)
+            .toList(growable: false),
+        onOpen: (_) {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Vote communautaire',
+    className: 'MangaVoteCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Carte vote type "Goonable tiers"',
+    icon: Icons.how_to_vote_outlined,
+    kind: _PreviewKind.mangaVote,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 180,
+      child: MangaVoteCard(
+        title: 'Goonable tiers',
+        imageUrl: _extensionItems[1].imageUrl,
+        status: 'Voting closed',
+        entries: 9,
+        posts: 1,
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Collection communautaire',
+    className: 'MangaCollectionShowcaseCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Collage + titre + stats + auteur',
+    icon: Icons.collections_bookmark_outlined,
+    kind: _PreviewKind.mangaUpdateFeed,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 270,
+      child: MangaCollectionShowcaseCard(
+        title: "Romance I'll never get to experience",
+        covers: _extensionItems
+            .map((e) => e.imageUrl)
+            .whereType<String>()
+            .toList(growable: false),
+        views: '104377',
+        likes: '824',
+        reads: '47',
+        author: 'ShiroX',
+        authorAvatar: _extensionItems[1].imageUrl,
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Liste tendance',
+    className: 'MangaTrendingListCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Badge #N · TRENDING + rail de vote',
+    icon: Icons.trending_up_rounded,
+    kind: _PreviewKind.mangaRanking,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 240,
+      child: MangaTrendingListCard(
+        rank: 1,
+        title: 'Favorites',
+        author: 'hideki1974',
+        authorAvatar: _extensionItems[3].imageUrl,
+        covers: _extensionItems
+            .map((e) => e.imageUrl)
+            .whereType<String>()
+            .toList(growable: false),
+        titleCount: '28 titles',
+        votes: 1,
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Groupe de scan',
+    className: 'MangaScanGroupCard',
+    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
+    usage: 'Classement groupes · followers / titles / staff',
+    icon: Icons.groups_outlined,
+    kind: _PreviewKind.mangaVote,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 300,
+      child: MangaScanGroupCard(
+        rank: 1,
+        name: 'No-group',
+        avatarText: 'N',
+        covers: _extensionItems
+            .map((e) => e.imageUrl)
+            .whereType<String>()
+            .toList(growable: false),
+        likes: 3,
+        followers: '3',
+        titles: '8.1k',
+        staff: '0',
+        lastRelease: '2 days ago',
+        onTap: () {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'MANGA & LECTURE',
+    title: 'Home manga complet',
+    className: 'MangaHomeSectionsPreview',
+    path: 'lib/modules/manga/home/manga_home_screen.dart',
+    usage: 'Composition de toutes les sections',
+    icon: Icons.dashboard_customize_outlined,
+    kind: _PreviewKind.mangaHomeRail,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 900,
+      child: SingleChildScrollView(
+        child: MangaHomeSectionsPreview(
+          items: _extensionItems
+              .map(ContentItem.fromManga)
+              .toList(growable: false),
+          onOpen: (_) {},
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
     section: 'RECHERCHE',
     title: 'Résultat recherche grille',
     className: '_MediaCard',
@@ -3703,6 +4050,11 @@ double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.searchCinema => 180,
   _PreviewKind.manga => 168,
   _PreviewKind.mangaList => 112,
+  _PreviewKind.mangaHome => 252,
+  _PreviewKind.mangaHomeRail => 900,
+  _PreviewKind.mangaUpdateFeed => 190,
+  _PreviewKind.mangaRanking => 430,
+  _PreviewKind.mangaVote => 180,
   _PreviewKind.extensionGrid => 220,
   _PreviewKind.history => 96,
   _PreviewKind.historyGrid => 220,
@@ -3747,6 +4099,11 @@ double _previewWidth(_PreviewKind kind) => switch (kind) {
   _PreviewKind.searchCinema => 320,
   _PreviewKind.manga => 112,
   _PreviewKind.mangaList => 300,
+  _PreviewKind.mangaHome => 168,
+  _PreviewKind.mangaHomeRail => 340,
+  _PreviewKind.mangaUpdateFeed => 340,
+  _PreviewKind.mangaRanking => 340,
+  _PreviewKind.mangaVote => 340,
   _PreviewKind.extensionGrid => 300,
   _PreviewKind.history => 330,
   _PreviewKind.historyGrid => 300,
