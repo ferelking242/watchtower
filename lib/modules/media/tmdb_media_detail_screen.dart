@@ -343,84 +343,91 @@ class _DetailContentState extends State<_DetailContent> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: FilledButton.icon(
-                          onPressed: () => context.push(
-                            '/flixSearch',
-                            extra: media.displayTitle,
-                          ),
-                          icon: const Icon(Broken.play, size: 20),
-                          label: const Text('Regarder'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFFE50914),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
+                // [Regarder] [Télécharger] [+ liste] — scrollable so the
+                // labels never get squeezed together on narrow screens.
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  clipBehavior: Clip.none,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: MediaQuery.sizeOf(context).width - 40,
                     ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: OutlinedButton.icon(
-                          onPressed: widget.onDownload,
-                          icon: const Icon(Broken.document_download, size: 20),
-                          label: const Text('Télécharger'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: Colors.white.withValues(
-                              alpha: .07,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 150,
+                          height: 48,
+                          child: FilledButton.icon(
+                            onPressed: () => context.push(
+                              '/flixSearch',
+                              extra: media.displayTitle,
                             ),
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: .18),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w700,
+                            icon: const Icon(Broken.play, size: 19),
+                            label: const Text('Regarder'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFE50914),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 150,
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            onPressed: widget.onDownload,
+                            icon: const Icon(Broken.document_download, size: 19),
+                            label: const Text('Télécharger'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.white.withValues(alpha: .07),
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: .18),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: IconButton(
+                            onPressed: onFavoriteChanged,
+                            tooltip: isFavorite
+                                ? 'Retirer de ma liste'
+                                : 'Ajouter à ma liste',
+                            style: IconButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.white.withValues(alpha: .10),
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: .18),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: Icon(
+                              isFavorite ? Broken.tick_circle : Broken.add_circle,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 9),
-                    SizedBox(
-                      width: 50,
-                      height: 50,
-                      child: IconButton(
-                        onPressed: onFavoriteChanged,
-                        tooltip: isFavorite
-                            ? 'Retirer de ma liste'
-                            : 'Ajouter à ma liste',
-                        style: IconButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: Colors.white.withValues(alpha: .10),
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: .18),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        icon: Icon(
-                          isFavorite ? Broken.tick_circle : Broken.add_circle,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
@@ -1603,6 +1610,19 @@ class _BackdropCarouselState extends State<_BackdropCarousel> {
               end: Alignment.bottomCenter,
               colors: [Colors.black26, Color(0xFF0B0B11)],
               stops: [.2, 1],
+            ),
+          ),
+        ),
+        // Half-circle notch carved into the hero's bottom edge — the page
+        // background continues below, so the disc reads as a cut in the image.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 14,
+          child: Center(
+            child: AppHeroNotch(
+              backgroundColor: const Color(0xFF0B0B11),
+              ringColor: Colors.white.withValues(alpha: .55),
             ),
           ),
         ),

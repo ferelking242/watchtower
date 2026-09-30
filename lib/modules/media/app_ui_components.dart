@@ -83,6 +83,7 @@ class AppCrossfadeCarousel extends StatefulWidget {
     required this.itemBuilder,
     this.onItemTap,
     this.interval = const Duration(seconds: 7),
+    this.clipRadius = 24,
     super.key,
   });
 
@@ -90,6 +91,10 @@ class AppCrossfadeCarousel extends StatefulWidget {
   final IndexedWidgetBuilder itemBuilder;
   final ValueChanged<int>? onItemTap;
   final Duration interval;
+
+  /// Corner radius of the clip. Set to 0 to disable clipping entirely so
+  /// hero decorations (e.g. the bottom-edge notch) may overhang the bounds.
+  final double clipRadius;
 
   @override
   State<AppCrossfadeCarousel> createState() => _AppCrossfadeCarouselState();
@@ -147,8 +152,10 @@ class _AppCrossfadeCarouselState extends State<AppCrossfadeCarousel> {
         _restartTimer();
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(widget.clipRadius),
+        clipBehavior: widget.clipRadius <= 0 ? Clip.none : Clip.antiAlias,
         child: Stack(
+          clipBehavior: Clip.none,
           fit: StackFit.expand,
           children: [
             AnimatedSwitcher(
@@ -352,6 +359,113 @@ class AppSectionHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Cinematic hero play button with a notch (half-circle cut) carved out of
+/// the hero's bottom edge, in the style of the French-Stream home hero: the
+/// image continues behind a circular cut-out and a ringed play disc sits in
+/// it, straddling the hero's bottom border.
+///
+/// Wrap it inside a [Stack] that is allowed to paint outside its bounds
+/// (e.g. the hero of a feed) — the widget itself only draws the ring + icon.
+class AppHeroPlayButton extends StatelessWidget {
+  const AppHeroPlayButton({
+    required this.onTap,
+    this.size = 62,
+    super.key,
+  });
+
+  final VoidCallback onTap;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black.withValues(alpha: .55),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: .85),
+              width: 1.6,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .35),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.play_arrow_rounded,
+            color: Colors.white,
+            size: size * .52,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A circular cut-out ("notch") that visually bites into the bottom edge of
+/// a hero image. Paint it at the bottom-center of the hero stack: it draws
+/// the page background over the image inside the circle and a thin arc of
+/// the ring color around it, producing the half-circle carved effect.
+class AppHeroNotch extends StatelessWidget {
+  const AppHeroNotch({
+    required this.backgroundColor,
+    this.radius = 34,
+    this.ringColor = Colors.white,
+    super.key,
+  });
+
+  final Color backgroundColor;
+  final double radius;
+  final Color ringColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = radius * 2;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(painter: _NotchPainter(bg: backgroundColor, ring: ringColor)),
+    );
+  }
+}
+
+class _NotchPainter extends CustomPainter {
+  _NotchPainter({required this.bg, required this.ring});
+
+  final Color bg;
+  final Color ring;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..color = ring.withValues(alpha: .85);
+    canvas.drawCircle(center, radius, ringPaint);
+
+    final bgPaint = Paint()..color = bg;
+    canvas.drawCircle(center, radius - 1.6, bgPaint);
+  }
+
+  @override
+  bool shouldRepaint(_NotchPainter oldDelegate) =>
+      oldDelegate.bg != bg || oldDelegate.ring != ring;
 }
 
 class AppRatingBadge extends StatelessWidget {

@@ -26,12 +26,14 @@ class MediaHeroCarousel extends StatelessWidget {
     final visible = items.take(10).toList(growable: false);
     if (visible.isEmpty) return const SizedBox.shrink();
 
+    // Extra bottom room lets the notch/play disc overhang the hero edge.
     return SizedBox(
       width: double.infinity,
-      height: heroHeight,
+      height: heroHeight + 36,
       child: AppCrossfadeCarousel(
         itemCount: visible.length,
         onItemTap: onOpen,
+        clipRadius: 0,
         itemBuilder: (context, index) {
           final item = visible[index];
           return Stack(
@@ -58,23 +60,12 @@ class MediaHeroCarousel extends StatelessWidget {
                 Positioned(
                   left: 24,
                   right: 24,
-                  bottom: 78,
+                  bottom: 86,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        item.title,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          height: 1.05,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      if (item.badge != null || item.rating != null) ...[
-                        const SizedBox(height: 8),
+                      // Tags — bottom-left, above the title
+                      if (item.badge != null || (item.rating != null && item.rating! > 0)) ...[
                         Wrap(
                           spacing: 7,
                           runSpacing: 6,
@@ -87,12 +78,24 @@ class MediaHeroCarousel extends StatelessWidget {
                               ),
                           ],
                         ),
+                        const SizedBox(height: 9),
                       ],
+                      Text(
+                        item.title,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          height: 1.05,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                       if (item.description?.trim().isNotEmpty == true) ...[
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         Text(
                           item.description!,
-                          maxLines: 4,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white70,
@@ -104,14 +107,27 @@ class MediaHeroCarousel extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Notch (half-circle cut) at the hero's bottom edge…
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: 18,
+                  bottom: -30,
                   child: Center(
-                    child: GestureDetector(
+                    child: AppHeroNotch(
+                      backgroundColor: const Color(0xFF0B0B11),
+                      ringColor: Colors.white.withValues(alpha: .55),
+                    ),
+                  ),
+                ),
+                // …with the play disc sitting in the cut.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: -34,
+                  child: Center(
+                    child: AppHeroPlayButton(
+                      size: 62,
                       onTap: () => onOpen(index),
-                      child: const _MediaPlayButton(),
                     ),
                   ),
                 ),
@@ -461,26 +477,6 @@ class _MediaMetaChip extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _MediaPlayButton extends StatelessWidget {
-  const _MediaPlayButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .58),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: .74)),
-      ),
-      child: const SizedBox(
-        width: 58,
-        height: 58,
-        child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
       ),
     );
   }

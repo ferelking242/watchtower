@@ -130,7 +130,8 @@ class _WatchExtensionHomeScreenState
       480.0,
       590.0,
     );
-    final shouldShow = _feedController.offset >= heroHeight;
+    // Hero is drawn heroHeight + 36 tall (notch overhang) — match it.
+    final shouldShow = _feedController.offset >= heroHeight + 36;
     if (shouldShow != _showCompactHeader && mounted) {
       setState(() => _showCompactHeader = shouldShow);
     }

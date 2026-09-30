@@ -59,8 +59,9 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
       480.0,
       590.0,
     );
+    // Hero is drawn heroHeight + 36 tall (notch overhang) — match it.
     final shouldShow = _feedController.offset >=
-        heroHeight - MediaQuery.paddingOf(context).top;
+        heroHeight + 36 - MediaQuery.paddingOf(context).top;
     if (shouldShow != _showCompactHeader) {
       setState(() => _showCompactHeader = shouldShow);
     }
@@ -595,14 +596,16 @@ class DiscoverMovies extends StatelessWidget {
       590.0,
     );
     final heroMovies = movies.take(10).toList(growable: false);
+    // Extra bottom room lets the notch/play disc overhang the hero edge.
     return SizedBox(
       width: double.infinity,
-      height: heroHeight,
+      height: heroHeight + 36,
       child: heroMovies.isEmpty
           ? const AppShimmerBlock(radius: 0)
           : AppCrossfadeCarousel(
               itemCount: heroMovies.length,
               onItemTap: (index) => onMoviePressed(heroMovies[index]),
+              clipRadius: 0,
               itemBuilder: (context, index) {
                 final movie = heroMovies[index];
                 final imagePath = movie.bannerImage ?? movie.bestCover;
@@ -674,10 +677,27 @@ class DiscoverMovies extends StatelessWidget {
                     Positioned(
                       left: 24,
                       right: 24,
-                      bottom: 78,
+                      bottom: 86,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Tags — bottom-left, above the title
+                          Wrap(
+                            spacing: 7,
+                            runSpacing: 6,
+                            children: [
+                              if ((movie.releaseDate ?? movie.firstAirDate ?? '').length >= 4)
+                                _HeroMetaChip(
+                                  label: (movie.releaseDate ?? movie.firstAirDate!).substring(0, 4),
+                                ),
+                              if (movie.voteAverage != null)
+                                _HeroMetaChip(
+                                  icon: Broken.star,
+                                  label: movie.voteAverage!.toStringAsFixed(1),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 9),
                           Text(
                             movie.displayTitle,
                             maxLines: 3,
@@ -689,33 +709,11 @@ class DiscoverMovies extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 7,
-                            runSpacing: 6,
-                            children: [
-                              if ((movie.releaseDate ??
-                                          movie.firstAirDate ??
-                                          '')
-                                      .length >=
-                                  4)
-                                _HeroMetaChip(
-                                  label:
-                                      (movie.releaseDate ?? movie.firstAirDate!)
-                                          .substring(0, 4),
-                                ),
-                              if (movie.voteAverage != null)
-                                _HeroMetaChip(
-                                  icon: Broken.star,
-                                  label: movie.voteAverage!.toStringAsFixed(1),
-                                ),
-                            ],
-                          ),
                           if (movie.overview?.isNotEmpty == true) ...[
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
                             Text(
                               movie.overview!,
-                              maxLines: 4,
+                              maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white70,
@@ -727,13 +725,27 @@ class DiscoverMovies extends StatelessWidget {
                         ],
                       ),
                     ),
+                    // Notch (half-circle cut) at the hero's bottom edge…
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: 18,
+                      bottom: -30,
                       child: Center(
-                        child: _HeroWatchButton(
-                          onPressed: () => onMoviePressed(movie),
+                        child: AppHeroNotch(
+                          backgroundColor: const Color(0xFF0B0B11),
+                          ringColor: Colors.white.withValues(alpha: .55),
+                        ),
+                      ),
+                    ),
+                    // …with the play disc sitting in the cut.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: -34,
+                      child: Center(
+                        child: AppHeroPlayButton(
+                          size: 62,
+                          onTap: () => onMoviePressed(movie),
                         ),
                       ),
                     ),
@@ -765,40 +777,6 @@ class _HeroIconButton extends StatelessWidget {
         tooltip: tooltip,
         onPressed: onPressed,
         icon: Icon(icon, color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _HeroWatchButton extends StatelessWidget {
-  const _HeroWatchButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withValues(alpha: .58),
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 58,
-          height: 58,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: .74)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .28),
-                blurRadius: 18,
-              ),
-            ],
-          ),
-          child: const Icon(Broken.play, color: Colors.white, size: 28),
-        ),
       ),
     );
   }
