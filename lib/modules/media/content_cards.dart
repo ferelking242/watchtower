@@ -150,18 +150,15 @@ class LandscapeCard extends StatelessWidget {
     required this.onTap,
     this.width = 220,
     this.heroTag,
-    this.showPlayButton = true,
   });
 
   final ContentItem item;
   final VoidCallback onTap;
   final double width;
   final String? heroTag;
-  final bool showPlayButton;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
@@ -183,14 +180,6 @@ class LandscapeCard extends StatelessWidget {
                         radius: 16,
                       ),
                     ),
-                    if (showPlayButton)
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: _ArcPlayButton(
-                          background: colors.surface,
-                          onPressed: onTap,
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -449,74 +438,6 @@ class _RankLabel extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ArcPlayButton extends StatelessWidget {
-  const _ArcPlayButton({required this.background, required this.onPressed});
-
-  final Color background;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 82,
-      height: 54,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          CustomPaint(
-            size: const Size(82, 54),
-            painter: _ArcPainter(background),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 7),
-            child: Material(
-              color: background,
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: onPressed,
-                customBorder: const CircleBorder(),
-                child: const SizedBox(
-                  width: 42,
-                  height: 42,
-                  child: Icon(Icons.play_arrow_rounded, color: Colors.white),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ArcPainter extends CustomPainter {
-  const _ArcPainter(this.background);
-
-  final Color background;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(0, size.height)
-      ..lineTo(0, size.height * .72)
-      ..cubicTo(
-        size.width * .1,
-        size.height * .16,
-        size.width * .9,
-        size.height * .16,
-        size.width,
-        size.height * .72,
-      )
-      ..lineTo(size.width, size.height)
-      ..close();
-    canvas.drawPath(path, Paint()..color = background);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArcPainter oldDelegate) =>
-      oldDelegate.background != background;
 }
 
 class _ContentImagePlaceholder extends StatelessWidget {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -9,6 +10,7 @@ import 'package:watchtower/modules/home/widgets/episode_card.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/widgets/component_library.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
@@ -28,6 +30,9 @@ enum _PreviewKind {
   spotlight,
   tag,
   genre,
+  genreSection,
+  mediaSection,
+  providersSection,
   carousel,
   episode,
   detailEpisode,
@@ -519,6 +524,68 @@ class _ComponentTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () async {
+              await Clipboard.setData(
+                ClipboardData(text: component.className),
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text('${component.className} copié'),
+                    duration: const Duration(milliseconds: 1200),
+                  ),
+                );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(component.icon, size: 14, color: accent),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          component.className,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${component.title} · ${component.usage}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 9.5,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.copy_rounded,
+                    size: 13,
+                    color: Colors.white54,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 7),
           SizedBox(
             height: previewHeight,
             child: Align(
@@ -526,45 +593,6 @@ class _ComponentTile extends StatelessWidget {
               child: state == _GalleryState.result
                   ? component.result(context)
                   : _CardSkeleton(kind: component.kind),
-            ),
-          ),
-          const SizedBox(height: 7),
-          Row(
-            children: [
-              Icon(component.icon, size: 14, color: accent),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  component.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Icon(
-                state == _GalleryState.result
-                    ? Icons.check_circle_outline_rounded
-                    : Icons.hourglass_top_rounded,
-                size: 13,
-                color: state == _GalleryState.result
-                    ? Colors.greenAccent.shade400
-                    : Colors.amberAccent,
-              ),
-            ],
-          ),
-          const SizedBox(height: 3),
-          Text(
-            '${component.className} · ${component.usage}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 9.5,
-              height: 1.2,
             ),
           ),
         ],
@@ -651,6 +679,32 @@ class _CardSkeleton extends StatelessWidget {
         height: 112,
         child: AppShimmerBlock(radius: 17),
       ),
+      _PreviewKind.genreSection => const AppGenreGridShimmer(),
+      _PreviewKind.mediaSection => SizedBox(
+        width: 340,
+        height: 240,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(
+              width: 110,
+              height: 16,
+              child: AppShimmerBlock(radius: 5),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: AppShimmerBlock(radius: 14)),
+                  const SizedBox(width: 10),
+                  Expanded(child: AppShimmerBlock(radius: 14)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      _PreviewKind.providersSection => const AppStreamingServicesShimmer(),
       _PreviewKind.carousel => SizedBox(
         width: 112,
         height: 190,
@@ -697,7 +751,6 @@ class _CardSkeleton extends StatelessWidget {
         child: AppShimmerBlock(radius: 12),
       ),
       _PreviewKind.showcase ||
-      _PreviewKind.collection ||
       _PreviewKind.banner ||
       _PreviewKind.extensionGrid ||
       _PreviewKind.historyGrid ||
@@ -706,6 +759,7 @@ class _CardSkeleton extends StatelessWidget {
         height: 190,
         child: AppShimmerBlock(radius: 14),
       ),
+      _PreviewKind.collection => const ExtensionCollectionCardShimmer(),
       _PreviewKind.searchGrid => const SizedBox(
         width: 112,
         height: 178,
@@ -2062,49 +2116,6 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    className: 'PosterCard',
-    path: 'lib/modules/media/content_cards.dart',
-    title: 'Poster catalogue',
-    usage: 'Rails de résultats',
-    icon: Icons.extension_outlined,
-    kind: _PreviewKind.poster,
-    result: (_) => PosterCard(
-      item: ContentItem.fromManga(_extensionItems[0]),
-      width: 112,
-      onTap: () {},
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Carte paysage',
-    className: 'LandscapeCard',
-    path: 'lib/modules/media/content_cards.dart',
-    usage: 'Rails avec lecture',
-    icon: Icons.play_circle_outline_rounded,
-    kind: _PreviewKind.landscape,
-    result: (_) => LandscapeCard(
-      item: ContentItem.fromManga(_extensionItems[1]),
-      width: 220,
-      onTap: () {},
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Classement',
-    className: 'RankedCard',
-    path: 'lib/modules/media/content_cards.dart',
-    usage: 'Top des contenus',
-    icon: Icons.emoji_events_outlined,
-    kind: _PreviewKind.ranked,
-    result: (_) => SizedBox(
-      width: 110,
-      height: 190,
-      child: RankedCard(
-        item: ContentItem.fromManga(_extensionItems[2]),
-        rank: 1,
-        onTap: () {},
-      ),
-    ),
-  ),
-  _ComponentSpec(
     title: 'Carte tag',
     className: 'TagCard',
     path: 'lib/modules/media/content_cards.dart',
@@ -2134,6 +2145,126 @@ List<_ComponentSpec> _buildComponents() => [
         imageUrl: _extensionItems[0].imageUrl,
         onTap: () {},
       ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Grille des genres du Hub',
+    className: 'GenreListGrid',
+    path: 'lib/modules/media/media_home_widgets.dart',
+    usage: 'Section Genres films/séries avec navigation',
+    icon: Icons.category_outlined,
+    kind: _PreviewKind.genreSection,
+    result: (_) => GenreListGrid(imageSource: _tmdbItems),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Rail de posters',
+    className: 'ScrollingMovies',
+    path: 'lib/modules/media/media_home_widgets.dart',
+    usage: 'Sections Popular · Trending · Top rated',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.mediaSection,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 240,
+      child: ClipRect(
+        child: ScrollingMovies(
+          title: 'Popular',
+          items: _tmdbItems,
+          discoverPath: '/movie/popular',
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Rail Top 10',
+    className: 'RankedMovies',
+    path: 'lib/modules/media/media_home_widgets.dart',
+    usage: 'Section Top 10 de la semaine',
+    icon: Icons.leaderboard_outlined,
+    kind: _PreviewKind.mediaSection,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 240,
+      child: ClipRect(
+        child: RankedMovies(
+          title: 'Top 10 cette semaine',
+          items: _tmdbItems,
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Rail paysage',
+    className: 'ScrollingLandscapeMovies',
+    path: 'lib/modules/media/media_home_widgets.dart',
+    usage: 'Now playing · Upcoming · Airing today',
+    icon: Icons.panorama_outlined,
+    kind: _PreviewKind.mediaSection,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 240,
+      child: ClipRect(
+        child: ScrollingLandscapeMovies(
+          title: 'Now playing',
+          items: _tmdbItems,
+          discoverPath: '/movie/now_playing',
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Rail à découvrir',
+    className: 'FeaturedMovieRail',
+    path: 'lib/modules/media/media_home_widgets.dart',
+    usage: 'Sélection mise en avant',
+    icon: Icons.auto_awesome_outlined,
+    kind: _PreviewKind.mediaSection,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 240,
+      child: ClipRect(
+        child: FeaturedMovieRail(
+          title: 'À découvrir',
+          items: _tmdbItems,
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Bannières plein écran',
+    className: 'FullWidthMovieBanners',
+    path: 'lib/modules/media/media_home_widgets.dart',
+    usage: 'À voir ce soir · À voir bientôt',
+    icon: Icons.view_agenda_outlined,
+    kind: _PreviewKind.mediaSection,
+    result: (_) => SizedBox(
+      width: 340,
+      height: 240,
+      child: ClipRect(
+        child: FullWidthMovieBanners(
+          title: 'À voir ce soir',
+          items: _tmdbItems,
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Services de streaming',
+    className: 'MoviesFromWatchProviders',
+    path: 'lib/modules/media/media_home_widgets.dart',
+    usage: 'Section des plateformes disponibles',
+    icon: Icons.live_tv_outlined,
+    kind: _PreviewKind.providersSection,
+    result: (_) => const SizedBox(
+      width: 340,
+      child: MoviesFromWatchProviders(),
     ),
   ),
   _ComponentSpec(
@@ -2291,9 +2422,9 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'EXTENSIONS WATCH',
     title: 'Collection / playlist',
-    className: 'MediaPosterRail → PosterCard',
-    path: 'lib/modules/media/media_content_sections.dart',
-    usage: 'Layouts collectionCards · playlistCarousel',
+    className: '_ExtensionCollectionCardRail → _ExtensionCollectionCard',
+    path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+    usage: 'Cartes collectionCards · playlistCarousel',
     icon: Icons.collections_bookmark_outlined,
     kind: _PreviewKind.collection,
     result: (_) => ExtensionLayoutPreview(
@@ -3416,11 +3547,13 @@ final _extensionItems = [
     name: 'Dune : Deuxième partie',
     imageUrl: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
     description: 'Un résultat fourni par une extension vidéo.',
+    collectionId: 'category_science-fiction',
     genre: ['Science-fiction', 'Aventure'],
   ),
   MManga(
     name: 'Interstellar',
     imageUrl: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+    collectionId: 'playlist_night-drive',
     genre: ['Drame', 'Science-fiction'],
   ),
   MManga(
@@ -3453,6 +3586,9 @@ double _previewHeight(_PreviewKind kind) => switch (kind) {
   _PreviewKind.spotlight => 165,
   _PreviewKind.tag => 86,
   _PreviewKind.genre => 132,
+  _PreviewKind.genreSection => 214,
+  _PreviewKind.mediaSection => 240,
+  _PreviewKind.providersSection => 170,
   _PreviewKind.carousel => 220,
   _PreviewKind.episode => 170,
   _PreviewKind.detailEpisode => 170,
@@ -3493,6 +3629,9 @@ double _previewWidth(_PreviewKind kind) => switch (kind) {
   _PreviewKind.spotlight => 290,
   _PreviewKind.tag => 260,
   _PreviewKind.genre => 260,
+  _PreviewKind.genreSection => 340,
+  _PreviewKind.mediaSection => 340,
+  _PreviewKind.providersSection => 340,
   _PreviewKind.carousel => 112,
   _PreviewKind.episode => 220,
   _PreviewKind.detailEpisode => 220,

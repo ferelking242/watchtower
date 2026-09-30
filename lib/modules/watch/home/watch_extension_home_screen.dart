@@ -799,10 +799,10 @@ class ExtensionLayoutPreview extends StatelessWidget {
         scrollDirection: scrollDirection,
         onSeeAll: onSeeAll,
       ),
-      'collectionCards' || 'playlistCarousel' => MediaPosterRail(
+      'collectionCards' || 'playlistCarousel' => _ExtensionCollectionCardRail(
         title: title,
-        items: contentItems,
-        onOpen: (index) => onOpen(items[index]),
+        items: items,
+        onOpen: onOpen,
         onSeeAll: onSeeAll,
       ),
       _ => MediaPosterRail(
@@ -873,7 +873,7 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
     if (component == 'collectionCards' || component == 'playlistCarousel') {
       return _ExtensionSkeletonSection(
         titleWidth: title.length.clamp(86, 180).toDouble(),
-        child: const _ExtensionCollectionCardShimmer(),
+        child: const ExtensionCollectionCardShimmer(),
       );
     }
     if (component == 'grid' ||
@@ -2506,7 +2506,7 @@ class _ExtensionHomeLoading extends StatelessWidget {
               ),
               _ExtensionSkeletonSection(
                 titleWidth: 126,
-                child: const _ExtensionCollectionCardShimmer(),
+                child: const ExtensionCollectionCardShimmer(),
               ),
               _ExtensionSkeletonSection(
                 titleWidth: 94,
@@ -2626,8 +2626,8 @@ class _ExtensionShowcaseShimmer extends StatelessWidget {
   }
 }
 
-class _ExtensionCollectionCardShimmer extends StatelessWidget {
-  const _ExtensionCollectionCardShimmer();
+class ExtensionCollectionCardShimmer extends StatelessWidget {
+  const ExtensionCollectionCardShimmer();
 
   @override
   Widget build(BuildContext context) {
