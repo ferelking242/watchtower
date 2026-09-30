@@ -202,7 +202,7 @@ class WatchtowerNotificationService {
         actions: const [
           AndroidNotificationAction(
             _kActionInstallExtensions,
-            'Installer',
+            'Voir',
             showsUserInterface: true,
             cancelNotification: true,
           ),

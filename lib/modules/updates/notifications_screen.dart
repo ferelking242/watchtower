@@ -28,19 +28,20 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   late Future<_NotificationData> _future;
   final Set<int> _installing = {};
+  bool _refreshingCatalog = true;
 
   @override
   void initState() {
     super.initState();
     _future = _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refreshCatalog();
+    });
   }
 
-  Future<_NotificationData> _load() async {
+  Future<_NotificationData> _load({Object? sourceError}) async {
     List<Source> sources = const [];
-    Object? sourceError;
     try {
-      sources = await isar.sources.buildQuery<Source>().findAll();
-      sourceError = await _refreshInstalledCatalog(sources);
       sources = await isar.sources.buildQuery<Source>().findAll();
       for (final source in sources) {
         source.hydrateExtendedMetadata();
@@ -52,8 +53,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         sources
             .where(
               (source) =>
-                  source.isAdded == true &&
-                  hasPendingExtensionUpdate(source),
+                  source.isAdded == true && hasPendingExtensionUpdate(source),
             )
             .toList()
           ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
@@ -71,6 +71,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ? 'Certaines notifications sont momentanément indisponibles.'
           : null,
     );
+  }
+
+  Future<void> _refreshCatalog() async {
+    if (_refreshingCatalog == false && mounted) {
+      setState(() => _refreshingCatalog = true);
+    }
+
+    Object? sourceError;
+    try {
+      final sources = await isar.sources.buildQuery<Source>().findAll();
+      sourceError = await _refreshInstalledCatalog(sources);
+    } catch (error) {
+      sourceError = error;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _refreshingCatalog = false;
+      _future = _load(sourceError: sourceError);
+    });
   }
 
   /// Refreshes catalogue metadata only. Notifications must never install an
@@ -112,8 +132,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return firstError;
   }
 
-  void _retry() {
-    setState(() => _future = _load());
+  Future<void> _retry() async {
+    setState(() {
+      _future = _load();
+      _refreshingCatalog = true;
+    });
+    await _refreshCatalog();
   }
 
   @override
@@ -126,6 +150,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           onPressed: () => context.pop(),
           icon: const Icon(Broken.arrow_left),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Actualiser',
+            onPressed: _refreshingCatalog ? null : _refreshCatalog,
+            icon: _refreshingCatalog
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Broken.refresh_2),
+          ),
+        ],
       ),
       body: FutureBuilder<_NotificationData>(
         future: _future,
@@ -151,6 +188,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             );
           }
           if (data.extensionUpdates.isEmpty && data.libraryUpdates == 0) {
+            if (_refreshingCatalog) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Vérification des mises à jour…',
+                      style: TextStyle(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              );
+            }
             return _EmptyNotifications(color: cs.onSurfaceVariant);
           }
           return ListView(
@@ -173,9 +225,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             contentPadding: EdgeInsets.zero,
                             leading: _SourceIcon(source: source),
                             title: Text(source.name ?? 'Extension'),
-                            subtitle: Text(
-                               extensionUpdateLabel(source),
-                            ),
+                            subtitle: Text(extensionUpdateLabel(source)),
                             trailing: FilledButton(
                               onPressed:
                                   source.id == null ||
@@ -190,7 +240,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text('Installer'),
+                                  : const Text('Mettre à jour'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.green.shade700,
+                                foregroundColor: Colors.white,
+                              ),
                             ),
                             onTap: () => context.push(
                               '/extension_detail',
@@ -231,7 +285,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       await installExtensionUpdate(source);
       final installed = await isar.sources.get(id);
       if (installed == null) {
-        throw StateError('La source installée est introuvable après téléchargement.');
+        throw StateError(
+          'La source installée est introuvable après téléchargement.',
+        );
       }
       await LayoutRegistry.instance.load(installed);
       if (installed.uiLayout?.isNotEmpty == true &&
@@ -240,7 +296,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${source.name ?? 'Extension'} installée')),
+        SnackBar(content: Text('${source.name ?? 'Extension'} mise à jour')),
       );
       setState(() => _future = _load());
     } catch (error) {

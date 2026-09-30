@@ -1394,6 +1394,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             entries: _all,
             installed: _installed,
             installedVersions: _installedVersions,
+            installedSources: _installedSources,
             busy: _busy,
             loading: _loading,
             error: _error,
@@ -9232,6 +9233,7 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
   final List<_ExtEntry> entries;
   final Set<int> installed;
   final Map<int, String> installedVersions;
+  final Map<int, Source> installedSources;
   final Map<int, bool> busy;
   final bool loading;
   final String? error;
@@ -9246,6 +9248,7 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
     required this.entries,
     required this.installed,
     required this.installedVersions,
+    required this.installedSources,
     required this.busy,
     required this.loading,
     required this.error,
@@ -9276,19 +9279,15 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   bool _hasUpdate(_ExtEntry entry) {
     final installed = widget.installedVersions[entry.id];
     if (installed == null) return false;
-    final left = installed.split('.').map((part) => int.tryParse(part) ?? 0);
-    final right = entry.version
-        .split('.')
-        .map((part) => int.tryParse(part) ?? 0);
-    final a = left.toList();
-    final b = right.toList();
-    final length = a.length > b.length ? a.length : b.length;
-    for (var index = 0; index < length; index++) {
-      final av = index < a.length ? a[index] : 0;
-      final bv = index < b.length ? b[index] : 0;
-      if (av != bv) return av < bv;
+    try {
+      if (compareVersions(installed, entry.version) < 0) return true;
+    } catch (_) {
+      return false;
     }
-    return false;
+    final layoutVersion = entry.uiLayoutVersion;
+    return layoutVersion != null &&
+        layoutVersion.isNotEmpty &&
+        widget.installedSources[entry.id]?.uiLayoutVersion != layoutVersion;
   }
 
   static const _green = Color(0xFF8ED081);
@@ -9934,6 +9933,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                     return _WatchGridCard(
                       entry: entry,
                       installed: widget.installed.contains(entry.id),
+                      hasUpdate: _hasUpdate(entry),
                       busy: widget.busy[entry.id] == true,
                       onTap: () => _showDetails(entry),
                       onInstall: () => widget.onInstall(entry),
@@ -10245,6 +10245,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             return _PlayStoreShelfCard(
               entry: entry,
               installed: widget.installed.contains(entry.id),
+              hasUpdate: _hasUpdate(entry),
               busy: widget.busy[entry.id] == true,
               onTap: () => _showDetails(entry),
               onInstall: () => widget.onInstall(entry),
@@ -10278,6 +10279,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       itemBuilder: (_, index) => _PlayStoreRow(
         entry: entries[index],
         installed: widget.installed.contains(entries[index].id),
+        hasUpdate: _hasUpdate(entries[index]),
         busy: widget.busy[entries[index].id] == true,
         onTap: () => _showDetails(entries[index]),
         onInstall: () => widget.onInstall(entries[index]),
@@ -10701,6 +10703,7 @@ String _playBadges(_ExtEntry entry) {
 class _PlayStoreRow extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
+  final bool hasUpdate;
   final bool busy;
   final VoidCallback onTap;
   final VoidCallback onInstall;
@@ -10709,6 +10712,7 @@ class _PlayStoreRow extends StatelessWidget {
   const _PlayStoreRow({
     required this.entry,
     required this.installed,
+    required this.hasUpdate,
     required this.busy,
     required this.onTap,
     required this.onInstall,
@@ -10811,7 +10815,7 @@ class _PlayStoreRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextButton(
-                    onPressed: installed ? null : onInstall,
+                    onPressed: installed && !hasUpdate ? null : onInstall,
                     style: TextButton.styleFrom(
                       foregroundColor: _PlayStoreMarketplaceViewState._green,
                       disabledForegroundColor: const Color(0xFF9B9B9F),
@@ -10819,7 +10823,11 @@ class _PlayStoreRow extends StatelessWidget {
                       minimumSize: const Size(0, 34),
                     ),
                     child: Text(
-                      installed ? 'Installée' : 'Installer',
+                      hasUpdate
+                          ? 'Mettre à jour'
+                          : installed
+                          ? 'Installée'
+                          : 'Installer',
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -10849,6 +10857,7 @@ class _PlayStoreRow extends StatelessWidget {
 class _PlayStoreShelfCard extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
+  final bool hasUpdate;
   final bool busy;
   final VoidCallback onTap;
   final VoidCallback onInstall;
@@ -10857,6 +10866,7 @@ class _PlayStoreShelfCard extends StatelessWidget {
   const _PlayStoreShelfCard({
     required this.entry,
     required this.installed,
+    required this.hasUpdate,
     required this.busy,
     required this.onTap,
     required this.onInstall,
@@ -10973,9 +10983,13 @@ class _PlayStoreShelfCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: FilledButton(
-                        onPressed: installed || busy ? null : onInstall,
+                        onPressed: (installed && !hasUpdate) || busy
+                            ? null
+                            : onInstall,
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFB7F4F0),
+                          backgroundColor: hasUpdate
+                              ? _PlayStoreMarketplaceViewState._green
+                              : const Color(0xFFB7F4F0),
                           foregroundColor: const Color(0xFF123437),
                           disabledBackgroundColor: const Color(0xFF343438),
                           disabledForegroundColor: const Color(0xFFA6A5AA),
@@ -10993,7 +11007,13 @@ class _PlayStoreShelfCard extends StatelessWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : Text(installed ? 'Installée' : 'Installer'),
+                            : Text(
+                                hasUpdate
+                                    ? 'Mettre à jour'
+                                    : installed
+                                    ? 'Installée'
+                                    : 'Installer',
+                              ),
                       ),
                     ),
                     if (installed && onSettings != null) ...[
@@ -11026,6 +11046,7 @@ class _PlayStoreShelfCard extends StatelessWidget {
 class _WatchGridCard extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
+  final bool hasUpdate;
   final bool busy;
   final VoidCallback onTap;
   final VoidCallback onInstall;
@@ -11034,6 +11055,7 @@ class _WatchGridCard extends StatelessWidget {
   const _WatchGridCard({
     required this.entry,
     required this.installed,
+    required this.hasUpdate,
     required this.busy,
     required this.onTap,
     required this.onInstall,
@@ -11091,16 +11113,18 @@ class _WatchGridCard extends StatelessWidget {
                       ),
                     )
                   : OutlinedButton(
-                      onPressed: installed ? onSettings : onInstall,
+                      onPressed: hasUpdate
+                          ? onInstall
+                          : installed
+                          ? onSettings
+                          : onInstall,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: installed
-                            ? _PlayStoreMarketplaceViewState._muted
-                            : _PlayStoreMarketplaceViewState._green,
+                        foregroundColor: _PlayStoreMarketplaceViewState._green,
                         side: BorderSide(
-                          color: installed
-                              ? const Color(0xFF4C4C50)
-                              : _PlayStoreMarketplaceViewState._green
-                                  .withValues(alpha: 0.55),
+                          color: hasUpdate || !installed
+                              ? _PlayStoreMarketplaceViewState._green
+                                  .withValues(alpha: 0.55)
+                              : const Color(0xFF4C4C50),
                         ),
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
@@ -11109,7 +11133,13 @@ class _WatchGridCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      child: Text(installed ? 'Ouvrir' : 'Installer'),
+                      child: Text(
+                        hasUpdate
+                            ? 'Mettre à jour'
+                            : installed
+                            ? 'Ouvrir'
+                            : 'Installer',
+                      ),
                     ),
             ),
           ],
