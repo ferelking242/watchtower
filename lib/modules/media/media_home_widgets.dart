@@ -990,7 +990,7 @@ class ScrollingLandscapeMovies extends StatelessWidget {
               return LandscapeCard(
                 item: ContentItem.fromTmdb(media),
                 heroTag: tmdbHeroTag(media, source),
-                width: 238,
+                width: AppUI.landscapeCardWidth(context),
                 onTap: () =>
                     pushTmdbMediaDetail(context, media, source: source),
               );
@@ -1019,7 +1019,7 @@ class RankedMovies extends StatelessWidget {
       children: [
         AppSectionHeader(title: title),
         SizedBox(
-          height: 208,
+          height: AppUI.rankedRailHeight(context),
           child: ListView.separated(
             padding: EdgeInsets.symmetric(
               horizontal: AppUI.pagePadding(context),
@@ -1034,6 +1034,7 @@ class RankedMovies extends StatelessWidget {
               return RankedCard(
                 item: ContentItem.fromTmdb(media),
                 heroTag: tmdbHeroTag(media, source),
+                width: AppUI.rankedCardWidth(context),
                 rank: index + 1,
                 onTap: () =>
                     pushTmdbMediaDetail(context, media, source: source),

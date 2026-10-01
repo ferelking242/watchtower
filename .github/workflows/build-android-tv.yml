@@ -1,0 +1,98 @@
+name: Build Android TV APK
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'android/**'
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/build-android-tv.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-tv:
+    name: Build Android TV (Leanback) APK
+    runs-on: ubuntu-latest
+    # Rust + Flutter Android builds can exceed 20 minutes on a cold runner.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 50
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter 3.47.2
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-
+
+      - name: Cache Gradle
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-tv-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'android/gradle.properties') }}
+          restore-keys: |
+            gradle-tv-${{ runner.os }}-
+            gradle-release-${{ runner.os }}-
+
+      - name: Get packages
+        run: flutter pub get
+
+      # The manifest must keep both entries: without LEANBACK_LAUNCHER the
+      # APK never shows up on the Android TV home screen, and without the
+      # optional leanback/touchscreen features it would not install at all.
+      - name: Verify Leanback launcher is declared
+        run: |
+          grep -q "LEANBACK_LAUNCHER" android/app/src/main/AndroidManifest.xml
+          grep -q "android.software.leanback" android/app/src/main/AndroidManifest.xml
+          grep -q "android.hardware.touchscreen\" android:required=\"false\"" android/app/src/main/AndroidManifest.xml
+
+      - name: Build Android TV APKs (arm64 + x86_64)
+        run: |
+          flutter build apk --release --split-per-abi \
+            --target-platform android-arm64,android-x64
+
+      - name: Organize TV artifacts
+        run: |
+          mkdir -p build/tv
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+            build/tv/watchtower-tv-arm64.apk
+          if [ -f build/app/outputs/flutter-apk/app-x86_64-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-x86_64-release.apk \
+              build/tv/watchtower-tv-x86_64.apk
+          fi
+          ls -lh build/tv
+
+      - name: Upload TV APKs
+        uses: actions/upload-artifact@v5
+        with:
+          name: watchtower-android-tv
+          path: build/tv/*.apk
+          if-no-files-found: error
+          retention-days: 14

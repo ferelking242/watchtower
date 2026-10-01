@@ -1,29 +1,65 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/utils/cached_network.dart';
+
+/// Device tier used by every responsive helper in [AppUI].
+enum AppDeviceKind { phone, tablet, desktop, tv }
 
 /// Shared visual primitives for the media, watch and discovery surfaces.
 /// Data and navigation remain Watchtower-owned.
 abstract final class AppUI {
   static const double phonePadding = 20;
   static const double tabletPadding = 28;
+  static const double desktopPadding = 44;
+  static const double tvPadding = 64;
   static const double cardRadius = 14;
   static const double mediaGridCrossAxisSpacing = 12;
   static const double mediaGridTitleGap = 9;
   static const double mediaGridTitleHeight = 36;
   static const double posterAspectRatio = 2 / 3;
 
-  static double pagePadding(BuildContext context) {
-    return MediaQuery.sizeOf(context).width >= 700
-        ? tabletPadding
-        : phonePadding;
+  /// Device tier from the layout width. Android TV renders its 10-foot UI
+  /// at 960–1920dp wide; the `tv` tier starts at 1600dp where bigger padding
+  /// and rail scaling genuinely help readability across the room.
+  static AppDeviceKind device(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= 1600) return AppDeviceKind.tv;
+    if (width >= 1024) return AppDeviceKind.desktop;
+    if (width >= 600) return AppDeviceKind.tablet;
+    return AppDeviceKind.phone;
   }
+
+  static bool isPhone(BuildContext context) =>
+      device(context) == AppDeviceKind.phone;
+
+  static bool isTablet(BuildContext context) =>
+      device(context) == AppDeviceKind.tablet;
+
+  static bool isDesktop(BuildContext context) =>
+      device(context) == AppDeviceKind.desktop;
+
+  static bool isTv(BuildContext context) => device(context) == AppDeviceKind.tv;
+
+  /// Desktop + TV: wider rails, more grid columns, larger paddings.
+  static bool isLargeScreen(BuildContext context) {
+    final kind = device(context);
+    return kind == AppDeviceKind.desktop || kind == AppDeviceKind.tv;
+  }
+
+  static double pagePadding(BuildContext context) => switch (device(context)) {
+    AppDeviceKind.tv => tvPadding,
+    AppDeviceKind.desktop => desktopPadding,
+    AppDeviceKind.tablet => tabletPadding,
+    AppDeviceKind.phone => phonePadding,
+  };
 
   static int mediaGridColumns(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    if (width >= 2000) return 8;
     if (width >= 1200) return 6;
     if (width >= 900) return 5;
     if (width >= 650) return 4;
@@ -46,10 +82,32 @@ abstract final class AppUI {
 
   static double horizontalCardWidth(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    if (width >= 1400) return 138;
     if (width >= 900) return 118;
     if (width >= 650) return 108;
     return ((width - (pagePadding(context) * 2) - 30) / 4).clamp(72.0, 100.0);
   }
+
+  /// 16:9 landscape rail cards (ScrollingLandscapeMovies and friends).
+  static double landscapeCardWidth(BuildContext context) =>
+      switch (device(context)) {
+        AppDeviceKind.tv => 300,
+        AppDeviceKind.desktop => 268,
+        AppDeviceKind.tablet => 252,
+        AppDeviceKind.phone => 238,
+      };
+
+  /// Ranked poster rails: card width plus the matching rail height.
+  static double rankedCardWidth(BuildContext context) =>
+      switch (device(context)) {
+        AppDeviceKind.tv => 148,
+        AppDeviceKind.desktop => 128,
+        AppDeviceKind.tablet => 118,
+        AppDeviceKind.phone => 110,
+      };
+
+  static double rankedRailHeight(BuildContext context) =>
+      rankedCardWidth(context) * 1.5 + 28;
 }
 
 @immutable
@@ -1290,6 +1348,104 @@ class _ShimmerBlock extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+}
+
+/// Focusable pressable wrapper: catalogue cards become reachable with the
+/// D-pad / remote on Android TV, and a focus ring marks the highlighted
+/// card. On touch devices it behaves exactly like a GestureDetector.
+/// The ring is drawn with `foregroundDecoration`, so it never shifts layout.
+class TvPressable extends StatefulWidget {
+  const TvPressable({
+    required this.child,
+    this.onTap,
+    this.borderRadius = 14,
+    this.focusScale = 1.03,
+    super.key,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final double borderRadius;
+
+  /// Grow factor while focused; pass 1.0 to keep the size untouched.
+  final double focusScale;
+
+  @override
+  State<TvPressable> createState() => _TvPressableState();
+}
+
+class _TvPressableState extends State<TvPressable> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'TvPressable');
+
+  static const _activateKeys = <LogicalKeyboardKey>[
+    LogicalKeyboardKey.select,
+    LogicalKeyboardKey.enter,
+    LogicalKeyboardKey.numpadEnter,
+    LogicalKeyboardKey.gameButtonA,
+  ];
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    final onTap = widget.onTap;
+    if (onTap == null) return KeyEventResult.ignored;
+    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      if (_activateKeys.contains(event.logicalKey)) {
+        onTap();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final onTap = widget.onTap;
+    if (onTap == null) return widget.child;
+    final accent = Theme.of(context).colorScheme.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: Focus(
+        focusNode: _focusNode,
+        onKeyEvent: _handleKey,
+        child: Builder(
+          builder: (context) {
+            final focused = Focus.of(context).hasFocus;
+            return AnimatedScale(
+              duration: const Duration(milliseconds: 140),
+              scale: focused ? widget.focusScale : 1.0,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
+                  border: Border.all(
+                    color: focused
+                        ? accent
+                        : Colors.transparent,
+                    width: 2.5,
+                  ),
+                  boxShadow: focused
+                      ? [
+                          BoxShadow(
+                            color: accent.withValues(alpha: .40),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : const [],
+                ),
+                child: widget.child,
+              ),
+            );
+          },
+        ),
       ),
     );
   }

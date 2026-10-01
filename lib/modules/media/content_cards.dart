@@ -100,8 +100,9 @@ class PosterCard extends StatelessWidget {
       height: 1.2,
     );
 
-    return GestureDetector(
+    return TvPressable(
       onTap: onTap,
+      borderRadius: radius,
       child: SizedBox(
         width: width,
         child: Column(
@@ -159,8 +160,9 @@ class LandscapeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TvPressable(
       onTap: onTap,
+      borderRadius: 16,
       child: SizedBox(
         width: width,
         child: Column(
@@ -249,8 +251,9 @@ class RankedCard extends StatelessWidget {
     final rankColor = rank >= 1 && rank <= 3
         ? _rankColors[rank - 1]
         : colors.onSurface.withValues(alpha: .40);
-    return GestureDetector(
+    return TvPressable(
       onTap: onTap,
+      borderRadius: 12,
       child: SizedBox(
         width: width,
         child: Column(
