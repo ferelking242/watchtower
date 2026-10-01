@@ -595,20 +595,23 @@ class _UnifiedGallery extends StatelessWidget {
       ...grouped.entries.where((entry) => !orderedSections.contains(entry.key)),
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final entry in orderedEntries) ...[
-          _UnifiedSectionLabel(
-            icon: _sectionIcon(entry.key),
-            label: entry.key,
-            count: entry.value.length,
-          ),
-          const SizedBox(height: 12),
-          _ComponentGrid(components: entry.value, state: state),
-          if (entry.key != orderedEntries.last.key) const SizedBox(height: 32),
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final entry in orderedEntries) ...[
+            _UnifiedSectionLabel(
+              icon: _sectionIcon(entry.key),
+              label: entry.key,
+              count: entry.value.length,
+            ),
+            const SizedBox(height: 12),
+            _ComponentGrid(components: entry.value, state: state),
+            if (entry.key != orderedEntries.last.key) const SizedBox(height: 32),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -690,15 +693,20 @@ class _ComponentGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     // One preview per row keeps every card fully visible and prevents
     // overlapping compositions, especially for the wide manga sections.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < components.length; i++)
-          Padding(
-            padding: EdgeInsets.only(bottom: i == components.length - 1 ? 0 : 36),
-            child: _ComponentTile(component: components[i], state: state),
-          ),
-      ],
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < components.length; i++)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: i == components.length - 1 ? 0 : 16,
+              ),
+              child: _ComponentTile(component: components[i], state: state),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -712,84 +720,91 @@ class _ComponentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Copyable class name on top of each preview.
-        InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () async {
-            await Clipboard.setData(ClipboardData(text: component.copyName));
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(
-                SnackBar(
-                  content: Text('${component.copyName} copié'),
-                  duration: const Duration(milliseconds: 1200),
-                ),
-              );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(component.icon, size: 14, color: accent),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              component.className,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          const Icon(
-                            Icons.copy_rounded,
-                            size: 12,
-                            color: Colors.white38,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${component.title} · ${component.usage}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 9.5,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF11151B),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Copyable component name stays above its full-width preview card.
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () async {
+              await Clipboard.setData(ClipboardData(text: component.copyName));
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text('${component.copyName} copié'),
+                    duration: const Duration(milliseconds: 1200),
                   ),
-                ),
-              ],
+                );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(component.icon, size: 17, color: accent),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          component.className,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${component.title} · ${component.usage}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                            height: 1.25,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(
+                      Icons.copy_rounded,
+                      size: 16,
+                      color: Colors.white54,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 7),
-        // Preview at its natural, real size. Nothing clipped, nothing stacked.
-        Align(
-          alignment: Alignment.topLeft,
-          child: state == _GalleryState.result
-              ? component.result(context)
-              : _CardSkeleton(kind: component.kind),
-        ),
-      ],
+          const SizedBox(height: 14),
+          // Keep the component at its actual size; its own horizontal carousels
+          // remain swipeable inside the full-width, vertically scrolling list.
+          Align(
+            alignment: Alignment.topLeft,
+            child: state == _GalleryState.result
+                ? component.result(context)
+                : _CardSkeleton(kind: component.kind),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1172,9 +1172,6 @@ class _TabletLayout extends StatefulWidget {
 }
 
 class _TabletLayoutState extends State<_TabletLayout> {
-  // Sidebar is always icon-only — no collapse/expand toggle.
-  static const double _sidebarWidth = 64.0;
-
   static const _validLocations = {
     '/Library',
     '/MangaLibrary',
@@ -1289,23 +1286,32 @@ class _TabletLayoutState extends State<_TabletLayout> {
     ),
   ];
 
-  double _railWidth() {
+  double _railWidth(double sidebarWidth) {
     if (widget.isLongPressed) return 0;
     final loc = widget.location;
     if (loc != null && !_validLocations.contains(loc)) return 0;
-    return _sidebarWidth;
+    return sidebarWidth;
   }
 
   @override
   Widget build(BuildContext context) {
-    final railWidth = _railWidth();
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    // Give PC and Android TV layouts larger targets and labels when there is
+    // enough room, while keeping tablet-sized windows compact.
+    final showLabels = screenWidth >= 1240;
+    final sidebarWidth = showLabels
+        ? (screenWidth * 0.17).clamp(208.0, 264.0).toDouble()
+        : (screenWidth * 0.10).clamp(82.0, 112.0).toDouble();
+    final railWidth = _railWidth(sidebarWidth);
+    final iconSize = screenWidth >= 900 ? 28.0 : 25.0;
+    final itemHeight = showLabels ? 58.0 : 66.0;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final location = widget.location;
 
     return Row(
       children: [
-        // ── Fixed icon-only sidebar ──────────────────────────────
+        // ── Adaptive PC / Android TV navigation sidebar ───────────
         AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOutCubic,
@@ -1316,7 +1322,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                     child: Container(
-                      width: _sidebarWidth,
+                      width: sidebarWidth,
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.black.withValues(alpha: 0.30)
@@ -1335,14 +1341,14 @@ class _TabletLayoutState extends State<_TabletLayout> {
                             bottom: false,
                             child: Padding(
                               padding: const EdgeInsets.only(
-                                top: 14,
-                                bottom: 10,
+                                top: 16,
+                                bottom: 12,
                               ),
                               child: SizedBox(
-                                width: 36,
-                                height: 36,
+                                width: showLabels ? 48 : 44,
+                                height: showLabels ? 48 : 44,
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(13),
                                   child: Image.asset(
                                     'assets/app_icons/icon.png',
                                     fit: BoxFit.cover,
@@ -1364,9 +1370,14 @@ class _TabletLayoutState extends State<_TabletLayout> {
                                         icon: location == item.route
                                             ? Icon(item.activeIcon)
                                             : Icon(item.icon),
-                                        label: null,
+                                        label: showLabels ? item.tooltip : null,
                                         active: location == item.route,
                                         cs: cs,
+                                        iconSize: iconSize,
+                                        verticalPadding: 14,
+                                        horizontalPadding: 16,
+                                        minHeight: itemHeight,
+                                        labelFontSize: 14.5,
                                         onTap: () =>
                                             widget.route.go(item.route),
                                       ),
@@ -1392,24 +1403,29 @@ class _TabletLayoutState extends State<_TabletLayout> {
                                 icon: location == item.route
                                     ? Icon(item.activeIcon)
                                     : Icon(item.icon),
-                                label: null,
+                                label: showLabels ? item.tooltip : null,
                                 active: location == item.route,
                                 cs: cs,
+                                iconSize: iconSize,
+                                verticalPadding: 14,
+                                horizontalPadding: 16,
+                                minHeight: itemHeight,
+                                labelFontSize: 14.5,
                                 onTap: () => widget.route.go(item.route),
                               ),
                             ),
                           ),
                           // ── Account ─────────────────────────────────
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             child: Tooltip(
                               message: 'Compte',
                               child: InkWell(
                                 onTap: () => showAccountSheet(context),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(24),
                                 child: Container(
-                                  width: 34,
-                                  height: 34,
+                                  width: showLabels ? 46 : 42,
+                                  height: showLabels ? 46 : 42,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     gradient: LinearGradient(
@@ -1424,7 +1440,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
                                   child: const Icon(
                                     Icons.person_rounded,
                                     color: Colors.white,
-                                    size: 18,
+                                    size: 22,
                                   ),
                                 ),
                               ),
@@ -1603,6 +1619,11 @@ class _SidebarItem extends StatelessWidget {
   final ColorScheme cs;
   final VoidCallback onTap;
   final int badge;
+  final double iconSize;
+  final double verticalPadding;
+  final double horizontalPadding;
+  final double minHeight;
+  final double labelFontSize;
 
   const _SidebarItem({
     required this.icon,
@@ -1611,6 +1632,11 @@ class _SidebarItem extends StatelessWidget {
     required this.cs,
     required this.onTap,
     this.badge = 0,
+    this.iconSize = 22,
+    this.verticalPadding = 10,
+    this.horizontalPadding = 12,
+    this.minHeight = 0,
+    this.labelFontSize = 13,
   });
 
   @override
@@ -1627,8 +1653,12 @@ class _SidebarItem extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             padding: label != null
-                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 10)
-                : const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+                ? EdgeInsets.symmetric(
+                    horizontal: horizontalPadding,
+                    vertical: verticalPadding,
+                  )
+                : EdgeInsets.symmetric(vertical: verticalPadding),
+            constraints: BoxConstraints(minHeight: minHeight),
             decoration: BoxDecoration(
               color: active
                   ? cs.primary.withValues(alpha: isDark ? 0.18 : 0.12)
@@ -1654,7 +1684,7 @@ class _SidebarItem extends StatelessWidget {
                         color: active
                             ? cs.primary
                             : cs.onSurface.withValues(alpha: 0.55),
-                        size: 22,
+                        size: iconSize,
                       ),
                       child: icon,
                     ),
@@ -1696,7 +1726,7 @@ class _SidebarItem extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: labelFontSize,
                         fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                         color: active
                             ? cs.primary
