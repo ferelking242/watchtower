@@ -12,8 +12,12 @@ import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/collection_cards.dart';
+import 'package:watchtower/modules/media/episode_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
+import 'package:watchtower/modules/media/ranking_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
+import 'package:watchtower/modules/media/streaming_cards.dart';
 import 'package:watchtower/modules/widgets/component_library.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
@@ -83,7 +87,89 @@ enum _PreviewKind {
   richQuickView,
   richPreview,
   richModal,
+  streamContinue,
+  streamContinueItem,
+  streamResume,
+  streamRecently,
+  streamWatchAgain,
+  streamNowPlaying,
+  streamUpNext,
+  streamNextEpisode,
+  streamEpisode,
+  streamSeason,
+  streamSeriesEpisode,
+  streamWatchProgress,
+  streamProgressMedia,
+  collCollection,
+  collMovieCollection,
+  collFranchise,
+  collSaga,
+  collStudio,
+  collNetwork,
+  collGenre,
+  collActor,
+  collDirector,
+  collCharacter,
+  collRelated,
+  collSimilar,
+  collTrending,
+  collPopular,
+  collTopRated,
+  collRanked,
+  collNumbered,
+  collFeatured,
+  collSpotlight,
+  collRecommendation,
+  collCarousel,
+  epCompact,
+  epThumbnail,
+  epPreview,
+  epListItem,
+  epSeasonDetail,
+  epFeatured,
+  epNextHero,
+  epLatest,
+  epSelector,
+  epSeriesList,
+  epProgress,
+  epMediaProgress,
+  epUpNextCompact,
+  epSeasonEpisode,
+  epSeriesBanner,
+  epCarousel,
+  epSeasonBanner,
+  epEpisodeList,
+  epSeriesGrid,
+  rankMovies,
+  rankSeries,
+  rankAnime,
+  rankByGenre,
+  rankByCountry,
+  rankGlobal,
+  rankTopRated,
+  rankTrending,
+  rankByDecade,
+  rankMustWatch,
 }
+
+/// Ordre d'affichage des sections dans la galerie.
+const _orderedGallerySections = <String>[
+  'CATALOGUE & DISCOVERY',
+  'CARTES RICHES',
+  'STREAMING & PROGRESSION',
+  'COLLECTIONS & FRANCHISES',
+  'ÉPISODES & SAISONS',
+  'CLASSEMENTS & TOP 10',
+  'FILMS & SÉRIES · SECTIONS',
+  'ACCUEIL & LECTURE',
+  'DÉTAIL MÉDIA',
+  'EXTENSIONS WATCH',
+  'MANGA & LECTURE',
+  'RECHERCHE',
+  'HISTORIQUE & BIBLIOTHÈQUE',
+  'ÉTATS & FEEDBACK',
+  'SECTIONS RÉUTILISABLES',
+];
 
 class _ComponentSpec {
   final String title;
@@ -134,6 +220,9 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   _GalleryTab _tab = _GalleryTab.cards;
   String _query = '';
 
+  /// Filtre de section actif (`null` = toutes les sections).
+  String? _sectionFilter;
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -142,13 +231,32 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
 
   List<_ComponentSpec> get _components => _buildComponents();
 
+  /// Sections présentes pour l'onglet courant, dans l'ordre du catalogue.
+  List<String> _sectionsFor(_GalleryTab tab) {
+    final isSectionsTab = tab == _GalleryTab.sections;
+    final seen = <String>{};
+    for (final component in _components) {
+      if (component.isSection == isSectionsTab) seen.add(component.section);
+    }
+    final ordered = _orderedGallerySections.where(seen.contains).toList();
+    ordered.addAll(
+      seen.where((section) => !_orderedGallerySections.contains(section)).toList()
+        ..sort(),
+    );
+    return ordered;
+  }
+
   List<_ComponentSpec> get _visibleComponents {
     final query = _query.trim().toLowerCase();
     return _components
         .where((component) {
           final textMatches =
               query.isEmpty || component.searchableText.contains(query);
-          return textMatches && component.isSection == (_tab == _GalleryTab.sections);
+          final sectionMatches =
+              _sectionFilter == null || component.section == _sectionFilter;
+          return textMatches &&
+              sectionMatches &&
+              component.isSection == (_tab == _GalleryTab.sections);
         })
         .toList(growable: false);
   }
@@ -158,6 +266,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     setState(() {
       _query = '';
       _state = _GalleryState.result;
+      _sectionFilter = null;
     });
   }
 
@@ -165,6 +274,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   Widget build(BuildContext context) {
     final padding = AppUI.pagePadding(context);
     final isWide = MediaQuery.sizeOf(context).width >= 700;
+    final sections = _sectionsFor(_tab);
     final visible = _visibleComponents;
 
     return Scaffold(
@@ -192,7 +302,13 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                       padding: EdgeInsets.fromLTRB(padding, 6, padding, 8),
                       child: _GalleryTabBar(
                         tab: _tab,
-                        onChanged: (tab) => setState(() => _tab = tab),
+                        onChanged: (tab) => setState(() {
+                          _tab = tab;
+                          if (_sectionFilter != null &&
+                              !_sectionsFor(tab).contains(_sectionFilter)) {
+                            _sectionFilter = null;
+                          }
+                        }),
                       ),
                     ),
                   ),
@@ -205,7 +321,13 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                     width: 212,
                     child: _GalleryTabBar(
                       tab: _tab,
-                      onChanged: (tab) => setState(() => _tab = tab),
+                      onChanged: (tab) => setState(() {
+                        _tab = tab;
+                        if (_sectionFilter != null &&
+                            !_sectionsFor(tab).contains(_sectionFilter)) {
+                          _sectionFilter = null;
+                        }
+                      }),
                     ),
                   ),
                 ),
@@ -235,8 +357,12 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                     query: _query,
                     state: _state,
                     resultCount: visible.length,
+                    sections: sections,
+                    sectionFilter: _sectionFilter,
                     onQueryChanged: (query) => setState(() => _query = query),
                     onStateChanged: (state) => setState(() => _state = state),
+                    onSectionChanged: (section) =>
+                        setState(() => _sectionFilter = section),
                   ),
                 ),
               ),
@@ -376,16 +502,22 @@ class _GalleryHeader extends StatelessWidget {
   final String query;
   final _GalleryState state;
   final int resultCount;
+  final List<String> sections;
+  final String? sectionFilter;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<_GalleryState> onStateChanged;
+  final ValueChanged<String?> onSectionChanged;
 
   const _GalleryHeader({
     required this.queryController,
     required this.query,
     required this.state,
     required this.resultCount,
+    required this.sections,
+    required this.sectionFilter,
     required this.onQueryChanged,
     required this.onStateChanged,
+    required this.onSectionChanged,
   });
 
   @override
@@ -460,6 +592,12 @@ class _GalleryHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
+        _SectionFilterBar(
+          sections: sections,
+          selected: sectionFilter,
+          onChanged: onSectionChanged,
+        ),
+        const SizedBox(height: 14),
         Row(
           children: [
             const Icon(Icons.grid_view_rounded, size: 17, color: Colors.white54),
@@ -483,6 +621,95 @@ class _GalleryHeader extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Filtre de sections : chips horizontales « Toutes » + chaque section.
+class _SectionFilterBar extends StatelessWidget {
+  final List<String> sections;
+  final String? selected;
+  final ValueChanged<String?> onChanged;
+
+  const _SectionFilterBar({
+    required this.sections,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.filter_alt_rounded, size: 16, color: Colors.white54),
+        const SizedBox(width: 8),
+        Expanded(
+          child: SizedBox(
+            height: 32,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _SectionChip(
+                  label: 'Toutes',
+                  selected: selected == null,
+                  onTap: () => onChanged(null),
+                ),
+                for (final section in sections)
+                  _SectionChip(
+                    label: section,
+                    selected: selected == section,
+                    onTap: () => onChanged(section),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SectionChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: .22) : Colors.white.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? accent.withValues(alpha: .55)
+                  : Colors.white.withValues(alpha: .12),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.white60,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -585,24 +812,12 @@ class _UnifiedGallery extends StatelessWidget {
     }
     // Keep the catalogue in a stable, readable order instead of an
     // insertion-order soup where section labels end up interleaved.
-    const orderedSections = <String>[
-      'CATALOGUE & DISCOVERY',
-      'CARTES RICHES',
-      'FILMS & SÉRIES · SECTIONS',
-      'ACCUEIL & LECTURE',
-      'DÉTAIL MÉDIA',
-      'EXTENSIONS WATCH',
-      'MANGA & LECTURE',
-      'RECHERCHE',
-      'HISTORIQUE & BIBLIOTHÈQUE',
-      'ÉTATS & FEEDBACK',
-      'SECTIONS RÉUTILISABLES',
-    ];
     final orderedEntries = <MapEntry<String, List<_ComponentSpec>>>[
-      ...orderedSections.where(grouped.containsKey).map(
+      ..._orderedGallerySections.where(grouped.containsKey).map(
             (section) => MapEntry(section, grouped[section]!),
           ),
-      ...grouped.entries.where((entry) => !orderedSections.contains(entry.key)),
+      ...grouped.entries
+          .where((entry) => !_orderedGallerySections.contains(entry.key)),
     ];
 
     return SizedBox(
@@ -628,6 +843,10 @@ class _UnifiedGallery extends StatelessWidget {
 
 IconData _sectionIcon(String section) {
   if (section.contains('EXTENSION')) return Icons.extension_outlined;
+  if (section.contains('STREAMING')) return Icons.play_circle_outline_rounded;
+  if (section.contains('COLLECTION')) return Icons.collections_bookmark_outlined;
+  if (section.contains('ÉPISODES')) return Icons.subtitles_outlined;
+  if (section.contains('CLASSEMENTS')) return Icons.leaderboard_outlined;
   if (section.contains('MANGA')) return Icons.menu_book_outlined;
   if (section.contains('RECHERCHE')) return Icons.search_rounded;
   if (section.contains('HISTORIQUE')) return Icons.history_rounded;
@@ -969,6 +1188,90 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.richQuickView => const _RichQuickViewSkeleton(),
       _PreviewKind.richPreview => const PosterSkeleton(width: 132),
       _PreviewKind.richModal => const _RichModalSkeleton(),
+      // ── Streaming ──
+      _PreviewKind.streamContinue =>
+        const LandscapeSkeleton(width: 300, ratio: 4 / 3),
+      _PreviewKind.streamContinueItem => const ListRowSkeleton(width: 380),
+      _PreviewKind.streamResume =>
+        const PosterSkeleton(width: 220, ratio: 1 / 1.3),
+      _PreviewKind.streamRecently => const _StreamPanelSkeleton(),
+      _PreviewKind.streamWatchAgain =>
+        const PosterSkeleton(width: 200, ratio: 4 / 3),
+      _PreviewKind.streamNowPlaying =>
+        const LandscapeSkeleton(width: 380, ratio: 16 / 10),
+      _PreviewKind.streamUpNext =>
+        const LandscapeSkeleton(width: 240, ratio: 1 / 1.28),
+      _PreviewKind.streamNextEpisode =>
+        const LandscapeSkeleton(width: 240, ratio: 1 / 1.28),
+      _PreviewKind.streamEpisode => const _StreamEpisodeListSkeleton(),
+      _PreviewKind.streamSeason =>
+        const LandscapeSkeleton(width: 280, ratio: 16 / 10),
+      _PreviewKind.streamSeriesEpisode =>
+        const ListRowSkeleton(width: 400, thumb: 58),
+      _PreviewKind.streamWatchProgress =>
+        const ListRowSkeleton(width: 400, thumb: 70),
+      _PreviewKind.streamProgressMedia =>
+        const ListRowSkeleton(width: 400, thumb: 70),
+      // ── Collections & franchises ──
+      _PreviewKind.collCollection => const _CollectionSkeleton(),
+      _PreviewKind.collMovieCollection =>
+        const _CollectionSkeleton(width: 400),
+      _PreviewKind.collFranchise => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collSaga => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collStudio => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collNetwork => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collGenre => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collActor => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collDirector => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collCharacter => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collRelated => const _CollectionSkeleton(width: 400),
+      _PreviewKind.collSimilar => const _PosterRowSkeleton(),
+      _PreviewKind.collTrending => const _PosterRowSkeleton(count: 5),
+      _PreviewKind.collPopular => const _PosterRowSkeleton(),
+      _PreviewKind.collTopRated => const _PosterRowSkeleton(),
+      _PreviewKind.collRanked => const _PosterRowSkeleton(count: 5),
+      _PreviewKind.collNumbered => const _PosterRowSkeleton(count: 5, withHeader: false),
+      _PreviewKind.collFeatured => const WallpaperSkeleton(),
+      _PreviewKind.collSpotlight => const WallpaperSkeleton(),
+      _PreviewKind.collRecommendation => const _PosterRowSkeleton(),
+      _PreviewKind.collCarousel => const _PosterRowSkeleton(width: 420),
+      // ── Épisodes & saisons ──
+      _PreviewKind.epCompact => const ListRowSkeleton(width: 340, thumb: 70),
+      _PreviewKind.epThumbnail => const EpisodeCardSkeleton(width: 240),
+      _PreviewKind.epPreview => const ListRowSkeleton(width: 400),
+      _PreviewKind.epListItem => const _StreamEpisodeListSkeleton(),
+      _PreviewKind.epSeasonDetail =>
+        const LandscapeSkeleton(width: 260, ratio: 4 / 3),
+      _PreviewKind.epFeatured => const PosterSkeleton(width: 200, ratio: 2 / 3),
+      _PreviewKind.epNextHero => const LandscapeSkeleton(width: 380, ratio: 2.2),
+      _PreviewKind.epLatest => const WallpaperSkeleton(),
+      _PreviewKind.epSelector => const _CollectionSkeleton(width: 420),
+      _PreviewKind.epSeriesList => const _StreamEpisodeListSkeleton(),
+      _PreviewKind.epProgress => const ListRowSkeleton(width: 380, thumb: 70),
+      _PreviewKind.epMediaProgress =>
+        const ListRowSkeleton(width: 380, thumb: 70),
+      _PreviewKind.epUpNextCompact =>
+        const LandscapeSkeleton(width: 240, ratio: 3 / 2),
+      _PreviewKind.epSeasonEpisode =>
+        const ListRowSkeleton(width: 380, thumb: 74),
+      _PreviewKind.epSeriesBanner => const WallpaperSkeleton(),
+      _PreviewKind.epCarousel =>
+        const _PosterRowSkeleton(count: 5, withHeader: false),
+      _PreviewKind.epSeasonBanner =>
+        const LandscapeSkeleton(width: 420, ratio: 2.8),
+      _PreviewKind.epEpisodeList => const _StreamEpisodeListSkeleton(),
+      _PreviewKind.epSeriesGrid => const PosterGridSkeleton(),
+      // ── Classements & Top 10 ──
+      _PreviewKind.rankMovies => const _PosterRowSkeleton(),
+      _PreviewKind.rankSeries => const _PosterRowSkeleton(),
+      _PreviewKind.rankAnime => const _PosterRowSkeleton(),
+      _PreviewKind.rankByGenre => const _PosterRowSkeleton(),
+      _PreviewKind.rankByCountry => const _PosterRowSkeleton(),
+      _PreviewKind.rankGlobal => const _PosterRowSkeleton(),
+      _PreviewKind.rankTopRated => const _PosterRowSkeleton(),
+      _PreviewKind.rankTrending => const _PosterRowSkeleton(),
+      _PreviewKind.rankByDecade => const _PosterRowSkeleton(),
+      _PreviewKind.rankMustWatch => const _PosterRowSkeleton(),
     };
     return card;
   }
@@ -2539,6 +2842,204 @@ class _RichModalSkeleton extends StatelessWidget {
   }
 }
 
+/// Streaming panel skeleton: header line + three poster thumbnails.
+class _StreamPanelSkeleton extends StatelessWidget {
+  const _StreamPanelSkeleton({this.width = 470});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ShimmerLine(width: 150, height: 12),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AspectRatio(
+                        aspectRatio: 2 / 3,
+                        child: AppShimmerBlock(radius: 10),
+                      ),
+                      const SizedBox(height: 7),
+                      const _ShimmerLine(width: 76, height: 10),
+                      const SizedBox(height: 4),
+                      const _ShimmerLine(width: 48, height: 8),
+                    ],
+                  ),
+                ),
+                if (i < 2) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Collections skeleton: main tile + column of three side tiles.
+class _CollectionSkeleton extends StatelessWidget {
+  const _CollectionSkeleton({this.width = 420, this.height = 132});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxWidth: width),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: height,
+              child: AppShimmerBlock(radius: 14),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 64,
+            height: height,
+            child: Column(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(height: 6),
+                  const Expanded(child: AppShimmerBlock(radius: 8)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Poster row skeleton: header line + row of small posters with captions.
+class _PosterRowSkeleton extends StatelessWidget {
+  const _PosterRowSkeleton({
+    this.width = 430,
+    this.count = 4,
+    this.withHeader = true,
+  });
+
+  final double width;
+  final int count;
+  final bool withHeader;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxWidth: width),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (withHeader) ...[
+            const _ShimmerLine(width: 130, height: 12),
+            const SizedBox(height: 10),
+          ],
+          Row(
+            children: [
+              for (var i = 0; i < count; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const AspectRatio(
+                        aspectRatio: 2 / 3,
+                        child: AppShimmerBlock(radius: 10),
+                      ),
+                      const SizedBox(height: 6),
+                      const _ShimmerLine(width: 56, height: 9),
+                      const SizedBox(height: 4),
+                      const _ShimmerLine(width: 34, height: 8),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Streaming episode list skeleton: season header + three rows.
+class _StreamEpisodeListSkeleton extends StatelessWidget {
+  const _StreamEpisodeListSkeleton({this.width = 330});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ShimmerLine(width: 90, height: 12),
+          const SizedBox(height: 12),
+          for (var i = 0; i < 3; i++) ...[
+            Row(
+              children: [
+                const SizedBox(
+                  width: 54,
+                  height: 54,
+                  child: AppShimmerBlock(radius: 9),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ShimmerLine(width: 120, height: 11),
+                      SizedBox(height: 5),
+                      _ShimmerLine(width: 60, height: 9),
+                    ],
+                  ),
+                ),
+                const _ShimmerChip(width: 26, height: 26, circle: true),
+              ],
+            ),
+            if (i < 2) const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ShimmerChip extends StatelessWidget {
   const _ShimmerChip({
     required this.width,
@@ -3232,7 +3733,7 @@ List<_ComponentSpec> _buildComponents() => [
     path: 'lib/modules/media/rich_media_cards.dart',
     usage: 'Image en arrière-plan plein cadre',
     section: 'CARTES RICHES',
-    icon: Icons.image_search_outlined,
+    icon: Icons.image_outlined,
     kind: _PreviewKind.richBackdrop,
     result: (_) => MovieDetailCard(data: _richCardData(_tmdbItems[1])),
   ),
@@ -3345,6 +3846,1574 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.picture_in_picture_alt_outlined,
     kind: _PreviewKind.richModal,
     result: (_) => MediaDetailsModal(data: _richCardData(_tmdbItems[1])),
+  ),
+  // ── STREAMING & PROGRESSION ──
+  _ComponentSpec(
+    title: 'Reprise de lecture',
+    className: 'ContinueWatchingCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Visuel, progression et actions de reprise',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.play_circle_outline_rounded,
+    kind: _PreviewKind.streamContinue,
+    result: (_) => ContinueWatchingCard(
+      data: _streamCardData(
+        _tmdbItems[4],
+        seriesMeta: 'S1 • Ép. 6',
+        remainingLabel: '18 min restantes',
+        badge: 'En cours',
+        progress: .62,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Élément compact à reprendre',
+    className: 'ContinueWatchingItem',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Ligne compacte pour une liste à reprendre',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.format_list_bulleted_rounded,
+    kind: _PreviewKind.streamContinueItem,
+    result: (_) => ContinueWatchingItem(
+      data: _streamCardData(
+        _tmdbItems[3],
+        seriesMeta: 'S3 • Ép. 5',
+        remainingLabel: '18 min restantes',
+        progress: .67,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte de reprise rapide',
+    className: 'ResumeWatchingCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Chip, play et barre de progression',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.history_rounded,
+    kind: _PreviewKind.streamResume,
+    result: (_) => ResumeWatchingCard(
+      data: _streamCardData(
+        _tmdbItems[4],
+        seriesMeta: 'S1 • Ép. 6',
+        badge: 'Reprise rapide',
+        progress: .67,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Récemment regardés',
+    className: 'RecentlyWatchedCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Panneau à trois posters + voir tout',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.recent_actors_outlined,
+    kind: _PreviewKind.streamRecently,
+    result: (_) => RecentlyWatchedCard(
+      items: [
+        _streamEpisode(_tmdbItems[3], meta: 'S3 • Ép. 5'),
+        _streamEpisode(_tmdbItems[4], meta: 'S1 • Ép. 6'),
+        _streamEpisode(_tmdbItems[2], meta: 'Film • 2h 30min'),
+      ],
+      onSeeAll: () {},
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte à revoir',
+    className: 'WatchAgainCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Chip « À revoir » et bouton Revoir',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.refresh_rounded,
+    kind: _PreviewKind.streamWatchAgain,
+    result: (_) => WatchAgainCard(
+      data: _streamCardData(
+        _tmdbItems[3],
+        seriesMeta: 'S1 • Ép. 1',
+        badge: 'À revoir',
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Lecture en cours',
+    className: 'NowPlayingCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Large visuel, badges HD et actions',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.live_tv_outlined,
+    kind: _PreviewKind.streamNowPlaying,
+    result: (_) => NowPlayingCard(
+      data: _streamCardData(
+        _tmdbItems[0],
+        extraMeta: '© 2024 · Science-Fiction · 2h 46min',
+        badge: 'En cours',
+      ),
+      hd: true,
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Prochain épisode',
+    className: 'UpNextCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Compte à rebours et rappel',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.update_rounded,
+    kind: _PreviewKind.streamUpNext,
+    result: (_) => UpNextCard(
+      data: _streamCardData(
+        _tmdbItems[3],
+        seriesMeta: 'S4 • Ép. 5',
+        extraMeta: '45 min',
+      ),
+      countdownLabel: 'J-1',
+      countdownTime: '12h 36m',
+      onReminder: () {},
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Épisode suivant',
+    className: 'NextEpisodeCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Dispo imminente, play et progression',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.skip_next_rounded,
+    kind: _PreviewKind.streamNextEpisode,
+    result: (_) => NextEpisodeCard(
+      data: _streamCardData(
+        _tmdbItems[4],
+        seriesMeta: 'S1 • Ép. 8',
+        progress: .12,
+      ),
+      availableLabel: 'Dans 5 min',
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Liste d\'épisodes',
+    className: 'EpisodeCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Saison dépliable, épisodes courant/verrouillé',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.playlist_play_rounded,
+    kind: _PreviewKind.streamEpisode,
+    result: (_) => EpisodeCard(
+      seasonLabel: 'Saison 1',
+      episodes: [
+        _streamEpisode(
+          _tmdbItems[4],
+          title: 'Épisode 7',
+          meta: '24 min',
+        ),
+        _streamEpisode(
+          _tmdbItems[3],
+          title: 'Épisode 8',
+          meta: '24 min',
+          isCurrent: true,
+        ),
+        _streamEpisode(
+          _tmdbItems[2],
+          title: 'Épisode 9',
+          meta: '24 min',
+          isLocked: true,
+        ),
+      ],
+      onSeasonTap: () {},
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte de saison',
+    className: 'SeasonCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Voir la saison + sélecteur S1…S4',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.video_library_outlined,
+    kind: _PreviewKind.streamSeason,
+    result: (_) => SeasonCard(
+      data: _streamCardData(_tmdbItems[3]),
+      seasonLabel: 'Saison 4',
+      episodesLabel: '10 épisodes • 2014',
+      selectedSeason: 3,
+      onSeasonSelected: (_) {},
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Série + épisode compact',
+    className: 'SeriesEpisodeCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Rangée horizontale avec play et chevron',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.tv_rounded,
+    kind: _PreviewKind.streamSeriesEpisode,
+    result: (_) => SeriesEpisodeCard(
+      data: _streamCardData(
+        _tmdbItems[4],
+        seriesMeta: 'S1 • Ép. 6',
+        extraMeta: '42 min',
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Progression visuelle',
+    className: 'WatchProgressCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Barre de progression et pourcentage',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.speed_rounded,
+    kind: _PreviewKind.streamWatchProgress,
+    result: (_) => WatchProgressCard(
+      data: _streamCardData(
+        _tmdbItems[3],
+        seriesMeta: 'S3 • Ép. 5',
+        progress: .68,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Barre de progression',
+    className: 'ProgressMediaCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Style barre + bouton play',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.timelapse_rounded,
+    kind: _PreviewKind.streamProgressMedia,
+    result: (_) => ProgressMediaCard(
+      data: _streamCardData(
+        _tmdbItems[4],
+        seriesMeta: 'S1 • Ép. 6',
+        progress: .72,
+      ),
+      style: ProgressMediaStyle.bar,
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Barre de progression (%)',
+    className: 'ProgressMediaCard(percent)',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Pourcentage affiché à droite',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.timelapse_rounded,
+    kind: _PreviewKind.streamProgressMedia,
+    result: (_) => ProgressMediaCard(
+      data: _streamCardData(
+        _tmdbItems[4],
+        seriesMeta: 'S1 • Ép. 6',
+        progress: .72,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Barre de progression (chip)',
+    className: 'ProgressMediaCard(chip)',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'Pastille de pourcentage sur la vignette',
+    section: 'STREAMING & PROGRESSION',
+    icon: Icons.timelapse_rounded,
+    kind: _PreviewKind.streamProgressMedia,
+    result: (_) => ProgressMediaCard(
+      data: _streamCardData(
+        _tmdbItems[4],
+        seriesMeta: 'S1 • Ép. 6',
+        progress: .72,
+      ),
+      style: ProgressMediaStyle.chip,
+    ),
+  ),
+  // ── COLLECTIONS & FRANCHISES ──
+  _ComponentSpec(
+    title: 'Collection de films/séries',
+    className: 'CollectionCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Univers principal + tuiles d’autres collections',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.collections_bookmark_outlined,
+    kind: _PreviewKind.collCollection,
+    result: (_) => CollectionCard(
+      data: _collectionData(
+        _collItem(
+          'Marvel Cinematic Universe',
+          poster: _posterDune,
+          backdrop: _backdropDune,
+        ),
+        stats: '32 films · 18 séries · 1 franchise',
+        actionLabel: 'Voir la collection',
+      ),
+      sideEntries: [
+        _collectionEntry('Star Wars', thumbUrl: _posterThrones),
+        _collectionEntry('Harry Potter', thumbUrl: _posterInterstellar),
+        _collectionEntry('DC', thumbUrl: _posterArcane),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Collection de films',
+    className: 'MovieCollectionCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Trilogie / saga + posters latéraux',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.local_movies_outlined,
+    kind: _PreviewKind.collMovieCollection,
+    result: (_) => MovieCollectionCard(
+      data: _collectionData(
+        _collItem(
+          'The Dark Knight Trilogy',
+          poster: _posterInterstellar,
+          backdrop: _backdropInterstellar,
+        ),
+        stats: '3 films · Action · Thriller',
+        actionLabel: 'Voir la saga',
+      ),
+      sideEntries: [
+        _collectionEntry('Batman Begins', thumbUrl: _posterThrones),
+        _collectionEntry('The Dark Knight', thumbUrl: _posterArcane),
+        _collectionEntry('The Dark Knight Rises', thumbUrl: _posterDune),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Franchise',
+    className: 'FranchiseCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Franchise spécifique, titre en grand',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.public,
+    kind: _PreviewKind.collFranchise,
+    result: (_) => FranchiseCard(
+      data: _collectionData(
+        _collItem(
+          'Fast & Furious',
+          poster: _posterOppenheimer,
+          backdrop: _backdropOppenheimer,
+        ),
+        stats: '9 films · Action · Crime',
+        actionLabel: 'Voir la franchise',
+      ),
+      sideEntries: [
+        _collectionEntry('Fast X', thumbUrl: _posterDune),
+        _collectionEntry('Hobbs & Shaw', thumbUrl: _posterThrones),
+        _collectionEntry('Tokyo Drift', thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Saga',
+    className: 'SagaCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Saga littéraire ou film',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.auto_stories_outlined,
+    kind: _PreviewKind.collSaga,
+    result: (_) => SagaCard(
+      data: _collectionData(
+        _collItem(
+          'Le Seigneur des Anneaux',
+          poster: _posterArcane,
+          backdrop: _backdropArcane,
+        ),
+        stats: '3 films · Aventure · Fantastique',
+        actionLabel: 'Voir la saga',
+      ),
+      sideEntries: [
+        _collectionEntry('La Communauté', thumbUrl: _posterInterstellar),
+        _collectionEntry('Les Deux Tours', thumbUrl: _posterOppenheimer),
+        _collectionEntry('Le Retour du Roi', thumbUrl: _posterThrones),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Studio de production',
+    className: 'StudioCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Studio + tuiles d’autres studios',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.business_center_outlined,
+    kind: _PreviewKind.collStudio,
+    result: (_) => StudioCard(
+      data: _collectionData(
+        _collItem(
+          'Pixar Animation Studios',
+          poster: _posterArcane,
+          backdrop: _backdropArcane,
+        ),
+        stats: '28 films · Animation · Famille',
+        actionLabel: 'Voir les films',
+      ),
+      sideEntries: [
+        _collectionEntry('Marvel Studios', thumbUrl: _posterDune),
+        _collectionEntry('DreamWorks', thumbUrl: _posterInterstellar),
+        _collectionEntry('DC Studios', thumbUrl: _posterOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Réseau TV',
+    className: 'NetworkCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Réseau / plateforme + tuiles voisines',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.live_tv_outlined,
+    kind: _PreviewKind.collNetwork,
+    result: (_) => NetworkCard(
+      data: _collectionData(
+        _collItem(
+          'Netflix Originals',
+          poster: _posterDune,
+          backdrop: _backdropDune,
+        ),
+        stats: '120 titres · Séries · Films',
+        actionLabel: 'Voir la sélection',
+      ),
+      sideEntries: [
+        _collectionEntry('HBO Max', thumbUrl: _posterThrones),
+        _collectionEntry('Disney+', thumbUrl: _posterArcane),
+        _collectionEntry('Prime Video', thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Genre de contenu',
+    className: 'GenreCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Genre + rangées de genres voisins',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.category_outlined,
+    kind: _PreviewKind.collGenre,
+    result: (_) => GenreCard(
+      data: _collectionData(
+        _collItem(
+          'Action',
+          poster: _posterOppenheimer,
+          backdrop: _backdropOppenheimer,
+        ),
+        stats: '1 248 titres',
+        description:
+            'Des films et séries pleins d’adrénaline, d’aventure et de combats.',
+        actionLabel: 'Voir tout',
+      ),
+      sideEntries: [
+        _collectionEntry('Romance', thumbUrl: _posterArcane),
+        _collectionEntry('Science-Fiction', thumbUrl: _posterInterstellar),
+        _collectionEntry('Fantastique', thumbUrl: _posterThrones),
+        _collectionEntry('Horreur', thumbUrl: _posterDune),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Acteur / Actrice',
+    className: 'ActorCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Portrait, âge et filmographie',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.face_outlined,
+    kind: _PreviewKind.collActor,
+    result: (_) => ActorCard(
+      data: _collectionData(
+        _collItem(
+          'Tom Holland',
+          poster: _posterDune,
+          backdrop: _backdropInterstellar,
+        ),
+        subtitle: 'Acteur · 27 ans',
+        actionLabel: 'Voir la filmographie',
+      ),
+      sideEntries: [
+        _collectionEntry('Spider-Man', thumbUrl: _posterThrones),
+        _collectionEntry('Uncharted', thumbUrl: _posterArcane),
+        _collectionEntry('The Crowded Room', thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Réalisateur',
+    className: 'DirectorCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Portrait et films marquants',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.videocam_outlined,
+    kind: _PreviewKind.collDirector,
+    result: (_) => DirectorCard(
+      data: _collectionData(
+        _collItem(
+          'Christopher Nolan',
+          poster: _posterOppenheimer,
+          backdrop: _backdropDune,
+        ),
+        subtitle: 'Réalisateur · 54 ans',
+        actionLabel: 'Voir les films',
+      ),
+      sideEntries: [
+        _collectionEntry('Inception', thumbUrl: _posterInterstellar),
+        _collectionEntry('Interstellar', thumbUrl: _posterDune),
+        _collectionEntry('The Dark Knight', thumbUrl: _posterThrones),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Personnage',
+    className: 'CharacterCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Fiche personnage + autres rôles',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.theater_comedy_outlined,
+    kind: _PreviewKind.collCharacter,
+    result: (_) => CharacterCard(
+      data: _collectionData(
+        _collItem(
+          'Darth Vader',
+          poster: _posterThrones,
+          backdrop: _backdropOppenheimer,
+        ),
+        subtitle: 'Star Wars',
+        actionLabel: 'Voir la fiche',
+      ),
+      sideEntries: [
+        _collectionEntry('Luke Skywalker', thumbUrl: _posterArcane),
+        _collectionEntry('Yoda', thumbUrl: _posterInterstellar),
+        _collectionEntry('Leia Organa', thumbUrl: _posterDune),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Contenu lié',
+    className: 'RelatedMediaCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Même univers, même équipe…',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.link_rounded,
+    kind: _PreviewKind.collRelated,
+    result: (_) => RelatedMediaCard(
+      data: _collectionData(
+        _collItem(
+          'The Witcher',
+          poster: _posterInterstellar,
+          backdrop: _backdropInterstellar,
+        ),
+        subtitle: 'Même univers',
+        actionLabel: 'Voir les contenus',
+      ),
+      sideEntries: [
+        _collectionEntry(
+          'The Witcher: Blood Origin',
+          meta: 'Série',
+          thumbUrl: _posterArcane,
+        ),
+        _collectionEntry(
+          'The Witcher',
+          meta: 'Jeux vidéo',
+          thumbUrl: _posterDune,
+        ),
+        _collectionEntry(
+          'Séries similaires',
+          meta: 'Sélection',
+          thumbUrl: _posterThrones,
+        ),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Contenus similaires',
+    className: 'SimilarMediaCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Même genre, même ambiance',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.recommend_outlined,
+    kind: _PreviewKind.collSimilar,
+    result: (_) => SimilarMediaCard(
+      items: [
+        _collectionEntry('Shadow and Bone',
+            meta: 'S1 · Fantaisie', thumbUrl: _posterArcane),
+        _collectionEntry('The 100',
+            meta: 'S7 · Drame', thumbUrl: _posterThrones),
+        _collectionEntry('The Vampire Diaries',
+            meta: 'S9 · Fantastique', thumbUrl: _posterDune),
+        _collectionEntry('Supernatural',
+            meta: 'S15 · Fantastique', thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Contenu tendance',
+    className: 'TrendingCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Top actuel avec rangs',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.trending_up_rounded,
+    kind: _PreviewKind.collTrending,
+    result: (_) => TrendingCard(
+      onSeeAll: () {},
+      items: [
+        _collectionEntry('Dune',
+            meta: 'Film', thumbUrl: _posterDune, rank: 1),
+        _collectionEntry('The Last of Us',
+            meta: 'Série', thumbUrl: _posterThrones, rank: 2),
+        _collectionEntry('Oppenheimer',
+            meta: 'Film', thumbUrl: _posterOppenheimer, rank: 3),
+        _collectionEntry('Wednesday',
+            meta: 'Série', thumbUrl: _posterArcane, rank: 4),
+        _collectionEntry('The Boys',
+            meta: 'Série', thumbUrl: _posterInterstellar, rank: 5),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Contenu populaire',
+    className: 'PopularCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Le plus de vues',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.visibility_rounded,
+    kind: _PreviewKind.collPopular,
+    result: (_) => PopularCard(
+      onSeeAll: () {},
+      items: [
+        _collectionEntry('One Piece',
+            meta: 'Animé', thumbUrl: _posterThrones, viewsLabel: '9.8M'),
+        _collectionEntry('Stranger Things',
+            meta: 'Série', thumbUrl: _posterArcane, viewsLabel: '8.2M'),
+        _collectionEntry('L’Attaque des Titans',
+            meta: 'Animé', thumbUrl: _posterDune, viewsLabel: '7.5M'),
+        _collectionEntry('Squid Game',
+            meta: 'Série', thumbUrl: _posterOppenheimer, viewsLabel: '6.9M'),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Mieux notés',
+    className: 'TopRatedCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Notes IMDb / TMDB',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.star_rounded,
+    kind: _PreviewKind.collTopRated,
+    result: (_) => TopRatedCard(
+      onSeeAll: () {},
+      items: [
+        _collectionEntry('Breaking Bad',
+            meta: 'Série', thumbUrl: _posterThrones, rating: 9.5),
+        _collectionEntry('Planète Terre',
+            meta: 'Documentaire', thumbUrl: _posterArcane, rating: 9.4),
+        _collectionEntry('Le Parrain',
+            meta: 'Film', thumbUrl: _posterOppenheimer, rating: 9.3),
+        _collectionEntry('Interstellar',
+            meta: 'Film', thumbUrl: _posterInterstellar, rating: 9.2),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Classement Top 10',
+    className: 'RankedMediaCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Top 10 / top 50 avec grands numéros',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.leaderboard_outlined,
+    kind: _PreviewKind.collRanked,
+    result: (_) => RankedMediaCard(
+      onSeeAll: () {},
+      items: [
+        _collectionEntry('Dune',
+            meta: 'Film', thumbUrl: _posterDune, rank: 1),
+        _collectionEntry('The Last of Us',
+            meta: 'Série', thumbUrl: _posterThrones, rank: 2),
+        _collectionEntry('Spider-Man',
+            meta: 'Film', thumbUrl: _posterOppenheimer, rank: 3),
+        _collectionEntry('Stranger Things',
+            meta: 'Série', thumbUrl: _posterArcane, rank: 4),
+        _collectionEntry('Breaking Bad',
+            meta: 'Série', thumbUrl: _posterInterstellar, rank: 5),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte numérotée',
+    className: 'NumberedCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Top 10 compact, sans en-tête',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.format_list_numbered_rounded,
+    kind: _PreviewKind.collNumbered,
+    result: (_) => NumberedCard(
+      items: [
+        _collectionEntry('Dune', thumbUrl: _posterDune, rank: 1),
+        _collectionEntry('The Batman', thumbUrl: _posterThrones, rank: 2),
+        _collectionEntry('Interstellar',
+            thumbUrl: _posterInterstellar, rank: 3),
+        _collectionEntry('Inception',
+            thumbUrl: _posterOppenheimer, rank: 4),
+        _collectionEntry('The Witcher', thumbUrl: _posterArcane, rank: 5),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Contenu à la une',
+    className: 'FeaturedCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Grand visuel + points de carrousel',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.stars_rounded,
+    kind: _PreviewKind.collFeatured,
+    result: (_) => FeaturedCard(
+      data: _collectionData(
+        _collItem(
+          'House of the Dragon',
+          poster: _posterArcane,
+          backdrop: _backdropArcane,
+        ),
+        badge: 'À la une',
+        stats: 'S1 · S2 · Fantastique',
+        actionLabel: 'Regarder',
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Coup de projecteur',
+    className: 'SpotlightCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Événement, nouveauté',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.flash_on_rounded,
+    kind: _PreviewKind.collSpotlight,
+    result: (_) => SpotlightCard(
+      data: _collectionData(
+        _collItem(
+          'The Last of Us',
+          poster: _posterThrones,
+          backdrop: _backdropOppenheimer,
+        ),
+        badge: 'Nouveauté',
+        stats: 'S1 · Drame · 2023',
+        actionLabel: 'Voir',
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Recommandations',
+    className: 'RecommendationCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Parce que vous avez aimé…',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.thumb_up_alt_outlined,
+    kind: _PreviewKind.collRecommendation,
+    result: (_) => RecommendationCard(
+      onSeeAll: () {},
+      items: [
+        _collectionEntry('Arcane',
+            meta: 'S1 · Animation', thumbUrl: _posterArcane),
+        _collectionEntry('L’Attaque des Titans',
+            meta: 'S4 · Action', thumbUrl: _posterDune),
+        _collectionEntry('The Boys',
+            meta: 'S3 · Action', thumbUrl: _posterThrones),
+        _collectionEntry('Interstellar',
+            meta: 'S2 · Animation', thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carrousel d’univers',
+    className: 'CarouselCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Collections / univers avec flèches',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.collCarousel,
+    result: (_) => CarouselCard(
+      onPrevious: () {},
+      onNext: () {},
+      universes: [
+        _collectionEntry(
+          'Univers DC',
+          meta: 'Films · Comics',
+          thumbUrl: _backdropDune,
+        ),
+        _collectionEntry(
+          'Univers Harry Potter',
+          meta: 'Films · Livres',
+          thumbUrl: _backdropInterstellar,
+        ),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Univers (alias)',
+    className: 'UniverseCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Alias générique de FranchiseCard',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.explore_outlined,
+    kind: _PreviewKind.collFranchise,
+    result: (_) => UniverseCard(
+      data: _collectionData(
+        _collItem(
+          'Star Wars Universe',
+          poster: _posterThrones,
+          backdrop: _backdropArcane,
+        ),
+        stats: '12 films · 9 séries',
+        actionLabel: 'Explorer l’univers',
+      ),
+      sideEntries: [
+        _collectionEntry('Mandalorian', thumbUrl: _posterArcane),
+        _collectionEntry('Andor', thumbUrl: _posterDune),
+        _collectionEntry('Ahsoka', thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Catégorie (alias)',
+    className: 'CategoryCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Alias générique de GenreCard',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.category_rounded,
+    kind: _PreviewKind.collGenre,
+    result: (_) => CategoryCard(
+      data: _collectionData(
+        _collItem(
+          'Science-Fiction',
+          poster: _posterInterstellar,
+          backdrop: _backdropInterstellar,
+        ),
+        stats: '864 titres',
+        description: 'Anticipations, space opera et dystopies.',
+        actionLabel: 'Voir la catégorie',
+      ),
+      sideEntries: [
+        _collectionEntry('Space opera', thumbUrl: _posterDune),
+        _collectionEntry('Dystopie', thumbUrl: _posterOppenheimer),
+        _collectionEntry('Cyberpunk', thumbUrl: _posterArcane),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Casting (alias)',
+    className: 'CastCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'Alias générique de ActorCard',
+    section: 'COLLECTIONS & FRANCHISES',
+    icon: Icons.people_outline,
+    kind: _PreviewKind.collActor,
+    result: (_) => CastCard(
+      data: _collectionData(
+        _collItem(
+          'Scarlett Johansson',
+          poster: _posterArcane,
+          backdrop: _backdropOppenheimer,
+        ),
+        subtitle: 'Actrice · 41 ans',
+        actionLabel: 'Voir la filmographie',
+      ),
+      sideEntries: [
+        _collectionEntry('Black Widow', thumbUrl: _posterThrones),
+        _collectionEntry('Her', thumbUrl: _posterInterstellar),
+        _collectionEntry('Lucy', thumbUrl: _posterDune),
+      ],
+    ),
+  ),
+  // ── ÉPISODES & SAISONS ──
+  _ComponentSpec(
+    title: 'Épisode (format compact)',
+    className: 'CompactEpisodeCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'EpisodeCard — carte d\'épisode simple',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.live_tv_outlined,
+    kind: _PreviewKind.epCompact,
+    result: (_) => CompactEpisodeCard(
+      entry: _episodeEntry(
+        'The Last of Us',
+        meta: 'S1 · Ép. 3',
+        subtitle: 'Long, Long Time',
+        duration: '52 min',
+        genres: ['Action', 'Drame'],
+        hd: true,
+        thumbUrl: _posterThrones,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Miniature d\'épisode',
+    className: 'EpisodeThumbnail',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Grand format 16:9 avec play et HD',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.image_outlined,
+    kind: _PreviewKind.epThumbnail,
+    result: (_) => EpisodeThumbnail(
+      entry: _episodeEntry(
+        'Long, Long Time',
+        meta: 'S1 · Ép. 3',
+        subtitle: 'The Last of Us',
+        duration: '52 min',
+        rating: 8.7,
+        hd: true,
+        thumbUrl: _posterThrones,
+        backdropUrl: _backdropInterstellar,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Épisode avec aperçu',
+    className: 'EpisodePreviewCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Visuel + description + progression',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.play_circle_outline,
+    kind: _PreviewKind.epPreview,
+    result: (_) => EpisodePreviewCard(
+      entry: _episodeEntry(
+        'The Walking Dead',
+        meta: 'S8 · Ép. 6',
+        subtitle: 'Honor',
+        duration: '42 min',
+        description: 'Le groupe découvre une nouvelle menace dans la région.',
+        progress: .68,
+        hd: true,
+        thumbUrl: _posterDune,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Liste d\'épisodes numérotée',
+    className: 'EpisodeListItem',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Élément de liste : vu ▵ / play / verrouillé',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.view_list_outlined,
+    kind: _PreviewKind.epListItem,
+    result: (_) => EpisodeListItem(
+      episodes: [
+        _episodeEntry('Pilot', meta: 'S1', duration: '42 min',
+            number: 1, watched: true, thumbUrl: _posterDune),
+        _episodeEntry('The Things We Lost', meta: 'S1', duration: '41 min',
+            number: 2, thumbUrl: _posterInterstellar),
+        _episodeEntry('Long, Long Time', meta: 'S1', duration: '52 min',
+            number: 3, current: true, thumbUrl: _posterOppenheimer),
+        _episodeEntry('Please Hold', meta: 'S1', duration: '48 min',
+            number: 4, locked: true, thumbUrl: _posterArcane),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte de saison',
+    className: 'SeasonDetailCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'SeasonCard — visuel, stats et description',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.calendar_today_outlined,
+    kind: _PreviewKind.epSeasonDetail,
+    result: (_) => SeasonDetailCard(
+      season: _seasonEntry(
+        'Stranger Things',
+        seasonLabel: 'Saison 4',
+        stats: '9 épisodes · 2022',
+        description:
+            'La lutte contre Vecna s’intensifie alors que Hawkins est plus en danger que jamais.',
+        thumbUrl: _backdropArcane,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Épisode de série mis en avant',
+    className: 'FeaturedEpisodeCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'SeriesEpisodeCard — poster avec chip de saison',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.star_rounded,
+    kind: _PreviewKind.epFeatured,
+    result: (_) => FeaturedEpisodeCard(
+      entry: _episodeEntry(
+        'Control',
+        meta: 'S2 · Ép. 5',
+        subtitle: 'The Boys',
+        duration: '46 min',
+        rating: 8.9,
+        hd: true,
+        thumbUrl: _posterOppenheimer,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Prochain épisode (héros)',
+    className: 'NextEpisodeHeroCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'NextEpisodeCard — grand visuel et chip',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.skip_next_rounded,
+    kind: _PreviewKind.epNextHero,
+    result: (_) => NextEpisodeHeroCard(
+      entry: _episodeEntry(
+        'Game of Thrones',
+        meta: 'S8 · Ép. 1 · 58 min',
+        subtitle: 'Le Dernier de la Garde',
+        actionLabel: 'Prochain épisode',
+        progress: 0,
+        thumbUrl: _posterThrones,
+        backdropUrl: _backdropInterstellar,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Dernier épisode ajouté',
+    className: 'LatestEpisodeCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Badge Nouveau + bouton Voir la série',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.fiber_new_rounded,
+    kind: _PreviewKind.epLatest,
+    result: (_) => LatestEpisodeCard(
+      entry: _episodeEntry(
+        'House of the Dragon',
+        meta: 'S1 · Ép. 8 · 1h 12m',
+        subtitle: 'The Lord of the Tides',
+        badge: 'Nouveau',
+        actionLabel: 'Voir la série',
+        hd: true,
+        thumbUrl: _posterOppenheimer,
+        backdropUrl: _backdropOppenheimer,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Sélecteur de saison',
+    className: 'SeasonSelectorCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Poster + chips S1-S5 + épisodes',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.tune_rounded,
+    kind: _PreviewKind.epSelector,
+    result: (_) => SeasonSelectorCard(
+      selectedSeason: 1,
+      onSeasonSelected: (_) {},
+      seasons: [
+        _seasonEntry('The Witcher', seasonLabel: 'S1', thumbUrl: _posterInterstellar),
+        _seasonEntry('The Witcher', seasonLabel: 'S2', thumbUrl: _posterInterstellar),
+        _seasonEntry('The Witcher', seasonLabel: 'S3', thumbUrl: _posterInterstellar),
+        _seasonEntry('The Witcher', seasonLabel: 'S4', thumbUrl: _posterInterstellar),
+        _seasonEntry('The Witcher', seasonLabel: 'S5', thumbUrl: _posterInterstellar),
+      ],
+      episodes: [
+        _episodeEntry('A Grain of Truth', meta: 'S2 · Ép. 1',
+            duration: '48 min', thumbUrl: _posterDune),
+        _episodeEntry('Kaer Morhen', meta: 'S2 · Ép. 2',
+            duration: '52 min', thumbUrl: _posterThrones),
+        _episodeEntry('What’s Lost', meta: 'S2 · Ép. 3',
+            duration: '47 min', thumbUrl: _posterArcane),
+        _episodeEntry('Redanian Intelligence', meta: 'S2 · Ép. 4',
+            duration: '50 min', locked: true, thumbUrl: _posterOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Liste compacte de série',
+    className: 'SeriesEpisodeListCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'SeriesEpisodeCard (liste compacte)',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.list_alt_rounded,
+    kind: _PreviewKind.epSeriesList,
+    result: (_) => SeriesEpisodeListCard(
+      episodes: [
+        _episodeEntry('Wolf', meta: 'S1 · Ép. 1', duration: '49 min',
+            watched: true, thumbUrl: _posterDune),
+        _episodeEntry('Blood Moon', meta: 'S1 · Ép. 2', duration: '48 min',
+            thumbUrl: _posterThrones),
+        _episodeEntry('Alpha', meta: 'S1 · Ép. 3', duration: '52 min',
+            thumbUrl: _posterArcane),
+        _episodeEntry('The Pack', meta: 'S1 · Ép. 4', duration: '46 min',
+            locked: true, thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Progression de visionnage',
+    className: 'EpisodeProgressCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'WatchProgressCard — épisode en cours',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.access_time_rounded,
+    kind: _PreviewKind.epProgress,
+    result: (_) => EpisodeProgressCard(
+      entry: _episodeEntry(
+        'Teen Wolf',
+        meta: 'S3 · Ép. 6 — Raw Talent',
+        duration: '52 min',
+        progress: .72,
+        hd: true,
+        thumbUrl: _posterArcane,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Média avec barre de progression',
+    className: 'MediaProgressCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'ProgressMediaCard — temps restant et HD',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.speed_rounded,
+    kind: _PreviewKind.epMediaProgress,
+    result: (_) => MediaProgressCard(
+      entry: _episodeEntry(
+        'The 100',
+        meta: 'S5 · Ép. 7 · The Warriors Will',
+        duration: '41 min',
+        progress: .45,
+        hd: true,
+        thumbUrl: _posterInterstellar,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Prochain épisode (compact)',
+    className: 'UpNextCompactCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'UpNextCard — format paysage compact',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.update_rounded,
+    kind: _PreviewKind.epUpNextCompact,
+    result: (_) => UpNextCompactCard(
+      entry: _episodeEntry(
+        'Lucifer',
+        meta: 'S6 · Ép. 4',
+        subtitle: 'Épisode suivant',
+        duration: '44 min',
+        thumbUrl: _posterOppenheimer,
+        backdropUrl: _backdropOppenheimer,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Épisode avec info saison',
+    className: 'SeasonEpisodeCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'EpisodeCard (avec saison) et genres',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.live_tv_outlined,
+    kind: _PreviewKind.epSeasonEpisode,
+    result: (_) => SeasonEpisodeCard(
+      entry: _episodeEntry(
+        'The Mandalorian',
+        meta: 'S2 · Ép. 8',
+        subtitle: 'Chapitre 15',
+        duration: '42 min',
+        genres: ['Action', 'Aventure'],
+        thumbUrl: _posterDune,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Bannière de série',
+    className: 'SeriesBannerCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Bannière large avec infos et note',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.image_outlined,
+    kind: _PreviewKind.epSeriesBanner,
+    result: (_) => SeriesBannerCard(
+      season: _seasonEntry(
+        'Wednesday',
+        stats: 'S1 · 2022 · Mystère · Fantastique',
+        description:
+            'Une enquête sombre à Nevermore, où Wednesday Addams découvre des secrets et des créatures.',
+        rating: 8.5,
+        thumbUrl: _backdropArcane,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carrousel d\'épisodes',
+    className: 'EpisodeCarousel',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Mini-cartes, sélection et flèches',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.epCarousel,
+    result: (_) => EpisodeCarousel(
+      onPrevious: () {},
+      onNext: () {},
+      episodes: [
+        _episodeEntry('Pilot', number: 1, thumbUrl: _posterDune),
+        _episodeEntry('The Weir', number: 2, thumbUrl: _posterThrones),
+        _episodeEntry('Long, Long Time', number: 3, current: true,
+            thumbUrl: _posterOppenheimer),
+        _episodeEntry('Please Hold', number: 4, thumbUrl: _posterArcane),
+        _episodeEntry('Endure and Survive', number: 5,
+            thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Saison (style horizontal)',
+    className: 'SeasonBannerCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'SeasonCard horizontale avec note',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.play_circle_outline,
+    kind: _PreviewKind.epSeasonBanner,
+    result: (_) => SeasonBannerCard(
+      season: _seasonEntry(
+        'Breaking Bad',
+        seasonLabel: 'Saison 5',
+        stats: '16 épisodes · 2013',
+        description: 'La fin épique pour Walter White et Jesse Pinkman.',
+        rating: 9.5,
+        thumbUrl: _backdropDune,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Liste avec vignettes',
+    className: 'EpisodeListCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Épisodes avec vignettes 16:9',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.list_rounded,
+    kind: _PreviewKind.epEpisodeList,
+    result: (_) => EpisodeListCard(
+      episodes: [
+        _episodeEntry('The Pilot', meta: 'S1 · Ép. 1', duration: '58 min',
+            watched: true, thumbUrl: _posterDune),
+        _episodeEntry('The Cat’s in the Bag', meta: 'S1 · Ép. 2',
+            duration: '52 min', thumbUrl: _posterThrones),
+        _episodeEntry('Nothin’ But T…', meta: 'S1 · Ép. 3',
+            duration: '52 min', thumbUrl: _posterArcane),
+        _episodeEntry('Better Call Saul', meta: 'S1 · Ép. 4',
+            duration: '47 min', locked: true, thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Grille de saisons',
+    className: 'SeriesGridCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'Grille d\'épisodes / saisons',
+    section: 'ÉPISODES & SAISONS',
+    icon: Icons.grid_view_rounded,
+    kind: _PreviewKind.epSeriesGrid,
+    result: (_) => SeriesGridCard(
+      seasons: [
+        _seasonEntry('Saison 1', stats: '10 épisodes', thumbUrl: _backdropDune),
+        _seasonEntry('Saison 2', stats: '10 épisodes', thumbUrl: _backdropInterstellar),
+        _seasonEntry('Saison 3', stats: '10 épisodes', thumbUrl: _backdropOppenheimer),
+        _seasonEntry('Saison 4', stats: '10 épisodes', thumbUrl: _backdropArcane),
+        _seasonEntry('Saison 5', stats: '16 épisodes', thumbUrl: _backdropDune),
+        _seasonEntry('Saison 6', stats: '16 épisodes', thumbUrl: _backdropInterstellar),
+      ],
+    ),
+  ),
+  // ── CLASSEMENTS & TOP 10 ──
+  _ComponentSpec(
+    title: 'Top 10 Films du moment',
+    className: 'TopMoviesCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Films les plus populaires',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.whatshot_rounded,
+    kind: _PreviewKind.rankMovies,
+    result: (_) => TopMoviesCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('Dune: Part Two', meta: '2024', rating: 8.8, rank: 1,
+            thumbUrl: _posterDune),
+        _rankEntry('The Batman', meta: '2022', rating: 8.2, rank: 2,
+            thumbUrl: _posterThrones),
+        _rankEntry('Oppenheimer', meta: '2023', rating: 8.7, rank: 3,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('Interstellar', meta: '2014', rating: 8.6, rank: 4,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Spider-Man: No Way Home', meta: '2021', rating: 8.3,
+            rank: 5, thumbUrl: _posterArcane),
+        _rankEntry('The Dark Knight', meta: '2008', rating: 9.0, rank: 6,
+            thumbUrl: _posterDune),
+        _rankEntry('Inception', meta: '2010', rating: 8.8, rank: 7,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Fight Club', meta: '1999', rating: 8.8, rank: 8,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('Forrest Gump', meta: '1994', rating: 8.8, rank: 9,
+            thumbUrl: _posterArcane),
+        _rankEntry('The Shawshank Redemption', meta: '1994', rating: 9.3,
+            rank: 10, thumbUrl: _posterThrones),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Top 10 Séries du moment',
+    className: 'TopSeriesCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Séries les plus regardées',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.tv_rounded,
+    kind: _PreviewKind.rankSeries,
+    result: (_) => TopSeriesCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('The Last of Us', meta: 'S1 · 2023', rating: 9.0,
+            rank: 1, thumbUrl: _posterThrones),
+        _rankEntry('Breaking Bad', meta: 'S1-S5 · 2008', rating: 9.5,
+            rank: 2, thumbUrl: _posterDune),
+        _rankEntry('Game of Thrones', meta: 'S1-S8 · 2011', rating: 9.2,
+            rank: 3, thumbUrl: _posterInterstellar),
+        _rankEntry('Stranger Things', meta: 'S1-S4 · 2016', rating: 8.7,
+            rank: 4, thumbUrl: _posterArcane),
+        _rankEntry('Wednesday', meta: 'S1 · 2022', rating: 8.1, rank: 5,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('Loki', meta: 'S1-S2 · 2021', rating: 8.2, rank: 6,
+            thumbUrl: _posterDune),
+        _rankEntry('The Walking Dead', meta: 'S1-S11 · 2010', rating: 8.1,
+            rank: 7, thumbUrl: _posterThrones),
+        _rankEntry('Peaky Blinders', meta: 'S1-S6 · 2013', rating: 8.8,
+            rank: 8, thumbUrl: _posterArcane),
+        _rankEntry('Lucifer', meta: 'S1-S6 · 2016', rating: 8.1, rank: 9,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Dark', meta: 'S1-S3 · 2017', rating: 8.8, rank: 10,
+            thumbUrl: _posterOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Top 10 Animés',
+    className: 'TopAnimeCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Animés les plus populaires',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.star_outline_rounded,
+    kind: _PreviewKind.rankAnime,
+    result: (_) => TopAnimeCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('Attack on Titan', meta: 'S1-S4 · 2013', rating: 9.1,
+            rank: 1, thumbUrl: _posterDune),
+        _rankEntry('Jujutsu Kaisen', meta: 'S1-S2 · 2020', rating: 8.8,
+            rank: 2, thumbUrl: _posterThrones),
+        _rankEntry('One Piece', meta: 'S1+ · 1999', rating: 9.0, rank: 3,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Demon Slayer', meta: 'S1-S4 · 2019', rating: 8.7,
+            rank: 4, thumbUrl: _posterArcane),
+        _rankEntry('Death Note', meta: 'S1 · 2006', rating: 8.9, rank: 5,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('Naruto', meta: 'S1-S9 · 2002', rating: 9.3, rank: 6,
+            thumbUrl: _posterDune),
+        _rankEntry('Fullmetal Alchemist', meta: 'S1 · 2009', rating: 9.1,
+            rank: 7, thumbUrl: _posterThrones),
+        _rankEntry('Tokyo Ghoul', meta: 'S1-S2 · 2019', rating: 8.8,
+            rank: 8, thumbUrl: _posterInterstellar),
+        _rankEntry('Vinland Saga', meta: 'S1-S2 · 2019', rating: 8.8,
+            rank: 9, thumbUrl: _posterArcane),
+        _rankEntry('Hunter x Hunter', meta: 'S1-S6 · 2011', rating: 9.0,
+            rank: 10, thumbUrl: _posterOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Top 10 par genre',
+    className: 'TopByGenreCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Tuiles de genres 1-10',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.category_rounded,
+    kind: _PreviewKind.rankByGenre,
+    result: (_) => TopByGenreCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('Action', meta: '1-10', rank: 1,
+            thumbUrl: _backdropDune, isLabelTile: true),
+        _rankEntry('Aventure', meta: '1-10', rank: 2,
+            thumbUrl: _backdropInterstellar, isLabelTile: true),
+        _rankEntry('Comédie', meta: '1-10', rank: 3,
+            thumbUrl: _backdropOppenheimer, isLabelTile: true),
+        _rankEntry('Drame', meta: '1-10', rank: 4,
+            thumbUrl: _backdropArcane, isLabelTile: true),
+        _rankEntry('Fantastique', meta: '1-10', rank: 5,
+            thumbUrl: _backdropDune, isLabelTile: true),
+        _rankEntry('Horreur', meta: '1-10', rank: 6,
+            thumbUrl: _backdropInterstellar, isLabelTile: true),
+        _rankEntry('Romance', meta: '1-10', rank: 7,
+            thumbUrl: _backdropOppenheimer, isLabelTile: true),
+        _rankEntry('Science-Fiction', meta: '1-10', rank: 8,
+            thumbUrl: _backdropArcane, isLabelTile: true),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Top 10 par pays',
+    className: 'TopByCountryCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Tuiles de pays 1-10',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.public,
+    kind: _PreviewKind.rankByCountry,
+    result: (_) => TopByCountryCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('USA', meta: '1-10', rank: 1,
+            thumbUrl: _backdropDune, isLabelTile: true),
+        _rankEntry('UK', meta: '1-10', rank: 2,
+            thumbUrl: _backdropInterstellar, isLabelTile: true),
+        _rankEntry('France', meta: '1-10', rank: 3,
+            thumbUrl: _backdropOppenheimer, isLabelTile: true),
+        _rankEntry('Japon', meta: '1-10', rank: 4,
+            thumbUrl: _backdropArcane, isLabelTile: true),
+        _rankEntry('Corée du Sud', meta: '1-10', rank: 5,
+            thumbUrl: _backdropDune, isLabelTile: true),
+        _rankEntry('Allemagne', meta: '1-10', rank: 6,
+            thumbUrl: _backdropInterstellar, isLabelTile: true),
+        _rankEntry('Canada', meta: '1-10', rank: 7,
+            thumbUrl: _backdropOppenheimer, isLabelTile: true),
+        _rankEntry('Espagne', meta: '1-10', rank: 8,
+            thumbUrl: _backdropArcane, isLabelTile: true),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Classement global',
+    className: 'GlobalRankingCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Top 20 tous contenus confondus',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.emoji_events_outlined,
+    kind: _PreviewKind.rankGlobal,
+    result: (_) => GlobalRankingCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('The Last of Us', rating: 9.0, rank: 1,
+            thumbUrl: _posterThrones),
+        _rankEntry('Dune: Part Two', rating: 8.8, rank: 2,
+            thumbUrl: _posterDune),
+        _rankEntry('Breaking Bad', rating: 9.5, rank: 3,
+            thumbUrl: _posterArcane),
+        _rankEntry('Game of Thrones', rating: 9.2, rank: 4,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Avengers Endgame', rating: 8.4, rank: 5,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('Stranger Things', rating: 8.7, rank: 6,
+            thumbUrl: _posterDune),
+        _rankEntry('Interstellar', rating: 8.6, rank: 7,
+            thumbUrl: _posterThrones),
+        _rankEntry('Spider-Man: NWH', rating: 8.3, rank: 8,
+            thumbUrl: _posterArcane),
+        _rankEntry('Inception', rating: 8.8, rank: 9,
+            thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Top 10 des plus notés',
+    className: 'TopRatedRankingCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Notes des utilisateurs',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.star_rounded,
+    kind: _PreviewKind.rankTopRated,
+    result: (_) => TopRatedRankingCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('Breaking Bad', rating: 9.5, rank: 1,
+            thumbUrl: _posterDune),
+        _rankEntry('Planet Earth II', rating: 9.4, rank: 2,
+            thumbUrl: _posterThrones),
+        _rankEntry('The Shawshank Redemption', rating: 9.3, rank: 3,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('The Godfather', rating: 9.2, rank: 4,
+            thumbUrl: _posterArcane),
+        _rankEntry('Band of Brothers', rating: 9.1, rank: 5,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Pulp Fiction', rating: 8.9, rank: 6,
+            thumbUrl: _posterDune),
+        _rankEntry('The Dark Knight', rating: 9.0, rank: 7,
+            thumbUrl: _posterThrones),
+        _rankEntry('Forrest Gump', rating: 8.8, rank: 8,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('Fight Club', rating: 8.8, rank: 9,
+            thumbUrl: _posterArcane),
+        _rankEntry('Spirited Away', rating: 8.6, rank: 10,
+            thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Top 10 tendances',
+    className: 'TrendingRankingCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Ce qui fait le plus parler',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.trending_up_rounded,
+    kind: _PreviewKind.rankTrending,
+    result: (_) => TrendingRankingCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('The Last of Us', rating: 9.0, rank: 1,
+            thumbUrl: _posterThrones),
+        _rankEntry('The Mandalorian', rating: 8.7, rank: 2,
+            thumbUrl: _posterDune),
+        _rankEntry('Wednesday', rating: 8.1, rank: 3,
+            thumbUrl: _posterArcane),
+        _rankEntry('Demon Slayer', rating: 8.7, rank: 4,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('Jujutsu Kaisen', rating: 8.8, rank: 5,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('One Piece', rating: 9.0, rank: 6,
+            thumbUrl: _posterDune),
+        _rankEntry('Loki', rating: 8.2, rank: 7, thumbUrl: _posterThrones),
+        _rankEntry('House of the Dragon', rating: 8.5, rank: 8,
+            thumbUrl: _posterArcane),
+        _rankEntry('Arcane', rating: 9.3, rank: 9,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Attack on Titan', rating: 9.1, rank: 10,
+            thumbUrl: _posterOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Top 10 par décennie',
+    className: 'TopByDecadeCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Tuiles de décennies',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.history_rounded,
+    kind: _PreviewKind.rankByDecade,
+    result: (_) => TopByDecadeCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('80’s', meta: '1-10', rank: 1,
+            thumbUrl: _backdropDune, isLabelTile: true),
+        _rankEntry('90’s', meta: '1-10', rank: 2,
+            thumbUrl: _backdropInterstellar, isLabelTile: true),
+        _rankEntry('2000’s', meta: '1-10', rank: 3,
+            thumbUrl: _backdropOppenheimer, isLabelTile: true),
+        _rankEntry('2010’s', meta: '1-10', rank: 4,
+            thumbUrl: _backdropArcane, isLabelTile: true),
+        _rankEntry('2020’s', meta: '1-10', rank: 5,
+            thumbUrl: _backdropDune, isLabelTile: true),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Top 10 à voir absolument',
+    className: 'MustWatchCard',
+    path: 'lib/modules/media/ranking_cards.dart',
+    usage: 'Sélection des incontournables',
+    section: 'CLASSEMENTS & TOP 10',
+    icon: Icons.favorite_rounded,
+    kind: _PreviewKind.rankMustWatch,
+    result: (_) => MustWatchCard(
+      onSeeAll: () {},
+      items: [
+        _rankEntry('The Godfather', rating: 9.2, rank: 1,
+            thumbUrl: _posterThrones),
+        _rankEntry('The Dark Knight', rating: 9.0, rank: 2,
+            thumbUrl: _posterDune),
+        _rankEntry('Pulp Fiction', rating: 8.9, rank: 3,
+            thumbUrl: _posterArcane),
+        _rankEntry('Dune', rating: 8.8, rank: 4, thumbUrl: _posterDune),
+        _rankEntry('Inception', rating: 8.8, rank: 5,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Forrest Gump', rating: 8.8, rank: 6,
+            thumbUrl: _posterOppenheimer),
+        _rankEntry('The Matrix', rating: 8.7, rank: 7,
+            thumbUrl: _posterThrones),
+        _rankEntry('Interstellar', rating: 8.6, rank: 8,
+            thumbUrl: _posterInterstellar),
+        _rankEntry('Fight Club', rating: 8.6, rank: 9,
+            thumbUrl: _posterArcane),
+        _rankEntry('The Prestige', rating: 8.5, rank: 10,
+            thumbUrl: _posterOppenheimer),
+      ],
+    ),
   ),
   _ComponentSpec(
     title: 'Poster contenu',
@@ -4303,6 +6372,210 @@ List<_ComponentSpec> _buildComponents() => [
   ),
 ];
 
+
+/// Données d'aperçu partagées par les cartes streaming de la galerie.
+StreamingCardData _streamCardData(
+  TmdbMedia item, {
+  String? seriesMeta,
+  String? extraMeta,
+  String? remainingLabel,
+  String? badge,
+  double? progress,
+}) {
+  return StreamingCardData(
+    item: ContentItem.fromTmdb(item),
+    seriesMeta: seriesMeta,
+    extraMeta: extraMeta,
+    remainingLabel: remainingLabel,
+    badge: badge,
+    progress: progress,
+    onPlay: () {},
+    onAddToList: () {},
+    onMore: () {},
+    onTap: () {},
+  );
+}
+
+/// Entrée d'épisode / de reprise pour les aperçus streaming.
+StreamingEpisode _streamEpisode(
+  TmdbMedia item, {
+  String? title,
+  String? meta,
+  bool isCurrent = false,
+  bool isLocked = false,
+}) {
+  return StreamingEpisode(
+    title: title ?? item.displayTitle,
+    meta: meta,
+    thumbUrl: item.bestCover,
+    isCurrent: isCurrent,
+    isLocked: isLocked,
+    onTap: () {},
+  );
+}
+
+// ─── Données d'aperçu des cartes collections / franchises ───
+
+const _posterDune =
+    'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg';
+const _posterInterstellar =
+    'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg';
+const _posterOppenheimer =
+    'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg';
+const _posterThrones =
+    'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg';
+const _posterArcane =
+    'https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg';
+const _backdropDune =
+    'https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg';
+const _backdropInterstellar =
+    'https://image.tmdb.org/t/p/w1280/pbrkL804c8yAv3zBZR4QPEafpAR.jpg';
+const _backdropOppenheimer =
+    'https://image.tmdb.org/t/p/w1280/rLb2cwF3Pazuxaj0sRXQ037tGI1.jpg';
+const _backdropArcane =
+    'https://image.tmdb.org/t/p/w1280/rkB4LyZHo1NHXFEDHl8M3g1Q3Q.jpg';
+
+/// [ContentItem] de démonstration pour les cartes collections.
+ContentItem _collItem(
+  String title, {
+  String? poster,
+  String? backdrop,
+}) {
+  return ContentItem(
+    key: 'coll-$title',
+    title: title,
+    posterUrl: poster,
+    backdropUrl: backdrop,
+  );
+}
+
+/// Données d'aperçu partagées par les cartes collections de la galerie.
+CollectionCardData _collectionData(
+  ContentItem item, {
+  String? stats,
+  String? subtitle,
+  String? description,
+  String? badge,
+  String? actionLabel,
+}) {
+  return CollectionCardData(
+    item: item,
+    stats: stats,
+    subtitle: subtitle,
+    description: description,
+    badge: badge,
+    actionLabel: actionLabel,
+    onExplore: () {},
+    onTap: () {},
+  );
+}
+
+/// Entrée d'aperçu : poster de rangée, tuile latérale, univers de carrousel.
+CollectionEntry _collectionEntry(
+  String title, {
+  String? meta,
+  String? thumbUrl,
+  double? rating,
+  String? viewsLabel,
+  int? rank,
+}) {
+  return CollectionEntry(
+    title: title,
+    meta: meta,
+    thumbUrl: thumbUrl,
+    rating: rating,
+    viewsLabel: viewsLabel,
+    rank: rank,
+    onTap: () {},
+  );
+}
+
+// ─── Données d'aperçu des cartes épisodes / classements ───
+
+/// Entrée d'épisode pour les aperçus du catalogue Épisodes & Saisons.
+EpisodeEntry _episodeEntry(
+  String title, {
+  String? meta,
+  String? subtitle,
+  String? duration,
+  String? description,
+  String? thumbUrl,
+  String? backdropUrl,
+  double? rating,
+  double? progress,
+  List<String> genres = const [],
+  String? actionLabel,
+  String? badge,
+  int? number,
+  bool watched = false,
+  bool locked = false,
+  bool current = false,
+  bool hd = false,
+}) {
+  return EpisodeEntry(
+    title: title,
+    meta: meta,
+    subtitle: subtitle,
+    duration: duration,
+    description: description,
+    thumbUrl: thumbUrl,
+    backdropUrl: backdropUrl,
+    rating: rating,
+    progress: progress,
+    genres: genres,
+    actionLabel: actionLabel,
+    badge: badge,
+    number: number,
+    watched: watched,
+    locked: locked,
+    current: current,
+    hd: hd,
+    onTap: () {},
+    onPlay: () {},
+  );
+}
+
+/// Entrée de saison pour les aperçus du catalogue Épisodes & Saisons.
+SeasonEntry _seasonEntry(
+  String title, {
+  String? seasonLabel,
+  String? stats,
+  String? description,
+  String? thumbUrl,
+  double? rating,
+  bool selected = false,
+}) {
+  return SeasonEntry(
+    title: title,
+    seasonLabel: seasonLabel,
+    stats: stats,
+    description: description,
+    thumbUrl: thumbUrl,
+    rating: rating,
+    selected: selected,
+    onTap: () {},
+  );
+}
+
+/// Entrée de classement pour les aperçus du catalogue Top 10.
+RankingEntry _rankEntry(
+  String title, {
+  String? meta,
+  double? rating,
+  required int rank,
+  String? thumbUrl,
+  bool isLabelTile = false,
+}) {
+  return RankingEntry(
+    title: title,
+    meta: meta,
+    rating: rating,
+    rank: rank,
+    thumbUrl: thumbUrl,
+    isLabelTile: isLabelTile,
+    onTap: () {},
+  );
+}
 
 /// Données d'aperçu partagées par les cartes riches de la galerie.
 RichMediaCardData _richCardData(TmdbMedia item) {
