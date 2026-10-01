@@ -1390,7 +1390,7 @@ class _ComponentTile extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: compact ? 9 : 14),
+            padding: EdgeInsets.symmetric(vertical: compact ? 9 : 14),
             child: const Divider(
               color: Colors.white12,
               height: 1,
