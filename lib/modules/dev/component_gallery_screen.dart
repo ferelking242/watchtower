@@ -16,6 +16,7 @@ import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/episode_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/manga_chapter_cards.dart';
+import 'package:watchtower/modules/media/manga_volume_cards.dart';
 import 'package:watchtower/modules/media/ranking_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
 import 'package:watchtower/modules/media/streaming_cards.dart';
@@ -167,6 +168,16 @@ enum _PreviewKind {
   mgProgress,
   mgNext,
   mgSearch,
+
+  // ── MANGA & LECTURE — Section 2 : Volumes & Éditions ──
+  volCard,
+  volList,
+  volPreview,
+  volSpecial,
+  volFormat,
+  volLang,
+  volTracker,
+  volUpcoming,
 }
 
 /// Ordre d'affichage des sections dans la galerie.
@@ -1391,6 +1402,16 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.mgProgress => const ListRowSkeleton(thumb: 62),
       _PreviewKind.mgNext => const ListRowSkeleton(thumb: 56),
       _PreviewKind.mgSearch => const _ShimmerLine(width: 300, height: 130),
+
+      // ── MANGA & LECTURE — Section 2 ──
+      _PreviewKind.volCard => const PosterSkeleton(width: 150, radius: 14),
+      _PreviewKind.volList => const PosterGridSkeleton(),
+      _PreviewKind.volPreview => const LandscapeSkeleton(width: 420),
+      _PreviewKind.volSpecial => const PosterSkeleton(width: 132, radius: 14),
+      _PreviewKind.volFormat => const PosterSkeleton(width: 120, ratio: 1, radius: 14),
+      _PreviewKind.volLang => const ListRowSkeleton(),
+      _PreviewKind.volTracker => const ListRowSkeleton(thumb: 64),
+      _PreviewKind.volUpcoming => const ListRowSkeleton(thumb: 36),
     };
     return card;
   }
@@ -5802,6 +5823,172 @@ List<_ComponentSpec> _buildComponents() => [
       recent: ['One Piece · 1160', 'Jujutsu Kaisen · 271', 'Blue Lock · 302'],
     ),
   ),
+  // ═════════ MANGA & LECTURE — Section 2 : Volumes & Éditions ═════════
+  _ComponentSpec(
+    title: 'Volume populaire',
+    className: 'MangaVolumeCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'Poster + tome + note + chip VF',
+    section: 'MANGA & LECTURE',
+    icon: Icons.auto_stories_outlined,
+    kind: _PreviewKind.volCard,
+    result: (_) => MangaVolumeCard(
+      item: _mgVolumeItem(
+        'One Piece',
+        author: 'Eiichiro Oda',
+        tomeLabel: 'Tome 110',
+        ratingLabel: '9.8',
+        languageChip: 'VF',
+        metaLabel: 'Tome 110 · 2024',
+        coverUrl: _posterDune,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Liste de volumes',
+    className: 'MangaVolumeListCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'Parcourir tous les tomes d\'un manga',
+    section: 'MANGA & LECTURE',
+    icon: Icons.menu_book_outlined,
+    kind: _PreviewKind.volList,
+    result: (_) => MangaVolumeListCard(
+      items: [
+        _mgVolumeItem('One Piece', author: 'Eiichiro Oda',
+            countLabel: '110 volumes', coverUrl: _posterDune),
+        _mgVolumeItem('Naruto', author: 'Masashi Kishimoto',
+            countLabel: '72 volumes', coverUrl: _posterOppenheimer),
+        _mgVolumeItem('Bleach', author: 'Tite Kubo',
+            countLabel: '74 volumes', coverUrl: _posterInterstellar),
+        _mgVolumeItem('Hunter x Hunter', author: 'Yoshihiro Togashi',
+            countLabel: '38 volumes', coverUrl: _posterArcane),
+        _mgVolumeItem('Death Note', author: 'Tsugumi Ohba / Takeshi Obata',
+            countLabel: '12 volumes', coverUrl: _posterThrones),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Aperçu des volumes',
+    className: 'MangaVolumePreviewCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'Couvertures superposées + plage de tomes',
+    section: 'MANGA & LECTURE',
+    icon: Icons.collections_outlined,
+    kind: _PreviewKind.volPreview,
+    result: (_) => MangaVolumePreviewCard(
+      onViewCollection: () {},
+      items: [
+        _mgVolumeItem('Demon Slayer', tomeLabel: 'Tome 12',
+            coverUrl: _posterInterstellar),
+        _mgVolumeItem('Demon Slayer', tomeLabel: 'Tome 13',
+            coverUrl: _posterOppenheimer),
+        _mgVolumeItem('Demon Slayer', tomeLabel: 'Tome 23',
+            coverUrl: _posterArcane),
+        _mgVolumeItem('Demon Slayer', tomeLabel: 'Tome 24',
+            coverUrl: _posterDune),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Édition spéciale',
+    className: 'MangaSpecialEditionCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'Éditions collector, limitées et variantes',
+    section: 'MANGA & LECTURE',
+    icon: Icons.local_offer_outlined,
+    kind: _PreviewKind.volSpecial,
+    result: (_) => MangaSpecialEditionCard(
+      item: _mgVolumeItem(
+        'One Piece',
+        editionLabel: 'Édition Collector',
+        editionColor: Color(0xFF6C5CE7),
+        tomeLabel: 'Tome 100',
+        coverUrl: _posterDune,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Format d\'édition',
+    className: 'MangaFormatCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'Tankōbon, Omnibus, Intégrale…',
+    section: 'MANGA & LECTURE',
+    icon: Icons.category_rounded,
+    kind: _PreviewKind.volFormat,
+    result: (_) => MangaFormatCard(
+      item: _mgVolumeItem(
+        'Tankōbon',
+        metaLabel: 'Format standard japonais.',
+        coverUrl: _posterThrones,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Éditions par langue',
+    className: 'MangaEditionLanguageCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'Disponibilités VO/VF par langue',
+    section: 'MANGA & LECTURE',
+    icon: Icons.language_rounded,
+    kind: _PreviewKind.volLang,
+    result: (_) => const MangaEditionLanguageCard(
+      rows: [
+        ('Français', 'VF', 'Disponible'),
+        ('Anglais', 'VO', 'Disponible'),
+        ('Japonais', 'VO', 'Disponible'),
+        ('Espagnol', 'VF', 'Disponible'),
+        ('Allemand', 'VF', 'Disponible'),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Suivi de collection',
+    className: 'MangaCollectionTrackerCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'Bibliothèque de tomes avec progression',
+    section: 'MANGA & LECTURE',
+    icon: Icons.auto_stories_outlined,
+    kind: _PreviewKind.volTracker,
+    result: (_) => MangaCollectionTrackerCard(
+      progress: .56,
+      onViewCollection: () {},
+      item: _mgVolumeItem(
+        'My Hero Academia',
+        metaLabel: 'Tome 1 → 32',
+        countLabel: '18 / 32',
+        ratingLabel: '56%',
+        coverUrl: _posterArcane,
+      ),
+      stats: const [
+        ('Dans ma collection', '18 tomes'),
+        ('À acheter', '14 volumes'),
+        ('En lecture', '2 volumes'),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Volumes à venir',
+    className: 'MangaUpcomingVolumeCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'Prochaines sorties de volumes',
+    section: 'MANGA & LECTURE',
+    icon: Icons.event_rounded,
+    kind: _PreviewKind.volUpcoming,
+    result: (_) => MangaUpcomingVolumeCard(
+      onSeeAll: () {},
+      items: [
+        _mgVolumeItem('One Piece · Tome 111', author: 'Eiichiro Oda',
+            dayLabel: '12', monthLabel: 'Juin', statusLabel: 'Bientôt',
+            coverUrl: _posterDune),
+        _mgVolumeItem('Jujutsu Kaisen · Tome 27', author: 'Gege Akutami',
+            dayLabel: '15', monthLabel: 'Juin', statusLabel: 'Bientôt',
+            coverUrl: _posterArcane),
+        _mgVolumeItem('Blue Lock · Tome 30', author: 'Muneyuki Kaneshiro',
+            dayLabel: '20', monthLabel: 'Juin', statusLabel: 'Bientôt',
+            coverUrl: _posterInterstellar),
+      ],
+    ),
+  ),
   _ComponentSpec(
     title: 'Poster contenu',
     className: 'PosterCard',
@@ -6888,6 +7075,39 @@ CollectionEntry _collectionEntry(
 // ─── Données d'aperçu des cartes épisodes / classements ───
 
 /// Entrée d'épisode pour les aperçus du catalogue Épisodes & Saisons.
+/// ── Démo : entrée volume manga (Section 2) ──
+MangaVolumeItem _mgVolumeItem(
+  String title, {
+  String? author,
+  String? tomeLabel,
+  String? ratingLabel,
+  String? metaLabel,
+  String? coverUrl,
+  String? languageChip,
+  String? editionLabel,
+  Color? editionColor,
+  String? countLabel,
+  String? dayLabel,
+  String? monthLabel,
+  String? statusLabel,
+}) {
+  return MangaVolumeItem(
+    title: title,
+    author: author,
+    tomeLabel: tomeLabel,
+    ratingLabel: ratingLabel,
+    metaLabel: metaLabel,
+    coverUrl: coverUrl,
+    languageChip: languageChip,
+    editionLabel: editionLabel,
+    editionColor: editionColor,
+    countLabel: countLabel,
+    dayLabel: dayLabel,
+    monthLabel: monthLabel,
+    statusLabel: statusLabel,
+  );
+}
+
 /// ── Démo : entrée chapitre manga (Section 1) ──
 MangaChapterItem _mgChapterItem(
   String title, {
