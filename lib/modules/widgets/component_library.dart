@@ -80,7 +80,7 @@ class ThreeColumnSwipeSection<T> extends StatelessWidget {
             height: safeRows * itemHeight + (safeRows - 1) * itemSpacing,
             child: PageView.builder(
               itemCount: pageCount,
-              controller: PageController(viewportFraction: .94),
+              controller: PageController(viewportFraction: 1),
               itemBuilder: (context, page) {
                 final start = page * pageSize;
                 return Row(
