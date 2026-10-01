@@ -14,6 +14,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
+import 'package:watchtower/modules/browse/extension/layout_visual_editor_screen.dart';
 import 'package:watchtower/modules/browse/extension/widgets/source_preference_widget.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -1074,20 +1075,36 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       icon: Icons.dashboard_customize_outlined,
                     ),
                     const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  LayoutJsonEditorScreen(source: source),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.data_object_rounded),
-                        label: const Text('Éditer le layout JSON'),
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => LayoutVisualEditorScreen(
+                                  source: source,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.dashboard_customize_outlined),
+                          label: const Text('Éditer visuellement'),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    LayoutJsonEditorScreen(source: source),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.data_object_rounded),
+                          label: const Text('Éditer le layout JSON'),
+                        ),
+                      ],
                     ),
                   ],
                 ],
