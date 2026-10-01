@@ -21,8 +21,9 @@ jobs:
   build-tv:
     name: Build Android TV (Leanback) APK
     runs-on: ubuntu-latest
-    # Rust + Flutter Android builds can exceed 20 minutes on a cold runner.
-    timeout-minutes: 45
+    # Two sequential Gradle builds (one per TV ABI) plus cold Rust compiles
+    # can take well over 20 minutes.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -104,21 +105,46 @@ jobs:
           echo "$KEYSTORE_B64" | base64 --decode > android/app/watchtower-debug.keystore
           echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
 
-      - name: Build Android TV APKs (arm64 + x86_64)
+      # The app's build.gradle keeps splits.abi disabled and picks the native
+      # ABIs with the watchtowerCiAbi gradle property, so --split-per-abi can
+      # never produce per-ABI APKs. Build one self-contained APK per TV ABI
+      # instead (ORG_GRADLE_PROJECT_* exports the Gradle project property).
+      - name: Build TV APK (arm64-v8a)
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dmaven.wagon.http.retryHandler.count=3"
         run: |
-          flutter build apk --release --split-per-abi \
-            --target-platform android-arm64,android-x64
-
-      - name: Organize TV artifacts
-        run: |
+          flutter build apk \
+            --release \
+            --target-platform android-arm64 \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
+            --tree-shake-icons
           mkdir -p build/tv
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+          cp build/app/outputs/flutter-apk/app-release.apk \
             build/tv/watchtower-tv-arm64.apk
-          if [ -f build/app/outputs/flutter-apk/app-x86_64-release.apk ]; then
-            cp build/app/outputs/flutter-apk/app-x86_64-release.apk \
-              build/tv/watchtower-tv-x86_64.apk
-          fi
+
+      - name: Build TV APK (x86_64)
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dmaven.wagon.http.retryHandler.count=3"
+          ORG_GRADLE_PROJECT_watchtowerCiAbi: x86_64
+        run: |
+          rm -f build/app/outputs/flutter-apk/app-release.apk
+          flutter build apk \
+            --release \
+            --target-platform android-x64 \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
+            --tree-shake-icons
+          test -f build/app/outputs/flutter-apk/app-release.apk \
+            || { echo 'x86_64 APK was not produced'; exit 1; }
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/tv/watchtower-tv-x86_64.apk
+
+      - name: Verify TV APKs
+        run: |
           ls -lh build/tv
+          for apk in build/tv/*.apk; do
+            echo "=== $apk ==="
+            $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools/ | sort -V | tail -1)/apksigner verify --print-certs "$apk" | head -3
+          done
 
       - name: Upload TV APKs
         uses: actions/upload-artifact@v5
