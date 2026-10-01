@@ -61,6 +61,28 @@ jobs:
             gradle-tv-${{ runner.os }}-
             gradle-release-${{ runner.os }}-
 
+      - name: Cache Rust (Android TV ABIs)
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-tv-release-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
+          restore-keys: |
+            rust-android-tv-release-${{ runner.os }}-
+            rust-android-arm64-release-${{ runner.os }}-
+
+      # Pre-install both targets serially: cargokit runs `rustup target add`
+      # once per ABI and parallel invocations race on the rustup downloads
+      # directory, which intermittently fails the Gradle build.
+      - name: Pre-install Rust Android targets
+        run: |
+          rustup target add aarch64-linux-android
+          rustup target add x86_64-linux-android
+          rustup target list --installed | grep linux-android
+
       - name: Get packages
         run: flutter pub get
 
