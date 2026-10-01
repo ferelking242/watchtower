@@ -14,10 +14,10 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
-import 'package:watchtower/modules/widgets/comments_section.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
@@ -89,24 +89,22 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   final _nestedScrollCtrl = ScrollController();
 
   // ── Theme helpers ────────────────────────────────────────────────────────────
-  Color get _accent => context.primaryColor;
-  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
-  Color get _card => Theme.of(context).colorScheme.surfaceContainerHighest;
-  Color get _surface => Theme.of(context).colorScheme.surface;
-  Color get _onSurface => Theme.of(context).colorScheme.onSurface;
-  Color get _grey => _onSurface.withValues(alpha: 0.50);
-  Color get _faint => _onSurface.withValues(alpha: 0.30);
+  Color get _accent     => context.primaryColor;
+  Color get _bg         => Theme.of(context).scaffoldBackgroundColor;
+  Color get _card       => Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _surface    => Theme.of(context).colorScheme.surface;
+  Color get _onSurface  => Theme.of(context).colorScheme.onSurface;
+  Color get _grey       => _onSurface.withValues(alpha: 0.50);
+  Color get _faint      => _onSurface.withValues(alpha: 0.30);
   Color get _textPrimary => _onSurface;
-  bool get _isLight => context.isLight;
+  bool  get _isLight    => context.isLight;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _player = WatchInlinePlayer();
-    _player.onQualityChanged = () {
-      if (mounted) setState(() {});
-    };
+    _player.onQualityChanged = () { if (mounted) setState(() {}); };
     _nestedScrollCtrl.addListener(_onScroll);
   }
 
@@ -197,19 +195,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final manga = widget.manga;
     isar.writeTxnSync(() {
       manga.favorite = !(manga.favorite ?? false);
-      if (manga.favorite!)
-        manga.dateAdded = DateTime.now().millisecondsSinceEpoch;
+      if (manga.favorite!) manga.dateAdded = DateTime.now().millisecondsSinceEpoch;
       isar.mangas.putSync(manga);
     });
     setState(() {});
   }
 
   void _share(BuildContext ctx) {
-    final source = getSource(
-      widget.manga.lang!,
-      widget.manga.source!,
-      widget.manga.sourceId,
-    );
+    final source = getSource(widget.manga.lang!, widget.manga.source!, widget.manga.sourceId);
     if (source == null) return;
     final url = '${source.baseUrl}${widget.manga.link!.getUrlWithoutDomain}';
     SharePlus.instance.share(ShareParams(text: url));
@@ -242,14 +235,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     // ── Update episode navigation callbacks on every build ────────────────────
     final sorted = _sortedEpisodes(chapters);
-    final curIdx = sorted.indexWhere((c) => c.id == _player.loadedChapterId);
+    final curIdx  = sorted.indexWhere((c) => c.id == _player.loadedChapterId);
     _player.onPrevEpisode = (curIdx > 0)
         ? () => _loadEpisodeInBanner(sorted[curIdx - 1])
         : null;
     _player.onNextEpisode = (curIdx >= 0 && curIdx < sorted.length - 1)
         ? () => _loadEpisodeInBanner(sorted[curIdx + 1])
         : null;
-    _player.chapters = sorted;
+    _player.chapters     = sorted;
     _player.onEpisodeTap = _loadEpisodeInBanner;
 
     final isLandscape =
@@ -260,7 +253,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       // In landscape the body must extend behind the bottom navigation bar
       // so the video fills edge-to-edge without a black gap at the bottom.
       extendBody: isLandscape,
-      body: isLandscape ? _buildLandscape(chapters) : _buildPortrait(chapters),
+      body: isLandscape
+          ? _buildLandscape(chapters)
+          : _buildPortrait(chapters),
     );
   }
 
@@ -292,11 +287,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         children: [
                           IconButton(
                             // Même style que le bouton retour du lecteur paysage
-                            icon: const Icon(
-                              Broken.arrow_left,
-                              color: Colors.white,
-                              size: 22,
-                            ),
+                            icon: const Icon(Broken.arrow_left, color: Colors.white, size: 22),
                             onPressed: () => Navigator.of(context).pop(),
                             padding: const EdgeInsets.all(8),
                           ),
@@ -311,12 +302,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                                     color: Colors.white,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    shadows: [
-                                      Shadow(
-                                        blurRadius: 6,
-                                        color: Colors.black54,
-                                      ),
-                                    ],
+                                    shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -354,13 +340,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     labelColor: _textPrimary,
                     unselectedLabelColor: _grey,
                     labelStyle: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
+                        fontSize: 13.5, fontWeight: FontWeight.w600),
                     unselectedLabelStyle: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w400,
-                    ),
+                        fontSize: 13.5, fontWeight: FontWeight.w400),
                     dividerColor: Colors.transparent,
                     tabs: const [
                       Tab(text: 'Pour vous'),
@@ -373,7 +355,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ],
             body: TabBarView(
               controller: _tabController,
-              children: [_buildRecommendationsTab(), _buildCommentsTab()],
+              children: [
+                _buildRecommendationsTab(),
+                _buildCommentsTab(),
+              ],
             ),
           ),
         ),
@@ -421,8 +406,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ),
 
         // Loading pulse — visible while video URL is being resolved
-        if (!_player.hasVideoUrl &&
-            !_player.loadFailed &&
+        if (!_player.hasVideoUrl && !_player.loadFailed &&
             _player.loadedChapterId != null)
           const _LoadingBannerPulse(),
 
@@ -446,10 +430,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   currentChapter: chapter,
                 ),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(20),
@@ -458,20 +439,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.smart_display_rounded,
-                        color: Colors.white,
-                        size: 14,
-                      ),
+                      Icon(Icons.smart_display_rounded, color: Colors.white, size: 14),
                       SizedBox(width: 5),
-                      Text(
-                        'Mode Reel',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      Text('Mode Reel', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -501,16 +471,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final manga = widget.manga;
     final headers = (manga.isLocalArchive ?? false)
         ? null
-        : ref.watch(
-            headersProvider(
-              source: manga.source!,
-              lang: manga.lang!,
-              sourceId: manga.sourceId,
-            ),
-          );
-    final imgUrl = toImgUrl(
-      manga.customCoverFromTracker ?? manga.imageUrl ?? '',
-    );
+        : ref.watch(headersProvider(
+            source: manga.source!,
+            lang: manga.lang!,
+            sourceId: manga.sourceId,
+          ));
+    final imgUrl = toImgUrl(manga.customCoverFromTracker ?? manga.imageUrl ?? '');
 
     if (manga.customCoverImage != null) {
       return Image.memory(
@@ -610,11 +576,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final typeGenre = (widget.manga.genre ?? [])
         .where((g) {
           final l = g.toLowerCase().trim();
-          return l != 'film' &&
-              l != 'movie' &&
-              l != 'série' &&
-              l != 'serie' &&
-              !g.startsWith('·');
+          return l != 'film' && l != 'movie' && l != 'série' && l != 'serie'
+              && !g.startsWith('·');
         })
         .take(1)
         .firstOrNull;
@@ -631,9 +594,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     }
 
     Widget vbar() => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Text('|', style: TextStyle(color: _faint, fontSize: 12)),
-    );
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Text('|', style: TextStyle(color: _faint, fontSize: 12)),
+        );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -647,16 +610,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         vbar(),
         const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 13),
         const SizedBox(width: 4),
-        Builder(
-          builder: (_) {
-            final rawDesc = widget.manga.description ?? '';
-            final imdbM = RegExp(r'IMDb\s+([\d.]+)').firstMatch(rawDesc);
-            return Text(
-              imdbM != null ? imdbM.group(1)! : 'N/A',
-              style: TextStyle(color: _grey, fontSize: 12),
-            );
-          },
-        ),
+        Builder(builder: (_) {
+          final rawDesc = widget.manga.description ?? '';
+          final imdbM = RegExp(r'IMDb\s+([\d.]+)').firstMatch(rawDesc);
+          return Text(imdbM != null ? imdbM.group(1)! : 'N/A',
+              style: TextStyle(color: _grey, fontSize: 12));
+        }),
         if (parts.isNotEmpty) ...[
           vbar(),
           Expanded(
@@ -677,322 +636,281 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // Fixed bottom sheet — no drag handle, never overlaps player (230 px)
 
   void _showInfoSheet(BuildContext ctx) {
-    final manga = widget.manga;
-    showModalBottomSheet(
-      context: ctx,
-      isScrollControlled: true,
-      barrierColor: Colors.transparent,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (sheetCtx) {
-        final screen = MediaQuery.of(ctx).size.height;
-        final statusH = MediaQuery.of(ctx).padding.top;
-        final maxH = screen - 230 - statusH;
+      final manga = widget.manga;
+      showModalBottomSheet(
+        context: ctx,
+        isScrollControlled: true,
+        barrierColor: Colors.transparent,
+        backgroundColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        builder: (sheetCtx) {
+          final screen  = MediaQuery.of(ctx).size.height;
+          final statusH = MediaQuery.of(ctx).padding.top;
+          final maxH    = screen - 230 - statusH;
 
-        final desc = (manga.description ?? '').trim();
-        final genres = (manga.genre ?? [])
-            .where((g) => !g.startsWith('·'))
-            .toList();
-        final countrySheet = (manga.genre ?? [])
-            .where((g) => g.startsWith('·'))
-            .map((g) => g.substring(1))
-            .firstOrNull;
-        final year = (manga.author ?? '').trim();
-        final _aS = (manga.artist ?? '')
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
-        final dirSheet = _aS.isNotEmpty ? _aS.first : null;
-        final castSheet = _aS.length > 1 ? _aS.sublist(1).join(', ') : null;
-        final lang = (manga.lang ?? '').toUpperCase();
+          final desc = (manga.description ?? '').trim();
+          final genres = (manga.genre ?? []).where((g) => !g.startsWith('·')).toList();
+          final countrySheet = (manga.genre ?? []).where((g) => g.startsWith('·'))
+              .map((g) => g.substring(1)).firstOrNull;
+          final year   = (manga.author ?? '').trim();
+          final _aS = (manga.artist ?? '').split(',').map((s) => s.trim())
+              .where((s) => s.isNotEmpty).toList();
+          final dirSheet  = _aS.isNotEmpty ? _aS.first : null;
+          final castSheet = _aS.length > 1 ? _aS.sublist(1).join(', ') : null;
+          final lang   = (manga.lang ?? '').toUpperCase();
 
-        return Container(
-          height: maxH,
-          decoration: BoxDecoration(color: _surface),
-          child: Column(
-            children: [
-              // ── Close button only (no title, no handle) ──────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
-                child: Row(
-                  children: [
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(sheetCtx),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: _card,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.close, size: 16, color: _grey),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // ── Scrollable IMDB-style content ─────────────────────────────
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                  children: [
-                    // ── Hero: cover + title + badges ─────────────────────
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Poster
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: cachedNetworkImage(
-                            imageUrl: toImgUrl(
-                              manga.customCoverFromTracker ??
-                                  manga.imageUrl ??
-                                  '',
-                            ),
-                            width: 96,
-                            height: 140,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Title
-                              Text(
-                                manga.name ?? '',
-                                style: TextStyle(
-                                  color: _textPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              // Status badge
-                              if ((manga.status?.toString() ?? '').isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _accent.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: _accent.withValues(alpha: 0.35),
-                                      width: 0.7,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _statusLabel(manga.status),
-                                    style: TextStyle(
-                                      color: _accent,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
-                              // Language + source pills
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  if (lang.isNotEmpty)
-                                    _infoPill(Icons.language, lang),
-                                  if ((manga.source ?? '').isNotEmpty)
-                                    _infoPill(
-                                      Icons.storage_outlined,
-                                      manga.source!,
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── Synopsis ─────────────────────────────────────────
-                    if (desc.isNotEmpty) ...[
-                      _sheetSectionLabel('Synopsis'),
-                      const SizedBox(height: 8),
-                      StatefulBuilder(
-                        builder: (c, setSt) => GestureDetector(
-                          onTap: () => setSt(
-                            () => _isDescriptionExpanded =
-                                !_isDescriptionExpanded,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                desc,
-                                maxLines: _isDescriptionExpanded ? null : 5,
-                                overflow: _isDescriptionExpanded
-                                    ? TextOverflow.visible
-                                    : TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: _grey,
-                                  fontSize: 13,
-                                  height: 1.6,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _isDescriptionExpanded
-                                    ? 'Voir moins'
-                                    : 'Voir plus',
-                                style: TextStyle(color: _accent, fontSize: 12),
-                              ),
-                            ],
-                          ),
+          return Container(
+            height: maxH,
+            decoration: BoxDecoration(color: _surface),
+            child: Column(
+              children: [
+                // ── Close button only (no title, no handle) ──────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+                  child: Row(
+                    children: [
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(sheetCtx),
+                        child: Container(
+                          width: 28, height: 28,
+                          decoration: BoxDecoration(
+                              color: _card, shape: BoxShape.circle),
+                          child: Icon(Icons.close, size: 16, color: _grey),
                         ),
                       ),
-                      const SizedBox(height: 22),
                     ],
-
-                    // ── Genres ───────────────────────────────────────────
-                    if (genres.isNotEmpty) ...[
-                      _sheetSectionLabel('Genres'),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                  ),
+                ),
+                // ── Scrollable IMDB-style content ─────────────────────────────
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                    children: [
+                      // ── Hero: cover + title + badges ─────────────────────
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          for (final g in genres)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _card,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: _faint, width: 0.7),
-                              ),
-                              child: Text(
-                                g,
-                                style: TextStyle(
-                                  color: _textPrimary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                          // Poster
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: cachedNetworkImage(
+                              imageUrl: toImgUrl(
+                                  manga.customCoverFromTracker ??
+                                      manga.imageUrl ?? ''),
+                              width: 96,
+                              height: 140,
+                              fit: BoxFit.cover,
                             ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Title
+                                Text(
+                                  manga.name ?? '',
+                                  style: TextStyle(
+                                    color: _textPrimary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                // Status badge
+                                if ((manga.status?.toString() ?? '').isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _accent.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                          color: _accent.withValues(alpha: 0.35),
+                                          width: 0.7),
+                                    ),
+                                    child: Text(
+                                      _statusLabel(manga.status),
+                                      style: TextStyle(
+                                          color: _accent,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                const SizedBox(height: 8),
+                                // Language + source pills
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    if (lang.isNotEmpty)
+                                      _infoPill(Icons.language, lang),
+                                    if ((manga.source ?? '').isNotEmpty)
+                                      _infoPill(Icons.storage_outlined,
+                                          manga.source!),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 22),
-                    ],
+                      const SizedBox(height: 20),
 
-                    // ── Cast / Crew ───────────────────────────────────────
-                    if (dirSheet != null ||
-                        castSheet != null ||
-                        countrySheet != null) ...[
-                      _sheetSectionLabel('Équipe & Infos'),
+                      // ── Synopsis ─────────────────────────────────────────
+                      if (desc.isNotEmpty) ...[
+                        _sheetSectionLabel('Synopsis'),
+                        const SizedBox(height: 8),
+                        StatefulBuilder(
+                          builder: (c, setSt) => GestureDetector(
+                            onTap: () => setSt(() =>
+                                _isDescriptionExpanded =
+                                    !_isDescriptionExpanded),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  desc,
+                                  maxLines:
+                                      _isDescriptionExpanded ? null : 5,
+                                  overflow: _isDescriptionExpanded
+                                      ? TextOverflow.visible
+                                      : TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: _grey,
+                                      fontSize: 13,
+                                      height: 1.6),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _isDescriptionExpanded
+                                      ? 'Voir moins'
+                                      : 'Voir plus',
+                                  style: TextStyle(
+                                      color: _accent, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                      ],
+
+                      // ── Genres ───────────────────────────────────────────
+                      if (genres.isNotEmpty) ...[
+                        _sheetSectionLabel('Genres'),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final g in genres)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _card,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: _faint, width: 0.7),
+                                ),
+                                child: Text(g,
+                                    style: TextStyle(
+                                        color: _textPrimary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500)),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                      ],
+
+                      // ── Cast / Crew ───────────────────────────────────────
+                      if (dirSheet != null || castSheet != null || countrySheet != null) ...[
+                        _sheetSectionLabel('Équipe & Infos'),
+                        const SizedBox(height: 12),
+                        if (countrySheet != null) ...[
+                          _castRow(Icons.public_outlined, 'Pays', countrySheet),
+                          const SizedBox(height: 10),
+                        ],
+                        if (dirSheet != null) ...[
+                          _castRow(Icons.movie_creation_outlined, 'Réalisateur', dirSheet),
+                          const SizedBox(height: 10),
+                        ],
+                        if (castSheet != null)
+                          _castRow(Icons.people_outlined, 'Distribution', castSheet),
+                        const SizedBox(height: 22),
+                      ],
+
+                      // ── Info table ───────────────────────────────────────
+                      _sheetSectionLabel('Details'),
                       const SizedBox(height: 12),
-                      if (countrySheet != null) ...[
-                        _castRow(Icons.public_outlined, 'Pays', countrySheet),
-                        const SizedBox(height: 10),
-                      ],
-                      if (dirSheet != null) ...[
-                        _castRow(
-                          Icons.movie_creation_outlined,
-                          'Réalisateur',
-                          dirSheet,
-                        ),
-                        const SizedBox(height: 10),
-                      ],
-                      if (castSheet != null)
-                        _castRow(
-                          Icons.people_outlined,
-                          'Distribution',
-                          castSheet,
-                        ),
-                      const SizedBox(height: 22),
+                      _infoRow('Langue', lang.isNotEmpty ? lang : '—'),
+                      _infoRow('Statut', _statusLabel(manga.status)),
+                      if ((manga.source ?? '').isNotEmpty)
+                        _infoRow('Source', manga.source!),
                     ],
-
-                    // ── Info table ───────────────────────────────────────
-                    _sheetSectionLabel('Details'),
-                    const SizedBox(height: 12),
-                    _infoRow('Langue', lang.isNotEmpty ? lang : '—'),
-                    _infoRow('Statut', _statusLabel(manga.status)),
-                    if ((manga.source ?? '').isNotEmpty)
-                      _infoRow('Source', manga.source!),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _castRow(IconData icon, String role, String name) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Icon(icon, size: 18, color: _accent),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: TextStyle(
-                  color: _textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(role, style: TextStyle(color: _grey, fontSize: 11)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: _grey,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              ],
             ),
+          );
+        },
+      );
+    }
+
+    Widget _castRow(IconData icon, String role, String name) {
+      return Row(
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: _card,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(icon, size: 18, color: _accent),
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              color: _textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                Text(role,
+                    style: TextStyle(color: _grey, fontSize: 11)),
+              ],
             ),
           ),
         ],
-      ),
-    );
-  }
+      );
+    }
+
+    Widget _infoRow(String label, String value) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          children: [
+            Text(label,
+                style: TextStyle(
+                    color: _grey, fontSize: 13, fontWeight: FontWeight.w500)),
+            const Spacer(),
+            Text(value,
+                style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
+          ],
+        ),
+      );
+    }
+
+  
 
   Widget _infoPill(IconData icon, String label) {
     if (label.trim().isEmpty) return const SizedBox.shrink();
@@ -1017,27 +935,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return Text(
       text,
       style: TextStyle(
-        color: _textPrimary,
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
-      ),
+          color: _textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w700),
     );
   }
 
   String _statusLabel(dynamic status) {
     switch (status?.toString()) {
-      case '0':
-        return 'En cours';
-      case '1':
-        return 'Terminé';
-      case '2':
-        return 'Licencié';
-      case '3':
-        return 'Annulé';
-      case '4':
-        return 'En pause';
-      default:
-        return 'Inconnu';
+      case '0': return 'En cours';
+      case '1': return 'Terminé';
+      case '2': return 'Licencié';
+      case '3': return 'Annulé';
+      case '4': return 'En pause';
+      default:  return 'Inconnu';
     }
   }
 
@@ -1057,28 +968,24 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
           const SizedBox(width: 8),
           _chip(
-            icon: Icons.drive_file_move_outlined,
-            label: 'Migrer',
-            onTap: () => context.pushNamed('migrate', extra: widget.manga),
-          ),
+              icon: Icons.drive_file_move_outlined,
+              label: 'Migrer',
+              onTap: () => context.pushNamed('migrate', extra: widget.manga)),
           const SizedBox(width: 8),
           _chip(
-            icon: Icons.share_outlined,
-            label: 'Partager',
-            onTap: () => _share(context),
-          ),
+              icon: Icons.share_outlined,
+              label: 'Partager',
+              onTap: () => _share(context)),
           const SizedBox(width: 8),
           _chip(
-            icon: Icons.download_outlined,
-            label: 'Télécharger',
-            onTap: () => _showDownloadSheet(context, chapters),
-          ),
+              icon: Icons.download_outlined,
+              label: 'Télécharger',
+              onTap: () => _showDownloadSheet(context, chapters)),
           const SizedBox(width: 8),
           _chip(
-            icon: Icons.language_outlined,
-            label: 'WebView',
-            onTap: _openInBrowser,
-          ),
+              icon: Icons.language_outlined,
+              label: 'WebView',
+              onTap: _openInBrowser),
         ],
       ),
     );
@@ -1099,26 +1006,21 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           color: active ? _accent.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: active ? _accent : _faint.withValues(alpha: 0.45),
-            width: 1,
-          ),
+              color: active ? _accent : _faint.withValues(alpha: 0.45),
+              width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 17,
-              color: active ? _accent : _onSurface.withValues(alpha: 0.55),
-            ),
+            Icon(icon,
+                size: 17,
+                color: active ? _accent : _onSurface.withValues(alpha: 0.55)),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: active ? _accent : _onSurface.withValues(alpha: 0.55),
-                fontSize: 13,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    color:
+                        active ? _accent : _onSurface.withValues(alpha: 0.55),
+                    fontSize: 13)),
           ],
         ),
       ),
@@ -1136,9 +1038,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   List<String> _detectSeasons(List<Chapter> chapters) {
     final seasonRegex = RegExp(
-      r'(?:Saison|Season|Partie|Part)\s*(\d+)|S(\d{1,2})(?:E\d+)?',
-      caseSensitive: false,
-    );
+        r'(?:Saison|Season|Partie|Part)\s*(\d+)|S(\d{1,2})(?:E\d+)?',
+        caseSensitive: false);
     final seen = <String>{};
     for (final ch in chapters) {
       final m = seasonRegex.firstMatch(ch.name ?? '');
@@ -1148,11 +1049,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       }
     }
     if (seen.isEmpty) return [];
-    return seen.toList()..sort((a, b) {
-      final na = int.tryParse(a.replaceAll(RegExp(r'\D'), '')) ?? 0;
-      final nb = int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
-      return na.compareTo(nb);
-    });
+    return seen.toList()
+      ..sort((a, b) {
+        final na =
+            int.tryParse(a.replaceAll(RegExp(r'\D'), '')) ?? 0;
+        final nb =
+            int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
+        return na.compareTo(nb);
+      });
   }
 
   // Clé interne utilisée pour le filtrage (code ISO en minuscule si connu,
@@ -1161,13 +1065,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final code = extractLangCode(ch.scanlator);
     if (code != null) return code.toLowerCase();
     final langRx = RegExp(
-      r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA|'
-      r'Japanese|Chinese|Korean|Spanish|Portuguese|Russian|Arabic|German|'
-      r'Italian|Polish|Turkish|Vietnamese|Thai|Indonesian|Hindi|Dutch|'
-      r'Swedish|Finnish|Norwegian|Danish|Czech|Slovak|Romanian|Hungarian|'
-      r'Bulgarian|Croatian|Serbian|Ukrainian|Hebrew|Persian)\b',
-      caseSensitive: false,
-    );
+        r'\b(VF|VOSTFR|VO|French|English|Français|Dub|Sub|MULTI|VOSTA|'
+        r'Japanese|Chinese|Korean|Spanish|Portuguese|Russian|Arabic|German|'
+        r'Italian|Polish|Turkish|Vietnamese|Thai|Indonesian|Hindi|Dutch|'
+        r'Swedish|Finnish|Norwegian|Danish|Czech|Slovak|Romanian|Hungarian|'
+        r'Bulgarian|Croatian|Serbian|Ukrainian|Hebrew|Persian)\b',
+        caseSensitive: false);
     final m = langRx.firstMatch('${ch.scanlator ?? ''} ${ch.name ?? ''}');
     return m?.group(0)?.toUpperCase();
   }
@@ -1188,12 +1091,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       final num = RegExp(r'\d+').firstMatch(season)?.group(0) ?? '';
       // S0? matches both "S1" and "S01"; (?!\d) prevents "S1" matching "S10"
       final rx = RegExp(
-        r'(?:Saison|Season|Partie|Part)\s*' + num + r'\b|S0?' + num + r'(?!\d)',
-        caseSensitive: false,
-      );
-      final filtered = result
-          .where((ch) => rx.hasMatch(ch.name ?? ''))
-          .toList();
+          r'(?:Saison|Season|Partie|Part)\s*' +
+              num +
+              r'\b|S0?' + num + r'(?!\d)',
+          caseSensitive: false);
+      final filtered =
+          result.where((ch) => rx.hasMatch(ch.name ?? '')).toList();
       if (filtered.isNotEmpty) result = filtered;
     }
     final lang = _selectedLanguage;
@@ -1221,20 +1124,19 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── RESSOURCES SECTION ─────────────────────────────────────────────────────
 
   Widget _buildRessourcesSection(List<Chapter> chapters) {
-    final isMovie = _isMovie(chapters);
-    final seasons = isMovie ? <String>[] : _detectSeasons(chapters);
+    final isMovie  = _isMovie(chapters);
+    final seasons  = isMovie ? <String>[] : _detectSeasons(chapters);
     // Auto-select first season when user hasn't picked one yet
     if (!isMovie && seasons.isNotEmpty && _selectedSeason == null) {
       _selectedSeason = seasons.first;
     }
     final languages = _detectLanguages(chapters);
-    final filtered = _filterChapters(chapters);
+    final filtered  = _filterChapters(chapters);
 
     final source = getSource(
-      widget.manga.lang ?? '',
-      widget.manga.source ?? '',
-      widget.manga.sourceId,
-    );
+        widget.manga.lang ?? '',
+        widget.manga.source ?? '',
+        widget.manga.sourceId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1242,15 +1144,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         // ── Header: [icon] Ressources ······ [ext_icon] [ext_name] [⋮] ─────────
         Row(
           children: [
-            Icon(Icons.video_library_outlined, size: 16, color: _textPrimary),
+            Icon(Icons.video_library_outlined,
+                size: 16, color: _textPrimary),
             const SizedBox(width: 6),
             Text(
               'Ressources',
               style: TextStyle(
-                color: _textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+                  color: _textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             if (source != null) ...[
@@ -1269,10 +1171,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               Text(
                 source.name ?? '',
                 style: TextStyle(
-                  color: _grey,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+                    color: _grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500),
               ),
               const SizedBox(width: 8),
             ],
@@ -1296,49 +1197,45 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 const SizedBox(width: 8),
                 _SkeletonBox(radius: 8, w: 70, h: 36),
               ] else ...[
-                if (!isMovie) ...[
-                  _buildDropdownPill(
-                    label: seasons.isNotEmpty
-                        ? (_selectedSeason ?? seasons.first)
-                        : 'Saison 1',
-                    items: seasons.isNotEmpty ? seasons : ['Saison 1'],
-                    onSelect: (v) => setState(() => _selectedSeason = v),
-                    sheetTitle: 'Choisissez la saison',
-                  ),
-                  if (languages.isNotEmpty) const SizedBox(width: 8),
-                ],
-                if (languages.isNotEmpty)
-                  _buildDropdownPill(
-                    label: _selectedLanguage ?? languages.first,
-                    items: languages,
-                    onSelect: (v) => setState(() => _selectedLanguage = v),
-                    displayLabel: (key) => localizedLanguageLabel(
-                      key,
-                      Localizations.localeOf(context).languageCode,
-                    ),
-                    sheetTitle: 'Choisissez la langue',
-                  ),
-                if (_player.loadedVideos.length > 1) ...[
-                  const SizedBox(width: 8),
-                  _buildDropdownPill(
-                    label:
-                        _player.selectedQuality ??
-                        _player.loadedVideos.first.quality,
-                    items: _player.loadedVideos.map((v) => v.quality).toList(),
-                    onSelect: (q) {
-                      final video = _player.loadedVideos.firstWhere(
-                        (v) => v.quality == q,
-                        orElse: () => _player.loadedVideos.first,
-                      );
-                      _player.switchQuality(video).then((_) {
-                        if (mounted) setState(() {});
-                      });
-                      setState(() {});
-                    },
-                    sheetTitle: 'Choisissez la résolution',
-                    selectedValue: _player.selectedQuality,
-                  ),
-                ],
+              if (!isMovie) ...[
+                _buildDropdownPill(
+                  label: seasons.isNotEmpty
+                      ? (_selectedSeason ?? seasons.first)
+                      : 'Saison 1',
+                  items: seasons.isNotEmpty ? seasons : ['Saison 1'],
+                  onSelect: (v) => setState(() => _selectedSeason = v),
+                  sheetTitle: 'Choisissez la saison',
+                ),
+                if (languages.isNotEmpty) const SizedBox(width: 8),
+              ],
+              if (languages.isNotEmpty)
+                _buildDropdownPill(
+                  label: _selectedLanguage ?? languages.first,
+                  items: languages,
+                  onSelect: (v) => setState(() => _selectedLanguage = v),
+                  displayLabel: (key) => localizedLanguageLabel(
+                      key, Localizations.localeOf(context).languageCode),
+                  sheetTitle: 'Choisissez la langue',
+                ),
+              if (_player.loadedVideos.length > 1) ...[
+                const SizedBox(width: 8),
+                _buildDropdownPill(
+                  label: _player.selectedQuality ?? _player.loadedVideos.first.quality,
+                  items: _player.loadedVideos.map((v) => v.quality).toList(),
+                  onSelect: (q) {
+                    final video = _player.loadedVideos.firstWhere(
+                      (v) => v.quality == q,
+                      orElse: () => _player.loadedVideos.first,
+                    );
+                    _player.switchQuality(video).then((_) {
+                      if (mounted) setState(() {});
+                    });
+                    setState(() {});
+                  },
+                  sheetTitle: 'Choisissez la résolution',
+                  selectedValue: _player.selectedQuality,
+                ),
+              ],
               ], // close else spread
             ],
           ),
@@ -1366,10 +1263,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               children: [
                 Icon(Icons.video_library_outlined, color: _grey, size: 40),
                 const SizedBox(height: 8),
-                Text(
-                  'Aucun épisode disponible',
-                  style: TextStyle(color: _grey),
-                ),
+                Text('Aucun épisode disponible',
+                    style: TextStyle(color: _grey)),
               ],
             ),
           )
@@ -1394,14 +1289,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     String? selectedValue,
   }) {
     return GestureDetector(
-      onTap: () => _showDropdownSheet(
-        label,
-        items,
-        onSelect,
-        displayLabel: displayLabel,
-        sheetTitle: sheetTitle,
-        selectedValue: selectedValue,
-      ),
+      onTap: () => _showDropdownSheet(label, items, onSelect,
+          displayLabel: displayLabel, sheetTitle: sheetTitle,
+          selectedValue: selectedValue),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
@@ -1415,9 +1305,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             Text(
               displayLabel?.call(label) ?? label,
               style: TextStyle(
-                color: _onSurface.withValues(alpha: 0.75),
-                fontSize: 13,
-              ),
+                  color: _onSurface.withValues(alpha: 0.75), fontSize: 13),
             ),
             const SizedBox(width: 6),
             Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
@@ -1427,168 +1315,152 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  void _showDropdownSheet(
-    String label,
-    List<String> items,
-    void Function(String) onSelect, {
-    String Function(String)? displayLabel,
-    String? sheetTitle,
-    String? selectedValue,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      barrierColor: Colors.transparent,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (ctx) {
-        final screen = MediaQuery.of(context).size.height;
-        final statusH = MediaQuery.of(context).padding.top;
-        final maxH = screen - 230 - statusH;
-        return Container(
-          height: maxH,
-          decoration: BoxDecoration(color: _surface),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-                child: Row(
-                  children: [
-                    Text(
-                      sheetTitle ?? displayLabel?.call(label) ?? label,
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(ctx),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: _card,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.close, size: 16, color: _grey),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: _faint),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  children: items.map((item) {
-                    // Use explicit selectedValue when provided (e.g. quality);
-                    // fall back to comparing against language/season state.
-                    final isSel = selectedValue != null
-                        ? item == selectedValue
-                        : item == _selectedLanguage || item == _selectedSeason;
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        onSelect(item);
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: isSel
-                              ? LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  colors: [
-                                    _accent.withValues(alpha: 0.30),
-                                    _accent.withValues(alpha: 0.10),
-                                  ],
-                                )
-                              : null,
-                          color: isSel ? null : _card,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isSel
-                                ? _accent.withValues(alpha: 0.55)
-                                : Colors.transparent,
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Text(
-                          displayLabel?.call(item) ?? item,
-                          textAlign: TextAlign.center,
+    void _showDropdownSheet(
+        String label, List<String> items, void Function(String) onSelect,
+        {String Function(String)? displayLabel, String? sheetTitle,
+        String? selectedValue}) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        barrierColor: Colors.transparent,
+        backgroundColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        builder: (ctx) {
+          final screen  = MediaQuery.of(context).size.height;
+          final statusH = MediaQuery.of(context).padding.top;
+          final maxH    = screen - 230 - statusH;
+          return Container(
+            height: maxH,
+            decoration: BoxDecoration(color: _surface),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                  child: Row(
+                    children: [
+                      Text(sheetTitle ?? displayLabel?.call(label) ?? label,
                           style: TextStyle(
-                            color: isSel ? _accent : _textPrimary,
-                            fontSize: 14,
-                            fontWeight: isSel
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
+                              color: _textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                              color: _card, shape: BoxShape.circle),
+                          child: Icon(Icons.close, size: 16, color: _grey),
                         ),
                       ),
-                    );
-                  }).toList(),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+                Divider(height: 1, color: _faint),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    children: items.map((item) {
+                      // Use explicit selectedValue when provided (e.g. quality);
+                      // fall back to comparing against language/season state.
+                      final isSel = selectedValue != null
+                          ? item == selectedValue
+                          : item == _selectedLanguage || item == _selectedSeason;
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          onSelect(item);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: isSel
+                                ? LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      _accent.withValues(alpha: 0.30),
+                                      _accent.withValues(alpha: 0.10),
+                                    ],
+                                  )
+                                : null,
+                            color: isSel ? null : _card,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSel
+                                  ? _accent.withValues(alpha: 0.55)
+                                  : Colors.transparent,
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            displayLabel?.call(item) ?? item,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isSel ? _accent : _textPrimary,
+                              fontSize: 14,
+                              fontWeight: isSel
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
 
   // _buildSelectorRow replaced by _buildDropdownPill + _showDropdownSheet above
 
   // ─── MOVIE BOX — small rectangle, title only ─────────────────────────────────
 
   Widget _buildMovieBox(Chapter chapter) {
-    final title = widget.manga.name ?? '';
-    return GestureDetector(
-      onTap: () => _loadEpisodeInBanner(chapter),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              _accent.withValues(alpha: 0.20),
-              _accent.withValues(alpha: 0.08),
-            ],
+      final title = widget.manga.name ?? '';
+      return GestureDetector(
+        onTap: () => _loadEpisodeInBanner(chapter),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                _accent.withValues(alpha: 0.20),
+                _accent.withValues(alpha: 0.08),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _accent.withValues(alpha: 0.30), width: 0.8),
           ),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: _accent.withValues(alpha: 0.30),
-            width: 0.8,
-          ),
-        ),
-        child: Text(
-          title.isNotEmpty ? title : 'Regarder',
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: _accent,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+          child: Text(
+            title.isNotEmpty ? title : 'Regarder',
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: _accent,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  static const int _kMaxVisibleEps = 5;
-  static const double _kEpThumbW = 108.0;
+    static const int    _kMaxVisibleEps = 5;
+  static const double _kEpThumbW      = 108.0;
 
   List<Chapter> _sortedEpisodes(List<Chapter> chapters) {
     final indexed = chapters.asMap().entries.toList();
@@ -1603,10 +1475,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   int _epNum(String? name, int fallback) {
     if (name == null || name.isEmpty) return fallback;
     // Try "Ep. N" / "Ep N" / "Episode N" pattern first
-    final epMatch = RegExp(
-      r'(?:Ep\.?|Episode)\s*(\d+)',
-      caseSensitive: false,
-    ).firstMatch(name);
+    final epMatch = RegExp(r'(?:Ep\.?|Episode)\s*(\d+)', caseSensitive: false)
+        .firstMatch(name);
     if (epMatch != null) return int.tryParse(epMatch.group(1)!) ?? fallback;
     // Fall back to the LAST number in the name (avoids matching season number first)
     final all = RegExp(r'\d+').allMatches(name);
@@ -1617,122 +1487,108 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── EPISODE LIST (card style with cover + shimmer) ─────────────────────────
 
   Widget _buildEpisodeList(List<Chapter> chapters, List<Chapter> allChapters) {
-    if (chapters.isEmpty) return const SizedBox.shrink();
-    const int maxVisible = 14;
-    final display = chapters.take(maxVisible).toList();
-    final remaining = chapters.length - display.length;
+      if (chapters.isEmpty) return const SizedBox.shrink();
+      const int maxVisible = 14;
+      final display   = chapters.take(maxVisible).toList();
+      final remaining = chapters.length - display.length;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // "Tous" tile
-          GestureDetector(
-            onTap: () => _showAllEpisodesSheet(context, allChapters),
-            child: Container(
-              width: 48,
-              height: 48,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: _card,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: _faint, width: 0.6),
-              ),
-              child: Center(
-                child: Text(
-                  'Tous',
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Episode tiles
-          for (int i = 0; i < display.length; i++) ...[
-            _buildEpTile(display[i], fallbackIndex: i + 1),
-            if (i < display.length - 1) const SizedBox(width: 8),
-          ],
-          // "+N more" tile
-          if (remaining > 0) ...[
-            const SizedBox(width: 8),
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // "Tous" tile
             GestureDetector(
               onTap: () => _showAllEpisodesSheet(context, allChapters),
               child: Container(
-                width: 48,
-                height: 48,
+                width: 48, height: 48,
+                margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(
                   color: _card,
                   borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: _faint, width: 0.6),
                 ),
                 child: Center(
-                  child: Text(
-                    '+$remaining',
-                    style: TextStyle(
-                      color: _accent,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: Text('Tous',
+                      style: TextStyle(
+                          color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w500)),
                 ),
               ),
             ),
+            // Episode tiles
+            for (int i = 0; i < display.length; i++) ...[
+              _buildEpTile(display[i], fallbackIndex: i + 1),
+              if (i < display.length - 1) const SizedBox(width: 8),
+            ],
+            // "+N more" tile
+            if (remaining > 0) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _showAllEpisodesSheet(context, allChapters),
+                child: Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    color: _card,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Center(
+                    child: Text('+$remaining',
+                        style: TextStyle(
+                            color: _accent, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEpTile(Chapter chapter, {required int fallbackIndex}) {
-    final isPlaying = _player.loadedChapterId == chapter.id;
-    // Use fallbackIndex directly (sorted order) for display — avoids always showing "01"
-    final epNum = fallbackIndex.toString().padLeft(2, '0');
-
-    return GestureDetector(
-      onTap: () => _loadEpisodeInBanner(chapter),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          gradient: isPlaying
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    _accent.withValues(alpha: 0.45),
-                    _accent.withValues(alpha: 0.15),
-                  ],
-                )
-              : null,
-          color: isPlaying ? null : _card,
-          borderRadius: BorderRadius.circular(6),
-          border: isPlaying
-              ? Border.all(color: _accent.withValues(alpha: 0.55), width: 0.8)
-              : null,
         ),
-        child: Center(
-          child: Text(
-            epNum,
-            style: TextStyle(
-              color: isPlaying ? _accent : _textPrimary,
-              fontSize: 15,
-              fontWeight: isPlaying ? FontWeight.w700 : FontWeight.w500,
+      );
+    }
+
+    Widget _buildEpTile(Chapter chapter, {required int fallbackIndex}) {
+      final isPlaying = _player.loadedChapterId == chapter.id;
+      // Use fallbackIndex directly (sorted order) for display — avoids always showing "01"
+      final epNum = fallbackIndex.toString().padLeft(2, '0');
+
+      return GestureDetector(
+        onTap: () => _loadEpisodeInBanner(chapter),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 48, height: 48,
+          decoration: BoxDecoration(
+            gradient: isPlaying
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _accent.withValues(alpha: 0.45),
+                      _accent.withValues(alpha: 0.15),
+                    ],
+                  )
+                : null,
+            color: isPlaying ? null : _card,
+            borderRadius: BorderRadius.circular(6),
+            border: isPlaying
+                ? Border.all(color: _accent.withValues(alpha: 0.55), width: 0.8)
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              epNum,
+              style: TextStyle(
+                color: isPlaying ? _accent : _textPrimary,
+                fontSize: 15,
+                fontWeight: isPlaying ? FontWeight.w700 : FontWeight.w500,
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  void _showAllEpisodesSheet(BuildContext ctx, List<Chapter> allChapters) {
+    void _showAllEpisodesSheet(BuildContext ctx, List<Chapter> allChapters) {
     final seasons = _detectSeasons(allChapters);
     // Start on the currently-selected season so the sheet matches the active filter.
-    String? sheetSeason =
-        (_selectedSeason != null && seasons.contains(_selectedSeason))
+    String? sheetSeason = (_selectedSeason != null && seasons.contains(_selectedSeason))
         ? _selectedSeason
         : (seasons.isNotEmpty ? seasons.first : null);
 
@@ -1746,20 +1602,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             // Filter by selected season if any
             List<Chapter> display;
             if (sheetSeason != null) {
-              final num =
-                  RegExp(r'\d+').firstMatch(sheetSeason!)?.group(0) ?? '';
+              final num = RegExp(r'\d+').firstMatch(sheetSeason!)?.group(0) ?? '';
               // S0? matches both "S1" and "S01"; (?!\d) prevents "S1" matching "S10"
               final rx = RegExp(
                 r'(?:Saison|Season|Partie|Part)\s*' +
                     num +
-                    r'\b|S0?' +
-                    num +
-                    r'(?!\d)',
+                    r'\b|S0?' + num + r'(?!\d)',
                 caseSensitive: false,
               );
-              final filtered = allChapters
-                  .where((ch) => rx.hasMatch(ch.name ?? ''))
-                  .toList();
+              final filtered =
+                  allChapters.where((ch) => rx.hasMatch(ch.name ?? '')).toList();
               display = filtered.isNotEmpty ? filtered : allChapters;
             } else {
               display = allChapters;
@@ -1767,9 +1619,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             // Also filter by the currently-selected language to avoid showing
             // duplicates when the extension returns multiple language variants.
             if (_selectedLanguage != null) {
-              final langFiltered = display
-                  .where((ch) => _langKey(ch) == _selectedLanguage)
-                  .toList();
+              final langFiltered =
+                  display.where((ch) => _langKey(ch) == _selectedLanguage).toList();
               if (langFiltered.isNotEmpty) display = langFiltered;
             }
             // Deduplicate by episode number within the current view so that
@@ -1778,8 +1629,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               final seen = <int>{};
               final deduped = <Chapter>[];
               for (int i = 0; i < display.length; i++) {
-                if (seen.add(_epNum(display[i].name, i + 1)))
-                  deduped.add(display[i]);
+                if (seen.add(_epNum(display[i].name, i + 1))) deduped.add(display[i]);
               }
               display = deduped;
             }
@@ -1791,12 +1641,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             final grey = onSurface.withValues(alpha: 0.50);
             final faint = onSurface.withValues(alpha: 0.25);
 
-            final _maxFrac =
-                ((MediaQuery.of(ctx).size.height -
-                            230 -
-                            MediaQuery.of(ctx).padding.top) /
-                        MediaQuery.of(ctx).size.height)
-                    .clamp(0.40, 0.92);
+            final _maxFrac = ((MediaQuery.of(ctx).size.height - 230 - MediaQuery.of(ctx).padding.top) / MediaQuery.of(ctx).size.height).clamp(0.40, 0.92);
             return DraggableScrollableSheet(
               initialChildSize: (_maxFrac * 0.85).clamp(0.40, _maxFrac),
               minChildSize: 0.40,
@@ -1804,7 +1649,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               expand: false,
               builder: (_, scrollCtrl) {
                 return Container(
-                  decoration: BoxDecoration(color: bg),
+                  decoration: BoxDecoration(
+                    color: bg,
+                  ),
                   child: Column(
                     children: [
                       // Drag handle
@@ -1827,95 +1674,77 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                             if (seasons.length > 1) ...[
                               GestureDetector(
                                 onTap: () async {
-                                  final picked =
-                                      await showModalBottomSheet<String>(
-                                        context: sheetCtx,
-                                        backgroundColor: bg,
-                                        shape: const RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(16),
-                                          ),
-                                        ),
-                                        builder: (_) => ListView(
-                                          shrinkWrap: true,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                          children: seasons.map((s) {
-                                            final isSel = s == sheetSeason;
-                                            return GestureDetector(
-                                              onTap: () =>
-                                                  Navigator.pop(sheetCtx, s),
-                                              child: AnimatedContainer(
-                                                duration: const Duration(
-                                                  milliseconds: 150,
-                                                ),
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 4,
-                                                    ),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                      vertical: 14,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  gradient: isSel
-                                                      ? LinearGradient(
-                                                          begin: Alignment
-                                                              .centerLeft,
-                                                          end: Alignment
-                                                              .centerRight,
-                                                          colors: [
-                                                            accent.withValues(
-                                                              alpha: 0.30,
-                                                            ),
-                                                            accent.withValues(
-                                                              alpha: 0.10,
-                                                            ),
-                                                          ],
-                                                        )
-                                                      : null,
-                                                  color: isSel ? null : card,
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  border: Border.all(
-                                                    color: isSel
-                                                        ? accent.withValues(
-                                                            alpha: 0.55,
-                                                          )
-                                                        : Colors.transparent,
-                                                    width: 0.8,
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  s,
-                                                  textAlign: TextAlign.center,
-                                                  style: TextStyle(
-                                                    color: isSel
-                                                        ? accent
-                                                        : onSurface,
-                                                    fontSize: 14,
-                                                    fontWeight: isSel
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w400,
-                                                  ),
-                                                ),
+                                  final picked = await showModalBottomSheet<String>(
+                                    context: sheetCtx,
+                                    backgroundColor: bg,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(16)),
+                                    ),
+                                    builder: (_) => ListView(
+                                      shrinkWrap: true,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      children: seasons.map((s) {
+                                        final isSel = s == sheetSeason;
+                                        return GestureDetector(
+                                          onTap: () =>
+                                              Navigator.pop(sheetCtx, s),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                                milliseconds: 150),
+                                            margin: const EdgeInsets.symmetric(
+                                                vertical: 4),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 14),
+                                            decoration: BoxDecoration(
+                                              gradient: isSel
+                                                  ? LinearGradient(
+                                                      begin:
+                                                          Alignment.centerLeft,
+                                                      end: Alignment.centerRight,
+                                                      colors: [
+                                                        accent.withValues(
+                                                            alpha: 0.30),
+                                                        accent.withValues(
+                                                            alpha: 0.10),
+                                                      ],
+                                                    )
+                                                  : null,
+                                              color: isSel ? null : card,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: isSel
+                                                    ? accent.withValues(
+                                                        alpha: 0.55)
+                                                    : Colors.transparent,
+                                                width: 0.8,
                                               ),
-                                            );
-                                          }).toList(),
-                                        ),
-                                      );
+                                            ),
+                                            child: Text(
+                                              s,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: isSel ? accent : onSurface,
+                                                fontSize: 14,
+                                                fontWeight: isSel
+                                                    ? FontWeight.w600
+                                                    : FontWeight.w400,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  );
                                   if (picked != null) {
                                     setSt(() => sheetSeason = picked);
                                   }
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
+                                      horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: card,
                                     borderRadius: BorderRadius.circular(20),
@@ -1932,11 +1761,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                                         ),
                                       ),
                                       const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        size: 18,
-                                        color: grey,
-                                      ),
+                                      Icon(Icons.keyboard_arrow_down_rounded,
+                                          size: 18, color: grey),
                                     ],
                                   ),
                                 ),
@@ -1953,11 +1779,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                             const Spacer(),
                             GestureDetector(
                               onTap: () => Navigator.pop(sheetCtx),
-                              child: Icon(
-                                Icons.close_rounded,
-                                size: 22,
-                                color: grey,
-                              ),
+                              child: Icon(Icons.close_rounded,
+                                  size: 22, color: grey),
                             ),
                           ],
                         ),
@@ -1966,14 +1789,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       Expanded(
                         child: GridView.builder(
                           controller: scrollCtrl,
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 0, 16, 32),
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                             // 5 columns on narrow phones (≤ 390 pt, e.g. iPhone 7/SE),
                             // 6 on wider devices — keeps cells readable.
-                            crossAxisCount:
-                                MediaQuery.of(sheetCtx).size.width <= 390
-                                ? 5
-                                : 6,
+                            crossAxisCount: MediaQuery.of(sheetCtx).size.width <= 390 ? 5 : 6,
                             mainAxisSpacing: 8,
                             crossAxisSpacing: 8,
                             childAspectRatio: 1.05,
@@ -1982,7 +1803,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           itemBuilder: (_, i) {
                             final ch = display[i];
                             final epNum = _epNum(ch.name, i + 1);
-                            final label = epNum.toString().padLeft(2, '0');
+                            final label =
+                                epNum.toString().padLeft(2, '0');
                             final isWatched = ch.isRead ?? false;
                             return GestureDetector(
                               onTap: () {
@@ -2000,7 +1822,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                                 child: Text(
                                   label,
                                   style: TextStyle(
-                                    color: isWatched ? Colors.white : onSurface,
+                                    color: isWatched
+                                        ? Colors.white
+                                        : onSurface,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -2030,34 +1854,28 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final rawDesc = manga.description ?? '';
     const galleryMark = '\n__GALLERY__:';
     final gIdx = rawDesc.indexOf(galleryMark);
-    final description = gIdx >= 0 ? rawDesc.substring(0, gIdx) : rawDesc;
+    final description =
+        gIdx >= 0 ? rawDesc.substring(0, gIdx) : rawDesc;
     final galleryUrls = gIdx >= 0
         ? rawDesc
-              .substring(gIdx + galleryMark.length)
-              .split('||')
-              .where((u) => u.trim().isNotEmpty)
-              .toList()
+            .substring(gIdx + galleryMark.length)
+            .split('||')
+            .where((u) => u.trim().isNotEmpty)
+            .toList()
         : <String>[];
 
     // ── Cast / director from artist (extension: "Director, Actor1, Actor2, …") ──
-    final _artistParts = (manga.artist ?? '')
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-    final director = _artistParts.isNotEmpty ? _artistParts.first : null;
-    final castNames = _artistParts.length > 1
-        ? _artistParts.sublist(1)
-        : <String>[];
+    final _artistParts = (manga.artist ?? '').split(',')
+        .map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final director  = _artistParts.isNotEmpty ? _artistParts.first : null;
+    final castNames = _artistParts.length > 1 ? _artistParts.sublist(1) : <String>[];
 
     // ── Year from author (extension sets author = releaseYear) ───────────────
     final year = (manga.author ?? '').trim();
 
     // ── Country from genre list (·-prefixed by extension) ────────────────────
-    final country = (manga.genre ?? [])
-        .where((g) => g.startsWith('·'))
-        .map((g) => g.substring(1))
-        .firstOrNull;
+    final country = (manga.genre ?? []).where((g) => g.startsWith('·'))
+        .map((g) => g.substring(1)).firstOrNull;
 
     // ── IMDb rating from description ("IMDb X.X") ────────────────────────────
     final _imdbM = RegExp(r'IMDb\s+([\d.]+)').firstMatch(description);
@@ -2094,11 +1912,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         .where((g) => typeKws.any((k) => g.toLowerCase() == k.toLowerCase()))
         .firstOrNull;
     final genres = (manga.genre ?? [])
-        .where(
-          (g) =>
-              !typeKws.any((k) => g.toLowerCase() == k.toLowerCase()) &&
-              !g.startsWith('·'),
-        )
+        .where((g) =>
+            !typeKws.any((k) => g.toLowerCase() == k.toLowerCase()) &&
+            !g.startsWith('·'))
         .toList();
 
     final isMovie = _isMovie(chapters);
@@ -2120,31 +1936,25 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     }
     // Nb épisodes / type
     if (chapters.isNotEmpty) {
-      infoRows.add(
-        _DetailInfoRow(
-          label: isMovie ? 'Type' : 'Épisodes',
-          value: isMovie ? 'Film' : '${chapters.length}',
-          accent: true,
-          accentColor: _accent,
-        ),
-      );
+      infoRows.add(_DetailInfoRow(
+        label: isMovie ? 'Type' : 'Épisodes',
+        value: isMovie ? 'Film' : '${chapters.length}',
+        accent: true,
+        accentColor: _accent,
+      ));
     }
     // Statut
     if (statusLabel.isNotEmpty) {
-      infoRows.add(
-        _DetailInfoRow(
-          label: 'Statut',
-          value: statusLabel,
-          accent: true,
-          accentColor: statusColor,
-        ),
-      );
+      infoRows.add(_DetailInfoRow(
+        label: 'Statut',
+        value: statusLabel,
+        accent: true,
+        accentColor: statusColor,
+      ));
     }
     // Langue
     if (manga.lang?.isNotEmpty ?? false) {
-      infoRows.add(
-        _DetailInfoRow(label: 'Langue', value: manga.lang!.toUpperCase()),
-      );
+      infoRows.add(_DetailInfoRow(label: 'Langue', value: manga.lang!.toUpperCase()));
     }
     // Format
     if (typeTag != null) {
@@ -2155,9 +1965,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       infoRows.add(_DetailInfoRow(label: 'Source', value: manga.source!));
     }
 
+
     // ── Check if truly empty ───────────────────────────────────────────────
-    final hasAnyContent =
-        description.isNotEmpty ||
+    final hasAnyContent = description.isNotEmpty ||
         galleryUrls.isNotEmpty ||
         infoRows.isNotEmpty ||
         genres.isNotEmpty ||
@@ -2227,18 +2037,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                             ? TextOverflow.visible
                             : TextOverflow.clip,
                         style: TextStyle(
-                          color: _grey,
-                          fontSize: 13.5,
-                          height: 1.65,
-                        ),
+                            color: _grey, fontSize: 13.5, height: 1.65),
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   GestureDetector(
-                    onTap: () => setSt(
-                      () => _isDescriptionExpanded = !_isDescriptionExpanded,
-                    ),
+                    onTap: () => setSt(() =>
+                        _isDescriptionExpanded = !_isDescriptionExpanded),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -2312,23 +2118,19 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 for (final g in genres)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 6,
-                    ),
+                        horizontal: 13, vertical: 6),
                     decoration: BoxDecoration(
                       color: _accent.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: _accent.withValues(alpha: 0.25),
-                        width: 0.8,
-                      ),
+                          color: _accent.withValues(alpha: 0.25),
+                          width: 0.8),
                     ),
                     child: Text(
                       g,
                       style: TextStyle(
-                        color: _onSurface.withValues(alpha: 0.75),
-                        fontSize: 12,
-                      ),
+                          color: _onSurface.withValues(alpha: 0.75),
+                          fontSize: 12),
                     ),
                   ),
               ],
@@ -2366,9 +2168,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                             color: col.withValues(alpha: 0.14),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: col.withValues(alpha: 0.38),
-                              width: 1.5,
-                            ),
+                                color: col.withValues(alpha: 0.38),
+                                width: 1.5),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -2384,10 +2185,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         Text(
                           name,
                           style: TextStyle(
-                            color: _grey,
-                            fontSize: 10.5,
-                            height: 1.3,
-                          ),
+                              color: _grey,
+                              fontSize: 10.5,
+                              height: 1.3),
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -2517,7 +2317,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             Container(
               width: 7,
               height: 7,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: fg),
+              decoration:
+                  BoxDecoration(shape: BoxShape.circle, color: fg),
             )
           else
             Icon(icon, size: 12, color: fg),
@@ -2525,10 +2326,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           Text(
             label,
             style: TextStyle(
-              color: fg,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+                color: fg,
+                fontSize: 12,
+                fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -2536,27 +2336,27 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   Widget _sectionLabel(String text) => Text(
-    text,
-    style: TextStyle(
-      color: _textPrimary,
-      fontSize: 15,
-      fontWeight: FontWeight.w700,
-    ),
-  );
+        text,
+        style: TextStyle(
+            color: _textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700),
+      );
 
   Widget _detailRow(IconData icon, String text) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Icon(icon, size: 15, color: _grey),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          text,
-          style: TextStyle(color: _grey, fontSize: 13, height: 1.4),
-        ),
-      ),
-    ],
-  );
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: _grey),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style:
+                  TextStyle(color: _grey, fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      );
 
   Widget _buildRecommendationsTab() {
     // Pour vous : appel via l'extension getRecommendations (API native MovieBox).
@@ -2567,40 +2367,31 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
 
     Widget _empty() => Center(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: _card,
-                shape: BoxShape.circle,
-                border: Border.all(color: _faint, width: 1.5),
-              ),
-              child: Icon(Icons.movie_filter_outlined, color: _grey, size: 26),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    color: _card, shape: BoxShape.circle,
+                    border: Border.all(color: _faint, width: 1.5),
+                  ),
+                  child: Icon(Icons.movie_filter_outlined, color: _grey, size: 26),
+                ),
+                const SizedBox(height: 14),
+                Text('Aucune recommandation',
+                    style: TextStyle(color: _onSurface.withValues(alpha: 0.7),
+                        fontSize: 14, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 6),
+                Text('Les suggestions apparaîtront ici.',
+                    style: TextStyle(color: _grey, fontSize: 12),
+                    textAlign: TextAlign.center),
+              ],
             ),
-            const SizedBox(height: 14),
-            Text(
-              'Aucune recommandation',
-              style: TextStyle(
-                color: _onSurface.withValues(alpha: 0.7),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Les suggestions apparaîtront ici.',
-              style: TextStyle(color: _grey, fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
 
     if (_recSrc == null) return _empty();
 
@@ -2612,10 +2403,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             serviceType: 'getRecommendations',
             proxyServer: '',
           )
-          .then(
-            (raw) =>
-                raw.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
-          ),
+          .then((raw) => raw.map((e) => Map<String, dynamic>.from(e as Map)).toList()),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return GridView.builder(
@@ -2643,9 +2431,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
           itemCount: recs.length,
           itemBuilder: (_, i) {
-            final rec = recs[i];
+            final rec    = recs[i];
             final imgUrl = rec['imageUrl'] as String?;
-            final title = (rec['name'] as String?) ?? '';
+            final title  = (rec['name'] as String?) ?? '';
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2661,11 +2449,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           )
                         : Container(
                             color: _card,
-                            child: Icon(
-                              Icons.movie_outlined,
-                              color: _grey,
-                              size: 28,
-                            ),
+                            child: Icon(Icons.movie_outlined,
+                                color: _grey, size: 28),
                           ),
                   ),
                 ),
@@ -2673,10 +2458,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 Text(
                   title,
                   style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
+                      color: _textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2694,7 +2478,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       widget.manga.source ?? '',
       widget.manga.sourceId,
     );
-    return CommentsSection(
+    return _CommentsSection(
       url: widget.manga.link ?? '',
       title: widget.manga.name ?? '',
       source: source,
@@ -2730,7 +2514,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  void _showDownloadPreparationSheet(BuildContext ctx, List<Chapter> selected) {
+  void _showDownloadPreparationSheet(
+      BuildContext ctx, List<Chapter> selected) {
     showModalBottomSheet(
       context: ctx,
       backgroundColor: _surface,
@@ -2751,10 +2536,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           setStatus('Préparation des épisodes…');
           setProgress(0.68);
           for (final ch in selected) {
-            final entry = isar.downloads
-                .filter()
-                .idEqualTo(ch.id)
-                .findFirstSync();
+            final entry =
+                isar.downloads.filter().idEqualTo(ch.id).findFirstSync();
             if (entry == null || !(entry.isDownload ?? false)) {
               ref.read(addDownloadToQueueProvider(chapter: ch));
             }
@@ -2778,10 +2561,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   void _showAfterDownloadSheet(
-    BuildContext ctx,
-    int count,
-    Chapter firstChapter,
-  ) {
+      BuildContext ctx, int count, Chapter firstChapter) {
     showModalBottomSheet(
       context: ctx,
       backgroundColor: _surface,
@@ -2797,14 +2577,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 children: [
                   Icon(Icons.download_rounded, color: _accent, size: 20),
                   const SizedBox(width: 8),
-                  Text(
-                    'Téléchargement $count fichier(s)',
-                    style: TextStyle(
-                      color: _textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Text('Téléchargement $count fichier(s)',
+                      style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () => Navigator.pop(ctx),
@@ -2815,7 +2592,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               const SizedBox(height: 10),
               Text(
                 'Regardez pendant le téléchargement, sans données supplémentaires.',
-                style: TextStyle(color: _grey, fontSize: 13, height: 1.4),
+                style:
+                    TextStyle(color: _grey, fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 16),
               Row(
@@ -2829,10 +2607,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _textPrimary,
                         side: BorderSide(color: _faint),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Text('Voir le téléchargement'),
                     ),
@@ -2847,10 +2625,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _accent,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 13),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Text('Regarder maintenant'),
                     ),
@@ -2868,24 +2646,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   void _openInBrowser() {
     final source = getSource(
-      widget.manga.lang ?? '',
-      widget.manga.source ?? '',
-      widget.manga.sourceId,
-    );
+        widget.manga.lang ?? '',
+        widget.manga.source ?? '',
+        widget.manga.sourceId);
     if (source == null || (widget.manga.link ?? '').isEmpty) return;
     final raw = '${source.baseUrl}${widget.manga.link!.getUrlWithoutDomain}';
-    context.push(
-      "/mangawebview",
-      extra: {'url': raw, 'title': widget.manga.name ?? ''},
-    );
+    context.push("/mangawebview",
+        extra: {'url': raw, 'title': widget.manga.name ?? ''});
   }
 
   void _showOptionsSheet(BuildContext ctx, List<Chapter> chapters) {
     final source = getSource(
-      widget.manga.lang ?? '',
-      widget.manga.source ?? '',
-      widget.manga.sourceId,
-    );
+        widget.manga.lang ?? '',
+        widget.manga.source ?? '',
+        widget.manga.sourceId);
     showModalBottomSheet(
       context: ctx,
       backgroundColor: _surface,
@@ -2895,17 +2669,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 38,
-              height: 4,
+              width: 38, height: 4,
               margin: const EdgeInsets.only(top: 10, bottom: 8),
               decoration: BoxDecoration(
-                color: _faint,
-                borderRadius: BorderRadius.circular(2),
-              ),
+                  color: _faint,
+                  borderRadius: BorderRadius.circular(2)),
             ),
             ListTile(
               leading: Icon(Icons.refresh, color: _grey),
-              title: Text('Actualiser', style: TextStyle(color: _textPrimary)),
+              title: Text('Actualiser',
+                  style: TextStyle(color: _textPrimary)),
               onTap: () {
                 Navigator.pop(ctx);
                 widget.checkForUpdate(true);
@@ -2913,10 +2686,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
             ListTile(
               leading: Icon(Icons.open_in_browser_outlined, color: _grey),
-              title: Text(
-                'Ouvrir dans le navigateur',
-                style: TextStyle(color: _textPrimary),
-              ),
+              title: Text('Ouvrir dans le navigateur',
+                  style: TextStyle(color: _textPrimary)),
               onTap: () {
                 Navigator.pop(ctx);
                 _openInBrowser();
@@ -2925,10 +2696,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             if (source != null)
               ListTile(
                 leading: Icon(Icons.settings_outlined, color: _grey),
-                title: Text(
-                  "Paramètres de l'extension",
-                  style: TextStyle(color: _textPrimary),
-                ),
+                title: Text("Paramètres de l'extension",
+                    style: TextStyle(color: _textPrimary)),
                 onTap: () {
                   Navigator.pop(ctx);
                   ctx.pushNamed('extension_detail', extra: source);
@@ -2936,7 +2705,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ),
             ListTile(
               leading: Icon(Icons.share, color: _grey),
-              title: Text('Partager', style: TextStyle(color: _textPrimary)),
+              title: Text('Partager',
+                  style: TextStyle(color: _textPrimary)),
               onTap: () {
                 Navigator.pop(ctx);
                 _share(ctx);
@@ -2944,10 +2714,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
             ListTile(
               leading: Icon(Icons.download, color: _grey),
-              title: Text(
-                'Tout télécharger',
-                style: TextStyle(color: _textPrimary),
-              ),
+              title: Text('Tout télécharger',
+                  style: TextStyle(color: _textPrimary)),
               onTap: () {
                 Navigator.pop(ctx);
                 _downloadAll(chapters);
@@ -2976,8 +2744,7 @@ class _DownloadPreparationSheet extends StatefulWidget {
   final Future<void> Function(
     ValueChanged<String> setStatus,
     ValueChanged<double> setProgress,
-  )
-  prepare;
+  ) prepare;
   final VoidCallback onDone;
 
   @override
@@ -2985,7 +2752,8 @@ class _DownloadPreparationSheet extends StatefulWidget {
       _DownloadPreparationSheetState();
 }
 
-class _DownloadPreparationSheetState extends State<_DownloadPreparationSheet> {
+class _DownloadPreparationSheetState
+    extends State<_DownloadPreparationSheet> {
   String _status = 'Collecte des métadonnées…';
   double _progress = 0.08;
   bool _hasError = false;
@@ -3094,14 +2862,14 @@ class _DownloadPreparationSheetState extends State<_DownloadPreparationSheet> {
                       index < completedSteps
                           ? Icons.check_circle_rounded
                           : index == completedSteps && !_hasError
-                          ? Icons.radio_button_checked_rounded
-                          : Icons.radio_button_unchecked_rounded,
+                              ? Icons.radio_button_checked_rounded
+                              : Icons.radio_button_unchecked_rounded,
                       size: 16,
                       color: index < completedSteps
                           ? mbGreen
                           : index == completedSteps && !_hasError
-                          ? accent
-                          : muted,
+                              ? accent
+                              : muted,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -3138,12 +2906,12 @@ class _DownloadSheet extends ConsumerStatefulWidget {
 
 class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   // ── Theme ─────────────────────────────────────────────────────────────────────
-  Color get _accent => Theme.of(context).primaryColor;
-  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
-  Color get _card => Theme.of(context).colorScheme.surfaceContainerHighest;
-  Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _grey => _text.withValues(alpha: 0.50);
-  Color get _faint => _text.withValues(alpha: 0.13);
+  Color get _accent  => Theme.of(context).primaryColor;
+  Color get _bg      => Theme.of(context).scaffoldBackgroundColor;
+  Color get _card    => Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _text    => Theme.of(context).colorScheme.onSurface;
+  Color get _grey    => _text.withValues(alpha: 0.50);
+  Color get _faint   => _text.withValues(alpha: 0.13);
 
   // ── State ─────────────────────────────────────────────────────────────────────
   bool _loading = true;
@@ -3169,23 +2937,22 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     if (widget.chapters.length != 1) return false;
     final name = widget.chapters.first.name ?? '';
     return !RegExp(
-      r'(?:Saison|Season|Ep\.?\s*\d|S\d+\s*E\d+|\bE\d+)',
-      caseSensitive: false,
-    ).hasMatch(name);
+            r'(?:Saison|Season|Ep\.?\s*\d|S\d+\s*E\d+|\bE\d+)',
+            caseSensitive: false)
+        .hasMatch(name);
   }
 
-  static final _langRe = RegExp(
-    r'\b(VF|VO|VOSTFR|VOSTA|MULTI|EN|FR|JAP?|ENG?)\b',
-    caseSensitive: false,
-  );
-  static final _seasonRe = RegExp(r'(?:[Ss]aison|[Ss]eason|\bS)[ ]*(\d+)');
+  static final _langRe =
+      RegExp(r'\b(VF|VO|VOSTFR|VOSTA|MULTI|EN|FR|JAP?|ENG?)\b',
+          caseSensitive: false);
+  static final _seasonRe =
+      RegExp(r'(?:[Ss]aison|[Ss]eason|\bS)[ ]*(\d+)');
 
   // ── Init ──────────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    final pref =
-        DownloadSettingsService.instance.preferredExternalDownloader ?? '';
+    final pref = DownloadSettingsService.instance.preferredExternalDownloader ?? '';
     if (pref.isNotEmpty) _externalApp = pref;
     _loadVideos();
   }
@@ -3196,9 +2963,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
       return;
     }
     try {
-      final result = await ref.read(
-        getVideoListProvider(episode: widget.chapters.first).future,
-      );
+      final result =
+          await ref.read(getVideoListProvider(episode: widget.chapters.first).future);
       final videos = result.$1;
       final seen = <String>{};
       if (mounted) {
@@ -3236,10 +3002,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   /// grid so multi-source/multi-quality entries don't repeat the same episode.
   static int _epNumLocal(Chapter ch, int fallback) {
     final name = ch.name ?? '';
-    final em = RegExp(
-      r'(?:Ep\.?|Episode)\s*(\d+)',
-      caseSensitive: false,
-    ).firstMatch(name);
+    final em = RegExp(r'(?:Ep\.?|Episode)\s*(\d+)', caseSensitive: false).firstMatch(name);
     if (em != null) return int.tryParse(em.group(1)!) ?? fallback;
     final all = RegExp(r'\d+').allMatches(name).toList();
     if (all.isNotEmpty) return int.tryParse(all.last.group(0)!) ?? fallback;
@@ -3301,20 +3064,15 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     for (final ch in _selected) {
       final sz = ch.downloadSize;
       if (sz != null && sz.trim().isNotEmpty) {
-        final m = RegExp(
-          r'([\d.]+)\s*(MB|GB|KB)',
-          caseSensitive: false,
-        ).firstMatch(sz);
+        final m = RegExp(r'([\d.]+)\s*(MB|GB|KB)', caseSensitive: false)
+            .firstMatch(sz);
         if (m != null) {
           anyKnown = true;
           final num = double.tryParse(m.group(1)!) ?? 0;
           final unit = m.group(2)!.toUpperCase();
-          if (unit == 'GB')
-            totalMB += num * 1024;
-          else if (unit == 'KB')
-            totalMB += num / 1024;
-          else
-            totalMB += num;
+          if (unit == 'GB') totalMB += num * 1024;
+          else if (unit == 'KB') totalMB += num / 1024;
+          else totalMB += num;
         }
       }
     }
@@ -3329,10 +3087,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     if (_isFilm) return 'Film';
     final name = ch.name ?? '';
     // "Ep. N" / "Episode N" pattern first — most reliable when present.
-    final epMatch = RegExp(
-      r'(?:Ep\.?|Episode)\s*(\d+)',
-      caseSensitive: false,
-    ).firstMatch(name);
+    final epMatch =
+        RegExp(r'(?:Ep\.?|Episode)\s*(\d+)', caseSensitive: false).firstMatch(name);
     if (epMatch != null) {
       return 'E${epMatch.group(1)!.padLeft(2, '0')}';
     }
@@ -3348,12 +3104,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
 
   String _downloaderLabel() {
     switch (_downloader) {
-      case _Downloader.internal:
-        return 'Interne';
-      case _Downloader.aria2:
-        return 'Aria2';
-      case _Downloader.external:
-        return _externalApp.toUpperCase();
+      case _Downloader.internal: return 'Interne';
+      case _Downloader.aria2: return 'Aria2';
+      case _Downloader.external: return _externalApp.toUpperCase();
     }
   }
 
@@ -3362,16 +3115,15 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     // Selecting episodes is optional: an empty selection means "download all
     // episodes currently shown". This keeps the primary download action
     // usable instead of leaving it permanently greyed out on first open.
-    final chapters = _selected.isEmpty ? _displayChapters : _selected.toList();
+    final chapters =
+        _selected.isEmpty ? _displayChapters : _selected.toList();
     if (chapters.isEmpty) return;
 
     if (_downloader == _Downloader.external) {
       if (mounted) Navigator.pop(context);
       for (final ch in chapters) {
         try {
-          final result = await ref.read(
-            getVideoListProvider(episode: ch).future,
-          );
+          final result = await ref.read(getVideoListProvider(episode: ch).future);
           var videos = result.$1;
           if (videos.isEmpty) {
             botToast('Aucun lien pour ${ch.name ?? '?'}');
@@ -3379,11 +3131,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
           }
           if (_selectedLang != null && _langs.length > 1) {
             final lm = videos
-                .where(
-                  (v) => v.quality.toUpperCase().contains(
-                    _selectedLang!.toUpperCase(),
-                  ),
-                )
+                .where((v) =>
+                    v.quality.toUpperCase().contains(_selectedLang!.toUpperCase()))
                 .toList();
             if (lm.isNotEmpty) videos = lm;
           }
@@ -3401,9 +3150,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             headers: best.headers,
           );
           if (!launched && mounted) {
-            botToast(
-              'Impossible d\'ouvrir $_externalApp — vérifiez qu\'il est installé.',
-            );
+            botToast('Impossible d\'ouvrir $_externalApp — vérifiez qu\'il est installé.');
           }
         } catch (e) {
           if (mounted) botToast(e.toString().split('\n').first);
@@ -3440,13 +3187,13 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   // ── Build ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final displayed = _displayChapters;
-    final screenH = MediaQuery.of(context).size.height;
-    final statusH = MediaQuery.of(context).padding.top;
-    final maxH = screenH - 230 - statusH;
-    final seasons = _seasons;
-    final qualities = _qualities;
-    final totalSz = _totalSizeLabel();
+    final displayed  = _displayChapters;
+    final screenH    = MediaQuery.of(context).size.height;
+    final statusH    = MediaQuery.of(context).padding.top;
+    final maxH       = screenH - 230 - statusH;
+    final seasons    = _seasons;
+    final qualities  = _qualities;
+    final totalSz    = _totalSizeLabel();
 
     return Container(
       height: maxH,
@@ -3467,7 +3214,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             ),
 
           // ── [Saison] [Qualité] [⬇ Télécharger] — 3 left-aligned box pills ────
-          if (!_loading) _buildActionPillsRow(seasons, qualities, totalSz),
+          if (!_loading)
+            _buildActionPillsRow(seasons, qualities, totalSz),
 
           // ── Divider ───────────────────────────────────────────────────────────
           Divider(height: 1, thickness: 0.8, color: _faint),
@@ -3482,19 +3230,17 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                     shrinkWrap: true,
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                     itemCount: displayed.length,
-                    itemBuilder: (_, i) =>
-                        _buildEpisodeListTile(displayed[i], i),
+                    itemBuilder: (_, i) => _buildEpisodeListTile(displayed[i], i),
                   )
                 : GridView.builder(
                     shrinkWrap: true,
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 2.4,
-                        ),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 2.4,
+                    ),
                     itemCount: displayed.length,
                     itemBuilder: (_, i) => _buildEpisodeCard(displayed[i], i),
                   ),
@@ -3513,14 +3259,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
       padding: const EdgeInsets.fromLTRB(16, 10, 12, 6),
       child: Row(
         children: [
-          Text(
-            'Télécharger',
-            style: TextStyle(
-              color: _text,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text('Télécharger',
+              style: TextStyle(
+                  color: _text, fontSize: 15, fontWeight: FontWeight.w600)),
           const Spacer(),
           GestureDetector(
             onTap: () => Navigator.pop(context),
@@ -3538,7 +3279,10 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
 
   // ── Box pill (same visual language as the main screen's Saison/Langue/
   // Qualité dropdown pills: transparent, thin border, no shadow) ──────────────
-  Widget _buildPill({required String label, required VoidCallback onTap}) {
+  Widget _buildPill({
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -3551,13 +3295,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: _text.withValues(alpha: 0.75),
-                fontSize: 13,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(color: _text.withValues(alpha: 0.75), fontSize: 13)),
             const SizedBox(width: 6),
             Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
           ],
@@ -3586,24 +3325,16 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
               padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
               child: Row(
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: _text,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Text(title,
+                      style: TextStyle(
+                          color: _text, fontSize: 15, fontWeight: FontWeight.w600)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () => Navigator.pop(ctx),
                     child: Container(
                       width: 28,
                       height: 28,
-                      decoration: BoxDecoration(
-                        color: _card,
-                        shape: BoxShape.circle,
-                      ),
+                      decoration: BoxDecoration(color: _card, shape: BoxShape.circle),
                       child: Icon(Icons.close, size: 16, color: _grey),
                     ),
                   ),
@@ -3623,21 +3354,13 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                       onSelect(item);
                     },
                     child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
                         color: sel ? _accent.withValues(alpha: 0.12) : _card,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: sel
-                              ? _accent.withValues(alpha: 0.55)
-                              : Colors.transparent,
+                          color: sel ? _accent.withValues(alpha: 0.55) : Colors.transparent,
                           width: 0.8,
                         ),
                       ),
@@ -3665,10 +3388,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   // "Télécharger avec" removed per user request.
   // The download CTA is the 3rd box — highlighted when episodes are selected.
   Widget _buildActionPillsRow(
-    List<String> seasons,
-    List<String> qualities,
-    String totalSz,
-  ) {
+      List<String> seasons, List<String> qualities, String totalSz) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Row(
@@ -3726,16 +3446,17 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   // it never fights with Saison/Langue/Qualité for space. ──────────────────────
   Widget _buildDownloadFooter() {
     final displayedCount = _displayChapters.length;
-    final selectedCount = _selected.isEmpty ? displayedCount : _selected.length;
+    final selectedCount =
+        _selected.isEmpty ? displayedCount : _selected.length;
     final empty = selectedCount == 0;
     final totalSz = _totalSizeLabel();
     final label = empty
         ? 'Télécharger'
         : totalSz.isNotEmpty && _selected.isNotEmpty
-        ? 'Télécharger $selectedCount épisode${selectedCount > 1 ? 's' : ''} • $totalSz'
-        : _isFilm
-        ? 'Télécharger le film'
-        : 'Télécharger $selectedCount épisode${selectedCount > 1 ? 's' : ''}';
+            ? 'Télécharger $selectedCount épisode${selectedCount > 1 ? 's' : ''} • $totalSz'
+            : _isFilm
+                ? 'Télécharger le film'
+                : 'Télécharger $selectedCount épisode${selectedCount > 1 ? 's' : ''}';
 
     // Quality/lang recap line so the user always sees what will be downloaded.
     final recap = [
@@ -3744,12 +3465,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     ].join(' • ');
 
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        MediaQuery.of(context).padding.bottom + 12,
-      ),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(
         color: _bg,
         border: Border(top: BorderSide(color: _faint, width: 0.8)),
@@ -3774,22 +3490,15 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              icon: Icon(
-                Icons.download_rounded,
-                size: 18,
-                color: empty ? _grey : Colors.white,
-              ),
-              label: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: empty ? _grey : Colors.white,
-                ),
-              ),
+              icon: Icon(Icons.download_rounded, size: 18,
+                  color: empty ? _grey : Colors.white),
+              label: Text(label,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: empty ? _grey : Colors.white)),
             ),
           ),
         ],
@@ -3814,11 +3523,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             }),
             child: Row(
               children: [
-                _ModernCheckbox(
-                  checked: _selectAll,
-                  accent: _accent,
-                  faint: _faint,
-                ),
+                _ModernCheckbox(checked: _selectAll, accent: _accent, faint: _faint),
                 const SizedBox(width: 10),
                 Text(
                   'Tout sélectionner',
@@ -3843,7 +3548,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                 borderRadius: BorderRadius.circular(7),
               ),
               child: Icon(
-                _listMode ? Icons.grid_view_rounded : Icons.view_list_rounded,
+                _listMode
+                    ? Icons.grid_view_rounded
+                    : Icons.view_list_rounded,
                 color: _grey,
                 size: 16,
               ),
@@ -3911,11 +3618,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
               Positioned(
                 top: 4,
                 right: 4,
-                child: Icon(
-                  Icons.check_circle_rounded,
-                  color: _accent,
-                  size: 13,
-                ),
+                child: Icon(Icons.check_circle_rounded,
+                    color: _accent, size: 13),
               ),
           ],
         ),
@@ -3968,28 +3672,22 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                             errorWidget: (_, __, ___) => Container(
                               color: _bg,
                               child: Center(
-                                child: Text(
-                                  epLabel,
-                                  style: TextStyle(
-                                    color: _grey,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                                child: Text(epLabel,
+                                    style: TextStyle(
+                                        color: _grey,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700)),
                               ),
                             ),
                           )
                         : Container(
                             color: _bg,
                             child: Center(
-                              child: Text(
-                                epLabel,
-                                style: TextStyle(
-                                  color: _grey,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                              child: Text(epLabel,
+                                  style: TextStyle(
+                                      color: _grey,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700)),
                             ),
                           ),
                   ),
@@ -3998,22 +3696,17 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                   left: 4,
                   bottom: 4,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 2,
-                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(
-                      epLabel,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    child: Text(epLabel,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
@@ -4025,28 +3718,20 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (name.isNotEmpty)
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: sel ? _accent : _text,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    Text(name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: sel ? _accent : _text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
                   if (desc.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      desc,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: _grey,
-                        fontSize: 11,
-                        height: 1.25,
-                      ),
-                    ),
+                    Text(desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: _grey, fontSize: 11, height: 1.25)),
                   ],
                   const SizedBox(height: 6),
                   Wrap(
@@ -4082,10 +3767,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
         color: _faint,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        text,
-        style: TextStyle(color: _text.withValues(alpha: 0.75), fontSize: 10),
-      ),
+      child: Text(text,
+          style: TextStyle(color: _text.withValues(alpha: 0.75), fontSize: 10)),
     );
   }
 }
@@ -4122,6 +3805,749 @@ class _ModernCheckbox extends StatelessWidget {
   }
 }
 
+// ─── COMMENT MODEL ──────────────────────────────────────────────────────────
+
+class _Comment {
+  final String id;
+  final String author;
+  final String timeAgo;
+  final String body;
+  int likes;
+  bool liked;
+  bool collapsed;
+  final List<_Comment> replies;
+
+  _Comment({
+    required this.id,
+    required this.author,
+    required this.timeAgo,
+    required this.body,
+    this.likes = 0,
+    this.liked = false,
+    this.collapsed = false,
+    List<_Comment>? replies,
+  }) : replies = replies ?? [];
+}
+
+// ─── COMMENTS SECTION ────────────────────────────────────────────────────────
+
+class _CommentsSection extends StatefulWidget {
+  final String url;
+  final String title;
+  final Source? source;
+  final Color accent;
+  final Color bg;
+  final Color card;
+  final Color onSurface;
+  final Color grey;
+  final Color faint;
+  final Color textPrimary;
+
+  const _CommentsSection({
+    required this.url,
+    required this.title,
+    this.source,
+    required this.accent,
+    required this.bg,
+    required this.card,
+    required this.onSurface,
+    required this.grey,
+    required this.faint,
+    required this.textPrimary,
+  });
+
+  @override
+  State<_CommentsSection> createState() => _CommentsSectionState();
+}
+
+class _CommentsSectionState extends State<_CommentsSection> {
+  late List<_Comment> _comments;
+  bool _loading = true;
+  String? _replyingToId;
+  final _replyController = TextEditingController();
+  final _commentController = TextEditingController();
+  String _sortMode = 'Meilleures';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadComments() async {
+    setState(() { _loading = true; });
+    final src = widget.source;
+    if (src == null) {
+      if (!mounted) return;
+      setState(() { _comments = []; _loading = false; });
+      return;
+    }
+    try {
+      final raw = await getIsolateService.get<List<dynamic>>(
+        url: widget.url, source: src,
+        serviceType: 'getComments', proxyServer: '',
+      );
+      if (!mounted) return;
+      final mapped = raw.map((e) {
+        final m = Map<String, dynamic>.from(e as Map);
+        final sv = m['score']; final sc = sv is num ? sv.toDouble() : -1.0;
+        final dt = (m['date'] as String?) ?? '';
+        return _Comment(
+          id: ((m['author'] ?? 'anon') as String) + dt,
+          author: (m['author'] as String?) ?? 'Anonyme',
+          timeAgo: dt,
+          body: ((m['content'] as String?) ?? '').trim() +
+              (sc > 0 ? '  ★' + sc.toStringAsFixed(1) : ''),
+        );
+      }).toList();
+      setState(() { _comments = mapped; _loading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() { _comments = []; _loading = false; });
+    }
+  }
+
+  List<_Comment> _mockComments() => [
+    _Comment(
+      id: 'c1',
+      author: 'AlexDupont',
+      timeAgo: 'il y a 3h',
+      body: 'Excellent film ! Paul Walker était vraiment incroyable dans ce rôle. La scène de parkour au début m\'a coupé le souffle.',
+      likes: 142,
+      replies: [
+        _Comment(
+          id: 'c1r1',
+          author: 'MarieF',
+          timeAgo: 'il y a 2h',
+          body: 'Complètement d\'accord, David Belle aussi ! Le fondateur du parkour en personne, ça change tout.',
+          likes: 67,
+          replies: [
+            _Comment(
+              id: 'c1r1r1',
+              author: 'AlexDupont',
+              timeAgo: 'il y a 1h',
+              body: 'Exactement ! Et la chorégraphie est clairement réelle, pas du CGI.',
+              likes: 29,
+            ),
+          ],
+        ),
+        _Comment(
+          id: 'c1r2',
+          author: 'FilmFan75',
+          timeAgo: 'il y a 2h',
+          body: 'Paul Walker R.I.P. 🙏 Un acteur qui nous manque encore.',
+          likes: 201,
+        ),
+      ],
+    ),
+    _Comment(
+      id: 'c2',
+      author: 'CineClub_Paris',
+      timeAgo: 'il y a 5h',
+      body: 'Le remake américain de "Banlieue 13". Si vous aimez, regardez l\'original avec Cyril Raffaelli, il est encore meilleur !',
+      likes: 88,
+      replies: [
+        _Comment(
+          id: 'c2r1',
+          author: 'OriginalFan',
+          timeAgo: 'il y a 4h',
+          body: 'Oui ! B13 est un chef-d\'œuvre du cinéma d\'action français. Luc Besson au top.',
+          likes: 54,
+        ),
+      ],
+    ),
+    _Comment(
+      id: 'c3',
+      author: 'NightOwl_42',
+      timeAgo: 'il y a 8h',
+      body: 'L\'action est bonne mais le scénario est assez prévisible. 3.5/5 pour moi.',
+      likes: 31,
+      replies: [],
+    ),
+    _Comment(
+      id: 'c4',
+      author: 'StreamAddict',
+      timeAgo: 'il y a 1j',
+      body: 'Je viens de finir. La fin est satisfaisante même si on la voit venir dès le début. Bon divertissement du vendredi soir.',
+      likes: 19,
+      replies: [
+        _Comment(
+          id: 'c4r1',
+          author: 'WeekendVibes',
+          timeAgo: 'il y a 20h',
+          body: 'Pareil, parfait pour ne pas trop se prendre la tête !',
+          likes: 8,
+        ),
+      ],
+    ),
+  ];
+
+  void _toggleLike(_Comment comment) {
+    setState(() {
+      if (comment.liked) {
+        comment.likes--;
+        comment.liked = false;
+      } else {
+        comment.likes++;
+        comment.liked = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              strokeWidth: 2,
+              color: widget.accent,
+            ),
+            const SizedBox(height: 12),
+            Text('Chargement des commentaires…',
+                style: TextStyle(color: widget.grey, fontSize: 13)),
+          ],
+        ),
+      );
+    }
+
+    final total = _comments.fold<int>(
+      0, (sum, c) => sum + 1 + c.replies.fold<int>(0, (s, r) => s + 1 + r.replies.length));
+
+    return Column(
+      children: [
+        // Header bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+          child: Row(
+            children: [
+              Text(
+                '$total commentaires',
+                style: TextStyle(
+                  color: widget.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _sortMode = _sortMode == 'Meilleures' ? 'Récents' : 'Meilleures';
+                    if (_sortMode == 'Récents') {
+                      _comments.sort((a, b) => b.timeAgo.compareTo(a.timeAgo));
+                    } else {
+                      _comments.sort((a, b) => b.likes.compareTo(a.likes));
+                    }
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: widget.card,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: widget.faint, width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sort_rounded, size: 13, color: widget.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        _sortMode,
+                        style: TextStyle(color: widget.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Write comment bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: GestureDetector(
+            onTap: () => _showWriteCommentSheet(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.card,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: widget.faint, width: 0.8),
+              ),
+              child: Row(
+                children: [
+                  _CommentAvatar(
+                    author: 'Moi',
+                    size: 26,
+                    accent: widget.accent,
+                    isLight: false,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Ajouter un commentaire…',
+                    style: TextStyle(color: widget.grey, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Divider(height: 1, color: widget.faint),
+        // Comment list
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: _comments.length,
+            itemBuilder: (ctx, i) => _CommentTile(
+              comment: _comments[i],
+              depth: 0,
+              accent: widget.accent,
+              bg: widget.bg,
+              card: widget.card,
+              grey: widget.grey,
+              faint: widget.faint,
+              textPrimary: widget.textPrimary,
+              onLike: _toggleLike,
+              onReply: (c) => _showWriteCommentSheet(context, replyTo: c),
+              onCollapse: (_) => setState(() {}),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showWriteCommentSheet(BuildContext ctx, {_Comment? replyTo}) {
+    final ctrl = TextEditingController();
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          decoration: BoxDecoration(
+            color: widget.bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: widget.faint,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (replyTo != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: widget.card,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border(left: BorderSide(color: widget.accent, width: 3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          replyTo.author,
+                          style: TextStyle(
+                            color: widget.accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          replyTo.body,
+                          style: TextStyle(color: widget.grey, fontSize: 12),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _CommentAvatar(author: 'Moi', size: 32, accent: widget.accent, isLight: false),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: ctrl,
+                        autofocus: true,
+                        maxLines: 4,
+                        minLines: 1,
+                        style: TextStyle(color: widget.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: replyTo != null
+                              ? 'Répondre à ${replyTo.author}…'
+                              : 'Votre commentaire…',
+                          hintStyle: TextStyle(color: widget.grey),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        final text = ctrl.text.trim();
+                        if (text.isEmpty) return;
+                        setState(() {
+                          if (replyTo != null) {
+                            replyTo.replies.add(_Comment(
+                              id: 'new_${DateTime.now().millisecondsSinceEpoch}',
+                              author: 'Moi',
+                              timeAgo: 'à l\'instant',
+                              body: text,
+                            ));
+                          } else {
+                            _comments.insert(0, _Comment(
+                              id: 'new_${DateTime.now().millisecondsSinceEpoch}',
+                              author: 'Moi',
+                              timeAgo: 'à l\'instant',
+                              body: text,
+                            ));
+                          }
+                        });
+                        Navigator.pop(sheetCtx);
+                      },
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: widget.accent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── COMMENT TILE (recursive) ────────────────────────────────────────────────
+
+class _CommentTile extends StatelessWidget {
+  final _Comment comment;
+  final int depth;
+  final Color accent;
+  final Color bg;
+  final Color card;
+  final Color grey;
+  final Color faint;
+  final Color textPrimary;
+  final void Function(_Comment) onLike;
+  final void Function(_Comment) onReply;
+  final void Function(_Comment) onCollapse;
+
+  static const _kDepthColors = [
+    Color(0xFF6366F1),
+    Color(0xFF14B8A6),
+    Color(0xFFF59E0B),
+    Color(0xFFEC4899),
+    Color(0xFF10B981),
+  ];
+
+  const _CommentTile({
+    required this.comment,
+    required this.depth,
+    required this.accent,
+    required this.bg,
+    required this.card,
+    required this.grey,
+    required this.faint,
+    required this.textPrimary,
+    required this.onLike,
+    required this.onReply,
+    required this.onCollapse,
+  });
+
+  Color get _threadColor => _kDepthColors[depth % _kDepthColors.length];
+
+  @override
+  Widget build(BuildContext context) {
+    final indent = depth * 16.0;
+    return Padding(
+      padding: EdgeInsets.only(left: indent, top: depth == 0 ? 12 : 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Thread line + content
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Thread line (only for replies)
+                if (depth > 0) ...[
+                  GestureDetector(
+                    onTap: () {
+                      comment.collapsed = !comment.collapsed;
+                      onCollapse(comment);
+                    },
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.only(right: 10),
+                      decoration: BoxDecoration(
+                        color: _threadColor.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(width: 16),
+                ],
+                // Comment body
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 16, bottom: depth == 0 ? 0 : 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Author row
+                        Row(
+                          children: [
+                            _CommentAvatar(
+                              author: comment.author,
+                              size: depth == 0 ? 30 : 24,
+                              accent: _threadColor,
+                              isLight: false,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Text(
+                                    comment.author,
+                                    style: TextStyle(
+                                      color: textPrimary,
+                                      fontSize: depth == 0 ? 13 : 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    comment.timeAgo,
+                                    style: TextStyle(color: grey, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Collapse toggle
+                            GestureDetector(
+                              onTap: () {
+                                comment.collapsed = !comment.collapsed;
+                                onCollapse(comment);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  comment.collapsed
+                                      ? Icons.expand_more_rounded
+                                      : Icons.expand_less_rounded,
+                                  color: grey,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!comment.collapsed) ...[
+                          const SizedBox(height: 6),
+                          // Body
+                          Text(
+                            comment.body,
+                            style: TextStyle(
+                              color: textPrimary.withValues(alpha: 0.88),
+                              fontSize: 13.5,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Action bar
+                          Row(
+                            children: [
+                              // Like
+                              GestureDetector(
+                                onTap: () => onLike(comment),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      comment.liked
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      color: comment.liked ? const Color(0xFFEF4444) : grey,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${comment.likes}',
+                                      style: TextStyle(
+                                        color: comment.liked ? const Color(0xFFEF4444) : grey,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Reply
+                              GestureDetector(
+                                onTap: () => onReply(comment),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.reply_rounded, color: grey, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Répondre',
+                                      style: TextStyle(color: grey, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Replies count badge
+                              if (comment.replies.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _threadColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: _threadColor.withValues(alpha: 0.30), width: 0.7),
+                                  ),
+                                  child: Text(
+                                    '${comment.replies.length} réponse${comment.replies.length > 1 ? 's' : ''}',
+                                    style: TextStyle(
+                                      color: _threadColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          // Divider for top-level comments
+                          if (depth == 0 && comment.replies.isEmpty) ...[
+                            const SizedBox(height: 12),
+                            Divider(height: 1, color: faint),
+                          ],
+                        ] else ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '${comment.replies.length} réponse${comment.replies.length > 1 ? 's' : ''} cachée${comment.replies.length > 1 ? 's' : ''}',
+                            style: TextStyle(color: grey, fontSize: 11),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Nested replies
+          if (!comment.collapsed)
+            for (final reply in comment.replies)
+              _CommentTile(
+                comment: reply,
+                depth: depth + 1,
+                accent: accent,
+                bg: bg,
+                card: card,
+                grey: grey,
+                faint: faint,
+                textPrimary: textPrimary,
+                onLike: onLike,
+                onReply: onReply,
+                onCollapse: onCollapse,
+              ),
+          // Separator for top-level with replies
+          if (depth == 0 && comment.replies.isNotEmpty && !comment.collapsed)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Divider(height: 1, color: faint),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── COMMENT AVATAR ──────────────────────────────────────────────────────────
+
+class _CommentAvatar extends StatelessWidget {
+  final String author;
+  final double size;
+  final Color accent;
+  final bool isLight;
+
+  const _CommentAvatar({
+    required this.author,
+    required this.size,
+    required this.accent,
+    required this.isLight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = author.isEmpty
+        ? '?'
+        : author.trim().split(' ').map((w) => w.isNotEmpty ? w[0].toUpperCase() : '').take(2).join();
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: accent.withValues(alpha: 0.18),
+        border: Border.all(color: accent.withValues(alpha: 0.40), width: 1.5),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: accent,
+          fontSize: size * 0.38,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 // ─── ANIMATED TAB INDICATOR ─────────────────────────────────────────────────
 
 class _AnimatedTabIndicator extends Decoration {
@@ -4136,7 +4562,7 @@ class _AnimatedTabIndicator extends Decoration {
 class _AnimatedTabIndicatorPainter extends BoxPainter {
   final Color color;
   _AnimatedTabIndicatorPainter({required this.color, VoidCallback? onChanged})
-    : super(onChanged);
+      : super(onChanged);
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration cfg) {
@@ -4154,9 +4580,7 @@ class _AnimatedTabIndicatorPainter extends BoxPainter {
       h,
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(bar, const Radius.circular(r)),
-      paint,
-    );
+        RRect.fromRectAndRadius(bar, const Radius.circular(r)), paint);
   }
 }
 
@@ -4175,19 +4599,17 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) => ColoredBox(
-    color: color,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        tabBar,
-        Container(height: 1, color: const Color(0xFF2a2a2a)),
-      ],
-    ),
-  );
+      BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      ColoredBox(
+        color: color,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            tabBar,
+            Container(height: 1, color: const Color(0xFF2a2a2a)),
+          ],
+        ),
+      );
 
   @override
   bool shouldRebuild(_TabBarDelegate old) =>
@@ -4200,7 +4622,7 @@ class _SkeletonBox extends StatefulWidget {
   final double radius;
   final double? w;
   final double? h;
-  final double? aspect; // aspect ratio when w/h are null
+  final double? aspect;   // aspect ratio when w/h are null
 
   const _SkeletonBox({this.radius = 8, this.w, this.h, this.aspect});
 
@@ -4220,10 +4642,9 @@ class _SkeletonBoxState extends State<_SkeletonBox>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
-    _anim = Tween<double>(
-      begin: 0.06,
-      end: 0.18,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _anim = Tween<double>(begin: 0.06, end: 0.18).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -4277,10 +4698,9 @@ class _LoadingBannerPulseState extends State<_LoadingBannerPulse>
       vsync: this,
       duration: const Duration(milliseconds: 850),
     )..repeat(reverse: true);
-    _anim = Tween<double>(
-      begin: 0.15,
-      end: 0.42,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _anim = Tween<double>(begin: 0.15, end: 0.42).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -4295,7 +4715,9 @@ class _LoadingBannerPulseState extends State<_LoadingBannerPulse>
       animation: _anim,
       builder: (_, __) => Container(
         color: Colors.black.withValues(alpha: _anim.value),
-        child: const Center(child: _ThreeDotsAnimation()),
+        child: const Center(
+          child: _ThreeDotsAnimation(),
+        ),
       ),
     );
   }
@@ -4324,12 +4746,9 @@ class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
         duration: const Duration(milliseconds: 500),
       );
       _ctrls.add(c);
-      _anims.add(
-        Tween<double>(
-          begin: 0,
-          end: -9,
-        ).animate(CurvedAnimation(parent: c, curve: Curves.easeInOut)),
-      );
+      _anims.add(Tween<double>(begin: 0, end: -9).animate(
+        CurvedAnimation(parent: c, curve: Curves.easeInOut),
+      ));
       Future.delayed(Duration(milliseconds: i * 140), () {
         if (mounted) c.repeat(reverse: true);
       });
@@ -4365,6 +4784,7 @@ class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
       }),
     );
   }
+
 }
 // ── Data class for detail info grid rows ─────────────────────────────────────
 
