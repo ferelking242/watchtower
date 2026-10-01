@@ -95,6 +95,15 @@ jobs:
           grep -q "android.software.leanback" android/app/src/main/AndroidManifest.xml
           grep -q "android.hardware.touchscreen\" android:required=\"false\"" android/app/src/main/AndroidManifest.xml
 
+      # Release builds are signed with the stable keystore stored in the
+      # KEYSTORE_B64 secret (same convention as build-release.yml).
+      - name: Decode keystore from secret
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
       - name: Build Android TV APKs (arm64 + x86_64)
         run: |
           flutter build apk --release --split-per-abi \
