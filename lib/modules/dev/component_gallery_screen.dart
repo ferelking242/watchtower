@@ -15,6 +15,7 @@ import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/episode_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
+import 'package:watchtower/modules/media/manga_chapter_cards.dart';
 import 'package:watchtower/modules/media/ranking_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
 import 'package:watchtower/modules/media/streaming_cards.dart';
@@ -150,6 +151,22 @@ enum _PreviewKind {
   rankTrending,
   rankByDecade,
   rankMustWatch,
+
+  // ── MANGA & LECTURE — Section 1 : Chapitres & Sorties ──
+  mgChapter,
+  mgRelease,
+  mgChapterList,
+  mgGroup,
+  mgLatest,
+  mgTimeline,
+  mgVolume,
+  mgBadge,
+  mgRange,
+  mgChapterTimeline,
+  mgNew,
+  mgProgress,
+  mgNext,
+  mgSearch,
 }
 
 /// Ordre d'affichage des sections dans la galerie.
@@ -1350,6 +1367,30 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.rankTrending => const _PosterRowSkeleton(),
       _PreviewKind.rankByDecade => const _PosterRowSkeleton(),
       _PreviewKind.rankMustWatch => const _PosterRowSkeleton(),
+
+      // ── MANGA & LECTURE — Section 1 ──
+      _PreviewKind.mgChapter => const PosterSkeleton(
+          width: 280,
+          ratio: 3 / 4,
+          radius: 14,
+        ),
+      _PreviewKind.mgRelease => const ListRowSkeleton(),
+      _PreviewKind.mgChapterList => const ListRowSkeleton(),
+      _PreviewKind.mgGroup => const LandscapeSkeleton(width: 260, ratio: 16 / 10),
+      _PreviewKind.mgLatest => const ListRowSkeleton(thumb: 44),
+      _PreviewKind.mgTimeline => const ListRowSkeleton(),
+      _PreviewKind.mgVolume => const PosterSkeleton(
+          width: 280,
+          ratio: 3 / 4,
+          radius: 14,
+        ),
+      _PreviewKind.mgBadge => const _ShimmerLine(width: 330, height: 90),
+      _PreviewKind.mgRange => const LandscapeSkeleton(width: 260, ratio: 16 / 10),
+      _PreviewKind.mgChapterTimeline => const ListRowSkeleton(),
+      _PreviewKind.mgNew => const LandscapeSkeleton(width: 320),
+      _PreviewKind.mgProgress => const ListRowSkeleton(thumb: 62),
+      _PreviewKind.mgNext => const ListRowSkeleton(thumb: 56),
+      _PreviewKind.mgSearch => const _ShimmerLine(width: 300, height: 130),
     };
     return card;
   }
@@ -5493,6 +5534,274 @@ List<_ComponentSpec> _buildComponents() => [
       ],
     ),
   ),
+  // ═════════ MANGA & LECTURE — Section 1 : Chapitres & Sorties ═════════
+  _ComponentSpec(
+    title: 'Carte chapitre',
+    className: 'MangaChapterCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Carte d\'un chapitre individuel',
+    section: 'MANGA & LECTURE',
+    icon: Icons.menu_book_outlined,
+    kind: _PreviewKind.mgChapter,
+    result: (_) => MangaChapterCard(
+      item: _mgChapterItem(
+        'Solo Leveling',
+        subtitle: 'Chapitre 142 · La vraie puissance',
+        timeAgo: 'il y a 2 h',
+        countLabel: '1.2M',
+        thumbUrl: _posterDune,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Sorties de chapitres',
+    className: 'MangaChapterReleaseCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Nouveaux chapitres',
+    section: 'MANGA & LECTURE',
+    icon: Icons.live_tv_outlined,
+    kind: _PreviewKind.mgRelease,
+    result: (_) => MangaChapterReleaseCard(
+      items: [
+        _mgChapterItem('One Piece', subtitle: 'Chapitre 1160',
+            timeAgo: 'il y a 5 min', badge: 'VF', thumbUrl: _posterDune),
+        _mgChapterItem('Jujutsu Kaisen', subtitle: 'Chapitre 271',
+            timeAgo: 'il y a 18 min', badge: 'VF', thumbUrl: _posterArcane),
+        _mgChapterItem('Blue Lock', subtitle: 'Chapitre 302',
+            timeAgo: 'il y a 32 min', badge: 'VF', thumbUrl: _posterInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Liste des chapitres',
+    className: 'MangaChapterListCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Liste complète des chapitres',
+    section: 'MANGA & LECTURE',
+    icon: Icons.format_list_numbered_rounded,
+    kind: _PreviewKind.mgChapterList,
+    result: (_) => MangaChapterListCard(
+      countLabel: '142',
+      items: [
+        _mgChapterItem('La vraie puissance', number: '142',
+            timeAgo: 'il y a 2 h', badge: 'VF'),
+        _mgChapterItem('Le combat final', number: '141',
+            timeAgo: 'il y a 1 jour', badge: 'VF'),
+        _mgChapterItem('L\'éveil', number: '140',
+            timeAgo: 'il y a 2 jours', badge: 'VF'),
+        _mgChapterItem('Une nouvelle étape', number: '139',
+            timeAgo: 'il y a 3 jours', badge: 'VF'),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Arc de chapitres',
+    className: 'MangaChapterGroupCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Groupement par arc ou partie',
+    section: 'MANGA & LECTURE',
+    icon: Icons.auto_stories_outlined,
+    kind: _PreviewKind.mgGroup,
+    result: (_) => MangaChapterGroupCard(
+      item: _mgChapterItem(
+        'Arc de l\'ombre',
+        subtitle: '12 chapitres · En cours',
+        thumbUrl: _backdropDune,
+        pages: ['136', '137', '138', '139', '140'],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Dernières sorties',
+    className: 'MangaLatestReleaseCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Dernières sorties avec aperçu',
+    section: 'MANGA & LECTURE',
+    icon: Icons.update_rounded,
+    kind: _PreviewKind.mgLatest,
+    result: (_) => MangaLatestReleaseCard(
+      onSeeAll: () {},
+      items: [
+        _mgChapterItem('Chainsaw Man', subtitle: 'Chapitre 167',
+            timeAgo: 'il y a 12 min', badge: 'VF', thumbUrl: _posterOppenheimer),
+        _mgChapterItem('Dandadan', subtitle: 'Chapitre 128',
+            timeAgo: 'il y a 45 min', badge: 'VF', thumbUrl: _posterInterstellar),
+        _mgChapterItem('My Hero Academia', subtitle: 'Chapitre 421',
+            timeAgo: 'il y a 1 h', badge: 'VF', thumbUrl: _posterThrones),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Calendrier des sorties',
+    className: 'MangaReleaseTimelineCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Frise des sorties (calendrier)',
+    section: 'MANGA & LECTURE',
+    icon: Icons.calendar_today_outlined,
+    kind: _PreviewKind.mgTimeline,
+    result: (_) => MangaReleaseTimelineCard(
+      items: [
+        _mgChapterItem('One Piece — Chap. 1160', dayLabel: '12',
+            monthLabel: 'Mai', badge: 'VF'),
+        _mgChapterItem('Jujutsu Kaisen — Chap. 271', dayLabel: '13',
+            monthLabel: 'Mai', badge: 'VF'),
+        _mgChapterItem('Chainsaw Man — Chap. 167', dayLabel: '14',
+            monthLabel: 'Mai', badge: 'VF'),
+        _mgChapterItem('Blue Lock — Chap. 302', dayLabel: '15',
+            monthLabel: 'Mai', badge: 'VF'),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte volume',
+    className: 'MangaChapterVolumeCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Carte d\'un volume / tome',
+    section: 'MANGA & LECTURE',
+    icon: Icons.auto_stories_outlined,
+    kind: _PreviewKind.mgVolume,
+    result: (_) => MangaChapterVolumeCard(
+      item: _mgChapterItem(
+        'One Piece',
+        tomeLabel: 'Tome 103',
+        ratingLabel: '★ 4.8 (12.4k) · 2024',
+        tag: 'Shōnen',
+        thumbUrl: _posterDune,
+      ),
+      onRead: () {},
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Badges de chapitre',
+    className: 'MangaChapterBadge',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Badge de chapitre / statut',
+    section: 'MANGA & LECTURE',
+    icon: Icons.local_offer_outlined,
+    kind: _PreviewKind.mgBadge,
+    result: (_) => MangaChapterBadge(
+      badges: [
+        MangaBadgeSpec('Nouveau', Color(0xFF2ED573), Icons.fiber_new_rounded),
+        MangaBadgeSpec('VF', Color(0xFF6C5CE7), Icons.translate_rounded),
+        MangaBadgeSpec('Traduit', Color(0xFF1E90FF), Broken.tick_circle),
+        MangaBadgeSpec('Scan', Color(0xFFFFA502), Icons.auto_awesome_outlined),
+        MangaBadgeSpec('En cours', Color(0xFF6C5CE7), Icons.schedule_rounded),
+        MangaBadgeSpec('Terminé', Color(0xFF2ED573), Broken.tick_circle),
+        MangaBadgeSpec('Spécial', Color(0xFFFF6B81), Icons.star_rounded),
+        MangaBadgeSpec('Hiatus', Color(0xFFFF4757), Broken.pause_circle),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Plage de chapitres',
+    className: 'MangaChapterRangeCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Plage de chapitres (ex : 100-110)',
+    section: 'MANGA & LECTURE',
+    icon: Icons.format_list_numbered_rounded,
+    kind: _PreviewKind.mgRange,
+    result: (_) => MangaChapterRangeCard(
+      onViewList: () {},
+      item: _mgChapterItem(
+        'Jujutsu Kaisen',
+        subtitle: 'Chapitres 100 - 110',
+        thumbUrl: _backdropArcane,
+        progress: 1,
+        pageLabel: '11 chapitres',
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Chronologie de l’arc',
+    className: 'MangaChapterTimelineCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Chronologie des chapitres',
+    section: 'MANGA & LECTURE',
+    icon: Icons.flag_rounded,
+    kind: _PreviewKind.mgChapterTimeline,
+    result: (_) => MangaChapterTimelineCard(
+      items: [
+        _mgChapterItem('Chapitre 138', subtitle: 'Le début de la fin',
+            timeAgo: '12 avr. 2025'),
+        _mgChapterItem('Chapitre 139', subtitle: 'L’affrontement',
+            timeAgo: '19 avr. 2025'),
+        _mgChapterItem('Chapitre 140', subtitle: 'La révélation',
+            timeAgo: '26 avr. 2025'),
+        _mgChapterItem('Chapitre 141', subtitle: 'Le choix',
+            timeAgo: '3 mai 2025'),
+        _mgChapterItem('Chapitre 142', subtitle: 'La vraie puissance',
+            timeAgo: '10 mai 2025'),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Nouveau chapitre',
+    className: 'MangaNewChapterCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Mise en avant d\'un nouveau chapitre',
+    section: 'MANGA & LECTURE',
+    icon: Icons.fiber_new_rounded,
+    kind: _PreviewKind.mgNew,
+    result: (_) => MangaNewChapterCard(
+      item: _mgChapterItem(
+        'Jujutsu Kaisen',
+        subtitle: 'Chapitre 271 · L\'éveil',
+        timeAgo: 'il y a 18 min',
+        badge: 'VF',
+        thumbUrl: _backdropInterstellar,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Progression de lecture',
+    className: 'MangaChapterProgressCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Progression de lecture par chapitre',
+    section: 'MANGA & LECTURE',
+    icon: Icons.speed_rounded,
+    kind: _PreviewKind.mgProgress,
+    result: (_) => MangaChapterProgressCard(
+      onContinue: () {},
+      item: _mgChapterItem(
+        'Solo Leveling',
+        subtitle: 'Chapitre 142',
+        thumbUrl: _posterDune,
+        progress: .68,
+        pageLabel: 'Page 124 / 180',
+        percentLabel: '68%',
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Prochain chapitre',
+    className: 'MangaChapterNextCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Prochain chapitre à venir',
+    section: 'MANGA & LECTURE',
+    icon: Icons.schedule_rounded,
+    kind: _PreviewKind.mgNext,
+    result: (_) => MangaChapterNextCard(
+      onRemind: () {},
+      item: _mgChapterItem(
+        'One Piece',
+        subtitle: 'Chapitre 1161',
+        timeAgo: 'Dans 3 jours',
+        thumbUrl: _posterDune,
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Recherche de chapitre',
+    className: 'MangaChapterSearchCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'Recherche de chapitre spécifique',
+    section: 'MANGA & LECTURE',
+    icon: Icons.manage_search_rounded,
+    kind: _PreviewKind.mgSearch,
+    result: (_) => const MangaChapterSearchCard(
+      recent: ['One Piece · 1160', 'Jujutsu Kaisen · 271', 'Blue Lock · 302'],
+    ),
+  ),
   _ComponentSpec(
     title: 'Poster contenu',
     className: 'PosterCard',
@@ -6579,6 +6888,47 @@ CollectionEntry _collectionEntry(
 // ─── Données d'aperçu des cartes épisodes / classements ───
 
 /// Entrée d'épisode pour les aperçus du catalogue Épisodes & Saisons.
+/// ── Démo : entrée chapitre manga (Section 1) ──
+MangaChapterItem _mgChapterItem(
+  String title, {
+  String? subtitle,
+  String? timeAgo,
+  String? thumbUrl,
+  String? badge,
+  String? number,
+  String? countLabel,
+  String? dayLabel,
+  String? monthLabel,
+  String? tomeLabel,
+  String? ratingLabel,
+  String? tag,
+  String? statusLabel,
+  List<String> pages = const [],
+  double? progress,
+  String? pageLabel,
+  String? percentLabel,
+}) {
+  return MangaChapterItem(
+    title: title,
+    subtitle: subtitle,
+    timeAgo: timeAgo,
+    thumbUrl: thumbUrl,
+    badge: badge,
+    number: number,
+    countLabel: countLabel,
+    dayLabel: dayLabel,
+    monthLabel: monthLabel,
+    tomeLabel: tomeLabel,
+    ratingLabel: ratingLabel,
+    tag: tag,
+    statusLabel: statusLabel,
+    pages: pages,
+    progress: progress,
+    pageLabel: pageLabel,
+    percentLabel: percentLabel,
+  );
+}
+
 EpisodeEntry _episodeEntry(
   String title, {
   String? meta,
