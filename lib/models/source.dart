@@ -89,6 +89,7 @@ class Source {
   List<String>? subCategories;
   bool? supportsComments;
   bool? requiresAccount;
+  bool? supportsLogin;
   bool? hasDRM;
   bool? isAggregator;
   String? paywall;
@@ -149,6 +150,7 @@ class Source {
     this.subCategories,
     this.supportsComments,
     this.requiresAccount,
+    this.supportsLogin,
     this.hasDRM,
     this.isAggregator,
     this.paywall,
@@ -246,6 +248,7 @@ class Source {
       contentSubtype ??= (data['contentSubtype'] as List?)
           ?.whereType<String>()
           .toList(growable: false);
+      supportsLogin ??= data['login'] as bool?;
       uiLayout ??= data['uiLayout'] as String?;
       uiLayoutVersion ??= data['uiLayoutVersion'] as String?;
       pendingUiLayoutVersion ??= data['pendingUiLayoutVersion'] as String?;
@@ -265,6 +268,7 @@ class Source {
       if (subCategories != null) 'subCategories': subCategories,
       if (contentSubtype != null) 'contentSubtype': contentSubtype,
       if (supportedLanguages.isNotEmpty) 'languages': supportedLanguages,
+      if (supportsLogin != null) 'login': supportsLogin,
       if (uiLayout != null) 'uiLayout': uiLayout,
       if (uiLayoutVersion != null) 'uiLayoutVersion': uiLayoutVersion,
       if (pendingUiLayoutVersion != null)
@@ -332,6 +336,7 @@ class Source {
     subCategories = (json['subCategories'] as List<dynamic>?)?.cast<String>();
     supportsComments = json['supportsComments'] as bool?;
     requiresAccount = json['requiresAccount'] as bool?;
+    supportsLogin = json['login'] as bool?;
     hasDRM = json['hasDRM'] as bool?;
     isAggregator = json['isAggregator'] as bool?;
     paywall = json['paywall'] as String?;
@@ -383,6 +388,7 @@ class Source {
     'subCategories': subCategories,
     'supportsComments': supportsComments,
     'requiresAccount': requiresAccount,
+    'login': supportsLogin,
     'hasDRM': hasDRM,
     'isAggregator': isAggregator,
     'paywall': paywall,
@@ -400,6 +406,11 @@ class Source {
   /// Mirrors Aidoku's `source.features.providesHome`.
   /// Used to show/hide the "Accueil" pill tab in every source home screen.
   bool get providesHome => uiLayout != null && uiLayout!.isNotEmpty;
+
+  /// Older installed sources predate the catalogue flag. A usable site URL
+  /// keeps login available for those installs as well.
+  bool get loginAvailable =>
+      supportsLogin ?? (baseUrl?.trim().isNotEmpty ?? false);
 
   MSource toMSource() {
     return MSource(

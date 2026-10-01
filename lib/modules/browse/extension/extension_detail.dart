@@ -87,6 +87,31 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     botToast('URL copiée !');
   }
 
+  Future<void> _signInToSite() async {
+    final url = Uri.tryParse(source.baseUrl ?? '');
+    if (url == null || !url.hasAuthority ||
+        (url.scheme != 'https' && url.scheme != 'http')) {
+      botToast('URL du site invalide.');
+      return;
+    }
+    await context.push('/mangawebview', extra: {
+      'url': url.toString(),
+      'sourceId': source.id.toString(),
+      'title': '${source.name ?? 'Extension'} — connexion',
+    });
+  }
+
+  Future<void> _signOutFromSite() async {
+    final url = source.baseUrl ?? '';
+    if (url.isEmpty) return;
+    try {
+      await MClient.deleteAllCookies(url);
+      if (mounted) botToast('Déconnexion du site effectuée.');
+    } catch (error) {
+      if (mounted) botToast('Impossible d’effacer la session : $error');
+    }
+  }
+
   Future<void> _editBaseUrl() async {
     final controller = TextEditingController(text: source.baseUrl ?? '');
     final result = await showDialog<String>(
@@ -984,6 +1009,48 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       ),
                     );
                   }),
+
+                  if (source.loginAvailable) ...[
+                    const SizedBox(height: 24),
+                    _SectionHeader(
+                      label: 'Connexion au site',
+                      icon: Icons.lock_open_rounded,
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'La page de connexion s’ouvre dans le navigateur intégré. '
+                            'Les cookies du site sont conservés pour cette extension.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 8,
+                            children: [
+                              FilledButton.tonalIcon(
+                                onPressed: _signInToSite,
+                                icon: const Icon(Icons.login_rounded, size: 18),
+                                label: const Text('Se connecter'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: _signOutFromSite,
+                                icon: const Icon(Icons.logout_rounded, size: 18),
+                                label: const Text('Se déconnecter'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   // ── Source preferences ──────────────────────────────────
                   if (sourcePreference != null && sourcePreference!.isNotEmpty) ...[

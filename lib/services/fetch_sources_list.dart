@@ -392,6 +392,7 @@ Future<void> fetchSourcesList({
               ..subCategories = s.subCategories
               ..supportsComments = s.supportsComments
               ..requiresAccount = s.requiresAccount
+              ..supportsLogin = s.supportsLogin
               ..hasDRM = s.hasDRM
               ..isAggregator = s.isAggregator
               ..paywall = s.paywall
@@ -651,6 +652,7 @@ Future<void> _updateSource(
     ..subCategories = source.subCategories
     ..supportsComments = source.supportsComments
     ..requiresAccount = source.requiresAccount
+    ..supportsLogin = source.supportsLogin
     ..hasDRM = source.hasDRM
     ..isAggregator = source.isAggregator
     ..paywall = source.paywall
@@ -708,6 +710,7 @@ Future<void> _addNewSource(Source source, Repo? repo, ItemType itemType) async {
     ..subCategories = source.subCategories
     ..supportsComments = source.supportsComments
     ..requiresAccount = source.requiresAccount
+    ..supportsLogin = source.supportsLogin
     ..hasDRM = source.hasDRM
     ..isAggregator = source.isAggregator
     ..paywall = source.paywall
