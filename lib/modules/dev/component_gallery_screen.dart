@@ -13,6 +13,7 @@ import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
+import 'package:watchtower/modules/media/rich_media_cards.dart';
 import 'package:watchtower/modules/widgets/component_library.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
@@ -74,6 +75,14 @@ enum _PreviewKind {
   empty,
   error,
   swipeSection,
+  richDetails,
+  richBackdrop,
+  richExpanded,
+  richInteractive,
+  richHover,
+  richQuickView,
+  richPreview,
+  richModal,
 }
 
 class _ComponentSpec {
@@ -155,6 +164,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   @override
   Widget build(BuildContext context) {
     final padding = AppUI.pagePadding(context);
+    final isWide = MediaQuery.sizeOf(context).width >= 700;
     final visible = _visibleComponents;
 
     return Scaffold(
@@ -174,17 +184,31 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 Text('Galerie des composants'),
               ],
             ),
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(50),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(padding, 6, padding, 8),
-                child: _GalleryTabBar(
-                  tab: _tab,
-                  onChanged: (tab) => setState(() => _tab = tab),
-                ),
-              ),
-            ),
+            bottom: isWide
+                ? null
+                : PreferredSize(
+                    preferredSize: const Size.fromHeight(50),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(padding, 6, padding, 8),
+                      child: _GalleryTabBar(
+                        tab: _tab,
+                        onChanged: (tab) => setState(() => _tab = tab),
+                      ),
+                    ),
+                  ),
             actions: [
+              // Mode PC : sélecteur Cartes / Sections en haut à droite.
+              if (isWide)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: SizedBox(
+                    width: 212,
+                    child: _GalleryTabBar(
+                      tab: _tab,
+                      onChanged: (tab) => setState(() => _tab = tab),
+                    ),
+                  ),
+                ),
               IconButton(
                 tooltip: 'Réinitialiser les filtres',
                 onPressed: _resetFilters,
@@ -553,6 +577,7 @@ class _UnifiedGallery extends StatelessWidget {
     // insertion-order soup where section labels end up interleaved.
     const orderedSections = <String>[
       'CATALOGUE & DISCOVERY',
+      'CARTES RICHES',
       'FILMS & SÉRIES · SECTIONS',
       'ACCUEIL & LECTURE',
       'DÉTAIL MÉDIA',
@@ -846,6 +871,15 @@ class _CardSkeleton extends StatelessWidget {
           child: AppShimmerBlock(radius: 18),
         ),
       _PreviewKind.swipeSection => const SwipeSectionSkeleton(),
+      // ── Cartes riches ──
+      _PreviewKind.richDetails => const _RichDetailsSkeleton(),
+      _PreviewKind.richBackdrop => const _RichBackdropSkeleton(),
+      _PreviewKind.richExpanded => const _RichExpandedSkeleton(),
+      _PreviewKind.richInteractive || _PreviewKind.richHover =>
+        const _RichInteractiveSkeleton(),
+      _PreviewKind.richQuickView => const _RichQuickViewSkeleton(),
+      _PreviewKind.richPreview => const PosterSkeleton(width: 132),
+      _PreviewKind.richModal => const _RichModalSkeleton(),
     };
     return card;
   }
@@ -2049,6 +2083,373 @@ class SwipeSectionSkeleton extends StatelessWidget {
 }
 
 /// Small shimmer pill / circle helper.
+/// ─── Skeletons « cartes riches » ───────────────────────────────────────
+
+/// MovieDetailsCard : poster + bloc texte + actions + rangée casting.
+class _RichDetailsSkeleton extends StatelessWidget {
+  const _RichDetailsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 300,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(
+                width: 92,
+                height: 138,
+                child: AppShimmerBlock(radius: 12),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ShimmerLine(width: 130, height: 14),
+                    const SizedBox(height: 7),
+                    _ShimmerLine(width: 90, height: 10),
+                    const SizedBox(height: 10),
+                    _ShimmerLine(width: 60, height: 11),
+                    const SizedBox(height: 10),
+                    _ShimmerLine(width: double.infinity, height: 9),
+                    const SizedBox(height: 5),
+                    _ShimmerLine(width: 140, height: 9),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(height: 32, child: AppShimmerBlock(radius: 11)),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(width: 32, height: 32, child: AppShimmerBlock(radius: 11)),
+              const SizedBox(width: 8),
+              SizedBox(width: 32, height: 32, child: AppShimmerBlock(radius: 11)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              for (var i = 0; i < 4; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                _ShimmerChip(width: 46, height: 46, circle: true),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// MovieDetailCard : bandeau image + texte + deux boutons.
+class _RichBackdropSkeleton extends StatelessWidget {
+  const _RichBackdropSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 220,
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 132,
+            width: double.infinity,
+            child: AppShimmerBlock(radius: 0),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ShimmerLine(width: 120, height: 14),
+                const SizedBox(height: 7),
+                _ShimmerLine(width: 100, height: 10),
+                const SizedBox(height: 6),
+                _ShimmerLine(width: 50, height: 10),
+                const SizedBox(height: 10),
+                _ShimmerLine(width: double.infinity, height: 9),
+                const SizedBox(height: 4),
+                _ShimmerLine(width: 130, height: 9),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(height: 32, child: AppShimmerBlock(radius: 11)),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(width: 84, height: 32, child: AppShimmerBlock(radius: 11)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ExpandedMovieCard : poster + badge + lignes étendues.
+class _RichExpandedSkeleton extends StatelessWidget {
+  const _RichExpandedSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 250,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 2 / 3,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AppShimmerBlock(radius: 14),
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: _ShimmerChip(width: 56, height: 20, radius: 8),
+                ),
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: _ShimmerChip(width: 28, height: 28, circle: true),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          _ShimmerLine(width: 130, height: 13),
+          const SizedBox(height: 7),
+          _ShimmerLine(width: 100, height: 10),
+          const SizedBox(height: 6),
+          _ShimmerLine(width: 50, height: 10),
+          const SizedBox(height: 10),
+          _ShimmerLine(width: double.infinity, height: 9),
+          const SizedBox(height: 5),
+          _ShimmerLine(width: 170, height: 9),
+          const SizedBox(height: 5),
+          _ShimmerLine(width: 150, height: 9),
+        ],
+      ),
+    );
+  }
+}
+
+/// InteractiveMovieCard / HoverMovieCard : plein poster + actions.
+class _RichInteractiveSkeleton extends StatelessWidget {
+  const _RichInteractiveSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 220,
+      child: AspectRatio(
+        aspectRatio: 3 / 4,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppShimmerBlock(radius: 18),
+            Positioned(
+              right: 10,
+              top: 10,
+              child: _ShimmerChip(width: 28, height: 28, circle: true),
+            ),
+            const Positioned(
+              left: 14,
+              right: 40,
+              bottom: 46,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ShimmerLine(width: 110, height: 13),
+                  SizedBox(height: 6),
+                  _ShimmerLine(width: 70, height: 10),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 10,
+              right: 10,
+              bottom: 8,
+              child: Row(
+                children: [
+                  _ShimmerChip(width: 32, height: 32, circle: true),
+                  const SizedBox(width: 7),
+                  _ShimmerChip(width: 28, height: 28, circle: true),
+                  const SizedBox(width: 7),
+                  _ShimmerChip(width: 28, height: 28, circle: true),
+                  const SizedBox(width: 7),
+                  _ShimmerChip(width: 28, height: 28, circle: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// MovieQuickView : bandeau image + résumé + deux boutons.
+class _RichQuickViewSkeleton extends StatelessWidget {
+  const _RichQuickViewSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 140,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AppShimmerBlock(radius: 0),
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: _ShimmerChip(width: 28, height: 28, circle: true),
+                ),
+                const Positioned(
+                  left: 14,
+                  bottom: 10,
+                  child: _ShimmerLine(width: 120, height: 14),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ShimmerLine(width: 50, height: 10),
+                const SizedBox(height: 8),
+                _ShimmerLine(width: double.infinity, height: 9),
+                const SizedBox(height: 4),
+                _ShimmerLine(width: 160, height: 9),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(height: 32, child: AppShimmerBlock(radius: 11)),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(width: 90, height: 32, child: AppShimmerBlock(radius: 11)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// MovieDetailsModal : contenu de la feuille modale.
+class _RichModalSkeleton extends StatelessWidget {
+  const _RichModalSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 360,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12151B),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(
+                width: 86,
+                height: 129,
+                child: AppShimmerBlock(radius: 14),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ShimmerLine(width: 150, height: 16),
+                    const SizedBox(height: 8),
+                    _ShimmerLine(width: 110, height: 10),
+                    const SizedBox(height: 8),
+                    _ShimmerLine(width: 60, height: 11),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _ShimmerLine(width: double.infinity, height: 9),
+          const SizedBox(height: 5),
+          _ShimmerLine(width: double.infinity, height: 9),
+          const SizedBox(height: 5),
+          _ShimmerLine(width: 200, height: 9),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(height: 34, child: AppShimmerBlock(radius: 11)),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(width: 90, height: 34, child: AppShimmerBlock(radius: 11)),
+              const SizedBox(width: 8),
+              SizedBox(width: 34, height: 34, child: AppShimmerBlock(radius: 11)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ShimmerChip extends StatelessWidget {
   const _ShimmerChip({
     required this.width,
@@ -2722,6 +3123,140 @@ class _PlayCircle extends StatelessWidget {
 }
 
 List<_ComponentSpec> _buildComponents() => [
+  // ── CARTES RICHES (MoviesBox) ──
+  _ComponentSpec(
+    title: 'Carte détails complète',
+    className: 'MovieDetailsCard',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Note, casting et actions rapides',
+    section: 'CARTES RICHES',
+    icon: Icons.movie_creation_outlined,
+    kind: _PreviewKind.richDetails,
+    result: (_) => MovieDetailsCard(
+      data: _richCardData(_tmdbItems[0]),
+      castNames: const ['Timothée Chalamet', 'Zendaya', 'Rebecca Ferguson', 'Josh Brolin'],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte détail compacte',
+    className: 'MovieDetailCard',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Image en arrière-plan plein cadre',
+    section: 'CARTES RICHES',
+    icon: Icons.image_search_outlined,
+    kind: _PreviewKind.richBackdrop,
+    result: (_) => MovieDetailCard(data: _richCardData(_tmdbItems[1])),
+  ),
+  _ComponentSpec(
+    title: 'Carte extensible',
+    className: 'ExpandedMovieCard',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Infos supplémentaires dépliables',
+    section: 'CARTES RICHES',
+    icon: Icons.unfold_more_rounded,
+    kind: _PreviewKind.richExpanded,
+    result: (_) => ExpandedMovieCard(
+      data: _richCardData(_tmdbItems[2]),
+      director: 'Denis Villeneuve',
+      actors: const ['Timothée Chalamet', 'Zendaya', 'Rebecca Ferguson'],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte extensible auto',
+    className: 'ExpandableMovieCard',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Le tap étend/replie la carte',
+    section: 'CARTES RICHES',
+    icon: Icons.expand_more_rounded,
+    kind: _PreviewKind.richExpanded,
+    result: (_) => ExpandableMovieCard(
+      data: _richCardData(_tmdbItems[3]),
+      director: 'Denis Villeneuve',
+      actors: const ['Timothée Chalamet', 'Zendaya'],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Carte interactive',
+    className: 'InteractiveMovieCard',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Survol/clic révèle les actions rapides',
+    section: 'CARTES RICHES',
+    icon: Icons.touch_app_outlined,
+    kind: _PreviewKind.richInteractive,
+    result: (_) => InteractiveMovieCard(data: _richCardData(_tmdbItems[4])),
+  ),
+  _ComponentSpec(
+    title: 'Carte effet survol',
+    className: 'HoverMovieCard',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'La fiche glisse par-dessus le poster',
+    section: 'CARTES RICHES',
+    icon: Icons.mouse_rounded,
+    kind: _PreviewKind.richHover,
+    result: (_) => HoverMovieCard(data: _richCardData(_tmdbItems[0])),
+  ),
+  _ComponentSpec(
+    title: 'Aperçu rapide',
+    className: 'MovieQuickView',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Aperçu rapide avec fond image et fermer',
+    section: 'CARTES RICHES',
+    icon: Icons.quick_contacts_mail_outlined,
+    kind: _PreviewKind.richQuickView,
+    result: (_) =>
+        MovieQuickView(data: _richCardData(_tmdbItems[1]), onClose: () {}),
+  ),
+  _ComponentSpec(
+    title: 'Aperçu rapide média',
+    className: 'MediaQuickView',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Alias générique de MovieQuickView',
+    section: 'CARTES RICHES',
+    icon: Icons.dashboard_customize_rounded,
+    kind: _PreviewKind.richQuickView,
+    result: (_) =>
+        MediaQuickView(data: _richCardData(_tmdbItems[2]), onClose: () {}),
+  ),
+  _ComponentSpec(
+    title: 'Aperçu poster',
+    className: 'MoviePreview',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Poster + note + bouton play',
+    section: 'CARTES RICHES',
+    icon: Icons.preview_outlined,
+    kind: _PreviewKind.richPreview,
+    result: (_) => MoviePreview(data: _richCardData(_tmdbItems[3])),
+  ),
+  _ComponentSpec(
+    title: 'Aperçu poster média',
+    className: 'MediaPreview',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Alias générique de MoviePreview',
+    section: 'CARTES RICHES',
+    icon: Icons.preview_rounded,
+    kind: _PreviewKind.richPreview,
+    result: (_) => MediaPreview(data: _richCardData(_tmdbItems[4])),
+  ),
+  _ComponentSpec(
+    title: 'Modale détails',
+    className: 'MovieDetailsModal',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Feuille modale détails rapides',
+    section: 'CARTES RICHES',
+    icon: Icons.picture_in_picture_alt_rounded,
+    kind: _PreviewKind.richModal,
+    result: (_) => MovieDetailsModal(data: _richCardData(_tmdbItems[0])),
+  ),
+  _ComponentSpec(
+    title: 'Modale détails média',
+    className: 'MediaDetailsModal',
+    path: 'lib/modules/media/rich_media_cards.dart',
+    usage: 'Alias générique de MovieDetailsModal',
+    section: 'CARTES RICHES',
+    icon: Icons.picture_in_picture_alt_outlined,
+    kind: _PreviewKind.richModal,
+    result: (_) => MediaDetailsModal(data: _richCardData(_tmdbItems[1])),
+  ),
   _ComponentSpec(
     title: 'Poster contenu',
     className: 'PosterCard',
@@ -3679,6 +4214,25 @@ List<_ComponentSpec> _buildComponents() => [
   ),
 ];
 
+
+/// Données d'aperçu partagées par les cartes riches de la galerie.
+RichMediaCardData _richCardData(TmdbMedia item) {
+  return RichMediaCardData(
+    item: ContentItem.fromTmdb(item),
+    meta: (item.mediaType == 'tv'
+            ? item.firstAirDate
+            : item.releaseDate)
+        ?.split('-')
+        .first,
+    genres: item.mediaType == 'tv' ? 'Action · Drame' : 'Science-fiction · Aventure',
+    runtimeMinutes: item.mediaType == 'tv' ? 52 : 166,
+    seasonNumber: item.mediaType == 'tv' ? 1 : null,
+    onPlay: () {},
+    onAddToList: () {},
+    onMore: () {},
+    onShare: () {},
+  );
+}
 
 const _tmdbItems = <TmdbMedia>[
   TmdbMedia(
