@@ -179,6 +179,7 @@ class _ComponentSpec {
   final String section;
   final IconData icon;
   final _PreviewKind kind;
+  final String? layoutComponent;
   final Widget Function(BuildContext context) result;
 
   const _ComponentSpec({
@@ -189,6 +190,7 @@ class _ComponentSpec {
     this.section = 'CATALOGUE & DISCOVERY',
     required this.icon,
     required this.kind,
+    this.layoutComponent,
     required this.result,
   });
 
@@ -208,7 +210,18 @@ class _ComponentSpec {
 }
 
 class ComponentGalleryScreen extends StatefulWidget {
-  const ComponentGalleryScreen({super.key});
+  const ComponentGalleryScreen({
+    super.key,
+    this.embedded = false,
+    this.selectionMode = false,
+    this.onSelectLayoutComponent,
+    this.onClose,
+  });
+
+  final bool embedded;
+  final bool selectionMode;
+  final ValueChanged<String>? onSelectLayoutComponent;
+  final VoidCallback? onClose;
 
   @override
   State<ComponentGalleryScreen> createState() => _ComponentGalleryScreenState();
@@ -222,6 +235,24 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
 
   /// Filtre de section actif (`null` = toutes les sections).
   String? _sectionFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectionMode) {
+      _tab = _GalleryTab.sections;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ComponentGalleryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectionMode != widget.selectionMode) {
+      _tab = widget.selectionMode ? _GalleryTab.sections : _GalleryTab.cards;
+      _query = '';
+      _searchController.clear();
+    }
+  }
 
   @override
   void dispose() {
@@ -254,9 +285,15 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               query.isEmpty || component.searchableText.contains(query);
           final sectionMatches =
               _sectionFilter == null || component.section == _sectionFilter;
+          final compatibleWithLayout =
+              !widget.selectionMode ||
+              component.layoutComponent != null;
+          final matchesTab = widget.selectionMode ||
+              component.isSection == (_tab == _GalleryTab.sections);
           return textMatches &&
               sectionMatches &&
-              component.isSection == (_tab == _GalleryTab.sections);
+              compatibleWithLayout &&
+              matchesTab;
         })
         .toList(growable: false);
   }
@@ -277,9 +314,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     final sections = _sectionsFor(_tab);
     final visible = _visibleComponents;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0D10),
-      body: CustomScrollView(
+    final galleryContent = CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
@@ -287,14 +322,16 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
             backgroundColor: const Color(0xFF0B0D10).withValues(alpha: .96),
             surfaceTintColor: Colors.transparent,
             titleSpacing: padding,
-            title: const Row(
-              children: [
-                _GalleryMark(),
-                SizedBox(width: 11),
-                Text('Galerie des composants'),
-              ],
-            ),
-            bottom: isWide
+            title: widget.selectionMode
+                ? const Text('Choisir un composant')
+                : const Row(
+                    children: [
+                      _GalleryMark(),
+                      SizedBox(width: 11),
+                      Text('Galerie des composants'),
+                    ],
+                  ),
+            bottom: isWide || widget.selectionMode
                 ? null
                 : PreferredSize(
                     preferredSize: const Size.fromHeight(50),
@@ -314,7 +351,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                   ),
             actions: [
               // Mode PC : sélecteur Cartes / Sections en haut à droite.
-              if (isWide)
+              if (isWide && !widget.selectionMode)
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: SizedBox(
@@ -340,7 +377,8 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 padding: EdgeInsets.only(right: padding - 8),
                 child: IconButton(
                   tooltip: 'Fermer la galerie',
-                  onPressed: () => Navigator.of(context).maybePop(),
+                  onPressed: widget.onClose ??
+                      () => Navigator.of(context).maybePop(),
                   icon: const Icon(Broken.close_circle),
                 ),
               ),
@@ -379,14 +417,21 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                         child: _UnifiedGallery(
                           components: visible,
                           state: _state,
+                          onSelectLayoutComponent:
+                              widget.onSelectLayoutComponent,
                         ),
                       ),
                     ),
                   ),
           ),
         ],
-      ),
-    );
+      );
+    return widget.embedded
+        ? galleryContent
+        : Scaffold(
+            backgroundColor: const Color(0xFF0B0D10),
+            body: galleryContent,
+          );
   }
 }
 
@@ -798,10 +843,12 @@ class _StateOption extends StatelessWidget {
 class _UnifiedGallery extends StatelessWidget {
   final _GalleryState state;
   final List<_ComponentSpec> components;
+  final ValueChanged<String>? onSelectLayoutComponent;
 
   const _UnifiedGallery({
     required this.state,
     required this.components,
+    this.onSelectLayoutComponent,
   });
 
   @override
@@ -832,7 +879,11 @@ class _UnifiedGallery extends StatelessWidget {
               count: entry.value.length,
             ),
             const SizedBox(height: 12),
-            _ComponentGrid(components: entry.value, state: state),
+            _ComponentGrid(
+              components: entry.value,
+              state: state,
+              onSelectLayoutComponent: onSelectLayoutComponent,
+            ),
             if (entry.key != orderedEntries.last.key) const SizedBox(height: 32),
           ],
         ],
@@ -915,8 +966,13 @@ class _UnifiedSectionLabel extends StatelessWidget {
 class _ComponentGrid extends StatelessWidget {
   final List<_ComponentSpec> components;
   final _GalleryState state;
+  final ValueChanged<String>? onSelectLayoutComponent;
 
-  const _ComponentGrid({required this.components, required this.state});
+  const _ComponentGrid({
+    required this.components,
+    required this.state,
+    this.onSelectLayoutComponent,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -941,7 +997,11 @@ class _ComponentGrid extends StatelessWidget {
             for (final component in components)
               SizedBox(
                 width: tileWidth,
-                child: _ComponentTile(component: component, state: state),
+                child: _ComponentTile(
+                  component: component,
+                  state: state,
+                  onSelectLayoutComponent: onSelectLayoutComponent,
+                ),
               ),
           ],
         );
@@ -953,8 +1013,13 @@ class _ComponentGrid extends StatelessWidget {
 class _ComponentTile extends StatelessWidget {
   final _ComponentSpec component;
   final _GalleryState state;
+  final ValueChanged<String>? onSelectLayoutComponent;
 
-  const _ComponentTile({required this.component, required this.state});
+  const _ComponentTile({
+    required this.component,
+    required this.state,
+    this.onSelectLayoutComponent,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1096,6 +1161,19 @@ class _ComponentTile extends StatelessWidget {
                   : _CardSkeleton(kind: component.kind),
             ),
           ),
+          if (onSelectLayoutComponent != null &&
+              component.layoutComponent != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: () =>
+                    onSelectLayoutComponent!(component.layoutComponent!),
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: const Text('Utiliser ce composant'),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -5818,6 +5896,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout spotlight · carrousel plein écran',
     icon: Icons.open_in_full_rounded,
     kind: _PreviewKind.extensionHero,
+    layoutComponent: 'spotlight',
     result: (_) => ExtensionLayoutPreview(
       title: 'À la une',
       component: 'spotlight',
@@ -5835,6 +5914,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layouts ranked · rankedWide',
     icon: Icons.format_list_numbered_rounded,
     kind: _PreviewKind.rankedWide,
+    layoutComponent: 'rankedWide',
     result: (_) => ExtensionLayoutPreview(
       title: 'Top extensions',
       component: 'rankedWide',
@@ -5852,6 +5932,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layouts showcase · landscapeStacked',
     icon: Icons.auto_awesome_outlined,
     kind: _PreviewKind.showcase,
+    layoutComponent: 'showcase',
     result: (_) => ExtensionLayoutPreview(
       title: 'Sélection',
       component: 'showcase',
@@ -5869,6 +5950,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Cartes collectionCards · playlistCarousel',
     icon: Icons.collections_bookmark_outlined,
     kind: _PreviewKind.collection,
+    layoutComponent: 'collectionCards',
     result: (_) => ExtensionLayoutPreview(
       title: 'Collections',
       component: 'collectionCards',
@@ -5886,6 +5968,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout banner',
     icon: Icons.view_carousel_outlined,
     kind: _PreviewKind.banner,
+    layoutComponent: 'banner',
     result: (_) => ExtensionLayoutPreview(
       title: 'Bannières',
       component: 'banner',
@@ -5903,6 +5986,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout creatorRow',
     icon: Icons.person_outline_rounded,
     kind: _PreviewKind.creator,
+    layoutComponent: 'creatorRow',
     result: (_) => ExtensionLayoutPreview(
       title: 'Créateurs',
       component: 'creatorRow',
@@ -5937,6 +6021,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layouts category · categoryPills',
     icon: Icons.category_outlined,
     kind: _PreviewKind.collection,
+    layoutComponent: 'category',
     result: (_) => ExtensionLayoutPreview(
       title: 'Catégories',
       component: 'category',
@@ -5954,6 +6039,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout grid',
     icon: Icons.grid_4x4_rounded,
     kind: _PreviewKind.extensionGrid,
+    layoutComponent: 'grid',
     result: (_) => ExtensionLayoutPreview(
       title: 'Catalogue',
       component: 'grid',

@@ -8,10 +8,14 @@ import 'package:watchtower/services/layout_registry.dart';
 
 class LayoutJsonEditorScreen extends StatefulWidget {
   final Source source;
+  final String? initialContent;
+  final Future<void> Function()? onSaved;
 
   const LayoutJsonEditorScreen({
     super.key,
     required this.source,
+    this.initialContent,
+    this.onSaved,
   });
 
   @override
@@ -39,7 +43,9 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
 
   Future<void> _loadLayout() async {
     try {
-      var content = await LayoutRegistry.instance.readJson(widget.source);
+      var content =
+          widget.initialContent ??
+          await LayoutRegistry.instance.readJson(widget.source);
       if (content == null) {
         final downloaded =
             await LayoutDownloader.instance.download(widget.source);
@@ -105,6 +111,8 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
         _message = 'Layout enregistré sur cet appareil.';
         _messageIsError = false;
       });
+      final onSaved = widget.onSaved;
+      if (onSaved != null) await onSaved();
     } on FormatException catch (error) {
       if (!mounted) return;
       setState(() {

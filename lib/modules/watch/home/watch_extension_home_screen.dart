@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -25,7 +26,11 @@ import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/modules/search/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.dart';
+import 'package:watchtower/modules/dev/component_gallery_screen.dart';
+import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
 import 'package:watchtower/utils/cached_network.dart';
+
+enum _LayoutEditorDestination { home, gallery, json }
 
 /// The Watch extension home uses the same media composition as the Hub.
 /// Only the data boundary is different: every card is supplied by the
@@ -36,11 +41,13 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
   final ItemType? localItemType;
   final String? initialSearchQuery;
   final String? initialSectionId;
+  final bool layoutEditorMode;
 
   const WatchExtensionHomeScreen({
     required this.source,
     this.initialSearchQuery,
     this.initialSectionId,
+    this.layoutEditorMode = false,
     super.key,
   })
     : isLocalLibrary = false,
@@ -53,7 +60,8 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
        isLocalLibrary = true,
        localItemType = itemType,
        initialSearchQuery = null,
-       initialSectionId = null;
+       initialSectionId = null,
+       layoutEditorMode = false;
 
   @override
   ConsumerState<WatchExtensionHomeScreen> createState() =>
@@ -69,7 +77,12 @@ class _WatchExtensionHomeScreenState
   bool _layoutReady = false;
   Object? _layoutError;
   UiLayout _layout = UiLayout.empty;
+  Map<String, dynamic>? _layoutJson;
   Future<void>? _layoutLoadOperation;
+  _LayoutEditorDestination _editorDestination = _LayoutEditorDestination.home;
+  bool _editorDockExpanded = false;
+  String? _pendingReplacementSectionId;
+  int _layoutEditorRevision = 0;
 
   Source get source => widget.source;
 
@@ -103,9 +116,38 @@ class _WatchExtensionHomeScreenState
       if (source.providesHome && !LayoutRegistry.instance.has(source)) {
         await LayoutDownloader.instance.download(source);
       }
+      final rawLayout = await LayoutRegistry.instance.readJson(source);
+      Map<String, dynamic>? decodedLayout = rawLayout == null
+          ? null
+          : jsonDecode(rawLayout) as Map<String, dynamic>;
+      var loadedLayout = LayoutRegistry.instance.get(source);
+      if (widget.layoutEditorMode && decodedLayout != null) {
+        final rawHome = decodedLayout['home'];
+        if (rawHome is Map<String, dynamic>) {
+          final home = Map<String, dynamic>.from(rawHome);
+          final sections = home['sections'];
+          if (sections is! List || sections.isEmpty) {
+            home['sections'] = [
+              <String, dynamic>{
+                'id': 'popular',
+                'title': 'Popular',
+                'component': 'grid',
+              },
+              <String, dynamic>{
+                'id': 'latest',
+                'title': 'Latest',
+                'component': 'grid',
+              },
+            ];
+            decodedLayout['home'] = home;
+            loadedLayout = UiLayout.fromJson(decodedLayout);
+          }
+        }
+      }
       if (!mounted) return;
       setState(() {
-        _layout = LayoutRegistry.instance.get(source);
+        _layout = loadedLayout;
+        _layoutJson = decodedLayout;
         _layoutReady = true;
         _layoutError = null;
       });
@@ -122,6 +164,139 @@ class _WatchExtensionHomeScreenState
       _layoutLoadOperation = null;
     });
     await _loadLayout();
+  }
+
+  List<Map<String, dynamic>> _copyLayoutSections() {
+    final home = _layoutJson?['home'];
+    if (home is! Map<String, dynamic>) return [];
+    final rawSections = home['sections'];
+    if (rawSections is! List) return [];
+    return rawSections
+        .whereType<Map<String, dynamic>>()
+        .map(Map<String, dynamic>.from)
+        .toList(growable: true);
+  }
+
+  Future<bool> _saveLayoutSections(List<Map<String, dynamic>> sections) async {
+    final original = _layoutJson;
+    if (original == null) {
+      _showEditorMessage('Le layout de cette extension est indisponible.');
+      return false;
+    }
+
+    final updated = Map<String, dynamic>.from(original);
+    final home = Map<String, dynamic>.from(
+      updated['home'] as Map<String, dynamic>,
+    );
+    home['sections'] = sections
+        .map((section) => Map<String, dynamic>.from(section))
+        .toList(growable: false);
+    updated['home'] = home;
+    bool saved;
+    try {
+      saved = await LayoutRegistry.instance.save(
+        source,
+        const JsonEncoder.withIndent('  ').convert(updated),
+      );
+    } catch (error) {
+      _showEditorMessage('Échec de l’enregistrement du layout : $error');
+      return false;
+    }
+    if (!saved) {
+      _showEditorMessage('Le layout n’a pas pu être enregistré.');
+      return false;
+    }
+    if (!mounted) return false;
+    setState(() {
+      _layoutJson = updated;
+      _layout = LayoutRegistry.instance.get(source);
+      _layoutEditorRevision++;
+    });
+    return true;
+  }
+
+  void _showEditorMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _moveEditorSection(int index, int offset) {
+    final sections = _copyLayoutSections();
+    final targetIndex = index + offset;
+    if (index < 0 ||
+        index >= sections.length ||
+        targetIndex < 0 ||
+        targetIndex >= sections.length) {
+      return;
+    }
+    final section = sections.removeAt(index);
+    sections.insert(targetIndex, section);
+    unawaited(_saveLayoutSections(sections));
+  }
+
+  void _deleteEditorSection(int index) {
+    final sections = _copyLayoutSections();
+    if (index < 0 || index >= sections.length) return;
+    sections.removeAt(index);
+    unawaited(_saveLayoutSections(sections));
+  }
+
+  void _startSectionReplacement(String sectionId) {
+    setState(() {
+      _pendingReplacementSectionId = sectionId;
+      _editorDestination = _LayoutEditorDestination.gallery;
+      _editorDockExpanded = false;
+    });
+  }
+
+  Future<void> _applyLayoutComponent(String component) async {
+    final sectionId = _pendingReplacementSectionId;
+    if (sectionId == null) {
+      _showEditorMessage('Maintiens d’abord une section, puis choisis « Remplacer ».');
+      return;
+    }
+    final sections = _copyLayoutSections();
+    final index = sections.indexWhere(
+      (section) => section['id']?.toString() == sectionId,
+    );
+    if (index < 0) {
+      _showEditorMessage('Cette section n’existe plus dans le layout.');
+      return;
+    }
+    sections[index]['component'] = component;
+    if (await _saveLayoutSections(sections) && mounted) {
+      setState(() {
+        _pendingReplacementSectionId = null;
+        _editorDestination = _LayoutEditorDestination.home;
+      });
+    }
+  }
+
+  Future<void> _reloadLayoutAfterJsonSave() async {
+    try {
+      final rawLayout = await LayoutRegistry.instance.readJson(source);
+      if (!mounted || rawLayout == null) return;
+      setState(() {
+        _layoutJson = jsonDecode(rawLayout) as Map<String, dynamic>;
+        _layout = LayoutRegistry.instance.get(source);
+      });
+    } catch (error) {
+      _showEditorMessage('Layout enregistré, mais aperçu impossible à actualiser : $error');
+    }
+  }
+
+  Widget _editorLoadingShell(Widget page) {
+    if (!widget.layoutEditorMode) return page;
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B11),
+      appBar: AppBar(
+        leading: BackButton(onPressed: () => Navigator.of(context).maybePop()),
+        title: Text('Édition du layout · ${source.name ?? ''}'),
+      ),
+      body: page,
+    );
   }
 
   void _updateCompactHeader() {
@@ -271,16 +446,20 @@ class _WatchExtensionHomeScreenState
     if (!_layoutReady && source.providesHome) {
       final layoutError = _layoutError;
       if (layoutError != null) {
-        return _ExtensionError(
-          source: source,
-          error: layoutError,
-          onRetry: _retryLayout,
+        return _editorLoadingShell(
+          _ExtensionError(
+            source: source,
+            error: layoutError,
+            onRetry: _retryLayout,
+          ),
         );
       }
-      return _ExtensionHomeLoading(
-        source: source,
-        onSearch: () => setState(() => _isSearching = true),
-        onRefresh: _refresh,
+      return _editorLoadingShell(
+        _ExtensionHomeLoading(
+          source: source,
+          onSearch: () => setState(() => _isSearching = true),
+          onRefresh: _refresh,
+        ),
       );
     }
 
@@ -327,6 +506,32 @@ class _WatchExtensionHomeScreenState
       onSearch: () => setState(() => _isSearching = true),
       onOpen: _openItem,
       onRefresh: _refresh,
+      layoutEditorMode: widget.layoutEditorMode,
+      editorDestination: _editorDestination,
+      editorDockExpanded: _editorDockExpanded,
+      onEditorDestinationChanged: (destination) =>
+          setState(() {
+            if (destination == _LayoutEditorDestination.home &&
+                _editorDestination == _LayoutEditorDestination.gallery) {
+              _pendingReplacementSectionId = null;
+            }
+            _editorDestination = destination;
+            _editorDockExpanded = false;
+          }),
+      onToggleEditorDock: () =>
+          setState(() => _editorDockExpanded = !_editorDockExpanded),
+      onExitEditor: () => Navigator.of(context).maybePop(),
+      onMoveSection: _moveEditorSection,
+      onDeleteSection: _deleteEditorSection,
+      onReplaceSection: _startSectionReplacement,
+      isSelectingComponent: _pendingReplacementSectionId != null,
+      layoutEditorInitialContent: _layoutJson == null
+          ? null
+          : const JsonEncoder.withIndent('  ').convert(_layoutJson),
+      layoutEditorRevision: _layoutEditorRevision,
+      onSelectLayoutComponent: (component) =>
+          unawaited(_applyLayoutComponent(component)),
+      onLayoutJsonSaved: _reloadLayoutAfterJsonSave,
     );
   }
 }
@@ -341,6 +546,20 @@ class _ExtensionFeed extends StatelessWidget {
   final VoidCallback onSearch;
   final ValueChanged<MManga> onOpen;
   final Future<void> Function() onRefresh;
+  final bool layoutEditorMode;
+  final _LayoutEditorDestination editorDestination;
+  final bool editorDockExpanded;
+  final ValueChanged<_LayoutEditorDestination> onEditorDestinationChanged;
+  final VoidCallback onToggleEditorDock;
+  final VoidCallback onExitEditor;
+  final void Function(int index, int offset) onMoveSection;
+  final ValueChanged<int> onDeleteSection;
+  final ValueChanged<String> onReplaceSection;
+  final bool isSelectingComponent;
+  final ValueChanged<String> onSelectLayoutComponent;
+  final Future<void> Function() onLayoutJsonSaved;
+  final String? layoutEditorInitialContent;
+  final int layoutEditorRevision;
 
   const _ExtensionFeed({
     required this.source,
@@ -352,6 +571,20 @@ class _ExtensionFeed extends StatelessWidget {
     required this.onSearch,
     required this.onOpen,
     required this.onRefresh,
+    required this.layoutEditorMode,
+    required this.editorDestination,
+    required this.editorDockExpanded,
+    required this.onEditorDestinationChanged,
+    required this.onToggleEditorDock,
+    required this.onExitEditor,
+    required this.onMoveSection,
+    required this.onDeleteSection,
+    required this.onReplaceSection,
+    required this.isSelectingComponent,
+    required this.onSelectLayoutComponent,
+    required this.onLayoutJsonSaved,
+    required this.layoutEditorInitialContent,
+    required this.layoutEditorRevision,
   });
 
   List<MManga> get combined {
@@ -364,22 +597,106 @@ class _ExtensionFeed extends StatelessWidget {
     return result;
   }
 
+  void _showSectionActions(
+    BuildContext context,
+    int index,
+    UiSection section,
+    int sectionCount,
+  ) {
+    final title = section.title?.trim().isNotEmpty == true
+        ? section.title!.trim()
+        : section.id;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.open_with_rounded),
+              title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: const Text('Actions sur cette section'),
+            ),
+            if (index > 0)
+              ListTile(
+                leading: const Icon(Icons.arrow_upward_rounded),
+                title: const Text('Déplacer d’un niveau vers le haut'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  onMoveSection(index, -1);
+                },
+              ),
+            if (index < sectionCount - 1)
+              ListTile(
+                leading: const Icon(Icons.arrow_downward_rounded),
+                title: const Text('Déplacer d’un niveau vers le bas'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  onMoveSection(index, 1);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.widgets_outlined),
+              title: const Text('Remplacer le composant'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onReplaceSection(section.id);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline_rounded,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Supprimer la section',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onTap: () async {
+                Navigator.of(sheetContext).pop();
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Supprimer cette section ?'),
+                    content: Text('« $title » sera retirée de cet accueil.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(false),
+                        child: const Text('Annuler'),
+                      ),
+                      FilledButton(
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(true),
+                        child: const Text('Supprimer'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) onDeleteSection(index);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final all = combined;
     final sections = layout.home.sections;
-    final hasDeclaredSections = sections.isNotEmpty;
+    final hasDeclaredSections = sections.isNotEmpty || layoutEditorMode;
     final hasContent = all.isNotEmpty || hasDeclaredSections;
-    if (!hasContent) {
+    if (!hasContent && !layoutEditorMode) {
       return _ExtensionEmpty(
         source: source,
         onSearch: onSearch,
         onRefresh: onRefresh,
       );
     }
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
-      body: Stack(
+    final homeFeed = Stack(
         children: [
           _AppleRefreshable(
             onRefresh: onRefresh,
@@ -405,19 +722,58 @@ class _ExtensionFeed extends StatelessWidget {
                           )
                         : const SizedBox.shrink(),
                   ),
+                if (layoutEditorMode && sections.isEmpty)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Aucune section. Utilise l’éditeur JSON pour en créer une.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ),
                 SliverList(
                   delegate: SliverChildListDelegate.fixed(
                     hasDeclaredSections
-                        ? sections
-                              .map(
-                                (section) => _ExtensionLayoutSection(
-                                  source: source,
-                                  section: section,
-                                  onSearch: onSearch,
-                                  onOpen: onOpen,
-                                ),
-                              )
-                              .toList(growable: false)
+                        ? List<Widget>.generate(sections.length, (index) {
+                            final section = sections[index];
+                            final rendered = _ExtensionLayoutSection(
+                              source: source,
+                              section: section,
+                              onSearch: onSearch,
+                              onOpen: onOpen,
+                            );
+                            if (!layoutEditorMode) return rendered;
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onLongPress: () => _showSectionActions(
+                                context,
+                                index,
+                                section,
+                                sections.length,
+                              ),
+                              child: Stack(
+                                children: [
+                                  rendered,
+                                  const Positioned(
+                                    right: 14,
+                                    top: 8,
+                                    child: IgnorePointer(
+                                      child: Tooltip(
+                                        message: 'Maintenir pour modifier',
+                                        child: Icon(
+                                          Icons.edit_rounded,
+                                          size: 17,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          })
                         : [
                             MediaPosterRail(
                               title: 'Popular',
@@ -453,7 +809,7 @@ class _ExtensionFeed extends StatelessWidget {
               ],
             ),
           ),
-          Positioned(
+          if (!layoutEditorMode) Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -473,7 +829,7 @@ class _ExtensionFeed extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
+          if (!layoutEditorMode) Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -498,6 +854,148 @@ class _ExtensionFeed extends StatelessWidget {
             ),
           ),
         ],
+      );
+    final Widget selectedPage = IndexedStack(
+      index: editorDestination.index,
+      children: [
+        homeFeed,
+        ComponentGalleryScreen(
+          embedded: true,
+          selectionMode: isSelectingComponent,
+          onSelectLayoutComponent: isSelectingComponent
+              ? onSelectLayoutComponent
+              : null,
+          onClose: () => onEditorDestinationChanged(
+            _LayoutEditorDestination.home,
+          ),
+        ),
+        LayoutJsonEditorScreen(
+          key: ValueKey(layoutEditorRevision),
+          source: source,
+          initialContent: layoutEditorInitialContent,
+          onSaved: onLayoutJsonSaved,
+        ),
+      ],
+    );
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B11),
+      appBar: layoutEditorMode && editorDestination == _LayoutEditorDestination.home
+          ? AppBar(
+              leading: BackButton(onPressed: onExitEditor),
+              title: Text('Édition du layout · ${source.name ?? ''}'),
+            )
+          : null,
+      body: layoutEditorMode ? selectedPage : homeFeed,
+      floatingActionButton: layoutEditorMode
+          ? _LayoutEditorDock(
+              destination: editorDestination,
+              expanded: editorDockExpanded,
+              onToggle: onToggleEditorDock,
+              onSelect: onEditorDestinationChanged,
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+}
+
+class _LayoutEditorDock extends StatelessWidget {
+  final _LayoutEditorDestination destination;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final ValueChanged<_LayoutEditorDestination> onSelect;
+
+  const _LayoutEditorDock({
+    required this.destination,
+    required this.expanded,
+    required this.onToggle,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (expanded)
+            Material(
+              color: colors.surfaceContainerHigh,
+              elevation: 8,
+              borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _DockDestinationButton(
+                      icon: Icons.home_rounded,
+                      label: 'Accueil',
+                      selected: destination == _LayoutEditorDestination.home,
+                      onTap: () => onSelect(_LayoutEditorDestination.home),
+                    ),
+                    _DockDestinationButton(
+                      icon: Icons.widgets_outlined,
+                      label: 'Galerie composants',
+                      selected:
+                          destination == _LayoutEditorDestination.gallery,
+                      onTap: () => onSelect(_LayoutEditorDestination.gallery),
+                    ),
+                    _DockDestinationButton(
+                      icon: Icons.data_object_rounded,
+                      label: 'Éditeur JSON',
+                      selected: destination == _LayoutEditorDestination.json,
+                      onTap: () => onSelect(_LayoutEditorDestination.json),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          FloatingActionButton.small(
+            heroTag: 'layout-editor-dock-toggle',
+            tooltip: expanded ? 'Fermer le dock' : 'Ouvrir le dock d’édition',
+            onPressed: onToggle,
+            child: Icon(expanded ? Icons.close_rounded : Icons.edit_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DockDestinationButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DockDestinationButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 230,
+      child: TextButton.icon(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          foregroundColor: selected ? colors.primary : colors.onSurface,
+          backgroundColor:
+              selected ? colors.primary.withValues(alpha: .12) : null,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+        icon: Icon(icon, size: 19),
+        label: Text(label),
       ),
     );
   }
