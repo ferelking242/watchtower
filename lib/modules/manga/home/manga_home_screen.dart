@@ -12,6 +12,7 @@ class MangaHomeScreen extends StatelessWidget {
   final Source source;
   final bool isSearch;
   final bool isLatest;
+  final bool isLayoutEditing;
   final String query;
 
   const MangaHomeScreen({
@@ -19,6 +20,7 @@ class MangaHomeScreen extends StatelessWidget {
     this.query = '',
     this.isSearch = false,
     this.isLatest = false,
+    this.isLayoutEditing = false,
     super.key,
   });
 
@@ -32,6 +34,7 @@ class MangaHomeScreen extends StatelessWidget {
       source: source,
       initialSearchQuery: initialQuery,
       initialSectionId: isLatest ? 'latest' : null,
+      layoutEditorMode: isLayoutEditing,
     );
   }
 }
