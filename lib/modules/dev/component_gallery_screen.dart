@@ -19,6 +19,7 @@ import 'package:watchtower/modules/media/manga_chapter_cards.dart';
 import 'package:watchtower/modules/media/manga_genre_cards.dart';
 import 'package:watchtower/modules/media/manga_reader_cards.dart';
 import 'package:watchtower/modules/media/manga_universe_cards.dart';
+import 'package:watchtower/modules/media/home_hero_cards.dart';
 import 'package:watchtower/modules/media/landscape_cards.dart';
 import 'package:watchtower/modules/media/manga_stats_cards.dart';
 import 'package:watchtower/modules/media/manga_volume_cards.dart';
@@ -242,6 +243,17 @@ enum _PreviewKind {
   lsNovels,
   lsPlaylist,
   lsGenres,
+
+  // ── ACCUEIL & LECTURE : héros, rails, liste, IA, mini-lecteur ──
+  hmHero,
+  hmSpotlight,
+  hmGenreCards,
+  hmPopular,
+  hmRead,
+  hmCountries,
+  hmMyList,
+  hmAI,
+  hmMiniPlayer,
 }
 
 /// Ordre d'affichage des sections dans la galerie.
@@ -1535,6 +1547,17 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.lsNovels => const LandscapeSkeleton(width: 190),
       _PreviewKind.lsPlaylist => const ListRowSkeleton(width: 250, thumb: 58),
       _PreviewKind.lsGenres => const LandscapeSkeleton(width: 128),
+
+      // ── ACCUEIL & LECTURE ──
+      _PreviewKind.hmHero => const SpotlightSkeleton(),
+      _PreviewKind.hmSpotlight => const ListRowSkeleton(thumb: 64),
+      _PreviewKind.hmGenreCards => const PosterSkeleton(width: 96, ratio: 1, radius: 12),
+      _PreviewKind.hmPopular => const _PosterRowSkeleton(width: 620),
+      _PreviewKind.hmRead => const _PosterRowSkeleton(width: 620),
+      _PreviewKind.hmCountries => const _ShimmerLine(width: 360, height: 110),
+      _PreviewKind.hmMyList => const LandscapeSkeleton(width: 360, ratio: 16 / 6),
+      _PreviewKind.hmAI => const _ShimmerLine(width: 360, height: 100),
+      _PreviewKind.hmMiniPlayer => const ListRowSkeleton(thumb: 56),
     };
     return card;
   }
@@ -7360,6 +7383,262 @@ List<_ComponentSpec> _buildComponents() => [
         LandscapeGenreTile(title: 'Comédie', countLabel: '1 203 contenus',
             thumbUrl: _backdropArcane),
       ],
+    ),
+  ),
+  // ═════════ ACCUEIL & LECTURE — Héros, rails, liste, IA ═════════
+  _ComponentSpec(
+    title: 'Héros d\'accueil',
+    className: 'HomeHeroBannerCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Bannière héros pleine largeur avec actions',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.movie_filter_outlined,
+    kind: _PreviewKind.hmHero,
+    result: (_) => HomeHeroBannerCard(
+      onWatch: () {},
+      onAddToList: () {},
+      onPrev: () {},
+      onNext: () {},
+      title: 'The Last Heir',
+      kindLabel: 'Série',
+      tags: const ['Romance', 'Fantastique'],
+      description:
+          'Dans un royaume où le sang royal cache de sombres secrets, '
+          'une jeune fille découvre qu\'elle est l\'héritière d\'un pouvoir '
+          'oublié… et qu\'un amour interdit pourrait tout changer.',
+      ratingLabel: '8.4',
+      metaLabel: '2025 · 1 saison · 8 épisodes',
+      backdropUrl: _backdropArcane,
+    ),
+  ),
+  _ComponentSpec(
+    title: 'À ne pas manquer',
+    className: 'HomeSpotlightRailCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Rail vertical compact de mises en avant',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.star_rounded,
+    kind: _PreviewKind.hmSpotlight,
+    result: (_) => HomeSpotlightRailCard(
+      onSeeAll: () {},
+      items: [
+        HomeSpotlightEntry(
+            title: 'The Last Heir',
+            kindLabel: 'Série',
+            ratingLabel: '8.4',
+            thumbUrl: _backdropArcane),
+        HomeSpotlightEntry(
+            title: 'Dune: Part Two',
+            kindLabel: 'Film',
+            ratingLabel: '8.7',
+            thumbUrl: _backdropDune),
+        HomeSpotlightEntry(
+            title: 'Solo Leveling',
+            kindLabel: 'Manga',
+            ratingLabel: '9.4',
+            thumbUrl: _backdropInterstellar),
+        HomeSpotlightEntry(
+            title: 'Reincarnation of a…',
+            kindLabel: 'Novel',
+            ratingLabel: '8.6',
+            thumbUrl: _backdropOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Cartes de genres',
+    className: 'HomeGenreTileCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Genres avec visuel carré et tagline',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.explore_outlined,
+    kind: _PreviewKind.hmGenreCards,
+    result: (_) => HomeGenreTileCard(
+      items: [
+        HomeGenreCardEntry(
+            title: 'Action',
+            tagline: 'Sensations fortes…',
+            thumbUrl: _backdropDune),
+        HomeGenreCardEntry(
+            title: 'Romance',
+            tagline: 'Des histoires d\'amour…',
+            thumbUrl: _backdropArcane),
+        HomeGenreCardEntry(
+            title: 'Fantastique',
+            tagline: 'Des mondes incroyables…',
+            thumbUrl: _backdropInterstellar),
+        HomeGenreCardEntry(
+            title: 'Aventure',
+            tagline: 'Explorer l\'inconnu…',
+            thumbUrl: _backdropOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Populaire à regarder',
+    className: 'HomePopularRailCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Rail posters films/séries du moment',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.local_fire_department_rounded,
+    kind: _PreviewKind.hmPopular,
+    result: (_) => HomePopularRailCard(
+      onSeeAll: () {},
+      items: [
+        HomePopularEntry(
+            title: 'Stranger Things',
+            meta: 'Série · 2016',
+            ratingLabel: '8.7',
+            thumbUrl: _posterThrones),
+        HomePopularEntry(
+            title: 'The Last of Us',
+            meta: 'Série · 2023',
+            ratingLabel: '9.5',
+            thumbUrl: _posterDune),
+        HomePopularEntry(
+            title: 'Breaking Bad',
+            meta: 'Série · 2008',
+            ratingLabel: '9.8',
+            thumbUrl: _posterOppenheimer),
+        HomePopularEntry(
+            title: 'Wicked',
+            meta: 'Film · 2024',
+            ratingLabel: '7.4',
+            thumbUrl: _posterInterstellar),
+        HomePopularEntry(
+            title: 'One Piece',
+            meta: 'Anime · 1999',
+            ratingLabel: '9.2',
+            thumbUrl: _posterArcane),
+        HomePopularEntry(
+            title: 'Jujutsu Kaisen',
+            meta: 'Anime · 2020',
+            ratingLabel: '9.1',
+            thumbUrl: _backdropDune),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Populaire à lire',
+    className: 'HomeReadRailCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Rail posters manga & novel',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.menu_book_outlined,
+    kind: _PreviewKind.hmRead,
+    result: (_) => HomeReadRailCard(
+      onSeeAll: () {},
+      items: [
+        HomeSpotlightEntry(
+            title: 'Solo Leveling',
+            kindLabel: 'Manga',
+            ratingLabel: '9.4',
+            thumbUrl: _posterDune),
+        HomeSpotlightEntry(
+            title: 'My Hero Academia',
+            kindLabel: 'Manga',
+            ratingLabel: '8.7',
+            thumbUrl: _posterThrones),
+        HomeSpotlightEntry(
+            title: 'Jujutsu Kaisen',
+            kindLabel: 'Manga',
+            ratingLabel: '9.1',
+            thumbUrl: _posterArcane),
+        HomeSpotlightEntry(
+            title: 'One Piece',
+            kindLabel: 'Manga',
+            ratingLabel: '9.2',
+            thumbUrl: _posterOppenheimer),
+        HomeSpotlightEntry(
+            title: 'Chainsaw Man',
+            kindLabel: 'Manga',
+            ratingLabel: '8.8',
+            thumbUrl: _posterInterstellar),
+        HomeSpotlightEntry(
+            title: 'Attack on Titan',
+            kindLabel: 'Manga',
+            ratingLabel: '9.0',
+            thumbUrl: _backdropArcane),
+        HomeSpotlightEntry(
+            title: 'Reincarnation of a…',
+            kindLabel: 'Novel',
+            ratingLabel: '8.6',
+            thumbUrl: _backdropInterstellar),
+        HomeSpotlightEntry(
+            title: 'Classroom of the Elite',
+            kindLabel: 'Novel',
+            ratingLabel: '8.3',
+            thumbUrl: _backdropDune),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Univers par pays',
+    className: 'HomeLanguageGridCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Puces de pays / langue',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.public_rounded,
+    kind: _PreviewKind.hmCountries,
+    result: (_) => HomeLanguageGridCard(
+      onSeeAll: () {},
+      chips: const [
+        HomeCountryChip(label: 'États-Unis', code: 'US'),
+        HomeCountryChip(label: 'Royaume-Uni', code: 'UK'),
+        HomeCountryChip(label: 'France', code: 'FR'),
+        HomeCountryChip(label: 'Japon', code: 'JP'),
+        HomeCountryChip(label: 'Corée du Sud', code: 'KR'),
+        HomeCountryChip(label: 'Allemagne', code: 'DE'),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Ma liste',
+    className: 'HomeMyListCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Favoris en tuiles paysage',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.favorite_rounded,
+    kind: _PreviewKind.hmMyList,
+    result: (_) => HomeMyListCard(
+      onSeeAll: () {},
+      items: [
+        HomeMyListEntry(
+            title: 'The Last Heir', thumbUrl: _backdropArcane),
+        HomeMyListEntry(title: 'Dune', thumbUrl: _backdropDune),
+        HomeMyListEntry(
+            title: 'Solo Leveling', thumbUrl: _backdropInterstellar),
+        HomeMyListEntry(title: 'Wicked', thumbUrl: _backdropOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Recommandations IA',
+    className: 'HomeAIRecommenderCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Saisie de suggestion personnalisée',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.auto_awesome_outlined,
+    kind: _PreviewKind.hmAI,
+    result: (_) => HomeAIRecommenderCard(
+      onSend: (_) {},
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Mini-lecteur de reprise',
+    className: 'HomeMiniPlayerCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'Reprendre la lecture en bas d\'écran',
+    section: 'ACCUEIL & LECTURE',
+    icon: Icons.play_circle_outline,
+    kind: _PreviewKind.hmMiniPlayer,
+    result: (_) => HomeMiniPlayerCard(
+      onResume: () {},
+      title: 'The Last Heir',
+      episodeLabel: 'S1 · E3',
+      progressLabel: '32:45 / 48:12',
+      progress: .68,
+      thumbUrl: _backdropArcane,
     ),
   ),
   _ComponentSpec(
