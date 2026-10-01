@@ -1274,12 +1274,13 @@ class _ComponentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final compact = component.isCompactPreview;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compact ? 11 : 16),
       decoration: BoxDecoration(
         color: const Color(0xFF12171E),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(compact ? 14 : 18),
         border: Border.all(color: Colors.white.withValues(alpha: .09)),
         boxShadow: [
           BoxShadow(
@@ -1388,9 +1389,9 @@ class _ComponentTile extends StatelessWidget {
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Divider(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: compact ? 9 : 14),
+            child: const Divider(
               color: Colors.white12,
               height: 1,
               thickness: 1,

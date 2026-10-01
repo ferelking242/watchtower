@@ -287,18 +287,6 @@ class _WatchExtensionHomeScreenState
     }
   }
 
-  Widget _editorLoadingShell(Widget page) {
-    if (!widget.layoutEditorMode) return page;
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
-      appBar: AppBar(
-        leading: BackButton(onPressed: () => Navigator.of(context).maybePop()),
-        title: Text('Édition du layout · ${source.name ?? ''}'),
-      ),
-      body: page,
-    );
-  }
-
   void _updateCompactHeader() {
     if (!_feedController.hasClients) return;
     final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
@@ -446,20 +434,16 @@ class _WatchExtensionHomeScreenState
     if (!_layoutReady && source.providesHome) {
       final layoutError = _layoutError;
       if (layoutError != null) {
-        return _editorLoadingShell(
-          _ExtensionError(
-            source: source,
-            error: layoutError,
-            onRetry: _retryLayout,
-          ),
+        return _ExtensionError(
+          source: source,
+          error: layoutError,
+          onRetry: _retryLayout,
         );
       }
-      return _editorLoadingShell(
-        _ExtensionHomeLoading(
-          source: source,
-          onSearch: () => setState(() => _isSearching = true),
-          onRefresh: _refresh,
-        ),
+      return _ExtensionHomeLoading(
+        source: source,
+        onSearch: () => setState(() => _isSearching = true),
+        onRefresh: _refresh,
       );
     }
 
@@ -520,7 +504,6 @@ class _WatchExtensionHomeScreenState
           }),
       onToggleEditorDock: () =>
           setState(() => _editorDockExpanded = !_editorDockExpanded),
-      onExitEditor: () => Navigator.of(context).maybePop(),
       onMoveSection: _moveEditorSection,
       onDeleteSection: _deleteEditorSection,
       onReplaceSection: _startSectionReplacement,
@@ -551,7 +534,6 @@ class _ExtensionFeed extends StatelessWidget {
   final bool editorDockExpanded;
   final ValueChanged<_LayoutEditorDestination> onEditorDestinationChanged;
   final VoidCallback onToggleEditorDock;
-  final VoidCallback onExitEditor;
   final void Function(int index, int offset) onMoveSection;
   final ValueChanged<int> onDeleteSection;
   final ValueChanged<String> onReplaceSection;
@@ -576,7 +558,6 @@ class _ExtensionFeed extends StatelessWidget {
     required this.editorDockExpanded,
     required this.onEditorDestinationChanged,
     required this.onToggleEditorDock,
-    required this.onExitEditor,
     required this.onMoveSection,
     required this.onDeleteSection,
     required this.onReplaceSection,
@@ -879,12 +860,8 @@ class _ExtensionFeed extends StatelessWidget {
     );
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
-      appBar: layoutEditorMode && editorDestination == _LayoutEditorDestination.home
-          ? AppBar(
-              leading: BackButton(onPressed: onExitEditor),
-              title: Text('Édition du layout · ${source.name ?? ''}'),
-            )
-          : null,
+      // L'édition se fait sur la page réelle : aucun chrome supplémentaire,
+      // la seule surcouche est le dock flottant en bas à droite.
       body: layoutEditorMode ? selectedPage : homeFeed,
       floatingActionButton: layoutEditorMode
           ? _LayoutEditorDock(
@@ -957,9 +934,12 @@ class _LayoutEditorDock extends StatelessWidget {
           const SizedBox(height: 8),
           FloatingActionButton.small(
             heroTag: 'layout-editor-dock-toggle',
-            tooltip: expanded ? 'Fermer le dock' : 'Ouvrir le dock d’édition',
+            tooltip: expanded
+                ? 'Fermer le dock d\'édition'
+                : 'Ouvrir le dock d\'édition',
             onPressed: onToggle,
-            child: Icon(expanded ? Icons.close_rounded : Icons.edit_rounded),
+            // Bouton flottant « < » qui déplie le dock de navigation.
+            child: Icon(expanded ? Icons.close_rounded : Icons.expand_more_rounded),
           ),
         ],
       ),
