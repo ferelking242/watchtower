@@ -1,15 +1,11 @@
 
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/utils/mock_isar.dart';
-
-const _kPrefKey = 'remote_server_url';
 
 /// Called once at web startup.
 /// Connects to the stored remote server (if any) and seeds MockIsar
@@ -17,23 +13,23 @@ const _kPrefKey = 'remote_server_url';
 Future<void> syncRemoteDataToMockIsar(MockIsar mockIsar) async {
   if (!kIsWeb) return;
   try {
-    final prefs = await SharedPreferences.getInstance();
-    final baseUrl = prefs.getString(_kPrefKey);
-    if (baseUrl == null || baseUrl.isEmpty) return;
+    await RemoteClient.instance.init();
+    if (!RemoteClient.instance.isConfigured) return;
+    final baseUrl = RemoteClient.instance.baseUrl!;
 
     // Verify server is reachable
-    final pingRes = await http
-        .get(Uri.parse('$baseUrl/api/ping'))
-        .timeout(const Duration(seconds: 5));
-    if (pingRes.statusCode != 200) return;
-    final pingData = jsonDecode(pingRes.body) as Map<String, dynamic>;
+    final pingData = await RemoteClient.instance.get(
+      '/api/ping',
+      timeout: const Duration(seconds: 5),
+    );
     if (pingData['ok'] != true) return;
 
     // ── Sources ──────────────────────────────────────────────────────────────
-    final srcRes = await http.get(Uri.parse('$baseUrl/api/sources'))
-        .timeout(const Duration(seconds: 8));
-    if (srcRes.statusCode == 200) {
-      final srcData = jsonDecode(srcRes.body) as Map<String, dynamic>;
+    final srcData = await RemoteClient.instance.get(
+      '/api/sources',
+      timeout: const Duration(seconds: 8),
+    );
+    {
       final rawSources = (srcData['sources'] as List?) ?? [];
       for (final raw in rawSources) {
         final m = raw as Map<String, dynamic>;
@@ -65,10 +61,11 @@ Future<void> syncRemoteDataToMockIsar(MockIsar mockIsar) async {
     }
 
     // ── Library (favorited mangas) ────────────────────────────────────────────
-    final libRes = await http.get(Uri.parse('$baseUrl/api/library'))
-        .timeout(const Duration(seconds: 8));
-    if (libRes.statusCode == 200) {
-      final libData = jsonDecode(libRes.body) as Map<String, dynamic>;
+    final libData = await RemoteClient.instance.get(
+      '/api/library',
+      timeout: const Duration(seconds: 8),
+    );
+    {
       final rawMangas = (libData['library'] as List?) ?? [];
       for (final raw in rawMangas) {
         final m = raw as Map<String, dynamic>;
@@ -106,10 +103,11 @@ Future<void> syncRemoteDataToMockIsar(MockIsar mockIsar) async {
     }
 
     // ── History (recently read chapters) ─────────────────────────────────────
-    final histRes = await http.get(Uri.parse('$baseUrl/api/history'))
-        .timeout(const Duration(seconds: 8));
-    if (histRes.statusCode == 200) {
-      final histData = jsonDecode(histRes.body) as Map<String, dynamic>;
+    final histData = await RemoteClient.instance.get(
+      '/api/history',
+      timeout: const Duration(seconds: 8),
+    );
+    {
       final rawChapters = (histData['history'] as List?) ?? [];
       for (final raw in rawChapters) {
         final c = raw as Map<String, dynamic>;
@@ -140,13 +138,6 @@ Future<void> syncRemoteDataToMockIsar(MockIsar mockIsar) async {
 // Live fetch helpers — all route through /api/sources/:id/* (server routes)
 // ─────────────────────────────────────────────────────────────────────────────
 
-Future<String?> _remoteBaseUrl() async {
-  final prefs = await SharedPreferences.getInstance();
-  final url = prefs.getString(_kPrefKey);
-  if (url == null || url.isEmpty) return null;
-  return url;
-}
-
 MManga _mapToMManga(Map<String, dynamic> m) => MManga(
   name: m['name'] as String?,
   imageUrl: m['imageUrl'] as String?,
@@ -161,11 +152,12 @@ MManga _mapToMManga(Map<String, dynamic> m) => MManga(
 Future<List<Map<String, dynamic>>?> fetchRemotePopular(
     String baseUrl, int sourceId, int page) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/popular')
-        .replace(queryParameters: {'page': '$page'});
-    final res = await http.get(uri).timeout(const Duration(seconds: 12));
-    if (res.statusCode != 200) return null;
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = await RemoteClient.instance.getAt(
+      baseUrl,
+      '/api/sources/$sourceId/popular',
+      params: {'page': '$page'},
+      timeout: const Duration(seconds: 12),
+    );
     return (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
   } catch (_) { return null; }
 }
@@ -174,11 +166,12 @@ Future<List<Map<String, dynamic>>?> fetchRemotePopular(
 Future<List<Map<String, dynamic>>?> fetchRemoteLatest(
     String baseUrl, int sourceId, int page) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/latest')
-        .replace(queryParameters: {'page': '$page'});
-    final res = await http.get(uri).timeout(const Duration(seconds: 12));
-    if (res.statusCode != 200) return null;
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = await RemoteClient.instance.getAt(
+      baseUrl,
+      '/api/sources/$sourceId/latest',
+      params: {'page': '$page'},
+      timeout: const Duration(seconds: 12),
+    );
     return (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
   } catch (_) { return null; }
 }
@@ -187,11 +180,12 @@ Future<List<Map<String, dynamic>>?> fetchRemoteLatest(
 Future<List<Map<String, dynamic>>?> fetchRemoteSearch(
     String baseUrl, int sourceId, String query, int page) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/search')
-        .replace(queryParameters: {'q': query, 'page': '$page'});
-    final res = await http.get(uri).timeout(const Duration(seconds: 12));
-    if (res.statusCode != 200) return null;
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = await RemoteClient.instance.getAt(
+      baseUrl,
+      '/api/sources/$sourceId/search',
+      params: {'q': query, 'page': '$page'},
+      timeout: const Duration(seconds: 12),
+    );
     return (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
   } catch (_) { return null; }
 }
@@ -200,11 +194,12 @@ Future<List<Map<String, dynamic>>?> fetchRemoteSearch(
 Future<Map<String, dynamic>?> fetchRemoteDetail(
     String baseUrl, int sourceId, String itemUrl) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/detail')
-        .replace(queryParameters: {'url': itemUrl});
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
-    if (res.statusCode != 200) return null;
-    return jsonDecode(res.body) as Map<String, dynamic>;
+    return await RemoteClient.instance.getAt(
+      baseUrl,
+      '/api/sources/$sourceId/detail',
+      params: {'url': itemUrl},
+      timeout: const Duration(seconds: 15),
+    );
   } catch (_) { return null; }
 }
 
@@ -212,11 +207,12 @@ Future<Map<String, dynamic>?> fetchRemoteDetail(
 Future<List<Map<String, dynamic>>?> fetchRemoteVideos(
     String baseUrl, int sourceId, String episodeUrl) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/videos')
-        .replace(queryParameters: {'url': episodeUrl});
-    final res = await http.get(uri).timeout(const Duration(seconds: 20));
-    if (res.statusCode != 200) return null;
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = await RemoteClient.instance.getAt(
+      baseUrl,
+      '/api/sources/$sourceId/videos',
+      params: {'url': episodeUrl},
+      timeout: const Duration(seconds: 20),
+    );
     return (data['videos'] as List?)?.cast<Map<String, dynamic>>();
   } catch (_) { return null; }
 }
@@ -225,17 +221,23 @@ Future<List<Map<String, dynamic>>?> fetchRemoteVideos(
 Future<List<Map<String, dynamic>>?> fetchRemotePages(
     String baseUrl, int sourceId, String chapterUrl) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/sources/$sourceId/pages')
-        .replace(queryParameters: {'url': chapterUrl});
-    final res = await http.get(uri).timeout(const Duration(seconds: 20));
-    if (res.statusCode != 200) return null;
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = await RemoteClient.instance.getAt(
+      baseUrl,
+      '/api/sources/$sourceId/pages',
+      params: {'url': chapterUrl},
+      timeout: const Duration(seconds: 20),
+    );
     return (data['pages'] as List?)?.cast<Map<String, dynamic>>();
   } catch (_) { return null; }
 }
 
 /// Proxy URL builder — routes images through the server to bypass CORS.
 String remoteProxyUrl(String baseUrl, String imageUrl, {String? referer}) {
-  final params = {'url': imageUrl, if (referer != null) 'referer': referer};
+  final params = {
+    'url': imageUrl,
+    if (referer != null) 'referer': referer,
+    if (RemoteClient.instance.apiKey?.isNotEmpty ?? false)
+      'key': RemoteClient.instance.apiKey!,
+  };
   return Uri.parse('$baseUrl/api/proxy').replace(queryParameters: params).toString();
 }

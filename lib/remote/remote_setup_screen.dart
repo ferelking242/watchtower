@@ -1,19 +1,17 @@
 import 'package:flutter/foundation.dart';
   import 'package:flutter/material.dart';
   import 'package:flutter/services.dart';
-  import 'package:shared_preferences/shared_preferences.dart';
   import 'package:http/http.dart' as http;
   import 'dart:async';
   import 'dart:convert';
   import 'package:watchtower/main.dart' show isar;
+  import 'package:watchtower/remote/remote_client.dart';
   import 'package:watchtower/utils/mock_isar.dart' show MockIsar;
   import 'package:watchtower/remote/remote_web_sync.dart'
       if (dart.library.io) 'package:watchtower/remote/remote_web_sync_stub.dart';
 
-  const _kPrefKey = 'remote_server_url';
-
   /// Shown on the web version when no server is configured.
-  /// Auto-saves URL so future visits reconnect automatically.
+  /// Saves the URL and API key so future visits reconnect automatically.
   class RemoteSetupScreen extends StatefulWidget {
     final VoidCallback? onConnected;
     const RemoteSetupScreen({super.key, this.onConnected});
@@ -24,7 +22,9 @@ import 'package:flutter/foundation.dart';
 
   class _RemoteSetupScreenState extends State<RemoteSetupScreen> {
     final _ctrl = TextEditingController();
+    final _apiKeyCtrl = TextEditingController();
     bool _testing = false;
+    bool _obscureApiKey = true;
     String? _error;
 
     @override
@@ -34,21 +34,30 @@ import 'package:flutter/foundation.dart';
     }
 
     Future<void> _loadSaved() async {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(_kPrefKey);
-      if (saved != null && mounted) setState(() => _ctrl.text = saved);
+      await RemoteClient.instance.init();
+      if (!mounted) return;
+      setState(() {
+        _ctrl.text = RemoteClient.instance.baseUrl ?? '';
+        _apiKeyCtrl.text = RemoteClient.instance.apiKey ?? '';
+      });
     }
 
     @override
     void dispose() {
       _ctrl.dispose();
+      _apiKeyCtrl.dispose();
       super.dispose();
     }
 
     Future<void> _connect() async {
       final url = _ctrl.text.trim().replaceAll(RegExp(r'/+$'), '');
+      final apiKey = _apiKeyCtrl.text.trim();
       if (url.isEmpty) {
         setState(() => _error = 'Entrez une URL de serveur.');
+        return;
+      }
+      if (apiKey.isEmpty) {
+        setState(() => _error = 'Entrez la clé API affichée dans le Mode Distant.');
         return;
       }
 
@@ -83,8 +92,24 @@ import 'package:flutter/foundation.dart';
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body) as Map<String, dynamic>;
           if (data['ok'] == true) {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString(_kPrefKey, url);
+            final protectedRes = await http
+                .get(
+                  Uri.parse('$url/api/sources'),
+                  headers: {'Authorization': 'Bearer $apiKey'},
+                )
+                .timeout(const Duration(seconds: 10));
+            if (protectedRes.statusCode != 200) {
+              if (!mounted) return;
+              setState(() {
+                _error = protectedRes.statusCode == 401
+                    ? 'Clé API incorrecte. Copiez la clé affichée dans le Mode Distant.'
+                    : 'Le serveur répond, mais son API est inaccessible '
+                        '(HTTP ${protectedRes.statusCode}).';
+                _testing = false;
+              });
+              return;
+            }
+            await RemoteClient.instance.setConnection(url, apiKey);
             // Immediately seed MockIsar from the server so the library
             // is populated without waiting for the next app restart.
             if (kIsWeb) {
@@ -142,8 +167,8 @@ import 'package:flutter/foundation.dart';
                   const Text(
                     '1. Ouvrez Watchtower sur votre téléphone ou PC\n'
                     '2. Allez dans Paramètres → Mode Distant\n'
-                    '3. Activez le serveur et copiez le lien public\n'
-                    '4. Collez-le ici — la prochaine visite sera automatique',
+                   '3. Activez le serveur, puis copiez le lien public et la clé API\n'
+                   '4. Collez-les ici — la prochaine visite sera automatique',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
@@ -162,6 +187,26 @@ import 'package:flutter/foundation.dart';
                             setState(() => _ctrl.text = data!.text!.trim());
                           }
                         },
+                      ),
+                    ),
+                    onSubmitted: (_) => _connect(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _apiKeyCtrl,
+                    obscureText: _obscureApiKey,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    decoration: InputDecoration(
+                      labelText: 'Clé API du serveur',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        tooltip: _obscureApiKey ? 'Afficher la clé' : 'Masquer la clé',
+                        icon: Icon(
+                          _obscureApiKey ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscureApiKey = !_obscureApiKey),
                       ),
                     ),
                     onSubmitted: (_) => _connect(),

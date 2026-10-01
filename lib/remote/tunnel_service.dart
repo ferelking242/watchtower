@@ -124,30 +124,48 @@ import 'dart:async';
         final fullPath = query.isNotEmpty ? '$path?$query' : path;
         final uri = Uri.parse('http://127.0.0.1:$_localPort$fullPath');
 
-        _tlog('Forward $method $fullPath');
+        // API keys may be present in query parameters for browser image requests.
+        // Never include query strings in tunnel logs.
+        _tlog('Forward $method $path');
 
         try {
-          final reqHeaders = <String, String>{
-            'Content-Type': 'application/json',
-          };
+          final reqHeaders = <String, String>{};
+          final incomingHeaders = msg['headers'];
+          if (incomingHeaders is Map) {
+            for (final entry in incomingHeaders.entries) {
+              final name = entry.key.toString().toLowerCase();
+              final value = entry.value?.toString();
+              if (value != null &&
+                  (name == 'authorization' || name == 'content-type')) {
+                reqHeaders[name] = value;
+              }
+            }
+          }
+          final authorization = msg['authorization'];
+          if (authorization is String && authorization.isNotEmpty) {
+            reqHeaders['authorization'] = authorization;
+          }
+          if (bodyStr != null && !reqHeaders.containsKey('content-type')) {
+            reqHeaders['content-type'] = 'application/json';
+          }
 
-          http.Response response;
-          switch (method) {
-            case 'POST':
-              response = await http
-                  .post(uri, headers: reqHeaders, body: bodyStr ?? '')
-                  .timeout(_requestTimeout);
-            case 'PUT':
-              response = await http
-                  .put(uri, headers: reqHeaders, body: bodyStr ?? '')
-                  .timeout(_requestTimeout);
-            case 'DELETE':
-              response = await http
-                  .delete(uri, headers: reqHeaders)
-                  .timeout(_requestTimeout);
-            default:
-              response =
-                  await http.get(uri, headers: reqHeaders).timeout(_requestTimeout);
+          final client = http.Client();
+          late final http.Response response;
+          try {
+            final request = http.Request(method, uri)
+              ..headers.addAll(reqHeaders);
+            if (bodyStr != null &&
+                method != 'GET' &&
+                method != 'HEAD' &&
+                method != 'OPTIONS') {
+              request.body = bodyStr;
+            }
+            final streamedResponse =
+                await client.send(request).timeout(_requestTimeout);
+            response = await http.Response.fromStream(streamedResponse)
+                .timeout(_requestTimeout);
+          } finally {
+            client.close();
           }
 
           final ct = response.headers['content-type'] ?? 'application/json';

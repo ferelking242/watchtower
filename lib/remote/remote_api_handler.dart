@@ -9,6 +9,7 @@ import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
@@ -136,6 +137,20 @@ class RemoteApiHandler {
     } catch (e) { return _error(e.toString()); }
   }
 
+  Future<Response> getDetailByUrl(Request req, String sourceId) async {
+    try {
+      final url = req.url.queryParameters['url'];
+      if (url == null || url.isEmpty) return _error('Missing url param', status: 400);
+      final source = _findSource(sourceId);
+      if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
+      final detail = await ref.read(getDetailProvider(url: url, source: source).future);
+      final mapped = _mangaToMap(detail);
+      return _json({'manga': mapped, 'chapters': mapped['chapters'] ?? []});
+    } catch (e) { return _error(e.toString()); }
+  }
+
   /// Video/episode links for "watch" sources (anime, movies, series...).
   /// `url` is the episode/video page URL as returned by [getMangaDetail]'s
   /// chapters list — the same value the in-app player would use.
@@ -147,14 +162,35 @@ class RemoteApiHandler {
       if (source == null) return _error('Source not found', status: 404);
       final blocked = _nsfwBlocked(source);
       if (blocked != null) return blocked;
-      final decoded = Uri.decodeComponent(url);
       final videos = await getIsolateService.get<List<Video>>(
-        url: decoded,
+        url: url,
         source: source,
         serviceType: 'getVideoList',
         proxyServer: ref.read(androidProxyServerStateProvider),
       );
       return _json({'videos': videos.map(_videoToMap).toList()});
+    } catch (e) { return _error(e.toString()); }
+  }
+
+  Future<Response> getPages(Request req, String sourceId) async {
+    try {
+      final url = req.url.queryParameters['url'];
+      if (url == null || url.isEmpty) return _error('Missing url param', status: 400);
+      final source = _findSource(sourceId);
+      if (source == null) return _error('Source not found', status: 404);
+      final blocked = _nsfwBlocked(source);
+      if (blocked != null) return blocked;
+      final pages = await getIsolateService.get<List<PageUrl>>(
+        url: url,
+        source: source,
+        serviceType: 'getPageList',
+        proxyServer: ref.read(androidProxyServerStateProvider),
+      );
+      return _json({
+        'pages': pages
+            .map((page) => {'url': page.url, 'headers': page.headers})
+            .toList(),
+      });
     } catch (e) { return _error(e.toString()); }
   }
 

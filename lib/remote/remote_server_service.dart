@@ -213,6 +213,9 @@ import 'dart:async';
       // Every /api/* route (besides /api/ping) requires the API key shown
       // in the Mode Distant screen, passed as `?key=` or a Bearer token.
       Middleware requireApiKey() => (Handler inner) => (Request req) async {
+            // CORS preflight requests do not carry the Authorization value.
+            // Answer them before enforcing the API key.
+            if (req.method == 'OPTIONS') return optionsH(req);
             final path = req.url.path;
             if (!path.startsWith('api/') || path == 'api/ping') {
               return inner(req);
@@ -246,8 +249,12 @@ import 'dart:async';
           cors(await handler.search(req, sourceId)));
       router.get('/api/sources/<sourceId>/filters', (Request req, String sourceId) async =>
           cors(await handler.getFilters(req, sourceId)));
+      router.get('/api/sources/<sourceId>/detail', (Request req, String sourceId) async =>
+          cors(await handler.getDetailByUrl(req, sourceId)));
       router.get('/api/sources/<sourceId>/videos', (Request req, String sourceId) async =>
           cors(await handler.getVideos(req, sourceId)));
+      router.get('/api/sources/<sourceId>/pages', (Request req, String sourceId) async =>
+          cors(await handler.getPages(req, sourceId)));
       router.get('/api/source/<sourceId>/popular', (Request req, String sourceId) async =>
           cors(await handler.getPopular(req, sourceId)));
       router.get('/api/source/<sourceId>/latest', (Request req, String sourceId) async =>
