@@ -1914,12 +1914,19 @@ class _FloatingDock extends StatefulWidget {
   State<_FloatingDock> createState() => _FloatingDockState();
 }
 
+double _floatingDockScale(double screenWidth) {
+  if (screenWidth >= 1600) return 1.30;
+  if (screenWidth >= 1200) return 1.22;
+  if (screenWidth >= 700) return 1.16;
+  return 1.0;
+}
+
 class _FloatingDockState extends State<_FloatingDock> {
   final ScrollController _scrollController = ScrollController();
   bool _menuOpen = false;
 
-  static const double _itemWidth = 52.0; // compact dock items
-  static const double _dockHeight = 56.0; // reduced height — more native feel
+  static const double _baseItemWidth = 52.0;
+  static const double _baseDockHeight = 56.0;
   static const double _dockBottomPad = 10.0;
   static const double _pillHPad = 6.0;
   static const int _maxInlineItems = 5;
@@ -2232,9 +2239,9 @@ class _FloatingDockState extends State<_FloatingDock> {
     return items;
   }
 
-  void _onScrollEnd(ScrollMetrics metrics) {
-    final index = (metrics.pixels / _itemWidth).round();
-    final snapOffset = (index * _itemWidth).clamp(
+  void _onScrollEnd(ScrollMetrics metrics, double itemWidth) {
+    final index = (metrics.pixels / itemWidth).round();
+    final snapOffset = (index * itemWidth).clamp(
       metrics.minScrollExtent,
       metrics.maxScrollExtent,
     );
@@ -2260,11 +2267,16 @@ class _FloatingDockState extends State<_FloatingDock> {
         ? 100
         : 220;
 
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final dockScale = _floatingDockScale(screenWidth);
+    final itemWidth = _baseItemWidth * dockScale;
+    final dockHeight =
+        _baseDockHeight * dockScale + (dockScale > 1.0 ? 6.0 : 0.0);
     final visible = _isVisible();
     final items = visible ? _buildItems(context) : <_DockItemData>[];
     final bottomPad = MediaQuery.of(context).padding.bottom;
     final totalHeight = visible
-        ? _dockHeight + _dockBottomPad + bottomPad
+        ? dockHeight + _dockBottomPad + bottomPad
         : 0.0;
 
     final isGlass = widget.ref.read(navDockStyleProvider) == 'immersive';
@@ -2278,8 +2290,6 @@ class _FloatingDockState extends State<_FloatingDock> {
             items.first.route == '_disableMarketplaceSwitch' ||
             items.first.route == '_nfileBack');
 
-    final screenWidth = MediaQuery.of(context).size.width;
-
     if (inSubDock) {
       // ONE unified pill: [‹ | content items... | menu]
       // Back is a compact 28px chevron — de-emphasised, not a full slot.
@@ -2288,7 +2298,7 @@ class _FloatingDockState extends State<_FloatingDock> {
       final contentItems = items.sublist(1, items.length - 1);
       // back(32) + sep(9) + content + sep(9) + menu(itemWidth) + pill pads(4+6)
       final rawW =
-          32.0 + 9 + contentItems.length * _itemWidth + 9 + _itemWidth + 10.0;
+          32.0 + 9 + contentItems.length * itemWidth + 9 + itemWidth + 10.0;
       // Guard against narrow/transient layouts where screenWidth - 32 < 80,
       // which would make clamp's upper bound smaller than its lower bound
       // and throw "Invalid argument(s): 80.0".
@@ -2309,12 +2319,12 @@ class _FloatingDockState extends State<_FloatingDock> {
                 ),
                 child: SizedBox(
                   width: pillWidth,
-                  height: _dockHeight,
+                  height: dockHeight,
                   child: _UnifiedSubDockPill(
                     backItem: backItem,
                     contentItems: contentItems,
                     menuItem: menuItem,
-                    itemWidth: _itemWidth,
+                    itemWidth: itemWidth,
                     scrollController: _scrollController,
                     isActive: _isActive,
                     ref: widget.ref,
@@ -2323,7 +2333,8 @@ class _FloatingDockState extends State<_FloatingDock> {
                       HapticFeedback.lightImpact();
                       widget.onDestinationSelected(route);
                     },
-                    onScrollEnd: _onScrollEnd,
+                    onScrollEnd: (metrics) =>
+                        _onScrollEnd(metrics, itemWidth),
                   ),
                 ),
               )
@@ -2333,7 +2344,7 @@ class _FloatingDockState extends State<_FloatingDock> {
 
     // Normal mode — single pill
     final needsScroll = items.length > 5;
-    final rawWidth = items.length * _itemWidth + _pillHPad * 2;
+    final rawWidth = items.length * itemWidth + _pillHPad * 2;
     // Same guard as above: keep the upper bound >= 80 so clamp never throws
     // on narrow/transient screen widths.
     final maxPillWidth = math.max(80.0, screenWidth - 32.0);
@@ -2353,10 +2364,10 @@ class _FloatingDockState extends State<_FloatingDock> {
               ),
               child: SizedBox(
                 width: pillWidth,
-                height: _dockHeight,
+                height: dockHeight,
                 child: _DockPill(
                   items: items,
-                  itemWidth: _itemWidth,
+                  itemWidth: itemWidth,
                   scrollController: _scrollController,
                   isActive: _isActive,
                   ref: widget.ref,
@@ -2366,7 +2377,7 @@ class _FloatingDockState extends State<_FloatingDock> {
                     HapticFeedback.lightImpact();
                     widget.onDestinationSelected(route);
                   },
-                  onScrollEnd: _onScrollEnd,
+                  onScrollEnd: (metrics) => _onScrollEnd(metrics, itemWidth),
                 ),
               ),
             )
@@ -2819,7 +2830,10 @@ class _DockItemWidget extends StatelessWidget {
     final iconColor = active ? accent : inactiveColor;
     final labelColor = active ? accent : inactiveColor;
     final showLabels = ref.watch(navShowLabelsProvider);
-    final iconSize = ref.watch(navIconSizeProvider);
+    final dockScale = _floatingDockScale(MediaQuery.sizeOf(context).width);
+    final iconSize = (ref.watch(navIconSizeProvider) * dockScale)
+        .clamp(16.0, 36.0)
+        .toDouble();
 
     Widget iconWidget = Icon(
       active ? item.activeIcon : item.icon,
@@ -2885,14 +2899,14 @@ class _DockItemWidget extends StatelessWidget {
               child: iconWidget,
             ),
             if (showLabels) ...[
-              const SizedBox(height: 3),
+              SizedBox(height: 3 * dockScale),
               Text(
                 item.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 10.5 * dockScale,
                   height: 1.0,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   color: labelColor,
@@ -2903,9 +2917,9 @@ class _DockItemWidget extends StatelessWidget {
             // Active indicator dot — bottom of item
             AnimatedContainer(
               duration: Duration(milliseconds: itemAnimMs),
-              width: active ? 4 : 0,
-              height: active ? 4 : 0,
-              margin: EdgeInsets.only(top: active ? 3 : 0),
+              width: active ? 4 * dockScale : 0,
+              height: active ? 4 * dockScale : 0,
+              margin: EdgeInsets.only(top: active ? 3 * dockScale : 0),
               decoration: BoxDecoration(
                 color: active ? accent : Colors.transparent,
                 shape: BoxShape.circle,
