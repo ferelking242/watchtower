@@ -6882,7 +6882,7 @@ List<_ComponentSpec> _buildComponents() => [
             icon: Icons.menu_book_outlined),
         MangaRelationEntry(title: 'Attack on Titan', color: Color(0xFFE84118),
             icon: Icons.local_fire_department_rounded),
-        MangaRelationEntry(title: 'Hunter x Hunter',            color: Color(0xFF2ED573), icon: Icons.spa_outlined),
+        MangaRelationEntry(title: 'Hunter x Hunter',            color: Color(0xFF2ED573), icon: Icons.explore_outlined),
         MangaRelationEntry(title: 'Jujutsu Kaisen', color: Color(0xFF8E7CFF),
             icon: Icons.auto_awesome_outlined),
       ],
