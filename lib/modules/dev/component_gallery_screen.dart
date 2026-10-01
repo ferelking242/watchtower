@@ -763,13 +763,28 @@ class _ComponentTile extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () async {
-                await Clipboard.setData(ClipboardData(text: component.copyName));
+                var copied = false;
+                try {
+                  await Clipboard.setData(
+                    ClipboardData(text: component.copyName),
+                  );
+                  copied = true;
+                } catch (error) {
+                  // Browser clipboard access can be denied by permissions or
+                  // by the current browsing context. Keep this optional
+                  // gallery action from surfacing as an uncaught app error.
+                  debugPrint('[ComponentGallery] Clipboard copy failed: $error');
+                }
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
                   ..showSnackBar(
                     SnackBar(
-                      content: Text('${component.copyName} copié'),
+                      content: Text(
+                        copied
+                            ? '${component.copyName} copié'
+                            : 'Impossible de copier ce nom dans le presse-papiers.',
+                      ),
                       duration: const Duration(milliseconds: 1200),
                     ),
                   );

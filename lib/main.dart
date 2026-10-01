@@ -105,7 +105,12 @@ void main(List<String> args) async {
       // X11/Wayland display so the same binary works in CI and SSH sessions.
       final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
       final splashClock = Stopwatch()..start();
-      FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+      // flutter_native_splash only has a generated native/web splash bridge
+      // when its generator has run. This project ships a custom Flutter web
+      // shell, so preserve/remove are only valid on native platforms.
+      if (!kIsWeb) {
+        FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+      }
       // Detect real device RAM and apply adaptive image-cache limits.
       // Must run before any other init so the cache is sized correctly from
       // the very first image load. Safe to await — it is a single fast
@@ -300,17 +305,19 @@ void main(List<String> args) async {
           ),
         ),
       );
-      // Keep one branded native splash for a short, stable hand-off. Android 12+
-      // owns the system splash; flutter_native_splash keeps the same visual
-      // screen until Flutter has rendered its first frame.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final remaining =
-            const Duration(milliseconds: 600) - splashClock.elapsed;
-        Future<void>.delayed(
-          remaining.isNegative ? Duration.zero : remaining,
-          FlutterNativeSplash.remove,
-        );
-      });
+      if (!kIsWeb) {
+        // Keep one branded native splash for a short, stable hand-off. Android
+        // 12+ owns the system splash; flutter_native_splash keeps it until
+        // Flutter has rendered its first frame.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final remaining =
+              const Duration(milliseconds: 600) - splashClock.elapsed;
+          Future<void>.delayed(
+            remaining.isNegative ? Duration.zero : remaining,
+            FlutterNativeSplash.remove,
+          );
+        });
+      }
       unawaited(_postLaunchInit(storage));
     },
     (Object error, StackTrace stack) {
