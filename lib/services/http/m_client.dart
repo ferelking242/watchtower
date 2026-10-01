@@ -123,15 +123,27 @@ class MClient {
       return {};
     }
     if (cookiesList.isEmpty) return {};
-    final host = Uri.parse(url).host;
-    final cookies = cookiesList
-        .firstWhere(
-          (element) => element.host == host || host.contains(element.host!),
-          orElse: () => MCookie(cookie: ""),
-        )
-        .cookie!;
+    final host = Uri.tryParse(url)?.host;
+    if (host == null || host.isEmpty) return {};
+    final matching = cookiesList
+        .where((cookie) => _cookieAppliesToHost(cookie, host))
+        .toList()
+      ..sort(_compareCookieScopes);
+    final cookies = <String, String>{};
+    for (final entry in matching) {
+      for (final rawCookie in (entry.cookie ?? '').split(';')) {
+        final separator = rawCookie.indexOf('=');
+        if (separator <= 0) continue;
+        final name = rawCookie.substring(0, separator).trim();
+        if (name.isEmpty) continue;
+        cookies[name] = rawCookie.substring(separator + 1).trim();
+      }
+    }
     if (cookies.isEmpty) return {};
-    return {HttpHeaders.cookieHeader: cookies};
+    return {
+      HttpHeaders.cookieHeader:
+          cookies.entries.map((entry) => '${entry.key}=${entry.value}').join('; '),
+    };
   }
 
   /// Copies the persisted extension session into the native WebView cookie
@@ -139,31 +151,39 @@ class MClient {
   /// cookie stores on mobile, so persistence in Isar alone is not enough.
   static Future<void> restoreCookiesToWebView(String url) async {
     if (url.isEmpty || kIsWeb) return;
-    final cookieHeader = getCookiesPref(url)[HttpHeaders.cookieHeader];
-    if (cookieHeader == null || cookieHeader.trim().isEmpty) return;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.host.isEmpty) return;
+    final settings = await isar.settings.get(kSettingsId);
+    final matching = (settings?.cookiesList ?? [])
+        .where((cookie) => _cookieAppliesToHost(cookie, uri.host))
+        .toList()
+      ..sort(_compareCookieScopes);
+    if (matching.isEmpty) return;
     final manager = flutter_inappwebview.CookieManager.instance(
       webViewEnvironment: webViewEnvironment,
     );
-    for (final raw in cookieHeader.split(';')) {
-      final separator = raw.indexOf('=');
-      if (separator <= 0) continue;
-      final name = raw.substring(0, separator).trim();
-      final value = raw.substring(separator + 1).trim();
-      if (name.isEmpty) continue;
-      try {
-        await manager.setCookie(
-          url: flutter_inappwebview.WebUri(url),
-          name: name,
-          value: value,
-          domain: uri.host,
-          path: '/',
-          isSecure: uri.scheme == 'https',
-        );
-      } catch (_) {
-        // A malformed individual cookie must not prevent the WebView from
-        // opening with the remaining session state.
+    for (final entry in matching) {
+      final storedHost = entry.host?.trim() ?? '';
+      final domain = storedHost.startsWith('.') ? storedHost : uri.host;
+      for (final raw in (entry.cookie ?? '').split(';')) {
+        final separator = raw.indexOf('=');
+        if (separator <= 0) continue;
+        final name = raw.substring(0, separator).trim();
+        final value = raw.substring(separator + 1).trim();
+        if (name.isEmpty) continue;
+        try {
+          await manager.setCookie(
+            url: flutter_inappwebview.WebUri(url),
+            name: name,
+            value: value,
+            domain: domain,
+            path: '/',
+            isSecure: uri.scheme == 'https',
+          );
+        } catch (_) {
+          // A malformed individual cookie must not prevent the WebView from
+          // opening with the remaining session state.
+        }
       }
     }
   }
@@ -174,36 +194,57 @@ class MClient {
     flutter_inappwebview.InAppWebViewController? webViewController, {
     String? cookie,
   }) async {
-    List<String> cookies = [];
-    // if incoming cookie is not empty, use it first
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return;
+    final host = uri.host.toLowerCase();
+    final cookiesByScope = <String, List<String>>{};
+    var webViewSnapshotAvailable = false;
+
     if (cookie != null && cookie.isNotEmpty) {
-      cookies = cookie
+      cookiesByScope[host] = cookie
           .split(RegExp('(?<=)(,)(?=[^;]+?=)'))
           .where((cookie) => cookie.isNotEmpty)
           .toList();
     } else if (!Platform.isLinux) {
-      cookies =
-          (await flutter_inappwebview.CookieManager.instance(
+      try {
+        final webCookies = await flutter_inappwebview.CookieManager.instance(
                 webViewEnvironment: webViewEnvironment,
               ).getCookies(
                 url: flutter_inappwebview.WebUri(url),
                 webViewController: webViewController,
-              ))
-              .map((e) => "${e.name}=${e.value}")
-              .toList();
+              );
+        webViewSnapshotAvailable = true;
+        for (final webCookie in webCookies) {
+          final name = webCookie.name.trim();
+          if (name.isEmpty) continue;
+          final rawDomain = webCookie.domain?.trim() ?? '';
+          final cookieDomain = _normalizedCookieHost(rawDomain);
+          final domainScoped = rawDomain.startsWith('.') ||
+              (cookieDomain.isNotEmpty && cookieDomain != host);
+          final scope = domainScoped ? '.$cookieDomain' : host;
+          cookiesByScope.putIfAbsent(scope, () => []).add(
+                '$name=${webCookie.value}',
+              );
+        }
+      } catch (_) {
+        // Keep saved cookies if the native store cannot be read.
+      }
     }
-    if (cookies.isNotEmpty) {
-      final host = Uri.parse(url).host;
-      final newCookie = cookies.join("; ");
+
+    if (webViewSnapshotAvailable || cookiesByScope.isNotEmpty) {
       final settings = await isar.settings.get(kSettingsId);
       if (settings == null) return;
       final existingCookies = settings.cookiesList ?? [];
-      final filteredCookies = removeCookiesForHost(existingCookies, host);
-      filteredCookies.add(
-        MCookie()
-          ..host = host
-          ..cookie = newCookie,
-      );
+      final filteredCookies = webViewSnapshotAvailable
+          ? existingCookies
+              .where((entry) => !_cookieAppliesToHost(entry, host))
+              .toList()
+          : existingCookies.where((entry) => entry.host != host).toList();
+      for (final entry in cookiesByScope.entries) {
+        filteredCookies.add(
+          MCookie(host: entry.key, cookie: entry.value.join('; ')),
+        );
+      }
       await isar.writeTxn(
         () => isar.settings.put(settings..cookiesList = filteredCookies),
       );
@@ -225,9 +266,42 @@ class MClient {
     List<MCookie> allCookies,
     String host,
   ) {
+    final targetHost = _normalizedCookieHost(host);
     return allCookies
-        .where((cookie) => cookie.host != host && !host.contains(cookie.host!))
+        .where((cookie) {
+          final cookieHost = _normalizedCookieHost(cookie.host ?? '');
+          return cookieHost.isEmpty ||
+              (cookieHost != targetHost &&
+                  !cookieHost.endsWith('.$targetHost') &&
+                  !targetHost.endsWith('.$cookieHost'));
+        })
         .toList();
+  }
+
+  static String _normalizedCookieHost(String host) =>
+      host.trim().toLowerCase().replaceFirst(RegExp(r'^\.+'), '');
+
+  static int _compareCookieScopes(MCookie a, MCookie b) {
+    final hostComparison = _normalizedCookieHost(a.host ?? '')
+        .length
+        .compareTo(_normalizedCookieHost(b.host ?? '').length);
+    if (hostComparison != 0) return hostComparison;
+    final aIsDomainScope = a.host?.trim().startsWith('.') ?? false;
+    final bIsDomainScope = b.host?.trim().startsWith('.') ?? false;
+    if (aIsDomainScope == bIsDomainScope) return 0;
+    return aIsDomainScope ? -1 : 1;
+  }
+
+  static bool _cookieAppliesToHost(MCookie cookie, String requestHost) {
+    final storedHost = cookie.host?.trim().toLowerCase() ?? '';
+    if (storedHost.isEmpty) return false;
+    final cookieHost = _normalizedCookieHost(storedHost);
+    final host = _normalizedCookieHost(requestHost);
+    if (cookieHost.isEmpty) return false;
+    if (storedHost.startsWith('.')) {
+      return host == cookieHost || host.endsWith('.$cookieHost');
+    }
+    return host == cookieHost;
   }
 
   static Future<void> deleteAllCookies(String url) async {

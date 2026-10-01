@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
@@ -29,6 +30,14 @@ import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/fetch_sources_list.dart'
     show compareVersions;
 
+enum _SiteSessionStatus {
+  checking,
+  connected,
+  sessionSaved,
+  notConnected,
+  unavailable,
+}
+
 class ExtensionDetail extends ConsumerStatefulWidget {
   final Source source;
   const ExtensionDetail({super.key, required this.source});
@@ -42,6 +51,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   late List<SourcePreference>? sourcePreference = _loadPreferences();
   late final ScrollController _scrollController = ScrollController();
   bool _isCollapsed = false;
+  _SiteSessionStatus _siteSessionStatus = _SiteSessionStatus.checking;
 
   @override
   void initState() {
@@ -51,6 +61,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           _scrollController.offset > (270 - kToolbarHeight - 16);
       if (collapsed != _isCollapsed) setState(() => _isCollapsed = collapsed);
     });
+    unawaited(_refreshSiteSessionStatus());
   }
 
   @override
@@ -96,22 +107,153 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       botToast('URL du site invalide.');
       return;
     }
+    final isMangaDex = _isMangaDexHost(url.host);
+    final loginUrl = isMangaDex
+        ? Uri.https('mangadex.org', '/auth/login', {
+            'afterAuthentication': '/',
+          })
+        : url;
     await context.push('/mangawebview', extra: {
-      'url': url.toString(),
+      'url': loginUrl.toString(),
       'sourceId': source.id.toString(),
       'title': '${source.name ?? 'Extension'} — connexion',
     });
+    if (mounted) await _refreshSiteSessionStatus();
   }
 
-  Future<void> _signOutFromSite() async {
-    final url = source.baseUrl ?? '';
-    if (url.isEmpty) return;
-    try {
-      await MClient.deleteAllCookies(url);
-      if (mounted) botToast('Déconnexion du site effectuée.');
-    } catch (error) {
-      if (mounted) botToast('Impossible d’effacer la session : $error');
+  bool _isMangaDexHost(String host) {
+    final normalized = host.toLowerCase();
+    return normalized == 'mangadex.org' || normalized.endsWith('.mangadex.org');
+  }
+
+  Future<void> _refreshSiteSessionStatus() async {
+    if (!mounted) return;
+    if (_siteSessionStatus != _SiteSessionStatus.checking) {
+      setState(() => _siteSessionStatus = _SiteSessionStatus.checking);
     }
+    try {
+      final host = Uri.tryParse(source.baseUrl ?? '')?.host;
+      if (host == null || host.isEmpty) {
+        if (mounted) {
+          setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
+        }
+        return;
+      }
+
+      if (_isMangaDexHost(host)) {
+        final apiUrl = Uri.https('api.mangadex.org', '/auth/check');
+        final cookieHeaders = MClient.getCookiesPref(apiUrl.toString());
+        if (cookieHeaders.isEmpty) {
+          if (mounted) {
+            setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
+          }
+          return;
+        }
+        final response = await http
+            .get(apiUrl, headers: cookieHeaders)
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode == 401) {
+          if (mounted) {
+            setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
+          }
+          return;
+        }
+        if (response.statusCode != 200) {
+          throw StateError('HTTP ${response.statusCode}');
+        }
+        final result = jsonDecode(response.body);
+        if (result is! Map<String, dynamic>) {
+          throw const FormatException('Réponse de connexion invalide.');
+        }
+        if (mounted) {
+          setState(
+            () => _siteSessionStatus = result['isAuthenticated'] == true
+                ? _SiteSessionStatus.connected
+                : _SiteSessionStatus.notConnected,
+          );
+        }
+        return;
+      }
+
+      final cookies = MClient.getCookiesPref(source.baseUrl ?? '');
+      if (mounted) {
+        setState(
+          () => _siteSessionStatus = cookies.isNotEmpty
+              ? _SiteSessionStatus.sessionSaved
+              : _SiteSessionStatus.notConnected,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _siteSessionStatus = _SiteSessionStatus.unavailable);
+      }
+    }
+  }
+
+  Widget _buildSiteSessionStatus(ColorScheme colors) {
+    late final String label;
+    late final IconData? icon;
+    late final Color color;
+    switch (_siteSessionStatus) {
+      case _SiteSessionStatus.checking:
+        label = 'Vérification de la connexion…';
+        icon = null;
+        color = colors.onSurfaceVariant;
+        break;
+      case _SiteSessionStatus.connected:
+        label = 'Connecté à MangaDex';
+        icon = Icons.check_circle_rounded;
+        color = colors.primary;
+        break;
+      case _SiteSessionStatus.sessionSaved:
+        label = 'Session du site enregistrée';
+        icon = Icons.cookie_outlined;
+        color = colors.primary;
+        break;
+      case _SiteSessionStatus.notConnected:
+        label = 'Non connecté';
+        icon = Icons.info_outline_rounded;
+        color = colors.onSurfaceVariant;
+        break;
+      case _SiteSessionStatus.unavailable:
+        label = 'État de connexion indisponible';
+        icon = Icons.warning_amber_rounded;
+        color = colors.error;
+        break;
+    }
+    return Row(
+      children: [
+        if (_siteSessionStatus == _SiteSessionStatus.checking)
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: color,
+            ),
+          )
+        else
+          Icon(icon, size: 17, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Vérifier la connexion',
+          visualDensity: VisualDensity.compact,
+          onPressed: _siteSessionStatus == _SiteSessionStatus.checking
+              ? null
+              : _refreshSiteSessionStatus,
+          icon: const Icon(Icons.refresh_rounded, size: 19),
+        ),
+      ],
+    );
   }
 
   Future<void> _editBaseUrl() async {
@@ -716,9 +858,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   switch (value) {
                     case 'import_cookie':
                       await _importCookies();
+                      if (mounted) await _refreshSiteSessionStatus();
                     case 'clear_cookies':
                       if (baseUrl.isNotEmpty) {
                         await MClient.deleteAllCookies(baseUrl);
+                        if (mounted) await _refreshSiteSessionStatus();
                         botToast('Cookies supprimés !');
                       }
                     case 'view_cookies':
@@ -1033,6 +1177,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                             ),
                           ),
                           const SizedBox(height: 12),
+                          _buildSiteSessionStatus(cs),
+                          const SizedBox(height: 8),
                           Wrap(
                             spacing: 10,
                             runSpacing: 8,
@@ -1041,11 +1187,6 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                                 onPressed: _signInToSite,
                                 icon: const Icon(Icons.login_rounded, size: 18),
                                 label: const Text('Se connecter'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: _signOutFromSite,
-                                icon: const Icon(Icons.logout_rounded, size: 18),
-                                label: const Text('Se déconnecter'),
                               ),
                             ],
                           ),

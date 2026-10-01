@@ -1304,6 +1304,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   InAppWebViewController? _webViewController;
   late String _url = widget.url;
   late String _title = widget.title;
+  bool _cookieStoreReady = false;
   bool _canGoback = false;
   bool _canGoForward = false;
   double _progress = 0;
@@ -1344,7 +1345,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   @override
   void initState() {
     super.initState();
-    unawaited(MClient.restoreCookiesToWebView(widget.url));
     _currentFraction = widget.initialFraction;
     _animCtrl = AnimationController(
       vsync: this,
@@ -1372,11 +1372,27 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     super.didChangeDependencies();
     if (_initialized) return;
     _initialized = true;
-    if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
-      _runWebViewDesktop();
-    } else {
-      setState(() => isNotWebviewWindow = true);
+    unawaited(_initializeWebView());
+  }
+
+  Future<void> _initializeWebView() async {
+    try {
+      await MClient.restoreCookiesToWebView(widget.url);
+    } catch (_) {
+      // The page can still open if restoring an old cookie fails.
     }
+    if (!mounted) return;
+
+    final desktop = !kIsWeb && (Platform.isLinux || Platform.isWindows);
+    if (desktop) {
+      setState(() => _cookieStoreReady = true);
+      await _runWebViewDesktop();
+      return;
+    }
+    setState(() {
+      _cookieStoreReady = true;
+      isNotWebviewWindow = true;
+    });
   }
 
   @override
@@ -2316,6 +2332,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   @override
   Widget build(BuildContext context) {
+    if (!_cookieStoreReady) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     // Desktop: simple screen
     if (!isNotWebviewWindow && !kIsWeb && (Platform.isLinux || Platform.isWindows)) {
       return Scaffold(
@@ -2475,6 +2497,13 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                             },
                             onLoadStop: (c, url) async {
                               if (mounted) setState(() => _url = url.toString());
+                              if (url != null) {
+                                final ua = await c.evaluateJavascript(
+                                      source: 'navigator.userAgent',
+                                    ) ??
+                                    '';
+                                await MClient.setCookie(url.toString(), ua, c);
+                              }
                               await _injectJs();
                               try {
                                 await c.evaluateJavascript(source: _kVideoInterceptJs);
