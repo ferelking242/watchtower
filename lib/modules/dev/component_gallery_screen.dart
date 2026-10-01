@@ -19,6 +19,7 @@ import 'package:watchtower/modules/media/manga_chapter_cards.dart';
 import 'package:watchtower/modules/media/manga_genre_cards.dart';
 import 'package:watchtower/modules/media/manga_reader_cards.dart';
 import 'package:watchtower/modules/media/manga_universe_cards.dart';
+import 'package:watchtower/modules/media/landscape_cards.dart';
 import 'package:watchtower/modules/media/manga_stats_cards.dart';
 import 'package:watchtower/modules/media/manga_volume_cards.dart';
 import 'package:watchtower/modules/media/ranking_cards.dart';
@@ -232,6 +233,15 @@ enum _PreviewKind {
   stGrid,
   stRanking,
   stReports,
+
+  // ── Section 9 : Cards horizontales / paysage ──
+  lsShowcase,
+  lsFilms,
+  lsSeries,
+  lsManga,
+  lsNovels,
+  lsPlaylist,
+  lsGenres,
 }
 
 /// Ordre d'affichage des sections dans la galerie.
@@ -1516,6 +1526,15 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.stGrid => const _ShimmerLine(width: 430, height: 200),
       _PreviewKind.stRanking => const ListRowSkeleton(thumb: 30),
       _PreviewKind.stReports => const ListRowSkeleton(),
+
+      // ── Section 9 : Cards horizontales / paysage ──
+      _PreviewKind.lsShowcase => const LandscapeSkeleton(width: 190),
+      _PreviewKind.lsFilms => const LandscapeSkeleton(width: 190),
+      _PreviewKind.lsSeries => const LandscapeSkeleton(width: 190),
+      _PreviewKind.lsManga => const LandscapeSkeleton(width: 190),
+      _PreviewKind.lsNovels => const LandscapeSkeleton(width: 190),
+      _PreviewKind.lsPlaylist => const ListRowSkeleton(width: 250, thumb: 58),
+      _PreviewKind.lsGenres => const LandscapeSkeleton(width: 128),
     };
     return card;
   }
@@ -7163,6 +7182,186 @@ List<_ComponentSpec> _buildComponents() => [
       ],
     ),
   ),
+  // ═════════ Section 9 : Cards horizontales / paysage ═════════
+  _ComponentSpec(
+    title: 'Rail paysage générique',
+    className: 'LandscapeShowcaseSection',
+    path: 'lib/modules/media/landscape_cards.dart',
+    usage: 'Rail 16:9 paramétrable (titre + icône)',
+    section: 'FILMS & SÉRIES · SECTIONS',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.lsShowcase,
+    result: (_) => LandscapeShowcaseSection(
+      onSeeAll: () {},
+      title: 'Rail paysage',
+      subtitle: 'Format horizontal immersif.',
+      icon: Icons.view_carousel_outlined,
+      items: [
+        _lsEntry('Dune: Part Two', 'Action · Aventure', '2h 46m', '8.7',
+            _backdropDune),
+        _lsEntry('The Batman', 'Action · Policier', '2h 56m', '7.8',
+            _backdropInterstellar),
+        _lsEntry('Interstellar', 'Drame · Science-fiction', '2h 49m', '8.6',
+            _backdropOppenheimer),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Films — À l’affiche',
+    className: 'LandscapeFilmsSection',
+    path: 'lib/modules/media/landscape_cards.dart',
+    usage: 'Rail 16:9 des films du moment',
+    section: 'FILMS & SÉRIES · SECTIONS',
+    icon: Icons.live_tv_outlined,
+    kind: _PreviewKind.lsFilms,
+    result: (_) => LandscapeFilmsSection(
+      onSeeAll: () {},
+      items: [
+        _lsEntry('Dune: Part Two', 'Action · Aventure · Science-fiction',
+            '2h 46m', '8.7', _backdropDune),
+        _lsEntry('The Batman', 'Action · Policier · Thriller', '2h 56m', '7.8',
+            _backdropInterstellar),
+        _lsEntry('Interstellar', 'Drame · Science-fiction', '2h 49m', '8.6',
+            _backdropOppenheimer),
+        _lsEntry('John Wick 4', 'Action · Thriller', '2h 49m', '7.6',
+            _backdropArcane),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Séries — Populaires',
+    className: 'LandscapeSeriesSection',
+    path: 'lib/modules/media/landscape_cards.dart',
+    usage: 'Rail 16:9 des séries à la mode',
+    section: 'FILMS & SÉRIES · SECTIONS',
+    icon: Icons.live_tv_outlined,
+    kind: _PreviewKind.lsSeries,
+    result: (_) => LandscapeSeriesSection(
+      onSeeAll: () {},
+      items: [
+        _lsEntry('The Last of Us', 'Drame · Action · Thriller',
+            'S2 · 9 épisodes', '9.2', _backdropDune),
+        _lsEntry('Stranger Things', 'Mystère · Science-fiction · Thriller',
+            'S4 · 9 épisodes', '8.7', _backdropInterstellar),
+        _lsEntry('Wednesday', 'Comédie · Fantastique · Mystère',
+            'S1 · 8 épisodes', '8.1', _backdropOppenheimer),
+        _lsEntry('Supernatural', 'Fantastique · Drame · Action',
+            'S15 · 20 épisodes', '8.4', _backdropArcane),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Mangas — Coup de cœur',
+    className: 'LandscapeMangaSection',
+    path: 'lib/modules/media/landscape_cards.dart',
+    usage: 'Rail 16:9 des mangas appréciés',
+    section: 'FILMS & SÉRIES · SECTIONS',
+    icon: Icons.menu_book_outlined,
+    kind: _PreviewKind.lsManga,
+    result: (_) => LandscapeMangaSection(
+      onSeeAll: () {},
+      items: [
+        _lsEntry('Solo Leveling', 'Action · Fantasy · Aventure', 'Ch. 160+',
+            '9.4', _backdropDune),
+        _lsEntry('Jujutsu Kaisen', 'Action · Surnaturel · Combat', 'Ch. 270+',
+            '9.1', _backdropArcane),
+        _lsEntry('One Piece', 'Action · Aventure · Comédie', 'Ch. 1100+',
+            '9.2', _backdropOppenheimer),
+        _lsEntry('Chainsaw Man', 'Action · Surnaturel · Thriller', 'Ch. 167+',
+            '8.8', _backdropInterstellar),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Novels — Recommandés',
+    className: 'LandscapeNovelsSection',
+    path: 'lib/modules/media/landscape_cards.dart',
+    usage: 'Rail 16:9 des novels à lire',
+    section: 'FILMS & SÉRIES · SECTIONS',
+    icon: Icons.menu_book_outlined,
+    kind: _PreviewKind.lsNovels,
+    result: (_) => LandscapeNovelsSection(
+      onSeeAll: () {},
+      items: [
+        _lsEntry('The Beginning After The End', 'Fantastique · Aventure',
+            'Ch. 218+', '9.3', _backdropDune),
+        _lsEntry('Lord of the Mysteries', 'Mystère · Fantasy', 'Ch. 1430+',
+            '9.1', _backdropInterstellar),
+        _lsEntry('Omniscient Reader', 'Action · Fantasy', 'Ch. 551+', '9.2',
+            _backdropOppenheimer),
+        _lsEntry('Trash of the Count’s Family', 'Fantasy · Aventure',
+            'Ch. 600+', '8.9', _backdropArcane),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Musique — Playlists',
+    className: 'LandscapePlaylistCard',
+    path: 'lib/modules/media/landscape_cards.dart',
+    usage: 'Playlists pour accompagner le visionnage',
+    section: 'FILMS & SÉRIES · SECTIONS',
+    icon: Icons.music_note_rounded,
+    kind: _PreviewKind.lsPlaylist,
+    result: (_) => LandscapePlaylistCard(
+      onSeeAll: () {},
+      playlists: [
+        LandscapePlaylist(
+          title: 'Lo-fi Beats',
+          subtitle: 'Chill · Focus',
+          countLabel: '128 titres',
+          thumbUrl: _backdropArcane,
+          onPlay: () {},
+        ),
+        LandscapePlaylist(
+          title: 'Anime Vibes',
+          subtitle: 'Anime · OST',
+          countLabel: '98 titres',
+          thumbUrl: _backdropInterstellar,
+          onPlay: () {},
+        ),
+        LandscapePlaylist(
+          title: 'Pop Hits',
+          subtitle: 'Pop · R&B',
+          countLabel: '256 titres',
+          thumbUrl: _backdropOppenheimer,
+          onPlay: () {},
+        ),
+        LandscapePlaylist(
+          title: 'Rap & Hip-Hop',
+          subtitle: 'Rap · Hip-Hop',
+          countLabel: '243 titres',
+          thumbUrl: _backdropDune,
+          onPlay: () {},
+        ),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Découvertes par genre',
+    className: 'LandscapeGenreRow',
+    path: 'lib/modules/media/landscape_cards.dart',
+    usage: 'Tuiles genre 16:9 compactes',
+    section: 'FILMS & SÉRIES · SECTIONS',
+    icon: Icons.explore_outlined,
+    kind: _PreviewKind.lsGenres,
+    result: (_) => LandscapeGenreRow(
+      onSeeAll: () {},
+      tiles: [
+        LandscapeGenreTile(title: 'Action', countLabel: '1 248 contenus',
+            thumbUrl: _backdropDune),
+        LandscapeGenreTile(title: 'Romance', countLabel: '982 contenus',
+            thumbUrl: _backdropArcane),
+        LandscapeGenreTile(title: 'Aventure', countLabel: '876 contenus',
+            thumbUrl: _backdropInterstellar),
+        LandscapeGenreTile(title: 'Fantasy', countLabel: '1 532 contenus',
+            thumbUrl: _backdropOppenheimer),
+        LandscapeGenreTile(title: 'Horreur', countLabel: '694 contenus',
+            thumbUrl: _backdropDune),
+        LandscapeGenreTile(title: 'Comédie', countLabel: '1 203 contenus',
+            thumbUrl: _backdropArcane),
+      ],
+    ),
+  ),
   _ComponentSpec(
     title: 'Poster contenu',
     className: 'PosterCard',
@@ -8128,6 +8327,22 @@ List<_ComponentSpec> _buildComponents() => [
   ),
 ];
 
+/// Démo : entrée de rail paysage (Section 9).
+LandscapeEntry _lsEntry(
+  String title,
+  String genres,
+  String meta,
+  String rating,
+  String thumb,
+) {
+  return LandscapeEntry(
+    title: title,
+    genres: genres,
+    meta: meta,
+    ratingLabel: rating,
+    thumbUrl: thumb,
+  );
+}
 
 /// Données d'aperçu partagées par les cartes streaming de la galerie.
 StreamingCardData _streamCardData(
