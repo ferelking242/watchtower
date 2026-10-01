@@ -17,6 +17,20 @@ class ShimmerEffect {
   });
 }
 
+/// Theme-aware shimmer tuning matching Watchtower's surfaces.
+///
+/// Keeps the pulse subtle (surface-toned base, barely-lighter highlight) so
+/// skeletons read as a quiet placeholder instead of a bright flashing box.
+ShimmerEffect shimmerEffectFor(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  final base = scheme.surfaceContainerHighest;
+  return ShimmerEffect(
+    baseColor: base,
+    highlightColor:
+        Color.lerp(base, scheme.onSurface, 0.07) ?? base.withValues(alpha: 0.9),
+  );
+}
+
 class ShimmerSkeleton extends StatelessWidget {
   final Widget child;
   final bool enabled;

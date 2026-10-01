@@ -7,9 +7,9 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/detail/manga_details_view.dart';
 import 'package:watchtower/modules/manga/detail/providers/update_manga_detail_providers.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
+import 'package:watchtower/modules/manga/detail/widgets/detail_skeletons.dart';
 import 'package:watchtower/modules/watch/detail/watch_detail_view.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
-import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 class MangaReaderDetail extends ConsumerStatefulWidget {
@@ -176,11 +176,7 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
                               top: 0,
                               left: 0,
                               right: 0,
-                              child: Padding(
-                                padding: EdgeInsets.only(top: 40),
-                                child: Center(
-                                    child: RefreshProgressIndicator()),
-                              ),
+                              child: LinearProgressIndicator(minHeight: 2),
                             ),
                         ],
                       ),
@@ -192,7 +188,7 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
           return ErrorText(error);
         },
         loading: () {
-          return const ProgressCenter();
+          return const MangaDetailSkeleton();
         },
       ),
     );
