@@ -22,6 +22,19 @@ class SourcePreferenceWidget extends StatefulWidget {
 class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
   final Map<String, TextEditingController> _textControllers = {};
 
+  TextStyle? get _settingTitleStyle =>
+      Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            height: 1.25,
+          );
+
+  TextStyle? get _settingSummaryStyle =>
+      Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontSize: 13,
+            height: 1.35,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          );
+
   TextEditingController _controllerFor(
     SourcePreference preference,
     int index,
@@ -66,15 +79,16 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
     required List<Widget> children,
   }) {
     return ExpansionTile(
-      tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-      childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      title: Text(title),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      childrenPadding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+      shape: const Border(),
+      collapsedShape: const Border(),
+      title: Text(title, style: _settingTitleStyle),
       subtitle: Text(
         subtitle,
-        style: TextStyle(
-          fontSize: 11,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: _settingSummaryStyle,
       ),
       children: children,
     );
@@ -102,6 +116,8 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
               labelText: pref.dialogTitle?.isNotEmpty == true
                   ? pref.dialogTitle
                   : pref.title,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               helperText: pref.dialogMessage?.isNotEmpty == true
                   ? pref.dialogMessage
                   : null,
@@ -129,13 +145,10 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
     if (preference.checkBoxPreference case final pref?) {
       return CheckboxListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        title: Text(pref.title ?? ''),
+        title: Text(pref.title ?? '', style: _settingTitleStyle),
         subtitle: Text(
           pref.summary ?? '',
-          style: TextStyle(
-            fontSize: 11,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: _settingSummaryStyle,
         ),
         value: pref.value ?? false,
         controlAffinity: ListTileControlAffinity.trailing,
@@ -149,13 +162,10 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
     if (preference.switchPreferenceCompat case final pref?) {
       return SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        title: Text(pref.title ?? ''),
+        title: Text(pref.title ?? '', style: _settingTitleStyle),
         subtitle: Text(
           pref.summary ?? '',
-          style: TextStyle(
-            fontSize: 11,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: _settingSummaryStyle,
         ),
         value: pref.value ?? false,
         controlAffinity: ListTileControlAffinity.trailing,
@@ -189,7 +199,7 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     value: option,
-                    title: Text(entries[option]),
+                    title: Text(entries[option], style: _settingTitleStyle),
                   ),
               ],
             ),
@@ -220,7 +230,7 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
             CheckboxListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              title: Text(entries[option]),
+              title: Text(entries[option], style: _settingTitleStyle),
               value: selectedValues.contains(values[option]),
               onChanged: (checked) {
                 if (checked == true) {
