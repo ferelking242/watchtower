@@ -7,9 +7,11 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
-import 'package:watchtower/modules/home/widgets/episode_card.dart';
+import 'package:watchtower/modules/home/widgets/episode_card.dart'
+    as home_episode;
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
-import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart';
+import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart'
+    as manga_home;
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
@@ -297,6 +299,13 @@ class _ComponentSpec {
     this.layoutComponent,
     required this.result,
   });
+
+  /// Les petits composants (chips, tuiles compactes, posters seuls) sont
+  /// répétés côte à côte pour bien exploiter la rangée de la galerie.
+  bool get isCompactPreview => _compactPreviewKinds.contains(kind);
+
+  /// Les très larges (rails complets, héros) méritent une demi-largeur.
+  bool get isWidePreview => _widePreviewKinds.contains(kind);
 
   /// Sections displayed in the "Sections" tab instead of the "Cards" tab.
   static const _sectionNames = <String>{
@@ -698,47 +707,127 @@ class _GalleryHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: queryController,
-          onChanged: onQueryChanged,
-          style: const TextStyle(color: Colors.white),
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: 'Rechercher une carte, un usage ou un fichier…',
-            hintStyle: const TextStyle(color: Colors.white38),
-            prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54),
-            suffixIcon: query.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'Effacer la recherche',
-                    onPressed: () {
-                      queryController.clear();
-                      onQueryChanged('');
-                    },
-                    icon: const Icon(Icons.clear_rounded),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: queryController,
+                onChanged: onQueryChanged,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Rechercher une carte, un usage ou un fichier…',
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: Colors.white54,
                   ),
-            filled: true,
-            fillColor: const Color(0xFF161A20),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.white10),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.white10),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
+                  suffixIcon: query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Effacer la recherche',
+                          onPressed: () {
+                            queryController.clear();
+                            onQueryChanged('');
+                          },
+                          icon: const Icon(Icons.clear_rounded),
+                        ),
+                  filled: true,
+                  fillColor: const Color(0xFF161A20),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white10),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.white10),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            // Filtre par section, directement à côté de la barre de recherche.
+            PopupMenuButton<String?>(
+              tooltip: 'Filtrer par section',
+              position: PopupMenuPosition.under,
+              initialValue: sectionFilter,
+              onSelected: onSectionChanged,
+              itemBuilder: (context) => [
+                const PopupMenuItem<String?>(
+                  value: null,
+                  child: Text('Toutes les sections'),
+                ),
+                for (final section in sections)
+                  PopupMenuItem<String?>(
+                    value: section,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _sectionIcon(section),
+                          size: 15,
+                          color: section == sectionFilter
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.white54,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            section,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (section == sectionFilter)
+                          Icon(
+                            Icons.check_rounded,
+                            size: 15,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: sectionFilter == null
+                      ? const Color(0xFF161A20)
+                      : Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: .16),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: sectionFilter == null
+                        ? Colors.white10
+                        : Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: .55),
+                  ),
+                ),
+                child: Icon(
+                  Icons.filter_alt_rounded,
+                  size: 18,
+                  color: sectionFilter == null
+                      ? Colors.white54
+                      : Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
         _SectionFilterBar(
@@ -1081,18 +1170,29 @@ class _ComponentGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const spacing = 18.0;
-    const minimumTileWidth = 420.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
-        final columnCount = ((availableWidth + spacing) /
-                (minimumTileWidth + spacing))
-            .floor()
-            .clamp(1, 3)
-            .toInt();
-        final tileWidth =
-            (availableWidth - spacing * (columnCount - 1)) / columnCount;
+
+        double tileWidthFor(_ComponentSpec component) {
+          // Petits composants : jusqu'à 5 par rangée pour les mettre côte
+          // à côte au lieu de laisser un grand vide à droite de chacun.
+          if (component.isCompactPreview) {
+            final columns =
+                (availableWidth / 240).floor().clamp(2, 5).toInt();
+            return (availableWidth - spacing * (columns - 1)) / columns;
+          }
+          // Rails / héros : au plus 2 par rangée.
+          if (component.isWidePreview) {
+            final columns =
+                (availableWidth / 620).floor().clamp(1, 2).toInt();
+            return (availableWidth - spacing * (columns - 1)) / columns;
+          }
+          final columns =
+              (availableWidth / 420).floor().clamp(1, 3).toInt();
+          return (availableWidth - spacing * (columns - 1)) / columns;
+        }
 
         return Wrap(
           spacing: spacing,
@@ -1100,7 +1200,7 @@ class _ComponentGrid extends StatelessWidget {
           children: [
             for (final component in components)
               SizedBox(
-                width: tileWidth,
+                width: tileWidthFor(component),
                 child: _ComponentTile(
                   component: component,
                   state: state,
@@ -1113,6 +1213,52 @@ class _ComponentGrid extends StatelessWidget {
     );
   }
 }
+
+/// Kinds dont l'aperçu est petit (chips, tuiles compactes, posters).
+const _compactPreviewKinds = <_PreviewKind>{
+  _PreviewKind.poster,
+  _PreviewKind.compactPoster,
+  _PreviewKind.carousel,
+  _PreviewKind.manga,
+  _PreviewKind.mangaGenre,
+  _PreviewKind.tag,
+  _PreviewKind.mini,
+  _PreviewKind.genre,
+  _PreviewKind.searchGrid,
+  _PreviewKind.volCard,
+  _PreviewKind.volSpecial,
+  _PreviewKind.volFormat,
+  _PreviewKind.genGenres,
+  _PreviewKind.genDemo,
+  _PreviewKind.genThemes,
+  _PreviewKind.uniTypes,
+  _PreviewKind.uniLinked,
+  _PreviewKind.uniChars,
+  _PreviewKind.stSerial,
+  _PreviewKind.lsGenres,
+  _PreviewKind.lsPlaylist,
+  _PreviewKind.hmGenreCards,
+};
+
+/// Kinds très larges (rails complets, héros, grandes sections).
+const _widePreviewKinds = <_PreviewKind>{
+  _PreviewKind.lsShowcase,
+  _PreviewKind.lsFilms,
+  _PreviewKind.lsSeries,
+  _PreviewKind.lsManga,
+  _PreviewKind.lsNovels,
+  _PreviewKind.hmPopular,
+  _PreviewKind.hmRead,
+  _PreviewKind.hmHero,
+  _PreviewKind.mediaSection,
+  _PreviewKind.genreSection,
+  _PreviewKind.homeHero,
+  _PreviewKind.extensionHero,
+  _PreviewKind.featuredStack,
+  _PreviewKind.ranked,
+  _PreviewKind.rankedWide,
+  _PreviewKind.top3,
+};
 
 class _ComponentTile extends StatelessWidget {
   final _ComponentSpec component;
@@ -4281,6 +4427,7 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.playlist_play_rounded,
     kind: _PreviewKind.streamEpisode,
     result: (_) => EpisodeCard(
+      key: const ValueKey('stream-episode-card'),
       seasonLabel: 'Saison 1',
       episodes: [
         _streamEpisode(
@@ -5835,7 +5982,6 @@ List<_ComponentSpec> _buildComponents() => [
         tag: 'Shōnen',
         thumbUrl: _posterDune,
       ),
-      onRead: () {},
     ),
   ),
   _ComponentSpec(
@@ -6251,27 +6397,27 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaTagsCard(
       onSeeAll: () {},
       tags: [
-        MangaTagEntry('Action', color: Color(0xFF6C5CE7),
+        MangaTagEntry(label: 'Action', color: Color(0xFF6C5CE7),
             icon: Broken.close_circle),
-        MangaTagEntry('Romance', color: Color(0xFFFF6B81),
+        MangaTagEntry(label: 'Romance', color: Color(0xFFFF6B81),
             icon: Broken.close_circle),
-        MangaTagEntry('Fantastique', color: Color(0xFF8E7CFF)),
-        MangaTagEntry('Aventure', color: Color(0xFF2ED573),
+        MangaTagEntry(label: 'Fantastique', color: Color(0xFF8E7CFF)),
+        MangaTagEntry(label: 'Aventure', color: Color(0xFF2ED573),
             icon: Broken.arrow_right_3),
-        MangaTagEntry('Horreur', color: Color(0xFFE84118)),
-        MangaTagEntry('Comédie', color: Color(0xFFFFA502)),
-        MangaTagEntry('Isekai', color: Color(0xFF1E90FF),
+        MangaTagEntry(label: 'Horreur', color: Color(0xFFE84118)),
+        MangaTagEntry(label: 'Comédie', color: Color(0xFFFFA502)),
+        MangaTagEntry(label: 'Isekai', color: Color(0xFF1E90FF),
             icon: Broken.arrow_right_3),
-        MangaTagEntry('School Life', color: Color(0xFF8E7CFF)),
-        MangaTagEntry('Seinen', color: Color(0xFF3742FA),
+        MangaTagEntry(label: 'School Life', color: Color(0xFF8E7CFF)),
+        MangaTagEntry(label: 'Seinen', color: Color(0xFF3742FA),
             icon: Icons.star_rounded),
-        MangaTagEntry('Josei', color: Color(0xFFE67E22)),
-        MangaTagEntry('Yaoi', color: Color(0xFF7166F0)),
-        MangaTagEntry('Yuri', color: Color(0xFF2ED573)),
-        MangaTagEntry('Ecchi', color: Color(0xFFFF6B81)),
-        MangaTagEntry('Surnaturel', color: Color(0xFF8E7CFF)),
-        MangaTagEntry('Psychologique', color: Color(0xFF7F8FA6)),
-        MangaTagEntry('Sport', color: Color(0xFF2ED573)),
+        MangaTagEntry(label: 'Josei', color: Color(0xFFE67E22)),
+        MangaTagEntry(label: 'Yaoi', color: Color(0xFF7166F0)),
+        MangaTagEntry(label: 'Yuri', color: Color(0xFF2ED573)),
+        MangaTagEntry(label: 'Ecchi', color: Color(0xFFFF6B81)),
+        MangaTagEntry(label: 'Surnaturel', color: Color(0xFF8E7CFF)),
+        MangaTagEntry(label: 'Psychologique', color: Color(0xFF7F8FA6)),
+        MangaTagEntry(label: 'Sport', color: Color(0xFF2ED573)),
       ],
     ),
   ),
@@ -6288,21 +6434,22 @@ List<_ComponentSpec> _buildComponents() => [
       onSeeTeams: () {},
       onSeePlatforms: () {},
       languages: const [
-        MangaLangEntry('Français', countLabel: '1 248 mangas'),
-        MangaLangEntry('Anglais', countLabel: '1 862 mangas'),
-        MangaLangEntry('Japonais', countLabel: '2 412 mangas'),
-        MangaLangEntry('Espagnol', countLabel: '724 mangas'),
-        MangaLangEntry('Allemand', countLabel: '488 mangas'),
+        MangaLangEntry(name: 'Français', countLabel: '1 248 mangas'),
+        MangaLangEntry(name: 'Anglais', countLabel: '1 862 mangas'),
+        MangaLangEntry(name: 'Japonais', countLabel: '2 412 mangas'),
+        MangaLangEntry(name: 'Espagnol', countLabel: '724 mangas'),
+        MangaLangEntry(name: 'Allemand', countLabel: '488 mangas'),
       ],
       teams: const [
-        MangaTeamEntry('MangaDex', meta: 'Official', countLabel: '1 248 mangas'),
-        MangaTeamEntry('Scantrad France', meta: 'Dédié fans',
+        MangaTeamEntry(name: 'MangaDex', meta: 'Official',
+            countLabel: '1 248 mangas'),
+        MangaTeamEntry(name: 'Scantrad France', meta: 'Dédié fans',
             countLabel: '986 mangas'),
-        MangaTeamEntry('Team Manga', meta: 'Dédié fans',
+        MangaTeamEntry(name: 'Team Manga', meta: 'Dédié fans',
             countLabel: '742 mangas'),
-        MangaTeamEntry('No Name Scan', meta: 'Dédié fans',
+        MangaTeamEntry(name: 'No Name Scan', meta: 'Dédié fans',
             countLabel: '623 mangas'),
-        MangaTeamEntry('Japanread', meta: 'Dédié fans',
+        MangaTeamEntry(name: 'Japanread', meta: 'Dédié fans',
             countLabel: '512 mangas'),
       ],
       statusRows: const [
@@ -6325,17 +6472,17 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaPublishersCard(
       onSeeAll: () {},
       publishers: const [
-        MangaPublisherEntry('Shueisha', countLabel: '1 842 mangas',
+        MangaPublisherEntry(name: 'Shueisha', countLabel: '1 842 mangas',
             initial: 'S'),
-        MangaPublisherEntry('Kodansha', countLabel: '1 572 mangas',
+        MangaPublisherEntry(name: 'Kodansha', countLabel: '1 572 mangas',
             initial: 'K'),
-        MangaPublisherEntry('Shogakukan', countLabel: '1 023 mangas',
+        MangaPublisherEntry(name: 'Shogakukan', countLabel: '1 023 mangas',
             initial: 'S'),
-        MangaPublisherEntry('Square Enix', countLabel: '856 mangas',
+        MangaPublisherEntry(name: 'Square Enix', countLabel: '856 mangas',
             initial: 'S'),
-        MangaPublisherEntry('Kadokawa', countLabel: '734 mangas',
+        MangaPublisherEntry(name: 'Kadokawa', countLabel: '734 mangas',
             initial: 'K'),
-        MangaPublisherEntry('Viz Media', countLabel: '612 mangas',
+        MangaPublisherEntry(name: 'Viz Media', countLabel: '612 mangas',
             initial: 'V'),
       ],
     ),
@@ -6351,11 +6498,11 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => const MangaLanguageNewsCard(
       onSeeAll: null,
       entries: [
-        MangaLangEntry('Français', countLabel: '142 chapitres', code: 'FR'),
-        MangaLangEntry('Anglais', countLabel: '186 chapitres', code: 'EN'),
-        MangaLangEntry('Japonais', countLabel: '243 chapitres', code: 'JP'),
-        MangaLangEntry('Espagnol', countLabel: '98 chapitres', code: 'ES'),
-        MangaLangEntry('Allemand', countLabel: '76 chapitres', code: 'DE'),
+        MangaLangEntry(name: 'Français', countLabel: '142 chapitres', code: 'FR'),
+        MangaLangEntry(name: 'Anglais', countLabel: '186 chapitres', code: 'EN'),
+        MangaLangEntry(name: 'Japonais', countLabel: '243 chapitres', code: 'JP'),
+        MangaLangEntry(name: 'Espagnol', countLabel: '98 chapitres', code: 'ES'),
+        MangaLangEntry(name: 'Allemand', countLabel: '76 chapitres', code: 'DE'),
       ],
     ),
   ),
@@ -7965,14 +8112,14 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Reprendre la lecture',
     icon: Icons.play_circle_outline_rounded,
     kind: _PreviewKind.episode,
-    result: (_) => EpisodeCard(
+    result: (_) => home_episode.EpisodeCard(
       width: 220,
-      data: EpisodeCardData(
+      data: home_episode.EpisodeCardData(
         thumbnailUrl: _tmdbItems[4].bannerImage,
         animeTitle: 'Arcane',
         episodeNumber: 4,
         episodeTitle: 'Happy Progress Day!',
-        progress: const EpisodeProgress(value: .62, timeLeft: '12 min'),
+        progress: const home_episode.EpisodeProgress(value: .62, timeLeft: '12 min'),
       ),
       onTap: () {},
     ),
@@ -7985,9 +8132,9 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Liste des épisodes',
     icon: Icons.movie_outlined,
     kind: _PreviewKind.detailEpisode,
-    result: (_) => EpisodeCard(
+    result: (_) => home_episode.EpisodeCard(
       width: 220,
-      data: EpisodeCardData(
+      data: home_episode.EpisodeCardData(
         thumbnailUrl: _tmdbItems[1].bannerImage,
         animeTitle: 'Interstellar',
         episodeNumber: 1,
@@ -8244,7 +8391,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaHome,
     result: (_) => SizedBox(
       width: 168,
-      child: MangaFeaturedCard(
+      child: manga_home.MangaFeaturedCard(
         item: ContentItem.fromManga(_extensionItems[0]),
         onTap: () {},
       ),
@@ -8260,7 +8407,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaHome,
     result: (_) => SizedBox(
       width: 112,
-      child: MangaChapterCard(
+      child: manga_home.MangaChapterCard(
         item: ContentItem.fromManga(_extensionItems[1]),
         badge: '144',
         onTap: () {},
@@ -8277,7 +8424,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaList,
     result: (_) => SizedBox(
       width: 330,
-      child: MangaResumeCard(
+      child: manga_home.MangaResumeCard(
         item: ContentItem.fromManga(_extensionItems[2]),
         subtitle: 'Chapitre 148 · il y a 2 h',
         progress: 0.42,
@@ -8295,7 +8442,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaSpotlight,
     result: (_) => SizedBox(
       width: 320,
-      child: MangaSpotlightCard(
+      child: manga_home.MangaSpotlightCard(
         item: ContentItem.fromManga(_extensionItems[3]),
         height: 180,
         onTap: () {},
@@ -8313,7 +8460,7 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => SizedBox(
       width: 118,
       height: 84,
-      child: MangaGenreCard(
+      child: manga_home.MangaGenreCard(
         label: 'Shonen',
         imageUrl: _extensionItems[0].imageUrl,
         onTap: () {},
@@ -8330,7 +8477,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.searchList,
     result: (_) => SizedBox(
       width: 330,
-      child: MangaUpdateRow(
+      child: manga_home.MangaUpdateRow(
         item: ContentItem.fromManga(_extensionItems[0]),
         subtitle: 'Chapitre 147',
         time: '2 h',
@@ -8348,7 +8495,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.banner,
     result: (_) => SizedBox(
       width: 320,
-      child: MangaBannerCard(
+      child: manga_home.MangaBannerCard(
         item: ContentItem.fromManga(_extensionItems[2]),
         onTap: () {},
       ),
