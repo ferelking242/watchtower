@@ -1243,10 +1243,10 @@ class TmdbMultiResult {
   }
 }
 
-Future<List<TmdbMultiResult>> _tmdbGetJson(
+Future<List<T>> _tmdbGetJson<T>(
   String path,
   Map<String, String> extra,
-  TmdbMultiResult Function(Map<String, dynamic>) map,
+  T Function(Map<String, dynamic>) map,
   String listKey,
 ) async {
   if (_tmdbToken.isEmpty) {
@@ -1268,7 +1268,7 @@ Future<List<TmdbMultiResult>> _tmdbGetJson(
   final results = data[listKey] as List? ?? [];
   return results
       .whereType<Map>()
-      .map(map)
+      .map((raw) => map(Map<String, dynamic>.from(raw)))
       .toList(growable: false);
 }
 

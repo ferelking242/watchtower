@@ -459,7 +459,9 @@ class _HotChips extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: outlined ? Colors.white87 : cs.primary,
+                  color: outlined
+                      ? Colors.white.withValues(alpha: .87)
+                      : cs.primary,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                 ),
