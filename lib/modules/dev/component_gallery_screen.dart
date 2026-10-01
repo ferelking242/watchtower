@@ -19,6 +19,7 @@ import 'package:watchtower/modules/media/manga_chapter_cards.dart';
 import 'package:watchtower/modules/media/manga_genre_cards.dart';
 import 'package:watchtower/modules/media/manga_reader_cards.dart';
 import 'package:watchtower/modules/media/manga_universe_cards.dart';
+import 'package:watchtower/modules/media/manga_stats_cards.dart';
 import 'package:watchtower/modules/media/manga_volume_cards.dart';
 import 'package:watchtower/modules/media/ranking_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
@@ -219,6 +220,18 @@ enum _PreviewKind {
   uniFranchise,
   uniChars,
   uniMap,
+
+  // ── MANGA & LECTURE — Section 8 : Statistiques & Publication ──
+  stStatus,
+  stSerial,
+  stFrequency,
+  stGlobal,
+  stPopularity,
+  stFollowers,
+  stItem,
+  stGrid,
+  stRanking,
+  stReports,
 }
 
 /// Ordre d'affichage des sections dans la galerie.
@@ -1491,6 +1504,18 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.uniFranchise => const ListRowSkeleton(thumb: 40),
       _PreviewKind.uniChars => const LandscapeSkeleton(width: 100, ratio: 1),
       _PreviewKind.uniMap => const _ShimmerLine(width: 430, height: 180),
+
+      // ── MANGA & LECTURE — Section 8 ──
+      _PreviewKind.stStatus => const _ShimmerLine(width: 400, height: 170),
+      _PreviewKind.stSerial => const _PosterRowSkeleton(width: 430),
+      _PreviewKind.stFrequency => const _ShimmerLine(width: 430, height: 110),
+      _PreviewKind.stGlobal => const _ShimmerLine(width: 430, height: 120),
+      _PreviewKind.stPopularity => const ListRowSkeleton(thumb: 34),
+      _PreviewKind.stFollowers => const PosterGridSkeleton(),
+      _PreviewKind.stItem => const ListRowSkeleton(thumb: 44),
+      _PreviewKind.stGrid => const _ShimmerLine(width: 430, height: 200),
+      _PreviewKind.stRanking => const ListRowSkeleton(thumb: 30),
+      _PreviewKind.stReports => const ListRowSkeleton(),
     };
     return card;
   }
@@ -6885,6 +6910,256 @@ List<_ComponentSpec> _buildComponents() => [
         MangaRelationEntry(title: 'Hunter x Hunter',            color: Color(0xFF2ED573), icon: Icons.explore_outlined),
         MangaRelationEntry(title: 'Jujutsu Kaisen', color: Color(0xFF8E7CFF),
             icon: Icons.auto_awesome_outlined),
+      ],
+    ),
+  ),
+  // ═════════ MANGA & LECTURE — Section 8 : Statistiques & Publication ═════════
+  _ComponentSpec(
+    title: 'Statuts de mangas',
+    className: 'MangaStatusCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'En cours, Terminé, En pause…',
+    section: 'MANGA & LECTURE',
+    icon: Icons.person_outline,
+    kind: _PreviewKind.stStatus,
+    result: (_) => const MangaStatusCard(
+      onSeeAll: null,
+      items: [
+        ('En cours', '2 145 mangas', Icons.play_circle_outline,
+            Color(0xFF2ED573)),
+        ('Terminé', '1 982 mangas', Broken.tick_circle, Color(0xFF1E90FF)),
+        ('En pause', '421 mangas', Icons.pause_circle_outline_rounded,
+            Color(0xFFFFA502)),
+        ('Annulé', '156 mangas', Icons.close_rounded, Color(0xFFFF4757)),
+        ('Hiatus', '287 mangas', Icons.nightlight_round, Color(0xFF8E7CFF)),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Sérialisations',
+    className: 'MangaSerializationCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Magazines de prépublication',
+    section: 'MANGA & LECTURE',
+    icon: Icons.auto_stories_outlined,
+    kind: _PreviewKind.stSerial,
+    result: (_) => MangaSerializationCard(
+      onSeeAll: () {},
+      items: [
+        MangaShowcaseEntry(title: 'Weekly Shonen Jump',
+            countLabel: '162 séries', thumbUrl: _posterDune),
+        MangaShowcaseEntry(title: 'Weekly Shonen Magazine',
+            countLabel: '148 séries', thumbUrl: _posterOppenheimer),
+        MangaShowcaseEntry(title: 'Young Jump', countLabel: '96 séries',
+            thumbUrl: _posterInterstellar),
+        MangaShowcaseEntry(title: 'Magazine Gangan', countLabel: '73 séries',
+            thumbUrl: _posterArcane),
+        MangaShowcaseEntry(title: 'Comic Yuri Hime', countLabel: '58 séries',
+            thumbUrl: _posterThrones),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Fréquence de sortie',
+    className: 'MangaFrequencyCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Chapitres sortant par période',
+    section: 'MANGA & LECTURE',
+    icon: Icons.event_rounded,
+    kind: _PreviewKind.stFrequency,
+    result: (_) => const MangaFrequencyCard(
+      onSeeAll: null,
+      items: [
+        ('Quotidienne', '342 mangas', Color(0xFF2ED573)),
+        ('Hebdomadaire', '1 247 mangas', Color(0xFF8E7CFF)),
+        ('Bimensuelle', '684 mangas', Color(0xFF1E90FF)),
+        ('Mensuelle', '512 mangas', Color(0xFFFFA502)),
+        ('Irrégulière', '298 mangas', Color(0xFFFF4757)),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Statistiques globales',
+    className: 'MangaGlobalStatsCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Chiffres clés de la communauté',
+    section: 'MANGA & LECTURE',
+    icon: Icons.speed_rounded,
+    kind: _PreviewKind.stGlobal,
+    result: (_) => const MangaGlobalStatsCard(
+      onSeeAll: null,
+      tiles: [
+        MangaStatTile(
+            value: '285 742', label: 'Total chapitres',
+            icon: Icons.visibility_outlined, color: Color(0xFF8E7CFF)),
+        MangaStatTile(
+            value: '62 481', label: 'Total volumes',
+            icon: Icons.auto_stories_outlined, color: Color(0xFF1E90FF)),
+        MangaStatTile(
+            value: '12.8M', label: 'Total lecteurs',
+            icon: Icons.group_rounded, color: Color(0xFF2ED573)),
+        MangaStatTile(
+            value: '8.4 / 10', label: 'Moyenne générale',
+            icon: Icons.star_rounded, color: Color(0xFFFFA502)),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Popularité & Tendances',
+    className: 'MangaPopularityCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Mangas les plus populaires (+%)',
+    section: 'MANGA & LECTURE',
+    icon: Icons.whatshot_rounded,
+    kind: _PreviewKind.stPopularity,
+    result: (_) => MangaPopularityCard(
+      onSeeAll: () {},
+      items: [
+        MangaRankEntry(title: 'One Piece', countLabel: '2.8M followers',
+            deltaLabel: '+12%', rank: 1, thumbUrl: _posterDune),
+        MangaRankEntry(title: 'Jujutsu Kaisen', countLabel: '2.1M followers',
+            deltaLabel: '+8%', rank: 2, thumbUrl: _posterArcane),
+        MangaRankEntry(title: 'Chainsaw Man', countLabel: '1.9M followers',
+            deltaLabel: '+7%', rank: 3, thumbUrl: _posterOppenheimer),
+        MangaRankEntry(title: 'Solo Leveling', countLabel: '1.6M followers',
+            deltaLabel: '+6%', rank: 4, thumbUrl: _posterInterstellar),
+        MangaRankEntry(title: 'Demon Slayer', countLabel: '1.4M followers',
+            deltaLabel: '+5%', rank: 5, thumbUrl: _posterThrones),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Suiveurs / Abonnés',
+    className: 'MangaFollowersCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Posters + compteurs de followers',
+    section: 'MANGA & LECTURE',
+    icon: Icons.group_rounded,
+    kind: _PreviewKind.stFollowers,
+    result: (_) => MangaFollowersCard(
+      onSeeAll: () {},
+      items: [
+        MangaRelationEntry(title: 'One Piece', sublabel: '2.8M',
+            thumbUrl: _posterDune),
+        MangaRelationEntry(title: 'Naruto', sublabel: '2.4M',
+            thumbUrl: _posterOppenheimer),
+        MangaRelationEntry(title: 'Jujutsu Kaisen', sublabel: '2.1M',
+            thumbUrl: _posterArcane),
+        MangaRelationEntry(title: 'Solo Leveling', sublabel: '1.6M',
+            thumbUrl: _posterInterstellar),
+        MangaRelationEntry(title: 'Attack on Titan', sublabel: '1.3M',
+            thumbUrl: _posterThrones),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Statistiques par manga',
+    className: 'MangaItemStatsCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Détails complets d\'une œuvre',
+    section: 'MANGA & LECTURE',
+    icon: Icons.menu_book_outlined,
+    kind: _PreviewKind.stItem,
+    result: (_) => MangaItemStatsCard(
+      title: 'One Piece',
+      statusLabel: 'En cours',
+      coverUrl: _posterDune,
+      rows: const [
+        (Icons.menu_book_outlined, 'Chapitres', '1 160'),
+        (Icons.auto_stories_outlined, 'Volumes', '112'),
+        (Icons.group_rounded, 'Followers', '2.8M'),
+        (Icons.star_rounded, 'Note moyenne', '8.9/10'),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Grille des statistiques',
+    className: 'MangaStatsGridCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Vue d\'ensemble rapide des données',
+    section: 'MANGA & LECTURE',
+    icon: Icons.grid_view_rounded,
+    kind: _PreviewKind.stGrid,
+    result: (_) => const MangaStatsGridCard(
+      onSeeAll: null,
+      tiles: [
+        MangaStatTile(
+            value: '285 742', label: 'Chapitres',
+            icon: Icons.menu_book_outlined, color: Color(0xFF8E7CFF)),
+        MangaStatTile(
+            value: '62 481', label: 'Volumes',
+            icon: Icons.auto_stories_outlined, color: Color(0xFF1E90FF)),
+        MangaStatTile(
+            value: '4 991', label: 'Mangas',
+            icon: Icons.public_rounded, color: Color(0xFF2ED573)),
+        MangaStatTile(
+            value: '2 843', label: 'Auteurs',
+            icon: Icons.person_outline, color: Color(0xFFFFA502)),
+        MangaStatTile(
+            value: '3 102', label: 'Artistes',
+            icon: Icons.palette_rounded, color: Color(0xFFFF6B81)),
+        MangaStatTile(
+            value: '1 245', label: 'Groupes',
+            icon: Icons.group_rounded, color: Color(0xFF1BC8BF)),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Classements par catégorie',
+    className: 'MangaCategoryRankingCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Populaire, note, nouveautés, followers',
+    section: 'MANGA & LECTURE',
+    icon: Icons.emoji_events_outlined,
+    kind: _PreviewKind.stRanking,
+    result: (_) => MangaCategoryRankingCard(
+      onSeeAll: () {},
+      onFilterChanged: (_) {},
+      items: [
+        MangaRankEntry(title: 'One Piece', ratingLabel: '9.2',
+            countLabel: '2.8M', rank: 1, thumbUrl: _posterDune),
+        MangaRankEntry(title: 'Fullmetal Alchemist', ratingLabel: '9.1',
+            countLabel: '1.9M', rank: 2, thumbUrl: _posterInterstellar),
+        MangaRankEntry(title: 'Naruto', ratingLabel: '8.9',
+            countLabel: '2.4M', rank: 3, thumbUrl: _posterOppenheimer),
+        MangaRankEntry(title: 'Attack on Titan', ratingLabel: '8.8',
+            countLabel: '1.7M', rank: 4, thumbUrl: _posterThrones),
+        MangaRankEntry(title: 'Death Note', ratingLabel: '8.7',
+            countLabel: '1.5M', rank: 5, thumbUrl: _posterArcane),
+      ],
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Rapports & Aperçus',
+    className: 'MangaReportsCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'Analyses et tendances',
+    section: 'MANGA & LECTURE',
+    icon: Icons.insights_rounded,
+    kind: _PreviewKind.stReports,
+    result: (_) => const MangaReportsCard(
+      onSeeAll: null,
+      items: [
+        (
+          Icons.group_rounded,
+          'Mangas les plus suivis',
+          'Top 50 par nombre d\'abonnés',
+        ),
+        (
+          Icons.star_rounded,
+          'Mangas les mieux notés',
+          'Top 50 par note moyenne',
+        ),
+        (
+          Icons.fiber_new_rounded,
+          'Nouveautés du mois',
+          'Derniers chapitres et volumes',
+        ),
+        (
+          Icons.insights_rounded,
+          'Bilan annuel',
+          'Chiffres et tendances de l\'année',
+        ),
       ],
     ),
   ),
