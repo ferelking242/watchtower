@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -8,8 +9,6 @@ import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/episode_card.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
-import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
-import 'package:watchtower/modules/manga/home/widgets/enum_manga_home_widget.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
@@ -22,22 +21,26 @@ import 'package:watchtower/models/source.dart';
 
 enum _GalleryState { result, skeleton }
 
+enum _GalleryTab { cards, sections }
+
 enum _PreviewKind {
   poster,
   compactPoster,
   landscape,
   ranked,
+  top3,
   mini,
   featured,
   saga,
   spotlight,
   tag,
   genre,
+  mangaGenre,
   genreSection,
   mediaSection,
   providersSection,
-  carousel,
   featuredStack,
+  carousel,
   episode,
   detailEpisode,
   wallpaper,
@@ -45,10 +48,12 @@ enum _PreviewKind {
   cast,
   trailer,
   extensionHero,
+  homeHero,
   rankedWide,
   showcase,
   collection,
   banner,
+  mangaSpotlight,
   creator,
   studio,
   searchGrid,
@@ -57,17 +62,17 @@ enum _PreviewKind {
   manga,
   mangaList,
   mangaHome,
-  mangaHomeRail,
   mangaUpdateFeed,
   mangaRanking,
   mangaVote,
+  mangaCollection,
+  mangaTrending,
+  mangaScanGroup,
   extensionGrid,
   history,
   historyGrid,
   empty,
   error,
-  libraryCard,
-  librarySection,
   swipeSection,
 }
 
@@ -92,6 +97,18 @@ class _ComponentSpec {
     required this.result,
   });
 
+  /// Sections displayed in the "Sections" tab instead of the "Cards" tab.
+  static const _sectionNames = <String>{
+    'FILMS & SÉRIES · SECTIONS',
+    'EXTENSIONS WATCH',
+    'SECTIONS RÉUTILISABLES',
+  };
+
+  bool get isSection => _ComponentSpec._sectionNames.contains(section);
+
+  /// Clean identifier copied to the clipboard (main class only).
+  String get copyName => className.split(' →').first.trim();
+
   String get searchableText => '$title $className $path $usage'.toLowerCase();
 }
 
@@ -105,6 +122,7 @@ class ComponentGalleryScreen extends StatefulWidget {
 class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   final _searchController = TextEditingController();
   _GalleryState _state = _GalleryState.result;
+  _GalleryTab _tab = _GalleryTab.cards;
   String _query = '';
 
   @override
@@ -121,7 +139,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
         .where((component) {
           final textMatches =
               query.isEmpty || component.searchableText.contains(query);
-          return textMatches;
+          return textMatches && component.isSection == (_tab == _GalleryTab.sections);
         })
         .toList(growable: false);
   }
@@ -155,6 +173,16 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 SizedBox(width: 11),
                 Text('Galerie des composants'),
               ],
+            ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(50),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(padding, 6, padding, 8),
+                child: _GalleryTabBar(
+                  tab: _tab,
+                  onChanged: (tab) => setState(() => _tab = tab),
+                ),
+              ),
             ),
             actions: [
               IconButton(
@@ -193,7 +221,6 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                     child: _UnifiedGallery(
                       components: visible,
                       state: _state,
-                      showCompositions: _query.trim().isEmpty,
                     ),
                   ),
           ),
@@ -217,6 +244,94 @@ class _GalleryMark extends StatelessWidget {
         width: 32,
         height: 32,
         child: Icon(Icons.grid_view_rounded, size: 17),
+      ),
+    );
+  }
+}
+
+/// Pinned tab bar at the very top of the gallery: Cards vs Sections.
+class _GalleryTabBar extends StatelessWidget {
+  final _GalleryTab tab;
+  final ValueChanged<_GalleryTab> onChanged;
+
+  const _GalleryTabBar({required this.tab, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF161A20),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        children: [
+          _GalleryTabOption(
+            icon: Icons.photo_size_select_large_rounded,
+            label: 'Cartes',
+            selected: tab == _GalleryTab.cards,
+            accent: accent,
+            onTap: () => onChanged(_GalleryTab.cards),
+          ),
+          _GalleryTabOption(
+            icon: Icons.view_carousel_outlined,
+            label: 'Sections',
+            selected: tab == _GalleryTab.sections,
+            accent: accent,
+            onTap: () => onChanged(_GalleryTab.sections),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryTabOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _GalleryTabOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.all(3),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: .22) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 15, color: selected ? accent : Colors.white54),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.white54,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -422,12 +537,10 @@ class _StateOption extends StatelessWidget {
 class _UnifiedGallery extends StatelessWidget {
   final _GalleryState state;
   final List<_ComponentSpec> components;
-  final bool showCompositions;
 
   const _UnifiedGallery({
     required this.state,
     required this.components,
-    required this.showCompositions,
   });
 
   @override
@@ -469,15 +582,6 @@ class _UnifiedGallery extends StatelessWidget {
           const SizedBox(height: 12),
           _ComponentGrid(components: entry.value, state: state),
           if (entry.key != orderedEntries.last.key) const SizedBox(height: 32),
-        ],
-        if (showCompositions) ...[
-          const SizedBox(height: 40),
-          const _UnifiedSectionLabel(
-            icon: Icons.layers_outlined,
-            label: 'BLOCS COMPOSÉS',
-          ),
-          const SizedBox(height: 12),
-          _ComposedBlocks(state: state),
         ],
       ],
     );
@@ -582,90 +686,85 @@ class _ComponentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final previewHeight = _previewHeight(component.kind);
     final accent = Theme.of(context).colorScheme.primary;
-    return SizedBox(
-      width: _previewWidth(component.kind),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () async {
-              await Clipboard.setData(
-                ClipboardData(text: component.className),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Copyable class name on top of each preview.
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () async {
+            await Clipboard.setData(ClipboardData(text: component.copyName));
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text('${component.copyName} copié'),
+                  duration: const Duration(milliseconds: 1200),
+                ),
               );
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  SnackBar(
-                    content: Text('${component.className} copié'),
-                    duration: const Duration(milliseconds: 1200),
-                  ),
-                );
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(component.icon, size: 14, color: accent),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          component.className,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(component.icon, size: 14, color: accent),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              component.className,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${component.title} · ${component.usage}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          const SizedBox(width: 5),
+                          const Icon(
+                            Icons.copy_rounded,
+                            size: 12,
                             color: Colors.white38,
-                            fontSize: 9.5,
-                            height: 1.2,
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${component.title} · ${component.usage}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 9.5,
+                          height: 1.2,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.copy_rounded,
-                    size: 13,
-                    color: Colors.white54,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 7),
-          SizedBox(
-            height: previewHeight,
-            // ClipRect keeps any oversized composition from painting over
-            // neighbouring tiles (the "elements on elements" mess).
-            child: ClipRect(
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: state == _GalleryState.result
-                    ? component.result(context)
-                    : _CardSkeleton(kind: component.kind),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 7),
+        // Preview at its natural, real size. Nothing clipped, nothing stacked.
+        Align(
+          alignment: Alignment.topLeft,
+          child: state == _GalleryState.result
+              ? component.result(context)
+              : _CardSkeleton(kind: component.kind),
+        ),
+      ],
     );
   }
 }
@@ -678,348 +777,1324 @@ class _CardSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final card = switch (kind) {
-      _PreviewKind.poster ||
-      _PreviewKind.compactPoster ||
-      _PreviewKind.ranked ||
-      _PreviewKind.featured => SizedBox(
-        width: kind == _PreviewKind.compactPoster ? 92 : 112,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: AppShimmerBlock(
-                radius: kind == _PreviewKind.featured ? 16 : 12,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const SizedBox(
-              width: 86,
-              height: 11,
-              child: AppShimmerBlock(radius: 5),
-            ),
-            const SizedBox(height: 5),
-            const SizedBox(
-              width: 54,
-              height: 9,
-              child: AppShimmerBlock(radius: 5),
-            ),
-          ],
+      // ── Posters ──
+      _PreviewKind.poster => const PosterSkeleton(width: 112),
+      _PreviewKind.featured =>
+        const PosterSkeleton(width: 180, ratio: 3 / 4, radius: 18),
+      _PreviewKind.compactPoster =>
+        const PosterSkeleton(width: 92, radius: 11, compact: true),
+      _PreviewKind.carousel => const PosterSkeleton(width: 112, radius: 14),
+      _PreviewKind.manga => const PosterSkeleton(width: 112),
+      _PreviewKind.mangaHome => const PosterSkeleton(
+          width: 168,
+          radius: 16,
+          titleInside: true,
         ),
-      ),
-      _PreviewKind.landscape ||
-      _PreviewKind.saga ||
-      _PreviewKind.spotlight => SizedBox(
-        width: kind == _PreviewKind.spotlight ? 290 : 220,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: AppShimmerBlock(radius: 15)),
-            const SizedBox(height: 8),
-            const SizedBox(
-              width: 150,
-              height: 11,
-              child: AppShimmerBlock(radius: 5),
-            ),
-          ],
-        ),
-      ),
-      _PreviewKind.mini => SizedBox(
-        width: 170,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: AppShimmerBlock(radius: 11)),
-            const SizedBox(height: 8),
-            const SizedBox(
-              width: 120,
-              height: 11,
-              child: AppShimmerBlock(radius: 5),
-            ),
-          ],
-        ),
-      ),
-      _PreviewKind.tag => const SizedBox(
-        width: 260,
-        height: 64,
-        child: AppShimmerBlock(radius: 14),
-      ),
+      _PreviewKind.searchGrid =>
+        const PosterSkeleton(width: 112, ratio: 3 / 4),
+      _PreviewKind.top3 => const Top3Skeleton(),
+      _PreviewKind.ranked || _PreviewKind.rankedWide =>
+        const RankedRailSkeleton(),
+      // ── Landscape ──
+      _PreviewKind.landscape => const LandscapeSkeleton(width: 220),
+      _PreviewKind.saga => const LandscapeSkeleton(width: 200, ratio: 16 / 10),
+      _PreviewKind.spotlight => const SpotlightSkeleton(),
+      _PreviewKind.mini => const TonightMiniSkeleton(),
+      _PreviewKind.tag => const TagSkeleton(),
       _PreviewKind.genre => const SizedBox(
-        width: 260,
-        height: 112,
-        child: AppShimmerBlock(radius: 17),
-      ),
+          width: 260,
+          height: 112,
+          child: AppGenreTileShimmer(),
+        ),
+      _PreviewKind.mangaGenre => const SizedBox(
+          width: 118,
+          height: 84,
+          child: AppGenreTileShimmer(),
+        ),
       _PreviewKind.genreSection => const AppGenreGridShimmer(),
-      _PreviewKind.mediaSection => SizedBox(
-        width: 340,
-        height: 240,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(
-              width: 110,
-              height: 16,
-              child: AppShimmerBlock(radius: 5),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(child: AppShimmerBlock(radius: 14)),
-                  const SizedBox(width: 10),
-                  Expanded(child: AppShimmerBlock(radius: 14)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      _PreviewKind.mediaSection => const MediaSectionSkeleton(),
       _PreviewKind.providersSection => const AppStreamingServicesShimmer(),
-      _PreviewKind.featuredStack => SizedBox(
-        width: 300,
-        height: 220,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(
-              width: 120,
-              height: 16,
-              child: AppShimmerBlock(radius: 5),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(child: AppShimmerBlock(radius: 14)),
-                  const SizedBox(width: 10),
-                  Expanded(child: AppShimmerBlock(radius: 14)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      _PreviewKind.carousel => SizedBox(
-        width: 112,
-        height: 190,
-        child: Column(
-          children: [
-            const Expanded(child: AppShimmerBlock(radius: 14)),
-            const SizedBox(height: 8),
-            const SizedBox(
-              width: 82,
-              height: 10,
-              child: AppShimmerBlock(radius: 5),
-            ),
-          ],
-        ),
-      ),
-      _PreviewKind.episode ||
-      _PreviewKind.detailEpisode ||
-      _PreviewKind.trailer => const SizedBox(
-        width: 220,
-        height: 152,
-        child: AppShimmerBlock(radius: 12),
-      ),
-      _PreviewKind.wallpaper ||
-      _PreviewKind.extensionHero ||
-      _PreviewKind.studio ||
-      _PreviewKind.searchCinema => const SizedBox(
-        width: 320,
-        height: 180,
-        child: AppShimmerBlock(radius: 16),
-      ),
-      _PreviewKind.season ||
-      _PreviewKind.cast ||
-      _PreviewKind.creator ||
-      _PreviewKind.manga => const SizedBox(
-        width: 112,
-        height: 168,
-        child: AppShimmerBlock(radius: 12),
-      ),
-      _PreviewKind.mangaHome => const SizedBox(
-        width: 168,
-        height: 252,
-        child: AppShimmerBlock(radius: 16),
-      ),
-      _PreviewKind.mangaHomeRail => const SizedBox(
-        width: 340,
-        height: 900,
-        child: AppShimmerBlock(radius: 18),
-      ),
-      _PreviewKind.mangaUpdateFeed => const SizedBox(
-        width: 340,
-        height: 190,
-        child: AppShimmerBlock(radius: 18),
-      ),
-      _PreviewKind.mangaRanking => const SizedBox(
-        width: 340,
-        height: 430,
-        child: AppShimmerBlock(radius: 20),
-      ),
-      _PreviewKind.mangaVote => const SizedBox(
-        width: 340,
-        height: 180,
-        child: AppShimmerBlock(radius: 18),
-      ),
-      _PreviewKind.rankedWide ||
-      _PreviewKind.searchList ||
-      _PreviewKind.history => const SizedBox(
-        width: 330,
-        height: 92,
-        child: AppShimmerBlock(radius: 12),
-      ),
-      _PreviewKind.showcase ||
-      _PreviewKind.banner ||
-      _PreviewKind.extensionGrid ||
-      _PreviewKind.historyGrid ||
-      _PreviewKind.mangaList => const SizedBox(
-        width: 300,
-        height: 190,
-        child: AppShimmerBlock(radius: 14),
-      ),
+      _PreviewKind.featuredStack => const FeaturedStackSkeleton(),
+      _PreviewKind.homeHero => const HomeHeroSkeleton(),
+      _PreviewKind.extensionHero => const HomeHeroSkeleton(height: 480),
+      _PreviewKind.episode => const EpisodeCardSkeleton(withProgress: true),
+      _PreviewKind.detailEpisode => const EpisodeCardSkeleton(),
+      _PreviewKind.trailer => const TrailerSkeleton(),
+      _PreviewKind.wallpaper || _PreviewKind.studio ||
+      _PreviewKind.searchCinema => const WallpaperSkeleton(),
+      _PreviewKind.season => const SeasonSkeleton(),
+      _PreviewKind.cast || _PreviewKind.creator => const CastSkeleton(),
+      _PreviewKind.searchList || _PreviewKind.history =>
+        const ListRowSkeleton(width: 330),
+      _PreviewKind.mangaList =>
+        const ListRowSkeleton(width: 330, plain: true, thumb: 62),
+      _PreviewKind.showcase => const ShowcaseSkeleton(),
       _PreviewKind.collection => const ExtensionCollectionCardShimmer(),
-      _PreviewKind.searchGrid => const SizedBox(
-        width: 112,
-        height: 178,
-        child: AppShimmerBlock(radius: 12),
-      ),
-      _PreviewKind.empty ||
-      _PreviewKind.error => const SizedBox(
-        width: 300,
-        height: 174,
-        child: AppShimmerBlock(radius: 18),
-      ),
-      _PreviewKind.libraryCard => const SizedBox(
-        width: 230,
-        height: 190,
-        child: AppShimmerBlock(radius: 14),
-      ),
-      _PreviewKind.librarySection => const SizedBox(
-        width: 340,
-        height: 220,
-        child: AppShimmerBlock(radius: 14),
-      ),
-      _PreviewKind.swipeSection => const SizedBox(
-        width: 340,
-        height: 520,
-        child: AppShimmerBlock(radius: 14),
-      ),
+      _PreviewKind.banner => const BannerSkeleton(),
+      _PreviewKind.mangaSpotlight => const BannerSkeleton(width: 320, ratio: 16 / 9),
+      _PreviewKind.extensionGrid => const MediaSectionSkeleton(),
+      _PreviewKind.historyGrid => const PosterGridSkeleton(),
+      _PreviewKind.mangaUpdateFeed => const LatestUpdateSkeleton(),
+      _PreviewKind.mangaCollection => const LatestCollectionSkeleton(),
+      _PreviewKind.mangaRanking => const MangaRankingSkeleton(),
+      _PreviewKind.mangaVote => const VoteSkeleton(),
+      _PreviewKind.mangaTrending => const TrendingListSkeleton(),
+      _PreviewKind.mangaScanGroup => const ScanGroupSkeleton(),
+      _PreviewKind.empty || _PreviewKind.error => const SizedBox(
+          width: 300,
+          height: 174,
+          child: AppShimmerBlock(radius: 18),
+        ),
+      _PreviewKind.swipeSection => const SwipeSectionSkeleton(),
     };
     return card;
   }
 }
 
-class _ComposedBlocks extends StatelessWidget {
-  final _GalleryState state;
+/// ─── Skeleton building blocks ───────────────────────────────────────────
 
-  const _ComposedBlocks({required this.state});
+/// Skeleton for a poster card: image block + two title lines.
+class PosterSkeleton extends StatelessWidget {
+  const PosterSkeleton({
+    this.width = 112,
+    this.ratio = 2 / 3,
+    this.radius = 12,
+    this.compact = false,
+    this.titleInside = false,
+    super.key,
+  });
+
+  final double width;
+  final double ratio;
+  final double radius;
+  final bool compact;
+
+  /// Titles drawn over the image (MangaFeaturedCard style).
+  final bool titleInside;
 
   @override
   Widget build(BuildContext context) {
-    // Two composed blocks, each wrapped in its own copyable name chip so the
-    // class name can be copied like every other gallery entry.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CopyableNameChip(
-          icon: Icons.auto_awesome_motion_outlined,
-          name: 'TmdbHeroCarousel',
-          usage: 'Hero plein écran avec pagination automatique',
-        ),
-        if (state == _GalleryState.skeleton)
-          const SizedBox(
-            width: 340,
-            height: 270,
-            child: AppBannerRowShimmer(),
-          )
-        else
-          SizedBox(
-            height: 270,
-            child: TmdbHeroCarousel(
-              items: _tmdbItems.take(4).toList(growable: false),
-              onTap: (_) {},
+    return SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: ratio,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AppShimmerBlock(radius: radius),
+                if (titleInside) ...[
+                  const Positioned(
+                    left: 10,
+                    top: 10,
+                    child: _ShimmerChip(width: 52, height: 16),
+                  ),
+                  const Positioned(
+                    left: 10,
+                    right: 10,
+                    bottom: 10,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ShimmerLine(width: 110, height: 11),
+                        SizedBox(height: 5),
+                        _ShimmerLine(width: 46, height: 10),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-        const SizedBox(height: 26),
-        _CopyableNameChip(
-          icon: Icons.auto_awesome_rounded,
-          name: 'TmdbFeaturedStack',
-          usage: 'Vedette + rail de posters',
+          if (!titleInside) ...[
+            SizedBox(height: compact ? 5 : 6),
+            const _ShimmerLine(width: 86, height: 11),
+            const SizedBox(height: 5),
+            const _ShimmerLine(width: 54, height: 9),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Horizontal rail of ranked posters (RankedCard / RankedDiscoveryCard).
+class RankedRailSkeleton extends StatelessWidget {
+  const RankedRailSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 146,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 2 / 3,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AppShimmerBlock(radius: 12),
+                const Positioned(
+                  left: 4,
+                  bottom: 0,
+                  child: _ShimmerChip(width: 26, height: 30, radius: 6),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          const _ShimmerLine(width: 96, height: 11),
+        ],
+      ),
+    );
+  }
+}
+
+/// 16:9 image + one title line (LandscapeCard and friends).
+class LandscapeSkeleton extends StatelessWidget {
+  const LandscapeSkeleton({
+    this.width = 220,
+    this.ratio = 16 / 9,
+    super.key,
+  });
+
+  final double width;
+  final double ratio;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: ratio,
+            child: AppShimmerBlock(radius: 16),
+          ),
+          const SizedBox(height: 6),
+          const _ShimmerLine(width: 150, height: 11),
+          const SizedBox(height: 4),
+          const _ShimmerLine(width: 40, height: 9),
+        ],
+      ),
+    );
+  }
+}
+
+/// Wide 2.5:1 spotlight card with overlay title.
+class SpotlightSkeleton extends StatelessWidget {
+  const SpotlightSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 290,
+      child: AspectRatio(
+        aspectRatio: 2.5,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppShimmerBlock(radius: 18),
+            const Positioned(
+              left: 12,
+              bottom: 12,
+              right: 60,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ShimmerLine(width: 150, height: 12),
+                  SizedBox(height: 5),
+                  _ShimmerLine(width: 90, height: 9),
+                ],
+              ),
+            ),
+          ],
         ),
-        TmdbFeaturedStack(
-          title: 'À voir cette semaine',
-          icon: Icons.auto_awesome_rounded,
-          color: Theme.of(context).colorScheme.primary,
-          items: _tmdbItems,
-          onTap: (_) {},
+      ),
+    );
+  }
+}
+
+/// Small landscape 1.44:1 tile + title (TmdbTonightMiniCard).
+class TonightMiniSkeleton extends StatelessWidget {
+  const TonightMiniSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 170,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 1.44,
+            child: AppShimmerBlock(radius: 11),
+          ),
+          const SizedBox(height: 5),
+          const _ShimmerLine(width: 120, height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small tag pill row (TagCard).
+class TagSkeleton extends StatelessWidget {
+  const TagSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: .06)),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: AppShimmerBlock(radius: 8),
+          ),
+          SizedBox(width: 8),
+          Expanded(child: _ShimmerLine(width: 140, height: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Section header + horizontal row of poster blocks
+/// (ScrollingMovies / MediaGridSection / MediaPosterRail).
+class MediaSectionSkeleton extends StatelessWidget {
+  const MediaSectionSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 340,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ShimmerLine(width: 110, height: 16),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                const Expanded(child: PosterSkeleton(width: 96)),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Featured backdrop + secondary poster rail (TmdbFeaturedStack).
+class FeaturedStackSkeleton extends StatelessWidget {
+  const FeaturedStackSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 340,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ShimmerLine(width: 140, height: 16),
+          const SizedBox(height: 10),
+          AspectRatio(
+            aspectRatio: 340 / 230,
+            child: AppShimmerBlock(radius: 18),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                const Expanded(child: PosterSkeleton(width: 100)),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full-height hero shimmer (MediaHeroCarousel / TmdbHeroCarousel).
+class HomeHeroSkeleton extends StatelessWidget {
+  const HomeHeroSkeleton({this.height = 300, super.key});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 340,
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: AppShimmerBlock(radius: 0),
+          ),
+          const Positioned(
+            left: 24,
+            right: 24,
+            bottom: 30,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ShimmerChip(width: 44, height: 18),
+                SizedBox(height: 9),
+                _ShimmerLine(width: 220, height: 20),
+                SizedBox(height: 8),
+                _ShimmerLine(width: 150, height: 11),
+              ],
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 6,
+            child: Center(
+              child: _ShimmerChip(width: 56, height: 56, circle: true),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Episode card: 16:9 thumb with episode pill + progress inside,
+/// then anime title + episode title.
+class EpisodeCardSkeleton extends StatelessWidget {
+  const EpisodeCardSkeleton({
+    this.width = 220,
+    this.withProgress = false,
+    super.key,
+  });
+
+  final double width;
+  final bool withProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AppShimmerBlock(radius: 12),
+                Positioned(
+                  left: 8,
+                  bottom: withProgress ? 14 : 8,
+                  child: const _ShimmerLine(width: 34, height: 11),
+                ),
+                if (withProgress)
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _ShimmerLine(width: double.infinity, height: 3),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          const _ShimmerLine(width: 150, height: 12),
+          const SizedBox(height: 1),
+          const _ShimmerLine(width: 110, height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+/// Trailer slide: 16:9 thumb + one centered title line.
+class TrailerSkeleton extends StatelessWidget {
+  const TrailerSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 220,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AppShimmerBlock(radius: 12),
+                Center(
+                  child: _ShimmerChip(width: 44, height: 44, circle: true),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          const _ShimmerLine(width: 180, height: 11),
+        ],
+      ),
+    );
+  }
+}
+
+/// Detail wallpaper header: wide 320x180 block with title line below.
+class WallpaperSkeleton extends StatelessWidget {
+  const WallpaperSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 320,
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppShimmerBlock(radius: 16),
+            const Positioned(
+              left: 14,
+              bottom: 12,
+              width: 180,
+              child: _ShimmerLine(width: 180, height: 15),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Season card: 2/3 poster with a bottom "Saison" band.
+class SeasonSkeleton extends StatelessWidget {
+  const SeasonSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 112,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 2 / 3,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AppShimmerBlock(radius: 12),
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _ShimmerLine(width: double.infinity, height: 26),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          const _ShimmerLine(width: 70, height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cast / creator circle avatar + two lines.
+class CastSkeleton extends StatelessWidget {
+  const CastSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 112,
+      child: Column(
+        children: [
+          _ShimmerChip(width: 92, height: 92, circle: true),
+          SizedBox(height: 8),
+          _ShimmerLine(width: 80, height: 11),
+          SizedBox(height: 3),
+          _ShimmerLine(width: 56, height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+/// History / search / manga-list row: thumb + title + subtitle.
+class ListRowSkeleton extends StatelessWidget {
+  const ListRowSkeleton({
+    this.width = 330,
+    this.plain = false,
+    this.thumb = 76,
+    super.key,
+  });
+
+  final double width;
+
+  /// Transparent variant (MangaImageCardListTileWidget / MangaUpdateRow).
+  final bool plain;
+
+  /// Thumbnail width; the card height follows (thumb + padding).
+  final double thumb;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = thumb + (plain ? 16 : 12);
+    final content = Row(
+      children: [
+        SizedBox(
+          width: thumb,
+          height: thumb * 1.2,
+          child: AppShimmerBlock(radius: 8),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _ShimmerLine(width: 150, height: 12),
+              const SizedBox(height: 7),
+              const _ShimmerLine(width: 110, height: 10),
+              if (!plain) ...[
+                const SizedBox(height: 7),
+                const _ShimmerLine(width: double.infinity, height: 4),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 9),
+        const _ShimmerChip(width: 18, height: 18),
+      ],
+    );
+    if (plain) {
+      return SizedBox(width: width, height: height, child: content);
+    }
+    return Container(
+      width: width,
+      height: height,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171C23),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: content,
+    );
+  }
+}
+
+/// Showcase layout: cover left, text right (MediaLandscapeRail style).
+class ShowcaseSkeleton extends StatelessWidget {
+  const ShowcaseSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 300,
+      height: 202,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1B21),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 92,
+                  child: AppShimmerBlock(radius: 10),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: AppShimmerBlock(radius: 10)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const _ShimmerLine(width: 180, height: 13),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full-width banner card with bottom title (MediaBannerRail, MangaBannerCard,
+/// MangaSpotlightCard).
+class BannerSkeleton extends StatelessWidget {
+  const BannerSkeleton({
+    this.width = 340,
+    this.ratio = 2.05,
+    super.key,
+  });
+
+  final double width;
+  final double ratio;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: AspectRatio(
+        aspectRatio: ratio,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppShimmerBlock(radius: 18),
+            const Positioned(
+              left: 14,
+              right: 14,
+              bottom: 12,
+              child: _ShimmerLine(width: 140, height: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Top 3 triptych: three overlapping posters with a big rank number.
+class Top3Skeleton extends StatelessWidget {
+  const Top3Skeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 132,
+      child: AspectRatio(
+        aspectRatio: 2 / 3,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 2),
+                  Expanded(child: AppShimmerBlock(radius: 8)),
+                ],
+              ],
+            ),
+            const Positioned(
+              left: 6,
+              bottom: 2,
+              child: _ShimmerLine(width: 26, height: 34),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Row of small posters + captions (LibraryGridViewWidget).
+class PosterGridSkeleton extends StatelessWidget {
+  const PosterGridSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 300,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < 3; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1,
+                    child: AppShimmerBlock(radius: 10),
+                  ),
+                  const SizedBox(height: 5),
+                  const _ShimmerLine(width: double.infinity, height: 9),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Latest-update feed card: portrait thumb + title + chapter rows.
+class LatestUpdateSkeleton extends StatelessWidget {
+  const LatestUpdateSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 340,
+      height: 190,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(
+            width: 92,
+            height: 138,
+            child: AppShimmerBlock(radius: 12),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _ShimmerLine(width: 30, height: 10),
+                const SizedBox(height: 6),
+                const _ShimmerLine(width: 170, height: 14),
+                const SizedBox(height: 12),
+                for (var i = 0; i < 2; i++) ...[
+                  Container(
+                    height: 34,
+                    padding: const EdgeInsets.symmetric(horizontal: 9),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .04),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Expanded(child: _ShimmerLine(width: 120, height: 10)),
+                      ],
+                    ),
+                  ),
+                  if (i == 0) const SizedBox(height: 6),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Top Ranking manga card: header + period toggle + 5 rank rows.
+class MangaRankingSkeleton extends StatelessWidget {
+  const MangaRankingSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 340,
+      height: 430,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _ShimmerChip(width: 20, height: 20, circle: true),
+              const SizedBox(width: 8),
+              const _ShimmerLine(width: 110, height: 15),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 40,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: .35),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 4),
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: i == 1
+                            ? Colors.white.withValues(alpha: .16)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Center(
+                        child: _ShimmerLine(width: 52, height: 10),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Column(
+              children: [
+                for (var i = 0; i < 5; i++)
+                  const Expanded(child: _MangaRankRowSkeleton()),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MangaRankRowSkeleton extends StatelessWidget {
+  const _MangaRankRowSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const _ShimmerChip(width: 26, height: 26, circle: true),
+        const SizedBox(width: 10),
+        const SizedBox(
+          width: 38,
+          height: 54,
+          child: AppShimmerBlock(radius: 8),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _ShimmerLine(width: 110, height: 12),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _ShimmerChip(width: 13, height: 13, circle: true),
+                  const SizedBox(width: 4),
+                  const _ShimmerLine(width: 60, height: 10),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 }
 
-/// Copyable class-name chip for the composed-blocks area.
-class _CopyableNameChip extends StatelessWidget {
-  const _CopyableNameChip({
-    required this.icon,
-    required this.name,
-    required this.usage,
-  });
-
-  final IconData icon;
-  final String name;
-  final String usage;
+/// Vote card: tilted cover stack + title + status pill + footer stats.
+class VoteSkeleton extends StatelessWidget {
+  const VoteSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () async {
-          await Clipboard.setData(ClipboardData(text: name));
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text('$name copié'),
-                duration: const Duration(milliseconds: 1200),
-              ),
-            );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(
+    return Container(
+      width: 340,
+      height: 180,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 14, color: accent),
-              const SizedBox(width: 6),
-              Text(
-                name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
+              SizedBox(
+                width: 92,
+                height: 92,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Positioned(
+                      left: 0,
+                      top: 8,
+                      child: SizedBox(
+                        width: 56,
+                        height: 76,
+                        child: AppShimmerBlock(radius: 8),
+                      ),
+                    ),
+                    const Positioned(
+                      left: 26,
+                      top: 0,
+                      child: SizedBox(
+                        width: 60,
+                        height: 84,
+                        child: AppShimmerBlock(radius: 8),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  usage,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9.5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _ShimmerLine(width: 150, height: 14),
+                    const SizedBox(height: 10),
+                    const _ShimmerChip(width: 110, height: 26),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              _ShimmerChip(width: 16, height: 16, circle: true),
+              const SizedBox(width: 5),
+              const _ShimmerLine(width: 28, height: 11),
+              const SizedBox(width: 14),
+              _ShimmerChip(width: 16, height: 16, circle: true),
+              const SizedBox(width: 5),
+              const _ShimmerLine(width: 22, height: 11),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Collection showcase: collage + big title + stats + author pill.
+class LatestCollectionSkeleton extends StatelessWidget {
+  const LatestCollectionSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 340,
+      height: 270,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Row(
+                  children: [
+                    for (var i = 0; i < 4; i++) ...[
+                      if (i > 0) const SizedBox(width: 2),
+                      Expanded(child: AppShimmerBlock(radius: 0)),
+                    ],
+                  ],
+                ),
+                const Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ShimmerLine(width: 230, height: 16),
+                      SizedBox(height: 6),
+                      _ShimmerLine(width: 160, height: 16),
+                    ],
                   ),
                 ),
-              ),
-              const Icon(Icons.copy_rounded, size: 13, color: Colors.white54),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 14),
+                _ShimmerChip(width: 14, height: 14, circle: true),
+                const SizedBox(width: 4),
+                const _ShimmerLine(width: 44, height: 11),
+              ],
+              const Spacer(),
+              _ShimmerChip(width: 30, height: 30, circle: true),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Trending list card: collage cover with badge + author row.
+class TrendingListSkeleton extends StatelessWidget {
+  const TrendingListSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 340,
+      height: 198,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Row(
+            children: [
+              for (var i = 0; i < 4; i++) ...[
+                if (i > 0) const SizedBox(width: 2),
+                Expanded(child: AppShimmerBlock(radius: 0)),
+              ],
+            ],
+          ),
+          const Positioned(
+            left: 14,
+            top: 14,
+            child: _ShimmerChip(width: 104, height: 24),
+          ),
+          const Positioned(
+            right: 14,
+            top: 14,
+            child: _ShimmerChip(width: 64, height: 20),
+          ),
+          const Positioned(
+            left: 14,
+            right: 74,
+            bottom: 14,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: AppShimmerBlock(radius: 8),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ShimmerLine(width: 120, height: 13),
+                      SizedBox(height: 4),
+                      _ShimmerLine(width: 84, height: 10),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Scan group card: cover header + avatar + name + stats row.
+class ScanGroupSkeleton extends StatelessWidget {
+  const ScanGroupSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 340,
+      height: 300,
+      decoration: BoxDecoration(
+        color: const Color(0xFF15171D),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 132,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Row(
+                  children: [
+                    for (var i = 0; i < 4; i++) ...[
+                      if (i > 0) const SizedBox(width: 2),
+                      Expanded(child: AppShimmerBlock(radius: 0)),
+                    ],
+                  ],
+                ),
+                const Positioned(
+                  left: 12,
+                  top: 12,
+                  child: _ShimmerChip(width: 38, height: 22),
+                ),
+                const Positioned(
+                  right: 12,
+                  top: 12,
+                  child: _ShimmerChip(width: 52, height: 22),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+            child: Transform.translate(
+              offset: const Offset(0, -26),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _ShimmerChip(width: 56, height: 56, radius: 16),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 4),
+                      child: _ShimmerLine(width: 140, height: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: Transform.translate(
+              offset: const Offset(0, -14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _ShimmerChip(width: 8, height: 8, circle: true),
+                      const SizedBox(width: 7),
+                      const _ShimmerLine(width: 170, height: 12),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      for (var i = 0; i < 3; i++) ...[
+                        if (i > 0) const SizedBox(width: 28),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _ShimmerLine(width: 60, height: 14),
+                            const SizedBox(height: 4),
+                            _ShimmerLine(width: 56, height: 9),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Swipe 3×3 section: header + 3 columns × 3 rows of small posters.
+class SwipeSectionSkeleton extends StatelessWidget {
+  const SwipeSectionSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 340,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ShimmerLine(width: 90, height: 16),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var c = 0; c < 3; c++) ...[
+                if (c > 0) const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    children: [
+                      for (var r = 0; r < 3; r++)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 10),
+                          child: PosterSkeleton(width: 88, compact: true),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small shimmer pill / circle helper.
+class _ShimmerChip extends StatelessWidget {
+  const _ShimmerChip({
+    required this.width,
+    required this.height,
+    this.circle = false,
+    this.radius = 7,
+  });
+
+  final double width;
+  final double height;
+  final bool circle;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppLoadingColors.of(context).shimmerBase,
+      highlightColor: AppLoadingColors.of(context).shimmerHighlight,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: circle ? BoxShape.circle : BoxShape.rectangle,
+            borderRadius: circle ? null : BorderRadius.circular(radius),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// One shimmer line; inside a SizedBox of the given size.
+class _ShimmerLine extends StatelessWidget {
+  const _ShimmerLine({required this.width, required this.height});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: const AppShimmerBlock(radius: 5),
     );
   }
 }
@@ -1255,482 +2330,6 @@ class _TrailerPreview extends StatelessWidget {
   }
 }
 
-/*
-class _ExtensionHeroPreview extends StatelessWidget {
-  final MManga item;
-
-  const _ExtensionHeroPreview({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 320,
-      height: 224,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ContentImage(url: item.imageUrl, radius: 0),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0xF5000000)],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _GalleryBadge(label: 'À LA UNE'),
-                  const SizedBox(height: 8),
-                  Text(
-                    item.name ?? 'Sans titre',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Extension vidéo · 2024',
-                    style: TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionRankedWidePreview extends StatelessWidget {
-  final MManga item;
-  final int rank;
-
-  const _ExtensionRankedWidePreview({required this.item, required this.rank});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 330,
-      height: 88,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 48,
-            child: Text(
-              '$rank',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 44,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 66,
-              height: 88,
-              child: ContentImage(url: item.imageUrl, radius: 0),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name ?? 'Sans titre',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  'Extension · 8.6',
-                  style: TextStyle(color: Colors.white54, fontSize: 10),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExtensionShowcasePreview extends StatelessWidget {
-  final MManga item;
-
-  const _ExtensionShowcasePreview({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 300,
-      height: 192,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ContentImage(url: item.imageUrl, radius: 0),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [Color(0xF0000000), Colors.transparent],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 14,
-              top: 14,
-              child: _GalleryBadge(label: 'SHOWCASE'),
-            ),
-            Positioned(
-              left: 14,
-              bottom: 14,
-              right: 90,
-              child: Text(
-                item.name ?? 'Sans titre',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            const Positioned(
-              right: 15,
-              bottom: 15,
-              child: _PlayCircle(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionCollectionPreview extends StatelessWidget {
-  final MManga item;
-
-  const _ExtensionCollectionPreview({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 190,
-      height: 112,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF17243C), Color(0xFF294B6B)],
-          ),
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(14),
-              ),
-              child: SizedBox(
-                width: 76,
-                height: 112,
-                child: ContentImage(url: item.imageUrl, radius: 0),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'COLLECTION',
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      item.name ?? 'Sans titre',
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionBannerPreview extends StatelessWidget {
-  final MManga item;
-
-  const _ExtensionBannerPreview({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 300,
-      height: 146,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ContentImage(url: item.imageUrl, radius: 0),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0xE6000000)],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 14,
-              right: 14,
-              bottom: 12,
-              child: Text(
-                item.name ?? 'Sans titre',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionCreatorPreview extends StatelessWidget {
-  final MManga item;
-
-  const _ExtensionCreatorPreview({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 112,
-      child: Column(
-        children: [
-          ClipOval(
-            child: SizedBox(
-              width: 98,
-              height: 98,
-              child: ContentImage(url: item.imageUrl, radius: 0),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item.name ?? 'Créateur',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 3),
-          const Text(
-            '12 titres',
-            style: TextStyle(color: Colors.white54, fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExtensionStudioPreview extends StatelessWidget {
-  final MManga item;
-
-  const _ExtensionStudioPreview({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 300,
-      height: 176,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ContentImage(url: item.imageUrl, radius: 0),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0xF0000000)],
-                ),
-              ),
-            ),
-            const Positioned(
-              left: 14,
-              top: 14,
-              child: _GalleryBadge(label: 'STUDIO'),
-            ),
-            Positioned(
-              left: 14,
-              bottom: 14,
-              child: Text(
-                item.name ?? 'Studio',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionCategoryPreview extends StatelessWidget {
-  final MManga item;
-
-  const _ExtensionCategoryPreview({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 190,
-      height: 112,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ContentImage(url: item.imageUrl, radius: 0),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0xDF000000)],
-                ),
-              ),
-            ),
-            const Positioned(
-              left: 10,
-              bottom: 10,
-              child: Text(
-                'Science-fiction',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionGridPreview extends StatelessWidget {
-  final List<MManga> items;
-
-  const _ExtensionGridPreview({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 300,
-      height: 208,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final item in items.take(3)) ...[
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: ContentImage(url: item.imageUrl, radius: 0),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      item.name ?? 'Sans titre',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-*/
 class _SearchGridPreview extends StatelessWidget {
   final MManga item;
 
@@ -2338,13 +2937,10 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mediaSection,
     result: (_) => SizedBox(
       width: 340,
-      height: 240,
-      child: ClipRect(
-        child: ScrollingMovies(
-          title: 'Popular',
-          items: _tmdbItems,
-          discoverPath: '/movie/popular',
-        ),
+      child: ScrollingMovies(
+        title: 'Popular',
+        items: _tmdbItems,
+        discoverPath: '/movie/popular',
       ),
     ),
   ),
@@ -2358,12 +2954,9 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mediaSection,
     result: (_) => SizedBox(
       width: 340,
-      height: 240,
-      child: ClipRect(
-        child: RankedMovies(
-          title: 'Top 10 cette semaine',
-          items: _tmdbItems,
-        ),
+      child: RankedMovies(
+        title: 'Top 10 cette semaine',
+        items: _tmdbItems,
       ),
     ),
   ),
@@ -2377,13 +2970,10 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mediaSection,
     result: (_) => SizedBox(
       width: 340,
-      height: 240,
-      child: ClipRect(
-        child: ScrollingLandscapeMovies(
-          title: 'Now playing',
-          items: _tmdbItems,
-          discoverPath: '/movie/now_playing',
-        ),
+      child: ScrollingLandscapeMovies(
+        title: 'Now playing',
+        items: _tmdbItems,
+        discoverPath: '/movie/now_playing',
       ),
     ),
   ),
@@ -2397,12 +2987,9 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mediaSection,
     result: (_) => SizedBox(
       width: 340,
-      height: 240,
-      child: ClipRect(
-        child: FeaturedMovieRail(
-          title: 'À découvrir',
-          items: _tmdbItems,
-        ),
+      child: FeaturedMovieRail(
+        title: 'À découvrir',
+        items: _tmdbItems,
       ),
     ),
   ),
@@ -2417,6 +3004,38 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => const SizedBox(
       width: 340,
       child: MoviesFromWatchProviders(),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Hero plein écran',
+    className: 'TmdbHeroCarousel',
+    path: 'lib/modules/home/widgets/tmdb_cards.dart',
+    usage: 'Carrousel auto du hub films/séries',
+    icon: Icons.slideshow_rounded,
+    kind: _PreviewKind.homeHero,
+    result: (_) => SizedBox(
+      width: 340,
+      child: TmdbHeroCarousel(
+        items: _tmdbItems.take(4).toList(growable: false),
+        onTap: (_) {},
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'FILMS & SÉRIES · SECTIONS',
+    title: 'Vedette + rail',
+    className: 'TmdbFeaturedStack',
+    path: 'lib/modules/home/widgets/tmdb_cards.dart',
+    usage: 'Mise en avant du hub',
+    icon: Icons.auto_awesome_rounded,
+    kind: _PreviewKind.featuredStack,
+    result: (context) => TmdbFeaturedStack(
+      title: 'À voir cette semaine',
+      icon: Icons.auto_awesome_rounded,
+      color: Theme.of(context).colorScheme.primary,
+      items: _tmdbItems,
+      onTap: (_) {},
     ),
   ),
   _ComponentSpec(
@@ -2661,7 +3280,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.manga,
     result: (_) => SizedBox(
       width: 112,
-      height: 168,
+      height: 190,
       child: MangaImageCardWidget(
         source: _gallerySource,
         itemType: ItemType.manga,
@@ -2680,7 +3299,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaList,
     result: (_) => SizedBox(
       width: 300,
-      height: 112,
+      height: 130,
       child: MangaImageCardListTileWidget(
         source: _gallerySource,
         itemType: ItemType.manga,
@@ -2698,7 +3317,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaHome,
     result: (_) => SizedBox(
       width: 168,
-      height: 252,
       child: MangaFeaturedCard(
         item: ContentItem.fromManga(_extensionItems[0]),
         onTap: () {},
@@ -2715,7 +3333,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaHome,
     result: (_) => SizedBox(
       width: 112,
-      height: 200,
       child: MangaChapterCard(
         item: ContentItem.fromManga(_extensionItems[1]),
         badge: '144',
@@ -2733,7 +3350,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaList,
     result: (_) => SizedBox(
       width: 330,
-      height: 112,
       child: MangaResumeCard(
         item: ContentItem.fromManga(_extensionItems[2]),
         subtitle: 'Chapitre 148 · il y a 2 h',
@@ -2749,10 +3365,9 @@ List<_ComponentSpec> _buildComponents() => [
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
     usage: 'Hero du home manga',
     icon: Icons.auto_awesome_rounded,
-    kind: _PreviewKind.banner,
+    kind: _PreviewKind.mangaSpotlight,
     result: (_) => SizedBox(
       width: 320,
-      height: 180,
       child: MangaSpotlightCard(
         item: ContentItem.fromManga(_extensionItems[3]),
         height: 180,
@@ -2767,7 +3382,7 @@ List<_ComponentSpec> _buildComponents() => [
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
     usage: 'Rail "Genres" du home manga',
     icon: Icons.category_outlined,
-    kind: _PreviewKind.collection,
+    kind: _PreviewKind.mangaGenre,
     result: (_) => SizedBox(
       width: 118,
       height: 84,
@@ -2788,7 +3403,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.searchList,
     result: (_) => SizedBox(
       width: 330,
-      height: 84,
       child: MangaUpdateRow(
         item: ContentItem.fromManga(_extensionItems[0]),
         subtitle: 'Chapitre 147',
@@ -2807,7 +3421,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.banner,
     result: (_) => SizedBox(
       width: 320,
-      height: 156,
       child: MangaBannerCard(
         item: ContentItem.fromManga(_extensionItems[2]),
         onTap: () {},
@@ -2821,10 +3434,9 @@ List<_ComponentSpec> _buildComponents() => [
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
     usage: 'Rail "Top 3" triptyque',
     icon: Icons.emoji_events_outlined,
-    kind: _PreviewKind.ranked,
+    kind: _PreviewKind.top3,
     result: (_) => SizedBox(
       width: 132,
-      height: 132,
       child: MangaTop3Card(
         items: _extensionItems
             .take(3)
@@ -2845,7 +3457,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaUpdateFeed,
     result: (_) => SizedBox(
       width: 340,
-      height: 190,
       child: MangaLatestUpdateCard(
         item: ContentItem.fromManga(_extensionItems[0]),
         time: '10m',
@@ -2868,7 +3479,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaRanking,
     result: (_) => SizedBox(
       width: 340,
-      height: 430,
       child: MangaRankingCard(
         items: _extensionItems
             .map(ContentItem.fromManga)
@@ -2887,7 +3497,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaVote,
     result: (_) => SizedBox(
       width: 340,
-      height: 180,
       child: MangaVoteCard(
         title: 'Goonable tiers',
         imageUrl: _extensionItems[1].imageUrl,
@@ -2905,10 +3514,9 @@ List<_ComponentSpec> _buildComponents() => [
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
     usage: 'Collage + titre + stats + auteur',
     icon: Icons.collections_bookmark_outlined,
-    kind: _PreviewKind.mangaUpdateFeed,
+    kind: _PreviewKind.mangaCollection,
     result: (_) => SizedBox(
       width: 340,
-      height: 270,
       child: MangaCollectionShowcaseCard(
         title: "Romance I'll never get to experience",
         covers: _extensionItems
@@ -2931,10 +3539,9 @@ List<_ComponentSpec> _buildComponents() => [
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
     usage: 'Badge #N · TRENDING + rail de vote',
     icon: Icons.trending_up_rounded,
-    kind: _PreviewKind.mangaRanking,
+    kind: _PreviewKind.mangaTrending,
     result: (_) => SizedBox(
       width: 340,
-      height: 240,
       child: MangaTrendingListCard(
         rank: 1,
         title: 'Favorites',
@@ -2957,10 +3564,9 @@ List<_ComponentSpec> _buildComponents() => [
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
     usage: 'Classement groupes · followers / titles / staff',
     icon: Icons.groups_outlined,
-    kind: _PreviewKind.mangaVote,
+    kind: _PreviewKind.mangaScanGroup,
     result: (_) => SizedBox(
       width: 340,
-      height: 300,
       child: MangaScanGroupCard(
         rank: 1,
         name: 'No-group',
@@ -2975,27 +3581,6 @@ List<_ComponentSpec> _buildComponents() => [
         staff: '0',
         lastRelease: '2 days ago',
         onTap: () {},
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'MANGA & LECTURE',
-    title: 'Home manga complet',
-    className: 'MangaHomeSectionsPreview',
-    path: 'lib/modules/manga/home/manga_home_screen.dart',
-    usage: 'Composition de toutes les sections',
-    icon: Icons.dashboard_customize_outlined,
-    kind: _PreviewKind.mangaHomeRail,
-    result: (_) => SizedBox(
-      width: 340,
-      height: 900,
-      child: SingleChildScrollView(
-        child: MangaHomeSectionsPreview(
-          items: _extensionItems
-              .map(ContentItem.fromManga)
-              .toList(growable: false),
-          onOpen: (_) {},
-        ),
       ),
     ),
   ),
@@ -3094,795 +3679,6 @@ List<_ComponentSpec> _buildComponents() => [
   ),
 ];
 
-/*
-List<_ComponentSpec> _buildLibraryComponents() => [
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · CARDS',
-    title: 'Classic poster',
-    className: 'ClassicPosterCard',
-    usage: 'Poster vertical réutilisable',
-    icon: Icons.local_movies_outlined,
-    result: (_) => ClassicPosterCard(item: _libraryItems[0]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · CARDS',
-    title: 'Compact media',
-    className: 'CompactMediaCard',
-    usage: 'Grilles denses et mobile',
-    icon: Icons.grid_view_outlined,
-    result: (_) => CompactMediaCard(item: _libraryItems[1]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · CARDS',
-    title: 'Landscape media',
-    className: 'LandscapeMediaCard',
-    usage: 'Rail paysage standard',
-    icon: Icons.panorama_outlined,
-    result: (_) => LandscapeMediaCard(item: _libraryItems[2]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · CARDS',
-    title: 'Featured media',
-    className: 'FeaturedMediaCard',
-    usage: 'Mise en avant avec overlay',
-    icon: Icons.star_border_rounded,
-    result: (_) => FeaturedMediaCard(item: _libraryItems[3]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · CARDS',
-    title: 'Hero media',
-    className: 'HeroMediaCard',
-    usage: 'Hero riche avec description',
-    icon: Icons.open_in_full_rounded,
-    result: (_) => HeroMediaCard(item: _libraryItems[4]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · LECTURE',
-    title: 'Episode library',
-    className: 'EpisodeLibraryCard',
-    usage: 'Screenshot, titre et durée',
-    icon: Icons.play_circle_outline_rounded,
-    result: (_) => EpisodeLibraryCard(item: _libraryItems[5]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · LECTURE',
-    title: 'Season',
-    className: 'SeasonLibraryCard',
-    usage: 'Saison et nombre d’épisodes',
-    icon: Icons.video_library_outlined,
-    result: (_) => SeasonLibraryCard(item: _libraryItems[6]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · LECTURE',
-    title: 'Continue watching',
-    className: 'ContinueWatchingCard',
-    usage: 'Reprise avec progression',
-    icon: Icons.history_rounded,
-    result: (_) => ContinueWatchingCard(item: _libraryItems[7]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · LECTURE',
-    title: 'Recently watched',
-    className: 'RecentlyWatchedCard',
-    usage: 'Historique de lecture',
-    icon: Icons.update_rounded,
-    result: (_) => RecentlyWatchedCard(item: _libraryItems[8]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · LECTURE',
-    title: 'Watchlist',
-    className: 'WatchlistCard',
-    usage: 'À regarder plus tard',
-    icon: Icons.bookmark_border_rounded,
-    result: (_) => WatchlistCard(item: _libraryItems[9]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · DISCOVERY',
-    title: 'Recommendation',
-    className: 'RecommendationCard',
-    usage: 'Suggestion éditoriale',
-    icon: Icons.recommend_rounded,
-    result: (_) => RecommendationCard(item: _libraryItems[2]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · DISCOVERY',
-    title: 'Similar media',
-    className: 'SimilarMediaCard',
-    usage: 'Contenus similaires',
-    icon: Icons.compare_arrows_rounded,
-    result: (_) => SimilarMediaCard(item: _libraryItems[1]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · DISCOVERY',
-    title: 'Trending',
-    className: 'TrendingCard',
-    usage: 'Tendance du moment',
-    icon: Icons.trending_up_rounded,
-    result: (_) => TrendingCard(item: _libraryItems[0]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · DISCOVERY',
-    title: 'Ranked media',
-    className: 'RankedMediaCard',
-    usage: 'Top avec rang visuel',
-    icon: Icons.format_list_numbered_rounded,
-    result: (_) => RankedMediaCard(item: _libraryItems[3], rank: 1),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · COLLECTIONS',
-    title: 'Collection',
-    className: 'CollectionCard',
-    usage: 'Collection éditoriale',
-    icon: Icons.collections_bookmark_outlined,
-    result: (_) => CollectionCard(item: _libraryItems[10]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · COLLECTIONS',
-    title: 'Saga',
-    className: 'SagaCard',
-    usage: 'Franchise avec backdrop',
-    icon: Icons.auto_stories_outlined,
-    result: (_) => SagaCard(item: _libraryItems[11]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · COLLECTIONS',
-    title: 'Saga collection',
-    className: 'SagaCollectionCard',
-    usage: 'Franchise avec plusieurs posters',
-    icon: Icons.view_carousel_outlined,
-    result: (_) => SagaCollectionCard(item: _libraryItems[10]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · COLLECTIONS',
-    title: 'Universe',
-    className: 'UniverseCard',
-    usage: 'Univers partagé',
-    icon: Icons.public_rounded,
-    result: (_) => UniverseCard(item: _libraryItems[11]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · COLLECTIONS',
-    title: 'Studio',
-    className: 'StudioCard',
-    usage: 'Catalogue d’un studio',
-    icon: Icons.business_outlined,
-    result: (_) => StudioCard(item: _libraryItems[2]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · COLLECTIONS',
-    title: 'Provider',
-    className: 'ProviderCard',
-    usage: 'Source de diffusion',
-    icon: Icons.play_circle_outline_rounded,
-    result: (_) => ProviderCard(item: _libraryItems[9]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · COLLECTIONS',
-    title: 'Genre / category',
-    className: 'GenreCard · CategoryCard',
-    usage: 'Découverte par taxonomie',
-    icon: Icons.category_outlined,
-    result: (_) => GenreCard(item: _libraryItems[10]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · COLLECTIONS',
-    title: 'Country / language',
-    className: 'CountryCard · LanguageCard',
-    usage: 'Filtres pays et langue',
-    icon: Icons.translate_rounded,
-    result: (_) => CountryCard(item: _libraryItems[11]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MUSIC',
-    title: 'Playlist',
-    className: 'PlaylistCard',
-    usage: 'Playlist carrée',
-    icon: Icons.queue_music_rounded,
-    result: (_) => PlaylistCard(item: _libraryItems[12]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MUSIC',
-    title: 'Playlist grid',
-    className: 'PlaylistGridCard',
-    usage: 'Grille de playlists',
-    icon: Icons.grid_view_rounded,
-    result: (_) => PlaylistGridCard(item: _libraryItems[13]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MUSIC',
-    title: 'Playlist featured',
-    className: 'PlaylistFeaturedCard',
-    usage: 'Playlist mise en avant',
-    icon: Icons.featured_play_list_outlined,
-    result: (_) => PlaylistFeaturedCard(item: _libraryItems[12]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MUSIC',
-    title: 'Album',
-    className: 'AlbumCard',
-    usage: 'Album avec artwork',
-    icon: Icons.album_outlined,
-    result: (_) => AlbumCard(item: _libraryItems[13]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MUSIC',
-    title: 'Artist',
-    className: 'ArtistCard',
-    usage: 'Artiste en avatar',
-    icon: Icons.person_outline_rounded,
-    result: (_) => ArtistCard(item: _libraryItems[14]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MUSIC',
-    title: 'Track',
-    className: 'TrackCard',
-    usage: 'Ligne titre, artiste et durée',
-    icon: Icons.music_note_rounded,
-    result: (_) => TrackCard(item: _libraryItems[15]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MUSIC',
-    title: 'Now playing',
-    className: 'NowPlayingCard',
-    usage: 'Titre actif avec progression',
-    icon: Icons.equalizer_rounded,
-    result: (_) => NowPlayingCard(item: _libraryItems[16]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MUSIC',
-    title: 'Music collection',
-    className: 'MusicCollectionCard',
-    usage: 'Collection musicale',
-    icon: Icons.library_music_outlined,
-    result: (_) => MusicCollectionCard(item: _libraryItems[13]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
-    title: 'Chapter',
-    className: 'ChapterCard',
-    usage: 'Chapitre et durée de lecture',
-    icon: Icons.menu_book_outlined,
-    result: (_) => ChapterCard(item: _libraryItems[17]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
-    title: 'Reading progress',
-    className: 'ReadingProgressCard',
-    usage: 'Progression de lecture',
-    icon: Icons.auto_stories_outlined,
-    result: (_) => ReadingProgressCard(item: _libraryItems[18]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
-    title: 'Library book',
-    className: 'LibraryBookCard',
-    usage: 'Livre dans la bibliothèque',
-    icon: Icons.book_outlined,
-    result: (_) => LibraryBookCard(item: _libraryItems[19]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
-    title: 'Author',
-    className: 'AuthorCard',
-    usage: 'Auteur en avatar',
-    icon: Icons.edit_outlined,
-    result: (_) => AuthorCard(item: _libraryItems[14]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
-    title: 'Series collection',
-    className: 'SeriesCollectionCard',
-    usage: 'Série éditoriale',
-    icon: Icons.collections_bookmark_outlined,
-    result: (_) => SeriesCollectionCard(item: _libraryItems[10]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · MANGA & LECTURE',
-    title: 'Reading continue / history',
-    className: 'ReadingContinueCard · ReadingHistoryCard',
-    usage: 'Reprise et historique manga',
-    icon: Icons.history_edu_rounded,
-    result: (_) => ReadingContinueCard(item: _libraryItems[18]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
-    title: 'Person / avatar',
-    className: 'PersonCard · AvatarCard',
-    usage: 'Personne et avatar',
-    icon: Icons.account_circle_outlined,
-    result: (_) => PersonCard(item: _libraryItems[14]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
-    title: 'Video',
-    className: 'VideoCard',
-    usage: 'Vidéo avec action play',
-    icon: Icons.ondemand_video_outlined,
-    result: (_) => VideoCard(item: _libraryItems[5]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
-    title: 'Spotlight',
-    className: 'SpotlightCard',
-    usage: 'Coup de cœur éditorial',
-    icon: Icons.highlight_rounded,
-    result: (_) => SpotlightCard(item: _libraryItems[4]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
-    title: 'Banner / wallpaper',
-    className: 'BannerCard · WallpaperCard',
-    usage: 'Bannière et backdrop',
-    icon: Icons.wallpaper_outlined,
-    result: (_) => BannerCard(item: _libraryItems[4]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
-    title: 'Promo / announcement',
-    className: 'PromoCard · AnnouncementCard',
-    usage: 'Message promotionnel',
-    icon: Icons.campaign_outlined,
-    result: (_) => PromoCard(item: _libraryItems[20]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
-    title: 'News',
-    className: 'NewsCard',
-    usage: 'Actualité éditoriale',
-    icon: Icons.newspaper_outlined,
-    result: (_) => NewsCard(item: _libraryItems[20]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
-    title: 'Profile',
-    className: 'ProfileCard',
-    usage: 'Profil avec métadonnées',
-    icon: Icons.badge_outlined,
-    result: (_) => ProfileCard(item: _libraryItems[14]),
-  ),
-  _libraryCardSpec(
-    section: 'BIBLIOTHÈQUE · PEOPLE & SPECIAL',
-    title: 'Badge / tag',
-    className: 'BadgeCard · TagLibraryCard',
-    usage: 'Labels et attributs',
-    icon: Icons.local_offer_outlined,
-    result: (_) => BadgeCard(item: _libraryItems[20]),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Horizontal rail',
-    className: 'HorizontalRailSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Titre, action et contenu horizontal',
-    icon: Icons.view_stream_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibraryRailPreview(
-      title: 'Films populaires',
-      child: HorizontalRailSection<ComponentLibraryItem>(
-        title: 'Films populaires',
-        onSeeAll: () {},
-        height: 188,
-        items: _libraryItems.take(4).toList(),
-        itemBuilder: (_, item) => CompactMediaCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Compact rail',
-    className: 'CompactRailSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Rail dense pour reprise',
-    icon: Icons.view_agenda_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibraryRailPreview(
-      title: 'Continuer',
-      child: CompactRailSection<ComponentLibraryItem>(
-        title: 'Continuer',
-        items: _libraryItems.skip(7).take(4).toList(),
-        itemBuilder: (_, item) => ContinueWatchingCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Grid section',
-    className: 'GridSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Grille responsive',
-    icon: Icons.grid_4x4_rounded,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibrarySectionPreview(
-      child: GridSection<ComponentLibraryItem>(
-        title: 'Découvrir',
-        items: _libraryItems.take(4).toList(),
-        itemBuilder: (_, item) => CompactMediaCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Two / three columns',
-    className: 'TwoColumnSection · ThreeColumnSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Grilles adaptatives',
-    icon: Icons.table_rows_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibrarySectionPreview(
-      child: ThreeColumnSection<ComponentLibraryItem>(
-        title: 'Nouveautés',
-        items: _libraryItems.take(3).toList(),
-        itemBuilder: (_, item) => CompactMediaCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Featured / hero',
-    className: 'FeaturedSection · HeroSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Section avec item principal',
-    icon: Icons.featured_play_list_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibrarySectionPreview(
-      child: HeroSection<ComponentLibraryItem>(
-        title: 'À la une',
-        item: _libraryItems[4],
-        itemBuilder: (_, item) => HeroMediaCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Ranking section',
-    className: 'RankingSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Top avec rang injecté',
-    icon: Icons.leaderboard_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibrarySectionPreview(
-      child: RankingSection<ComponentLibraryItem>(
-        title: 'Top du moment',
-        items: _libraryItems.take(3).toList(),
-        itemBuilder: (_, item, rank) => RankedMediaCard(item: item, rank: rank),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Collection / saga',
-    className: 'CollectionSection · SagaSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Rails de regroupements',
-    icon: Icons.collections_bookmark_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibraryRailPreview(
-      title: 'Collections',
-      child: SagaSection<ComponentLibraryItem>(
-        title: 'Collections',
-        items: _libraryItems.skip(10).take(2).toList(),
-        itemBuilder: (_, item) => SagaCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Mixed / spotlight',
-    className: 'MixedContentSection · SpotlightSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Mélange et mise en avant',
-    icon: Icons.auto_awesome_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibrarySectionPreview(
-      child: SpotlightSection<ComponentLibraryItem>(
-        title: 'Coup de cœur',
-        item: _libraryItems[4],
-        itemBuilder: (_, item) => SpotlightCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Banner / carousel',
-    className: 'BannerSection · CarouselSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Bannières et carrousels',
-    icon: Icons.view_carousel_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibraryRailPreview(
-      title: 'Événements',
-      child: BannerSection<ComponentLibraryItem>(
-        title: 'Événements',
-        items: _libraryItems.skip(20).take(2).toList(),
-        itemBuilder: (_, item) => BannerCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Stacked / recent',
-    className: 'StackedCardSection · RecentlyAddedSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Cartes empilées et ajouts récents',
-    icon: Icons.layers_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibraryRailPreview(
-      title: 'Ajouts récents',
-      child: RecentlyAddedSection<ComponentLibraryItem>(
-        title: 'Ajouts récents',
-        items: _libraryItems.take(4).toList(),
-        itemBuilder: (_, item) => LandscapeMediaCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Continue watching',
-    className: 'ContinueWatchingSection',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Rail de reprise',
-    icon: Icons.play_circle_outline_rounded,
-    kind: _PreviewKind.librarySection,
-    result: (_) => _LibraryRailPreview(
-      title: 'Reprendre la lecture',
-      child: ContinueWatchingSection<ComponentLibraryItem>(
-        title: 'Reprendre la lecture',
-        items: _libraryItems.skip(7).take(3).toList(),
-        itemBuilder: (_, item) => ContinueWatchingCard(item: item),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · SECTIONS',
-    title: 'Swipe 3 × 3',
-    className: 'ThreeColumnSwipeSection<T>',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: '3 colonnes × 3 lignes, pagination horizontale',
-    icon: Icons.swipe_rounded,
-    kind: _PreviewKind.swipeSection,
-    result: (_) => _LibrarySectionPreview(
-      child: ThreeColumnSwipeSection<ComponentLibraryItem>(
-        title: 'Sélection',
-        items: _libraryItems.take(9).toList(),
-        itemHeight: 70,
-        itemBuilder: (_, item) => CompactMediaCard(item: item, width: 92),
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · ÉTATS',
-    title: 'Loading / shimmer',
-    className: 'ComponentSectionState · ComponentSectionSkeleton',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'État de chargement partagé',
-    icon: Icons.hourglass_empty_rounded,
-    kind: _PreviewKind.librarySection,
-    result: (_) => const ComponentSectionSkeleton(height: 180),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · ÉTATS',
-    title: 'Empty',
-    className: 'ComponentSectionState',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'État vide réutilisable',
-    icon: Icons.inbox_outlined,
-    kind: _PreviewKind.librarySection,
-    result: (_) => const ComponentSectionState(state: ComponentViewState.empty),
-  ),
-  _ComponentSpec(
-    section: 'BIBLIOTHÈQUE · ÉTATS',
-    title: 'Error',
-    className: 'ComponentSectionState',
-    path: 'lib/modules/widgets/component_library.dart',
-    usage: 'Erreur avec retry',
-    icon: Icons.error_outline_rounded,
-    kind: _PreviewKind.librarySection,
-    result: (_) => ComponentSectionState(
-      state: ComponentViewState.error,
-      onRetry: () {},
-    ),
-  ),
-];
-
-_ComponentSpec _libraryCardSpec({
-  required String section,
-  required String title,
-  required String className,
-  required String usage,
-  required IconData icon,
-  required Widget Function(BuildContext context) result,
-}) =>
-    _ComponentSpec(
-      section: section,
-      title: title,
-      className: className,
-      path: 'lib/modules/widgets/component_library.dart',
-      usage: usage,
-      icon: icon,
-      kind: _PreviewKind.libraryCard,
-      result: result,
-    );
-
-class _LibrarySectionPreview extends StatelessWidget {
-  const _LibrarySectionPreview({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(width: 340, child: child);
-  }
-}
-
-class _LibraryRailPreview extends StatelessWidget {
-  const _LibraryRailPreview({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(width: 340, height: 215, child: child);
-  }
-}
-
-final _libraryItems = <ComponentLibraryItem>[
-  ComponentLibraryItem(
-    id: 'dune',
-    title: 'Dune : Deuxième partie',
-    subtitle: '2024 · Science-fiction',
-    description: 'Une longue description de démonstration pour tester la lisibilité.',
-    imageUrl: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
-    backdropUrl: 'https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
-    rating: 8.2,
-    badge: 'NOUVEAU',
-    meta: 'Film · 2h 46',
-  ),
-  const ComponentLibraryItem(
-    id: 'no-image',
-    title: 'Titre sans image',
-    subtitle: 'État no image',
-    rating: 7.8,
-    badge: 'HD',
-  ),
-  ComponentLibraryItem(
-    id: 'interstellar',
-    title: 'Interstellar',
-    subtitle: '2014 · Drame',
-    imageUrl: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
-    backdropUrl: 'https://image.tmdb.org/t/p/w1280/pbrkL804c8yAv3zBZR4QPEafpAR.jpg',
-    rating: 8.4,
-    meta: 'Film · 2h 49',
-  ),
-  ComponentLibraryItem(
-    id: 'arcane',
-    title: 'Arcane',
-    subtitle: 'Série · Animation',
-    imageUrl: 'https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg',
-    backdropUrl: 'https://image.tmdb.org/t/p/w1280/rkB4LyZHo1NHXFEDHl8M3g1Q3Q.jpg',
-    rating: 8.7,
-    badge: 'TOP',
-    meta: 'Saison 2',
-  ),
-  ComponentLibraryItem(
-    id: 'one-piece',
-    title: 'One Piece : le voyage continue',
-    subtitle: '1122 épisodes · Aventure',
-    imageUrl: 'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
-    backdropUrl: 'https://image.tmdb.org/t/p/w1280/m0bV4D3dZQYjF4gUeR5Y4kK8v8c.jpg',
-    rating: 8.7,
-    description: 'Une aventure sans fin, présentée dans un hero réutilisable.',
-    meta: 'Anime · 24 min',
-  ),
-  ComponentLibraryItem(
-    id: 'episode',
-    title: 'Épisode 04 · Progress Day!',
-    subtitle: 'Arcane · 42 min',
-    imageUrl: 'https://image.tmdb.org/t/p/w780/rkB4LyZHo1NHXFEDHl8M3g1Q3Q.jpg',
-    description: 'Une description suffisamment longue pour vérifier le clamp.',
-    progress: .62,
-    duration: const Duration(minutes: 42),
-  ),
-  const ComponentLibraryItem(
-    id: 'season',
-    title: 'Saison 2',
-    subtitle: '9 épisodes',
-    count: 9,
-    badge: '2024',
-  ),
-  ComponentLibraryItem(
-    id: 'continue',
-    title: 'Reprendre One Piece',
-    subtitle: 'Épisode 1089 · 12 min restantes',
-    imageUrl: 'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
-    progress: .74,
-    duration: const Duration(minutes: 24),
-  ),
-  ComponentLibraryItem(
-    id: 'history',
-    title: 'The Last of Us',
-    subtitle: 'Vu hier · épisode 5',
-    imageUrl: 'https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg',
-    progress: 1,
-  ),
-  const ComponentLibraryItem(
-    id: 'watchlist',
-    title: 'À voir plus tard',
-    subtitle: '12 contenus',
-    badge: '12',
-  ),
-  ComponentLibraryItem(
-    id: 'collection',
-    title: 'Univers science-fiction',
-    subtitle: '18 films · 4 séries',
-    backdropUrl: 'https://image.tmdb.org/t/p/w1280/pbrkL804c8yAv3zBZR4QPEafpAR.jpg',
-    count: 18,
-  ),
-  ComponentLibraryItem(
-    id: 'saga',
-    title: 'Saga Dune',
-    subtitle: '3 films · Science-fiction',
-    backdropUrl: 'https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
-    count: 3,
-  ),
-  const ComponentLibraryItem(
-    id: 'playlist',
-    title: 'Night Drive',
-    subtitle: '32 titres',
-    badge: 'PLAYLIST',
-    count: 32,
-  ),
-  const ComponentLibraryItem(
-    id: 'album',
-    title: 'Random Access Memories',
-    subtitle: 'Daft Punk',
-    badge: 'ALBUM',
-  ),
-  const ComponentLibraryItem(
-    id: 'artist',
-    title: 'Daft Punk',
-    subtitle: 'Artiste',
-    badge: 'ARTIST',
-  ),
-  const ComponentLibraryItem(
-    id: 'track',
-    title: 'Instant Crush',
-    subtitle: 'Daft Punk · Random Access Memories',
-    duration: Duration(minutes: 5, seconds: 37),
-  ),
-  const ComponentLibraryItem(
-    id: 'now-playing',
-    title: 'Midnight City',
-    subtitle: 'M83 · Lecture en cours',
-    progress: .48,
-    duration: Duration(minutes: 4, seconds: 3),
-  ),
-  const ComponentLibraryItem(
-    id: 'chapter',
-    title: 'Chapitre 14 · Le dernier portail',
-    subtitle: '12 pages restantes',
-    progress: .38,
-  ),
-  const ComponentLibraryItem(
-    id: 'reading',
-    title: 'Solo Leveling',
-    subtitle: 'Chapitre 187 · 38%',
-    progress: .38,
-  ),
-  const ComponentLibraryItem(
-    id: 'book',
-    title: 'Le château ambulant',
-    subtitle: 'Manga · 4 tomes',
-    count: 4,
-  ),
-  const ComponentLibraryItem(
-    id: 'promo',
-    title: 'Nouvelle extension disponible',
-    subtitle: 'Découvrez les derniers catalogues ajoutés.',
-    badge: 'INFO',
-  ),
-];
-*/
 
 const _tmdbItems = <TmdbMedia>[
   TmdbMedia(
@@ -4015,101 +3811,3 @@ final _gallerySource = Source(
   lang: 'fr',
   itemType: ItemType.manga,
 );
-
-double _previewHeight(_PreviewKind kind) => switch (kind) {
-  _PreviewKind.poster => 210,
-  _PreviewKind.compactPoster => 195,
-  _PreviewKind.landscape => 165,
-  _PreviewKind.ranked => 205,
-  _PreviewKind.mini => 165,
-  _PreviewKind.featured => 270,
-  _PreviewKind.saga => 165,
-  _PreviewKind.spotlight => 165,
-  _PreviewKind.tag => 86,
-  _PreviewKind.genre => 132,
-  _PreviewKind.genreSection => 248,
-  _PreviewKind.mediaSection => 270,
-  _PreviewKind.providersSection => 200,
-  _PreviewKind.featuredStack => 480,
-  _PreviewKind.carousel => 220,
-  _PreviewKind.episode => 170,
-  _PreviewKind.detailEpisode => 170,
-  _PreviewKind.wallpaper => 180,
-  _PreviewKind.season => 168,
-  _PreviewKind.cast => 168,
-  _PreviewKind.trailer => 152,
-  _PreviewKind.extensionHero => 240,
-  _PreviewKind.rankedWide => 96,
-  _PreviewKind.showcase => 205,
-  _PreviewKind.collection => 126,
-  _PreviewKind.banner => 154,
-  _PreviewKind.creator => 168,
-  _PreviewKind.studio => 190,
-  _PreviewKind.searchGrid => 178,
-  _PreviewKind.searchList => 96,
-  _PreviewKind.searchCinema => 180,
-  _PreviewKind.manga => 168,
-  _PreviewKind.mangaList => 112,
-  _PreviewKind.mangaHome => 252,
-  _PreviewKind.mangaHomeRail => 900,
-  _PreviewKind.mangaUpdateFeed => 190,
-  _PreviewKind.mangaRanking => 430,
-  _PreviewKind.mangaVote => 180,
-  _PreviewKind.extensionGrid => 220,
-  _PreviewKind.history => 96,
-  _PreviewKind.historyGrid => 220,
-  _PreviewKind.empty => 174,
-  _PreviewKind.error => 174,
-  _PreviewKind.libraryCard => 190,
-  _PreviewKind.librarySection => 220,
-  _PreviewKind.swipeSection => 580,
-};
-
-double _previewWidth(_PreviewKind kind) => switch (kind) {
-  _PreviewKind.poster => 116,
-  _PreviewKind.compactPoster => 92,
-  _PreviewKind.landscape => 220,
-  _PreviewKind.ranked => 146,
-  _PreviewKind.mini => 170,
-  _PreviewKind.featured => 290,
-  _PreviewKind.saga => 220,
-  _PreviewKind.spotlight => 290,
-  _PreviewKind.tag => 260,
-  _PreviewKind.genre => 260,
-  _PreviewKind.genreSection => 340,
-  _PreviewKind.mediaSection => 340,
-  _PreviewKind.providersSection => 340,
-  _PreviewKind.featuredStack => 340,
-  _PreviewKind.carousel => 112,
-  _PreviewKind.episode => 220,
-  _PreviewKind.detailEpisode => 220,
-  _PreviewKind.wallpaper => 320,
-  _PreviewKind.season => 112,
-  _PreviewKind.cast => 112,
-  _PreviewKind.trailer => 220,
-  _PreviewKind.extensionHero => 320,
-  _PreviewKind.rankedWide => 330,
-  _PreviewKind.showcase => 300,
-  _PreviewKind.collection => 190,
-  _PreviewKind.banner => 300,
-  _PreviewKind.creator => 112,
-  _PreviewKind.studio => 300,
-  _PreviewKind.searchGrid => 112,
-  _PreviewKind.searchList => 330,
-  _PreviewKind.searchCinema => 320,
-  _PreviewKind.manga => 112,
-  _PreviewKind.mangaList => 300,
-  _PreviewKind.mangaHome => 168,
-  _PreviewKind.mangaHomeRail => 340,
-  _PreviewKind.mangaUpdateFeed => 340,
-  _PreviewKind.mangaRanking => 340,
-  _PreviewKind.mangaVote => 340,
-  _PreviewKind.extensionGrid => 300,
-  _PreviewKind.history => 330,
-  _PreviewKind.historyGrid => 300,
-  _PreviewKind.empty => 300,
-  _PreviewKind.error => 300,
-  _PreviewKind.libraryCard => 230,
-  _PreviewKind.librarySection => 340,
-  _PreviewKind.swipeSection => 340,
-};
