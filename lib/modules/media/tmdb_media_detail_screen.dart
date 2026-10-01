@@ -11,6 +11,7 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/search/tmdb_search_screen.dart';
 
 class TmdbMediaDetailScreen extends StatefulWidget {
   final TmdbMedia media;
@@ -73,8 +74,10 @@ class _TmdbMediaDetailScreenState extends State<TmdbMediaDetailScreen> {
             onTabChanged: (index) => setState(() => _tabIndex = index),
             onFavoriteChanged: () => setState(() => _isFavorite = !_isFavorite),
             onShare: _shareMedia,
-            onDownload: () =>
-                context.push('/flixSearch', extra: widget.media.displayTitle),
+            onDownload: () => context.push(
+              '/flixSearch',
+              extra: FlixSearchPayload(initialQuery: widget.media.displayTitle),
+            ),
           );
         },
       ),
@@ -361,7 +364,9 @@ class _DetailContentState extends State<_DetailContent> {
                           child: FilledButton.icon(
                             onPressed: () => context.push(
                               '/flixSearch',
-                              extra: media.displayTitle,
+                              extra: FlixSearchPayload(
+                                initialQuery: media.displayTitle,
+                              ),
                             ),
                             icon: const Icon(Broken.play, size: 19),
                             label: const Text('Regarder'),

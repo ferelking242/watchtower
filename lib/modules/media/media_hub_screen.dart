@@ -10,6 +10,7 @@ import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
+import 'package:watchtower/modules/search/tmdb_search_screen.dart';
 
 enum MediaHubKind { movies, series }
 
@@ -29,7 +30,14 @@ class MediaHomeScreen extends ConsumerWidget {
       body: home.when(
         loading: () => MediaHomeLoading(
           isSeries: !isMovies,
-          onSearchPressed: () => context.push('/flixSearch'),
+          onSearchPressed: () => context.push(
+            '/flixSearch',
+            extra: FlixSearchPayload(
+              hub: isMovies
+                  ? FlixSearchContext.movies
+                  : FlixSearchContext.series,
+            ),
+          ),
           onLiveTVPressed: () => context.push('/liveTv'),
           onBookmarksPressed: () => context.push('/Library'),
           onRefresh: () async => ref.invalidate(tmdbHomeProvider),

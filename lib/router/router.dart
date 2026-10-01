@@ -69,6 +69,7 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/media_hub_screen.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
+import 'package:watchtower/modules/search/tmdb_search_screen.dart';
 import 'package:watchtower/modules/media/tmdb_media_detail_screen.dart';
 import 'package:watchtower/modules/media/tmdb_people_screen.dart';
 import 'package:watchtower/modules/media/live_tv_screen.dart';
@@ -473,10 +474,13 @@ class RouterNotifier extends ChangeNotifier {
       name: "watchtowerSearch",
       child: const WatchtowerSearchScreen(),
     ),
-    _genericRoute<String?>(
+    _genericRoute<FlixSearchPayload?>(
       name: "flixSearch",
       allowNullExtra: true,
-      builder: (query) => TmdbSearchScreen(initialQuery: query),
+      builder: (payload) => TmdbSearchScreen(
+        initialQuery: payload?.initialQuery,
+        hub: payload?.hub,
+      ),
     ),
     GoRoute(
       name: "flixMediaDetail",

@@ -1206,3 +1206,205 @@ List<String> tmdbMovieGenreNames(List<int> ids) =>
 
 List<String> tmdbTvGenreNames(List<int> ids) =>
     ids.map(tmdbTvGenreName).where((g) => g != 'Autre').take(3).toList();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Search-page helpers (multi-search, collections, people, discover rails)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A search hit from /search/multi: a movie, a TV show or a person.
+enum TmdbMultiKind { movie, tv, person }
+
+class TmdbMultiResult {
+  final TmdbMultiKind kind;
+  final TmdbMedia? media;
+  final TmdbPersonRef? person;
+
+  const TmdbMultiResult({required this.kind, this.media, this.person});
+
+  factory TmdbMultiResult.fromJson(Map<String, dynamic> j) {
+    final type = j['media_type'] as String? ?? 'movie';
+    if (type == 'person') {
+      return TmdbMultiResult(
+        kind: TmdbMultiKind.person,
+        person: TmdbPersonRef(
+          id: (j['id'] as num).toInt(),
+          name: j['name'] as String? ?? '',
+          profilePath: j['profile_path'] as String?,
+          knownForDepartment: j['known_for_department'] as String?,
+        ),
+      );
+    }
+    return TmdbMultiResult(
+      kind: type == 'tv' ? TmdbMultiKind.tv : TmdbMultiKind.movie,
+      media: type == 'tv'
+          ? TmdbMedia.fromTvJson(j)
+          : TmdbMedia.fromMovieJson(j),
+    );
+  }
+}
+
+Future<List<TmdbMultiResult>> _tmdbGetJson(
+  String path,
+  Map<String, String> extra,
+  TmdbMultiResult Function(Map<String, dynamic>) map,
+  String listKey,
+) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError('TMDB_READ_TOKEN is missing from this build.');
+  }
+  final baseUri = Uri.parse('$_tmdbBase$path');
+  final uri = baseUri.replace(
+    queryParameters: {
+      ...baseUri.queryParameters,
+      'language': 'fr-FR',
+      ...extra,
+    },
+  );
+  final res = await http
+      .get(uri, headers: _headers)
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return const [];
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  final results = data[listKey] as List? ?? [];
+  return results
+      .whereType<Map>()
+      .map(map)
+      .toList(growable: false);
+}
+
+/// /search/multi — movies + TV + people in one call.
+Future<List<TmdbMultiResult>> fetchTmdbMultiSearch({
+  required String query,
+  int page = 1,
+}) async {
+  final encoded = Uri.encodeQueryComponent(query);
+  return _tmdbGetJson(
+    '/search/multi?query=$encoded',
+    {'page': '$page', 'include_adult': 'false'},
+    TmdbMultiResult.fromJson,
+    'results',
+  );
+}
+
+/// Trending list used by the search empty state (Films chauds / Séries chaudes).
+Future<List<TmdbMedia>> fetchTmdbTrending({required bool isTv}) async =>
+    isTv ? _fetchTv('/trending/tv/week') : _fetchMovies('/trending/movie/week');
+
+/// Popular people for the search empty state (Célébrités populaires).
+Future<List<TmdbPersonRef>> fetchTmdbPopularPeople({int page = 1}) async {
+  final people = await fetchTmdbPeoplePage(
+    path: '/person/popular',
+    page: page,
+  );
+  return people;
+}
+
+/// A TMDB list/collection (e.g. "Studio Ghibli", Marvel marathon).
+class TmdbCollectionRef {
+  final int id;
+  final String name;
+  final String? overview;
+  final String? posterPath;
+  final String? backdropPath;
+
+  const TmdbCollectionRef({
+    required this.id,
+    required this.name,
+    this.overview,
+    this.posterPath,
+    this.backdropPath,
+  });
+
+  String? get posterUrl => posterPath == null
+      ? null
+      : 'https://image.tmdb.org/t/p/w500$posterPath';
+}
+
+/// /search/collection — named collections matching the query.
+Future<List<TmdbCollectionRef>> fetchTmdbCollections({
+  required String query,
+  int page = 1,
+}) async {
+  final encoded = Uri.encodeQueryComponent(query);
+  final results = await _tmdbGetJson(
+    '/search/collection?query=$encoded',
+    {'page': '$page'},
+    (j) => TmdbCollectionRef(
+      id: (j['id'] as num).toInt(),
+      name: j['name'] as String? ?? '',
+      overview: j['overview'] as String?,
+      posterPath: j['poster_path'] as String?,
+      backdropPath: j['backdrop_path'] as String?,
+    ),
+    'results',
+  );
+  return results.where((c) => c.name.isNotEmpty).toList(growable: false);
+}
+
+/// All movies inside a collection.
+Future<List<TmdbMedia>> fetchTmdbCollectionItems(int collectionId) async {
+  if (_tmdbToken.isEmpty) {
+    throw StateError('TMDB_READ_TOKEN is missing from this build.');
+  }
+  final res = await http
+      .get(
+        Uri.parse('$_tmdbBase/collection/$collectionId'),
+        headers: _headers,
+      )
+      .timeout(const Duration(seconds: 20));
+  if (res.statusCode != 200) return const [];
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  final parts = data['parts'] as List? ?? [];
+  return parts
+      .whereType<Map>()
+      .map(
+        (e) => TmdbMedia.fromMovieJson(
+          Map<String, dynamic>.from(e as Map<dynamic, dynamic>),
+        ),
+      )
+      .where((m) => m.posterPath != null)
+      .toList(growable: false);
+}
+
+/// One curated hub query shown on the search empty state.
+class TmdbSearchRail {
+  final String label;
+  final bool isTv;
+  final String query;
+
+  const TmdbSearchRail({
+    required this.label,
+    required this.isTv,
+    required this.query,
+  });
+}
+
+/// Discover rails powering the search-page tabs: per-kind curated queries.
+const tmdbSearchRails = <TmdbSearchRail>[
+  TmdbSearchRail(
+    label: 'Films chauds',
+    isTv: false,
+    query: 'sort_by=popularity.desc',
+  ),
+  TmdbSearchRail(label: 'Nouveautés', isTv: false, query: 'sort_by=primary_release_date.desc&vote_count.gte=80'),
+  TmdbSearchRail(label: 'Mieux notés', isTv: false, query: 'sort_by=vote_average.desc&vote_count.gte=1500'),
+  TmdbSearchRail(label: 'Action', isTv: false, query: 'with_genres=28&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Comédie', isTv: false, query: 'with_genres=35&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Animation', isTv: false, query: 'with_genres=16&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Horreur', isTv: false, query: 'with_genres=27&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Romance', isTv: false, query: 'with_genres=10749&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Science-fiction', isTv: false, query: 'with_genres=878&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Documentaire', isTv: false, query: 'with_genres=99&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Séries chaudes', isTv: true, query: 'sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Séries · Nouveautés', isTv: true, query: 'sort_by=first_air_date.desc&vote_count.gte=60'),
+  TmdbSearchRail(label: 'Séries · Mieux notées', isTv: true, query: 'sort_by=vote_average.desc&vote_count.gte=1200'),
+  TmdbSearchRail(label: 'Séries · Reality', isTv: true, query: 'with_genres=10764&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Séries · Crime', isTv: true, query: 'with_genres=80&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Séries · Sci-Fi', isTv: true, query: 'with_genres=10765&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Séries · Anime', isTv: true, query: 'with_genres=16&with_keywords=210024&sort_by=popularity.desc'),
+  TmdbSearchRail(label: 'Séries · Documentaires', isTv: true, query: 'with_genres=99&sort_by=popularity.desc'),
+];
+
+/// Fetch a discover rail by label.
+Future<List<TmdbMedia>> fetchTmdbSearchRail(TmdbSearchRail rail, {int page = 1}) =>
+    fetchTmdbDiscover(isTv: rail.isTv, query: rail.query, page: page);

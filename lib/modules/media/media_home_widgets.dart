@@ -2,11 +2,11 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
+import 'package:watchtower/modules/search/tmdb_search_screen.dart';
 import 'app_ui_components.dart';
 import 'content_cards.dart';
 import 'media_content_sections.dart';
@@ -77,7 +77,11 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
 
   @override
   Widget build(BuildContext context) {
-    final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
+    final search = widget.onSearchPressed ??
+        () => context.push(
+              '/flixSearch',
+              extra: const FlixSearchPayload(hub: FlixSearchContext.generic),
+            );
     final library =
         widget.onBookmarksPressed ?? () => context.push('/Library');
     final liveTv = () => context.push('/liveTv');
@@ -233,6 +237,10 @@ class MainMoviesDisplay extends StatefulWidget {
 }
 
 class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
+  void _openSearch(BuildContext context) => context.push(
+        '/flixSearch',
+        extra: const FlixSearchPayload(hub: FlixSearchContext.movies),
+      );
   final ScrollController _feedController = ScrollController();
   bool _showCompactHeader = false;
 
@@ -273,7 +281,7 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
 
   @override
   Widget build(BuildContext context) {
-    final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
+    final search = widget.onSearchPressed ?? () => _openSearch(context);
     final openLibrary = widget.onBookmarksPressed ?? _openLibrary;
     final openLiveTv = () => context.push('/liveTv');
 
@@ -411,6 +419,10 @@ class MainSeriesDisplay extends StatefulWidget {
 }
 
 class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
+  void _openSearch(BuildContext context) => context.push(
+        '/flixSearch',
+        extra: const FlixSearchPayload(hub: FlixSearchContext.series),
+      );
   final ScrollController _feedController = ScrollController();
   bool _showCompactHeader = false;
 
@@ -451,7 +463,7 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
 
   @override
   Widget build(BuildContext context) {
-    final search = widget.onSearchPressed ?? () => context.push('/flixSearch');
+    final search = widget.onSearchPressed ?? () => _openSearch(context);
     final openLibrary = widget.onBookmarksPressed ?? _openLibrary;
     final liveTv = () => context.push('/liveTv');
 
@@ -1983,524 +1995,6 @@ class _CatalogError extends StatelessWidget {
         actionLabel: 'Réessayer',
         onAction: onRetry,
       ),
-    );
-  }
-}
-
-/// TMDB search kept separate from Watchtower's extension
-/// search. It searches the movie/series catalogue and never opens the
-/// extension global-search route.
-class TmdbSearchScreen extends StatefulWidget {
-  const TmdbSearchScreen({super.key, this.initialQuery});
-
-  final String? initialQuery;
-
-  @override
-  State<TmdbSearchScreen> createState() => _TmdbSearchScreenState();
-}
-
-class _TmdbSearchScreenState extends State<TmdbSearchScreen> {
-  static const _recentSearchesKey = 'tmdb_recent_searches';
-
-  final TextEditingController _controller = TextEditingController();
-  final List<String> _recentSearches = <String>[];
-  String _query = '';
-  Future<List<TmdbMedia>>? _movies;
-  Future<List<TmdbMedia>>? _series;
-  Future<List<TmdbPersonRef>>? _people;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRecentSearches();
-    final initialQuery = widget.initialQuery?.trim();
-    if (initialQuery != null && initialQuery.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _search(initialQuery);
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _search([String? raw]) {
-    final query = (raw ?? _controller.text).trim();
-    if (query.isEmpty) return;
-    _controller.text = query;
-    _controller.selection = TextSelection.collapsed(offset: query.length);
-    final encoded = Uri.encodeQueryComponent(query);
-    setState(() {
-      _query = query;
-      _movies = fetchTmdbMoviePage(path: '/search/movie?query=$encoded');
-      _series = fetchTmdbTvPage(path: '/search/tv?query=$encoded');
-      _people = fetchTmdbPeoplePage(path: '/search/person?query=$encoded');
-    });
-    _rememberSearch(query);
-  }
-
-  Future<void> _loadRecentSearches() async {
-    final prefs = await SharedPreferences.getInstance();
-    final values = prefs.getStringList(_recentSearchesKey) ?? const <String>[];
-    if (!mounted) return;
-    setState(() {
-      _recentSearches
-        ..clear()
-        ..addAll(values);
-    });
-  }
-
-  Future<void> _rememberSearch(String query) async {
-    final prefs = await SharedPreferences.getInstance();
-    final next = <String>[
-      query,
-      ..._recentSearches.where(
-        (item) => item.toLowerCase() != query.toLowerCase(),
-      ),
-    ].take(12).toList(growable: false);
-    await prefs.setStringList(_recentSearchesKey, next);
-    if (mounted) {
-      setState(() {
-        _recentSearches
-          ..clear()
-          ..addAll(next);
-      });
-    }
-  }
-
-  Future<void> _removeRecentSearch(String query) async {
-    final prefs = await SharedPreferences.getInstance();
-    final next = _recentSearches.where((item) => item != query).toList();
-    await prefs.setStringList(_recentSearchesKey, next);
-    if (mounted) {
-      setState(() {
-        _recentSearches
-          ..clear()
-          ..addAll(next);
-      });
-    }
-  }
-
-  Future<void> _clearRecentSearches() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_recentSearchesKey);
-    if (mounted) {
-      setState(() {
-        _recentSearches.clear();
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final copy = _SearchCopy.of(context);
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: DefaultTabController(
-          length: 3,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 10, 16, 12),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: copy.back,
-                      onPressed: () => context.pop(),
-                      icon: const Icon(Broken.arrow_left),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        autofocus: true,
-                        textInputAction: TextInputAction.search,
-                        onSubmitted: _search,
-                        decoration: InputDecoration(
-                          hintText: copy.hint,
-                          prefixIcon: const Icon(Broken.search_normal),
-                          suffixIcon: _controller.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: copy.clear,
-                                  onPressed: () {
-                                    _controller.clear();
-                                    setState(() => _query = '');
-                                  },
-                                  icon: const Icon(Broken.close_circle),
-                                ),
-                          filled: true,
-                          fillColor: Colors.transparent,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: .8),
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 1.6,
-                            ),
-                          ),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      tooltip: copy.search,
-                      onPressed: _search,
-                      icon: const Icon(Broken.search_normal),
-                    ),
-                  ],
-                ),
-              ),
-              TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                tabs: [
-                  Tab(text: copy.movies),
-                  Tab(text: copy.tvShows),
-                  Tab(text: copy.celebrities),
-                ],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _query.isEmpty
-                        ? _RecentSearches(
-                            searches: _recentSearches,
-                            copy: copy,
-                            onSearch: _search,
-                            onRemove: _removeRecentSearch,
-                            onClear: _clearRecentSearches,
-                          )
-                        : _TmdbSearchResults(future: _movies!),
-                    _query.isEmpty
-                        ? _RecentSearches(
-                            searches: _recentSearches,
-                            copy: copy,
-                            onSearch: _search,
-                            onRemove: _removeRecentSearch,
-                            onClear: _clearRecentSearches,
-                          )
-                        : _TmdbSearchResults(future: _series!),
-                    _query.isEmpty
-                        ? _RecentSearches(
-                            searches: _recentSearches,
-                            copy: copy,
-                            onSearch: _search,
-                            onRemove: _removeRecentSearch,
-                            onClear: _clearRecentSearches,
-                          )
-                        : _TmdbPeopleResults(future: _people!),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TmdbSearchResults extends StatelessWidget {
-  const _TmdbSearchResults({required this.future});
-
-  final Future<List<TmdbMedia>> future;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<TmdbMedia>>(
-      future: future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const AppMediaGridShimmer();
-        }
-        if (snapshot.hasError || snapshot.data?.isEmpty != false) {
-          return const AppEmptyState(
-            title: 'Aucun résultat',
-            message: 'Aucun film ou série ne correspond à cette recherche.',
-            icon: Broken.search_status,
-          );
-        }
-        final items = snapshot.data!;
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 150,
-            childAspectRatio: .66,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 16,
-          ),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final media = items[index];
-            final source = 'flix-search-$index';
-            return PosterCard(
-              item: ContentItem.fromTmdb(media),
-              width: double.infinity,
-              heroTag: tmdbHeroTag(media, source),
-              onTap: () => pushTmdbMediaDetail(context, media, source: source),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _TmdbPeopleResults extends StatelessWidget {
-  const _TmdbPeopleResults({required this.future});
-
-  final Future<List<TmdbPersonRef>> future;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<TmdbPersonRef>>(
-      future: future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _PeopleSearchShimmer();
-        }
-        if (snapshot.hasError || snapshot.data?.isEmpty != false) {
-          return const _SearchNoResults();
-        }
-        final people = snapshot.data!;
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
-          itemCount: people.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final person = people[index];
-            return Card(
-              clipBehavior: Clip.antiAlias,
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-                leading: CircleAvatar(
-                  radius: 28,
-                  backgroundImage: person.profileUrl == null
-                      ? null
-                      : NetworkImage(person.profileUrl!),
-                  child: person.profileUrl == null
-                      ? const Icon(Broken.people)
-                      : null,
-                ),
-                title: Text(
-                  person.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: person.knownForDepartment == null
-                    ? null
-                    : Text(person.knownForDepartment!),
-                trailing: const Icon(Broken.arrow_right_3),
-                onTap: () => context.push('/flixPerson', extra: person),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _RecentSearches extends StatelessWidget {
-  const _RecentSearches({
-    required this.searches,
-    required this.copy,
-    required this.onSearch,
-    required this.onRemove,
-    required this.onClear,
-  });
-
-  final List<String> searches;
-  final _SearchCopy copy;
-  final ValueChanged<String> onSearch;
-  final ValueChanged<String> onRemove;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    if (searches.isEmpty) {
-      return _SearchNoResults(
-        title: copy.startTitle,
-        message: copy.startMessage,
-        icon: Broken.search_status,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 22, 12, 8),
-          child: Row(
-            children: [
-              Text(
-                copy.recent,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const Spacer(),
-              TextButton(onPressed: onClear, child: Text(copy.clearAll)),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 120),
-            itemCount: searches.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 4),
-            itemBuilder: (context, index) {
-              final search = searches[index];
-              return ListTile(
-                leading: const Icon(Broken.clock),
-                title: Text(search),
-                trailing: IconButton(
-                  tooltip: copy.remove,
-                  onPressed: () => onRemove(search),
-                  icon: const Icon(Broken.close_circle),
-                ),
-                onTap: () => onSearch(search),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SearchNoResults extends StatelessWidget {
-  const _SearchNoResults({
-    this.title = 'No results',
-    this.message = 'Try another search.',
-    this.icon = Broken.search_status,
-  });
-
-  final String title;
-  final String message;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 58, color: colors.primary.withValues(alpha: .8)),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PeopleSearchShimmer extends StatelessWidget {
-  const _PeopleSearchShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: 8,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, __) =>
-          const SizedBox(height: 76, child: AppShimmerBlock(radius: 18)),
-    );
-  }
-}
-
-class _SearchCopy {
-  const _SearchCopy({
-    required this.back,
-    required this.clear,
-    required this.search,
-    required this.hint,
-    required this.movies,
-    required this.tvShows,
-    required this.celebrities,
-    required this.recent,
-    required this.clearAll,
-    required this.remove,
-    required this.startTitle,
-    required this.startMessage,
-  });
-
-  final String back;
-  final String clear;
-  final String search;
-  final String hint;
-  final String movies;
-  final String tvShows;
-  final String celebrities;
-  final String recent;
-  final String clearAll;
-  final String remove;
-  final String startTitle;
-  final String startMessage;
-
-  static _SearchCopy of(BuildContext context) {
-    if (Localizations.localeOf(context).languageCode == 'fr') {
-      return const _SearchCopy(
-        back: 'Retour',
-        clear: 'Effacer',
-        search: 'Rechercher',
-        hint: 'Rechercher un film, une série ou une célébrité',
-        movies: 'Films',
-        tvShows: 'Séries',
-        celebrities: 'Célébrités',
-        recent: 'Recherches récentes',
-        clearAll: 'Tout effacer',
-        remove: 'Supprimer',
-        startTitle: 'Que veux-tu regarder ?',
-        startMessage:
-            'Recherche dans le catalogue Films, Séries et Célébrités.',
-      );
-    }
-    return const _SearchCopy(
-      back: 'Back',
-      clear: 'Clear',
-      search: 'Search',
-      hint: 'Search for a movie, series or celebrity',
-      movies: 'Movies',
-      tvShows: 'TV Shows',
-      celebrities: 'Celebrities',
-      recent: 'Recent searches',
-      clearAll: 'Clear all',
-      remove: 'Remove',
-      startTitle: 'What do you want to watch?',
-      startMessage: 'Search the Movies, TV Shows and Celebrities catalog.',
     );
   }
 }

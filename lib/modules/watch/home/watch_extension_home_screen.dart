@@ -22,7 +22,7 @@ import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
-import 'package:watchtower/modules/watch/home/extension_search_screen.dart';
+import 'package:watchtower/modules/search/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.dart';
 import 'package:watchtower/utils/cached_network.dart';
