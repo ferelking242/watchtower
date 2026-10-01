@@ -6453,11 +6453,30 @@ List<_ComponentSpec> _buildComponents() => [
             countLabel: '512 mangas'),
       ],
       statusRows: const [
-        MangaStatusRow('Traduit à 100%', '42%', .42, Color(0xFF2ED573)),
-        MangaStatusRow('En cours de traduction', '33%', .33,
-            Color(0xFF6C5CE7)),
-        MangaStatusRow('À venir', '15%', .15, Color(0xFF1E90FF)),
-        MangaStatusRow('Non traduit', '10%', .1, Color(0xFFFF4757)),
+        MangaStatusRow(
+          label: 'Traduit à 100%',
+          percentLabel: '42%',
+          progress: .42,
+          color: Color(0xFF2ED573),
+        ),
+        MangaStatusRow(
+          label: 'En cours de traduction',
+          percentLabel: '33%',
+          progress: .33,
+          color: Color(0xFF6C5CE7),
+        ),
+        MangaStatusRow(
+          label: 'À venir',
+          percentLabel: '15%',
+          progress: .15,
+          color: Color(0xFF1E90FF),
+        ),
+        MangaStatusRow(
+          label: 'Non traduit',
+          percentLabel: '10%',
+          progress: .1,
+          color: Color(0xFFFF4757),
+        ),
       ],
     ),
   ),
@@ -8511,7 +8530,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.top3,
     result: (_) => SizedBox(
       width: 132,
-      child: MangaTop3Card(
+      child: manga_home.MangaTop3Card(
         items: _extensionItems
             .take(3)
             .map(ContentItem.fromManga)
@@ -8531,7 +8550,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaUpdateFeed,
     result: (_) => SizedBox(
       width: 340,
-      child: MangaLatestUpdateCard(
+      child: manga_home.MangaLatestUpdateCard(
         item: ContentItem.fromManga(_extensionItems[0]),
         time: '10m',
         chapters: const [
@@ -8553,7 +8572,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaRanking,
     result: (_) => SizedBox(
       width: 340,
-      child: MangaRankingCard(
+      child: manga_home.MangaRankingCard(
         items: _extensionItems
             .map(ContentItem.fromManga)
             .toList(growable: false),
@@ -8571,7 +8590,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaVote,
     result: (_) => SizedBox(
       width: 340,
-      child: MangaVoteCard(
+      child: manga_home.MangaVoteCard(
         title: 'Goonable tiers',
         imageUrl: _extensionItems[1].imageUrl,
         status: 'Voting closed',
@@ -8591,7 +8610,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaCollection,
     result: (_) => SizedBox(
       width: 340,
-      child: MangaCollectionShowcaseCard(
+      child: manga_home.MangaCollectionShowcaseCard(
         title: "Romance I'll never get to experience",
         covers: _extensionItems
             .map((e) => e.imageUrl)
@@ -8616,7 +8635,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaTrending,
     result: (_) => SizedBox(
       width: 340,
-      child: MangaTrendingListCard(
+      child: manga_home.MangaTrendingListCard(
         rank: 1,
         title: 'Favorites',
         author: 'hideki1974',
@@ -8641,7 +8660,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mangaScanGroup,
     result: (_) => SizedBox(
       width: 340,
-      child: MangaScanGroupCard(
+      child: manga_home.MangaScanGroupCard(
         rank: 1,
         name: 'No-group',
         avatarText: 'N',
