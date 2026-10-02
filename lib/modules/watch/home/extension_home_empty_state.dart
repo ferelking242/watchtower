@@ -62,14 +62,16 @@ class ExtensionHomeEmptyState extends StatelessWidget {
                             // LottieFiles: “empty box3” by partho prothimdatta.
                             // Free to use under the Lottie Simple License.
                             // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
-                            Lottie.asset(
-                              'assets/animations/empty_box_partho.json',
-                              key: const ValueKey('extension-empty-lottie'),
-                              width: animationSize,
-                              height: animationSize,
-                              fit: BoxFit.contain,
-                              repeat: true,
-                              semanticsLabel: 'Boîte vide',
+                            Semantics(
+                              label: 'Boîte vide',
+                              child: Lottie.asset(
+                                'assets/animations/empty_box_partho.json',
+                                key: const ValueKey('extension-empty-lottie'),
+                                width: animationSize,
+                                height: animationSize,
+                                fit: BoxFit.contain,
+                                repeat: true,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             const Text(

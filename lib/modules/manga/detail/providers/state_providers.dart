@@ -1,10 +1,8 @@
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
-import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
 part 'state_providers.g.dart';
@@ -355,29 +353,6 @@ class ChapterSetIsReadState extends _$ChapterSetIsReadState {
     }
     isar.writeTxnSync(() => isar.chapters.putAllSync(allChapters));
     ref.read(isLongPressedStateProvider.notifier).update(false);
-    ref.read(chaptersListStateProvider.notifier).clear();
-  }
-}
-
-@riverpod
-class ChapterSetDownloadState extends _$ChapterSetDownloadState {
-  @override
-  void build({required Manga manga}) {}
-
-  void set() {
-    ref.read(isLongPressedStateProvider.notifier).update(false);
-    isar.txnSync(() {
-      for (var chapter in ref.watch(chaptersListStateProvider)) {
-        final entries = isar.downloads
-            .filter()
-            .idEqualTo(chapter.id)
-            .findAllSync();
-        if (entries.isEmpty || !entries.first.isDownload!) {
-          ref.watch(addDownloadToQueueProvider(chapter: chapter));
-        }
-      }
-    });
-
     ref.read(chaptersListStateProvider.notifier).clear();
   }
 }

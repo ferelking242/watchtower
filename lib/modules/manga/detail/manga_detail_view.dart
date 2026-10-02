@@ -220,6 +220,20 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     );
   }
 
+  Future<void> _queueChapters(Iterable<Chapter> chapters) async {
+    try {
+      for (final chapter in chapters) {
+        await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+      }
+    } catch (e) {
+      botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');
+    } finally {
+      // Persisted entries are always processed, including when a later item
+      // in a multi-chapter request failed to save.
+      ref.read(processDownloadsProvider());
+    }
+  }
+
   List<Chapter> _filterAndSortChapter({
     required List<Chapter> data,
     required int filterUnread,
@@ -539,7 +553,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                   ),
                                 ];
                               },
-                              onSelected: (value) {
+                              onSelected: (value) async {
                                 final chapters =
                                     _getFilteredAndSortedChapters();
                                 if (value == 0 ||
@@ -562,30 +576,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                         lastReadIndex: lastChapterReadIndex,
                                         limit: requestedCount,
                                       );
-                                  var addedToQueue = false;
-                                  for (final chapter in chaptersToDownload) {
-                                    final entry = isar.downloads
-                                        .filter()
-                                        .idEqualTo(chapter.id)
-                                        .findFirstSync();
-                                    if (entry == null || !entry.isDownload!) {
-                                      ref.read(
-                                        addDownloadToQueueProvider(
-                                          chapter: chapter,
-                                        ),
-                                      );
-                                      addedToQueue = true;
-                                    }
-                                  }
-
-                                  if (lastChapterReadIndex == -1 ||
-                                      chapters.length == 1) {
-                                    if (addedToQueue) {
-                                      ref.read(processDownloadsProvider());
-                                    }
-                                  } else {
-                                    ref.read(processDownloadsProvider());
-                                  }
+                                  await _queueChapters(chaptersToDownload);
                                 } else if (value == 4) {
                                   final List<Chapter> unreadChapters =
                                       _getFilteredAndSortedChapters()
@@ -594,42 +585,11 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                                 !(element.isRead ?? false),
                                           )
                                           .toList();
-                                  isar.chapters
-                                      .filter()
-                                      .mangaIdEqualTo(widget.manga!.id!)
-                                      .isReadEqualTo(false)
-                                      .findAllSync();
-                                  for (var chapter in unreadChapters) {
-                                    final entry = isar.downloads
-                                        .filter()
-                                        .idEqualTo(chapter.id)
-                                        .findFirstSync();
-                                    if (entry == null || !entry.isDownload!) {
-                                      ref.read(
-                                        addDownloadToQueueProvider(
-                                          chapter: chapter,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                  ref.read(processDownloadsProvider());
+                                  await _queueChapters(unreadChapters);
                                 } else if (value == 5) {
-                                  final List<Chapter> allChapters =
-                                      _getFilteredAndSortedChapters();
-                                  for (var chapter in allChapters) {
-                                    final entry = isar.downloads
-                                        .filter()
-                                        .idEqualTo(chapter.id)
-                                        .findFirstSync();
-                                    if (entry == null || !entry.isDownload!) {
-                                      ref.read(
-                                        addDownloadToQueueProvider(
-                                          chapter: chapter,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                  ref.read(processDownloadsProvider());
+                                  await _queueChapters(
+                                    _getFilteredAndSortedChapters(),
+                                  );
                                 }
                               },
                             ),
@@ -1127,24 +1087,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   if (!isLocalArchive)
                     BottomSelectButton(
                       icon: Icon(Broken.receive_square, color: color),
-                      onPressed: () {
-                        // Lecture ponctuelle : jamais ref.watch dans un
-                        // callback (Riverpod n'autorise le watch que dans
-                        // build()).
-                        for (var chapter
-                            in ref.read(chaptersListStateProvider)) {
-                          final entries = isar.downloads
-                              .filter()
-                              .idEqualTo(chapter.id)
-                              .findAllSync();
-                          if (entries.isEmpty || !entries.first.isDownload!) {
-                            ref.read(
-                              addDownloadToQueueProvider(chapter: chapter),
-                            );
-                          }
-                        }
-                        ref.read(processDownloadsProvider());
-
+                      onPressed: () async {
+                        await _queueChapters(
+                          ref.read(chaptersListStateProvider),
+                        );
                         ref
                             .read(isLongPressedStateProvider.notifier)
                             .update(false);

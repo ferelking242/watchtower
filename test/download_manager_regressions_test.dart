@@ -1,8 +1,15 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:watchtower/main.dart' as app;
+import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/download_connectivity.dart';
+import 'package:watchtower/utils/mock_isar.dart';
 
 void main() {
   group('Wi-Fi-only download gate', () {
@@ -60,4 +67,186 @@ void main() {
       expect(ActiveDownloadRegistry.isActive(downloadId), isFalse);
     });
   });
+
+  group('persisted download queue', () {
+    late MockIsar testIsar;
+    late ProviderContainer container;
+
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      testIsar = MockIsar();
+      app.isar = testIsar;
+      container = ProviderContainer();
+    });
+
+    tearDown(() => container.dispose());
+
+    test('new chapter is persisted before queueing completes', () async {
+      final chapter = _testChapter(930001);
+
+      await container.read(addDownloadToQueueProvider(chapter: chapter).future);
+
+      final queued = testIsar.downloads.getSync(chapter.id!);
+      expect(queued, isNotNull);
+      expect(queued!.isDownload, isFalse);
+      expect(queued.isStartDownload, isTrue);
+      expect(queued.status, 'fetching_metadata');
+      expect(queued.chapter.value, same(chapter));
+    });
+
+    test('legacy chapter relation is restored from mangaId', () async {
+      final manga = _testManga(932001);
+      testIsar.seed<Manga>(manga.id!, manga);
+      final chapter = Chapter(
+        id: 930002,
+        mangaId: manga.id,
+        name: 'Legacy chapter',
+        url: 'https://example.invalid/legacy',
+      );
+
+      await container.read(addDownloadToQueueProvider(chapter: chapter).future);
+
+      expect(chapter.manga.value, same(manga));
+      expect(
+        testIsar.downloads.getSync(chapter.id!)!.chapter.value,
+        same(chapter),
+      );
+    });
+
+    test('failed, cancelled, paused, and legacy rows are re-queued', () async {
+      final cases = <(String?, bool?, bool?)>[
+        ('failed', false, false),
+        ('cancelled', false, false),
+        ('paused', false, false),
+        (null, null, null),
+      ];
+
+      for (var index = 0; index < cases.length; index++) {
+        final id = 930010 + index;
+        final chapter = _testChapter(id);
+        final (status, isDownload, isStartDownload) = cases[index];
+        final existing = Download(
+          id: id,
+          succeeded: 4,
+          failed: 1,
+          total: 5,
+          isDownload: isDownload,
+          isStartDownload: isStartDownload,
+          status: status,
+        )..chapter.value = chapter;
+        testIsar.seed<Download>(id, existing);
+
+        await container.read(
+          addDownloadToQueueProvider(chapter: chapter).future,
+        );
+
+        final queued = testIsar.downloads.getSync(id)!;
+        expect(queued.isDownload, isFalse, reason: status);
+        expect(queued.isStartDownload, isTrue, reason: status);
+        expect(queued.failed, 0, reason: status);
+        expect(queued.total, 1, reason: status);
+        expect(queued.status, 'fetching_metadata', reason: status);
+      }
+    });
+
+    test('queue write errors propagate instead of reporting success', () async {
+      final failingIsar = _FailingTransactionIsar();
+      app.isar = failingIsar;
+      final chapter = _testChapter(930020);
+
+      await expectLater(
+        container.read(addDownloadToQueueProvider(chapter: chapter).future),
+        throwsA(isA<StateError>()),
+      );
+      expect(failingIsar.downloads.getSync(chapter.id!), isNull);
+    });
+
+    test('scheduler dispatches a persisted row to its worker', () async {
+      final failedChapter = _testChapter(930030);
+      final nextChapter = _testChapter(930031);
+      final workerStarts = <int>[];
+      final failedWorker = downloadChapterProvider(
+        chapter: failedChapter,
+        useWifi: false,
+      ).overrideWith((ref) async {
+        workerStarts.add(failedChapter.id!);
+        final queued = testIsar.downloads.getSync(failedChapter.id!)!;
+        testIsar.writeTxnSync(() {
+          testIsar.downloads.putSync(
+            queued
+              ..isDownload = false
+              ..isStartDownload = false
+              ..status = 'failed',
+          );
+        });
+      });
+      final nextWorker = downloadChapterProvider(
+        chapter: nextChapter,
+        useWifi: false,
+      ).overrideWith((ref) async {
+        workerStarts.add(nextChapter.id!);
+        final queued = testIsar.downloads.getSync(nextChapter.id!)!;
+        testIsar.writeTxnSync(() {
+          testIsar.downloads.putSync(
+            queued
+              ..isDownload = true
+              ..isStartDownload = false,
+          );
+        });
+      });
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [failedWorker, nextWorker],
+      );
+
+      await container.read(
+        addDownloadToQueueProvider(chapter: failedChapter).future,
+      );
+      await container.read(
+        addDownloadToQueueProvider(chapter: nextChapter).future,
+      );
+      await container.read(processDownloadsProvider(useWifi: false).future);
+
+      expect(workerStarts, containsAll([failedChapter.id, nextChapter.id]));
+      expect(
+        testIsar.downloads.getSync(failedChapter.id!)!.status,
+        'failed',
+      );
+      expect(testIsar.downloads.getSync(nextChapter.id!)!.isDownload, isTrue);
+    });
+  });
+}
+
+Chapter _testChapter(int id) {
+  final manga = _testManga(id + 1000);
+  return Chapter(
+    id: id,
+    mangaId: manga.id,
+    name: 'Chapter $id',
+    url: 'https://example.invalid/$id',
+  )..manga.value = manga;
+}
+
+Manga _testManga(int id) {
+  return Manga(
+    id: id,
+    source: 'test',
+    author: '',
+    artist: '',
+    genre: const [],
+    imageUrl: '',
+    lang: 'en',
+    link: '',
+    name: 'Test manga',
+    status: Status.ongoing,
+    description: '',
+    sourceId: 0,
+  );
+}
+
+class _FailingTransactionIsar extends MockIsar {
+  @override
+  T writeTxnSync<T>(T Function() callback, {bool silent = false}) {
+    throw StateError('simulated Isar write failure');
+  }
 }

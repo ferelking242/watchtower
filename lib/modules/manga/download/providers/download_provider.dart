@@ -241,19 +241,18 @@ Manga resolveChapterManga(Chapter chapter) {
 /// chapitre → manga, et le chapitre devenait inutilisable (l'entrée de
 /// téléchargement était ensuite filtrée du gestionnaire).
 void ensureChapterLinksLoaded(Chapter chapter) {
-  if (!chapter.manga.isLoaded && chapter.mangaId != null) {
-    try {
-      chapter.manga.loadSync();
-    } catch (_) {}
+  if (!chapter.manga.isLoaded && chapter.mangaId == null) {
+    chapter.manga.loadSync();
   }
   if (chapter.manga.value == null && chapter.mangaId != null) {
-    try {
-      final manga = isar.mangas.getSync(chapter.mangaId!);
-      if (manga != null) chapter.manga.value = manga;
-    } catch (_) {
-      // Manga corrompu : on laisse le lien null, le caller décidera si
-      // le chapitre est utilisables (downloadChapter le marquera failed).
-    }
+    final manga = isar.mangas.getSync(chapter.mangaId!);
+    if (manga != null) chapter.manga.value = manga;
+  }
+  if (chapter.manga.value == null) {
+    throw StateError(
+      'Manga introuvable pour le chapitre "${chapter.name}" '
+      '(mangaId=${chapter.mangaId}) — téléchargement impossible.',
+    );
   }
 }
 
@@ -730,87 +729,65 @@ class _VideoListTileState extends State<_VideoListTile> {
 
 @riverpod
 Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
-  // Ne jamais enregistrer un chapitre aux liens Isar non chargés (le lien
-  // manga serait effacé par le `put`, l'entrée deviendrait orpheline et le
-  // téléchargement échouerait aussitôt).
+  // Do not persist a chapter without its Manga relation: Isar can otherwise
+  // clear an unloaded link during put and the scheduler will skip the orphan.
   ensureChapterLinksLoaded(chapter);
   final id = chapter.id;
-  if (id == null) return;
-
-  // ROOT-CAUSE FIX ("le téléchargement ne marche pas") : un chapitre passé par
-  // "pause" ou "annuler" depuis le gestionnaire de téléchargements reste dans
-  // `pausedIds`, un état PERSISTÉ dans SharedPreferences et restauré à chaque
-  // démarrage. `processDownloads` ignore alors ce chapitre à chaque tick, sans
-  // aucun retour visuel : le bouton semblait mort, même après redémarrage.
-  // Demander un téléchargement vaut reprise → on sort toujours de la pause.
-  ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
-
-  Download? existing;
-  try {
-    existing = isar.downloads.getSync(id);
-  } catch (_) {
-    // Entrée corrompue / migration non jouée : on la recrée propre.
+  if (id == null) {
+    throw StateError(
+      'Impossible de mettre en file un chapitre sans identifiant.',
+    );
   }
 
-  if (existing == null) {
-    // Use a sentinel value of 1 so the progress bar shows "waiting" (0/1)
-    // without dividing by zero. setProgress will overwrite this with the
-    // real page count (manga) or real byte total (anime) as soon as the
-    // first progress callback fires.
-    final download = Download(
-      id: id,
-      succeeded: 0,
-      failed: 0,
-      total: 1,
-      isDownload: false,
-      isStartDownload: true,
-      title: chapter.name,
-      posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
-      quality: chapterPreferredQuality[id],
-      status: 'fetching_metadata',
-    );
-    try {
-      isar.writeTxnSync(() {
-        isar.downloads.putSync(download..chapter.value = chapter);
-      });
-    } catch (e) {
-      log('[addDownloadToQueue] put failed chapterId=$id: $e');
-    }
+  Download? existing;
+  var corruptRecord = false;
+  try {
+    existing = isar.downloads.getSync(id);
+  } on RangeError {
+    // The record cannot be deserialized; replace it transactionally below.
+    corruptRecord = true;
+  }
+
+  if ((existing?.isDownload ?? false) || ActiveDownloadRegistry.isActive(id)) {
     return;
   }
 
-  // existing est maintenant non-nullable dans ce bloc.
-  final existingNonNull = existing;
-  if (!(existingNonNull.isDownload ?? false) &&
-      !ActiveDownloadRegistry.isActive(id)) {
-    // ROOT-CAUSE FIX ("le téléchargement ne fait rien") : une entrée
-    // échouée / annulée / en pause restait en base. addDownloadToQueue la
-    // voyait déjà existante et rendait la main sans rien changer, donc
-    // processDownloads (qui ne démarre QUE les entrées isStartDownload ==
-    // true) ne la prenait jamais → file morte.
-    // On ré-arme donc SYSTÉMATIQUEMENT toute entrée existante qui n'est pas
-    // déjà téléchargée (garde-fou : on ne touche pas à un transfert en cours).
-    existingNonNull.isDownload = false;
-    existingNonNull.isStartDownload = true;
-    existingNonNull.succeeded = 0;
-    existingNonNull.failed = 0;
-    existingNonNull.total = 1;
-    existingNonNull.downloadedBytes = null;
-    existingNonNull.totalBytes = null;
-    existingNonNull.filePath = null;
-    existingNonNull.title = chapter.name;
-    existingNonNull.posterUrl =
-        chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl;
-    existingNonNull.quality = chapterPreferredQuality[id];
-    existingNonNull.status = 'fetching_metadata';
-    try {
-      isar.writeTxnSync(() {
-        isar.downloads.putSync(existingNonNull..chapter.value = chapter);
-      });
-    } catch (e) {
-      log('[addDownloadToQueue] re-arm put failed chapterId=$id: $e');
-    }
-  }
+  // New items and incomplete legacy/failed/cancelled/paused items share one
+  // persistence path. A failed transaction must escape this provider so the
+  // caller can report it; starting the scheduler without a stored row is a
+  // false success.
+  final download =
+      existing ??
+      Download(
+        id: id,
+        succeeded: 0,
+        failed: 0,
+        total: 1,
+        isDownload: false,
+        isStartDownload: true,
+      );
+  download
+    ..isDownload = false
+    ..isStartDownload = true
+    ..succeeded = 0
+    ..failed = 0
+    ..total = 1
+    ..downloadedBytes = null
+    ..totalBytes = null
+    ..filePath = null
+    ..title = chapter.name
+    ..posterUrl = chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
+    ..quality = chapterPreferredQuality[id]
+    ..status = 'fetching_metadata';
+
+  isar.writeTxnSync(() {
+    if (corruptRecord) isar.downloads.deleteSync(id);
+    isar.downloads.putSync(download..chapter.value = chapter);
+  });
+
+  // Clear pause only after the write succeeds, so storage errors do not leave
+  // the in-memory queue looking resumed without a persisted row.
+  ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
 }
 
 @riverpod

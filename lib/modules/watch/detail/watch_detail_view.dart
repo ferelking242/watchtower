@@ -208,15 +208,17 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     SharePlus.instance.share(ShareParams(text: url));
   }
 
-  void _downloadAll(List<Chapter> chapters) {
-    for (final ch in chapters) {
-      final entry = isar.downloads.filter().idEqualTo(ch.id).findFirstSync();
-      if (entry == null || !(entry.isDownload ?? false)) {
-        ref.read(addDownloadToQueueProvider(chapter: ch));
+  Future<void> _downloadAll(List<Chapter> chapters) async {
+    try {
+      for (final ch in chapters) {
+        await ref.read(addDownloadToQueueProvider(chapter: ch).future);
       }
+      botToast('Tous les épisodes mis en file');
+    } catch (e) {
+      botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');
+    } finally {
+      ref.read(processDownloadsProvider());
     }
-    ref.read(processDownloadsProvider());
-    botToast('Tous les épisodes mis en file');
   }
 
   // ─── BUILD ──────────────────────────────────────────────────────────────────
@@ -2535,16 +2537,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
           setStatus('Préparation des épisodes…');
           setProgress(0.68);
-          for (final ch in selected) {
-            final entry =
-                isar.downloads.filter().idEqualTo(ch.id).findFirstSync();
-            if (entry == null || !(entry.isDownload ?? false)) {
-              ref.read(addDownloadToQueueProvider(chapter: ch));
+          try {
+            for (final ch in selected) {
+              await ref.read(addDownloadToQueueProvider(chapter: ch).future);
             }
+          } finally {
+            ref.read(processDownloadsProvider());
           }
 
           setStatus('Ajout à la file de téléchargement…');
-          ref.read(processDownloadsProvider());
           setProgress(1);
           await Future<void>.delayed(const Duration(milliseconds: 450));
         },
