@@ -49,17 +49,32 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   }
 
   void _cleanupOrphanedDownloads() {
+    // On ne supprime QUE les entrées dont le chapitre n'existe plus.
+    // Avant, celles dont seul le lien manga manquait étaient supprimées :
+    // le gestionnaire se vidait donc tout seul au moindre lien effacé.
     final orphanIds = <int>[];
     for (final download in isar.downloads.where().findAllSync()) {
-      download.chapter.loadSync();
-      if (download.chapter.value == null) {
+      if (!download.chapter.isLoaded) download.chapter.loadSync();
+      final chapter = download.chapter.value;
+      if (chapter == null) {
         if (download.id != null) orphanIds.add(download.id!);
         continue;
       }
-      download.chapter.value!.manga.loadSync();
-      if (download.chapter.value!.manga.value == null &&
-          download.id != null) {
-        orphanIds.add(download.id!);
+      // Répare la relation chapitre → manga quand elle a été perdue
+      // (Isar efface un lien non chargé lors d'un `put`).
+      if (!chapter.manga.isLoaded && chapter.mangaId != null) {
+        try {
+          chapter.manga.loadSync();
+        } catch (_) {}
+      }
+      if (chapter.manga.value == null && chapter.mangaId != null) {
+        final manga = isar.mangas.getSync(chapter.mangaId!);
+        if (manga != null) {
+          isar.writeTxnSync(() {
+            chapter.manga.value = manga;
+            isar.chapters.putSync(chapter);
+          });
+        }
       }
     }
     if (orphanIds.isEmpty) return;
@@ -84,16 +99,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     final swipeRight = ref.watch(swipeRightActionStateProvider);
 
     return StreamBuilder<List<Download>>(
-      // isar_community rejects filters on these nullable bool properties at
-      // runtime ("Property does not support this filter"). Watch the
-      // collection and apply the equivalent predicate in Dart instead.
-      stream: isar.downloads.where().watch(fireImmediately: true).map(
-            (downloads) => downloads
-                .where((download) =>
-                    download.isDownload == false &&
-                    download.isStartDownload == true)
-                .toList(),
-          ),
+      // Le gestionnaire reflète TOUT ce qui existe en base : en attente, en
+      // cours, échoués et terminés. Avant, seules les entrées actives étaient
+      // listées — un téléchargement qui échouait disparaissait aussitôt et
+      // l'écran paraissait vide. isar_community refuse par ailleurs certains
+      // filtres sur les collections : on filtre/trie en Dart.
+      stream: isar.downloads.where().watch(fireImmediately: true),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(
@@ -129,22 +140,35 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         final allEntries = snapshot.data ?? const <Download>[];
         final entries = <Download>[];
         for (final d in allEntries) {
-          d.chapter.loadSync();
-          d.chapter.value?.manga.loadSync();
-          if (d.chapter.value?.manga.value != null) {
-            entries.add(d);
+          if (!d.chapter.isLoaded) d.chapter.loadSync();
+          final chapter = d.chapter.value;
+          if (chapter == null) continue; // chapitre supprimé → entrée ignorée
+          if (!chapter.manga.isLoaded && chapter.mangaId != null) {
+            try {
+              chapter.manga.loadSync();
+            } catch (_) {}
           }
+          if (chapter.manga.value == null && chapter.mangaId != null) {
+            final manga = isar.mangas.getSync(chapter.mangaId!);
+            if (manga != null) chapter.manga.value = manga;
+          }
+          // On conserve l'entrée même si le manga n'a pas pu être résolu :
+          // l'utilisateur doit voir que son téléchargement existe.
+          entries.add(d);
         }
 
-        // Split into 3 tabs by ItemType
+        // Split into 3 tabs by ItemType (type inconnu → Manga, pour qu'aucune
+        // entrée ne disparaisse silencieusement).
+        ItemType typeOf(Download d) =>
+            d.chapter.value?.manga.value?.itemType ?? ItemType.manga;
         final watchEntries = entries
-            .where((d) => d.chapter.value?.manga.value?.itemType == ItemType.anime)
+            .where((d) => typeOf(d) == ItemType.anime)
             .toList();
         final mangaEntries = entries
-            .where((d) => d.chapter.value?.manga.value?.itemType == ItemType.manga)
+            .where((d) => typeOf(d) == ItemType.manga)
             .toList();
         final novelEntries = entries
-            .where((d) => d.chapter.value?.manga.value?.itemType == ItemType.novel)
+            .where((d) => typeOf(d) == ItemType.novel)
             .toList();
 
         final allQueueLength = entries.length;

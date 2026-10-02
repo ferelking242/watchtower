@@ -37,15 +37,16 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/riverpod.dart';
 import 'package:watchtower/utils/utils.dart';
-import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/others.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
+import 'package:watchtower/modules/manga/detail/widgets/detail_shimmer.dart';
 import 'package:watchtower/modules/manga/detail/widgets/readmore.dart';
 import 'package:watchtower/modules/manga/detail/widgets/chapter_filter_list_tile_widget.dart';
+import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/manga/detail/widgets/chapter_list_tile_widget.dart';
 import 'package:watchtower/modules/manga/detail/widgets/chapter_sort_list_tile_widget.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
@@ -59,7 +60,11 @@ import '../../../utils/constant.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
-enum _DetailSection { chapters, recommendations, comments }
+/// Onglets de la page de détail, dans l'ordre demandé :
+/// Chapter detail · Similar · Commentaires.
+///
+/// L'ordre de cette enum pilote l'ordre des onglets (index du TabController).
+enum _DetailSection { chapters, similar, comments }
 
 class MangaDetailView extends ConsumerStatefulWidget {
   final Function(bool) isExtended;
@@ -71,6 +76,11 @@ class MangaDetailView extends ConsumerStatefulWidget {
   final Function(bool) checkForUpdate;
   final ItemType itemType;
 
+  /// Vrai pendant le chargement des informations depuis la source : les
+  /// blocs texte (titre, auteur, statut, description) affichent alors un
+  /// shimmer, tandis que leurs icônes restent visibles.
+  final bool isLoading;
+
   const MangaDetailView({
     super.key,
     required this.isExtended,
@@ -81,6 +91,7 @@ class MangaDetailView extends ConsumerStatefulWidget {
     required this.manga,
     required this.checkForUpdate,
     required this.itemType,
+    this.isLoading = false,
   });
 
   @override
@@ -96,10 +107,19 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
       ..addListener(() {
         _scrollOffset.value = _scrollController.offset;
       });
+    _sectionController = TabController(length: 3, vsync: this)
+      ..addListener(() {
+        if (_sectionController.indexIsChanging) return;
+        final next = _DetailSection.values[_sectionController.index];
+        if (next != _detailSection && mounted) {
+          setState(() => _detailSection = next);
+        }
+      });
   }
 
   @override
   void dispose() {
+    _sectionController.dispose();
     _scrollController.dispose();
     _scrollOffset.dispose();
     super.dispose();
@@ -108,6 +128,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
   final _scrollOffset = ValueNotifier<double>(0.0);
   bool _expanded = false;
   _DetailSection _detailSection = _DetailSection.chapters;
+  late final TabController _sectionController;
   late final ScrollController _scrollController;
   late final isLocalArchive = widget.manga?.isLocalArchive ?? false;
   @override
@@ -284,75 +305,82 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
               top: 0,
               child: offset == 0.0
                   ? Consumer(
-                      builder: (context, ref, child) => Stack(
-                        children: [
-                          widget.manga!.customCoverImage != null
-                              ? Image.memory(
-                                  widget.manga!.customCoverImage as Uint8List,
-                                  width: context.width(1),
-                                  height: 300,
-                                  fit: BoxFit.cover,
-                                )
-                              : cachedNetworkImage(
-                                  headers: isLocalArchive
-                                      ? null
-                                      : ref.watch(
-                                          headersProvider(
-                                            source: widget.manga!.source!,
-                                            lang: widget.manga!.lang!,
-                                            sourceId: widget.manga!.sourceId,
-                                          ),
+                      builder: (context, ref, child) => DetailShimmerImage(
+                        // Arrière-plan du cover : shimmer détaillé pendant le
+                        // chargement (le voile de lisibilité n'est appliqué
+                        // qu'une fois l'image prête).
+                        imageProvider: widget.manga!.customCoverImage != null
+                            ? MemoryImage(
+                                widget.manga!.customCoverImage as Uint8List,
+                              )
+                            : CustomExtendedNetworkImageProvider(
+                                toImgUrl(
+                                  widget.manga!.customCoverFromTracker ??
+                                      widget.manga!.imageUrl ??
+                                      "",
+                                ),
+                                headers: isLocalArchive
+                                    ? null
+                                    : ref.watch(
+                                        headersProvider(
+                                          source: widget.manga!.source!,
+                                          lang: widget.manga!.lang!,
+                                          sourceId: widget.manga!.sourceId,
                                         ),
-                                  imageUrl: toImgUrl(
-                                    widget.manga!.customCoverFromTracker ??
-                                        widget.manga!.imageUrl ??
-                                        "",
-                                  ),
-                                  width: context.width(1),
-                                  height: 300,
-                                  fit: BoxFit.cover,
-                                ),
-                          Stack(
-                            children: [
-                              Column(
-                                children: [
-                                  Container(
-                                    width: context.width(1),
-                                    height: AppBar().preferredSize.height,
-                                    color: context.isTablet
-                                        ? Theme.of(
-                                            context,
-                                          ).scaffoldBackgroundColor
-                                        : Theme.of(context)
-                                              .scaffoldBackgroundColor
-                                              .withValues(alpha: 0.9),
-                                  ),
-                                  Container(
-                                    width: context.width(1),
-                                    height: 465,
-                                    color: context.isTablet
-                                        ? Theme.of(
-                                            context,
-                                          ).scaffoldBackgroundColor
-                                        : Theme.of(context)
-                                              .scaffoldBackgroundColor
-                                              .withValues(alpha: 0.9),
-                                  ),
-                                ],
+                                      ),
                               ),
-                              Positioned(
-                                bottom: 0,
-                                child: Container(
-                                  width: context.width(1),
-                                  height: 100,
-                                  color: Theme.of(
-                                    context,
-                                  ).scaffoldBackgroundColor,
+                        width: context.width(1),
+                        height: 300,
+                        fit: BoxFit.cover,
+                        placeholderBuilder: (context) => DetailHeroShimmer(
+                          height: 300,
+                          compact: true,
+                        ),
+                        loadedBuilder: (context, image) => Stack(
+                          children: [
+                            image,
+                            Stack(
+                              children: [
+                                Column(
+                                  children: [
+                                    Container(
+                                      width: context.width(1),
+                                      height: AppBar().preferredSize.height,
+                                      color: context.isTablet
+                                          ? Theme.of(
+                                              context,
+                                            ).scaffoldBackgroundColor
+                                          : Theme.of(context)
+                                                .scaffoldBackgroundColor
+                                                .withValues(alpha: 0.9),
+                                    ),
+                                    Container(
+                                      width: context.width(1),
+                                      height: 465,
+                                      color: context.isTablet
+                                          ? Theme.of(
+                                              context,
+                                            ).scaffoldBackgroundColor
+                                          : Theme.of(context)
+                                                .scaffoldBackgroundColor
+                                                .withValues(alpha: 0.9),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                                Positioned(
+                                  bottom: 0,
+                                  child: Container(
+                                    width: context.width(1),
+                                    height: 100,
+                                    color: Theme.of(
+                                      context,
+                                    ).scaffoldBackgroundColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : Container(),
@@ -388,7 +416,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                   .read(isLongPressedStateProvider.notifier)
                                   .update(!isLongPressed);
                             },
-                            icon: const Icon(Icons.clear),
+                            icon: const Icon(Broken.close_circle, size: 24),
                           ),
                           actions: [
                             IconButton(
@@ -399,7 +427,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                       .selectAll(chapter);
                                 }
                               },
-                              icon: const Icon(Icons.select_all),
+                              icon: const Icon(Broken.tick_square, size: 23),
                             ),
                             IconButton(
                               onPressed: () {
@@ -424,7 +452,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                   }
                                 }
                               },
-                              icon: const Icon(Icons.flip_to_back_rounded),
+                              icon: const Icon(
+                                Broken.refresh_left_square,
+                                size: 23,
+                              ),
                             ),
                           ],
                         ),
@@ -432,6 +463,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     : ValueListenableBuilder<double>(
                         valueListenable: _scrollOffset,
                         builder: (context, offset, _) => AppBar(
+                        leading: IconButton(
+                          icon: const Icon(Broken.arrow_left_2, size: 26),
+                          onPressed: () => Navigator.of(context).maybePop(),
+                        ),
                         title: offset > 200
                             ? Text(
                                 widget.manga!.name!,
@@ -446,7 +481,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                             ArrowPopupMenuButton(
                               padding: const EdgeInsets.all(12),
                               popUpAnimationStyle: popupAnimationStyle,
-                              icon: const Icon(Icons.download_outlined),
+                              icon: const Icon(
+                                Broken.document_download,
+                                size: 23,
+                              ),
                               itemBuilder: (context) {
                                 return [
                                   PopupMenuItem<int>(
@@ -518,12 +556,14 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                         .idEqualTo(chapter.id)
                                         .findFirstSync();
                                     if (entry == null || !entry.isDownload!) {
-                                      ref.watch(
+                                      // ref.read (et non ref.watch) : on est
+                                      // dans un callback, pas dans build().
+                                      ref.read(
                                         addDownloadToQueueProvider(
                                           chapter: chapter,
                                         ),
                                       );
-                                      ref.watch(processDownloadsProvider());
+                                      ref.read(processDownloadsProvider());
                                     }
                                   } else {
                                     final length = switch (value) {
@@ -546,7 +586,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                             .findFirstSync();
                                         if (entry == null ||
                                             !entry.isDownload!) {
-                                          ref.watch(
+                                          ref.read(
                                             addDownloadToQueueProvider(
                                               chapter: chapter,
                                             ),
@@ -554,7 +594,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                         }
                                       }
                                     }
-                                    ref.watch(processDownloadsProvider());
+                                    ref.read(processDownloadsProvider());
                                   }
                                 } else if (value == 4) {
                                   final List<Chapter> unreadChapters =
@@ -575,14 +615,14 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                         .idEqualTo(chapter.id)
                                         .findFirstSync();
                                     if (entry == null || !entry.isDownload!) {
-                                      ref.watch(
+                                      ref.read(
                                         addDownloadToQueueProvider(
                                           chapter: chapter,
                                         ),
                                       );
                                     }
                                   }
-                                  ref.watch(processDownloadsProvider());
+                                  ref.read(processDownloadsProvider());
                                 } else if (value == 5) {
                                   final List<Chapter> allChapters =
                                       _getFilteredAndSortedChapters();
@@ -592,14 +632,14 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                         .idEqualTo(chapter.id)
                                         .findFirstSync();
                                     if (entry == null || !entry.isDownload!) {
-                                      ref.watch(
+                                      ref.read(
                                         addDownloadToQueueProvider(
                                           chapter: chapter,
                                         ),
                                       );
                                     }
                                   }
-                                  ref.watch(processDownloadsProvider());
+                                  ref.read(processDownloadsProvider());
                                 }
                               },
                             ),
@@ -610,13 +650,15 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                               _showDraggableMenu();
                             },
                             icon: Icon(
-                              Icons.filter_list_sharp,
+                              Broken.filter,
+                              size: 23,
                               color: isNotFiltering ? null : Colors.yellow,
                             ),
                           ),
                           ArrowPopupMenuButton(
                             padding: const EdgeInsets.all(12),
                             popUpAnimationStyle: popupAnimationStyle,
+                            icon: const Icon(Broken.more_2, size: 23),
                             itemBuilder: (context) {
                               return [
                                 if (!isLocalArchive)
@@ -853,7 +895,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                                       ),
                                                     ),
                                                     icon: Icon(
-                                                      Icons.add,
+                                                      Broken.add,
                                                       color: context
                                                           .secondaryColor,
                                                     ),
@@ -889,7 +931,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                                         if (!context.mounted) {
                                                           return;
                                                         }
-                                                        await ref.watch(
+                                                        await ref.read(
                                                           importArchivesFromFileProvider(
                                                             itemType:
                                                                 manga.itemType,
@@ -911,10 +953,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                         chapterLength: chapters.length,
                                       );
                               }
-                              if (_detailSection == _DetailSection.recommendations) {
+                              if (_detailSection == _DetailSection.similar) {
                                 return _DetailInlinePanel(
-                                  icon: Icons.star_rate_outlined,
-                                  title: l10n.recommendations,
+                                  icon: Broken.star,
+                                  title: 'Similar',
+                                  subtitle:
+                                      'Retrouvez les titres proches de ce manga.',
                                   onOpen: () {
                                     final w = ref.read(algorithmWeightsStateProvider);
                                     context.push(
@@ -930,8 +974,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                               }
                               if (_detailSection == _DetailSection.comments) {
                                 return _DetailInlinePanel(
-                                  icon: Icons.chat_bubble_outline,
+                                  icon: Broken.message,
                                   title: 'Commentaires',
+                                  subtitle:
+                                      'Ouvrez la page source pour lire et poster des commentaires.',
                                   onOpen: () {
                                     final source = getSource(
                                       widget.manga!.lang!,
@@ -991,12 +1037,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   BottomSelectButton(
                     icon: Icon(
                       checkFirstBookmarked
-                          ? Icons.bookmark_remove_outlined
-                          : Icons.bookmark_add_outlined,
+                          ? Broken.bookmark
+                          : Broken.bookmark_2,
                       color: color,
                     ),
                     onPressed: () {
-                      final chapters = ref.watch(chaptersListStateProvider);
+                      final chapters = ref.read(chaptersListStateProvider);
                       final List<Chapter> updatedChapters = [];
                       final now = DateTime.now().millisecondsSinceEpoch;
                       for (var chapter in chapters) {
@@ -1017,12 +1063,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   BottomSelectButton(
                     icon: Icon(
                       checkReadBookmarked
-                          ? Icons.remove_done_sharp
-                          : Icons.done_all_sharp,
+                          ? Broken.close_circle
+                          : Broken.tick_square,
                       color: color,
                     ),
                     onPressed: () {
-                      final chapters = ref.watch(chaptersListStateProvider);
+                      final chapters = ref.read(chaptersListStateProvider);
                       final List<Chapter> updatedChapters = [];
                       final now = DateTime.now().millisecondsSinceEpoch;
                       for (var chapter in chapters) {
@@ -1051,12 +1097,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     BottomSelectButton(
                       icon: Stack(
                         children: [
-                          Icon(Icons.done_outlined, color: color),
+                          Icon(Broken.tick_circle, color: color),
                           Positioned(
                             bottom: 0,
                             right: 0,
                             child: Icon(
-                              Icons.arrow_downward_outlined,
+                              Broken.arrow_down_2,
                               size: 11,
                               color: color,
                             ),
@@ -1090,11 +1136,13 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     ),
                   if (!isLocalArchive)
                     BottomSelectButton(
-                      icon: Icon(Icons.download_outlined, color: color),
+                      icon: Icon(Broken.document_download, color: color),
                       onPressed: () {
-                        for (var chapter in ref.watch(
-                          chaptersListStateProvider,
-                        )) {
+                        // Lecture ponctuelle : jamais ref.watch dans un
+                        // callback (Riverpod n'autorise le watch que dans
+                        // build()).
+                        for (var chapter
+                            in ref.read(chaptersListStateProvider)) {
                           final entries = isar.downloads
                               .filter()
                               .idEqualTo(chapter.id)
@@ -1105,7 +1153,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                             );
                           }
                         }
-                        ref.watch(processDownloadsProvider());
+                        ref.read(processDownloadsProvider());
 
                         ref
                             .read(isLongPressedStateProvider.notifier)
@@ -1115,9 +1163,9 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     ),
                   if (isLocalArchive)
                     BottomSelectButton(
-                      icon: Icon(Icons.delete_outline_outlined, color: color),
+                      icon: Icon(Broken.trash, color: color),
                       onPressed: () {
-                        final selectedChapters = ref.watch(
+                        final selectedChapters = ref.read(
                           chaptersListStateProvider,
                         );
                         final totalChapters = widget.manga!.chapters.length;
@@ -1146,7 +1194,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                           CrossAxisAlignment.start,
                                       children: [
                                         const Icon(
-                                          Icons.warning_amber_rounded,
+                                          Broken.warning_2,
                                           color: Colors.orange,
                                         ),
                                         const SizedBox(width: 12),
@@ -1584,7 +1632,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         _editLocalArchiveInfos();
                       },
                       icon: const CircleAvatar(
-                        child: Icon(Icons.edit_outlined),
+                        child: Icon(Broken.edit_2),
                       ),
                     ),
                   ),
@@ -1608,12 +1656,24 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         },
                       ),
                     ),
-                  const SizedBox(height: 12),
-                  _DetailTabPills(
-                    selected: _detailSection,
-                    onSelect: (s) => setState(() => _detailSection = s),
+                  const SizedBox(height: 8),
+                  // Onglets propres : ligne de séparation en bas + indicateur
+                  // animé sous l'onglet actif (Chapter detail · Similar ·
+                  // Commentaires).
+                  _DetailTabs(
+                    controller: _sectionController,
+                    onSelect: (s) {
+                      if (_detailSection != s) {
+                        setState(() => _detailSection = s);
+                      }
+                    },
                   ),
                   const SizedBox(height: 12),
+                  if (_detailSection == _DetailSection.chapters &&
+                      !isLocalArchive)
+                    _ChapterDetailUnderConstruction(
+                      mangaName: widget.manga!.name ?? '',
+                    ),
                   if (widget.manga!.itemType == ItemType.anime)
                     SizedBox(
                       width: context.width(1),
@@ -1634,7 +1694,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                             );
                           },
                           label: Text(l10n.watch_order),
-                          icon: Icon(Icons.arrow_right_alt_outlined),
+                          icon: Icon(Broken.arrow_right_2),
                         ),
                       ),
                     ),
@@ -1683,7 +1743,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                     );
                                   },
                                   label: Text(l10n.sequels),
-                                  icon: Icon(Icons.arrow_right_alt_outlined),
+                                  icon: Icon(Broken.arrow_right_2),
                                 ),
                               ),
                             ),
@@ -1725,7 +1785,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                     ),
                                   ),
                                   icon: Icon(
-                                    Icons.add,
+                                    Broken.add,
                                     color: context.secondaryColor,
                                   ),
                                   label: Text(
@@ -1781,7 +1841,8 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
   }
 
   Widget _coverCard() {
-    final imageProvider = widget.manga!.customCoverImage != null
+    final isCustomCover = widget.manga!.customCoverImage != null;
+    final imageProvider = isCustomCover
         ? MemoryImage(widget.manga!.customCoverImage as Uint8List)
               as ImageProvider
         : CustomExtendedNetworkImageProvider(
@@ -1809,11 +1870,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
         child: SizedBox(
           width: 65 * 1.5,
           height: 65 * 2.3,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(5)),
-              image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-            ),
+          // La cover affiche un shimmer détaillé tant que l'image n'est pas
+          // décodée, puis l'image apparaît en fondu.
+          child: DetailShimmerImage(
+            imageProvider: imageProvider,
+            borderRadius: const BorderRadius.all(Radius.circular(5)),
+            placeholderBuilder: (context) => const _CoverShimmer(),
           ),
         ),
       ),
@@ -1825,10 +1887,16 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SelectableText(
-          widget.manga!.name!,
-          style: const TextStyle(fontSize: 20),
-        ),
+        if (widget.isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 3),
+            child: DetailShimmerBox(width: 170, height: 20, radius: 5),
+          )
+        else
+          SelectableText(
+            widget.manga!.name!,
+            style: const TextStyle(fontSize: 20),
+          ),
         widget.titleDescription!,
       ],
     );
@@ -1873,7 +1941,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   child: Column(
                     children: [
                       Icon(
-                        Icons.public,
+                        Broken.global,
                         size: 20,
                         color: context.secondaryColor,
                       ),
@@ -1907,7 +1975,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
         child: Column(
           children: [
             Icon(
-              Icons.hourglass_empty,
+              Broken.timer,
               size: 20,
               color: context.secondaryColor,
             ),
@@ -1960,7 +2028,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                 return Column(
                   children: [
                     Icon(
-                      isNotEmpty ? Icons.done_rounded : Icons.sync_outlined,
+                      isNotEmpty ? Broken.tick_circle : Broken.refresh,
                       size: 20,
                       color: color,
                     ),
@@ -2117,7 +2185,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                 },
                                 child: const Padding(
                                   padding: EdgeInsets.all(8.0),
-                                  child: Icon(Icons.close),
+                                  child: Icon(Broken.close_circle),
                                 ),
                               ),
                             ),
@@ -2153,7 +2221,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                     },
                                     child: const Padding(
                                       padding: EdgeInsets.all(8.0),
-                                      child: Icon(Icons.share),
+                                      child: Icon(Broken.export),
                                     ),
                                   ),
                                   GestureDetector(
@@ -2180,7 +2248,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                     },
                                     child: const Padding(
                                       padding: EdgeInsets.all(8.0),
-                                      child: Icon(Icons.save_outlined),
+                                      child: Icon(Broken.save_2),
                                     ),
                                   ),
                                   ArrowPopupMenuButton(
@@ -2255,7 +2323,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                     child: Padding(
                                       padding: const EdgeInsets.all(8.0),
                                       child: Icon(
-                                        Icons.edit_outlined,
+                                        Broken.edit_2,
                                         color: !context.isLight
                                             ? Colors.white
                                             : Colors.black,
@@ -2476,67 +2544,178 @@ Future<bool> _showSplitChaptersDialog(BuildContext context) async {
       true;
 }
 
-// ── Detail section tab pills ──────────────────────────────────────────────────
+// ── Detail section tabs ──────────────────────────────────────────────────────
 
-class _DetailTabPills extends StatelessWidget {
-  final _DetailSection selected;
+/// Onglets « posés » de la page de détail : une ligne continue en bas et un
+/// indicateur animé sous l'onglet actif, dans l'ordre :
+/// Chapter detail · Similar · Commentaires.
+class _DetailTabs extends StatelessWidget {
+  final TabController controller;
   final ValueChanged<_DetailSection> onSelect;
-  const _DetailTabPills({required this.selected, required this.onSelect});
+
+  const _DetailTabs({required this.controller, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final tabs = [
-      (section: _DetailSection.chapters, label: 'Chapitres', icon: Icons.menu_book_outlined),
-      (section: _DetailSection.recommendations, label: 'Recommandations', icon: Icons.star_rate_outlined),
-      (section: _DetailSection.comments, label: 'Commentaires', icon: Icons.chat_bubble_outline),
+      (
+        section: _DetailSection.chapters,
+        label: 'Chapter detail',
+        icon: Broken.document_text,
+      ),
+      (section: _DetailSection.similar, label: 'Similar', icon: Broken.star),
+      (
+        section: _DetailSection.comments,
+        label: 'Commentaires',
+        icon: Broken.message,
+      ),
     ];
-    return SizedBox(
-      height: 36,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        children: tabs.map((tab) {
-          final isActive = selected == tab.section;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => onSelect(tab.section),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      tab.icon,
-                      size: 14,
-                      color: isActive
-                          ? Theme.of(context).colorScheme.onPrimary
-                          : Theme.of(context).colorScheme.onSurface,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
+
+    return Container(
+      decoration: BoxDecoration(
+        // Trait continu au-dessus des onglets
+        border: Border(
+          top: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.55),
+            width: 0.8,
+          ),
+        ),
+      ),
+      child: TabBar(
+        controller: controller,
+        onTap: (index) => onSelect(_DetailSection.values[index]),
+        isScrollable: false,
+        // Indicateur fin sous l'onglet actif
+        indicator: UnderlineTabIndicator(
+          borderSide: BorderSide(
+            width: 3,
+            color: scheme.primary,
+          ),
+          insets: const EdgeInsets.symmetric(horizontal: 26),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        // Ligne de séparation en bas, sur toute la largeur
+        dividerColor: scheme.outlineVariant.withValues(alpha: 0.55),
+        dividerHeight: 1,
+        labelColor: scheme.onSurface,
+        unselectedLabelColor: scheme.onSurfaceVariant,
+        labelStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.1,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        labelPadding: EdgeInsets.zero,
+        splashBorderRadius: BorderRadius.zero,
+        overlayColor: WidgetStatePropertyAll(
+          scheme.primary.withValues(alpha: 0.06),
+        ),
+        tabs: [
+          for (final tab in tabs)
+            Tab(
+              height: 44,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(tab.icon, size: 15),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
                       tab.label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isActive
-                            ? Theme.of(context).colorScheme.onPrimary
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          );
-        }).toList(),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Encart « En cours de construction » de l'onglet Chapter detail ────────────
+
+/// Petit bandeau affiché sous les onglets : la nouvelle page « Chapter detail »
+/// est en construction, ce raccourci permet de l'ouvrir malgré tout.
+class _ChapterDetailUnderConstruction extends StatelessWidget {
+  final String mangaName;
+
+  const _ChapterDetailUnderConstruction({required this.mangaName});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Broken.document_text, size: 18, color: scheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Chapter detail',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'En cours de construction',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      height: 1.35,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              onPressed: () =>
+                  context.push('/chapterDetail', extra: mangaName),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Ouvrir', style: TextStyle(fontSize: 12)),
+                  SizedBox(width: 5),
+                  Icon(Broken.arrow_right_2, size: 14),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2547,48 +2726,115 @@ class _DetailTabPills extends StatelessWidget {
 class _DetailInlinePanel extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onOpen;
   const _DetailInlinePanel({
     required this.icon,
     required this.title,
+    this.subtitle,
     required this.onOpen,
   });
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
       alignment: Alignment.topCenter,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 56, color: Theme.of(context).hintColor),
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: scheme.primary.withValues(alpha: 0.10),
+              border: Border.all(
+                color: scheme.primary.withValues(alpha: 0.25),
+                width: 1.2,
+              ),
+            ),
+            child: Icon(icon, size: 36, color: scheme.primary),
+          ),
           const SizedBox(height: 16),
           Text(
             title,
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).hintColor,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
             ),
           ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           FilledButton.tonal(
             onPressed: onOpen,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text('Ouvrir'),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.arrow_forward_rounded, size: 16),
+                  SizedBox(width: 6),
+                  Icon(Broken.arrow_right_2, size: 16),
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Cover shimmer ────────────────────────────────────────────────────────────
+
+/// Squelette détaillé de la cover : bloc shimmer + voile bas + glyphe image,
+/// affiché tant que la vraie jaquette n'est pas décodée.
+class _CoverShimmer extends StatelessWidget {
+  const _CoverShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DetailShimmerBox(radius: 5),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            height: 36,
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(5),
+              ),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.22),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const Center(
+          child: Icon(Broken.image, size: 26, color: Colors.white70),
+        ),
+      ],
     );
   }
 }

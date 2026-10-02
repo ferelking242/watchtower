@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 class CustomFloatingActionBtn extends StatelessWidget {
@@ -30,7 +31,7 @@ class CustomFloatingActionBtn extends StatelessWidget {
         onPressed: onPressed,
         extendedIconLabelSpacing: 0,
         extendedPadding: EdgeInsets.symmetric(horizontal: 16),
-        icon: const Icon(Icons.play_arrow_rounded, size: 24),
+        icon: const Icon(Broken.play, size: 22),
         label: AnimatedSwitcher(
           duration: duration,
           switchInCurve: curve,

@@ -144,6 +144,63 @@ String _qualityDigits(String raw) {
   return raw.trim().toLowerCase();
 }
 
+/// Resolve (and persist) the manga owning [chapter] as safely as possible.
+///
+/// Root cause of "le téléchargement ne démarre pas" : un chapitre chargé
+/// directement depuis Isar peut avoir son `IsarLink<Manga>` NON chargé
+/// (`chapter.manga.value == null`). L'ancien code lançait alors
+/// `StateError('chapter.manga not loaded')`, le téléchargement échouait
+/// immédiatement, l'entrée passait en `failed` et disparaissait du
+/// gestionnaire.
+///
+/// On répare ici : on charge le lien si besoin, et on retombe sur
+/// `mangaId` (champ dénormalisé, jamais effacé) en dernier recours.
+Manga resolveChapterManga(Chapter chapter) {
+  Manga? manga = chapter.manga.value;
+  if (manga == null) {
+    if (!chapter.manga.isLoaded) {
+      try {
+        chapter.manga.loadSync();
+      } catch (_) {
+        // Lien absent en base : on tentera le mangaId juste après.
+      }
+      manga = chapter.manga.value;
+    }
+    if (manga == null && chapter.mangaId != null) {
+      manga = isar.mangas.getSync(chapter.mangaId!);
+      if (manga != null) {
+        // Re-attache le lien pour les écritures suivantes (et pour l'UI).
+        chapter.manga.value = manga;
+      }
+    }
+  }
+  if (manga == null) {
+    throw StateError(
+      'Manga introuvable pour le chapitre "${chapter.name}" '
+      '(mangaId=${chapter.mangaId}) — téléchargement impossible.',
+    );
+  }
+  return manga;
+}
+
+/// Garantit que les liens Isar d'un chapitre sont chargés avant de l'écrire.
+///
+/// Isar efface un lien qui n'est pas chargé lors d'un `put` : écrire un
+/// chapitre dont `manga` n'était pas loadé supprimait donc la relation
+/// chapitre → manga, et le chapitre devenait inutilisable (l'entrée de
+/// téléchargement était ensuite filtrée du gestionnaire).
+void ensureChapterLinksLoaded(Chapter chapter) {
+  if (!chapter.manga.isLoaded && chapter.mangaId != null) {
+    try {
+      chapter.manga.loadSync();
+    } catch (_) {}
+  }
+  if (chapter.manga.value == null && chapter.mangaId != null) {
+    final manga = isar.mangas.getSync(chapter.mangaId!);
+    if (manga != null) chapter.manga.value = manga;
+  }
+}
+
 /// User-chosen quality label (normalized via [_normalizeQuality]), keyed by
 /// chapter.id. Used by the batch download sheet: unlike
 /// [chapterPreferredOriginalUrl] (a single episode's exact URL, valid only
@@ -617,6 +674,10 @@ class _VideoListTileState extends State<_VideoListTile> {
 
 @riverpod
 Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
+  // Ne jamais enregistrer un chapitre aux liens Isar non chargés (le lien
+  // manga serait effacé par le `put`, l'entrée deviendrait orpheline et le
+  // téléchargement échouerait aussitôt).
+  ensureChapterLinksLoaded(chapter);
   final existing = isar.downloads.getSync(chapter.id!);
   if (existing == null) {
     // Use a sentinel value of 1 so the progress bar shows "waiting" (0/1)
@@ -719,7 +780,10 @@ Future<void> downloadChapter(
       chapter,
     );
     List<Track>? subtitles;
-    final manga = chapter.manga.value ?? (throw StateError('chapter.manga not loaded'));
+    // Résolution robuste : charge le lien, sinon retombe sur mangaId. Un
+    // chapitre dont le lien n'était pas chargé faisait échouer TOUT le
+    // téléchargement avec "chapter.manga not loaded".
+    final manga = resolveChapterManga(chapter);
     final chapterName = chapter.name!.replaceForbiddenCharacters(' ');
     final itemType = manga.itemType;
     final chapterDirectory = (await storageProvider.getMangaChapterDirectory(
@@ -1767,9 +1831,21 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           .toList();
 
       for (final dl in ongoingRaw) {
-        dl.chapter.loadSync();
+        if (!dl.chapter.isLoaded) dl.chapter.loadSync();
         final ch = dl.chapter.value;
-        if (ch != null) ch.manga.loadSync();
+        if (ch == null) continue;
+        // Relation chapitre → manga : on la charge, et si le lien est vide
+        // (effacé par un ancien `put` sur un lien non chargé) on la
+        // reconstruit depuis mangaId pour ne jamais perdre l'entrée.
+        if (!ch.manga.isLoaded && ch.mangaId != null) {
+          try {
+            ch.manga.loadSync();
+          } catch (_) {}
+        }
+        if (ch.manga.value == null && ch.mangaId != null) {
+          final manga = isar.mangas.getSync(ch.mangaId!);
+          if (manga != null) ch.manga.value = manga;
+        }
       }
 
       final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;

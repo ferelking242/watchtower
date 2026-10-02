@@ -150,6 +150,9 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
                           MangaDetailsView(
                             manga: manga,
                             sourceExist: sourceExist,
+                            // Titre, auteur et statut passent en shimmer
+                            // pendant le chargement des infos de la source.
+                            isLoading: _isLoading,
                             checkForUpdate: (value) async {
                               if (!_isLoading) {
                                 setState(() {

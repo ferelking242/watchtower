@@ -14,6 +14,7 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
+import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/manga/download/download_page_widget.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
@@ -68,7 +69,7 @@ class ChapterListTileWidget extends ConsumerWidget {
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Icon(
-          chapter.isBookmarked! ? Icons.bookmark_remove : Icons.bookmark_add,
+          chapter.isBookmarked! ? Broken.bookmark : Broken.bookmark_2,
           color: Colors.white,
         ),
       ),
@@ -77,7 +78,7 @@ class ChapterListTileWidget extends ConsumerWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Icon(
-          chapter.isRead! ? Icons.visibility_off : Icons.done_all,
+          chapter.isRead! ? Broken.eye_slash : Broken.tick_square,
           color: Colors.white,
         ),
       ),
@@ -121,7 +122,7 @@ class ChapterListTileWidget extends ConsumerWidget {
                   _thumbnailPreview(context, chapter.thumbnailUrl),
                 chapter.isBookmarked!
                     ? Icon(
-                        Icons.bookmark,
+                        Broken.bookmark,
                         size: 16,
                         color: context.primaryColor,
                       )
@@ -148,7 +149,7 @@ class ChapterListTileWidget extends ConsumerWidget {
                 if (chapter.isFiller ?? false)
                   Row(
                     children: [
-                      Icon(Icons.label, size: 16, color: context.primaryColor),
+                      Icon(Broken.tag, size: 16, color: context.primaryColor),
                       Text(
                         " Filler ",
                         style: TextStyle(

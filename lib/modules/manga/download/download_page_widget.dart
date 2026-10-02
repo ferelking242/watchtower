@@ -9,6 +9,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
+import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
@@ -118,10 +119,16 @@ class ChapterPageDownload extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: StreamBuilder(
+          // isar_community refuse certains filtres sur cette collection
+          // (propriétés nullables) : on écoute la collection puis on filtre
+          // en Dart, comme le fait déjà le gestionnaire de téléchargements.
           stream: isar.downloads
-              .filter()
-              .idEqualTo(chapter.id)
-              .watch(fireImmediately: true),
+              .where()
+              .watch(fireImmediately: true)
+              .map(
+                (downloads) =>
+                    downloads.where((d) => d.id == chapter.id).toList(),
+              ),
           builder: (context, snapshot) {
             if (snapshot.hasData && snapshot.data!.isNotEmpty) {
               final entries = snapshot.data!;
@@ -130,8 +137,8 @@ class ChapterPageDownload extends ConsumerWidget {
                   ? ArrowPopupMenuButton(
                       popUpAnimationStyle: popupAnimationStyle,
                       child: Icon(
+                        Broken.tick_circle,
                         size: 25,
-                        Icons.check_circle,
                         color: Theme.of(
                           context,
                         ).iconTheme.color!.withValues(alpha: 0.7),
@@ -204,7 +211,8 @@ class ChapterPageDownload extends ConsumerWidget {
                             Align(
                               alignment: Alignment.center,
                               child: Icon(
-                                Icons.arrow_downward_sharp,
+                                Broken.arrow_down_2,
+                                size: 20,
                                 color:
                                     (download.succeeded! / download.total!) >
                                         0.5
@@ -238,11 +246,11 @@ class ChapterPageDownload extends ConsumerWidget {
                         _startDownload(null, download.id, ref);
                       },
                       icon: Icon(
-                        Icons.download_for_offline_outlined,
+                        Broken.document_download,
                         color: Theme.of(
                           context,
                         ).iconTheme.color!.withValues(alpha: 0.7),
-                        size: 25,
+                        size: 24,
                       ),
                     )
                   : SizedBox(
@@ -251,7 +259,7 @@ class ChapterPageDownload extends ConsumerWidget {
                       child: ArrowPopupMenuButton(
                         popUpAnimationStyle: popupAnimationStyle,
                         child: const Icon(
-                          Icons.error_outline_outlined,
+                          Broken.warning_2,
                           color: Colors.red,
                           size: 25,
                         ),
@@ -266,7 +274,26 @@ class ChapterPageDownload extends ConsumerWidget {
                       ),
                     );
             }
-            return const SizedBox.shrink();
+            // Aucune entrée en base : le bouton doit quand même être présent,
+            // sinon il est impossible de lancer un téléchargement depuis la
+            // liste des chapitres.
+            return IconButton(
+              padding: EdgeInsets.zero,
+              tooltip: 'Télécharger',
+              style: IconButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: const Size(32, 32),
+                padding: EdgeInsets.zero,
+              ),
+              onPressed: () => _startDownload(null, null, ref),
+              icon: Icon(
+                Broken.document_download,
+                size: 23,
+                color: Theme.of(
+                  context,
+                ).iconTheme.color!.withValues(alpha: 0.7),
+              ),
+            );
           },
         ),
       ),
@@ -285,7 +312,7 @@ Widget _downloadWidget(BuildContext context, bool isLoading) {
         alignment: Alignment.center,
         child: Icon(
           size: 18,
-          Icons.arrow_downward_sharp,
+          Broken.arrow_down_2,
           color: Theme.of(context).iconTheme.color!.withValues(alpha: 0.7),
         ),
       ),
