@@ -38,6 +38,7 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/MusicLibrary': ('Music', Icons.music_note),
   '/GameLibrary': ('Games', Icons.sports_esports),
   '/Library': ('Library', Icons.collections_bookmark),
+  '/componentGallery': ('Gallery', Icons.grid_view_rounded),
   '/discover': ('Search', Icons.travel_explore_rounded),
   '/browse': ('Browser', Icons.explore_rounded),
   '/history': ('History', Icons.history_rounded),
@@ -180,9 +181,8 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
       return isFr ? (_kFrLabels[route] ?? base) : base;
     }
 
-    // Keep the component gallery easy to find from the menu even when
-    // Library is also present in the bottom dock.
-    const menuFirstRoutes = ['/Library'];
+    // Keep the component gallery as the first direct menu destination.
+    const menuFirstRoutes = ['/componentGallery'];
     for (final r in menuFirstRoutes) {
       final info = kWtRouteInfo[r];
       if (info == null || !seen.add(r)) continue;
