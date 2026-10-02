@@ -11,6 +11,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
+import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/modules/watch/home/extension_video_preview.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -43,6 +44,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
   int _page = 1;
   bool _hasNextPage = true;
   bool _loadingMore = false;
+  Object? _loadMoreError;
 
   @override
   void initState() {
@@ -113,11 +115,106 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         _page = nextPage;
         _hasNextPage = result.hasNextPage;
         _loadingMore = false;
+        _loadMoreError = null;
       });
-    } catch (_) {
-      if (mounted) setState(() => _loadingMore = false);
+    } catch (error) {
+      debugPrint(
+        '[ExtensionSectionPage] page_request_failed '
+        'source=${widget.source.name ?? "unknown"} '
+        'section=${widget.sectionId} page=${_page + 1} error=$error',
+      );
+      if (mounted) {
+        setState(() {
+          _loadingMore = false;
+          _loadMoreError = error;
+        });
+      }
     }
   }
+
+  void _retryFirstPage() {
+    switch (widget.sectionId) {
+      case 'popular':
+        ref.invalidate(getPopularProvider(source: widget.source, page: 1));
+        break;
+      case 'latest':
+        ref.invalidate(
+          getLatestUpdatesProvider(source: widget.source, page: 1),
+        );
+        break;
+      default:
+        ref.invalidate(
+          getCustomListProvider(
+            source: widget.source,
+            listId: widget.sectionId,
+            page: 1,
+          ),
+        );
+    }
+  }
+
+  void _retryMore() {
+    if (_loadingMore || !_hasNextPage) return;
+    final nextPage = _page + 1;
+    switch (widget.sectionId) {
+      case 'popular':
+        ref.invalidate(
+          getPopularProvider(source: widget.source, page: nextPage),
+        );
+        break;
+      case 'latest':
+        ref.invalidate(
+          getLatestUpdatesProvider(source: widget.source, page: nextPage),
+        );
+        break;
+      default:
+        ref.invalidate(
+          getCustomListProvider(
+            source: widget.source,
+            listId: widget.sectionId,
+            page: nextPage,
+          ),
+        );
+    }
+    setState(() => _loadMoreError = null);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadMore();
+    });
+  }
+
+  Widget _requestError(Object error) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.cloud_off_rounded,
+            color: Colors.white54,
+            size: 44,
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Impossible de charger cette section',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            extensionRequestFailureMessage(error) ?? '',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: _retryFirstPage,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Réessayer'),
+          ),
+        ],
+      ),
+    ),
+  );
 
   void _openItem(MManga item) {
     if (item.link?.isNotEmpty != true) return;
@@ -197,7 +294,12 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Impossible de charger la playlist : $error')),
+        SnackBar(
+          content: Text(
+            'Impossible de charger la playlist. '
+            '${extensionRequestFailureMessage(error)}',
+          ),
+        ),
       );
     }
   }
@@ -257,15 +359,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
             ? const AppMediaGridShimmer()
             : _buildContent(visibleItems),
         error: (error, _) => visibleItems.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Impossible de charger cette section.\n$error',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
+            ? _requestError(error)
             : _buildContent(visibleItems),
         data: (_) => _buildContent(visibleItems),
       ),
@@ -339,9 +433,19 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
         mainAxisSpacing: 16,
       ),
-      itemCount: items.length + (_loadingMore ? 1 : 0),
+      itemCount: items.length +
+          (_loadingMore || _loadMoreError != null ? 1 : 0),
       itemBuilder: (_, index) {
         if (index >= items.length) {
+          if (_loadMoreError != null) {
+            return Center(
+              child: TextButton.icon(
+                onPressed: _retryMore,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Chargement échoué · Réessayer'),
+              ),
+            );
+          }
           return const AppShimmerBlock(radius: AppUI.cardRadius);
         }
         final item = items[index];

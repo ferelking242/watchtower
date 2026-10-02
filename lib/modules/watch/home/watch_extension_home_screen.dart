@@ -89,6 +89,7 @@ class _WatchExtensionHomeScreenState
   String? _pendingReplacementSectionId;
   int _layoutEditorRevision = 0;
   String? _activeCloudflareChallengeUrl;
+  final Set<String> _loggedRequestErrors = {};
 
   Source get source => widget.source;
 
@@ -160,17 +161,31 @@ class _WatchExtensionHomeScreenState
       });
     } catch (error) {
       if (!mounted) return;
+      _logRequestFailure('layout', error);
       setState(() => _layoutError = error);
     }
   }
 
   Future<void> _retryLayout() async {
     if (!mounted) return;
+    _loggedRequestErrors.clear();
     setState(() {
       _layoutError = null;
       _layoutLoadOperation = null;
     });
     await _loadLayout();
+  }
+
+  void _logRequestFailure(String request, Object? error) {
+    if (error == null) return;
+    final detail = error.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+    final summary = detail.length > 240 ? '${detail.substring(0, 240)}…' : detail;
+    final key = '$request:${error.runtimeType}:$summary';
+    if (!_loggedRequestErrors.add(key)) return;
+    debugPrint(
+      '[WatchExtensionHome] request_failed '
+      'source=${source.name ?? "unknown"} route=$request error=$summary',
+    );
   }
 
   List<Map<String, dynamic>> _copyLayoutSections() {
@@ -308,6 +323,7 @@ class _WatchExtensionHomeScreenState
   }
 
   Future<void> _refresh() async {
+    _loggedRequestErrors.clear();
     if (!_layoutReady && source.providesHome) {
       await _loadLayout();
       if (!mounted) return;
@@ -520,6 +536,7 @@ class _WatchExtensionHomeScreenState
         return _ExtensionEmpty(
           source: source,
           onRefresh: _retryLayout,
+          error: layoutError,
         );
       }
       return _ExtensionHomeLoading(
@@ -552,6 +569,14 @@ class _WatchExtensionHomeScreenState
           ),
         },
     ];
+    Object? sectionError;
+    for (var index = 0; index < sectionAsyncValues.length; index++) {
+      final result = sectionAsyncValues[index];
+      if (!result.hasError) continue;
+      final error = result.error;
+      sectionError ??= error;
+      _logRequestFailure(sections[index].id, error);
+    }
     final hasSectionContent = sectionAsyncValues.any(
       (value) => value.value?.list.isNotEmpty == true,
     );
@@ -565,6 +590,7 @@ class _WatchExtensionHomeScreenState
       return _ExtensionEmpty(
         source: source,
         onRefresh: _refresh,
+        error: sectionError,
       );
     }
 
@@ -594,9 +620,14 @@ class _WatchExtensionHomeScreenState
 
     final error = popularAsync?.error ?? latestAsync?.error;
     if (error != null && popular.isEmpty && latest.isEmpty) {
+      _logRequestFailure(
+        popularAsync?.hasError == true ? 'popular' : 'latest',
+        error,
+      );
       return _ExtensionEmpty(
         source: source,
         onRefresh: _refresh,
+        error: error,
       );
     }
 
@@ -1339,7 +1370,11 @@ class _ExtensionLayoutSectionState
         title: _title,
         component: widget.section.component,
       ),
-      error: (_, __) => _ExtensionLayoutSectionError(title: _title),
+      error: (error, _) => _ExtensionLayoutSectionError(
+        title: _title,
+        error: error,
+        onRetry: _retry,
+      ),
       data: (pages) {
         final items = pages?.list ?? const <MManga>[];
         if (items.isEmpty) {
@@ -1349,6 +1384,27 @@ class _ExtensionLayoutSectionState
       },
     );
     return _withMonthSelector(context, sectionContent);
+  }
+
+  void _retry() {
+    switch (widget.section.id) {
+      case 'popular':
+        ref.invalidate(getPopularProvider(source: widget.source, page: 1));
+        break;
+      case 'latest':
+        ref.invalidate(
+          getLatestUpdatesProvider(source: widget.source, page: 1),
+        );
+        break;
+      default:
+        ref.invalidate(
+          getCustomListProvider(
+            source: widget.source,
+            listId: _listId,
+            page: 1,
+          ),
+        );
+    }
   }
 
   Widget _buildSection(BuildContext context, List<MManga> items) {
@@ -1603,15 +1659,77 @@ class _ExtensionLayoutSectionMessage extends StatelessWidget {
 
 class _ExtensionLayoutSectionError extends StatelessWidget {
   final String title;
+  final Object error;
+  final VoidCallback onRetry;
 
-  const _ExtensionLayoutSectionError({required this.title});
+  const _ExtensionLayoutSectionError({
+    required this.title,
+    required this.error,
+    required this.onRetry,
+  });
 
   @override
-  Widget build(BuildContext context) => _ExtensionLayoutSectionMessage(
-    title: title,
-    icon: Icons.cloud_off_rounded,
-    message: 'indisponible',
-  );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppUI.pagePadding(context),
+        4,
+        AppUI.pagePadding(context),
+        10,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .035),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: .09)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off_rounded, color: cs.error, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Impossible de charger $title',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    extensionRequestFailureMessage(error) ??
+                        'La source est momentanément indisponible.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 11.5,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Réessayer',
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              color: cs.primary,
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ExtensionLayoutSectionEmpty extends StatelessWidget {
@@ -3347,13 +3465,19 @@ class _ExtensionSkeletonSection extends StatelessWidget {
 class _ExtensionEmpty extends StatelessWidget {
   final Source source;
   final Future<void> Function() onRefresh;
+  final Object? error;
 
-  const _ExtensionEmpty({required this.source, required this.onRefresh});
+  const _ExtensionEmpty({
+    required this.source,
+    required this.onRefresh,
+    this.error,
+  });
 
   @override
   Widget build(BuildContext context) => ExtensionHomeEmptyState(
     onRetry: onRefresh,
     onRefresh: onRefresh,
+    error: error,
     header: _ExtensionFeedTopHeader(
       source: source,
       onSearch: () {},
@@ -3449,11 +3573,49 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Recherche indisponible : $error',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70),
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.cloud_off_rounded,
+                        color: Colors.white54,
+                        size: 44,
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Recherche impossible',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        extensionRequestFailureMessage(error) ?? '',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          ref.invalidate(
+                            searchProvider(
+                              source: widget.source,
+                              query: _submittedQuery,
+                              page: 1,
+                              filterList: const [],
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Réessayer'),
+                      ),
+                    ],
                   ),
                 ),
               ),

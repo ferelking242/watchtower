@@ -3,20 +3,49 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
+String? extensionRequestFailureMessage(Object? error) {
+  if (error == null) return null;
+  final detail = error.toString().toLowerCase();
+  if (detail.contains('cloudflare') ||
+      detail.contains('cf-chl-') ||
+      detail.contains('captcha') ||
+      detail.contains('challenge')) {
+    return 'La source demande une vérification anti-bot. Ouvre-la, termine la vérification, puis réessaie.';
+  }
+  if (detail.contains('socketexception') ||
+      detail.contains('failed host lookup') ||
+      detail.contains('timed out') ||
+      detail.contains('timeout') ||
+      detail.contains('network') ||
+      detail.contains('connection')) {
+    return 'Connexion à la source impossible. Vérifie le réseau ou réessaie dans quelques instants.';
+  }
+  if (detail.contains('http 401') || detail.contains('http 403')) {
+    return 'La source a refusé la requête. Elle peut être temporairement inaccessible ou demander une vérification.';
+  }
+  if (detail.contains('http 5')) {
+    return 'La source rencontre une erreur serveur. Réessaie dans quelques instants.';
+  }
+  return 'La source n’a pas pu répondre correctement. Réessaie; si le problème persiste, consulte les journaux.';
+}
+
 class ExtensionHomeEmptyState extends StatelessWidget {
   const ExtensionHomeEmptyState({
     required this.onRetry,
     required this.onRefresh,
     required this.header,
+    this.error,
     super.key,
   });
 
   final Future<void> Function() onRetry;
   final Future<void> Function() onRefresh;
   final Widget header;
+  final Object? error;
 
   @override
   Widget build(BuildContext context) {
+    final failureMessage = extensionRequestFailureMessage(error);
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: Column(
@@ -56,23 +85,39 @@ class ExtensionHomeEmptyState extends StatelessWidget {
                                   // Free to use under the Lottie Simple License.
                                   // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
                                   Semantics(
-                                    label: 'Boîte vide',
-                                    child: Lottie.asset(
-                                      'assets/animations/empty_box_partho.json',
-                                      key: const ValueKey(
-                                        'extension-empty-lottie',
-                                      ),
-                                      width: animationSize,
-                                      height: animationSize,
-                                      fit: BoxFit.contain,
-                                      repeat: true,
-                                    ),
+                                    label: error == null
+                                        ? 'Boîte vide'
+                                        : 'Échec de connexion à la source',
+                                    child: error == null
+                                        ? Lottie.asset(
+                                            'assets/animations/empty_box_partho.json',
+                                            key: const ValueKey(
+                                              'extension-empty-lottie',
+                                            ),
+                                            width: animationSize,
+                                            height: animationSize,
+                                            fit: BoxFit.contain,
+                                            repeat: true,
+                                          )
+                                        : SizedBox(
+                                            width: animationSize,
+                                            height: animationSize,
+                                            child: const Center(
+                                              child: Icon(
+                                                Icons.cloud_off_rounded,
+                                                size: 76,
+                                                color: Colors.white54,
+                                              ),
+                                            ),
+                                          ),
                                   ),
                                   const SizedBox(height: 16),
-                                  const Text(
-                                    'Aucun contenu disponible',
+                                  Text(
+                                    error == null
+                                        ? 'Aucun contenu disponible'
+                                        : 'Impossible de charger le contenu',
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 17,
                                       height: 1.3,
@@ -80,6 +125,18 @@ class ExtensionHomeEmptyState extends StatelessWidget {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
+                                  if (failureMessage != null) ...[
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      failureMessage,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        height: 1.45,
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 18),
                                   SizedBox(
                                     width: 190,

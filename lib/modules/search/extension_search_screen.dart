@@ -9,6 +9,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
+import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/search.dart';
@@ -155,6 +156,19 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         _loading = false;
       });
     }
+  }
+
+  void _retrySearch() {
+    if (_query.isEmpty) return;
+    ref.invalidate(
+      searchProvider(
+        source: widget.source,
+        query: _query,
+        page: 1,
+        filterList: const [],
+      ),
+    );
+    _runSearch(_query);
   }
 
   /// Tabs derived from what the extension actually returned. MangaDex-style
@@ -318,8 +332,9 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     if (_error != null) {
       return _ExtensionSearchMessage(
         title: 'Recherche indisponible',
-        message: '$_error',
-        onRetry: () => _runSearch(_query),
+        message: extensionRequestFailureMessage(_error) ??
+            'La source n’a pas pu répondre correctement.',
+        onRetry: _retrySearch,
       );
     }
     if (_results == null || _results!.isEmpty) {

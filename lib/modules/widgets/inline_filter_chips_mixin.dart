@@ -234,12 +234,15 @@ mixin InlineFilterChipsMixin<T extends StatefulWidget> on State<T> {
       String label;
       String filterName;
       if (f is SortFilter) {
-        final val = f.values.isNotEmpty ? (f.values[f.state.index] as dynamic).name as String : f.name;
+        final sortIndex = f.state.index;
+        final val = sortIndex >= 0 && sortIndex < f.values.length
+            ? (f.values[sortIndex] as dynamic).name as String
+            : f.name;
         label = '${f.name}: $val';
         filterName = f.name;
       } else if (f is SelectFilter) {
         // Show current selection in the label when active
-        final selName = (f.state > 0 && f.state < f.values.length)
+        final selName = (f.state >= 0 && f.state < f.values.length)
             ? (f.values[f.state] is SelectFilterOption
                 ? (f.values[f.state] as SelectFilterOption).name
                 : f.values[f.state].toString())

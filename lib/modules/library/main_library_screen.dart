@@ -1,6 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
-import 'dart:ui';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -84,12 +84,13 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   final FocusNode _searchFocus = FocusNode();
   int _selectedCatIndex = 0;
   int _arcPage = (_kCarouselCopies ~/ 2) * _kTypes.length + 1;
+  int? _pendingWheelPage;
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
   late final PageController _arcPageCtrl = PageController(
     // Three compact type items must fit in the left side of the header,
     // without being pushed underneath the action buttons on the right.
-    viewportFraction: 0.33,
+    viewportFraction: 0.30,
     initialPage: _arcPage,
   );
 
@@ -130,19 +131,30 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
   // ── Arc carousel type selector ─────────────────────────────────────────────
   Widget _buildArcTypeSelector(ColorScheme cs, bool isDark) {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (_) {
-        final p = _arcPageCtrl.page;
-        if (p != null) {
-          final page = p.round();
-          if (page != _arcPage) {
-            setState(() {
-              _arcPage = page;
-              _typeIndex = page % _kTypes.length;
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is! PointerScrollEvent) return;
+        final delta = event.scrollDelta.dy != 0
+            ? event.scrollDelta.dy
+            : event.scrollDelta.dx;
+        if (delta == 0) return;
+        final lastPage = _kTypes.length * _kCarouselCopies - 1;
+        final targetPage = ((_pendingWheelPage ?? _arcPage) +
+                (delta > 0 ? 1 : -1))
+            .clamp(0, lastPage)
+            .toInt();
+        _pendingWheelPage = targetPage;
+        _arcPageCtrl
+            .animateToPage(
+              targetPage,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+            )
+            .whenComplete(() {
+              if (_pendingWheelPage == targetPage) {
+                _pendingWheelPage = null;
+              }
             });
-          }
-        }
-        return false;
       },
       child: PageView.builder(
         controller: _arcPageCtrl,
@@ -177,7 +189,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           // visible and tappable.
           final scale = (1.0 - diff * 0.16).clamp(0.72, 1.0);
           final opacity = (1.0 - diff * 0.40).clamp(0.40, 1.0);
-          final blur = diff > 0.4 ? (diff * 1.8).clamp(0.4, 2.0) : 0.0;
 
           return Center(
             child: AnimatedScale(
@@ -187,89 +198,80 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               child: AnimatedOpacity(
                 opacity: opacity,
                 duration: const Duration(milliseconds: 220),
-                child: ImageFiltered(
-                  imageFilter: blur > 0
-                      ? ImageFilter.blur(sigmaX: blur, sigmaY: blur)
-                      : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-                  child: GestureDetector(
-                    onTap: () {
-                      _arcPageCtrl.animateToPage(
-                        i,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOutCubic,
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Arc + icon
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          width: selected ? 42 : 36,
-                          height: selected ? 42 : 36,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: selected
-                                ? LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      cs.primary,
-                                      cs.primary.withValues(alpha: 0.75),
-                                    ],
-                                  )
-                                : null,
+                child: GestureDetector(
+                  onTap: () {
+                    _arcPageCtrl.animateToPage(
+                      i,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Arc + icon
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        width: selected ? 42 : 36,
+                        height: selected ? 42 : 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: selected
+                              ? LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    cs.primary,
+                                    cs.primary.withValues(alpha: 0.75),
+                                  ],
+                                )
+                              : null,
+                          color: selected
+                              ? null
+                              : cs.onSurface.withValues(alpha: 0.05),
+                          // A crisp outline keeps neighboring types visible
+                          // without the old blur applied to each page.
+                          border: Border.all(
                             color: selected
-                                ? null
+                                ? cs.primary.withValues(alpha: 0.85)
                                 : (isDark
-                                      ? cs.onSurface.withValues(alpha: 0.05)
-                                      : cs.onSurface.withValues(alpha: 0.05)),
-                            // Outlined tab bar (user request): every tab gets
-                            // a visible outline, selected keeps a bright one
-                            border: Border.all(
-                              color: selected
-                                  ? cs.primary.withValues(alpha: 0.85)
-                                  : (isDark
-                                        ? cs.onSurface.withValues(alpha: 0.22)
-                                        : cs.outline.withValues(alpha: 0.35)),
-                              width: selected ? 1.5 : 1.0,
-                            ),
-                            boxShadow: selected
-                                ? [
-                                    BoxShadow(
-                                      color: cs.primary.withValues(alpha: 0.35),
-                                      blurRadius: 14,
-                                      spreadRadius: -2,
-                                    ),
-                                  ]
-                                : null,
+                                      ? cs.onSurface.withValues(alpha: 0.22)
+                                      : cs.outline.withValues(alpha: 0.35)),
+                            width: selected ? 1.5 : 1.0,
                           ),
-                          child: Icon(
-                            _kTypeIcons[type]!,
-                            color: selected
-                                ? cs.onSurface
-                                : (isDark
-                                      ? cs.onSurface.withValues(alpha: 0.54)
-                                      : cs.onSurface.withValues(alpha: 0.50)),
-                            size: selected ? 20 : 17,
-                          ),
+                          boxShadow: selected
+                              ? [
+                                  BoxShadow(
+                                    color: cs.primary.withValues(alpha: 0.35),
+                                    blurRadius: 14,
+                                    spreadRadius: -2,
+                                  ),
+                                ]
+                              : null,
                         ),
-                        const SizedBox(height: 3),
-                        // Label
-                        Text(
-                          _typeLabel(type),
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: selected
-                                ? FontWeight.w700
-                                : FontWeight.w400,
-                            color: selected
-                                ? cs.primary
-                                : cs.onSurfaceVariant.withValues(alpha: 0.70),
-                          ),
+                        child: Icon(
+                          _kTypeIcons[type]!,
+                          color: selected
+                              ? cs.onSurface
+                              : (isDark
+                                    ? cs.onSurface.withValues(alpha: 0.54)
+                                    : cs.onSurface.withValues(alpha: 0.50)),
+                          size: selected ? 20 : 17,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _typeLabel(type),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w400,
+                          color: selected
+                              ? cs.primary
+                              : cs.onSurfaceVariant.withValues(alpha: 0.70),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -477,7 +479,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 ),
                 const SizedBox(width: 8),
 
-                // ── Actions: Search → Notifications → 3-dots ─────────
+                // ── Actions: Search → Filter → More ─────────────────────
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -496,15 +498,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                       const SizedBox(width: 6),
                     ],
 
-                    // 3. Notifications
-                    _iconBtn(
-                      icon: Broken.notification,
-                      onTap: () => context.push('/notifications'),
-                      tooltip: l10n.updates,
-                    ),
-                    const SizedBox(width: 6),
-
-                    // 4. Three-dots menu
+                    // Library actions stay available in the overflow menu.
                     _buildThreeDotsBtn(context, l10n, mangaList),
                   ],
                 ),
@@ -676,51 +670,73 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          // ── Manage categories — standalone outlined icon ──────────────
-          GestureDetector(
-            onTap: () => _showManageCategories(context, cats),
-            child: Container(
-              height: 32,
-              width: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isDark
-                      ? cs.onSurface.withValues(alpha: 0.28)
-                      : cs.outline.withValues(alpha: 0.42),
-                  width: 1,
+          // Category management is its own control; every category lives
+          // together inside one outlined, horizontally scrollable group.
+          Tooltip(
+            message: 'Gérer les catégories',
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => _showManageCategories(context, cats),
+                child: Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDark
+                          ? cs.onSurface.withValues(alpha: 0.28)
+                          : cs.outline.withValues(alpha: 0.42),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    Broken.setting_2,
+                    size: 16,
+                    color: cs.onSurface.withValues(alpha: 0.62),
+                  ),
                 ),
               ),
-              child: Icon(
-                Broken.setting_2,
-                size: 15,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(
+                alpha: isDark ? 0.24 : 0.45,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
                 color: isDark
-                    ? cs.onSurface.withValues(alpha: 0.38)
-                    : cs.onSurface.withValues(alpha: 0.38),
+                    ? cs.onSurface.withValues(alpha: 0.26)
+                    : cs.outline.withValues(alpha: 0.40),
+                width: 1,
               ),
             ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // ── "All" pill ────────────────────────────────────────────────
-          _pill(
-            label: 'All',
-            selected: _selectedCatIndex == 0,
-            onTap: () => setState(() => _selectedCatIndex = 0),
-            cs: cs,
-            isDark: isDark,
-          ),
-
-          // ── Category pills ────────────────────────────────────────────
-          for (int i = 0; i < cats.length; i++)
-            _pill(
-              label: cats[i].name ?? '',
-              selected: _selectedCatIndex == i + 1,
-              onTap: () => setState(() => _selectedCatIndex = i + 1),
-              cs: cs,
-              isDark: isDark,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _pill(
+                  label: 'All',
+                  selected: _selectedCatIndex == 0,
+                  onTap: () => setState(() => _selectedCatIndex = 0),
+                  cs: cs,
+                  isDark: isDark,
+                ),
+                for (int i = 0; i < cats.length; i++)
+                  _pill(
+                    label: cats[i].name ?? '',
+                    selected: _selectedCatIndex == i + 1,
+                    onTap: () => setState(() => _selectedCatIndex = i + 1),
+                    cs: cs,
+                    isDark: isDark,
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -737,21 +753,13 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 170),
-        margin: const EdgeInsets.only(right: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        margin: const EdgeInsets.only(right: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: selected
-              ? cs.primary.withValues(alpha: 0.15)
+              ? cs.primary.withValues(alpha: isDark ? 0.20 : 0.12)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected
-                ? cs.primary.withValues(alpha: 0.60)
-                : (isDark
-                      ? cs.onSurface.withValues(alpha: 0.15)
-                      : cs.outline.withValues(alpha: 0.25)),
-            width: selected ? 1.2 : 1.0,
-          ),
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Text(
           label,
