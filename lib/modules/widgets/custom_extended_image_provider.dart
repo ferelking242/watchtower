@@ -13,14 +13,15 @@ import 'package:path/path.dart';
 import 'package:extended_image_library/src/network/extended_network_image_provider.dart'
     as image_provider;
 
-/// LRU Memory Cache for decoded image data
-class _LRUCache<K, V> {
+/// LRU memory cache for image bytes.
+@visibleForTesting
+class ImageBytesLruCache<K, V> {
   final int _maxSize;
   final _cache = <K, V>{};
   int _currentSize = 0;
   final int Function(V)? _sizeOf;
 
-  _LRUCache({required int maxSize, int Function(V)? sizeOf})
+  ImageBytesLruCache({required int maxSize, int Function(V)? sizeOf})
     : _maxSize = maxSize,
       _sizeOf = sizeOf;
 
@@ -33,7 +34,10 @@ class _LRUCache<K, V> {
   }
 
   void put(K key, V value) {
-    _cache.remove(key); // Remove if exists
+    final previous = _cache.remove(key);
+    if (previous != null && _sizeOf != null) {
+      _currentSize -= _sizeOf(previous);
+    }
     _cache[key] = value; // Add to end
 
     if (_sizeOf != null) {
@@ -67,7 +71,7 @@ class _LRUCache<K, V> {
 }
 
 /// Global memory cache (100 images max, ~50MB)
-final _memoryCache = _LRUCache<String, Uint8List>(
+final _memoryCache = ImageBytesLruCache<String, Uint8List>(
   maxSize: 50 * 1024 * 1024, // 50MB
   sizeOf: (data) => data.length,
 );
@@ -311,6 +315,9 @@ class CustomExtendedNetworkImageProvider
   String _cacheKeyFor(CustomExtendedNetworkImageProvider key) {
     return cacheKey ?? keyToMd5('${key.url}\n${_headersFingerprint()}');
   }
+
+  @visibleForTesting
+  String get cacheKeyForTesting => _cacheKeyFor(this);
 
   String _headersFingerprint() {
     if (headers == null || headers!.isEmpty) return '';
@@ -572,7 +579,10 @@ class CustomExtendedNetworkImageProvider
         _headersFingerprint() == other._headersFingerprint() &&
         retries == other.retries &&
         imageCacheName == other.imageCacheName &&
-        cacheMaxAge == other.cacheMaxAge;
+        imageCacheFolderName == other.imageCacheFolderName &&
+        cacheMaxAge == other.cacheMaxAge &&
+        showCloudFlareError == other.showCloudFlareError &&
+        printError == other.printError;
   }
 
   @override
@@ -588,7 +598,10 @@ class CustomExtendedNetworkImageProvider
     _headersFingerprint(),
     retries,
     imageCacheName,
+    imageCacheFolderName,
     cacheMaxAge,
+    showCloudFlareError,
+    printError,
   );
 
   @override

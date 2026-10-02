@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +27,7 @@ import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.dart';
 import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
+import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
 enum _LayoutEditorDestination { home, gallery, json }
@@ -434,10 +434,9 @@ class _WatchExtensionHomeScreenState
     if (!_layoutReady && source.providesHome) {
       final layoutError = _layoutError;
       if (layoutError != null) {
-        return _ExtensionError(
-          source: source,
-          error: layoutError,
-          onRetry: _retryLayout,
+        return _ExtensionEmpty(
+          onRefresh: _retryLayout,
+          onSearch: () => setState(() => _isSearching = true),
         );
       }
       return _ExtensionHomeLoading(
@@ -447,10 +446,45 @@ class _WatchExtensionHomeScreenState
       );
     }
 
-    final hasDeclaredSections = _layout.home.sections.isNotEmpty;
+    final sections = _layout.home.sections;
+    final hasDeclaredSections = sections.isNotEmpty;
     // A declarative home owns its data requests section by section. Watching
     // Popular/Latest here as well caused duplicate extension calls and made a
     // custom home wait for unrelated built-in rails.
+    final sectionAsyncValues = [
+      for (final section in sections)
+        switch (section.id) {
+          'popular' => ref.watch(
+            getPopularProvider(source: source, page: 1),
+          ),
+          'latest' => ref.watch(
+            getLatestUpdatesProvider(source: source, page: 1),
+          ),
+          _ => ref.watch(
+            getCustomListProvider(
+              source: source,
+              listId: section.id,
+              page: 1,
+            ),
+          ),
+        },
+    ];
+    final hasSectionContent = sectionAsyncValues.any(
+      (value) => value.value?.list.isNotEmpty == true,
+    );
+    final isLoadingSections = sectionAsyncValues.any(
+      (value) => value.isLoading,
+    );
+    if (hasDeclaredSections &&
+        !widget.layoutEditorMode &&
+        !hasSectionContent &&
+        !isLoadingSections) {
+      return _ExtensionEmpty(
+        onRefresh: _refresh,
+        onSearch: () => setState(() => _isSearching = true),
+      );
+    }
+
     final popularAsync = hasDeclaredSections
         ? null
         : ref.watch(getPopularProvider(source: source, page: 1));
@@ -477,7 +511,10 @@ class _WatchExtensionHomeScreenState
 
     final error = popularAsync?.error ?? latestAsync?.error;
     if (error != null && popular.isEmpty && latest.isEmpty) {
-      return _ExtensionError(source: source, error: error, onRetry: _refresh);
+      return _ExtensionEmpty(
+        onRefresh: _refresh,
+        onSearch: () => setState(() => _isSearching = true),
+      );
     }
 
     return _ExtensionFeed(
@@ -671,15 +708,11 @@ class _ExtensionFeed extends StatelessWidget {
     final hasDeclaredSections = sections.isNotEmpty || layoutEditorMode;
     final hasContent = all.isNotEmpty || hasDeclaredSections;
     if (!hasContent && !layoutEditorMode) {
-      return _ExtensionEmpty(
-        source: source,
-        onSearch: onSearch,
-        onRefresh: onRefresh,
-      );
+      return _ExtensionEmpty(onRefresh: onRefresh, onSearch: onSearch);
     }
     final homeFeed = Stack(
         children: [
-          _AppleRefreshable(
+          ExtensionAppleRefreshable(
             onRefresh: onRefresh,
             child: CustomScrollView(
               controller: controller,
@@ -978,131 +1011,6 @@ class _DockDestinationButton extends StatelessWidget {
         label: Text(label),
       ),
     );
-  }
-}
-
-class _AppleRefreshable extends StatefulWidget {
-  final Future<void> Function() onRefresh;
-  final Widget child;
-
-  const _AppleRefreshable({required this.onRefresh, required this.child});
-
-  @override
-  State<_AppleRefreshable> createState() => _AppleRefreshableState();
-}
-
-class _AppleRefreshableState extends State<_AppleRefreshable> {
-  bool _isRefreshing = false;
-
-  void _setStatus(RefreshIndicatorStatus? status) {
-    final visible =
-        status == RefreshIndicatorStatus.drag ||
-        status == RefreshIndicatorStatus.armed ||
-        status == RefreshIndicatorStatus.refresh;
-    if (visible != _isRefreshing && mounted) {
-      setState(() => _isRefreshing = visible);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top + 18;
-    return Stack(
-      children: [
-        RefreshIndicator.noSpinner(
-          onRefresh: widget.onRefresh,
-          onStatusChange: _setStatus,
-          child: widget.child,
-        ),
-        Positioned(
-          top: top,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: AnimatedOpacity(
-              opacity: _isRefreshing ? 1 : 0,
-              duration: const Duration(milliseconds: 160),
-              child: const Center(child: _AppleRefreshDots()),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Small iPhone-style refresh affordance: eight dots orbit while the active
-/// dot gently lifts, without adding a layout row or pushing the hero image.
-class _AppleRefreshDots extends StatefulWidget {
-  const _AppleRefreshDots();
-
-  @override
-  State<_AppleRefreshDots> createState() => _AppleRefreshDotsState();
-}
-
-class _AppleRefreshDotsState extends State<_AppleRefreshDots>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 760),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 34,
-      height: 34,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, __) {
-          final phase = _controller.value * math.pi * 2;
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              for (var i = 0; i < 8; i++)
-                Transform.translate(
-                  offset: Offset(
-                    math.cos(i * math.pi / 4) * 11,
-                    math.sin(i * math.pi / 4) * 11,
-                  ),
-                  child: Transform.translate(
-                    offset: Offset(0, -2.4 * _dotPulse(i, phase)),
-                    child: Opacity(
-                      opacity: .28 + .72 * _dotPulse(i, phase),
-                      child: Container(
-                        width: 4.5,
-                        height: 4.5,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  double _dotPulse(int index, double phase) {
-    final distance = (phase - index * math.pi / 4) % (math.pi * 2);
-    final shortest = math.min(distance, math.pi * 2 - distance);
-    return (1 - shortest / (math.pi / 2)).clamp(0.0, 1.0).toDouble();
   }
 }
 
@@ -2953,7 +2861,7 @@ class _ExtensionHomeLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
-      body: _AppleRefreshable(
+      body: ExtensionAppleRefreshable(
         onRefresh: onRefresh,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(
@@ -3159,114 +3067,17 @@ class _ExtensionSkeletonSection extends StatelessWidget {
 }
 
 class _ExtensionEmpty extends StatelessWidget {
-  final Source source;
-  final VoidCallback onSearch;
   final Future<void> Function() onRefresh;
+  final VoidCallback onSearch;
 
-  const _ExtensionEmpty({
-    required this.source,
-    required this.onSearch,
-    required this.onRefresh,
-  });
+  const _ExtensionEmpty({required this.onRefresh, required this.onSearch});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
-      body: _AppleRefreshable(
-        onRefresh: onRefresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 140, 24, 112),
-          children: [
-            _ExtensionSourceIcon(source: source, size: 56),
-            const SizedBox(height: 16),
-            const Text(
-              'Aucun contenu disponible',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Recherchez dans ${source.name ?? 'cette extension'} ou tirez pour actualiser.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: FilledButton.icon(
-                onPressed: onSearch,
-                icon: const Icon(Broken.search_normal),
-                label: const Text('Rechercher'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExtensionError extends StatelessWidget {
-  final Source source;
-  final Object error;
-  final Future<void> Function() onRetry;
-
-  const _ExtensionError({
-    required this.source,
-    required this.error,
-    required this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ExtensionSourceIcon(source: source, size: 56),
-              const SizedBox(height: 16),
-              Text(
-                '${source.name ?? 'Extension'} est temporairement indisponible',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 18),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Impossible de charger le catalogue de cette extension.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Réessayer'),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$error',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white24, fontSize: 10),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ExtensionHomeEmptyState(
+    onRetry: onRefresh,
+    onRefresh: onRefresh,
+    onSearch: onSearch,
+  );
 }
 
 class _ExtensionSearchView extends ConsumerStatefulWidget {

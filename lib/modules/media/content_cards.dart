@@ -1,4 +1,3 @@
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -6,6 +5,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/utils/cached_network.dart';
 
 /// Provider-neutral data used by every catalogue card.
 ///
@@ -367,16 +367,11 @@ class ContentImage extends StatelessWidget {
     final image = url?.trim();
     final child = image == null || image.isEmpty
         ? const _ContentImagePlaceholder()
-        : ExtendedImage.network(
-            image,
+        : cachedNetworkImage(
+            imageUrl: image,
+            width: null,
+            height: null,
             fit: fit,
-            cache: true,
-            loadStateChanged: (state) {
-              if (state.extendedImageLoadState == LoadState.completed) {
-                return null;
-              }
-              return const AppShimmerBlock();
-            },
           );
     return ClipRRect(borderRadius: BorderRadius.circular(radius), child: child);
   }
