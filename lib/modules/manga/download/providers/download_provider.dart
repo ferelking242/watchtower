@@ -1190,17 +1190,18 @@ Future<void> downloadChapter(
           // la progression live de Riverpod.
         }
       } else {
+        final downloadNonNull = download;
         if (progress.total != 0) {
           try {
             isar.writeTxnSync(() {
               isar.downloads.putSync(
-                download
+                downloadNonNull
                   ..succeeded = writtenSucceeded
                   ..total = isarTotal
                   ..failed = 0
                   ..isDownload = progress.isCompleted
                   ..downloadedBytes = exactDownloadedBytes
-                  ..totalBytes = exactTotalBytes ?? download.totalBytes
+                  ..totalBytes = exactTotalBytes ?? downloadNonNull.totalBytes
                   ..title = chapter.name
                   ..quality = chapterPreferredQuality[chapter.id]
                   ..posterUrl =
