@@ -54,7 +54,7 @@ import 'package:watchtower/modules/browse/extension_diagnostic_screen.dart';
 import 'package:watchtower/modules/browse/global_search/global_search_screen.dart';
 import 'package:watchtower/modules/main_view/main_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
-import 'package:watchtower/modules/library/library_screen.dart';
+import 'package:watchtower/modules/library/main_library_screen.dart';
 import 'package:watchtower/modules/home/anilist_browse_screen.dart';
 import 'package:watchtower/modules/home/anilist_detail_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -81,7 +81,6 @@ import 'package:watchtower/modules/novel/home/novel_home_screen.dart';
 import 'package:watchtower/modules/watch/reel/reel_screen.dart';
 import 'package:watchtower/modules/watch/reel/creator_profile_screen.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
-import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
 import 'package:watchtower/modules/more/about/about_screen.dart';
 import 'package:watchtower/modules/more/about/log_viewer_screen.dart';
@@ -188,7 +187,7 @@ class RouterNotifier extends ChangeNotifier {
     ShellRoute(
       builder: (context, state, child) => MainScreen(child: child),
       routes: [
-        _genericRoute(name: "Library", child: const ComponentGalleryScreen()),
+        _genericRoute(name: "Library", child: const MainLibraryScreen()),
         _genericRoute(
           name: "MangaLibrary",
           child: const MangaDiscoveryScreen(),

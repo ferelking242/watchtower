@@ -18,11 +18,11 @@ import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
+import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
-import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/global_style.dart';
 
@@ -67,7 +67,6 @@ String _typeLabel(ItemType type) {
       return 'Library';
   }
 }
-
 // ─── Main screen ──────────────────────────────────────────────────────────────
 class MainLibraryScreen extends ConsumerStatefulWidget {
   final String? presetInput;
@@ -338,13 +337,68 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   // ── Shared filter overlay content ─────────────────────────────────────────
   Widget _buildFilterOverlayContent(VoidCallback close) {
     if (_cachedSettings == null) return const SizedBox.shrink();
-    return LibraryFilterSortMenu(
-      itemType: _currentType,
-      settings: _cachedSettings!,
-      entries: _cachedMangaList,
-      close: close,
-      onSelect: () {
-        ref.read(isLongPressedStateProvider.notifier).update(true);
+    return FilterWidget.custom(
+      builder: (_) => LibraryFilterSortMenu(
+        itemType: _currentType,
+        settings: _cachedSettings!,
+        entries: _cachedMangaList,
+        close: close,
+        onSelect: () {
+          ref.read(isLongPressedStateProvider.notifier).update(true);
+        },
+      ),
+    );
+  }
+
+  void _showLibraryFilterSheet() {
+    if (_cachedSettings == null) return;
+    final l10n = l10nLocalizations(context)!;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final cs = Theme.of(sheetContext).colorScheme;
+        return SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.78,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(Broken.filter, color: cs.primary, size: 21),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        l10n.filter,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        sheetContext,
+                      ).closeButtonTooltip,
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                Divider(color: cs.outlineVariant.withValues(alpha: 0.6)),
+                Expanded(
+                  child: _buildFilterOverlayContent(
+                    () => Navigator.of(sheetContext).pop(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       },
     );
   }
@@ -374,10 +428,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       data: (c) => c,
       orElse: () => <Category>[],
     );
-    final filterButton = AdaptiveOverlayMenuButton(
-      menuWidth: 250,
-      trigger: Tooltip(
-        message: l10n.filter,
+    final filterButton = Tooltip(
+      message: l10n.filter,
+      child: InkWell(
+        onTap: _showLibraryFilterSheet,
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           width: 34,
           height: 34,
@@ -394,7 +449,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           ),
         ),
       ),
-      contentBuilder: _buildFilterOverlayContent,
     );
 
     final int? selectedCatId = _selectedCatIndex == 0
@@ -589,10 +643,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
           ),
 
-          // Filter overlay button
-          AdaptiveOverlayMenuButton(
-            menuWidth: 250,
-            trigger: Padding(
+          // Filter sheet button
+          InkWell(
+            onTap: _showLibraryFilterSheet,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Icon(
                 Broken.filter,
@@ -602,7 +657,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     : cs.onSurface.withValues(alpha: 0.38),
               ),
             ),
-            contentBuilder: _buildFilterOverlayContent,
           ),
 
           const SizedBox(width: 2),
@@ -826,7 +880,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 }
-
 // ─── Manage Categories Sheet ──────────────────────────────────────────────────
 class _ManageCategoriesSheet extends ConsumerStatefulWidget {
   final ItemType itemType;
@@ -1453,218 +1506,6 @@ class _CatRow extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Filter bottom sheet (from 3-dots menu) ──────────────────────────────────
-class _FilterSheet extends ConsumerStatefulWidget {
-  final ItemType itemType;
-  final Settings settings;
-  final List<Manga> entries;
-
-  const _FilterSheet({
-    required this.itemType,
-    required this.settings,
-    required this.entries,
-  });
-
-  @override
-  ConsumerState<_FilterSheet> createState() => _FilterSheetState();
-}
-
-class _FilterSheetState extends ConsumerState<_FilterSheet> {
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final l10n = l10nLocalizations(context)!;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.3,
-      maxChildSize: 0.85,
-      builder: (_, sc) => Container(
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            // Handle
-            Container(
-              margin: const EdgeInsets.only(top: 10),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: cs.onSurface.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Broken.filter, color: cs.primary, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      l10n.filter,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  // Reset
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        l10n.sort,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: cs.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: cs.outline.withValues(alpha: 0.15), height: 20),
-            Expanded(
-              child: ListView(
-                controller: sc,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  // Downloaded toggle
-                  _filterToggle(
-                    icon: Broken.import,
-                    label: l10n.downloaded,
-                    cs: cs,
-                  ),
-                  // Tracking toggle
-                  _filterToggle(
-                    icon: Broken.chart_2,
-                    label: l10n.tracking,
-                    cs: cs,
-                  ),
-                  // Unread toggle
-                  _filterToggle(
-                    icon: Broken.eye_slash,
-                    label: l10n.unread,
-                    cs: cs,
-                  ),
-                  // Completed toggle
-                  _filterToggle(
-                    icon: Broken.tick_circle,
-                    label: l10n.completed,
-                    cs: cs,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        backgroundColor: cs.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Apply',
-                        style: TextStyle(
-                          color: cs.onSurface,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _filterToggle({
-    required IconData icon,
-    required String label,
-    required ColorScheme cs,
-  }) {
-    bool enabled = false;
-    return StatefulBuilder(
-      builder: (context, setLocal) => GestureDetector(
-        onTap: () => setLocal(() => enabled = !enabled),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: enabled
-                ? cs.primary.withValues(alpha: 0.10)
-                : cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: enabled
-                  ? cs.primary.withValues(alpha: 0.35)
-                  : cs.outline.withValues(alpha: 0.10),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: enabled
-                    ? cs.primary
-                    : cs.onSurface.withValues(alpha: 0.45),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: enabled ? cs.primary : cs.onSurface,
-                  ),
-                ),
-              ),
-              Icon(
-                enabled ? Broken.eye : Broken.eye_slash,
-                size: 16,
-                color: enabled
-                    ? cs.primary
-                    : cs.onSurface.withValues(alpha: 0.25),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

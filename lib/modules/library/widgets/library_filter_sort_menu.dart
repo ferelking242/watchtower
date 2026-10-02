@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart'
     show getMangaCategorieStreamProvider;
+import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
@@ -46,7 +48,7 @@ class LibraryFilterSortMenu extends ConsumerStatefulWidget {
       _LibraryFilterSortMenuState();
 }
 
-enum _Level { root, sort, filter, contentRating, sources, categories }
+enum _Level { root, sort, filter, contentRating }
 
 class _LibraryFilterSortMenuState
     extends ConsumerState<LibraryFilterSortMenu> {
@@ -65,8 +67,6 @@ class _LibraryFilterSortMenuState
         _Level.sort => _buildSort(context),
         _Level.filter => _buildFilter(context),
         _Level.contentRating => _buildContentRating(context),
-        _Level.sources => _buildSources(context),
-        _Level.categories => _buildCategories(context),
       },
     );
   }
@@ -241,161 +241,285 @@ class _LibraryFilterSortMenuState
     final settings = widget.settings;
     final entries = widget.entries;
 
-    int downloaded = ref.watch(mangaFilterDownloadedStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
-    int tracking = ref.watch(mangaFilterTrackingStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
-    int unread = ref.watch(mangaFilterUnreadStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
-    int started = ref.watch(mangaFilterStartedStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
-    int completed = ref.watch(mangaFilterCompletedStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
+    final downloaded = ref.watch(
+      mangaFilterDownloadedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    final tracking = ref.watch(
+      mangaFilterTrackingStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    final unread = ref.watch(
+      mangaFilterUnreadStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    final started = ref.watch(
+      mangaFilterStartedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    final completed = ref.watch(
+      mangaFilterCompletedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    final sources = widget.entries
+        .map((manga) => manga.source)
+        .whereType<String>()
+        .where((source) => source.trim().isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final sourceSelection = selectedLibrarySourcesFilter(itemType);
+    final selectedSources = sourceSelection.value;
+    final categoriesAsync = ref.watch(
+      getMangaCategorieStreamProvider(itemType: itemType),
+    );
+    final categories = categoriesAsync.maybeWhen(
+      data: (values) => values.where((category) => category.id != null).toList(),
+      orElse: () => <dynamic>[],
+    );
+    final categorySelection = selectedLibraryCategoriesFilter(itemType);
+    final selectedCategories = categorySelection.value;
 
-    Widget cycleItem(String label, int type, VoidCallback onTap) {
-      return AdaptiveOverlayItem(
-        label: label,
-        selected: type != 0,
-        trailing: _tristateIcon(context, type),
-        onTap: onTap,
-      );
-    }
+    final filters = <dynamic>[
+      HeaderFilter(l10n.filter, 'HeaderFilter'),
+      TriStateFilter(
+        'downloaded',
+        l10n.downloaded,
+        '',
+        'TriState',
+        state: downloaded,
+      ),
+      TriStateFilter('tracking', l10n.tracked, '', 'TriState', state: tracking),
+      TriStateFilter(
+        'unread',
+        itemType != ItemType.anime ? l10n.unread : l10n.unwatched,
+        '',
+        'TriState',
+        state: unread,
+      ),
+      TriStateFilter('started', l10n.started, '', 'TriState', state: started),
+      TriStateFilter(
+        'completed',
+        l10n.completed,
+        '',
+        'TriState',
+        state: completed,
+      ),
+      SeparatorFilter('SeparatorFilter'),
+      if (sources.isNotEmpty)
+        GroupFilter(
+          'sources',
+          l10n.sources,
+          sources
+              .map(
+                (source) => CheckBoxFilter(
+                  'source',
+                  source,
+                  source,
+                  'CheckBox',
+                  state: selectedSources.contains(source),
+                ),
+              )
+              .toList(),
+          'GroupFilter',
+        ),
+      if (categories.isNotEmpty)
+        GroupFilter(
+          'categories',
+          l10n.categories,
+          categories
+              .map(
+                (category) => CheckBoxFilter(
+                  'category',
+                  category.name ?? '',
+                  category.id.toString(),
+                  'CheckBox',
+                  state: selectedCategories.contains(category.id),
+                ),
+              )
+              .toList(),
+          'GroupFilter',
+        ),
+    ];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _backHeader(l10n.filter, () => _go(_Level.root)),
-        cycleItem(
-          l10n.downloaded,
-          downloaded,
-          () => ref
-              .read(mangaFilterDownloadedStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
-              .update(),
-        ),
-        cycleItem(
-          l10n.tracked,
-          tracking,
-          () => ref
-              .read(mangaFilterTrackingStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
-              .update(),
-        ),
-        cycleItem(
-          itemType != ItemType.anime ? l10n.unread : l10n.unwatched,
-          unread,
-          () => ref
-              .read(mangaFilterUnreadStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
-              .update(),
-        ),
-        cycleItem(
-          l10n.started,
-          started,
-          () => ref
-              .read(mangaFilterStartedStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
-              .update(),
-        ),
-        cycleItem(
-          l10n.completed,
-          completed,
-          () => ref
-              .read(mangaFilterCompletedStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
-              .update(),
-        ),
-        const AdaptiveOverlayDivider(),
-        AdaptiveOverlayItem(
-          label: 'Classification',
-          trailing: const Icon(Broken.arrow_right_3, size: 14),
-          onTap: () => _go(_Level.contentRating),
-        ),
-        AdaptiveOverlayItem(
-          icon: Broken.discover_1,
-          label: l10n.sources,
-          trailing: const Icon(Broken.arrow_right_3, size: 14),
-          onTap: () => _go(_Level.sources),
-        ),
-        AdaptiveOverlayItem(
-          icon: Broken.folder,
-          label: l10n.categories,
-          trailing: const Icon(Broken.arrow_right_3, size: 14),
-          onTap: () => _go(_Level.categories),
-        ),
-        const AdaptiveOverlayDivider(),
-        AdaptiveOverlayItem(
-          icon: Broken.close_circle,
-          label: 'Retirer les filtres',
-          onTap: () {
-            ref
-                .read(mangaFilterDownloadedStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
-                .setType(0);
-            ref
-                .read(mangaFilterTrackingStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
-                .setType(0);
-            ref
-                .read(mangaFilterUnreadStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
-                .setType(0);
-            ref
-                .read(mangaFilterStartedStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
-                .setType(0);
-            ref
-                .read(mangaFilterCompletedStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
-                .setType(0);
-            HapticFeedback.lightImpact();
-          },
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.58,
+          ),
+          child: FilterWidget(
+            filterList: filters,
+            onChanged: (changedFilters) {
+              for (final filter in changedFilters.whereType<TriStateFilter>()) {
+                switch (filter.type) {
+                  case 'downloaded':
+                    if (filter.state != downloaded) {
+                      ref
+                          .read(
+                            mangaFilterDownloadedStateProvider(
+                              itemType: itemType,
+                              mangaList: entries,
+                              settings: settings,
+                            ).notifier,
+                          )
+                          .setType(filter.state);
+                    }
+                    break;
+                  case 'tracking':
+                    if (filter.state != tracking) {
+                      ref
+                          .read(
+                            mangaFilterTrackingStateProvider(
+                              itemType: itemType,
+                              mangaList: entries,
+                              settings: settings,
+                            ).notifier,
+                          )
+                          .setType(filter.state);
+                    }
+                    break;
+                  case 'unread':
+                    if (filter.state != unread) {
+                      ref
+                          .read(
+                            mangaFilterUnreadStateProvider(
+                              itemType: itemType,
+                              mangaList: entries,
+                              settings: settings,
+                            ).notifier,
+                          )
+                          .setType(filter.state);
+                    }
+                    break;
+                  case 'started':
+                    if (filter.state != started) {
+                      ref
+                          .read(
+                            mangaFilterStartedStateProvider(
+                              itemType: itemType,
+                              mangaList: entries,
+                              settings: settings,
+                            ).notifier,
+                          )
+                          .setType(filter.state);
+                    }
+                    break;
+                  case 'completed':
+                    if (filter.state != completed) {
+                      ref
+                          .read(
+                            mangaFilterCompletedStateProvider(
+                              itemType: itemType,
+                              mangaList: entries,
+                              settings: settings,
+                            ).notifier,
+                          )
+                          .setType(filter.state);
+                    }
+                    break;
+                }
+              }
+
+              for (final group
+                  in changedFilters.whereType<GroupFilter>()) {
+                if (group.type == 'sources') {
+                  final selected = group.state
+                      .whereType<CheckBoxFilter>()
+                      .where((filter) => filter.state)
+                      .map((filter) => filter.value)
+                      .toSet();
+                  if (!_sameSet(sourceSelection.value, selected)) {
+                    sourceSelection.value = selected;
+                  }
+                } else if (group.type == 'categories') {
+                  final selected = group.state
+                      .whereType<CheckBoxFilter>()
+                      .where((filter) => filter.state)
+                      .map((filter) => int.tryParse(filter.value))
+                      .whereType<int>()
+                      .toSet();
+                  if (!_sameSet(categorySelection.value, selected)) {
+                    categorySelection.value = selected;
+                  }
+                }
+              }
+
+              if (mounted) setState(() {});
+            },
+            footerBuilder: (context) => AdaptiveOverlayItem(
+              icon: Broken.close_circle,
+              label: 'Retirer les filtres',
+              onTap: () {
+                ref
+                    .read(
+                      mangaFilterDownloadedStateProvider(
+                        itemType: itemType,
+                        mangaList: entries,
+                        settings: settings,
+                      ).notifier,
+                    )
+                    .setType(0);
+                ref
+                    .read(
+                      mangaFilterTrackingStateProvider(
+                        itemType: itemType,
+                        mangaList: entries,
+                        settings: settings,
+                      ).notifier,
+                    )
+                    .setType(0);
+                ref
+                    .read(
+                      mangaFilterUnreadStateProvider(
+                        itemType: itemType,
+                        mangaList: entries,
+                        settings: settings,
+                      ).notifier,
+                    )
+                    .setType(0);
+                ref
+                    .read(
+                      mangaFilterStartedStateProvider(
+                        itemType: itemType,
+                        mangaList: entries,
+                        settings: settings,
+                      ).notifier,
+                    )
+                    .setType(0);
+                ref
+                    .read(
+                      mangaFilterCompletedStateProvider(
+                        itemType: itemType,
+                        mangaList: entries,
+                        settings: settings,
+                      ).notifier,
+                    )
+                    .setType(0);
+                sourceSelection.value = <String>{};
+                categorySelection.value = <int>{};
+                HapticFeedback.lightImpact();
+              },
+            ),
+          ),
         ),
       ],
     );
@@ -433,116 +557,6 @@ class _LibraryFilterSortMenuState
     );
   }
 
-  // ── Level: sources ─────────────────────────────────────────────────────────
-
-  Widget _buildSources(BuildContext context) {
-    final sources = widget.entries
-        .map((m) => m.source)
-        .whereType<String>()
-        .where((s) => s.trim().isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-    final notifier = selectedLibrarySourcesFilter(widget.itemType);
-
-    return ValueListenableBuilder<Set<String>>(
-      valueListenable: notifier,
-      builder: (context, selected, _) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _backHeader(
-              l10nLocalizations(context)!.sources,
-              () => _go(_Level.filter),
-            ),
-            if (sources.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: Text(
-                  'Aucune source détectée dans cette bibliothèque.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-                ),
-              )
-            else
-              for (final source in sources)
-                AdaptiveOverlayItem(
-                  label: source,
-                  selected: selected.contains(source),
-                  onTap: () => _toggleInNotifier(notifier, source),
-                ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ── Level: categories ──────────────────────────────────────────────────────
-
-  Widget _buildCategories(BuildContext context) {
-    final categoriesAsync = ref.watch(
-      getMangaCategorieStreamProvider(itemType: widget.itemType),
-    );
-    final notifier = selectedLibraryCategoriesFilter(widget.itemType);
-
-    return ValueListenableBuilder<Set<int>>(
-      valueListenable: notifier,
-      builder: (context, selected, _) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _backHeader(
-              l10nLocalizations(context)!.categories,
-              () => _go(_Level.filter),
-            ),
-            ...categoriesAsync.maybeWhen(
-              data: (cats) => cats.isEmpty
-                  ? [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                        child: Text(
-                          'Aucune catégorie créée.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ),
-                    ]
-                  : cats
-                      .where((c) => c.id != null)
-                      .map(
-                        (c) => AdaptiveOverlayItem(
-                          label: c.name ?? '',
-                          selected: selected.contains(c.id),
-                          onTap: () => _toggleInNotifier(notifier, c.id!),
-                        ),
-                      )
-                      .toList(),
-              orElse: () => const <Widget>[],
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _toggleInNotifier<T>(ValueNotifier<Set<T>> notifier, T value) {
-    final next = Set<T>.from(notifier.value);
-    if (!next.remove(value)) next.add(value);
-    notifier.value = next;
-  }
-
   // ── Small helpers ──────────────────────────────────────────────────────────
 
   Widget _soonBadge(BuildContext context) => Text(
@@ -554,14 +568,8 @@ class _LibraryFilterSortMenuState
         ),
       );
 
-  Widget _tristateIcon(BuildContext context, int type) {
-    final cs = Theme.of(context).colorScheme;
-    return switch (type) {
-      1 => Icon(Broken.tick_circle, size: 16, color: cs.primary),
-      2 => Icon(Broken.close_circle, size: 16, color: cs.error),
-      _ => const SizedBox(width: 16),
-    };
-  }
+  bool _sameSet<T>(Set<T> left, Set<T> right) =>
+      left.length == right.length && left.containsAll(right);
 }
 
 // ── Local, hand-written selection state (no riverpod codegen) ────────────────
@@ -593,11 +601,23 @@ ValueNotifier<Set<int>> selectedLibraryCategoriesFilter(ItemType itemType) =>
 /// filtered+sorted list. No-op when nothing is selected.
 List<Manga> applyLibrarySourceAndCategoryFilters(
   ItemType itemType,
-  List<Manga> mangas,
-) {
-  final sources = selectedLibrarySourcesFilter(itemType).value;
+  List<Manga> mangas, {
+  Set<String>? selectedSources,
+  Set<int>? selectedCategories,
+}) {
+  final sources =
+      selectedSources ?? selectedLibrarySourcesFilter(itemType).value;
+  final categories =
+      selectedCategories ?? selectedLibraryCategoriesFilter(itemType).value;
   if (sources.isNotEmpty) {
     mangas = mangas.where((m) => sources.contains(m.source)).toList();
+  }
+  if (categories.isNotEmpty) {
+    mangas = mangas
+        .where(
+          (manga) => manga.categories?.any(categories.contains) ?? false,
+        )
+        .toList();
   }
   return mangas;
 }

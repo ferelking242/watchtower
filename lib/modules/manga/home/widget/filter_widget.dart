@@ -6,20 +6,50 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 class FilterWidget extends StatelessWidget {
   final List<dynamic> filterList;
   final Function(List<dynamic>) onChanged;
+  final WidgetBuilder? customBuilder;
+  final WidgetBuilder? footerBuilder;
+
   const FilterWidget({
     super.key,
     required this.onChanged,
     required this.filterList,
-  });
+    this.footerBuilder,
+  }) : customBuilder = null;
+
+  /// Reusable container mode for screens whose filters are backed by
+  /// application-specific state rather than extension filter models.
+  const FilterWidget.custom({
+    super.key,
+    required WidgetBuilder builder,
+  }) : filterList = const <dynamic>[],
+       onChanged = _ignoreChanges,
+       customBuilder = builder,
+       footerBuilder = null;
+
+  static void _ignoreChanges(List<dynamic> _) {}
+
+  static int _safeIndex(int index, int length) {
+    if (length == 0) return -1;
+    if (index < 0) return 0;
+    if (index >= length) return length - 1;
+    return index;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final customBuilder = this.customBuilder;
+    if (customBuilder != null) return customBuilder(context);
+
     return SuperListView.builder(
       padding: const EdgeInsets.all(0),
-      itemCount: filterList.length,
+      itemCount: filterList.length + (footerBuilder == null ? 0 : 1),
       primary: false,
       shrinkWrap: true,
       itemBuilder: (context, idx) {
+        if (idx == filterList.length) {
+          return footerBuilder!(context);
+        }
+
         final filterState = filterList[idx];
         Widget? widget;
         if (filterState is TextFilter) {
@@ -96,78 +126,107 @@ class FilterWidget extends StatelessWidget {
           }
         } else if (filterState is SortFilter) {
           final ascending = filterState.state.ascending;
+          final selectedIndex = _safeIndex(
+            filterState.state.index,
+            filterState.values.length,
+          );
           widget = ExpansionTile(
             title: Text(filterState.name, style: const TextStyle(fontSize: 13)),
-            children: filterState.values.map((e) {
-              final selected = filterState.values[filterState.state.index] == e;
-              return ListTile(
-                dense: true,
-                leading: Icon(
-                  ascending
-                      ? Icons.arrow_upward_rounded
-                      : Icons.arrow_downward_rounded,
-                  color: selected ? null : Colors.transparent,
-                ),
-                title: Text(e.name),
-                onTap: () {
-                  if (selected) {
-                    filterState.state.ascending = !ascending;
-                  } else {
-                    filterState.state.index = filterState.values.indexWhere(
-                      (element) => element == e,
+            children: [
+              for (var valueIndex = 0;
+                  valueIndex < filterState.values.length;
+                  valueIndex++)
+                Builder(
+                  builder: (context) {
+                    final value = filterState.values[valueIndex];
+                    final selected = valueIndex == selectedIndex;
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(
+                        ascending
+                            ? Icons.arrow_upward_rounded
+                            : Icons.arrow_downward_rounded,
+                        color: selected ? null : Colors.transparent,
+                      ),
+                      title: Text(value.name.toString()),
+                      onTap: () {
+                        if (selected) {
+                          filterState.state.ascending = !ascending;
+                        } else {
+                          filterState.state.index = valueIndex;
+                        }
+                        filterList[idx] = filterState;
+                        onChanged(filterList);
+                      },
                     );
-                  }
-                  filterList[idx] = filterState;
-                  onChanged(filterList);
-                },
-              );
-            }).toList(),
+                  },
+                ),
+            ],
           );
         } else if (filterState is SelectFilter) {
           // Replace the cramped DropdownButton (which used to overflow
           // off-screen for filters with many values, e.g. xnxx Category
           // with 170+ entries) with a tile that opens a centred,
           // scrollable, searchable picker sheet.
-          final current = filterState.values[filterState.state];
-          widget = ListTile(
-            dense: true,
-            title: Text(filterState.name, style: const TextStyle(fontSize: 13)),
-            subtitle: Text(
-              current.name,
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: const Icon(Icons.keyboard_arrow_down, size: 18),
-            onTap: () async {
-              final picked = await showModalBottomSheet<int>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                showDragHandle: true,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(20),
-                  ),
-                ),
-                builder: (_) => _SelectFilterPickerSheet(
-                  title: filterState.name,
-                  values: filterState.values
-                      .map<String>((e) => e.name as String)
-                      .toList(),
-                  selected: filterState.state,
-                ),
-              );
-              if (picked != null) {
-                filterState.state = picked;
-                onChanged(filterList);
-              }
-            },
+          final selectedIndex = _safeIndex(
+            filterState.state,
+            filterState.values.length,
           );
+          if (selectedIndex < 0) {
+            widget = ListTile(
+              dense: true,
+              enabled: false,
+              title: Text(
+                filterState.name,
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: const Text('—'),
+            );
+          } else {
+            final current = filterState.values[selectedIndex];
+            widget = ListTile(
+              dense: true,
+              title: Text(
+                filterState.name,
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: Text(
+                current.name.toString(),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.keyboard_arrow_down, size: 18),
+              onTap: () async {
+                final picked = await showModalBottomSheet<int>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  showDragHandle: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  builder: (_) => _SelectFilterPickerSheet(
+                    title: filterState.name,
+                    values: filterState.values
+                        .map<String>((e) => e.name.toString())
+                        .toList(),
+                    selected: selectedIndex,
+                  ),
+                );
+                if (picked != null) {
+                  filterState.state = picked;
+                  onChanged(filterList);
+                }
+              },
+            );
+          }
         }
         return widget ?? const SizedBox.shrink();
       },

@@ -6,6 +6,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/providers/library_filter_provider.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
+import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/library/widgets/library_gridview_widget.dart';
 import 'package:watchtower/modules/library/widgets/library_listview_widget.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
@@ -84,100 +85,122 @@ class LibraryBody extends ConsumerWidget {
             ),
           );
 
-    return mangaStream.when(
-      data: (data) {
-        // Use the cached filtering provider instead of inline filtering
-        final entries = ref.watch(
-          filteredLibraryMangaProvider(
-            data: data,
-            downloadFilterType: downloadFilterType,
-            unreadFilterType: unreadFilterType,
-            startedFilterType: startedFilterType,
-            bookmarkedFilterType: bookmarkedFilterType,
-            completedFilterType: completedFilterType,
-            trackingFilterType: trackingFilterType,
-            sortType: sortType ?? 0,
-            downloadedOnly: downloadedOnly,
-            searchQuery: searchQuery,
-            ignoreFiltersOnSearch: ignoreFiltersOnSearch,
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: selectedLibrarySourcesFilter(itemType),
+      builder: (context, selectedSources, _) =>
+          ValueListenableBuilder<Set<int>>(
+            valueListenable: selectedLibraryCategoriesFilter(itemType),
+            builder: (context, selectedCategories, _) {
+              return mangaStream.when(
+                data: (data) {
+                  // Use the cached filtering provider instead of inline filtering
+                  final baseEntries = ref.watch(
+                    filteredLibraryMangaProvider(
+                      data: data,
+                      downloadFilterType: downloadFilterType,
+                      unreadFilterType: unreadFilterType,
+                      startedFilterType: startedFilterType,
+                      bookmarkedFilterType: bookmarkedFilterType,
+                      completedFilterType: completedFilterType,
+                      trackingFilterType: trackingFilterType,
+                      sortType: sortType ?? 0,
+                      downloadedOnly: downloadedOnly,
+                      searchQuery: searchQuery,
+                      ignoreFiltersOnSearch: ignoreFiltersOnSearch,
+                    ),
+                  );
+                  final entries = applyLibrarySourceAndCategoryFilters(
+                    itemType,
+                    baseEntries,
+                    selectedSources: selectedSources,
+                    selectedCategories: selectedCategories,
+                  );
+
+                  if (entries.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 180,
+                              height: 180,
+                              child: Lottie.asset(
+                                'assets/animations/empty.json',
+                                repeat: true,
+                                animate: true,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              l10n.empty_library,
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Add some titles to get started!',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.45),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final entriesManga = reverse
+                      ? entries.reversed.toList()
+                      : entries;
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      await updateLibrary(
+                        ref: ref,
+                        context: context,
+                        mangaList: data,
+                        itemType: itemType,
+                      );
+                    },
+                    child: displayType == DisplayType.list
+                        ? LibraryListViewWidget(
+                            entriesManga: entriesManga,
+                            continueReaderBtn: continueReaderBtn,
+                            downloadedChapter: downloadedChapter,
+                            language: language,
+                            mangaIdsList: mangaIdsList,
+                            localSource: localSource,
+                          )
+                        : LibraryGridViewWidget(
+                            entriesManga: entriesManga,
+                            isCoverOnlyGrid:
+                                !(displayType == DisplayType.compactGrid),
+                            isComfortableGrid:
+                                displayType == DisplayType.comfortableGrid,
+                            continueReaderBtn: continueReaderBtn,
+                            downloadedChapter: downloadedChapter,
+                            language: language,
+                            mangaIdsList: mangaIdsList,
+                            localSource: localSource,
+                            itemType: itemType,
+                          ),
+                  );
+                },
+                error: (error, _) => ErrorText(error),
+                loading: () => const ProgressCenter(),
+              );
+            },
           ),
-        );
-
-        if (entries.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    height: 180,
-                    child: Lottie.asset(
-                      'assets/animations/empty.json',
-                      repeat: true,
-                      animate: true,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    l10n.empty_library,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Add some titles to get started!',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        final entriesManga = reverse ? entries.reversed.toList() : entries;
-        return RefreshIndicator(
-          onRefresh: () async {
-            await updateLibrary(
-              ref: ref,
-              context: context,
-              mangaList: data,
-              itemType: itemType,
-            );
-          },
-          child: displayType == DisplayType.list
-              ? LibraryListViewWidget(
-                  entriesManga: entriesManga,
-                  continueReaderBtn: continueReaderBtn,
-                  downloadedChapter: downloadedChapter,
-                  language: language,
-                  mangaIdsList: mangaIdsList,
-                  localSource: localSource,
-                )
-              : LibraryGridViewWidget(
-                  entriesManga: entriesManga,
-                  isCoverOnlyGrid: !(displayType == DisplayType.compactGrid),
-                  isComfortableGrid: displayType == DisplayType.comfortableGrid,
-                  continueReaderBtn: continueReaderBtn,
-                  downloadedChapter: downloadedChapter,
-                  language: language,
-                  mangaIdsList: mangaIdsList,
-                  localSource: localSource,
-                  itemType: itemType,
-                ),
-        );
-      },
-      error: (error, _) => ErrorText(error),
-      loading: () => const ProgressCenter(),
     );
   }
 }
