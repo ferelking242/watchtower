@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
@@ -20,10 +19,7 @@ import 'package:watchtower/services/http/rhttp/rhttp.dart' as rhttp;
 import 'package:watchtower/services/http/doh/doh_resolver.dart';
 import 'package:watchtower/services/http/doh/doh_providers.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
-import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
-import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 import 'package:watchtower/utils/constant.dart';
-import 'package:watchtower/router/router.dart' show navigatorKey;
 
 class MClient {
   MClient();
@@ -479,227 +475,32 @@ bool isCloudflare(BaseResponse response) {
 
 class ResolveCloudFlareChallenge extends RetryPolicy {
   bool showCloudFlareError;
-  int _attempt = 0;
   ResolveCloudFlareChallenge(this.showCloudFlareError);
 
   @override
   int get maxRetryAttempts => 3;
 
-  // ── Toast helpers ─────────────────────────────────────────────────────────
-  void _toast2() {
-    try {
-      botToast('🔄 Résolution Cloudflare en cours...', second: 6);
-    } catch (_) {}
-  }
-
-  void _toastSuccess(String url) {
-    try {
-      final host = Uri.tryParse(url)?.host ?? url;
-      botToast('✅ $host débloqué', second: 4);
-    } catch (_) {}
-  }
-
   void _toastFailure(String url) {
-      try {
-        botToast('❌ Résolution échouée — résolvez manuellement', second: 8);
-      } catch (_) {}
-      // Open bypass WebView for manual resolution — minimal bottom sheet.
-      // Guarded: retries can run on background isolates where the widget
-      // binding / navigatorKey.currentContext is unavailable (Null check
-      // crash in GlobalKey.currentContext — watchtower ntfy reports).
-      try {
-        final ctx = navigatorKey.currentContext;
-        if (ctx != null) {
-          showModalBottomSheet<void>(
-            context: ctx,
-            isScrollControlled: true,
-            useSafeArea: true,
-            backgroundColor: Colors.transparent,
-            builder: (bCtx) => ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: SizedBox(
-                height: MediaQuery.of(ctx).size.height * 0.92,
-                child: BypassWebViewSheet(url: url),
-              ),
-            ),
-          );
-        }
-      } catch (_) {}
-    }
+    try {
+      botToast('❌ Résolution échouée — résolvez manuellement', second: 8);
+    } catch (_) {}
+    // Keep the manual challenge in the foreground on the source screen.
+    // Network retries can also run without a mounted navigator, so the
+    // notification service queues the request until the first frame exists.
+    try {
+      BypassNotificationService.instance.openChallenge(url);
+    } catch (_) {}
+  }
 
   @override
   Future<bool> shouldAttemptRetryOnResponse(BaseResponse response) async {
     if (!showCloudFlareError || Platform.isLinux) return false;
     if (!isCloudflare(response)) return false;
 
-    final url = response.request!.url.toString();
-    _attempt++;
-
-    // Toast 2 on first attempt only
-    if (_attempt == 1) _toast2();
-
-    // ── Attempts 1–2: headless WebView ────────────────────────────────────
-    if (_attempt <= 2) {
-      try {
-        final res = await http.post(
-          Uri.parse('http://localhost:$cfPort/resolve_cf'),
-          headers: {HttpHeaders.contentTypeHeader: 'application/json'},
-          body: jsonEncode({'url': url}),
-        );
-        if (res.statusCode == 200) {
-          final data = jsonDecode(res.body) as Map<String, dynamic>;
-          if (data['result'] == true) {
-            _toastSuccess(url);
-            return true;
-          }
-        }
-      } catch (_) {}
-      _toastFailure(url);
-      return false;
-    }
-
-    // ── Attempt 3: remote bypass (AUTO mode only) ──────────────────────────
-    try {
-      final settings = await RemoteBypassService.instance.loadSettings();
-      if (settings.isConfigured && settings.mode == RemoteBypassMode.auto) {
-        final result = await RemoteBypassService.instance.solve(url);
-        if (result.success && result.cookies.isNotEmpty) {
-          await MClient.setCookie(url, result.userAgent, null,
-              cookie: result.cookies);
-          _toastSuccess(url);
-          return true;
-        }
-      }
-    } catch (_) {}
+    final url = response.request?.url.toString();
+    if (url == null || url.isEmpty) return false;
     _toastFailure(url);
     return false;
-  }
-}
-
-int cfPort = 0;
-HttpServer? _cfServer;
-
-/// Cloudflare Resolution Webview Server
-Future<void> cfResolutionWebviewServer() async {
-  try {
-    _cfServer = await HttpServer.bind(InternetAddress.loopbackIPv4, cfPort);
-    cfPort = _cfServer!.port;
-    _cfServer!.listen(
-      (HttpRequest request) {
-        if (request.method == 'POST' && request.uri.path == '/resolve_cf') {
-          _handleResolveCf(request);
-        } else {
-          request.response
-            ..statusCode = HttpStatus.notFound
-            ..write('Not Found')
-            ..close();
-        }
-      },
-      onError: (e, st) {
-        debugPrint("CF server listener error: $e\n$st");
-      },
-      cancelOnError: false,
-    );
-  } catch (e, st) {
-    debugPrint("Couldn't start Cloudflare Resolution Webview Server: $e\n$st");
-    botToast("Couldn't start Cloudflare Resolution Webview Server.");
-  }
-}
-
-Future<void> stopCfResolutionWebviewServer() async {
-  final server = _cfServer;
-  if (server == null) return;
-  try {
-    await server.close(force: true);
-  } finally {
-    _cfServer = null;
-    cfPort = 0;
-  }
-}
-
-void _handleResolveCf(HttpRequest request) async {
-  int time = 0;
-  bool timeOut = false;
-  bool isCloudFlare = true;
-  try {
-    final body = await utf8.decoder.bind(request).join();
-    final data = jsonDecode(body) as Map<String, dynamic>;
-    final url = data['url'] as String?;
-
-    if (url == null) {
-      request.response
-        ..statusCode = HttpStatus.badRequest
-        ..write(jsonEncode({'error': 'Missing url parameter'}))
-        ..close();
-      return;
-    }
-
-    flutter_inappwebview.HeadlessInAppWebView? headlessWebView;
-    headlessWebView = flutter_inappwebview.HeadlessInAppWebView(
-      webViewEnvironment: webViewEnvironment,
-      initialUrlRequest: flutter_inappwebview.URLRequest(
-        url: flutter_inappwebview.WebUri(url),
-      ),
-      onLoadStop: (controller, url) async {
-        try {
-          isCloudFlare = await controller.platform.evaluateJavascript(
-            source:
-                "document.head.innerHTML.includes('#challenge-success-text')",
-          );
-        } catch (_) {
-          isCloudFlare = false;
-        }
-
-        await Future.doWhile(() async {
-          if (!timeOut && isCloudFlare) {
-            try {
-              isCloudFlare = await controller.platform.evaluateJavascript(
-                source:
-                    "document.head.innerHTML.includes('#challenge-success-text')",
-              );
-            } catch (_) {
-              isCloudFlare = false;
-            }
-          }
-          if (isCloudFlare) await Future.delayed(Duration(milliseconds: 300));
-
-          return isCloudFlare;
-        });
-        if (!timeOut) {
-          final ua =
-              await controller.evaluateJavascript(
-                source: "navigator.userAgent",
-              ) ??
-              "";
-          await MClient.setCookie(url.toString(), ua, controller);
-        }
-      },
-    );
-
-    headlessWebView.run();
-
-    await Future.doWhile(() async {
-      timeOut = time == 15;
-      if (!isCloudFlare || timeOut) {
-        return false;
-      }
-      await Future.delayed(const Duration(seconds: 1));
-      time++;
-      return true;
-    });
-    try {
-      headlessWebView.dispose();
-    } catch (_) {}
-
-    request.response
-      ..headers.contentType = ContentType.json
-      ..write(jsonEncode({'result': isCloudFlare}))
-      ..close();
-  } catch (e) {
-    request.response
-      ..statusCode = HttpStatus.badRequest
-      ..write(jsonEncode({'error': 'Invalid JSON'}))
-      ..close();
   }
 }
 

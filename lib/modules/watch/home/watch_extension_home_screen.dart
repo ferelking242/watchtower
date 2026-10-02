@@ -29,6 +29,7 @@ import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.
 import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
 enum _LayoutEditorDestination { home, gallery, json }
@@ -43,12 +44,14 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
   final String? initialSectionId;
   final bool layoutEditorMode;
+  final String? initialCloudflareChallengeUrl;
 
   const WatchExtensionHomeScreen({
     required this.source,
     this.initialSearchQuery,
     this.initialSectionId,
     this.layoutEditorMode = false,
+    this.initialCloudflareChallengeUrl,
     super.key,
   })
     : isLocalLibrary = false,
@@ -62,7 +65,8 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
        localItemType = itemType,
        initialSearchQuery = null,
        initialSectionId = null,
-       layoutEditorMode = false;
+       layoutEditorMode = false,
+       initialCloudflareChallengeUrl = null;
 
   @override
   ConsumerState<WatchExtensionHomeScreen> createState() =>
@@ -84,12 +88,14 @@ class _WatchExtensionHomeScreenState
   bool _editorDockExpanded = false;
   String? _pendingReplacementSectionId;
   int _layoutEditorRevision = 0;
+  String? _activeCloudflareChallengeUrl;
 
   Source get source => widget.source;
 
   @override
   void initState() {
     super.initState();
+    _activeCloudflareChallengeUrl = widget.initialCloudflareChallengeUrl;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -338,6 +344,78 @@ class _WatchExtensionHomeScreenState
     await Future.wait(futures);
   }
 
+  void _finishCloudflareChallenge({bool keepPanelOnError = false}) {
+    unawaited(_completeCloudflareChallenge(keepPanelOnError: keepPanelOnError));
+  }
+
+  Future<void> _completeCloudflareChallenge({
+    required bool keepPanelOnError,
+  }) async {
+    if (_activeCloudflareChallengeUrl == null) return;
+    try {
+      await _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Actualisation de la source impossible : $error'),
+          ),
+        );
+      if (keepPanelOnError) return;
+    }
+    if (mounted) setState(() => _activeCloudflareChallengeUrl = null);
+  }
+
+  void _closeCloudflareChallenge() {
+    if (mounted) setState(() => _activeCloudflareChallengeUrl = null);
+  }
+
+  Widget _buildCloudflareChallenge() {
+    final url = _activeCloudflareChallengeUrl!;
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B11),
+      body: Column(
+        children: [
+          _ExtensionFeedTopHeader(
+            source: source,
+            onSearch: () {},
+            onLibrary: () => context.push('/Library'),
+            onSettings: () => context.push('/extension_detail', extra: source),
+            showSearch: false,
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(2, 0, 2, 14),
+                  child: Text(
+                    'Résolvez le contrôle de sécurité sur cette page. '
+                    'Le contenu de la source sera actualisé ensuite.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      height: 1.45,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                CloudflareBypassPanel(
+                  url: url,
+                  onResolved: () => _finishCloudflareChallenge(),
+                  onRetry: () =>
+                      _finishCloudflareChallenge(keepPanelOnError: true),
+                  onClose: _closeCloudflareChallenge,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _openItem(MManga item) {
     if (item.link == null || item.link!.isEmpty) return;
     final collection = ExtensionCollectionRoute.fromItem(item);
@@ -414,6 +492,10 @@ class _WatchExtensionHomeScreenState
       return SmartLibraryScreen(itemType: widget.localItemType);
     }
 
+    if (_activeCloudflareChallengeUrl != null) {
+      return _buildCloudflareChallenge();
+    }
+
     if (_isSearching) {
       return ExtensionSearchScreen(
         source: source,
@@ -436,8 +518,8 @@ class _WatchExtensionHomeScreenState
       final layoutError = _layoutError;
       if (layoutError != null) {
         return _ExtensionEmpty(
+          source: source,
           onRefresh: _retryLayout,
-          onSearch: () => setState(() => _isSearching = true),
         );
       }
       return _ExtensionHomeLoading(
@@ -481,8 +563,8 @@ class _WatchExtensionHomeScreenState
         !hasSectionContent &&
         !isLoadingSections) {
       return _ExtensionEmpty(
+        source: source,
         onRefresh: _refresh,
-        onSearch: () => setState(() => _isSearching = true),
       );
     }
 
@@ -513,8 +595,8 @@ class _WatchExtensionHomeScreenState
     final error = popularAsync?.error ?? latestAsync?.error;
     if (error != null && popular.isEmpty && latest.isEmpty) {
       return _ExtensionEmpty(
+        source: source,
         onRefresh: _refresh,
-        onSearch: () => setState(() => _isSearching = true),
       );
     }
 
@@ -709,7 +791,7 @@ class _ExtensionFeed extends StatelessWidget {
     final hasDeclaredSections = sections.isNotEmpty || layoutEditorMode;
     final hasContent = all.isNotEmpty || hasDeclaredSections;
     if (!hasContent && !layoutEditorMode) {
-      return _ExtensionEmpty(onRefresh: onRefresh, onSearch: onSearch);
+      return _ExtensionEmpty(source: source, onRefresh: onRefresh);
     }
     final homeFeed = Stack(
         children: [
@@ -1670,6 +1752,7 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
   final VoidCallback onLibrary;
   final VoidCallback onSettings;
   final bool transparent;
+  final bool showSearch;
 
   const _ExtensionFeedTopHeader({
     required this.source,
@@ -1677,6 +1760,7 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
     required this.onLibrary,
     required this.onSettings,
     this.transparent = false,
+    this.showSearch = true,
   });
 
   @override
@@ -1711,11 +1795,12 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                _ExtensionIconButton(
-                  icon: Broken.search_normal,
-                  onPressed: onSearch,
-                  tooltip: 'Rechercher',
-                ),
+                if (showSearch)
+                  _ExtensionIconButton(
+                    icon: Broken.search_normal,
+                    onPressed: onSearch,
+                    tooltip: 'Rechercher',
+                  ),
                 _ExtensionIconButton(
                   icon: Broken.bookmark,
                   onPressed: onLibrary,
@@ -3260,16 +3345,22 @@ class _ExtensionSkeletonSection extends StatelessWidget {
 }
 
 class _ExtensionEmpty extends StatelessWidget {
+  final Source source;
   final Future<void> Function() onRefresh;
-  final VoidCallback onSearch;
 
-  const _ExtensionEmpty({required this.onRefresh, required this.onSearch});
+  const _ExtensionEmpty({required this.source, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) => ExtensionHomeEmptyState(
     onRetry: onRefresh,
     onRefresh: onRefresh,
-    onSearch: onSearch,
+    header: _ExtensionFeedTopHeader(
+      source: source,
+      onSearch: () {},
+      onLibrary: () => context.push('/Library'),
+      onSettings: () => context.push('/extension_detail', extra: source),
+      showSearch: false,
+    ),
   );
 }
 

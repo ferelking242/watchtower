@@ -7,104 +7,127 @@ class ExtensionHomeEmptyState extends StatelessWidget {
   const ExtensionHomeEmptyState({
     required this.onRetry,
     required this.onRefresh,
-    required this.onSearch,
+    required this.header,
     super.key,
   });
 
   final Future<void> Function() onRetry;
   final Future<void> Function() onRefresh;
-  final VoidCallback onSearch;
+  final Widget header;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B0B11),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            tooltip: 'Rechercher',
-            onPressed: onSearch,
-            icon: const Icon(Icons.search_rounded, color: Colors.white70),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: ExtensionAppleRefreshable(
-          onRefresh: onRefresh,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final animationSize = math.min(
-                220.0,
-                math.max(120.0, constraints.maxHeight * .32),
-              );
-              return SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: ClampingScrollPhysics(),
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 28,
+      body: Column(
+        children: [
+          header,
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: ExtensionAppleRefreshable(
+                onRefresh: onRefresh,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final animationSize = math.min(
+                      220.0,
+                      math.max(120.0, constraints.maxHeight * .32),
+                    );
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: ClampingScrollPhysics(),
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // LottieFiles: “empty box3” by partho prothimdatta.
-                            // Free to use under the Lottie Simple License.
-                            // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
-                            Semantics(
-                              label: 'Boîte vide',
-                              child: Lottie.asset(
-                                'assets/animations/empty_box_partho.json',
-                                key: const ValueKey('extension-empty-lottie'),
-                                width: animationSize,
-                                height: animationSize,
-                                fit: BoxFit.contain,
-                                repeat: true,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 420),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 28,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // LottieFiles: “empty box3” by partho prothimdatta.
+                                  // Free to use under the Lottie Simple License.
+                                  // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
+                                  Semantics(
+                                    label: 'Boîte vide',
+                                    child: Lottie.asset(
+                                      'assets/animations/empty_box_partho.json',
+                                      key: const ValueKey(
+                                        'extension-empty-lottie',
+                                      ),
+                                      width: animationSize,
+                                      height: animationSize,
+                                      fit: BoxFit.contain,
+                                      repeat: true,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'Aucun contenu disponible',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      height: 1.3,
+                                      letterSpacing: -0.2,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  SizedBox(
+                                    width: 190,
+                                    child: FilledButton.icon(
+                                      onPressed: onRetry,
+                                      icon: const Icon(
+                                        Icons.refresh_rounded,
+                                        size: 18,
+                                      ),
+                                      label: const Text('Réessayer'),
+                                      style: FilledButton.styleFrom(
+                                        minimumSize: const Size.fromHeight(48),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 12,
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Tirer vers le bas pour actualiser',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12.5,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Aucun contenu disponible',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            FilledButton(
-                              onPressed: onRetry,
-                              child: const Text('Réessayer'),
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Tirer vers le bas pour actualiser',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ),
       ),

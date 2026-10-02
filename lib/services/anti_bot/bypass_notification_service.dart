@@ -3,9 +3,13 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_challenge_screen.dart';
+import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/router/router.dart' show navigatorKey;
-import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/utils/log/logger.dart';
+
+typedef CloudflareSourceResolver = Source? Function(String url);
 
 class BypassNotificationService {
   BypassNotificationService._();
@@ -21,8 +25,13 @@ class BypassNotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  CloudflareSourceResolver? _sourceResolver;
+  String? _pendingChallengeUrl;
+  bool _challengeOpenScheduled = false;
+  final Set<String> _openChallengeHosts = {};
 
-  Future<void> init() async {
+  Future<void> init({CloudflareSourceResolver? sourceResolver}) async {
+    _sourceResolver ??= sourceResolver;
     if (_initialized) return;
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
       _initialized = true;
@@ -43,12 +52,24 @@ class BypassNotificationService {
       await _plugin.initialize(
         initSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          final url = response.payload;
-          if (url != null && url.isNotEmpty) {
-            _openSheet(url);
-          }
+          _openChallenge(response.payload);
         },
       );
+
+      try {
+        final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+        if (launchDetails?.didNotificationLaunchApp == true) {
+          _scheduleChallengeOpen(
+            launchDetails?.notificationResponse?.payload,
+          );
+        }
+      } catch (e) {
+        AppLogger.log(
+          'Could not inspect notification launch details: $e',
+          logLevel: LogLevel.debug,
+          tag: LogTag.network,
+        );
+      }
 
       if (!kIsWeb && Platform.isAndroid) {
         await _plugin
@@ -107,23 +128,58 @@ class BypassNotificationService {
     WidgetsBinding.instance.addPostFrameCallback((_) => request());
   }
 
-  void _openSheet(String url) {
-    final context = navigatorKey.currentContext;
-    if (context == null) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      useSafeArea: true,
-      builder: (_) => Container(
-        height: MediaQuery.of(context).size.height * 0.90,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: BypassWebViewSheet(url: url),
-      ),
+  void _scheduleChallengeOpen(String? url) {
+    if (url == null || url.trim().isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => openChallenge(url));
+  }
+
+  /// Opens a visible, full-screen challenge page instead of a bottom sheet.
+  /// Also used after automatic retries fail, so the challenge is never hidden
+  /// in a background/headless webview.
+  void openChallenge(String url) {
+    if (url.trim().isEmpty) return;
+    final host = _hostFrom(url).toLowerCase();
+    if (_openChallengeHosts.contains(host)) return;
+
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) {
+      _pendingChallengeUrl = url;
+      if (!_challengeOpenScheduled) {
+        _challengeOpenScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _challengeOpenScheduled = false;
+          final pendingUrl = _pendingChallengeUrl;
+          _pendingChallengeUrl = null;
+          if (pendingUrl != null) openChallenge(pendingUrl);
+        });
+      }
+      return;
+    }
+
+    _openChallengeHosts.add(host);
+    Source? source;
+    try {
+      source = _sourceResolver?.call(url);
+    } catch (e) {
+      AppLogger.log(
+        'Cloudflare source lookup failed: $e',
+        logLevel: LogLevel.debug,
+        tag: LogTag.network,
+      );
+    }
+
+    final page = source == null
+        ? CloudflareChallengeScreen(url: url)
+        : WatchExtensionHomeScreen(
+            source: source,
+            initialCloudflareChallengeUrl: url,
+          );
+    unawaited(
+      navigator
+          .push<void>(
+            MaterialPageRoute<void>(builder: (_) => page),
+          )
+          .whenComplete(() => _openChallengeHosts.remove(host)),
     );
   }
 

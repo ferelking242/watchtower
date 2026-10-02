@@ -176,7 +176,6 @@ class GetIsolateService {
               final filterList = message['filterList'] as List?;
               final proxyServer = message['proxyServer'] as String?;
               final useLoggerValue = message['useLogger'] as bool?;
-              cfPort = message['cfPort'] as int;
               if (useLoggerValue != null) {
                 useLogger = useLoggerValue;
               }
@@ -461,7 +460,6 @@ class GetIsolateService {
       'proxyServer': ?proxyServer,
       'responsePort': responsePort.sendPort,
       'useLogger': ?useLogger,
-      'cfPort': cfPort,
     });
 
     return completer.future;

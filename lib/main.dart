@@ -92,6 +92,36 @@ late Isar isar;
 DiscordRPC? discordRpc;
 WebViewEnvironment? webViewEnvironment;
 String? customDns;
+
+Source? _findSourceForCloudflareUrl(String url) {
+  final host = Uri.tryParse(url)?.host.toLowerCase();
+  if (host == null || host.isEmpty) return null;
+  final normalizedHost = host.startsWith('www.') ? host.substring(4) : host;
+
+  Source? match;
+  var matchedHostLength = -1;
+  try {
+    for (final source in isar.sources.where().findAllSync()) {
+      final sourceHost = Uri.tryParse(source.baseUrl ?? '')?.host.toLowerCase();
+      if (sourceHost == null || sourceHost.isEmpty) continue;
+      final normalizedSourceHost = sourceHost.startsWith('www.')
+          ? sourceHost.substring(4)
+          : sourceHost;
+      if (normalizedHost != normalizedSourceHost &&
+          !normalizedHost.endsWith('.$normalizedSourceHost')) {
+        continue;
+      }
+      if (normalizedSourceHost.length > matchedHostLength) {
+        match = source;
+        matchedHostLength = normalizedSourceHost.length;
+      }
+    }
+  } catch (_) {
+    return null;
+  }
+  return match;
+}
+
 void main(List<String> args) async {
   // Zone-level catch-all for anything that slips through both layers
   runZonedGuarded(
@@ -419,7 +449,6 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
         }
       }
     } catch (_) {}
-    await cfResolutionWebviewServer();
     // Only init notification service AFTER onboarding is complete.
     // During onboarding the user grants notification permission manually.
     // Calling init() here on first launch would trigger the system dialog
@@ -428,7 +457,11 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
       WatchtowerNotificationService.instance.registerExtensionUpdateInstaller(
         _installPendingExtensionsFromNotification,
       );
-      unawaited(BypassNotificationService.instance.init());
+      unawaited(
+        BypassNotificationService.instance.init(
+          sourceResolver: _findSourceForCloudflareUrl,
+        ),
+      );
       unawaited(
         WatchtowerNotificationService.instance.init().then((_) {
           unawaited(
@@ -685,7 +718,6 @@ class _MyAppState extends ConsumerState<MyApp>
     MExtensionServerPlatform(ref).stopServer();
     _linkSubscription?.cancel();
     discordRpc?.destroy();
-    stopCfResolutionWebviewServer();
     AppLogger.dispose();
     super.dispose();
   }

@@ -3,12 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 
 void main() {
-  testWidgets('shows the shared empty state and retries on tap', (
+  testWidgets('shows the source header and retries from the empty state', (
     tester,
   ) async {
     var retries = 0;
     var refreshes = 0;
-    var searches = 0;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -19,11 +18,13 @@ void main() {
           onRefresh: () async {
             refreshes++;
           },
-          onSearch: () => searches++,
+          header: const Text('Extension source header'),
         ),
       ),
     );
 
+    expect(find.text('Extension source header'), findsOneWidget);
+    expect(find.byTooltip('Rechercher'), findsNothing);
     expect(
       find.byKey(const ValueKey('extension-empty-lottie')),
       findsOneWidget,
@@ -32,14 +33,11 @@ void main() {
     expect(find.text('Réessayer'), findsOneWidget);
     expect(find.text('Tirer vers le bas pour actualiser'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Rechercher'));
-    await tester.pump();
     await tester.tap(find.text('Réessayer'));
     await tester.pump();
 
     expect(retries, 1);
     expect(refreshes, 0);
-    expect(searches, 1);
   });
 
   testWidgets('pull-to-refresh invokes the supplied refresh callback', (
@@ -54,7 +52,7 @@ void main() {
           onRefresh: () async {
             refreshes++;
           },
-          onSearch: () {},
+          header: const SizedBox.shrink(),
         ),
       ),
     );
