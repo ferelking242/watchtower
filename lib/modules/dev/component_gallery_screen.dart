@@ -448,7 +448,16 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                   children: [
                     _GalleryMark(),
                     SizedBox(width: 11),
-                    Text('Galerie des composants'),
+                    // Le titre doit pouvoir se comprimer : les actions de la
+                    // barre (switch Skeleton/Résultat, refresh, fermer)
+                    // prennent maintenant la place à droite.
+                    Flexible(
+                      child: Text(
+                        'Galerie des composants',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
           bottom: isWide || widget.selectionMode
@@ -487,6 +496,16 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                     }),
                   ),
                 ),
+              ), // Le switch Skeleton / Résultat vit dans la barre épinglée : il
+            // doit rester joignable quel que soit le défilement.
+            if (!widget.selectionMode)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: _StateToggle(
+                  compact: true,
+                  state: _state,
+                  onChanged: (state) => setState(() => _state = state),
+                ),
               ),
             IconButton(
               tooltip: 'Réinitialiser les filtres',
@@ -513,12 +532,10 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 child: _GalleryHeader(
                   queryController: _searchController,
                   query: _query,
-                  state: _state,
                   resultCount: visible.length,
                   sections: sections,
                   sectionFilter: _sectionFilter,
                   onQueryChanged: (query) => setState(() => _query = query),
-                  onStateChanged: (state) => setState(() => _state = state),
                   onSectionChanged: (section) =>
                       setState(() => _sectionFilter = section),
                 ),
@@ -530,17 +547,10 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           padding: EdgeInsets.fromLTRB(padding, 0, padding, 88),
           sliver: visible.isEmpty
               ? const SliverToBoxAdapter(child: _EmptyGalleryState())
-              : SliverToBoxAdapter(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1900),
-                      child: _UnifiedGallery(
-                        components: visible,
-                        state: _state,
-                        onSelectLayoutComponent: widget.onSelectLayoutComponent,
-                      ),
-                    ),
-                  ),
+              : _UnifiedGallerySliver(
+                  components: visible,
+                  state: _state,
+                  onSelectLayoutComponent: widget.onSelectLayoutComponent,
                 ),
         ),
       ],
@@ -666,23 +676,19 @@ class _GalleryTabOption extends StatelessWidget {
 class _GalleryHeader extends StatelessWidget {
   final TextEditingController queryController;
   final String query;
-  final _GalleryState state;
   final int resultCount;
   final List<String> sections;
   final String? sectionFilter;
   final ValueChanged<String> onQueryChanged;
-  final ValueChanged<_GalleryState> onStateChanged;
   final ValueChanged<String?> onSectionChanged;
 
   const _GalleryHeader({
     required this.queryController,
     required this.query,
-    required this.state,
     required this.resultCount,
     required this.sections,
     required this.sectionFilter,
     required this.onQueryChanged,
-    required this.onStateChanged,
     required this.onSectionChanged,
   });
 
@@ -858,14 +864,6 @@ class _GalleryHeader extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const Spacer(),
-            const Icon(
-              Icons.visibility_rounded,
-              size: 17,
-              color: Colors.white54,
-            ),
-            const SizedBox(width: 8),
-            _StateToggle(state: state, onChanged: onStateChanged),
           ],
         ),
       ],
@@ -968,7 +966,14 @@ class _StateToggle extends StatelessWidget {
   final _GalleryState state;
   final ValueChanged<_GalleryState> onChanged;
 
-  const _StateToggle({required this.state, required this.onChanged});
+  /// Version icônes seules, pour la barre du haut où la place est comptée.
+  final bool compact;
+
+  const _StateToggle({
+    required this.state,
+    required this.onChanged,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -984,12 +989,14 @@ class _StateToggle extends StatelessWidget {
           _StateOption(
             icon: Icons.image_outlined,
             label: 'Résultat',
+            compact: compact,
             selected: state == _GalleryState.result,
             onTap: () => onChanged(_GalleryState.result),
           ),
           _StateOption(
             icon: Icons.hourglass_empty_rounded,
             label: 'Skeleton',
+            compact: compact,
             selected: state == _GalleryState.skeleton,
             onTap: () => onChanged(_GalleryState.skeleton),
           ),
@@ -1005,11 +1012,14 @@ class _StateOption extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  final bool compact;
+
   const _StateOption({
     required this.icon,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.compact = false,
   });
 
   @override
@@ -1020,37 +1030,56 @@ class _StateOption extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 11 : 9,
+          vertical: compact ? 10 : 7,
+        ),
         decoration: BoxDecoration(
           color: selected ? accent.withValues(alpha: .22) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: selected ? accent : Colors.white54),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : Colors.white54,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
+        child: compact
+            ? Tooltip(
+                message: label,
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? accent : Colors.white54,
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: selected ? accent : Colors.white54,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: selected ? Colors.white : Colors.white54,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
 }
 
-class _UnifiedGallery extends StatelessWidget {
+/// Liste paresseuse : seules les sections proches de l'écran sont
+/// construites. Monter les ~190 aperçus d'un coup (images réseau comprises)
+/// saturait la mémoire et figeait la galerie au chargement.
+class _UnifiedGallerySliver extends StatelessWidget {
   final _GalleryState state;
   final List<_ComponentSpec> components;
   final ValueChanged<String>? onSelectLayoutComponent;
 
-  const _UnifiedGallery({
+  const _UnifiedGallerySliver({
     required this.state,
     required this.components,
     this.onSelectLayoutComponent,
@@ -1075,28 +1104,39 @@ class _UnifiedGallery extends StatelessWidget {
       ),
     ];
 
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final entry in orderedEntries) ...[
-            _UnifiedSectionLabel(
-              icon: _sectionIcon(entry.key),
-              label: entry.key,
-              count: entry.value.length,
+    if (orderedEntries.isEmpty) return const SliverToBoxAdapter();
+
+    return SliverList.builder(
+      itemCount: orderedEntries.length,
+      itemBuilder: (context, index) {
+        final entry = orderedEntries[index];
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index == orderedEntries.length - 1 ? 0 : 32,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1900),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _UnifiedSectionLabel(
+                    icon: _sectionIcon(entry.key),
+                    label: entry.key,
+                    count: entry.value.length,
+                  ),
+                  const SizedBox(height: 12),
+                  _ComponentGrid(
+                    components: entry.value,
+                    state: state,
+                    onSelectLayoutComponent: onSelectLayoutComponent,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            _ComponentGrid(
-              components: entry.value,
-              state: state,
-              onSelectLayoutComponent: onSelectLayoutComponent,
-            ),
-            if (entry.key != orderedEntries.last.key)
-              const SizedBox(height: 32),
-          ],
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1438,21 +1478,16 @@ class _ComponentTile extends StatelessWidget {
             ),
             child: Align(
               alignment: Alignment.topLeft,
-              // Les aperçus vivent dans une Colonne de sliver, donc en hauteur
-              // illimitée. Un Stack (héros, rails…) y lève une exception et
-              // fait partir tout le rendu en artefacts. On borne la hauteur
-              // par type d'aperçu et on découpe ce qui dépasse.
+              // L'aperçu doit se dimensionner sur son contenu : dès que la
+              // hauteur est bornée, le moindre `Column` occupe toute la place
+              // disponible et les cartes courtes laissent un grand vide.
+              // La hauteur reste donc libre et un clip protège les voisins.
               child: SizedBox(
                 width: double.infinity,
                 child: ClipRect(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: component.isWidePreview ? 720 : 600,
-                    ),
-                    child: state == _GalleryState.result
-                        ? component.result(context)
-                        : _CardSkeleton(kind: component.kind),
-                  ),
+                  child: state == _GalleryState.result
+                      ? component.result(context)
+                      : _CardSkeleton(kind: component.kind),
                 ),
               ),
             ),

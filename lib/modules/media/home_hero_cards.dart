@@ -236,11 +236,7 @@ class _KindChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: c,
-          fontSize: 8.5,
-          fontWeight: FontWeight.w900,
-        ),
+        style: TextStyle(color: c, fontSize: 8.5, fontWeight: FontWeight.w900),
       ),
     );
   }
@@ -295,6 +291,19 @@ class HomeHeroBannerCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(13),
         child: Stack(
           children: [
+            // Le fond de ce héros est entièrement positionné : sans enfant
+            // non positionné, le Stack exige une hauteur finie et lève une
+            // exception dans une liste non contrainte (page défilante,
+            // galerie). Ce donneur de taille reprend les contraintes du
+            // parent quand elles existent, sinon une hauteur de héros.
+            LayoutBuilder(
+              builder: (context, constraints) => SizedBox(
+                width: constraints.hasBoundedWidth ? constraints.maxWidth : 640,
+                height: constraints.hasBoundedHeight
+                    ? constraints.maxHeight
+                    : 260,
+              ),
+            ),
             Positioned.fill(
               child: ContentImage(url: backdropUrl, fit: BoxFit.cover),
             ),
@@ -341,10 +350,7 @@ class HomeHeroBannerCard extends StatelessWidget {
                   Row(
                     children: [
                       if (kindLabel != null)
-                        _KindChip(
-                          kindLabel!,
-                          color: accent,
-                        ),
+                        _KindChip(kindLabel!, color: accent),
                       for (final tag in tags) ...[
                         const SizedBox(width: 6),
                         _KindChip(tag, color: const Color(0xFF1E90FF)),
@@ -696,10 +702,7 @@ class _GenreCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(9),
               child: AspectRatio(
                 aspectRatio: 1,
-                child: ContentImage(
-                  url: entry.thumbUrl,
-                  fit: BoxFit.cover,
-                ),
+                child: ContentImage(url: entry.thumbUrl, fit: BoxFit.cover),
               ),
             ),
             const SizedBox(height: 6),
@@ -733,11 +736,7 @@ class _GenreCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const SizedBox(),
-                      Icon(
-                        Broken.arrow_right_3,
-                        size: 11,
-                        color: accent,
-                      ),
+                      Icon(Broken.arrow_right_3, size: 11, color: accent),
                     ],
                   ),
                 ],
@@ -818,10 +817,7 @@ class _PopularTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: AspectRatio(
                 aspectRatio: 3 / 4,
-                child: ContentImage(
-                  url: item.thumbUrl,
-                  fit: BoxFit.cover,
-                ),
+                child: ContentImage(url: item.thumbUrl, fit: BoxFit.cover),
               ),
             ),
             const SizedBox(height: 6),
@@ -1140,11 +1136,7 @@ class HomeMyListCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const SizedBox(),
-              Icon(
-                Broken.arrow_right_3,
-                size: 13,
-                color: accent,
-              ),
+              Icon(Broken.arrow_right_3, size: 13, color: accent),
             ],
           ),
         ],
@@ -1207,11 +1199,7 @@ class HomeAIRecommenderCard extends StatelessWidget {
                 InkWell(
                   onTap: () => onSend?.call(placeholder),
                   borderRadius: BorderRadius.circular(99),
-                  child: Icon(
-                    Icons.send_rounded,
-                    size: 14,
-                    color: accent,
-                  ),
+                  child: Icon(Icons.send_rounded, size: 14, color: accent),
                 ),
               ],
             ),
@@ -1323,10 +1311,7 @@ class HomeMiniPlayerCard extends StatelessWidget {
             child: Container(
               width: 32,
               height: 32,
-              decoration: BoxDecoration(
-                color: accent,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
               child: const Icon(
                 Icons.play_arrow_rounded,
                 size: 17,
