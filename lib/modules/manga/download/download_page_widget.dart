@@ -42,8 +42,8 @@ class ChapterPageDownload extends ConsumerWidget {
       await ActiveDownloadRegistry.cancel(id);
       final queue = ref.read(downloadQueueStateProvider.notifier);
       queue.clearLiveProgress(id);
-      queue.setPaused(id, false);
       await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+      queue.setPaused(id, false);
       ref.read(processDownloadsProvider(useWifi: useWifi));
     } catch (e) {
       botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');

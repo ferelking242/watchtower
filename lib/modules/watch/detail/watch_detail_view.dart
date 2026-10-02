@@ -212,6 +212,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     try {
       for (final ch in chapters) {
         await ref.read(addDownloadToQueueProvider(chapter: ch).future);
+        final id = ch.id;
+        if (id != null) {
+          ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
+        }
       }
       botToast('Tous les épisodes mis en file');
     } catch (e) {
@@ -2540,6 +2544,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           try {
             for (final ch in selected) {
               await ref.read(addDownloadToQueueProvider(chapter: ch).future);
+              final id = ch.id;
+              if (id != null) {
+                ref
+                    .read(downloadQueueStateProvider.notifier)
+                    .setPaused(id, false);
+              }
             }
           } finally {
             ref.read(processDownloadsProvider());

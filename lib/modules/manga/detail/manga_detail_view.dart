@@ -224,6 +224,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     try {
       for (final chapter in chapters) {
         await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+        final id = chapter.id;
+        if (id != null) {
+          ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
+        }
       }
     } catch (e) {
       botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');

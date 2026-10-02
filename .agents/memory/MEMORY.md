@@ -1,8 +1,9 @@
 - [Smart Library boundaries](smart-library-scan-boundaries.md) — keep Watch video discovery and Manga chapter/archive discovery as separate scan policies.
 - [Flutter toolchain](flutter-toolchain.md) — require Flutter 3.47.2/Dart 3.11+ and use repository CI; check `build_web.yml` after pushes.
-- [Push GitHub](github-push-auth.md) — l’API accepte Bearer, mais Git push exige Basic avec x-access-token et le PAT.
+- [Push GitHub](github-push-auth.md) — if GitHub CLI auth works but Git rejects a push, clear configured helpers and select the GitHub CLI helper.
 - [Browse source boundary](browse-source-boundary.md) — Browse doit lire les sources installées persistées; les fetchs réseau restent explicites.
 - [Component gallery navigation](component-gallery-navigation.md) — la galerie est une destination interne de Library, pas une URL publique GitHub Pages.
 - [GitHub Actions availability](github-actions-availability.md) — les workflows de validation peuvent être désactivés côté dépôt; le push seul ne garantit pas un run CI.
 - [Component gallery fidelity](component-gallery-fidelity.md) — gallery entries must render production widgets and production section renderers, never visual duplicates.
 - [Stale filter indices](stale-filter-indices.md) — saved selection indices can outlive dynamic options; guard every values[index] access.
+- [Riverpod queue provider side effects](riverpod-queue-provider.md) — persist in the enqueue provider; update pause state and start scheduling after its Future completes.

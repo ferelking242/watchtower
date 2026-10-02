@@ -377,6 +377,11 @@ Future<bool> showAnimeQualityPickerAndQueue({
     chapterPreferredOriginalUrl[chapter.id!] = selected!.originalUrl;
   }
   await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+  if (chapter.id != null) {
+    ref
+        .read(downloadQueueStateProvider.notifier)
+        .setPaused(chapter.id!, false);
+  }
   ref.read(processDownloadsProvider());
   return true;
 }
@@ -784,10 +789,6 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     if (corruptRecord) isar.downloads.deleteSync(id);
     isar.downloads.putSync(download..chapter.value = chapter);
   });
-
-  // Clear pause only after the write succeeds, so storage errors do not leave
-  // the in-memory queue looking resumed without a persisted row.
-  ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
 }
 
 @riverpod
