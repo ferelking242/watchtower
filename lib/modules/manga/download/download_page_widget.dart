@@ -183,28 +183,18 @@ class ChapterPageDownload extends ConsumerWidget {
       width: 35,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
-        child: StreamBuilder<List<Download>>(
-          // isar_community refuse certains filtres sur cette collection
-          // (propriétés nullables) : on écoute la collection puis on filtre
-          // en Dart, comme le fait déjà le gestionnaire de téléchargements.
-          // `.handleError` : un enregistrement corrompu ferait échouer la
-          // désérialisation de TOUTE la collection — on avale l'erreur et
-          // l'icône reste dans son état par défaut plutôt que de planter.
-          stream: isar.downloads
-              .where()
-              .watch(fireImmediately: true)
-              .map(
-                (downloads) =>
-                    downloads.where((d) => d.id == id).toList(),
-              )
-              .handleError((_) {}),
+        child: StreamBuilder<Download?>(
+          // Watch only this chapter: a corrupt unrelated row must not prevent
+          // its icon from receiving queue/progress updates.
+          stream: id == null
+              ? null
+              : isar.downloads.watchObject(id, fireImmediately: true),
           builder: (context, snapshot) {
-            final entries = snapshot.data ?? const <Download>[];
             return _buildTrailing(
               context,
               ref,
               l10n,
-              entries.isEmpty ? null : entries.first,
+              snapshot.data,
               isPaused: isPaused,
               liveProgress: liveProgress,
               speed: speed,

@@ -732,6 +732,13 @@ class _VideoListTileState extends State<_VideoListTile> {
   }
 }
 
+/// Persist the download row and its IsarLink in the same transaction.
+void _putDownloadForChapter(Download download, Chapter chapter) {
+  download.chapter.value = chapter;
+  isar.downloads.putSync(download);
+  download.chapter.saveSync();
+}
+
 @riverpod
 Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
   // Do not persist a chapter without its Manga relation: Isar can otherwise
@@ -787,7 +794,7 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
 
   isar.writeTxnSync(() {
     if (corruptRecord) isar.downloads.deleteSync(id);
-    isar.downloads.putSync(download..chapter.value = chapter);
+    _putDownloadForChapter(download, chapter);
   });
 }
 
@@ -1168,7 +1175,7 @@ Future<void> downloadChapter(
             status: progressStatus,
           );
           isar.writeTxnSync(() {
-            isar.downloads.putSync(newDl..chapter.value = chapter);
+            _putDownloadForChapter(newDl, chapter);
           });
         } catch (_) {
           // Écriture avortée (entrée corrompue / verrouillage). On ne
