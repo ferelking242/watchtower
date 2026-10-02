@@ -52,6 +52,7 @@ import 'package:watchtower/modules/manga/detail/widgets/chapter_list_tile_widget
 import 'package:watchtower/modules/manga/detail/widgets/chapter_sort_list_tile_widget.dart';
 import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
+import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:photo_view/photo_view.dart';
