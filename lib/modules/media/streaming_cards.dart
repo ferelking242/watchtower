@@ -454,12 +454,18 @@ class RecentlyWatchedCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                headerLabel,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
+              // Titre compressible : il ne pousse plus « Voir tout » hors de
+              // la carte sur les largeurs réduites.
+              Flexible(
+                child: Text(
+                  headerLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               const Spacer(),

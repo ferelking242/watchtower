@@ -37,102 +37,100 @@ class MediaHeroCarousel extends StatelessWidget {
         itemBuilder: (context, index) {
           final item = visible[index];
           return Stack(
-              fit: StackFit.expand,
-              children: [
-                ContentImage(
-                  url: item.backdropUrl ?? item.posterUrl,
-                  radius: 0,
-                ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      stops: [0, .42, 1],
-                      colors: [
-                        Color(0x52000000),
-                        Color(0x15000000),
-                        Color(0xE6000000),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  bottom: 86,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Tags — bottom-left, above the title
-                      if (item.badge != null || (item.rating != null && item.rating! > 0)) ...[
-                        Wrap(
-                          spacing: 7,
-                          runSpacing: 6,
-                          children: [
-                            if (item.badge != null)
-                              _MediaMetaChip(label: item.badge!),
-                            if (item.rating != null && item.rating! > 0)
-                              _MediaMetaChip(
-                                label: item.rating!.toStringAsFixed(1),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 9),
-                      ],
-                      Text(
-                        item.title,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          height: 1.05,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      if (item.description?.trim().isNotEmpty == true) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          item.description!,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            height: 1.3,
-                            fontSize: 12.5,
-                          ),
-                        ),
-                      ],
+            fit: StackFit.expand,
+            children: [
+              ContentImage(url: item.backdropUrl ?? item.posterUrl, radius: 0),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0, .42, 1],
+                    colors: [
+                      Color(0x52000000),
+                      Color(0x15000000),
+                      Color(0xE6000000),
                     ],
                   ),
                 ),
-                // Notch (half-circle cut) at the hero's bottom edge…
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: -30,
-                  child: Center(
-                    child: AppHeroNotch(
-                      backgroundColor: const Color(0xFF0B0B11),
-                      ringColor: Colors.white.withValues(alpha: .55),
+              ),
+              Positioned(
+                left: 24,
+                right: 24,
+                bottom: 86,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tags — bottom-left, above the title
+                    if (item.badge != null ||
+                        (item.rating != null && item.rating! > 0)) ...[
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 6,
+                        children: [
+                          if (item.badge != null)
+                            _MediaMetaChip(label: item.badge!),
+                          if (item.rating != null && item.rating! > 0)
+                            _MediaMetaChip(
+                              label: item.rating!.toStringAsFixed(1),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 9),
+                    ],
+                    Text(
+                      item.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        height: 1.05,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
+                    if (item.description?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        item.description!,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.3,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              // Notch (half-circle cut) at the hero's bottom edge…
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: -30,
+                child: Center(
+                  child: AppHeroNotch(
+                    backgroundColor: const Color(0xFF0B0B11),
+                    ringColor: Colors.white.withValues(alpha: .55),
                   ),
                 ),
-                // …with the play disc sitting in the cut.
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: -34,
-                  child: Center(
-                    child: AppHeroPlayButton(
-                      size: 62,
-                      onTap: () => onOpen(index),
-                    ),
+              ),
+              // …with the play disc sitting in the cut.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: -34,
+                child: Center(
+                  child: AppHeroPlayButton(
+                    size: 62,
+                    onTap: () => onOpen(index),
                   ),
                 ),
-              ],
-            );
+              ),
+            ],
+          );
         },
       ),
     );
@@ -291,7 +289,10 @@ class MediaRankedRail extends StatelessWidget {
   }
 }
 
-class MediaBannerRail extends StatelessWidget {
+/// Section « bannières » : un grand visuel mis en avant, puis une bande de
+/// miniatures pour changer de bannière. Empiler huit paysages pleine largeur
+/// ne ressemblait à rien et poussait tout le reste hors de l'écran.
+class MediaBannerRail extends StatefulWidget {
   const MediaBannerRail({
     required this.title,
     required this.items,
@@ -306,8 +307,15 @@ class MediaBannerRail extends StatelessWidget {
   final VoidCallback? onSeeAll;
 
   @override
+  State<MediaBannerRail> createState() => _MediaBannerRailState();
+}
+
+class _MediaBannerRailState extends State<MediaBannerRail> {
+  int _selected = 0;
+
+  @override
   Widget build(BuildContext context) {
-    final visible = items
+    final visible = widget.items
         .take(8)
         .toList(growable: false)
         .asMap()
@@ -318,65 +326,130 @@ class MediaBannerRail extends StatelessWidget {
         )
         .toList(growable: false);
     if (visible.isEmpty) return const SizedBox.shrink();
+
+    final accent = Theme.of(context).colorScheme.primary;
+    final index = _selected.clamp(0, visible.length - 1);
+    final current = visible[index];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSectionHeader(
-          title: title,
-          actionLabel: onSeeAll == null ? null : 'All >',
-          onAction: onSeeAll,
+          title: widget.title,
+          actionLabel: widget.onSeeAll == null ? null : 'All >',
+          onAction: widget.onSeeAll,
         ),
-        ...visible.map(
-          (entry) => Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppUI.pagePadding(context),
-              0,
-              AppUI.pagePadding(context),
-              12,
-            ),
-            child: GestureDetector(
-              onTap: () => onOpen(entry.key),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: AspectRatio(
-                  aspectRatio: 2.05,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ContentImage(
-                        url: entry.value.backdropUrl ?? entry.value.posterUrl,
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppUI.pagePadding(context),
+            0,
+            AppUI.pagePadding(context),
+            10,
+          ),
+          child: GestureDetector(
+            onTap: () => widget.onOpen(current.key),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: AspectRatio(
+                aspectRatio: 2.05,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      child: ContentImage(
+                        key: ValueKey(current.value.key),
+                        url:
+                            current.value.backdropUrl ??
+                            current.value.posterUrl,
                         radius: 0,
                       ),
-                      const DecoratedBox(
+                    ),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Color(0xE6000000)],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 14,
+                      right: 78,
+                      bottom: 12,
+                      child: Text(
+                        current.value.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          shadows: [Shadow(color: Colors.black, blurRadius: 8)],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 14,
+                      bottom: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Color(0xE6000000)],
-                          ),
+                          color: Colors.black.withValues(alpha: .55),
+                          borderRadius: BorderRadius.circular(99),
                         ),
-                      ),
-                      Positioned(
-                        left: 14,
-                        right: 14,
-                        bottom: 12,
                         child: Text(
-                          entry.value.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          '${index + 1} / ${visible.length}',
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
+                            color: Colors.white70,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w800,
-                            shadows: [Shadow(color: Colors.black, blurRadius: 8)],
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
+        ),
+        SizedBox(
+          height: 58,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            itemCount: visible.length,
+            separatorBuilder: (context, position) => const SizedBox(width: 8),
+            itemBuilder: (context, position) {
+              final entry = visible[position];
+              final isSelected = position == index;
+              return GestureDetector(
+                onTap: () => setState(() => _selected = position),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 84,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected ? accent : Colors.white24,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: ContentImage(
+                    url: entry.value.backdropUrl ?? entry.value.posterUrl,
+                    radius: 0,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -412,9 +485,7 @@ class MediaGridSection extends StatelessWidget {
         .clamp(1, 4)
         .toInt();
     final horizontal = scrollDirection == 'horizontal';
-    final visible = items
-        .take(columnCount * rowCount)
-        .toList(growable: false);
+    final visible = items.take(columnCount * rowCount).toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,7 +511,9 @@ class MediaGridSection extends StatelessWidget {
               mainAxisExtent: horizontal ? 132 : null,
               mainAxisSpacing: 16,
               crossAxisSpacing: 12,
-              childAspectRatio: .55,
+              // Cellules un peu plus hautes : à .55, l'affiche et son titre
+              // dépassaient de la cellule sur les grilles serrées.
+              childAspectRatio: .5,
             ),
             itemBuilder: (_, index) => PosterCard(
               item: visible[index],

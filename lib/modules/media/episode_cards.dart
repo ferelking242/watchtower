@@ -210,7 +210,11 @@ class CompactEpisodeCard extends StatelessWidget {
                   const Spacer(),
                   Row(
                     children: [
-                      for (var i = 0; i < entry.genres.length && i < 2; i++) ...[
+                      for (
+                        var i = 0;
+                        i < entry.genres.length && i < 2;
+                        i++
+                      ) ...[
                         if (i > 0) const SizedBox(width: 5),
                         _EpisodeTagChip(label: entry.genres[i]),
                       ],
@@ -258,9 +262,7 @@ class EpisodeThumbnail extends StatelessWidget {
                   top: 8,
                   child: _EpisodeBadge(label: 'HD'),
                 ),
-              Center(
-                child: _EpisodePlayCircle(size: 38, onTap: entry.onPlay),
-              ),
+              Center(child: _EpisodePlayCircle(size: 38, onTap: entry.onPlay)),
             ],
           ),
           const SizedBox(height: 8),
@@ -306,7 +308,11 @@ class EpisodeThumbnail extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star_rounded, size: 11, color: Colors.amber),
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 11,
+                        color: Colors.amber,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         entry.rating!.toStringAsFixed(2),
@@ -463,11 +469,7 @@ class EpisodePreviewCard extends StatelessWidget {
 /// ── 4. EpisodeListItem ──────────────────────────────────────────────────
 /// Liste d'épisodes numérotée (courant, vu, verrouillé).
 class EpisodeListItem extends StatelessWidget {
-  const EpisodeListItem({
-    super.key,
-    required this.episodes,
-    this.width = 330,
-  });
+  const EpisodeListItem({super.key, required this.episodes, this.width = 330});
 
   final List<EpisodeEntry> episodes;
   final double width;
@@ -657,7 +659,11 @@ class FeaturedEpisodeCard extends StatelessWidget {
                 Row(
                   children: [
                     if (entry.rating != null) ...[
-                      const Icon(Icons.star_rounded, size: 11, color: Colors.amber),
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 11,
+                        color: Colors.amber,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         entry.duration ?? entry.rating!.toStringAsFixed(1),
@@ -938,8 +944,8 @@ class SeasonSelectorCard extends StatelessWidget {
     final active = seasons.length > selectedSeason
         ? seasons[selectedSeason]
         : seasons.isEmpty
-            ? null
-            : seasons.first;
+        ? null
+        : seasons.first;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(10),
@@ -953,7 +959,11 @@ class SeasonSelectorCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ContentImage(url: active.thumbUrl, fit: BoxFit.cover, radius: 12),
+                  ContentImage(
+                    url: active.thumbUrl,
+                    fit: BoxFit.cover,
+                    radius: 12,
+                  ),
                   const _EpisodeGradient(),
                   Positioned(
                     left: 8,
@@ -980,20 +990,25 @@ class SeasonSelectorCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      for (var i = 0; i < seasons.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 5),
-                        _SeasonChip(
-                          label: seasons[i].seasonLabel ?? 'S${i + 1}',
-                          accent: accent,
-                          selected: i == selectedSeason,
-                          onTap: onSeasonSelected == null
-                              ? null
-                              : () => onSeasonSelected!(i),
-                        ),
+                  // Une rangée de saisons peut être longue : elle défile
+                  // horizontalement au lieu de déborder de la carte.
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < seasons.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 5),
+                          _SeasonChip(
+                            label: seasons[i].seasonLabel ?? 'S${i + 1}',
+                            accent: accent,
+                            selected: i == selectedSeason,
+                            onTap: onSeasonSelected == null
+                                ? null
+                                : () => onSeasonSelected!(i),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Expanded(
@@ -1001,7 +1016,9 @@ class SeasonSelectorCard extends StatelessWidget {
                       children: [
                         for (var i = 0; i < episodes.length && i < 4; i++) ...[
                           if (i > 0) const SizedBox(height: 5),
-                          Expanded(child: _SelectorEpisodeRow(entry: episodes[i])),
+                          Expanded(
+                            child: _SelectorEpisodeRow(entry: episodes[i]),
+                          ),
                         ],
                       ],
                     ),
@@ -1071,7 +1088,9 @@ class _SelectorEpisodeRow extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: 62,
+            // Colonne de métadonnées réduite : à 62 px, la rangée dépassait
+            // de quelques pixels dans les contextes étroits.
+            width: 46,
             child: Text(
               entry.meta ?? '',
               maxLines: 1,
@@ -1097,12 +1116,16 @@ class _SelectorEpisodeRow extends StatelessWidget {
           ),
           if (entry.duration != null) ...[
             const SizedBox(width: 6),
-            Text(
-              entry.duration!,
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                entry.duration!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -1143,11 +1166,7 @@ class SeriesEpisodeListCard extends StatelessWidget {
 /// ── 18. EpisodeListCard ─────────────────────────────────────────────────
 /// Liste d'épisodes avec vignettes 16:9.
 class EpisodeListCard extends StatelessWidget {
-  const EpisodeListCard({
-    super.key,
-    required this.episodes,
-    this.width = 340,
-  });
+  const EpisodeListCard({super.key, required this.episodes, this.width = 340});
 
   final List<EpisodeEntry> episodes;
   final double width;
@@ -1208,7 +1227,9 @@ class _EpisodeListRow extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     final thumb = style == _EpisodeRowStyle.stacked
         ? const SizedBox(width: 58, height: 38)
-        : SizedBox.square(dimension: style == _EpisodeRowStyle.numbered ? 40 : 50);
+        : SizedBox.square(
+            dimension: style == _EpisodeRowStyle.numbered ? 40 : 50,
+          );
 
     return InkWell(
       onTap: entry.locked ? null : (entry.onTap ?? () {}),
@@ -1723,13 +1744,20 @@ class SeasonEpisodeCard extends StatelessWidget {
                 ],
                 if (entry.genres.isNotEmpty) ...[
                   const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      for (var i = 0; i < entry.genres.length && i < 3; i++) ...[
-                        if (i > 0) const SizedBox(width: 5),
-                        _EpisodeTagChip(label: entry.genres[i]),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (
+                          var i = 0;
+                          i < entry.genres.length && i < 3;
+                          i++
+                        ) ...[
+                          if (i > 0) const SizedBox(width: 5),
+                          _EpisodeTagChip(label: entry.genres[i]),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ],
               ],
@@ -1833,7 +1861,10 @@ class SeriesBannerCard extends StatelessWidget {
                 left: 14,
                 top: 10,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: accent.withValues(alpha: .85),
                     borderRadius: BorderRadius.circular(7),
@@ -1841,7 +1872,11 @@ class SeriesBannerCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star_rounded, size: 10, color: Colors.white),
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 10,
+                        color: Colors.white,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         season.rating!.toStringAsFixed(1),
@@ -1890,14 +1925,22 @@ class EpisodeCarousel extends StatelessWidget {
         children: [
           Row(
             children: [
-              _CarouselArrowButton(icon: Icons.chevron_left_rounded, onTap: onPrevious),
+              _CarouselArrowButton(
+                icon: Icons.chevron_left_rounded,
+                onTap: onPrevious,
+              ),
               const SizedBox(width: 6),
               for (var i = 0; i < visible.length; i++) ...[
                 if (i > 0) const SizedBox(width: 6),
-                Expanded(child: _MiniEpisodeTile(entry: visible[i], index: i + 1)),
+                Expanded(
+                  child: _MiniEpisodeTile(entry: visible[i], index: i + 1),
+                ),
               ],
               const SizedBox(width: 6),
-              _CarouselArrowButton(icon: Icons.chevron_right_rounded, onTap: onNext),
+              _CarouselArrowButton(
+                icon: Icons.chevron_right_rounded,
+                onTap: onNext,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -1954,7 +1997,11 @@ class _MiniEpisodeTile extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(9),
-                child: ContentImage(url: entry.thumbUrl, fit: BoxFit.cover, radius: 0),
+                child: ContentImage(
+                  url: entry.thumbUrl,
+                  fit: BoxFit.cover,
+                  radius: 0,
+                ),
               ),
             ),
           ),
@@ -2077,13 +2124,22 @@ class SeasonBannerCard extends StatelessWidget {
                     const Spacer(),
                     Row(
                       children: [
-                        _EpisodeActionButton(
-                          label: 'Voir les épisodes',
-                          onTap: season.onTap,
+                        // Le libellé du bouton se comprime : la rangée gardait
+                        // sinon un débordement sur les cartes les plus
+                        // étroites.
+                        Flexible(
+                          child: _EpisodeActionButton(
+                            label: 'Voir les épisodes',
+                            onTap: season.onTap,
+                          ),
                         ),
                         const Spacer(),
                         if (season.rating != null) ...[
-                          const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 12,
+                            color: Colors.amber,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             season.rating!.toStringAsFixed(1),
@@ -2105,7 +2161,11 @@ class SeasonBannerCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ContentImage(url: season.thumbUrl, fit: BoxFit.cover, radius: 0),
+                  ContentImage(
+                    url: season.thumbUrl,
+                    fit: BoxFit.cover,
+                    radius: 0,
+                  ),
                   const _EpisodeGradient(opacity: .6),
                   Positioned(
                     right: 8,
@@ -2352,7 +2412,11 @@ class _EpisodeChevronCircle extends StatelessWidget {
         child: const SizedBox(
           width: 26,
           height: 26,
-          child: Icon(Icons.chevron_right_rounded, size: 17, color: Colors.white),
+          child: Icon(
+            Icons.chevron_right_rounded,
+            size: 17,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -2411,8 +2475,9 @@ class _EpisodeProgressBar extends StatelessWidget {
     return SizedBox(
       height: height,
       child: ClipRRect(
-        borderRadius:
-            square ? BorderRadius.zero : BorderRadius.circular(height / 2),
+        borderRadius: square
+            ? BorderRadius.zero
+            : BorderRadius.circular(height / 2),
         child: Stack(
           fit: StackFit.expand,
           children: [

@@ -132,7 +132,9 @@ class PosterCard extends StatelessWidget {
             SizedBox(height: compact ? 5 : 6),
             Text(
               item.title,
-              maxLines: compact ? 1 : 2,
+              // Sous 140 px de carte, deux lignes de titre ne tiennent plus
+              // dans la cellule de grille : on les limite à une ligne.
+              maxLines: compact || width < 140 ? 1 : 2,
               overflow: TextOverflow.ellipsis,
               style: titleStyle,
             ),

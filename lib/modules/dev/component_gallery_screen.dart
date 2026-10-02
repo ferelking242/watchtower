@@ -1236,30 +1236,28 @@ class _ComponentGrid extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth;
-
-        // Les aperçus compacts ont besoin d'environ 220 px de large : sur un
-        // téléphone, imposer deux colonnes les écrasait à ~165 px, chaque
-        // composant débordait d'une cinquantaine de pixels et se peignait
-        // par-dessus ses voisins (les artefacts visibles dans la galerie).
-        final minColumns = availableWidth < 560 ? 1 : 2;
-
+        final availableWidth = constraints
+            .maxWidth; // Largeur minimale visée par aperçu : en dessous, les cartes serrées
+        // se retrouvaient à ~165 px et leur contenu débordait au lieu de
+        // rester lisible. On plafonne donc le nombre de colonnes.
         double tileWidthFor(_ComponentSpec component) {
-          // Petits composants : jusqu'à 5 par rangée pour les mettre côte
-          // à côte au lieu de laisser un grand vide à droite de chacun.
+          final double targetWidth;
+          final int maxColumns;
           if (component.isCompactPreview) {
-            final columns = (availableWidth / 240)
-                .floor()
-                .clamp(minColumns, 5)
-                .toInt();
-            return (availableWidth - spacing * (columns - 1)) / columns;
+            targetWidth = 300;
+            maxColumns = 4;
+          } else if (component.isWidePreview) {
+            targetWidth = 640;
+            maxColumns = 2;
+          } else {
+            targetWidth = 460;
+            maxColumns = 3;
           }
-          // Rails / héros : au plus 2 par rangée.
-          if (component.isWidePreview) {
-            final columns = (availableWidth / 620).floor().clamp(1, 2).toInt();
-            return (availableWidth - spacing * (columns - 1)) / columns;
-          }
-          final columns = (availableWidth / 420).floor().clamp(1, 3).toInt();
+          final minColumns = availableWidth < 620 ? 1 : 2;
+          final columns = (availableWidth / targetWidth)
+              .floor()
+              .clamp(minColumns, maxColumns)
+              .toInt();
           return (availableWidth - spacing * (columns - 1)) / columns;
         }
 
@@ -1482,13 +1480,13 @@ class _ComponentTile extends StatelessWidget {
               // hauteur est bornée, le moindre `Column` occupe toute la place
               // disponible et les cartes courtes laissent un grand vide.
               // La hauteur reste donc libre et un clip protège les voisins.
-              child: SizedBox(
-                width: double.infinity,
-                child: ClipRect(
-                  child: state == _GalleryState.result
-                      ? component.result(context)
-                      : _CardSkeleton(kind: component.kind),
-                ),
+              child: ClipRect(
+                // Pas de largeur imposée : un aperçu déclaré à largeur fixe
+                // (poster 112 px, rail 320 px…) doit garder sa taille, sinon
+                // il s'étire et son contenu déborde de la boîte.
+                child: state == _GalleryState.result
+                    ? component.result(context)
+                    : _CardSkeleton(kind: component.kind),
               ),
             ),
           ),
@@ -9461,8 +9459,10 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.swipe_rounded,
     kind: _PreviewKind.carousel,
     result: (_) => SizedBox(
+      // 190 px ne suffisaient pas pour un poster 2:3 et son titre : la
+      // colonne interne débordait de la boîte.
       width: 112,
-      height: 190,
+      height: 232,
       child: AppCrossfadeCarousel(
         itemCount: 2,
         interval: const Duration(seconds: 5),
