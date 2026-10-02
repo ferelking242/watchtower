@@ -19,61 +19,66 @@ import 'package:watchtower/utils/global_style.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 
 class ChapterPageDownload extends ConsumerWidget {
   final Chapter chapter;
 
   const ChapterPageDownload({super.key, required this.chapter});
 
-  static bool _isShutdowned() {
-    // Si le cadre est supprimé ou l'isolate principal en train de s'arrêter,
-    // ne rien lancer : le crash RangeError sur les vues typées arrive parfois
-    // quand on touche à Isar alors que le cycle de vie est en décomposition.
-    return false;
-  }
-
   /// Démarre (ou relance) le téléchargement du chapitre.
   ///
-  /// Le bouton est apoyé rapidement plusieurs fois : on sérialise les demandes
-  /// avec une porte de non-réentrance par chapitre pour qu'un double-tap ne
-  /// produise pas deux workers pour le même `chapter.id` (source classique du
-  /// RangeError length quand deux isolate se battent sur le même .part).
+  /// TOUTE erreur est attrapée ici : le Future renvoyé à `onPressed` est
+  /// ignoré par Flutter, donc la moindre exception (Isar corrompu, prefs…)
+  /// atterrissait dans `runZonedGuarded` sans feedback — le bouton semblait
+  /// mort et l'app "plantait" à chaque appui.
   Future<void> _startDownload(bool? useWifi, WidgetRef ref) async {
     final id = chapter.id;
     if (id == null) return;
-    if (_isShutdowned()) return;
-    // Stoppe un éventuel transfert en cours et purge une entrée de registre
-    // restée "active" (crash, tâche orpheline) : sinon `processDownloads`
-    // considère le chapitre comme déjà en cours et ne le redémarre jamais.
-    await ActiveDownloadRegistry.cancel(id);
-    final queue = ref.read(downloadQueueStateProvider.notifier);
-    queue.clearLiveProgress(id);
-    queue.setPaused(id, false);
-    await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
-    ref.read(processDownloadsProvider(useWifi: useWifi));
+    try {
+      // Stoppe un éventuel transfert en cours et purge une entrée de registre
+      // restée "active" (crash, tâche orpheline) : sinon `processDownloads`
+      // considère le chapitre comme déjà en cours et ne le redémarre jamais.
+      await ActiveDownloadRegistry.cancel(id);
+      final queue = ref.read(downloadQueueStateProvider.notifier);
+      queue.clearLiveProgress(id);
+      queue.setPaused(id, false);
+      await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+      ref.read(processDownloadsProvider(useWifi: useWifi));
+    } catch (e) {
+      botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');
+    }
   }
 
   /// Reprend un chapitre mis en pause (le scheduler le reprend au tick suivant).
   void _resumeDownload(WidgetRef ref) {
     final id = chapter.id;
-    if (id == null) return;
-    if (_isShutdowned()) return;
-    ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
-    ref.read(processDownloadsProvider());
+    try {
+      if (id != null) {
+        ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
+      }
+      ref.read(processDownloadsProvider());
+    } catch (e) {
+      botToast('Reprise impossible : ${friendlyErrorMessage(e)}');
+    }
   }
 
   /// Annule le transfert et retire l'entrée de la file de téléchargement.
   Future<void> _cancelDownload(WidgetRef ref, int? downloadId) async {
     final id = chapter.id;
-    if (id == null) return;
-    if (_isShutdowned()) return;
-    await ActiveDownloadRegistry.cancel(id);
-    final queue = ref.read(downloadQueueStateProvider.notifier);
-    queue.clearLiveProgress(id);
-    // Ne pas laisser le chapitre en pause : une future demande de
-    // téléchargement doit pouvoir repartir immédiatement.
-    queue.setPaused(id, false);
-    chapter.cancelDownloads(downloadId);
+    try {
+      if (id != null) {
+        await ActiveDownloadRegistry.cancel(id);
+        final queue = ref.read(downloadQueueStateProvider.notifier);
+        queue.clearLiveProgress(id);
+        // Ne pas laisser le chapitre en pause : une future demande de
+        // téléchargement doit pouvoir repartir immédiatement.
+        queue.setPaused(id, false);
+      }
+      chapter.cancelDownloads(downloadId);
+    } catch (e) {
+      botToast('Annulation impossible : ${friendlyErrorMessage(e)}');
+    }
   }
 
   void _sendFile(BuildContext context) async {
@@ -182,13 +187,17 @@ class ChapterPageDownload extends ConsumerWidget {
           // isar_community refuse certains filtres sur cette collection
           // (propriétés nullables) : on écoute la collection puis on filtre
           // en Dart, comme le fait déjà le gestionnaire de téléchargements.
+          // `.handleError` : un enregistrement corrompu ferait échouer la
+          // désérialisation de TOUTE la collection — on avale l'erreur et
+          // l'icône reste dans son état par défaut plutôt que de planter.
           stream: isar.downloads
               .where()
               .watch(fireImmediately: true)
               .map(
                 (downloads) =>
                     downloads.where((d) => d.id == id).toList(),
-              ),
+              )
+              .handleError((_) {}),
           builder: (context, snapshot) {
             final entries = snapshot.data ?? const <Download>[];
             return _buildTrailing(

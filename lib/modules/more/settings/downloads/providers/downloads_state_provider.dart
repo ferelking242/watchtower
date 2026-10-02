@@ -12,19 +12,47 @@ import 'package:path/path.dart' as path;
 import 'package:watchtower/utils/constant.dart';
 part 'downloads_state_provider.g.dart';
 
+/// Lecture sûre de l'enregistrement `Settings`.
+///
+/// Crash corrigé : `RangeError (length)` soulevé par la désérialisation Isar
+/// d'un enregistrement `Settings` corrompu (ou écrit par un ancien schéma).
+/// Ce `getSync` est appelé partout dans l'app (bibliothèque, détail, lecteur…
+/// et surtout `processDownloads` à chaque tick via `onlyOnWifiStateProvider`)
+/// : sans garde, UNE seule lecture corrompue tue la boucle de téléchargement
+/// via `runZonedGuarded` et le bouton « Télécharger » ne fait plus rien.
+Settings safeReadSettings() {
+  try {
+    return isar.settings.getSync(kSettingsId) ?? Settings();
+  } on RangeError {
+    // Réparation : record illisible → on le réécrit proprement avec les
+    // défauts du schéma courant afin de débloquer toutes les lectures.
+    try {
+      final fresh = Settings();
+      isar.writeTxnSync(() => isar.settings.putSync(fresh));
+      return fresh;
+    } catch (_) {
+      return Settings();
+    }
+  } catch (_) {
+    // Erreur transitoire (ex. lecture pendant une transaction) : défauts,
+    // sans écraser les réglages existants.
+    return Settings();
+  }
+}
+
 @riverpod
 class OnlyOnWifiState extends _$OnlyOnWifiState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).downloadOnlyOnWifi ?? false;
+    return safeReadSettings().downloadOnlyOnWifi ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(kSettingsId);
+    final settings = safeReadSettings();
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
-        settings!
+        settings
           ..downloadOnlyOnWifi = value
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),
@@ -36,15 +64,15 @@ class OnlyOnWifiState extends _$OnlyOnWifiState {
 class SaveAsCBZArchiveState extends _$SaveAsCBZArchiveState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).saveAsCBZArchive ?? false;
+    return safeReadSettings().saveAsCBZArchive ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(kSettingsId);
+    final settings = safeReadSettings();
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
-        settings!
+        settings
           ..saveAsCBZArchive = value
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),
@@ -57,15 +85,15 @@ class DeleteDownloadAfterReadingState
     extends _$DeleteDownloadAfterReadingState {
   @override
   bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).deleteDownloadAfterReading ?? false;
+    return safeReadSettings().deleteDownloadAfterReading ?? false;
   }
 
   void set(bool value) {
-    final settings = isar.settings.getSync(kSettingsId);
+    final settings = safeReadSettings();
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
-        settings!
+        settings
           ..deleteDownloadAfterReading = value
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),
@@ -78,17 +106,16 @@ class DownloadLocationState extends _$DownloadLocationState {
   @override
   (String, String) build() {
     _refresh();
-    return ("", (isar.settings.getSync(kSettingsId) ?? Settings()).downloadLocation ?? "");
+    return ("", safeReadSettings().downloadLocation ?? "");
   }
 
   void set(String location) {
-    final settings = isar.settings.getSync(kSettingsId);
+    final settings = safeReadSettings();
     final basePath = _storageProvider?.path;
     state = (
       basePath == null ? "" : path.join(basePath, 'download'),
       location,
     );
-    if (settings == null) return;
     isar.writeTxnSync(
       () => isar.settings.putSync(
         settings
@@ -103,7 +130,7 @@ class DownloadLocationState extends _$DownloadLocationState {
   Future _refresh() async {
     try {
       _storageProvider = await StorageProvider().getDefaultDirectory();
-      final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+      final settings = safeReadSettings();
       final basePath = _storageProvider?.path;
       state = (
         basePath == null ? "" : path.join(basePath, 'download'),
@@ -113,7 +140,7 @@ class DownloadLocationState extends _$DownloadLocationState {
       // Keep the provider usable while storage is unavailable. The download
       // action will report the concrete filesystem error instead of crashing
       // the settings screen during its first build.
-      final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+      final settings = safeReadSettings();
       state = ("", settings.downloadLocation ?? "");
     }
   }
@@ -123,15 +150,15 @@ class DownloadLocationState extends _$DownloadLocationState {
 class ConcurrentDownloadsState extends _$ConcurrentDownloadsState {
   @override
   int build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).concurrentDownloads ?? 2;
+    return safeReadSettings().concurrentDownloads ?? 2;
   }
 
   void set(int value) {
-    final settings = isar.settings.getSync(kSettingsId);
+    final settings = safeReadSettings();
     state = value;
     isar.writeTxnSync(
       () => isar.settings.putSync(
-        settings!
+        settings
           ..concurrentDownloads = value
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),

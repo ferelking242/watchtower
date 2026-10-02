@@ -769,9 +769,13 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
       quality: chapterPreferredQuality[id],
       status: 'fetching_metadata',
     );
-    isar.writeTxnSync(() {
-      isar.downloads.putSync(download..chapter.value = chapter);
-    });
+    try {
+      isar.writeTxnSync(() {
+        isar.downloads.putSync(download..chapter.value = chapter);
+      });
+    } catch (e) {
+      log('[addDownloadToQueue] put failed chapterId=$id: $e');
+    }
     return;
   }
 
@@ -799,9 +803,13 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
         chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl;
     existingNonNull.quality = chapterPreferredQuality[id];
     existingNonNull.status = 'fetching_metadata';
-    isar.writeTxnSync(() {
-      isar.downloads.putSync(existingNonNull..chapter.value = chapter);
-    });
+    try {
+      isar.writeTxnSync(() {
+        isar.downloads.putSync(existingNonNull..chapter.value = chapter);
+      });
+    } catch (e) {
+      log('[addDownloadToQueue] re-arm put failed chapterId=$id: $e');
+    }
   }
 }
 
@@ -2006,9 +2014,42 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   // kill the process while downloads are running in the background.
   unawaited(BackgroundKeepAlive.start());
   try {
+    // Un tick qui plante (lecture Isar corrompue → `RangeError (length)`,
+    // settings illisibles, …) ne doit JAMAIS tuer la file d'attente : avant,
+    // l'exception remontait jusqu'à runZonedGuarded, la boucle mourait et le
+    // bouton télécharger ne faisait plus rien. On avale, on tente de réparer
+    // les enregistrements illisibles (projection d'IDs = pas de désérialisation),
+    // et le tick suivant reprend.
+    Future<bool> safeTick(Future<bool> Function() body) async {
+      try {
+        return await body();
+      } catch (e, st) {
+        log('[processDownloads] tick error (ignored, next tick retries): $e\n$st');
+        try {
+          final ids =
+              (await isar.downloads.where().idProperty().findAll())
+                  .whereType<int>();
+          for (final id in ids) {
+            try {
+              isar.downloads.getSync(id);
+            } on RangeError {
+              // Enregistrement Download illisible → on le supprime pour que
+              // findAllSync / watch fonctionnent à nouveau (re-téléchargeable).
+              isar.writeTxnSync(() => isar.downloads.deleteSync(id));
+              log('[processDownloads] purged corrupt download record id=$id');
+            }
+          }
+        } catch (_) {
+          // La réparation elle-même peut échouer : on retentera au tick suivant.
+        }
+        return true;
+      }
+    }
+
     await Future.doWhile(() async {
       // Poll interval — short enough to feel snappy, long enough not to thrash.
       await Future.delayed(const Duration(milliseconds: 900));
+      return safeTick(() async {
 
       // ── Re-query Isar fresh every tick ────────────────────────────────────
       // This is the key fix: we never take a snapshot of the queue.  Paused
@@ -2027,7 +2068,13 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           .toList();
 
       for (final dl in ongoingRaw) {
-        if (!dl.chapter.isLoaded) dl.chapter.loadSync();
+        try {
+          if (!dl.chapter.isLoaded) dl.chapter.loadSync();
+        } catch (_) {
+          // Entrée Download dont la cible du lien est illisible : on saute
+          // cette entrée plutôt que de bloquer tout le scheduler.
+          continue;
+        }
         final ch = dl.chapter.value;
         if (ch == null) continue;
         // Relation chapitre → manga : on la charge, et si le lien est vide
@@ -2181,7 +2228,8 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         ref.read(downloadChapterProvider(chapter: chapter, useWifi: useWifi));
       }
 
-      return true; // keep polling
+        return true; // keep polling
+      });
     });
   } finally {
     // Always release the wakelock and stop the foreground service, whether
