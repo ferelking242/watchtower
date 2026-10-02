@@ -47,6 +47,28 @@ void main() {
     await cacheRoot.delete(recursive: true);
   });
 
+  CustomExtendedNetworkImageProvider _newProvider({String? url}) {
+    final imageUrl =
+        url ??
+        'http://127.0.0.1:${imageServer.port}/image-${_imageId++}.png';
+    return CustomExtendedNetworkImageProvider(
+      imageUrl,
+      retries: 1,
+      timeRetry: Duration.zero,
+    );
+  }
+
+  Future<File> _writeDiskCache(
+    CustomExtendedNetworkImageProvider provider,
+    Uint8List bytes,
+  ) async {
+    final directory = Directory(p.join(cacheRoot.path, 'cacheimagecover'));
+    await directory.create(recursive: true);
+    final file = File(p.join(directory.path, provider.cacheKeyForTesting));
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+
   test(
     'providers for the same URL and headers share a stable cache key',
     () async {
@@ -106,26 +128,4 @@ void main() {
     expect(cache.get('cover'), same(replacement));
     expect(cache.currentSize, replacement.length);
   });
-
-  CustomExtendedNetworkImageProvider _newProvider({String? url}) {
-    final imageUrl =
-        url ??
-        'http://127.0.0.1:${imageServer.port}/image-${_imageId++}.png';
-    return CustomExtendedNetworkImageProvider(
-      imageUrl,
-      retries: 1,
-      timeRetry: Duration.zero,
-    );
-  }
-
-  Future<File> _writeDiskCache(
-    CustomExtendedNetworkImageProvider provider,
-    Uint8List bytes,
-  ) async {
-    final directory = Directory(p.join(cacheRoot.path, 'cacheimagecover'));
-    await directory.create(recursive: true);
-    final file = File(p.join(directory.path, provider.cacheKeyForTesting));
-    await file.writeAsBytes(bytes);
-    return file;
-  }
 }
