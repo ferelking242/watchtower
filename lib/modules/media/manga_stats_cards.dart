@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -314,10 +316,7 @@ class _SerializationTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: AspectRatio(
                 aspectRatio: 3 / 4,
-                child: ContentImage(
-                  url: entry.thumbUrl,
-                  fit: BoxFit.cover,
-                ),
+                child: ContentImage(url: entry.thumbUrl, fit: BoxFit.cover),
               ),
             ),
             const SizedBox(height: 6),
@@ -572,7 +571,8 @@ class _PopularityRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    final deltaColor = item.deltaLabel != null && item.deltaLabel!.startsWith('+')
+    final deltaColor =
+        item.deltaLabel != null && item.deltaLabel!.startsWith('+')
         ? const Color(0xFF2ED573)
         : const Color(0xFFFF4757);
     return InkWell(
@@ -625,11 +625,7 @@ class _PopularityRow extends StatelessWidget {
           ),
           Row(
             children: [
-              Icon(
-                Icons.arrow_upward_rounded,
-                size: 10,
-                color: deltaColor,
-              ),
+              Icon(Icons.arrow_upward_rounded, size: 10, color: deltaColor),
               Text(
                 item.deltaLabel ?? '',
                 style: TextStyle(
@@ -805,8 +801,7 @@ class MangaItemStatsCard extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF2ED573).withValues(alpha: .16),
+                          color: const Color(0xFF2ED573).withValues(alpha: .16),
                           borderRadius: BorderRadius.circular(7),
                         ),
                         child: const Text(
@@ -889,7 +884,10 @@ class MangaStatsGridCard extends StatelessWidget {
             onSeeAll: onSeeAll,
           ),
           const SizedBox(height: 12),
-          for (var r = 0; r < 3; r++) ...[
+          // Le nombre de rangées suit la liste reçue : coder trois rangées en
+          // dur levait un RangeError dès qu'un appelant passait moins de neuf
+          // tuiles, ce qui faisait disparaître toute la page.
+          for (var r = 0; r < (tiles.length / 3).ceil(); r++) ...[
             if (r > 0) const SizedBox(height: 7),
             Row(
               children: [
@@ -902,20 +900,29 @@ class MangaStatsGridCard extends StatelessWidget {
                         horizontal: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: (tiles[r * 3 + c].color ?? accent)
-                            .withValues(alpha: .12),
+                        color:
+                            (tiles[math.min(r * 3 + c, tiles.length - 1)]
+                                        .color ??
+                                    accent)
+                                .withValues(alpha: .12),
                         borderRadius: BorderRadius.circular(11),
                         border: Border.all(
-                          color: (tiles[r * 3 + c].color ?? accent)
-                              .withValues(alpha: .4),
+                          color:
+                              (tiles[math.min(r * 3 + c, tiles.length - 1)]
+                                          .color ??
+                                      accent)
+                                  .withValues(alpha: .4),
                         ),
                       ),
                       child: Row(
                         children: [
                           Icon(
-                            tiles[r * 3 + c].icon,
+                            tiles[math.min(r * 3 + c, tiles.length - 1)].icon,
                             size: 14,
-                            color: tiles[r * 3 + c].color ?? accent,
+                            color:
+                                tiles[math.min(r * 3 + c, tiles.length - 1)]
+                                    .color ??
+                                accent,
                           ),
                           const SizedBox(width: 7),
                           Expanded(
@@ -923,7 +930,8 @@ class MangaStatsGridCard extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  tiles[r * 3 + c].label,
+                                  tiles[math.min(r * 3 + c, tiles.length - 1)]
+                                      .label,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -933,7 +941,8 @@ class MangaStatsGridCard extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  tiles[r * 3 + c].value,
+                                  tiles[math.min(r * 3 + c, tiles.length - 1)]
+                                      .value,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(

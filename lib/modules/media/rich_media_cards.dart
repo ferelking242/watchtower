@@ -335,7 +335,9 @@ class MovieDetailCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     _SecondaryAction(
-                      icon: data.inList ? Broken.tick_circle : Broken.add_circle,
+                      icon: data.inList
+                          ? Broken.tick_circle
+                          : Broken.add_circle,
                       label: 'Ma liste',
                       onTap: data.onAddToList,
                     ),
@@ -570,11 +572,7 @@ class _ExpandableMovieCardState extends State<ExpandableMovieCard> {
 /// ── 4. InteractiveMovieCard ─────────────────────────────────────────────
 /// Carte interactive : survol/clic révèle des actions rapides.
 class InteractiveMovieCard extends StatefulWidget {
-  const InteractiveMovieCard({
-    super.key,
-    required this.data,
-    this.width = 220,
-  });
+  const InteractiveMovieCard({super.key, required this.data, this.width = 220});
 
   final RichMediaCardData data;
   final double width;
@@ -798,9 +796,7 @@ class _HoverMovieCardState extends State<HoverMovieCard> {
                   Positioned(
                     right: 10,
                     top: 12,
-                    child: _IconMiniButton(
-                      icon: Icons.favorite_border_rounded,
-                    ),
+                    child: _IconMiniButton(icon: Icons.favorite_border_rounded),
                   ),
                 ],
               ),
@@ -856,7 +852,11 @@ class _HoverMovieCardState extends State<HoverMovieCard> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Broken.star, size: 12, color: Colors.amber),
+                          const Icon(
+                            Broken.star,
+                            size: 12,
+                            color: Colors.amber,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             (item.rating ?? 0).toStringAsFixed(1),
@@ -1039,7 +1039,9 @@ class MovieQuickView extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     _SecondaryAction(
-                      icon: data.inList ? Broken.tick_circle : Broken.add_circle,
+                      icon: data.inList
+                          ? Broken.tick_circle
+                          : Broken.add_circle,
                       label: 'Ma liste',
                       onTap: data.onAddToList,
                     ),
@@ -1236,7 +1238,11 @@ class MovieDetailsModal extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(Broken.star, size: 13, color: Colors.amber),
+                          const Icon(
+                            Broken.star,
+                            size: 13,
+                            color: Colors.amber,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             (item.rating ?? 0).toStringAsFixed(1),
@@ -1403,7 +1409,11 @@ class _SecondaryAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(11),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 9),
+          // `mainAxisSize.min` : un enfant non flexible d'une Row reçoit un
+          // maxWidth illimité. Avec `max` + Flexible, Flutter lève une
+          // exception et le rendu explose (débordements) en release.
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 14, color: Colors.white),
@@ -1452,11 +1462,7 @@ class _PillAction extends StatelessWidget {
 }
 
 class _IconMiniButton extends StatelessWidget {
-  const _IconMiniButton({
-    required this.icon,
-    this.onTap,
-    this.filled = false,
-  });
+  const _IconMiniButton({required this.icon, this.onTap, this.filled = false});
 
   final IconData icon;
   final VoidCallback? onTap;
@@ -1545,10 +1551,7 @@ class _CastAvatar extends StatelessWidget {
         Container(
           width: 46,
           height: 46,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           alignment: Alignment.center,
           child: Text(
             name.isEmpty ? '?' : name[0].toUpperCase(),

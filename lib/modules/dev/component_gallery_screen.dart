@@ -373,7 +373,12 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     super.dispose();
   }
 
-  List<_ComponentSpec> get _components => _buildComponents();
+  /// Le catalogue est construit une seule fois. `_buildComponents()` aligne
+  /// des milliers d'objets : le reconstruire à chaque frame (et deux fois par
+  /// `build`, via `_sectionsFor` puis `_visibleComponents`) gelait la page.
+  late final List<_ComponentSpec> _catalog = _buildComponents();
+
+  List<_ComponentSpec> get _components => _catalog;
 
   /// Sections présentes pour l'onglet courant, dans l'ordre du catalogue.
   List<String> _sectionsFor(_GalleryTab tab) {
@@ -384,7 +389,9 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     }
     final ordered = _orderedGallerySections.where(seen.contains).toList();
     ordered.addAll(
-      seen.where((section) => !_orderedGallerySections.contains(section)).toList()
+      seen
+          .where((section) => !_orderedGallerySections.contains(section))
+          .toList()
         ..sort(),
     );
     return ordered;
@@ -399,9 +406,9 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           final sectionMatches =
               _sectionFilter == null || component.section == _sectionFilter;
           final compatibleWithLayout =
-              !widget.selectionMode ||
-              component.layoutComponent != null;
-          final matchesTab = widget.selectionMode ||
+              !widget.selectionMode || component.layoutComponent != null;
+          final matchesTab =
+              widget.selectionMode ||
               component.isSection == (_tab == _GalleryTab.sections);
           return textMatches &&
               sectionMatches &&
@@ -428,47 +435,28 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     final visible = _visibleComponents;
 
     final galleryContent = CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            elevation: 0,
-            backgroundColor: const Color(0xFF0B0D10).withValues(alpha: .96),
-            surfaceTintColor: Colors.transparent,
-            titleSpacing: padding,
-            title: widget.selectionMode
-                ? const Text('Choisir un composant')
-                : const Row(
-                    children: [
-                      _GalleryMark(),
-                      SizedBox(width: 11),
-                      Text('Galerie des composants'),
-                    ],
-                  ),
-            bottom: isWide || widget.selectionMode
-                ? null
-                : PreferredSize(
-                    preferredSize: const Size.fromHeight(50),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(padding, 6, padding, 8),
-                      child: _GalleryTabBar(
-                        tab: _tab,
-                        onChanged: (tab) => setState(() {
-                          _tab = tab;
-                          if (_sectionFilter != null &&
-                              !_sectionsFor(tab).contains(_sectionFilter)) {
-                            _sectionFilter = null;
-                          }
-                        }),
-                      ),
-                    ),
-                  ),
-            actions: [
-              // Mode PC : sélecteur Cartes / Sections en haut à droite.
-              if (isWide && !widget.selectionMode)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: SizedBox(
-                    width: 212,
+      slivers: [
+        SliverAppBar(
+          pinned: true,
+          elevation: 0,
+          backgroundColor: const Color(0xFF0B0D10).withValues(alpha: .96),
+          surfaceTintColor: Colors.transparent,
+          titleSpacing: padding,
+          title: widget.selectionMode
+              ? const Text('Choisir un composant')
+              : const Row(
+                  children: [
+                    _GalleryMark(),
+                    SizedBox(width: 11),
+                    Text('Galerie des composants'),
+                  ],
+                ),
+          bottom: isWide || widget.selectionMode
+              ? null
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(50),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(padding, 6, padding, 8),
                     child: _GalleryTabBar(
                       tab: _tab,
                       onChanged: (tab) => setState(() {
@@ -481,64 +469,82 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                     ),
                   ),
                 ),
-              IconButton(
-                tooltip: 'Réinitialiser les filtres',
-                onPressed: _resetFilters,
-                icon: const Icon(Icons.restart_alt_rounded),
-              ),
+          actions: [
+            // Mode PC : sélecteur Cartes / Sections en haut à droite.
+            if (isWide && !widget.selectionMode)
               Padding(
-                padding: EdgeInsets.only(right: padding - 8),
-                child: IconButton(
-                  tooltip: 'Fermer la galerie',
-                  onPressed: widget.onClose ??
-                      () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Broken.close_circle),
+                padding: const EdgeInsets.only(right: 6),
+                child: SizedBox(
+                  width: 212,
+                  child: _GalleryTabBar(
+                    tab: _tab,
+                    onChanged: (tab) => setState(() {
+                      _tab = tab;
+                      if (_sectionFilter != null &&
+                          !_sectionsFor(tab).contains(_sectionFilter)) {
+                        _sectionFilter = null;
+                      }
+                    }),
+                  ),
                 ),
               ),
-            ],
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(padding, 18, padding, 18),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1900),
-                  child: _GalleryHeader(
-                    queryController: _searchController,
-                    query: _query,
-                    state: _state,
-                    resultCount: visible.length,
-                    sections: sections,
-                    sectionFilter: _sectionFilter,
-                    onQueryChanged: (query) => setState(() => _query = query),
-                    onStateChanged: (state) => setState(() => _state = state),
-                    onSectionChanged: (section) =>
-                        setState(() => _sectionFilter = section),
-                  ),
+            IconButton(
+              tooltip: 'Réinitialiser les filtres',
+              onPressed: _resetFilters,
+              icon: const Icon(Icons.restart_alt_rounded),
+            ),
+            Padding(
+              padding: EdgeInsets.only(right: padding - 8),
+              child: IconButton(
+                tooltip: 'Fermer la galerie',
+                onPressed:
+                    widget.onClose ?? () => Navigator.of(context).maybePop(),
+                icon: const Icon(Broken.close_circle),
+              ),
+            ),
+          ],
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(padding, 18, padding, 18),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1900),
+                child: _GalleryHeader(
+                  queryController: _searchController,
+                  query: _query,
+                  state: _state,
+                  resultCount: visible.length,
+                  sections: sections,
+                  sectionFilter: _sectionFilter,
+                  onQueryChanged: (query) => setState(() => _query = query),
+                  onStateChanged: (state) => setState(() => _state = state),
+                  onSectionChanged: (section) =>
+                      setState(() => _sectionFilter = section),
                 ),
               ),
             ),
           ),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(padding, 0, padding, 88),
-            sliver: visible.isEmpty
-                ? const SliverToBoxAdapter(child: _EmptyGalleryState())
-                : SliverToBoxAdapter(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1900),
-                        child: _UnifiedGallery(
-                          components: visible,
-                          state: _state,
-                          onSelectLayoutComponent:
-                              widget.onSelectLayoutComponent,
-                        ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(padding, 0, padding, 88),
+          sliver: visible.isEmpty
+              ? const SliverToBoxAdapter(child: _EmptyGalleryState())
+              : SliverToBoxAdapter(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1900),
+                      child: _UnifiedGallery(
+                        components: visible,
+                        state: _state,
+                        onSelectLayoutComponent: widget.onSelectLayoutComponent,
                       ),
                     ),
                   ),
-          ),
-        ],
-      );
+                ),
+        ),
+      ],
+    );
     return widget.embedded
         ? galleryContent
         : Scaffold(
@@ -631,7 +637,9 @@ class _GalleryTabOption extends StatelessWidget {
           margin: const EdgeInsets.all(3),
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
-            color: selected ? accent.withValues(alpha: .22) : Colors.transparent,
+            color: selected
+                ? accent.withValues(alpha: .22)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
@@ -804,18 +812,16 @@ class _GalleryHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: sectionFilter == null
                       ? const Color(0xFF161A20)
-                      : Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: .16),
+                      : Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: .16),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: sectionFilter == null
                         ? Colors.white10
-                        : Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withValues(alpha: .55),
+                        : Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: .55),
                   ),
                 ),
                 child: Icon(
@@ -838,7 +844,11 @@ class _GalleryHeader extends StatelessWidget {
         const SizedBox(height: 14),
         Row(
           children: [
-            const Icon(Icons.grid_view_rounded, size: 17, color: Colors.white54),
+            const Icon(
+              Icons.grid_view_rounded,
+              size: 17,
+              color: Colors.white54,
+            ),
             const SizedBox(width: 8),
             Text(
               '$resultCount aperçu${resultCount == 1 ? '' : 's'}',
@@ -930,7 +940,9 @@ class _SectionChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? accent.withValues(alpha: .22) : Colors.white.withValues(alpha: .06),
+            color: selected
+                ? accent.withValues(alpha: .22)
+                : Colors.white.withValues(alpha: .06),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected
@@ -1048,16 +1060,19 @@ class _UnifiedGallery extends StatelessWidget {
   Widget build(BuildContext context) {
     final grouped = <String, List<_ComponentSpec>>{};
     for (final component in components) {
-      grouped.putIfAbsent(component.section, () => <_ComponentSpec>[]).add(component);
+      grouped
+          .putIfAbsent(component.section, () => <_ComponentSpec>[])
+          .add(component);
     }
     // Keep the catalogue in a stable, readable order instead of an
     // insertion-order soup where section labels end up interleaved.
     final orderedEntries = <MapEntry<String, List<_ComponentSpec>>>[
-      ..._orderedGallerySections.where(grouped.containsKey).map(
-            (section) => MapEntry(section, grouped[section]!),
-          ),
-      ...grouped.entries
-          .where((entry) => !_orderedGallerySections.contains(entry.key)),
+      ..._orderedGallerySections
+          .where(grouped.containsKey)
+          .map((section) => MapEntry(section, grouped[section]!)),
+      ...grouped.entries.where(
+        (entry) => !_orderedGallerySections.contains(entry.key),
+      ),
     ];
 
     return SizedBox(
@@ -1077,7 +1092,8 @@ class _UnifiedGallery extends StatelessWidget {
               state: state,
               onSelectLayoutComponent: onSelectLayoutComponent,
             ),
-            if (entry.key != orderedEntries.last.key) const SizedBox(height: 32),
+            if (entry.key != orderedEntries.last.key)
+              const SizedBox(height: 32),
           ],
         ],
       ),
@@ -1088,7 +1104,8 @@ class _UnifiedGallery extends StatelessWidget {
 IconData _sectionIcon(String section) {
   if (section.contains('EXTENSION')) return Icons.extension_outlined;
   if (section.contains('STREAMING')) return Icons.play_circle_outline_rounded;
-  if (section.contains('COLLECTION')) return Icons.collections_bookmark_outlined;
+  if (section.contains('COLLECTION'))
+    return Icons.collections_bookmark_outlined;
   if (section.contains('ÉPISODES')) return Icons.subtitles_outlined;
   if (section.contains('CLASSEMENTS')) return Icons.leaderboard_outlined;
   if (section.contains('MANGA')) return Icons.menu_book_outlined;
@@ -1121,12 +1138,18 @@ class _UnifiedSectionLabel extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 7),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
+        // Un libellé long débordait de la rangée sur téléphone : il se
+        // comprime désormais au lieu de pousser le compteur hors de l'écran.
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
         if (count > 0) ...[
@@ -1175,22 +1198,28 @@ class _ComponentGrid extends StatelessWidget {
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
 
+        // Les aperçus compacts ont besoin d'environ 220 px de large : sur un
+        // téléphone, imposer deux colonnes les écrasait à ~165 px, chaque
+        // composant débordait d'une cinquantaine de pixels et se peignait
+        // par-dessus ses voisins (les artefacts visibles dans la galerie).
+        final minColumns = availableWidth < 560 ? 1 : 2;
+
         double tileWidthFor(_ComponentSpec component) {
           // Petits composants : jusqu'à 5 par rangée pour les mettre côte
           // à côte au lieu de laisser un grand vide à droite de chacun.
           if (component.isCompactPreview) {
-            final columns =
-                (availableWidth / 240).floor().clamp(2, 5).toInt();
+            final columns = (availableWidth / 240)
+                .floor()
+                .clamp(minColumns, 5)
+                .toInt();
             return (availableWidth - spacing * (columns - 1)) / columns;
           }
           // Rails / héros : au plus 2 par rangée.
           if (component.isWidePreview) {
-            final columns =
-                (availableWidth / 620).floor().clamp(1, 2).toInt();
+            final columns = (availableWidth / 620).floor().clamp(1, 2).toInt();
             return (availableWidth - spacing * (columns - 1)) / columns;
           }
-          final columns =
-              (availableWidth / 420).floor().clamp(1, 3).toInt();
+          final columns = (availableWidth / 420).floor().clamp(1, 3).toInt();
           return (availableWidth - spacing * (columns - 1)) / columns;
         }
 
@@ -1308,7 +1337,9 @@ class _ComponentTile extends StatelessWidget {
                   // Browser clipboard access can be denied by permissions or
                   // by the current browsing context. Keep this optional
                   // gallery action from surfacing as an uncaught app error.
-                  debugPrint('[ComponentGallery] Clipboard copy failed: $error');
+                  debugPrint(
+                    '[ComponentGallery] Clipboard copy failed: $error',
+                  );
                 }
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context)
@@ -1407,9 +1438,23 @@ class _ComponentTile extends StatelessWidget {
             ),
             child: Align(
               alignment: Alignment.topLeft,
-              child: state == _GalleryState.result
-                  ? component.result(context)
-                  : _CardSkeleton(kind: component.kind),
+              // Les aperçus vivent dans une Colonne de sliver, donc en hauteur
+              // illimitée. Un Stack (héros, rails…) y lève une exception et
+              // fait partir tout le rendu en artefacts. On borne la hauteur
+              // par type d'aperçu et on découpe ce qui dépasse.
+              child: SizedBox(
+                width: double.infinity,
+                child: ClipRect(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: component.isWidePreview ? 720 : 600,
+                    ),
+                    child: state == _GalleryState.result
+                        ? component.result(context)
+                        : _CardSkeleton(kind: component.kind),
+                  ),
+                ),
+              ),
             ),
           ),
           if (onSelectLayoutComponent != null &&
@@ -1441,22 +1486,27 @@ class _CardSkeleton extends StatelessWidget {
     final card = switch (kind) {
       // ── Posters ──
       _PreviewKind.poster => const PosterSkeleton(width: 112),
-      _PreviewKind.featured =>
-        const PosterSkeleton(width: 180, ratio: 3 / 4, radius: 18),
-      _PreviewKind.compactPoster =>
-        const PosterSkeleton(width: 92, radius: 11, compact: true),
+      _PreviewKind.featured => const PosterSkeleton(
+        width: 180,
+        ratio: 3 / 4,
+        radius: 18,
+      ),
+      _PreviewKind.compactPoster => const PosterSkeleton(
+        width: 92,
+        radius: 11,
+        compact: true,
+      ),
       _PreviewKind.carousel => const PosterSkeleton(width: 112, radius: 14),
       _PreviewKind.manga => const PosterSkeleton(width: 112),
       _PreviewKind.mangaHome => const PosterSkeleton(
-          width: 168,
-          radius: 16,
-          titleInside: true,
-        ),
-      _PreviewKind.searchGrid =>
-        const PosterSkeleton(width: 112, ratio: 3 / 4),
+        width: 168,
+        radius: 16,
+        titleInside: true,
+      ),
+      _PreviewKind.searchGrid => const PosterSkeleton(width: 112, ratio: 3 / 4),
       _PreviewKind.top3 => const Top3Skeleton(),
-      _PreviewKind.ranked || _PreviewKind.rankedWide =>
-        const RankedRailSkeleton(),
+      _PreviewKind.ranked ||
+      _PreviewKind.rankedWide => const RankedRailSkeleton(),
       // ── Landscape ──
       _PreviewKind.landscape => const LandscapeSkeleton(width: 220),
       _PreviewKind.saga => const LandscapeSkeleton(width: 200, ratio: 16 / 10),
@@ -1464,15 +1514,15 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.mini => const TonightMiniSkeleton(),
       _PreviewKind.tag => const TagSkeleton(),
       _PreviewKind.genre => const SizedBox(
-          width: 260,
-          height: 112,
-          child: AppGenreTileShimmer(),
-        ),
+        width: 260,
+        height: 112,
+        child: AppGenreTileShimmer(),
+      ),
       _PreviewKind.mangaGenre => const SizedBox(
-          width: 118,
-          height: 84,
-          child: AppGenreTileShimmer(),
-        ),
+        width: 118,
+        height: 84,
+        child: AppGenreTileShimmer(),
+      ),
       _PreviewKind.genreSection => const AppGenreGridShimmer(),
       _PreviewKind.mediaSection => const MediaSectionSkeleton(),
       _PreviewKind.providersSection => const AppStreamingServicesShimmer(),
@@ -1482,18 +1532,25 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.episode => const EpisodeCardSkeleton(withProgress: true),
       _PreviewKind.detailEpisode => const EpisodeCardSkeleton(),
       _PreviewKind.trailer => const TrailerSkeleton(),
-      _PreviewKind.wallpaper || _PreviewKind.studio ||
+      _PreviewKind.wallpaper ||
+      _PreviewKind.studio ||
       _PreviewKind.searchCinema => const WallpaperSkeleton(),
       _PreviewKind.season => const SeasonSkeleton(),
       _PreviewKind.cast || _PreviewKind.creator => const CastSkeleton(),
-      _PreviewKind.searchList || _PreviewKind.history =>
-        const ListRowSkeleton(width: 330),
-      _PreviewKind.mangaList =>
-        const ListRowSkeleton(width: 330, plain: true, thumb: 62),
+      _PreviewKind.searchList ||
+      _PreviewKind.history => const ListRowSkeleton(width: 330),
+      _PreviewKind.mangaList => const ListRowSkeleton(
+        width: 330,
+        plain: true,
+        thumb: 62,
+      ),
       _PreviewKind.showcase => const ShowcaseSkeleton(),
       _PreviewKind.collection => const ExtensionCollectionCardShimmer(),
       _PreviewKind.banner => const BannerSkeleton(),
-      _PreviewKind.mangaSpotlight => const BannerSkeleton(width: 320, ratio: 16 / 9),
+      _PreviewKind.mangaSpotlight => const BannerSkeleton(
+        width: 320,
+        ratio: 16 / 9,
+      ),
       _PreviewKind.extensionGrid => const MediaSectionSkeleton(),
       _PreviewKind.historyGrid => const PosterGridSkeleton(),
       _PreviewKind.mangaUpdateFeed => const LatestUpdateSkeleton(),
@@ -1503,48 +1560,67 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.mangaTrending => const TrendingListSkeleton(),
       _PreviewKind.mangaScanGroup => const ScanGroupSkeleton(),
       _PreviewKind.empty || _PreviewKind.error => const SizedBox(
-          width: 300,
-          height: 174,
-          child: AppShimmerBlock(radius: 18),
-        ),
+        width: 300,
+        height: 174,
+        child: AppShimmerBlock(radius: 18),
+      ),
       _PreviewKind.swipeSection => const SwipeSectionSkeleton(),
       // ── Cartes riches ──
       _PreviewKind.richDetails => const _RichDetailsSkeleton(),
       _PreviewKind.richBackdrop => const _RichBackdropSkeleton(),
       _PreviewKind.richExpanded => const _RichExpandedSkeleton(),
-      _PreviewKind.richInteractive || _PreviewKind.richHover =>
-        const _RichInteractiveSkeleton(),
+      _PreviewKind.richInteractive ||
+      _PreviewKind.richHover => const _RichInteractiveSkeleton(),
       _PreviewKind.richQuickView => const _RichQuickViewSkeleton(),
       _PreviewKind.richPreview => const PosterSkeleton(width: 132),
       _PreviewKind.richModal => const _RichModalSkeleton(),
       // ── Streaming ──
-      _PreviewKind.streamContinue =>
-        const LandscapeSkeleton(width: 300, ratio: 4 / 3),
+      _PreviewKind.streamContinue => const LandscapeSkeleton(
+        width: 300,
+        ratio: 4 / 3,
+      ),
       _PreviewKind.streamContinueItem => const ListRowSkeleton(width: 380),
-      _PreviewKind.streamResume =>
-        const PosterSkeleton(width: 220, ratio: 1 / 1.3),
+      _PreviewKind.streamResume => const PosterSkeleton(
+        width: 220,
+        ratio: 1 / 1.3,
+      ),
       _PreviewKind.streamRecently => const _StreamPanelSkeleton(),
-      _PreviewKind.streamWatchAgain =>
-        const PosterSkeleton(width: 200, ratio: 4 / 3),
-      _PreviewKind.streamNowPlaying =>
-        const LandscapeSkeleton(width: 380, ratio: 16 / 10),
-      _PreviewKind.streamUpNext =>
-        const LandscapeSkeleton(width: 240, ratio: 1 / 1.28),
-      _PreviewKind.streamNextEpisode =>
-        const LandscapeSkeleton(width: 240, ratio: 1 / 1.28),
+      _PreviewKind.streamWatchAgain => const PosterSkeleton(
+        width: 200,
+        ratio: 4 / 3,
+      ),
+      _PreviewKind.streamNowPlaying => const LandscapeSkeleton(
+        width: 380,
+        ratio: 16 / 10,
+      ),
+      _PreviewKind.streamUpNext => const LandscapeSkeleton(
+        width: 240,
+        ratio: 1 / 1.28,
+      ),
+      _PreviewKind.streamNextEpisode => const LandscapeSkeleton(
+        width: 240,
+        ratio: 1 / 1.28,
+      ),
       _PreviewKind.streamEpisode => const _StreamEpisodeListSkeleton(),
-      _PreviewKind.streamSeason =>
-        const LandscapeSkeleton(width: 280, ratio: 16 / 10),
-      _PreviewKind.streamSeriesEpisode =>
-        const ListRowSkeleton(width: 400, thumb: 58),
-      _PreviewKind.streamWatchProgress =>
-        const ListRowSkeleton(width: 400, thumb: 70),
-      _PreviewKind.streamProgressMedia =>
-        const ListRowSkeleton(width: 400, thumb: 70),
+      _PreviewKind.streamSeason => const LandscapeSkeleton(
+        width: 280,
+        ratio: 16 / 10,
+      ),
+      _PreviewKind.streamSeriesEpisode => const ListRowSkeleton(
+        width: 400,
+        thumb: 58,
+      ),
+      _PreviewKind.streamWatchProgress => const ListRowSkeleton(
+        width: 400,
+        thumb: 70,
+      ),
+      _PreviewKind.streamProgressMedia => const ListRowSkeleton(
+        width: 400,
+        thumb: 70,
+      ),
       // ── Collections & franchises ──
       _PreviewKind.collCollection => const _CollectionSkeleton(),
-      _PreviewKind.collMovieCollection =>
-        const _CollectionSkeleton(width: 400),
+      _PreviewKind.collMovieCollection => const _CollectionSkeleton(width: 400),
       _PreviewKind.collFranchise => const _CollectionSkeleton(width: 400),
       _PreviewKind.collSaga => const _CollectionSkeleton(width: 400),
       _PreviewKind.collStudio => const _CollectionSkeleton(width: 400),
@@ -1559,7 +1635,10 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.collPopular => const _PosterRowSkeleton(),
       _PreviewKind.collTopRated => const _PosterRowSkeleton(),
       _PreviewKind.collRanked => const _PosterRowSkeleton(count: 5),
-      _PreviewKind.collNumbered => const _PosterRowSkeleton(count: 5, withHeader: false),
+      _PreviewKind.collNumbered => const _PosterRowSkeleton(
+        count: 5,
+        withHeader: false,
+      ),
       _PreviewKind.collFeatured => const WallpaperSkeleton(),
       _PreviewKind.collSpotlight => const WallpaperSkeleton(),
       _PreviewKind.collRecommendation => const _PosterRowSkeleton(),
@@ -1569,25 +1648,40 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.epThumbnail => const EpisodeCardSkeleton(width: 240),
       _PreviewKind.epPreview => const ListRowSkeleton(width: 400),
       _PreviewKind.epListItem => const _StreamEpisodeListSkeleton(),
-      _PreviewKind.epSeasonDetail =>
-        const LandscapeSkeleton(width: 260, ratio: 4 / 3),
+      _PreviewKind.epSeasonDetail => const LandscapeSkeleton(
+        width: 260,
+        ratio: 4 / 3,
+      ),
       _PreviewKind.epFeatured => const PosterSkeleton(width: 200, ratio: 2 / 3),
-      _PreviewKind.epNextHero => const LandscapeSkeleton(width: 380, ratio: 2.2),
+      _PreviewKind.epNextHero => const LandscapeSkeleton(
+        width: 380,
+        ratio: 2.2,
+      ),
       _PreviewKind.epLatest => const WallpaperSkeleton(),
       _PreviewKind.epSelector => const _CollectionSkeleton(width: 420),
       _PreviewKind.epSeriesList => const _StreamEpisodeListSkeleton(),
       _PreviewKind.epProgress => const ListRowSkeleton(width: 380, thumb: 70),
-      _PreviewKind.epMediaProgress =>
-        const ListRowSkeleton(width: 380, thumb: 70),
-      _PreviewKind.epUpNextCompact =>
-        const LandscapeSkeleton(width: 240, ratio: 3 / 2),
-      _PreviewKind.epSeasonEpisode =>
-        const ListRowSkeleton(width: 380, thumb: 74),
+      _PreviewKind.epMediaProgress => const ListRowSkeleton(
+        width: 380,
+        thumb: 70,
+      ),
+      _PreviewKind.epUpNextCompact => const LandscapeSkeleton(
+        width: 240,
+        ratio: 3 / 2,
+      ),
+      _PreviewKind.epSeasonEpisode => const ListRowSkeleton(
+        width: 380,
+        thumb: 74,
+      ),
       _PreviewKind.epSeriesBanner => const WallpaperSkeleton(),
-      _PreviewKind.epCarousel =>
-        const _PosterRowSkeleton(count: 5, withHeader: false),
-      _PreviewKind.epSeasonBanner =>
-        const LandscapeSkeleton(width: 420, ratio: 2.8),
+      _PreviewKind.epCarousel => const _PosterRowSkeleton(
+        count: 5,
+        withHeader: false,
+      ),
+      _PreviewKind.epSeasonBanner => const LandscapeSkeleton(
+        width: 420,
+        ratio: 2.8,
+      ),
       _PreviewKind.epEpisodeList => const _StreamEpisodeListSkeleton(),
       _PreviewKind.epSeriesGrid => const PosterGridSkeleton(),
       // ── Classements & Top 10 ──
@@ -1604,22 +1698,28 @@ class _CardSkeleton extends StatelessWidget {
 
       // ── MANGA & LECTURE — Section 1 ──
       _PreviewKind.mgChapter => const PosterSkeleton(
-          width: 280,
-          ratio: 3 / 4,
-          radius: 14,
-        ),
+        width: 280,
+        ratio: 3 / 4,
+        radius: 14,
+      ),
       _PreviewKind.mgRelease => const ListRowSkeleton(),
       _PreviewKind.mgChapterList => const ListRowSkeleton(),
-      _PreviewKind.mgGroup => const LandscapeSkeleton(width: 260, ratio: 16 / 10),
+      _PreviewKind.mgGroup => const LandscapeSkeleton(
+        width: 260,
+        ratio: 16 / 10,
+      ),
       _PreviewKind.mgLatest => const ListRowSkeleton(thumb: 44),
       _PreviewKind.mgTimeline => const ListRowSkeleton(),
       _PreviewKind.mgVolume => const PosterSkeleton(
-          width: 280,
-          ratio: 3 / 4,
-          radius: 14,
-        ),
+        width: 280,
+        ratio: 3 / 4,
+        radius: 14,
+      ),
       _PreviewKind.mgBadge => const _ShimmerLine(width: 330, height: 90),
-      _PreviewKind.mgRange => const LandscapeSkeleton(width: 260, ratio: 16 / 10),
+      _PreviewKind.mgRange => const LandscapeSkeleton(
+        width: 260,
+        ratio: 16 / 10,
+      ),
       _PreviewKind.mgChapterTimeline => const ListRowSkeleton(),
       _PreviewKind.mgNew => const LandscapeSkeleton(width: 320),
       _PreviewKind.mgProgress => const ListRowSkeleton(thumb: 62),
@@ -1631,13 +1731,20 @@ class _CardSkeleton extends StatelessWidget {
       _PreviewKind.volList => const PosterGridSkeleton(),
       _PreviewKind.volPreview => const LandscapeSkeleton(width: 420),
       _PreviewKind.volSpecial => const PosterSkeleton(width: 132, radius: 14),
-      _PreviewKind.volFormat => const PosterSkeleton(width: 120, ratio: 1, radius: 14),
+      _PreviewKind.volFormat => const PosterSkeleton(
+        width: 120,
+        ratio: 1,
+        radius: 14,
+      ),
       _PreviewKind.volLang => const ListRowSkeleton(),
       _PreviewKind.volTracker => const ListRowSkeleton(thumb: 64),
       _PreviewKind.volUpcoming => const ListRowSkeleton(thumb: 36),
 
       // ── MANGA & LECTURE — Section 5 ──
-      _PreviewKind.genGenres => const LandscapeSkeleton(width: 190, ratio: 16 / 9),
+      _PreviewKind.genGenres => const LandscapeSkeleton(
+        width: 190,
+        ratio: 16 / 9,
+      ),
       _PreviewKind.genDemo => const ListRowSkeleton(width: 190, thumb: 40),
       _PreviewKind.genThemes => const ListRowSkeleton(width: 170, thumb: 40),
       _PreviewKind.genShowcase => const _PosterRowSkeleton(width: 430),
@@ -1648,10 +1755,18 @@ class _CardSkeleton extends StatelessWidget {
 
       // ── MANGA & LECTURE — Section 6 ──
       _PreviewKind.rdReader => const ListRowSkeleton(thumb: 86),
-      _PreviewKind.rdPage => const PosterSkeleton(width: 340, ratio: 3 / 4, radius: 14),
+      _PreviewKind.rdPage => const PosterSkeleton(
+        width: 340,
+        ratio: 3 / 4,
+        radius: 14,
+      ),
       _PreviewKind.rdPreview => const LandscapeSkeleton(width: 420),
       _PreviewKind.rdStrip => const LandscapeSkeleton(width: 420),
-      _PreviewKind.rdDouble => const PosterSkeleton(width: 340, ratio: 3 / 4, radius: 14),
+      _PreviewKind.rdDouble => const PosterSkeleton(
+        width: 340,
+        ratio: 3 / 4,
+        radius: 14,
+      ),
       _PreviewKind.rdMode => const _ShimmerLine(width: 400, height: 110),
       _PreviewKind.rdDirection => const _ShimmerLine(width: 300, height: 120),
       _PreviewKind.rdSettings => const ListRowSkeleton(),
@@ -1665,10 +1780,16 @@ class _CardSkeleton extends StatelessWidget {
 
       // ── MANGA & LECTURE — Section 7 ──
       _PreviewKind.uniTypes => const PosterSkeleton(width: 95, radius: 10),
-      _PreviewKind.uniTimeline => const LandscapeSkeleton(width: 360, ratio: 16 / 7),
+      _PreviewKind.uniTimeline => const LandscapeSkeleton(
+        width: 360,
+        ratio: 16 / 7,
+      ),
       _PreviewKind.uniLinked => const PosterSkeleton(width: 105, radius: 10),
       _PreviewKind.uniRelationList => const ListRowSkeleton(),
-      _PreviewKind.uniSame => const LandscapeSkeleton(width: 430, ratio: 16 / 6),
+      _PreviewKind.uniSame => const LandscapeSkeleton(
+        width: 430,
+        ratio: 16 / 6,
+      ),
       _PreviewKind.uniChrono => const ListRowSkeleton(thumb: 40),
       _PreviewKind.uniFranchise => const ListRowSkeleton(thumb: 40),
       _PreviewKind.uniChars => const LandscapeSkeleton(width: 100, ratio: 1),
@@ -1698,11 +1819,18 @@ class _CardSkeleton extends StatelessWidget {
       // ── ACCUEIL & LECTURE ──
       _PreviewKind.hmHero => const SpotlightSkeleton(),
       _PreviewKind.hmSpotlight => const ListRowSkeleton(thumb: 64),
-      _PreviewKind.hmGenreCards => const PosterSkeleton(width: 96, ratio: 1, radius: 12),
+      _PreviewKind.hmGenreCards => const PosterSkeleton(
+        width: 96,
+        ratio: 1,
+        radius: 12,
+      ),
       _PreviewKind.hmPopular => const _PosterRowSkeleton(width: 620),
       _PreviewKind.hmRead => const _PosterRowSkeleton(width: 620),
       _PreviewKind.hmCountries => const _ShimmerLine(width: 360, height: 110),
-      _PreviewKind.hmMyList => const LandscapeSkeleton(width: 360, ratio: 16 / 6),
+      _PreviewKind.hmMyList => const LandscapeSkeleton(
+        width: 360,
+        ratio: 16 / 6,
+      ),
       _PreviewKind.hmAI => const _ShimmerLine(width: 360, height: 100),
       _PreviewKind.hmMiniPlayer => const ListRowSkeleton(thumb: 56),
     };
@@ -1814,11 +1942,7 @@ class RankedRailSkeleton extends StatelessWidget {
 
 /// 16:9 image + one title line (LandscapeCard and friends).
 class LandscapeSkeleton extends StatelessWidget {
-  const LandscapeSkeleton({
-    this.width = 220,
-    this.ratio = 16 / 9,
-    super.key,
-  });
+  const LandscapeSkeleton({this.width = 220, this.ratio = 16 / 9, super.key});
 
   final double width;
   final double ratio;
@@ -1830,10 +1954,7 @@ class LandscapeSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AspectRatio(
-            aspectRatio: ratio,
-            child: AppShimmerBlock(radius: 16),
-          ),
+          AspectRatio(aspectRatio: ratio, child: AppShimmerBlock(radius: 16)),
           const SizedBox(height: 6),
           const _ShimmerLine(width: 150, height: 11),
           const SizedBox(height: 4),
@@ -1889,10 +2010,7 @@ class TonightMiniSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AspectRatio(
-            aspectRatio: 1.44,
-            child: AppShimmerBlock(radius: 11),
-          ),
+          AspectRatio(aspectRatio: 1.44, child: AppShimmerBlock(radius: 11)),
           const SizedBox(height: 5),
           const _ShimmerLine(width: 120, height: 10),
         ],
@@ -1916,11 +2034,7 @@ class TagSkeleton extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: AppShimmerBlock(radius: 8),
-          ),
+          SizedBox(width: 16, height: 16, child: AppShimmerBlock(radius: 8)),
           SizedBox(width: 8),
           Expanded(child: _ShimmerLine(width: 140, height: 11)),
         ],
@@ -2005,9 +2119,7 @@ class HomeHeroSkeleton extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned.fill(
-            child: AppShimmerBlock(radius: 0),
-          ),
+          Positioned.fill(child: AppShimmerBlock(radius: 0)),
           const Positioned(
             left: 24,
             right: 24,
@@ -2284,10 +2396,7 @@ class ShowcaseSkeleton extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                const SizedBox(
-                  width: 92,
-                  child: AppShimmerBlock(radius: 10),
-                ),
+                const SizedBox(width: 92, child: AppShimmerBlock(radius: 10)),
                 const SizedBox(width: 10),
                 Expanded(child: AppShimmerBlock(radius: 10)),
               ],
@@ -2304,11 +2413,7 @@ class ShowcaseSkeleton extends StatelessWidget {
 /// Full-width banner card with bottom title (MediaBannerRail, MangaBannerCard,
 /// MangaSpotlightCard).
 class BannerSkeleton extends StatelessWidget {
-  const BannerSkeleton({
-    this.width = 340,
-    this.ratio = 2.05,
-    super.key,
-  });
+  const BannerSkeleton({this.width = 340, this.ratio = 2.05, super.key});
 
   final double width;
   final double ratio;
@@ -2502,9 +2607,7 @@ class MangaRankingSkeleton extends StatelessWidget {
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(11),
                       ),
-                      child: Center(
-                        child: _ShimmerLine(width: 52, height: 10),
-                      ),
+                      child: Center(child: _ShimmerLine(width: 52, height: 10)),
                     ),
                   ),
                 ],
@@ -2961,9 +3064,17 @@ class _RichDetailsSkeleton extends StatelessWidget {
                 child: SizedBox(height: 32, child: AppShimmerBlock(radius: 11)),
               ),
               const SizedBox(width: 8),
-              SizedBox(width: 32, height: 32, child: AppShimmerBlock(radius: 11)),
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: AppShimmerBlock(radius: 11),
+              ),
               const SizedBox(width: 8),
-              SizedBox(width: 32, height: 32, child: AppShimmerBlock(radius: 11)),
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: AppShimmerBlock(radius: 11),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -3021,10 +3132,17 @@ class _RichBackdropSkeleton extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: SizedBox(height: 32, child: AppShimmerBlock(radius: 11)),
+                      child: SizedBox(
+                        height: 32,
+                        child: AppShimmerBlock(radius: 11),
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    SizedBox(width: 84, height: 32, child: AppShimmerBlock(radius: 11)),
+                    SizedBox(
+                      width: 84,
+                      height: 32,
+                      child: AppShimmerBlock(radius: 11),
+                    ),
                   ],
                 ),
               ],
@@ -3196,10 +3314,17 @@ class _RichQuickViewSkeleton extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: SizedBox(height: 32, child: AppShimmerBlock(radius: 11)),
+                      child: SizedBox(
+                        height: 32,
+                        child: AppShimmerBlock(radius: 11),
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    SizedBox(width: 90, height: 32, child: AppShimmerBlock(radius: 11)),
+                    SizedBox(
+                      width: 90,
+                      height: 32,
+                      child: AppShimmerBlock(radius: 11),
+                    ),
                   ],
                 ),
               ],
@@ -3264,9 +3389,17 @@ class _RichModalSkeleton extends StatelessWidget {
                 child: SizedBox(height: 34, child: AppShimmerBlock(radius: 11)),
               ),
               const SizedBox(width: 8),
-              SizedBox(width: 90, height: 34, child: AppShimmerBlock(radius: 11)),
+              SizedBox(
+                width: 90,
+                height: 34,
+                child: AppShimmerBlock(radius: 11),
+              ),
               const SizedBox(width: 8),
-              SizedBox(width: 34, height: 34, child: AppShimmerBlock(radius: 11)),
+              SizedBox(
+                width: 34,
+                height: 34,
+                child: AppShimmerBlock(radius: 11),
+              ),
             ],
           ),
         ],
@@ -3342,10 +3475,7 @@ class _CollectionSkeleton extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: SizedBox(
-              height: height,
-              child: AppShimmerBlock(radius: 14),
-            ),
+            child: SizedBox(height: height, child: AppShimmerBlock(radius: 14)),
           ),
           const SizedBox(width: 8),
           SizedBox(
@@ -4157,7 +4287,12 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.richDetails,
     result: (_) => MovieDetailsCard(
       data: _richCardData(_tmdbItems[0]),
-      castNames: const ['Timothée Chalamet', 'Zendaya', 'Rebecca Ferguson', 'Josh Brolin'],
+      castNames: const [
+        'Timothée Chalamet',
+        'Zendaya',
+        'Rebecca Ferguson',
+        'Josh Brolin',
+      ],
     ),
   ),
   _ComponentSpec(
@@ -4431,11 +4566,7 @@ List<_ComponentSpec> _buildComponents() => [
       key: const ValueKey('stream-episode-card'),
       seasonLabel: 'Saison 1',
       episodes: [
-        _streamEpisode(
-          _tmdbItems[4],
-          title: 'Épisode 7',
-          meta: '24 min',
-        ),
+        _streamEpisode(_tmdbItems[4], title: 'Épisode 7', meta: '24 min'),
         _streamEpisode(
           _tmdbItems[3],
           title: 'Épisode 8',
@@ -4851,14 +4982,26 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.collSimilar,
     result: (_) => SimilarMediaCard(
       items: [
-        _collectionEntry('Shadow and Bone',
-            meta: 'S1 · Fantaisie', thumbUrl: _posterArcane),
-        _collectionEntry('The 100',
-            meta: 'S7 · Drame', thumbUrl: _posterThrones),
-        _collectionEntry('The Vampire Diaries',
-            meta: 'S9 · Fantastique', thumbUrl: _posterDune),
-        _collectionEntry('Supernatural',
-            meta: 'S15 · Fantastique', thumbUrl: _posterInterstellar),
+        _collectionEntry(
+          'Shadow and Bone',
+          meta: 'S1 · Fantaisie',
+          thumbUrl: _posterArcane,
+        ),
+        _collectionEntry(
+          'The 100',
+          meta: 'S7 · Drame',
+          thumbUrl: _posterThrones,
+        ),
+        _collectionEntry(
+          'The Vampire Diaries',
+          meta: 'S9 · Fantastique',
+          thumbUrl: _posterDune,
+        ),
+        _collectionEntry(
+          'Supernatural',
+          meta: 'S15 · Fantastique',
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -4873,16 +5016,31 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TrendingCard(
       onSeeAll: () {},
       items: [
-        _collectionEntry('Dune',
-            meta: 'Film', thumbUrl: _posterDune, rank: 1),
-        _collectionEntry('The Last of Us',
-            meta: 'Série', thumbUrl: _posterThrones, rank: 2),
-        _collectionEntry('Oppenheimer',
-            meta: 'Film', thumbUrl: _posterOppenheimer, rank: 3),
-        _collectionEntry('Wednesday',
-            meta: 'Série', thumbUrl: _posterArcane, rank: 4),
-        _collectionEntry('The Boys',
-            meta: 'Série', thumbUrl: _posterInterstellar, rank: 5),
+        _collectionEntry('Dune', meta: 'Film', thumbUrl: _posterDune, rank: 1),
+        _collectionEntry(
+          'The Last of Us',
+          meta: 'Série',
+          thumbUrl: _posterThrones,
+          rank: 2,
+        ),
+        _collectionEntry(
+          'Oppenheimer',
+          meta: 'Film',
+          thumbUrl: _posterOppenheimer,
+          rank: 3,
+        ),
+        _collectionEntry(
+          'Wednesday',
+          meta: 'Série',
+          thumbUrl: _posterArcane,
+          rank: 4,
+        ),
+        _collectionEntry(
+          'The Boys',
+          meta: 'Série',
+          thumbUrl: _posterInterstellar,
+          rank: 5,
+        ),
       ],
     ),
   ),
@@ -4897,14 +5055,30 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => PopularCard(
       onSeeAll: () {},
       items: [
-        _collectionEntry('One Piece',
-            meta: 'Animé', thumbUrl: _posterThrones, viewsLabel: '9.8M'),
-        _collectionEntry('Stranger Things',
-            meta: 'Série', thumbUrl: _posterArcane, viewsLabel: '8.2M'),
-        _collectionEntry('L’Attaque des Titans',
-            meta: 'Animé', thumbUrl: _posterDune, viewsLabel: '7.5M'),
-        _collectionEntry('Squid Game',
-            meta: 'Série', thumbUrl: _posterOppenheimer, viewsLabel: '6.9M'),
+        _collectionEntry(
+          'One Piece',
+          meta: 'Animé',
+          thumbUrl: _posterThrones,
+          viewsLabel: '9.8M',
+        ),
+        _collectionEntry(
+          'Stranger Things',
+          meta: 'Série',
+          thumbUrl: _posterArcane,
+          viewsLabel: '8.2M',
+        ),
+        _collectionEntry(
+          'L’Attaque des Titans',
+          meta: 'Animé',
+          thumbUrl: _posterDune,
+          viewsLabel: '7.5M',
+        ),
+        _collectionEntry(
+          'Squid Game',
+          meta: 'Série',
+          thumbUrl: _posterOppenheimer,
+          viewsLabel: '6.9M',
+        ),
       ],
     ),
   ),
@@ -4919,14 +5093,30 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TopRatedCard(
       onSeeAll: () {},
       items: [
-        _collectionEntry('Breaking Bad',
-            meta: 'Série', thumbUrl: _posterThrones, rating: 9.5),
-        _collectionEntry('Planète Terre',
-            meta: 'Documentaire', thumbUrl: _posterArcane, rating: 9.4),
-        _collectionEntry('Le Parrain',
-            meta: 'Film', thumbUrl: _posterOppenheimer, rating: 9.3),
-        _collectionEntry('Interstellar',
-            meta: 'Film', thumbUrl: _posterInterstellar, rating: 9.2),
+        _collectionEntry(
+          'Breaking Bad',
+          meta: 'Série',
+          thumbUrl: _posterThrones,
+          rating: 9.5,
+        ),
+        _collectionEntry(
+          'Planète Terre',
+          meta: 'Documentaire',
+          thumbUrl: _posterArcane,
+          rating: 9.4,
+        ),
+        _collectionEntry(
+          'Le Parrain',
+          meta: 'Film',
+          thumbUrl: _posterOppenheimer,
+          rating: 9.3,
+        ),
+        _collectionEntry(
+          'Interstellar',
+          meta: 'Film',
+          thumbUrl: _posterInterstellar,
+          rating: 9.2,
+        ),
       ],
     ),
   ),
@@ -4941,16 +5131,31 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => RankedMediaCard(
       onSeeAll: () {},
       items: [
-        _collectionEntry('Dune',
-            meta: 'Film', thumbUrl: _posterDune, rank: 1),
-        _collectionEntry('The Last of Us',
-            meta: 'Série', thumbUrl: _posterThrones, rank: 2),
-        _collectionEntry('Spider-Man',
-            meta: 'Film', thumbUrl: _posterOppenheimer, rank: 3),
-        _collectionEntry('Stranger Things',
-            meta: 'Série', thumbUrl: _posterArcane, rank: 4),
-        _collectionEntry('Breaking Bad',
-            meta: 'Série', thumbUrl: _posterInterstellar, rank: 5),
+        _collectionEntry('Dune', meta: 'Film', thumbUrl: _posterDune, rank: 1),
+        _collectionEntry(
+          'The Last of Us',
+          meta: 'Série',
+          thumbUrl: _posterThrones,
+          rank: 2,
+        ),
+        _collectionEntry(
+          'Spider-Man',
+          meta: 'Film',
+          thumbUrl: _posterOppenheimer,
+          rank: 3,
+        ),
+        _collectionEntry(
+          'Stranger Things',
+          meta: 'Série',
+          thumbUrl: _posterArcane,
+          rank: 4,
+        ),
+        _collectionEntry(
+          'Breaking Bad',
+          meta: 'Série',
+          thumbUrl: _posterInterstellar,
+          rank: 5,
+        ),
       ],
     ),
   ),
@@ -4966,10 +5171,12 @@ List<_ComponentSpec> _buildComponents() => [
       items: [
         _collectionEntry('Dune', thumbUrl: _posterDune, rank: 1),
         _collectionEntry('The Batman', thumbUrl: _posterThrones, rank: 2),
-        _collectionEntry('Interstellar',
-            thumbUrl: _posterInterstellar, rank: 3),
-        _collectionEntry('Inception',
-            thumbUrl: _posterOppenheimer, rank: 4),
+        _collectionEntry(
+          'Interstellar',
+          thumbUrl: _posterInterstellar,
+          rank: 3,
+        ),
+        _collectionEntry('Inception', thumbUrl: _posterOppenheimer, rank: 4),
         _collectionEntry('The Witcher', thumbUrl: _posterArcane, rank: 5),
       ],
     ),
@@ -5027,14 +5234,26 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => RecommendationCard(
       onSeeAll: () {},
       items: [
-        _collectionEntry('Arcane',
-            meta: 'S1 · Animation', thumbUrl: _posterArcane),
-        _collectionEntry('L’Attaque des Titans',
-            meta: 'S4 · Action', thumbUrl: _posterDune),
-        _collectionEntry('The Boys',
-            meta: 'S3 · Action', thumbUrl: _posterThrones),
-        _collectionEntry('Interstellar',
-            meta: 'S2 · Animation', thumbUrl: _posterInterstellar),
+        _collectionEntry(
+          'Arcane',
+          meta: 'S1 · Animation',
+          thumbUrl: _posterArcane,
+        ),
+        _collectionEntry(
+          'L’Attaque des Titans',
+          meta: 'S4 · Action',
+          thumbUrl: _posterDune,
+        ),
+        _collectionEntry(
+          'The Boys',
+          meta: 'S3 · Action',
+          thumbUrl: _posterThrones,
+        ),
+        _collectionEntry(
+          'Interstellar',
+          meta: 'S2 · Animation',
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -5212,14 +5431,37 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.epListItem,
     result: (_) => EpisodeListItem(
       episodes: [
-        _episodeEntry('Pilot', meta: 'S1', duration: '42 min',
-            number: 1, watched: true, thumbUrl: _posterDune),
-        _episodeEntry('The Things We Lost', meta: 'S1', duration: '41 min',
-            number: 2, thumbUrl: _posterInterstellar),
-        _episodeEntry('Long, Long Time', meta: 'S1', duration: '52 min',
-            number: 3, current: true, thumbUrl: _posterOppenheimer),
-        _episodeEntry('Please Hold', meta: 'S1', duration: '48 min',
-            number: 4, locked: true, thumbUrl: _posterArcane),
+        _episodeEntry(
+          'Pilot',
+          meta: 'S1',
+          duration: '42 min',
+          number: 1,
+          watched: true,
+          thumbUrl: _posterDune,
+        ),
+        _episodeEntry(
+          'The Things We Lost',
+          meta: 'S1',
+          duration: '41 min',
+          number: 2,
+          thumbUrl: _posterInterstellar,
+        ),
+        _episodeEntry(
+          'Long, Long Time',
+          meta: 'S1',
+          duration: '52 min',
+          number: 3,
+          current: true,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _episodeEntry(
+          'Please Hold',
+          meta: 'S1',
+          duration: '48 min',
+          number: 4,
+          locked: true,
+          thumbUrl: _posterArcane,
+        ),
       ],
     ),
   ),
@@ -5315,21 +5557,58 @@ List<_ComponentSpec> _buildComponents() => [
       selectedSeason: 1,
       onSeasonSelected: (_) {},
       seasons: [
-        _seasonEntry('The Witcher', seasonLabel: 'S1', thumbUrl: _posterInterstellar),
-        _seasonEntry('The Witcher', seasonLabel: 'S2', thumbUrl: _posterInterstellar),
-        _seasonEntry('The Witcher', seasonLabel: 'S3', thumbUrl: _posterInterstellar),
-        _seasonEntry('The Witcher', seasonLabel: 'S4', thumbUrl: _posterInterstellar),
-        _seasonEntry('The Witcher', seasonLabel: 'S5', thumbUrl: _posterInterstellar),
+        _seasonEntry(
+          'The Witcher',
+          seasonLabel: 'S1',
+          thumbUrl: _posterInterstellar,
+        ),
+        _seasonEntry(
+          'The Witcher',
+          seasonLabel: 'S2',
+          thumbUrl: _posterInterstellar,
+        ),
+        _seasonEntry(
+          'The Witcher',
+          seasonLabel: 'S3',
+          thumbUrl: _posterInterstellar,
+        ),
+        _seasonEntry(
+          'The Witcher',
+          seasonLabel: 'S4',
+          thumbUrl: _posterInterstellar,
+        ),
+        _seasonEntry(
+          'The Witcher',
+          seasonLabel: 'S5',
+          thumbUrl: _posterInterstellar,
+        ),
       ],
       episodes: [
-        _episodeEntry('A Grain of Truth', meta: 'S2 · Ép. 1',
-            duration: '48 min', thumbUrl: _posterDune),
-        _episodeEntry('Kaer Morhen', meta: 'S2 · Ép. 2',
-            duration: '52 min', thumbUrl: _posterThrones),
-        _episodeEntry('What’s Lost', meta: 'S2 · Ép. 3',
-            duration: '47 min', thumbUrl: _posterArcane),
-        _episodeEntry('Redanian Intelligence', meta: 'S2 · Ép. 4',
-            duration: '50 min', locked: true, thumbUrl: _posterOppenheimer),
+        _episodeEntry(
+          'A Grain of Truth',
+          meta: 'S2 · Ép. 1',
+          duration: '48 min',
+          thumbUrl: _posterDune,
+        ),
+        _episodeEntry(
+          'Kaer Morhen',
+          meta: 'S2 · Ép. 2',
+          duration: '52 min',
+          thumbUrl: _posterThrones,
+        ),
+        _episodeEntry(
+          'What’s Lost',
+          meta: 'S2 · Ép. 3',
+          duration: '47 min',
+          thumbUrl: _posterArcane,
+        ),
+        _episodeEntry(
+          'Redanian Intelligence',
+          meta: 'S2 · Ép. 4',
+          duration: '50 min',
+          locked: true,
+          thumbUrl: _posterOppenheimer,
+        ),
       ],
     ),
   ),
@@ -5343,14 +5622,32 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.epSeriesList,
     result: (_) => SeriesEpisodeListCard(
       episodes: [
-        _episodeEntry('Wolf', meta: 'S1 · Ép. 1', duration: '49 min',
-            watched: true, thumbUrl: _posterDune),
-        _episodeEntry('Blood Moon', meta: 'S1 · Ép. 2', duration: '48 min',
-            thumbUrl: _posterThrones),
-        _episodeEntry('Alpha', meta: 'S1 · Ép. 3', duration: '52 min',
-            thumbUrl: _posterArcane),
-        _episodeEntry('The Pack', meta: 'S1 · Ép. 4', duration: '46 min',
-            locked: true, thumbUrl: _posterInterstellar),
+        _episodeEntry(
+          'Wolf',
+          meta: 'S1 · Ép. 1',
+          duration: '49 min',
+          watched: true,
+          thumbUrl: _posterDune,
+        ),
+        _episodeEntry(
+          'Blood Moon',
+          meta: 'S1 · Ép. 2',
+          duration: '48 min',
+          thumbUrl: _posterThrones,
+        ),
+        _episodeEntry(
+          'Alpha',
+          meta: 'S1 · Ép. 3',
+          duration: '52 min',
+          thumbUrl: _posterArcane,
+        ),
+        _episodeEntry(
+          'The Pack',
+          meta: 'S1 · Ép. 4',
+          duration: '46 min',
+          locked: true,
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -5463,11 +5760,18 @@ List<_ComponentSpec> _buildComponents() => [
       episodes: [
         _episodeEntry('Pilot', number: 1, thumbUrl: _posterDune),
         _episodeEntry('The Weir', number: 2, thumbUrl: _posterThrones),
-        _episodeEntry('Long, Long Time', number: 3, current: true,
-            thumbUrl: _posterOppenheimer),
+        _episodeEntry(
+          'Long, Long Time',
+          number: 3,
+          current: true,
+          thumbUrl: _posterOppenheimer,
+        ),
         _episodeEntry('Please Hold', number: 4, thumbUrl: _posterArcane),
-        _episodeEntry('Endure and Survive', number: 5,
-            thumbUrl: _posterInterstellar),
+        _episodeEntry(
+          'Endure and Survive',
+          number: 5,
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -5500,14 +5804,32 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.epEpisodeList,
     result: (_) => EpisodeListCard(
       episodes: [
-        _episodeEntry('The Pilot', meta: 'S1 · Ép. 1', duration: '58 min',
-            watched: true, thumbUrl: _posterDune),
-        _episodeEntry('The Cat’s in the Bag', meta: 'S1 · Ép. 2',
-            duration: '52 min', thumbUrl: _posterThrones),
-        _episodeEntry('Nothin’ But T…', meta: 'S1 · Ép. 3',
-            duration: '52 min', thumbUrl: _posterArcane),
-        _episodeEntry('Better Call Saul', meta: 'S1 · Ép. 4',
-            duration: '47 min', locked: true, thumbUrl: _posterInterstellar),
+        _episodeEntry(
+          'The Pilot',
+          meta: 'S1 · Ép. 1',
+          duration: '58 min',
+          watched: true,
+          thumbUrl: _posterDune,
+        ),
+        _episodeEntry(
+          'The Cat’s in the Bag',
+          meta: 'S1 · Ép. 2',
+          duration: '52 min',
+          thumbUrl: _posterThrones,
+        ),
+        _episodeEntry(
+          'Nothin’ But T…',
+          meta: 'S1 · Ép. 3',
+          duration: '52 min',
+          thumbUrl: _posterArcane,
+        ),
+        _episodeEntry(
+          'Better Call Saul',
+          meta: 'S1 · Ép. 4',
+          duration: '47 min',
+          locked: true,
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -5522,11 +5844,27 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => SeriesGridCard(
       seasons: [
         _seasonEntry('Saison 1', stats: '10 épisodes', thumbUrl: _backdropDune),
-        _seasonEntry('Saison 2', stats: '10 épisodes', thumbUrl: _backdropInterstellar),
-        _seasonEntry('Saison 3', stats: '10 épisodes', thumbUrl: _backdropOppenheimer),
-        _seasonEntry('Saison 4', stats: '10 épisodes', thumbUrl: _backdropArcane),
+        _seasonEntry(
+          'Saison 2',
+          stats: '10 épisodes',
+          thumbUrl: _backdropInterstellar,
+        ),
+        _seasonEntry(
+          'Saison 3',
+          stats: '10 épisodes',
+          thumbUrl: _backdropOppenheimer,
+        ),
+        _seasonEntry(
+          'Saison 4',
+          stats: '10 épisodes',
+          thumbUrl: _backdropArcane,
+        ),
         _seasonEntry('Saison 5', stats: '16 épisodes', thumbUrl: _backdropDune),
-        _seasonEntry('Saison 6', stats: '16 épisodes', thumbUrl: _backdropInterstellar),
+        _seasonEntry(
+          'Saison 6',
+          stats: '16 épisodes',
+          thumbUrl: _backdropInterstellar,
+        ),
       ],
     ),
   ),
@@ -5542,26 +5880,76 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TopMoviesCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('Dune: Part Two', meta: '2024', rating: 8.8, rank: 1,
-            thumbUrl: _posterDune),
-        _rankEntry('The Batman', meta: '2022', rating: 8.2, rank: 2,
-            thumbUrl: _posterThrones),
-        _rankEntry('Oppenheimer', meta: '2023', rating: 8.7, rank: 3,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('Interstellar', meta: '2014', rating: 8.6, rank: 4,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Spider-Man: No Way Home', meta: '2021', rating: 8.3,
-            rank: 5, thumbUrl: _posterArcane),
-        _rankEntry('The Dark Knight', meta: '2008', rating: 9.0, rank: 6,
-            thumbUrl: _posterDune),
-        _rankEntry('Inception', meta: '2010', rating: 8.8, rank: 7,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Fight Club', meta: '1999', rating: 8.8, rank: 8,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('Forrest Gump', meta: '1994', rating: 8.8, rank: 9,
-            thumbUrl: _posterArcane),
-        _rankEntry('The Shawshank Redemption', meta: '1994', rating: 9.3,
-            rank: 10, thumbUrl: _posterThrones),
+        _rankEntry(
+          'Dune: Part Two',
+          meta: '2024',
+          rating: 8.8,
+          rank: 1,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'The Batman',
+          meta: '2022',
+          rating: 8.2,
+          rank: 2,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'Oppenheimer',
+          meta: '2023',
+          rating: 8.7,
+          rank: 3,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry(
+          'Interstellar',
+          meta: '2014',
+          rating: 8.6,
+          rank: 4,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Spider-Man: No Way Home',
+          meta: '2021',
+          rating: 8.3,
+          rank: 5,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'The Dark Knight',
+          meta: '2008',
+          rating: 9.0,
+          rank: 6,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'Inception',
+          meta: '2010',
+          rating: 8.8,
+          rank: 7,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Fight Club',
+          meta: '1999',
+          rating: 8.8,
+          rank: 8,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry(
+          'Forrest Gump',
+          meta: '1994',
+          rating: 8.8,
+          rank: 9,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'The Shawshank Redemption',
+          meta: '1994',
+          rating: 9.3,
+          rank: 10,
+          thumbUrl: _posterThrones,
+        ),
       ],
     ),
   ),
@@ -5576,26 +5964,76 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TopSeriesCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('The Last of Us', meta: 'S1 · 2023', rating: 9.0,
-            rank: 1, thumbUrl: _posterThrones),
-        _rankEntry('Breaking Bad', meta: 'S1-S5 · 2008', rating: 9.5,
-            rank: 2, thumbUrl: _posterDune),
-        _rankEntry('Game of Thrones', meta: 'S1-S8 · 2011', rating: 9.2,
-            rank: 3, thumbUrl: _posterInterstellar),
-        _rankEntry('Stranger Things', meta: 'S1-S4 · 2016', rating: 8.7,
-            rank: 4, thumbUrl: _posterArcane),
-        _rankEntry('Wednesday', meta: 'S1 · 2022', rating: 8.1, rank: 5,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('Loki', meta: 'S1-S2 · 2021', rating: 8.2, rank: 6,
-            thumbUrl: _posterDune),
-        _rankEntry('The Walking Dead', meta: 'S1-S11 · 2010', rating: 8.1,
-            rank: 7, thumbUrl: _posterThrones),
-        _rankEntry('Peaky Blinders', meta: 'S1-S6 · 2013', rating: 8.8,
-            rank: 8, thumbUrl: _posterArcane),
-        _rankEntry('Lucifer', meta: 'S1-S6 · 2016', rating: 8.1, rank: 9,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Dark', meta: 'S1-S3 · 2017', rating: 8.8, rank: 10,
-            thumbUrl: _posterOppenheimer),
+        _rankEntry(
+          'The Last of Us',
+          meta: 'S1 · 2023',
+          rating: 9.0,
+          rank: 1,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'Breaking Bad',
+          meta: 'S1-S5 · 2008',
+          rating: 9.5,
+          rank: 2,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'Game of Thrones',
+          meta: 'S1-S8 · 2011',
+          rating: 9.2,
+          rank: 3,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Stranger Things',
+          meta: 'S1-S4 · 2016',
+          rating: 8.7,
+          rank: 4,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'Wednesday',
+          meta: 'S1 · 2022',
+          rating: 8.1,
+          rank: 5,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry(
+          'Loki',
+          meta: 'S1-S2 · 2021',
+          rating: 8.2,
+          rank: 6,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'The Walking Dead',
+          meta: 'S1-S11 · 2010',
+          rating: 8.1,
+          rank: 7,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'Peaky Blinders',
+          meta: 'S1-S6 · 2013',
+          rating: 8.8,
+          rank: 8,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'Lucifer',
+          meta: 'S1-S6 · 2016',
+          rating: 8.1,
+          rank: 9,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Dark',
+          meta: 'S1-S3 · 2017',
+          rating: 8.8,
+          rank: 10,
+          thumbUrl: _posterOppenheimer,
+        ),
       ],
     ),
   ),
@@ -5610,26 +6048,76 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TopAnimeCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('Attack on Titan', meta: 'S1-S4 · 2013', rating: 9.1,
-            rank: 1, thumbUrl: _posterDune),
-        _rankEntry('Jujutsu Kaisen', meta: 'S1-S2 · 2020', rating: 8.8,
-            rank: 2, thumbUrl: _posterThrones),
-        _rankEntry('One Piece', meta: 'S1+ · 1999', rating: 9.0, rank: 3,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Demon Slayer', meta: 'S1-S4 · 2019', rating: 8.7,
-            rank: 4, thumbUrl: _posterArcane),
-        _rankEntry('Death Note', meta: 'S1 · 2006', rating: 8.9, rank: 5,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('Naruto', meta: 'S1-S9 · 2002', rating: 9.3, rank: 6,
-            thumbUrl: _posterDune),
-        _rankEntry('Fullmetal Alchemist', meta: 'S1 · 2009', rating: 9.1,
-            rank: 7, thumbUrl: _posterThrones),
-        _rankEntry('Tokyo Ghoul', meta: 'S1-S2 · 2019', rating: 8.8,
-            rank: 8, thumbUrl: _posterInterstellar),
-        _rankEntry('Vinland Saga', meta: 'S1-S2 · 2019', rating: 8.8,
-            rank: 9, thumbUrl: _posterArcane),
-        _rankEntry('Hunter x Hunter', meta: 'S1-S6 · 2011', rating: 9.0,
-            rank: 10, thumbUrl: _posterOppenheimer),
+        _rankEntry(
+          'Attack on Titan',
+          meta: 'S1-S4 · 2013',
+          rating: 9.1,
+          rank: 1,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'Jujutsu Kaisen',
+          meta: 'S1-S2 · 2020',
+          rating: 8.8,
+          rank: 2,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'One Piece',
+          meta: 'S1+ · 1999',
+          rating: 9.0,
+          rank: 3,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Demon Slayer',
+          meta: 'S1-S4 · 2019',
+          rating: 8.7,
+          rank: 4,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'Death Note',
+          meta: 'S1 · 2006',
+          rating: 8.9,
+          rank: 5,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry(
+          'Naruto',
+          meta: 'S1-S9 · 2002',
+          rating: 9.3,
+          rank: 6,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'Fullmetal Alchemist',
+          meta: 'S1 · 2009',
+          rating: 9.1,
+          rank: 7,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'Tokyo Ghoul',
+          meta: 'S1-S2 · 2019',
+          rating: 8.8,
+          rank: 8,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Vinland Saga',
+          meta: 'S1-S2 · 2019',
+          rating: 8.8,
+          rank: 9,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'Hunter x Hunter',
+          meta: 'S1-S6 · 2011',
+          rating: 9.0,
+          rank: 10,
+          thumbUrl: _posterOppenheimer,
+        ),
       ],
     ),
   ),
@@ -5644,22 +6132,62 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TopByGenreCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('Action', meta: '1-10', rank: 1,
-            thumbUrl: _backdropDune, isLabelTile: true),
-        _rankEntry('Aventure', meta: '1-10', rank: 2,
-            thumbUrl: _backdropInterstellar, isLabelTile: true),
-        _rankEntry('Comédie', meta: '1-10', rank: 3,
-            thumbUrl: _backdropOppenheimer, isLabelTile: true),
-        _rankEntry('Drame', meta: '1-10', rank: 4,
-            thumbUrl: _backdropArcane, isLabelTile: true),
-        _rankEntry('Fantastique', meta: '1-10', rank: 5,
-            thumbUrl: _backdropDune, isLabelTile: true),
-        _rankEntry('Horreur', meta: '1-10', rank: 6,
-            thumbUrl: _backdropInterstellar, isLabelTile: true),
-        _rankEntry('Romance', meta: '1-10', rank: 7,
-            thumbUrl: _backdropOppenheimer, isLabelTile: true),
-        _rankEntry('Science-Fiction', meta: '1-10', rank: 8,
-            thumbUrl: _backdropArcane, isLabelTile: true),
+        _rankEntry(
+          'Action',
+          meta: '1-10',
+          rank: 1,
+          thumbUrl: _backdropDune,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Aventure',
+          meta: '1-10',
+          rank: 2,
+          thumbUrl: _backdropInterstellar,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Comédie',
+          meta: '1-10',
+          rank: 3,
+          thumbUrl: _backdropOppenheimer,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Drame',
+          meta: '1-10',
+          rank: 4,
+          thumbUrl: _backdropArcane,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Fantastique',
+          meta: '1-10',
+          rank: 5,
+          thumbUrl: _backdropDune,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Horreur',
+          meta: '1-10',
+          rank: 6,
+          thumbUrl: _backdropInterstellar,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Romance',
+          meta: '1-10',
+          rank: 7,
+          thumbUrl: _backdropOppenheimer,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Science-Fiction',
+          meta: '1-10',
+          rank: 8,
+          thumbUrl: _backdropArcane,
+          isLabelTile: true,
+        ),
       ],
     ),
   ),
@@ -5674,22 +6202,62 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TopByCountryCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('USA', meta: '1-10', rank: 1,
-            thumbUrl: _backdropDune, isLabelTile: true),
-        _rankEntry('UK', meta: '1-10', rank: 2,
-            thumbUrl: _backdropInterstellar, isLabelTile: true),
-        _rankEntry('France', meta: '1-10', rank: 3,
-            thumbUrl: _backdropOppenheimer, isLabelTile: true),
-        _rankEntry('Japon', meta: '1-10', rank: 4,
-            thumbUrl: _backdropArcane, isLabelTile: true),
-        _rankEntry('Corée du Sud', meta: '1-10', rank: 5,
-            thumbUrl: _backdropDune, isLabelTile: true),
-        _rankEntry('Allemagne', meta: '1-10', rank: 6,
-            thumbUrl: _backdropInterstellar, isLabelTile: true),
-        _rankEntry('Canada', meta: '1-10', rank: 7,
-            thumbUrl: _backdropOppenheimer, isLabelTile: true),
-        _rankEntry('Espagne', meta: '1-10', rank: 8,
-            thumbUrl: _backdropArcane, isLabelTile: true),
+        _rankEntry(
+          'USA',
+          meta: '1-10',
+          rank: 1,
+          thumbUrl: _backdropDune,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'UK',
+          meta: '1-10',
+          rank: 2,
+          thumbUrl: _backdropInterstellar,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'France',
+          meta: '1-10',
+          rank: 3,
+          thumbUrl: _backdropOppenheimer,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Japon',
+          meta: '1-10',
+          rank: 4,
+          thumbUrl: _backdropArcane,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Corée du Sud',
+          meta: '1-10',
+          rank: 5,
+          thumbUrl: _backdropDune,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Allemagne',
+          meta: '1-10',
+          rank: 6,
+          thumbUrl: _backdropInterstellar,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Canada',
+          meta: '1-10',
+          rank: 7,
+          thumbUrl: _backdropOppenheimer,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          'Espagne',
+          meta: '1-10',
+          rank: 8,
+          thumbUrl: _backdropArcane,
+          isLabelTile: true,
+        ),
       ],
     ),
   ),
@@ -5704,24 +6272,60 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => GlobalRankingCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('The Last of Us', rating: 9.0, rank: 1,
-            thumbUrl: _posterThrones),
-        _rankEntry('Dune: Part Two', rating: 8.8, rank: 2,
-            thumbUrl: _posterDune),
-        _rankEntry('Breaking Bad', rating: 9.5, rank: 3,
-            thumbUrl: _posterArcane),
-        _rankEntry('Game of Thrones', rating: 9.2, rank: 4,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Avengers Endgame', rating: 8.4, rank: 5,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('Stranger Things', rating: 8.7, rank: 6,
-            thumbUrl: _posterDune),
-        _rankEntry('Interstellar', rating: 8.6, rank: 7,
-            thumbUrl: _posterThrones),
-        _rankEntry('Spider-Man: NWH', rating: 8.3, rank: 8,
-            thumbUrl: _posterArcane),
-        _rankEntry('Inception', rating: 8.8, rank: 9,
-            thumbUrl: _posterInterstellar),
+        _rankEntry(
+          'The Last of Us',
+          rating: 9.0,
+          rank: 1,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'Dune: Part Two',
+          rating: 8.8,
+          rank: 2,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'Breaking Bad',
+          rating: 9.5,
+          rank: 3,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'Game of Thrones',
+          rating: 9.2,
+          rank: 4,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Avengers Endgame',
+          rating: 8.4,
+          rank: 5,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry(
+          'Stranger Things',
+          rating: 8.7,
+          rank: 6,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'Interstellar',
+          rating: 8.6,
+          rank: 7,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'Spider-Man: NWH',
+          rating: 8.3,
+          rank: 8,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'Inception',
+          rating: 8.8,
+          rank: 9,
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -5736,26 +6340,51 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TopRatedRankingCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('Breaking Bad', rating: 9.5, rank: 1,
-            thumbUrl: _posterDune),
-        _rankEntry('Planet Earth II', rating: 9.4, rank: 2,
-            thumbUrl: _posterThrones),
-        _rankEntry('The Shawshank Redemption', rating: 9.3, rank: 3,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('The Godfather', rating: 9.2, rank: 4,
-            thumbUrl: _posterArcane),
-        _rankEntry('Band of Brothers', rating: 9.1, rank: 5,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Pulp Fiction', rating: 8.9, rank: 6,
-            thumbUrl: _posterDune),
-        _rankEntry('The Dark Knight', rating: 9.0, rank: 7,
-            thumbUrl: _posterThrones),
-        _rankEntry('Forrest Gump', rating: 8.8, rank: 8,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('Fight Club', rating: 8.8, rank: 9,
-            thumbUrl: _posterArcane),
-        _rankEntry('Spirited Away', rating: 8.6, rank: 10,
-            thumbUrl: _posterInterstellar),
+        _rankEntry('Breaking Bad', rating: 9.5, rank: 1, thumbUrl: _posterDune),
+        _rankEntry(
+          'Planet Earth II',
+          rating: 9.4,
+          rank: 2,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'The Shawshank Redemption',
+          rating: 9.3,
+          rank: 3,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry(
+          'The Godfather',
+          rating: 9.2,
+          rank: 4,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'Band of Brothers',
+          rating: 9.1,
+          rank: 5,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry('Pulp Fiction', rating: 8.9, rank: 6, thumbUrl: _posterDune),
+        _rankEntry(
+          'The Dark Knight',
+          rating: 9.0,
+          rank: 7,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'Forrest Gump',
+          rating: 8.8,
+          rank: 8,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry('Fight Club', rating: 8.8, rank: 9, thumbUrl: _posterArcane),
+        _rankEntry(
+          'Spirited Away',
+          rating: 8.6,
+          rank: 10,
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -5770,25 +6399,51 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TrendingRankingCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('The Last of Us', rating: 9.0, rank: 1,
-            thumbUrl: _posterThrones),
-        _rankEntry('The Mandalorian', rating: 8.7, rank: 2,
-            thumbUrl: _posterDune),
-        _rankEntry('Wednesday', rating: 8.1, rank: 3,
-            thumbUrl: _posterArcane),
-        _rankEntry('Demon Slayer', rating: 8.7, rank: 4,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('Jujutsu Kaisen', rating: 8.8, rank: 5,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('One Piece', rating: 9.0, rank: 6,
-            thumbUrl: _posterDune),
+        _rankEntry(
+          'The Last of Us',
+          rating: 9.0,
+          rank: 1,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'The Mandalorian',
+          rating: 8.7,
+          rank: 2,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry('Wednesday', rating: 8.1, rank: 3, thumbUrl: _posterArcane),
+        _rankEntry(
+          'Demon Slayer',
+          rating: 8.7,
+          rank: 4,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry(
+          'Jujutsu Kaisen',
+          rating: 8.8,
+          rank: 5,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry('One Piece', rating: 9.0, rank: 6, thumbUrl: _posterDune),
         _rankEntry('Loki', rating: 8.2, rank: 7, thumbUrl: _posterThrones),
-        _rankEntry('House of the Dragon', rating: 8.5, rank: 8,
-            thumbUrl: _posterArcane),
-        _rankEntry('Arcane', rating: 9.3, rank: 9,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Attack on Titan', rating: 9.1, rank: 10,
-            thumbUrl: _posterOppenheimer),
+        _rankEntry(
+          'House of the Dragon',
+          rating: 8.5,
+          rank: 8,
+          thumbUrl: _posterArcane,
+        ),
+        _rankEntry(
+          'Arcane',
+          rating: 9.3,
+          rank: 9,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Attack on Titan',
+          rating: 9.1,
+          rank: 10,
+          thumbUrl: _posterOppenheimer,
+        ),
       ],
     ),
   ),
@@ -5803,16 +6458,41 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => TopByDecadeCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('80’s', meta: '1-10', rank: 1,
-            thumbUrl: _backdropDune, isLabelTile: true),
-        _rankEntry('90’s', meta: '1-10', rank: 2,
-            thumbUrl: _backdropInterstellar, isLabelTile: true),
-        _rankEntry('2000’s', meta: '1-10', rank: 3,
-            thumbUrl: _backdropOppenheimer, isLabelTile: true),
-        _rankEntry('2010’s', meta: '1-10', rank: 4,
-            thumbUrl: _backdropArcane, isLabelTile: true),
-        _rankEntry('2020’s', meta: '1-10', rank: 5,
-            thumbUrl: _backdropDune, isLabelTile: true),
+        _rankEntry(
+          '80’s',
+          meta: '1-10',
+          rank: 1,
+          thumbUrl: _backdropDune,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          '90’s',
+          meta: '1-10',
+          rank: 2,
+          thumbUrl: _backdropInterstellar,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          '2000’s',
+          meta: '1-10',
+          rank: 3,
+          thumbUrl: _backdropOppenheimer,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          '2010’s',
+          meta: '1-10',
+          rank: 4,
+          thumbUrl: _backdropArcane,
+          isLabelTile: true,
+        ),
+        _rankEntry(
+          '2020’s',
+          meta: '1-10',
+          rank: 5,
+          thumbUrl: _backdropDune,
+          isLabelTile: true,
+        ),
       ],
     ),
   ),
@@ -5827,25 +6507,56 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MustWatchCard(
       onSeeAll: () {},
       items: [
-        _rankEntry('The Godfather', rating: 9.2, rank: 1,
-            thumbUrl: _posterThrones),
-        _rankEntry('The Dark Knight', rating: 9.0, rank: 2,
-            thumbUrl: _posterDune),
-        _rankEntry('Pulp Fiction', rating: 8.9, rank: 3,
-            thumbUrl: _posterArcane),
+        _rankEntry(
+          'The Godfather',
+          rating: 9.2,
+          rank: 1,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'The Dark Knight',
+          rating: 9.0,
+          rank: 2,
+          thumbUrl: _posterDune,
+        ),
+        _rankEntry(
+          'Pulp Fiction',
+          rating: 8.9,
+          rank: 3,
+          thumbUrl: _posterArcane,
+        ),
         _rankEntry('Dune', rating: 8.8, rank: 4, thumbUrl: _posterDune),
-        _rankEntry('Inception', rating: 8.8, rank: 5,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Forrest Gump', rating: 8.8, rank: 6,
-            thumbUrl: _posterOppenheimer),
-        _rankEntry('The Matrix', rating: 8.7, rank: 7,
-            thumbUrl: _posterThrones),
-        _rankEntry('Interstellar', rating: 8.6, rank: 8,
-            thumbUrl: _posterInterstellar),
-        _rankEntry('Fight Club', rating: 8.6, rank: 9,
-            thumbUrl: _posterArcane),
-        _rankEntry('The Prestige', rating: 8.5, rank: 10,
-            thumbUrl: _posterOppenheimer),
+        _rankEntry(
+          'Inception',
+          rating: 8.8,
+          rank: 5,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry(
+          'Forrest Gump',
+          rating: 8.8,
+          rank: 6,
+          thumbUrl: _posterOppenheimer,
+        ),
+        _rankEntry(
+          'The Matrix',
+          rating: 8.7,
+          rank: 7,
+          thumbUrl: _posterThrones,
+        ),
+        _rankEntry(
+          'Interstellar',
+          rating: 8.6,
+          rank: 8,
+          thumbUrl: _posterInterstellar,
+        ),
+        _rankEntry('Fight Club', rating: 8.6, rank: 9, thumbUrl: _posterArcane),
+        _rankEntry(
+          'The Prestige',
+          rating: 8.5,
+          rank: 10,
+          thumbUrl: _posterOppenheimer,
+        ),
       ],
     ),
   ),
@@ -5878,12 +6589,27 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mgRelease,
     result: (_) => MangaChapterReleaseCard(
       items: [
-        _mgChapterItem('One Piece', subtitle: 'Chapitre 1160',
-            timeAgo: 'il y a 5 min', badge: 'VF', thumbUrl: _posterDune),
-        _mgChapterItem('Jujutsu Kaisen', subtitle: 'Chapitre 271',
-            timeAgo: 'il y a 18 min', badge: 'VF', thumbUrl: _posterArcane),
-        _mgChapterItem('Blue Lock', subtitle: 'Chapitre 302',
-            timeAgo: 'il y a 32 min', badge: 'VF', thumbUrl: _posterInterstellar),
+        _mgChapterItem(
+          'One Piece',
+          subtitle: 'Chapitre 1160',
+          timeAgo: 'il y a 5 min',
+          badge: 'VF',
+          thumbUrl: _posterDune,
+        ),
+        _mgChapterItem(
+          'Jujutsu Kaisen',
+          subtitle: 'Chapitre 271',
+          timeAgo: 'il y a 18 min',
+          badge: 'VF',
+          thumbUrl: _posterArcane,
+        ),
+        _mgChapterItem(
+          'Blue Lock',
+          subtitle: 'Chapitre 302',
+          timeAgo: 'il y a 32 min',
+          badge: 'VF',
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -5898,14 +6624,30 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaChapterListCard(
       countLabel: '142',
       items: [
-        _mgChapterItem('La vraie puissance', number: '142',
-            timeAgo: 'il y a 2 h', badge: 'VF'),
-        _mgChapterItem('Le combat final', number: '141',
-            timeAgo: 'il y a 1 jour', badge: 'VF'),
-        _mgChapterItem('L\'éveil', number: '140',
-            timeAgo: 'il y a 2 jours', badge: 'VF'),
-        _mgChapterItem('Une nouvelle étape', number: '139',
-            timeAgo: 'il y a 3 jours', badge: 'VF'),
+        _mgChapterItem(
+          'La vraie puissance',
+          number: '142',
+          timeAgo: 'il y a 2 h',
+          badge: 'VF',
+        ),
+        _mgChapterItem(
+          'Le combat final',
+          number: '141',
+          timeAgo: 'il y a 1 jour',
+          badge: 'VF',
+        ),
+        _mgChapterItem(
+          'L\'éveil',
+          number: '140',
+          timeAgo: 'il y a 2 jours',
+          badge: 'VF',
+        ),
+        _mgChapterItem(
+          'Une nouvelle étape',
+          number: '139',
+          timeAgo: 'il y a 3 jours',
+          badge: 'VF',
+        ),
       ],
     ),
   ),
@@ -5937,12 +6679,27 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaLatestReleaseCard(
       onSeeAll: () {},
       items: [
-        _mgChapterItem('Chainsaw Man', subtitle: 'Chapitre 167',
-            timeAgo: 'il y a 12 min', badge: 'VF', thumbUrl: _posterOppenheimer),
-        _mgChapterItem('Dandadan', subtitle: 'Chapitre 128',
-            timeAgo: 'il y a 45 min', badge: 'VF', thumbUrl: _posterInterstellar),
-        _mgChapterItem('My Hero Academia', subtitle: 'Chapitre 421',
-            timeAgo: 'il y a 1 h', badge: 'VF', thumbUrl: _posterThrones),
+        _mgChapterItem(
+          'Chainsaw Man',
+          subtitle: 'Chapitre 167',
+          timeAgo: 'il y a 12 min',
+          badge: 'VF',
+          thumbUrl: _posterOppenheimer,
+        ),
+        _mgChapterItem(
+          'Dandadan',
+          subtitle: 'Chapitre 128',
+          timeAgo: 'il y a 45 min',
+          badge: 'VF',
+          thumbUrl: _posterInterstellar,
+        ),
+        _mgChapterItem(
+          'My Hero Academia',
+          subtitle: 'Chapitre 421',
+          timeAgo: 'il y a 1 h',
+          badge: 'VF',
+          thumbUrl: _posterThrones,
+        ),
       ],
     ),
   ),
@@ -5956,14 +6713,30 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mgTimeline,
     result: (_) => MangaReleaseTimelineCard(
       items: [
-        _mgChapterItem('One Piece — Chap. 1160', dayLabel: '12',
-            monthLabel: 'Mai', badge: 'VF'),
-        _mgChapterItem('Jujutsu Kaisen — Chap. 271', dayLabel: '13',
-            monthLabel: 'Mai', badge: 'VF'),
-        _mgChapterItem('Chainsaw Man — Chap. 167', dayLabel: '14',
-            monthLabel: 'Mai', badge: 'VF'),
-        _mgChapterItem('Blue Lock — Chap. 302', dayLabel: '15',
-            monthLabel: 'Mai', badge: 'VF'),
+        _mgChapterItem(
+          'One Piece — Chap. 1160',
+          dayLabel: '12',
+          monthLabel: 'Mai',
+          badge: 'VF',
+        ),
+        _mgChapterItem(
+          'Jujutsu Kaisen — Chap. 271',
+          dayLabel: '13',
+          monthLabel: 'Mai',
+          badge: 'VF',
+        ),
+        _mgChapterItem(
+          'Chainsaw Man — Chap. 167',
+          dayLabel: '14',
+          monthLabel: 'Mai',
+          badge: 'VF',
+        ),
+        _mgChapterItem(
+          'Blue Lock — Chap. 302',
+          dayLabel: '15',
+          monthLabel: 'Mai',
+          badge: 'VF',
+        ),
       ],
     ),
   ),
@@ -6035,16 +6808,31 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mgChapterTimeline,
     result: (_) => MangaChapterTimelineCard(
       items: [
-        _mgChapterItem('Chapitre 138', subtitle: 'Le début de la fin',
-            timeAgo: '12 avr. 2025'),
-        _mgChapterItem('Chapitre 139', subtitle: 'L’affrontement',
-            timeAgo: '19 avr. 2025'),
-        _mgChapterItem('Chapitre 140', subtitle: 'La révélation',
-            timeAgo: '26 avr. 2025'),
-        _mgChapterItem('Chapitre 141', subtitle: 'Le choix',
-            timeAgo: '3 mai 2025'),
-        _mgChapterItem('Chapitre 142', subtitle: 'La vraie puissance',
-            timeAgo: '10 mai 2025'),
+        _mgChapterItem(
+          'Chapitre 138',
+          subtitle: 'Le début de la fin',
+          timeAgo: '12 avr. 2025',
+        ),
+        _mgChapterItem(
+          'Chapitre 139',
+          subtitle: 'L’affrontement',
+          timeAgo: '19 avr. 2025',
+        ),
+        _mgChapterItem(
+          'Chapitre 140',
+          subtitle: 'La révélation',
+          timeAgo: '26 avr. 2025',
+        ),
+        _mgChapterItem(
+          'Chapitre 141',
+          subtitle: 'Le choix',
+          timeAgo: '3 mai 2025',
+        ),
+        _mgChapterItem(
+          'Chapitre 142',
+          subtitle: 'La vraie puissance',
+          timeAgo: '10 mai 2025',
+        ),
       ],
     ),
   ),
@@ -6147,16 +6935,36 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.volList,
     result: (_) => MangaVolumeListCard(
       items: [
-        _mgVolumeItem('One Piece', author: 'Eiichiro Oda',
-            countLabel: '110 volumes', coverUrl: _posterDune),
-        _mgVolumeItem('Naruto', author: 'Masashi Kishimoto',
-            countLabel: '72 volumes', coverUrl: _posterOppenheimer),
-        _mgVolumeItem('Bleach', author: 'Tite Kubo',
-            countLabel: '74 volumes', coverUrl: _posterInterstellar),
-        _mgVolumeItem('Hunter x Hunter', author: 'Yoshihiro Togashi',
-            countLabel: '38 volumes', coverUrl: _posterArcane),
-        _mgVolumeItem('Death Note', author: 'Tsugumi Ohba / Takeshi Obata',
-            countLabel: '12 volumes', coverUrl: _posterThrones),
+        _mgVolumeItem(
+          'One Piece',
+          author: 'Eiichiro Oda',
+          countLabel: '110 volumes',
+          coverUrl: _posterDune,
+        ),
+        _mgVolumeItem(
+          'Naruto',
+          author: 'Masashi Kishimoto',
+          countLabel: '72 volumes',
+          coverUrl: _posterOppenheimer,
+        ),
+        _mgVolumeItem(
+          'Bleach',
+          author: 'Tite Kubo',
+          countLabel: '74 volumes',
+          coverUrl: _posterInterstellar,
+        ),
+        _mgVolumeItem(
+          'Hunter x Hunter',
+          author: 'Yoshihiro Togashi',
+          countLabel: '38 volumes',
+          coverUrl: _posterArcane,
+        ),
+        _mgVolumeItem(
+          'Death Note',
+          author: 'Tsugumi Ohba / Takeshi Obata',
+          countLabel: '12 volumes',
+          coverUrl: _posterThrones,
+        ),
       ],
     ),
   ),
@@ -6171,14 +6979,26 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaVolumePreviewCard(
       onViewCollection: () {},
       items: [
-        _mgVolumeItem('Demon Slayer', tomeLabel: 'Tome 12',
-            coverUrl: _posterInterstellar),
-        _mgVolumeItem('Demon Slayer', tomeLabel: 'Tome 13',
-            coverUrl: _posterOppenheimer),
-        _mgVolumeItem('Demon Slayer', tomeLabel: 'Tome 23',
-            coverUrl: _posterArcane),
-        _mgVolumeItem('Demon Slayer', tomeLabel: 'Tome 24',
-            coverUrl: _posterDune),
+        _mgVolumeItem(
+          'Demon Slayer',
+          tomeLabel: 'Tome 12',
+          coverUrl: _posterInterstellar,
+        ),
+        _mgVolumeItem(
+          'Demon Slayer',
+          tomeLabel: 'Tome 13',
+          coverUrl: _posterOppenheimer,
+        ),
+        _mgVolumeItem(
+          'Demon Slayer',
+          tomeLabel: 'Tome 23',
+          coverUrl: _posterArcane,
+        ),
+        _mgVolumeItem(
+          'Demon Slayer',
+          tomeLabel: 'Tome 24',
+          coverUrl: _posterDune,
+        ),
       ],
     ),
   ),
@@ -6270,15 +7090,30 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaUpcomingVolumeCard(
       onSeeAll: () {},
       items: [
-        _mgVolumeItem('One Piece · Tome 111', author: 'Eiichiro Oda',
-            dayLabel: '12', monthLabel: 'Juin', statusLabel: 'Bientôt',
-            coverUrl: _posterDune),
-        _mgVolumeItem('Jujutsu Kaisen · Tome 27', author: 'Gege Akutami',
-            dayLabel: '15', monthLabel: 'Juin', statusLabel: 'Bientôt',
-            coverUrl: _posterArcane),
-        _mgVolumeItem('Blue Lock · Tome 30', author: 'Muneyuki Kaneshiro',
-            dayLabel: '20', monthLabel: 'Juin', statusLabel: 'Bientôt',
-            coverUrl: _posterInterstellar),
+        _mgVolumeItem(
+          'One Piece · Tome 111',
+          author: 'Eiichiro Oda',
+          dayLabel: '12',
+          monthLabel: 'Juin',
+          statusLabel: 'Bientôt',
+          coverUrl: _posterDune,
+        ),
+        _mgVolumeItem(
+          'Jujutsu Kaisen · Tome 27',
+          author: 'Gege Akutami',
+          dayLabel: '15',
+          monthLabel: 'Juin',
+          statusLabel: 'Bientôt',
+          coverUrl: _posterArcane,
+        ),
+        _mgVolumeItem(
+          'Blue Lock · Tome 30',
+          author: 'Muneyuki Kaneshiro',
+          dayLabel: '20',
+          monthLabel: 'Juin',
+          statusLabel: 'Bientôt',
+          coverUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -6294,18 +7129,34 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaGenresCard(
       onSeeAll: () {},
       items: [
-        MangaGenreEntry(title: 'Action', countLabel: '1 248 mangas',
-            icon: Broken.close_circle, color: Color(0xFFFF6B81),
-            thumbUrl: _backdropDune),
-        MangaGenreEntry(title: 'Aventure', countLabel: '986 mangas',
-            icon: Broken.arrow_right_3, color: Color(0xFF1E90FF),
-            thumbUrl: _backdropInterstellar),
-        MangaGenreEntry(title: 'Comédie', countLabel: '1 532 mangas',
-            icon: Icons.star_rounded, color: Color(0xFFFFA502),
-            thumbUrl: _backdropOppenheimer),
-        MangaGenreEntry(title: 'Drame', countLabel: '842 mangas',
-            icon: Icons.star_rounded, color: Color(0xFF6C5CE7),
-            thumbUrl: _backdropArcane),
+        MangaGenreEntry(
+          title: 'Action',
+          countLabel: '1 248 mangas',
+          icon: Broken.close_circle,
+          color: Color(0xFFFF6B81),
+          thumbUrl: _backdropDune,
+        ),
+        MangaGenreEntry(
+          title: 'Aventure',
+          countLabel: '986 mangas',
+          icon: Broken.arrow_right_3,
+          color: Color(0xFF1E90FF),
+          thumbUrl: _backdropInterstellar,
+        ),
+        MangaGenreEntry(
+          title: 'Comédie',
+          countLabel: '1 532 mangas',
+          icon: Icons.star_rounded,
+          color: Color(0xFFFFA502),
+          thumbUrl: _backdropOppenheimer,
+        ),
+        MangaGenreEntry(
+          title: 'Drame',
+          countLabel: '842 mangas',
+          icon: Icons.star_rounded,
+          color: Color(0xFF6C5CE7),
+          thumbUrl: _backdropArcane,
+        ),
       ],
     ),
   ),
@@ -6320,18 +7171,36 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaDemographicsCard(
       onSeeAll: () {},
       items: [
-        MangaGenreEntry(title: 'Shōnen', countLabel: '2 463 mangas',
-            thumbUrl: _posterDune),
-        MangaGenreEntry(title: 'Shōjo', countLabel: '1 872 mangas',
-            thumbUrl: _posterArcane),
-        MangaGenreEntry(title: 'Seinen', countLabel: '1 548 mangas',
-            thumbUrl: _posterInterstellar),
-        MangaGenreEntry(title: 'Josei', countLabel: '843 mangas',
-            thumbUrl: _posterOppenheimer),
-        MangaGenreEntry(title: 'Kodomo', countLabel: '421 mangas',
-            thumbUrl: _posterThrones),
-        MangaGenreEntry(title: 'Mature', countLabel: '567 mangas',
-            thumbUrl: _backdropDune),
+        MangaGenreEntry(
+          title: 'Shōnen',
+          countLabel: '2 463 mangas',
+          thumbUrl: _posterDune,
+        ),
+        MangaGenreEntry(
+          title: 'Shōjo',
+          countLabel: '1 872 mangas',
+          thumbUrl: _posterArcane,
+        ),
+        MangaGenreEntry(
+          title: 'Seinen',
+          countLabel: '1 548 mangas',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaGenreEntry(
+          title: 'Josei',
+          countLabel: '843 mangas',
+          thumbUrl: _posterOppenheimer,
+        ),
+        MangaGenreEntry(
+          title: 'Kodomo',
+          countLabel: '421 mangas',
+          thumbUrl: _posterThrones,
+        ),
+        MangaGenreEntry(
+          title: 'Mature',
+          countLabel: '567 mangas',
+          thumbUrl: _backdropDune,
+        ),
       ],
     ),
   ),
@@ -6346,18 +7215,36 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaThemesCard(
       onSeeAll: () {},
       items: [
-        MangaGenreEntry(title: 'École', countLabel: '892 mangas',
-            thumbUrl: _posterThrones),
-        MangaGenreEntry(title: 'Isekai', countLabel: '1 203 mangas',
-            thumbUrl: _backdropInterstellar),
-        MangaGenreEntry(title: 'Reincarnation', countLabel: '674 mangas',
-            thumbUrl: _posterInterstellar),
-        MangaGenreEntry(title: 'Vampire', countLabel: '521 mangas',
-            thumbUrl: _backdropArcane),
-        MangaGenreEntry(title: 'Harem', countLabel: '438 mangas',
-            thumbUrl: _posterArcane),
-        MangaGenreEntry(title: 'Tranche de vie', countLabel: '732 mangas',
-            thumbUrl: _backdropOppenheimer),
+        MangaGenreEntry(
+          title: 'École',
+          countLabel: '892 mangas',
+          thumbUrl: _posterThrones,
+        ),
+        MangaGenreEntry(
+          title: 'Isekai',
+          countLabel: '1 203 mangas',
+          thumbUrl: _backdropInterstellar,
+        ),
+        MangaGenreEntry(
+          title: 'Reincarnation',
+          countLabel: '674 mangas',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaGenreEntry(
+          title: 'Vampire',
+          countLabel: '521 mangas',
+          thumbUrl: _backdropArcane,
+        ),
+        MangaGenreEntry(
+          title: 'Harem',
+          countLabel: '438 mangas',
+          thumbUrl: _posterArcane,
+        ),
+        MangaGenreEntry(
+          title: 'Tranche de vie',
+          countLabel: '732 mangas',
+          thumbUrl: _backdropOppenheimer,
+        ),
       ],
     ),
   ),
@@ -6372,18 +7259,45 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaUniverseShowcaseCard(
       onSeeAll: () {},
       items: [
-        MangaShowcaseEntry(title: 'One Piece', countLabel: '1 248 mangas',
-            badge: '69', thumbUrl: _posterDune),
-        MangaShowcaseEntry(title: 'Naruto', countLabel: '1 023 mangas',
-            badge: '70', thumbUrl: _posterOppenheimer),
-        MangaShowcaseEntry(title: 'Bleach', countLabel: '734 mangas',
-            badge: '74', thumbUrl: _posterInterstellar),
-        MangaShowcaseEntry(title: 'Attack on Titan', countLabel: '698 mangas',
-            badge: '34', thumbUrl: _posterThrones),
-        MangaShowcaseEntry(title: 'Dragon Ball', countLabel: '612 mangas',
-            badge: '42', thumbUrl: _posterArcane),
-        MangaShowcaseEntry(title: 'Hunter x Hunter', countLabel: '487 mangas',
-            badge: '40', thumbUrl: _backdropDune),
+        MangaShowcaseEntry(
+          title: 'One Piece',
+          countLabel: '1 248 mangas',
+          badge: '69',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaShowcaseEntry(
+          title: 'Naruto',
+          countLabel: '1 023 mangas',
+          badge: '70',
+          thumbUrl:
+              'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx30011-9yUF1dXWgDOx.jpg',
+        ),
+        MangaShowcaseEntry(
+          title: 'Bleach',
+          countLabel: '734 mangas',
+          badge: '74',
+          thumbUrl:
+              'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30012-1epmVfTSv2rr.png',
+        ),
+        MangaShowcaseEntry(
+          title: 'Attack on Titan',
+          countLabel: '698 mangas',
+          badge: '34',
+          thumbUrl: _posterThrones,
+        ),
+        MangaShowcaseEntry(
+          title: 'Dragon Ball',
+          countLabel: '612 mangas',
+          badge: '42',
+          thumbUrl: coverAt(12),
+        ),
+        MangaShowcaseEntry(
+          title: 'Hunter x Hunter',
+          countLabel: '487 mangas',
+          badge: '40',
+          thumbUrl:
+              'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30026-uCvXMudMzmwI.jpg',
+        ),
       ],
     ),
   ),
@@ -6398,20 +7312,35 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaTagsCard(
       onSeeAll: () {},
       tags: [
-        MangaTagEntry(label: 'Action', color: Color(0xFF6C5CE7),
-            icon: Broken.close_circle),
-        MangaTagEntry(label: 'Romance', color: Color(0xFFFF6B81),
-            icon: Broken.close_circle),
+        MangaTagEntry(
+          label: 'Action',
+          color: Color(0xFF6C5CE7),
+          icon: Broken.close_circle,
+        ),
+        MangaTagEntry(
+          label: 'Romance',
+          color: Color(0xFFFF6B81),
+          icon: Broken.close_circle,
+        ),
         MangaTagEntry(label: 'Fantastique', color: Color(0xFF8E7CFF)),
-        MangaTagEntry(label: 'Aventure', color: Color(0xFF2ED573),
-            icon: Broken.arrow_right_3),
+        MangaTagEntry(
+          label: 'Aventure',
+          color: Color(0xFF2ED573),
+          icon: Broken.arrow_right_3,
+        ),
         MangaTagEntry(label: 'Horreur', color: Color(0xFFE84118)),
         MangaTagEntry(label: 'Comédie', color: Color(0xFFFFA502)),
-        MangaTagEntry(label: 'Isekai', color: Color(0xFF1E90FF),
-            icon: Broken.arrow_right_3),
+        MangaTagEntry(
+          label: 'Isekai',
+          color: Color(0xFF1E90FF),
+          icon: Broken.arrow_right_3,
+        ),
         MangaTagEntry(label: 'School Life', color: Color(0xFF8E7CFF)),
-        MangaTagEntry(label: 'Seinen', color: Color(0xFF3742FA),
-            icon: Icons.star_rounded),
+        MangaTagEntry(
+          label: 'Seinen',
+          color: Color(0xFF3742FA),
+          icon: Icons.star_rounded,
+        ),
         MangaTagEntry(label: 'Josei', color: Color(0xFFE67E22)),
         MangaTagEntry(label: 'Yaoi', color: Color(0xFF7166F0)),
         MangaTagEntry(label: 'Yuri', color: Color(0xFF2ED573)),
@@ -6442,16 +7371,31 @@ List<_ComponentSpec> _buildComponents() => [
         MangaLangEntry(name: 'Allemand', countLabel: '488 mangas'),
       ],
       teams: const [
-        MangaTeamEntry(name: 'MangaDex', meta: 'Official',
-            countLabel: '1 248 mangas'),
-        MangaTeamEntry(name: 'Scantrad France', meta: 'Dédié fans',
-            countLabel: '986 mangas'),
-        MangaTeamEntry(name: 'Team Manga', meta: 'Dédié fans',
-            countLabel: '742 mangas'),
-        MangaTeamEntry(name: 'No Name Scan', meta: 'Dédié fans',
-            countLabel: '623 mangas'),
-        MangaTeamEntry(name: 'Japanread', meta: 'Dédié fans',
-            countLabel: '512 mangas'),
+        MangaTeamEntry(
+          name: 'MangaDex',
+          meta: 'Official',
+          countLabel: '1 248 mangas',
+        ),
+        MangaTeamEntry(
+          name: 'Scantrad France',
+          meta: 'Dédié fans',
+          countLabel: '986 mangas',
+        ),
+        MangaTeamEntry(
+          name: 'Team Manga',
+          meta: 'Dédié fans',
+          countLabel: '742 mangas',
+        ),
+        MangaTeamEntry(
+          name: 'No Name Scan',
+          meta: 'Dédié fans',
+          countLabel: '623 mangas',
+        ),
+        MangaTeamEntry(
+          name: 'Japanread',
+          meta: 'Dédié fans',
+          countLabel: '512 mangas',
+        ),
       ],
       statusRows: const [
         MangaStatusRow(
@@ -6492,18 +7436,36 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaPublishersCard(
       onSeeAll: () {},
       publishers: const [
-        MangaPublisherEntry(name: 'Shueisha', countLabel: '1 842 mangas',
-            initial: 'S'),
-        MangaPublisherEntry(name: 'Kodansha', countLabel: '1 572 mangas',
-            initial: 'K'),
-        MangaPublisherEntry(name: 'Shogakukan', countLabel: '1 023 mangas',
-            initial: 'S'),
-        MangaPublisherEntry(name: 'Square Enix', countLabel: '856 mangas',
-            initial: 'S'),
-        MangaPublisherEntry(name: 'Kadokawa', countLabel: '734 mangas',
-            initial: 'K'),
-        MangaPublisherEntry(name: 'Viz Media', countLabel: '612 mangas',
-            initial: 'V'),
+        MangaPublisherEntry(
+          name: 'Shueisha',
+          countLabel: '1 842 mangas',
+          initial: 'S',
+        ),
+        MangaPublisherEntry(
+          name: 'Kodansha',
+          countLabel: '1 572 mangas',
+          initial: 'K',
+        ),
+        MangaPublisherEntry(
+          name: 'Shogakukan',
+          countLabel: '1 023 mangas',
+          initial: 'S',
+        ),
+        MangaPublisherEntry(
+          name: 'Square Enix',
+          countLabel: '856 mangas',
+          initial: 'S',
+        ),
+        MangaPublisherEntry(
+          name: 'Kadokawa',
+          countLabel: '734 mangas',
+          initial: 'K',
+        ),
+        MangaPublisherEntry(
+          name: 'Viz Media',
+          countLabel: '612 mangas',
+          initial: 'V',
+        ),
       ],
     ),
   ),
@@ -6518,11 +7480,31 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => const MangaLanguageNewsCard(
       onSeeAll: null,
       entries: [
-        MangaLangEntry(name: 'Français', countLabel: '142 chapitres', code: 'FR'),
-        MangaLangEntry(name: 'Anglais', countLabel: '186 chapitres', code: 'EN'),
-        MangaLangEntry(name: 'Japonais', countLabel: '243 chapitres', code: 'JP'),
-        MangaLangEntry(name: 'Espagnol', countLabel: '98 chapitres', code: 'ES'),
-        MangaLangEntry(name: 'Allemand', countLabel: '76 chapitres', code: 'DE'),
+        MangaLangEntry(
+          name: 'Français',
+          countLabel: '142 chapitres',
+          code: 'FR',
+        ),
+        MangaLangEntry(
+          name: 'Anglais',
+          countLabel: '186 chapitres',
+          code: 'EN',
+        ),
+        MangaLangEntry(
+          name: 'Japonais',
+          countLabel: '243 chapitres',
+          code: 'JP',
+        ),
+        MangaLangEntry(
+          name: 'Espagnol',
+          countLabel: '98 chapitres',
+          code: 'ES',
+        ),
+        MangaLangEntry(
+          name: 'Allemand',
+          countLabel: '76 chapitres',
+          code: 'DE',
+        ),
       ],
     ),
   ),
@@ -6553,11 +7535,8 @@ List<_ComponentSpec> _buildComponents() => [
     section: 'MANGA & LECTURE',
     icon: Icons.image_outlined,
     kind: _PreviewKind.rdPage,
-    result: (_) => MangaPageCard(
-      onPrev: () {},
-      onNext: () {},
-      pageUrl: _backdropDune,
-    ),
+    result: (_) =>
+        MangaPageCard(onPrev: () {}, onNext: () {}, pageUrl: _backdropDune),
   ),
   _ComponentSpec(
     title: 'Aperçu des pages',
@@ -6571,9 +7550,21 @@ List<_ComponentSpec> _buildComponents() => [
       onPrev: () {},
       onNext: () {},
       pages: const [
-        MangaReaderPage(label: '37', url: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg'),
-        MangaReaderPage(label: '38', url: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg'),
-        MangaReaderPage(label: '39', url: 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg'),
+        MangaReaderPage(
+          label: '37',
+          url:
+              'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
+        ),
+        MangaReaderPage(
+          label: '38',
+          url:
+              'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+        ),
+        MangaReaderPage(
+          label: '39',
+          url:
+              'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+        ),
       ],
     ),
   ),
@@ -6589,9 +7580,21 @@ List<_ComponentSpec> _buildComponents() => [
       onPrev: () {},
       onNext: () {},
       pages: const [
-        MangaReaderPage(label: '3', url: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg'),
-        MangaReaderPage(label: '4', url: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg'),
-        MangaReaderPage(label: '5', url: 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg'),
+        MangaReaderPage(
+          label: '3',
+          url:
+              'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
+        ),
+        MangaReaderPage(
+          label: '4',
+          url:
+              'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+        ),
+        MangaReaderPage(
+          label: '5',
+          url:
+              'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+        ),
       ],
     ),
   ),
@@ -6606,8 +7609,10 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => const MangaDoublePageCard(
       onPrev: null,
       onNext: null,
-      leftUrl: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
-      rightUrl: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+      leftUrl:
+          'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
+      rightUrl:
+          'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
     ),
   ),
   _ComponentSpec(
@@ -6771,13 +7776,25 @@ List<_ComponentSpec> _buildComponents() => [
       resumePage: 'Page 37',
       resumeThumb: _posterDune,
       actions: const [
-        MangaQuickAction(label: 'Mes favoris', icon: Icons.favorite_border_rounded),
-        MangaQuickAction(label: 'Ma bibliothèque', icon: Icons.menu_book_outlined),
+        MangaQuickAction(
+          label: 'Mes favoris',
+          icon: Icons.favorite_border_rounded,
+        ),
+        MangaQuickAction(
+          label: 'Ma bibliothèque',
+          icon: Icons.menu_book_outlined,
+        ),
       ],
       shortcuts: const [
-        MangaQuickAction(label: 'Téléchargements', icon: Icons.download_rounded),
+        MangaQuickAction(
+          label: 'Téléchargements',
+          icon: Icons.download_rounded,
+        ),
         MangaQuickAction(label: 'Paramètres', icon: Icons.settings_outlined),
-        MangaQuickAction(label: 'Mode hors ligne', icon: Icons.wifi_off_rounded),
+        MangaQuickAction(
+          label: 'Mode hors ligne',
+          icon: Icons.wifi_off_rounded,
+        ),
         MangaQuickAction(label: 'Aide', icon: Icons.help_outline_rounded),
       ],
     ),
@@ -6897,23 +7914,54 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaRelationTypeCard(
       onSeeAll: () {},
       items: [
-        MangaRelationEntry(title: 'Main story', sublabel: 'Histoire principale',
-            badge: '682', thumbUrl: _posterDune),
-        MangaRelationEntry(title: 'Préquelle', sublabel: 'Avant l\'histoire',
-            badge: '214', thumbUrl: _posterArcane),
-        MangaRelationEntry(title: 'Suite', sublabel: 'Après l\'histoire',
-            badge: '183', thumbUrl: _posterInterstellar),
-        MangaRelationEntry(title: 'Spin-off', sublabel: 'Histoire dérivée',
-            badge: '156', thumbUrl: _posterOppenheimer),
-        MangaRelationEntry(title: 'Side story', sublabel: 'Histoire annexée',
-            badge: '97', thumbUrl: _posterThrones),
-        MangaRelationEntry(title: 'Alternative version',
-            sublabel: 'Version alternative', badge: '64',
-            thumbUrl: _backdropDune),
-        MangaRelationEntry(title: 'Adaptation', sublabel: 'Adapté d\'une œuvre',
-            badge: '48', thumbUrl: _backdropInterstellar),
-        MangaRelationEntry(title: 'Doujinshi', sublabel: 'Fan-made',
-            badge: '37', thumbUrl: _backdropArcane),
+        MangaRelationEntry(
+          title: 'Main story',
+          sublabel: 'Histoire principale',
+          badge: '682',
+          thumbUrl: _posterDune,
+        ),
+        MangaRelationEntry(
+          title: 'Préquelle',
+          sublabel: 'Avant l\'histoire',
+          badge: '214',
+          thumbUrl: _posterArcane,
+        ),
+        MangaRelationEntry(
+          title: 'Suite',
+          sublabel: 'Après l\'histoire',
+          badge: '183',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaRelationEntry(
+          title: 'Spin-off',
+          sublabel: 'Histoire dérivée',
+          badge: '156',
+          thumbUrl: _posterOppenheimer,
+        ),
+        MangaRelationEntry(
+          title: 'Side story',
+          sublabel: 'Histoire annexée',
+          badge: '97',
+          thumbUrl: _posterThrones,
+        ),
+        MangaRelationEntry(
+          title: 'Alternative version',
+          sublabel: 'Version alternative',
+          badge: '64',
+          thumbUrl: _backdropDune,
+        ),
+        MangaRelationEntry(
+          title: 'Adaptation',
+          sublabel: 'Adapté d\'une œuvre',
+          badge: '48',
+          thumbUrl: _backdropInterstellar,
+        ),
+        MangaRelationEntry(
+          title: 'Doujinshi',
+          sublabel: 'Fan-made',
+          badge: '37',
+          thumbUrl: _backdropArcane,
+        ),
       ],
     ),
   ),
@@ -6930,14 +7978,26 @@ List<_ComponentSpec> _buildComponents() => [
       title: 'Attack on Titan',
       backdropUrl: _backdropOppenheimer,
       series: [
-        MangaRelationEntry(title: 'AOT', tagLabel: '(Principal)',
-            thumbUrl: _posterThrones),
-        MangaRelationEntry(title: 'Before the Fall', tagLabel: '(Préquelle)',
-            thumbUrl: _posterDune),
-        MangaRelationEntry(title: 'No Regrets', tagLabel: '(Spin-off)',
-            thumbUrl: _posterArcane),
-        MangaRelationEntry(title: 'Lost Girls', tagLabel: '(Side story)',
-            thumbUrl: _posterInterstellar),
+        MangaRelationEntry(
+          title: 'AOT',
+          tagLabel: '(Principal)',
+          thumbUrl: _posterThrones,
+        ),
+        MangaRelationEntry(
+          title: 'Before the Fall',
+          tagLabel: '(Préquelle)',
+          thumbUrl: _posterDune,
+        ),
+        MangaRelationEntry(
+          title: 'No Regrets',
+          tagLabel: '(Spin-off)',
+          thumbUrl: _posterArcane,
+        ),
+        MangaRelationEntry(
+          title: 'Lost Girls',
+          tagLabel: '(Side story)',
+          thumbUrl: _posterInterstellar,
+        ),
       ],
     ),
   ),
@@ -6952,18 +8012,36 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaLinkedSeriesCard(
       onSeeAll: () {},
       items: [
-        MangaRelationEntry(title: 'Naruto', tagLabel: 'Univers',
-            thumbUrl: _posterOppenheimer),
-        MangaRelationEntry(title: 'Boruto', tagLabel: 'Suite',
-            thumbUrl: _posterDune),
-        MangaRelationEntry(title: 'Naruto Gaiden', tagLabel: 'Spin-off',
-            thumbUrl: _posterArcane),
-        MangaRelationEntry(title: 'Bleach', tagLabel: 'Univers',
-            thumbUrl: _posterInterstellar),
-        MangaRelationEntry(title: 'Burn the Witch', tagLabel: 'Spin-off',
-            thumbUrl: _backdropArcane),
-        MangaRelationEntry(title: 'Tite Kubo Universe', tagLabel: 'Autre',
-            thumbUrl: _backdropInterstellar),
+        MangaRelationEntry(
+          title: 'Naruto',
+          tagLabel: 'Univers',
+          thumbUrl: _posterOppenheimer,
+        ),
+        MangaRelationEntry(
+          title: 'Boruto',
+          tagLabel: 'Suite',
+          thumbUrl: _posterDune,
+        ),
+        MangaRelationEntry(
+          title: 'Naruto Gaiden',
+          tagLabel: 'Spin-off',
+          thumbUrl: _posterArcane,
+        ),
+        MangaRelationEntry(
+          title: 'Bleach',
+          tagLabel: 'Univers',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaRelationEntry(
+          title: 'Burn the Witch',
+          tagLabel: 'Spin-off',
+          thumbUrl: _backdropArcane,
+        ),
+        MangaRelationEntry(
+          title: 'Tite Kubo Universe',
+          tagLabel: 'Autre',
+          thumbUrl: _backdropInterstellar,
+        ),
       ],
     ),
   ),
@@ -6978,24 +8056,54 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaRelationListCard(
       onSeeAll: () {},
       items: [
-        MangaRelationEntry(title: 'Crossover', sublabel: 'Deux univers qui se rencontrent',
-            color: Color(0xFFFFA502), icon: Icons.star_rounded),
-        MangaRelationEntry(title: 'Crossover (univers partagé)',
-            sublabel: 'Même monde, séries différentes',
-            color: Color(0xFF2ED573), icon: Icons.public_rounded),
-        MangaRelationEntry(title: 'Adaptation (anime/manga)',
-            sublabel: 'Même histoire, format différent',
-            color: Color(0xFF6C5CE7), icon: Icons.live_tv_outlined),
-        MangaRelationEntry(title: 'Remake / Reboot', sublabel: 'Nouvelle version',
-            color: Color(0xFFFF6B81), icon: Icons.auto_awesome_outlined),
-        MangaRelationEntry(title: 'Sequel / Prequel', sublabel: 'Suite ou avant',
-            color: Color(0xFF1E90FF), icon: Broken.arrow_right_3),
-        MangaRelationEntry(title: 'Spin-off', sublabel: 'Dérivée d\'une série',
-            color: Color(0xFFE84118), icon: Icons.local_fire_department_rounded),
-        MangaRelationEntry(title: 'Collaboration', sublabel: 'Auteurs ou studios',
-            color: Color(0xFF3742FA), icon: Icons.group_rounded),
-        MangaRelationEntry(title: 'Hommage', sublabel: 'Référence à une autre œuvre',
-            color: Color(0xFF2ED573), icon: Icons.emoji_events_outlined),
+        MangaRelationEntry(
+          title: 'Crossover',
+          sublabel: 'Deux univers qui se rencontrent',
+          color: Color(0xFFFFA502),
+          icon: Icons.star_rounded,
+        ),
+        MangaRelationEntry(
+          title: 'Crossover (univers partagé)',
+          sublabel: 'Même monde, séries différentes',
+          color: Color(0xFF2ED573),
+          icon: Icons.public_rounded,
+        ),
+        MangaRelationEntry(
+          title: 'Adaptation (anime/manga)',
+          sublabel: 'Même histoire, format différent',
+          color: Color(0xFF6C5CE7),
+          icon: Icons.live_tv_outlined,
+        ),
+        MangaRelationEntry(
+          title: 'Remake / Reboot',
+          sublabel: 'Nouvelle version',
+          color: Color(0xFFFF6B81),
+          icon: Icons.auto_awesome_outlined,
+        ),
+        MangaRelationEntry(
+          title: 'Sequel / Prequel',
+          sublabel: 'Suite ou avant',
+          color: Color(0xFF1E90FF),
+          icon: Broken.arrow_right_3,
+        ),
+        MangaRelationEntry(
+          title: 'Spin-off',
+          sublabel: 'Dérivée d\'une série',
+          color: Color(0xFFE84118),
+          icon: Icons.local_fire_department_rounded,
+        ),
+        MangaRelationEntry(
+          title: 'Collaboration',
+          sublabel: 'Auteurs ou studios',
+          color: Color(0xFF3742FA),
+          icon: Icons.group_rounded,
+        ),
+        MangaRelationEntry(
+          title: 'Hommage',
+          sublabel: 'Référence à une autre œuvre',
+          color: Color(0xFF2ED573),
+          icon: Icons.emoji_events_outlined,
+        ),
       ],
     ),
   ),
@@ -7012,12 +8120,24 @@ List<_ComponentSpec> _buildComponents() => [
       title: 'Tokyo Revengers',
       backdropUrl: _backdropDune,
       entries: [
-        MangaRelationEntry(title: 'Tokyo Revengers', tagLabel: 'Série principale',
-            badge: '278', thumbUrl: _posterDune),
-        MangaRelationEntry(title: 'Tokyo Revengers', tagLabel: '(Official Spin-off)',
-            badge: '45', thumbUrl: _posterArcane),
-        MangaRelationEntry(title: 'Tokyo Revengers', tagLabel: '(Alternative)',
-            badge: '21', thumbUrl: _posterInterstellar),
+        MangaRelationEntry(
+          title: 'Tokyo Revengers',
+          tagLabel: 'Série principale',
+          badge: '278',
+          thumbUrl: _posterDune,
+        ),
+        MangaRelationEntry(
+          title: 'Tokyo Revengers',
+          tagLabel: '(Official Spin-off)',
+          badge: '45',
+          thumbUrl: _posterArcane,
+        ),
+        MangaRelationEntry(
+          title: 'Tokyo Revengers',
+          tagLabel: '(Alternative)',
+          badge: '21',
+          thumbUrl: _posterInterstellar,
+        ),
       ],
       others: [
         _posterThrones,
@@ -7038,14 +8158,30 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaUniverseChronologyCard(
       onSeeAll: () {},
       points: [
-        MangaUniversePoint(year: '2005', title: 'Tokyo Revengers',
-            subtitle: 'Événements du passé', thumbUrl: _posterDune),
-        MangaUniversePoint(year: '2017', title: 'Tokyo Revengers',
-            subtitle: 'Présent', thumbUrl: _posterArcane),
-        MangaUniversePoint(year: '2018', title: 'Tokyo Revengers · Sequel',
-            subtitle: 'Suite', thumbUrl: _posterInterstellar),
-        MangaUniversePoint(year: '2023', title: 'Tokyo Revengers · Final',
-            subtitle: 'Fin', thumbUrl: _posterOppenheimer),
+        MangaUniversePoint(
+          year: '2005',
+          title: 'Tokyo Revengers',
+          subtitle: 'Événements du passé',
+          thumbUrl: _posterDune,
+        ),
+        MangaUniversePoint(
+          year: '2017',
+          title: 'Tokyo Revengers',
+          subtitle: 'Présent',
+          thumbUrl: _posterArcane,
+        ),
+        MangaUniversePoint(
+          year: '2018',
+          title: 'Tokyo Revengers · Sequel',
+          subtitle: 'Suite',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaUniversePoint(
+          year: '2023',
+          title: 'Tokyo Revengers · Final',
+          subtitle: 'Fin',
+          thumbUrl: _posterOppenheimer,
+        ),
       ],
     ),
   ),
@@ -7060,18 +8196,36 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaFranchiseUniversesCard(
       onSeeAll: () {},
       items: [
-        MangaRelationEntry(title: 'Naruto', sublabel: '12 œuvres',
-            thumbUrl: _posterOppenheimer),
-        MangaRelationEntry(title: 'One Piece', sublabel: '16 œuvres',
-            thumbUrl: _posterDune),
-        MangaRelationEntry(title: 'Bleach', sublabel: '10 œuvres',
-            thumbUrl: _posterInterstellar),
-        MangaRelationEntry(title: 'Attack on Titan', sublabel: '9 œuvres',
-            thumbUrl: _posterThrones),
-        MangaRelationEntry(title: 'Fairy Tail', sublabel: '8 œuvres',
-            thumbUrl: _posterArcane),
-        MangaRelationEntry(title: 'My Hero Academia', sublabel: '4 œuvres',
-            thumbUrl: _backdropDune),
+        MangaRelationEntry(
+          title: 'Naruto',
+          sublabel: '12 œuvres',
+          thumbUrl: _posterOppenheimer,
+        ),
+        MangaRelationEntry(
+          title: 'One Piece',
+          sublabel: '16 œuvres',
+          thumbUrl: _posterDune,
+        ),
+        MangaRelationEntry(
+          title: 'Bleach',
+          sublabel: '10 œuvres',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaRelationEntry(
+          title: 'Attack on Titan',
+          sublabel: '9 œuvres',
+          thumbUrl: _posterThrones,
+        ),
+        MangaRelationEntry(
+          title: 'Fairy Tail',
+          sublabel: '8 œuvres',
+          thumbUrl: _posterArcane,
+        ),
+        MangaRelationEntry(
+          title: 'My Hero Academia',
+          sublabel: '4 œuvres',
+          thumbUrl: _backdropDune,
+        ),
       ],
     ),
   ),
@@ -7086,14 +8240,26 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaCharacterRelationsCard(
       onSeeAll: () {},
       items: [
-        MangaRelationEntry(title: 'Amis', sublabel: '432 relations',
-            thumbUrl: _backdropArcane),
-        MangaRelationEntry(title: 'Rivaux', sublabel: '286 relations',
-            thumbUrl: _backdropOppenheimer),
-        MangaRelationEntry(title: 'Amour', sublabel: '197 relations',
-            thumbUrl: _backdropInterstellar),
-        MangaRelationEntry(title: 'Famille', sublabel: '156 relations',
-            thumbUrl: _backdropDune),
+        MangaRelationEntry(
+          title: 'Amis',
+          sublabel: '432 relations',
+          thumbUrl: _backdropArcane,
+        ),
+        MangaRelationEntry(
+          title: 'Rivaux',
+          sublabel: '286 relations',
+          thumbUrl: _backdropOppenheimer,
+        ),
+        MangaRelationEntry(
+          title: 'Amour',
+          sublabel: '197 relations',
+          thumbUrl: _backdropInterstellar,
+        ),
+        MangaRelationEntry(
+          title: 'Famille',
+          sublabel: '156 relations',
+          thumbUrl: _backdropDune,
+        ),
       ],
     ),
   ),
@@ -7108,17 +8274,36 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaUniverseMapCard(
       onSeeAll: () {},
       nodes: [
-        MangaRelationEntry(title: 'One Piece', color: Color(0xFFFFA502),
-            icon: Icons.star_rounded),
-        MangaRelationEntry(title: 'Naruto', color: Color(0xFF1E90FF),
-            icon: Icons.public_rounded),
-        MangaRelationEntry(title: 'Bleach', color: Color(0xFF6C5CE7),
-            icon: Icons.menu_book_outlined),
-        MangaRelationEntry(title: 'Attack on Titan', color: Color(0xFFE84118),
-            icon: Icons.local_fire_department_rounded),
-        MangaRelationEntry(title: 'Hunter x Hunter',            color: Color(0xFF2ED573), icon: Icons.explore_outlined),
-        MangaRelationEntry(title: 'Jujutsu Kaisen', color: Color(0xFF8E7CFF),
-            icon: Icons.auto_awesome_outlined),
+        MangaRelationEntry(
+          title: 'One Piece',
+          color: Color(0xFFFFA502),
+          icon: Icons.star_rounded,
+        ),
+        MangaRelationEntry(
+          title: 'Naruto',
+          color: Color(0xFF1E90FF),
+          icon: Icons.public_rounded,
+        ),
+        MangaRelationEntry(
+          title: 'Bleach',
+          color: Color(0xFF6C5CE7),
+          icon: Icons.menu_book_outlined,
+        ),
+        MangaRelationEntry(
+          title: 'Attack on Titan',
+          color: Color(0xFFE84118),
+          icon: Icons.local_fire_department_rounded,
+        ),
+        MangaRelationEntry(
+          title: 'Hunter x Hunter',
+          color: Color(0xFF2ED573),
+          icon: Icons.explore_outlined,
+        ),
+        MangaRelationEntry(
+          title: 'Jujutsu Kaisen',
+          color: Color(0xFF8E7CFF),
+          icon: Icons.auto_awesome_outlined,
+        ),
       ],
     ),
   ),
@@ -7134,11 +8319,19 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => const MangaStatusCard(
       onSeeAll: null,
       items: [
-        ('En cours', '2 145 mangas', Icons.play_circle_outline,
-            Color(0xFF2ED573)),
+        (
+          'En cours',
+          '2 145 mangas',
+          Icons.play_circle_outline,
+          Color(0xFF2ED573),
+        ),
         ('Terminé', '1 982 mangas', Broken.tick_circle, Color(0xFF1E90FF)),
-        ('En pause', '421 mangas', Icons.pause_circle_outline_rounded,
-            Color(0xFFFFA502)),
+        (
+          'En pause',
+          '421 mangas',
+          Icons.pause_circle_outline_rounded,
+          Color(0xFFFFA502),
+        ),
         ('Annulé', '156 mangas', Icons.close_rounded, Color(0xFFFF4757)),
         ('Hiatus', '287 mangas', Icons.nightlight_round, Color(0xFF8E7CFF)),
       ],
@@ -7155,16 +8348,31 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaSerializationCard(
       onSeeAll: () {},
       items: [
-        MangaShowcaseEntry(title: 'Weekly Shonen Jump',
-            countLabel: '162 séries', thumbUrl: _posterDune),
-        MangaShowcaseEntry(title: 'Weekly Shonen Magazine',
-            countLabel: '148 séries', thumbUrl: _posterOppenheimer),
-        MangaShowcaseEntry(title: 'Young Jump', countLabel: '96 séries',
-            thumbUrl: _posterInterstellar),
-        MangaShowcaseEntry(title: 'Magazine Gangan', countLabel: '73 séries',
-            thumbUrl: _posterArcane),
-        MangaShowcaseEntry(title: 'Comic Yuri Hime', countLabel: '58 séries',
-            thumbUrl: _posterThrones),
+        MangaShowcaseEntry(
+          title: 'Weekly Shonen Jump',
+          countLabel: '162 séries',
+          thumbUrl: _posterDune,
+        ),
+        MangaShowcaseEntry(
+          title: 'Weekly Shonen Magazine',
+          countLabel: '148 séries',
+          thumbUrl: _posterOppenheimer,
+        ),
+        MangaShowcaseEntry(
+          title: 'Young Jump',
+          countLabel: '96 séries',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaShowcaseEntry(
+          title: 'Magazine Gangan',
+          countLabel: '73 séries',
+          thumbUrl: _posterArcane,
+        ),
+        MangaShowcaseEntry(
+          title: 'Comic Yuri Hime',
+          countLabel: '58 séries',
+          thumbUrl: _posterThrones,
+        ),
       ],
     ),
   ),
@@ -7199,17 +8407,29 @@ List<_ComponentSpec> _buildComponents() => [
       onSeeAll: null,
       tiles: [
         MangaStatTile(
-            value: '285 742', label: 'Total chapitres',
-            icon: Icons.visibility_outlined, color: Color(0xFF8E7CFF)),
+          value: '285 742',
+          label: 'Total chapitres',
+          icon: Icons.visibility_outlined,
+          color: Color(0xFF8E7CFF),
+        ),
         MangaStatTile(
-            value: '62 481', label: 'Total volumes',
-            icon: Icons.auto_stories_outlined, color: Color(0xFF1E90FF)),
+          value: '62 481',
+          label: 'Total volumes',
+          icon: Icons.auto_stories_outlined,
+          color: Color(0xFF1E90FF),
+        ),
         MangaStatTile(
-            value: '12.8M', label: 'Total lecteurs',
-            icon: Icons.group_rounded, color: Color(0xFF2ED573)),
+          value: '12.8M',
+          label: 'Total lecteurs',
+          icon: Icons.group_rounded,
+          color: Color(0xFF2ED573),
+        ),
         MangaStatTile(
-            value: '8.4 / 10', label: 'Moyenne générale',
-            icon: Icons.star_rounded, color: Color(0xFFFFA502)),
+          value: '8.4 / 10',
+          label: 'Moyenne générale',
+          icon: Icons.star_rounded,
+          color: Color(0xFFFFA502),
+        ),
       ],
     ),
   ),
@@ -7224,16 +8444,41 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaPopularityCard(
       onSeeAll: () {},
       items: [
-        MangaRankEntry(title: 'One Piece', countLabel: '2.8M followers',
-            deltaLabel: '+12%', rank: 1, thumbUrl: _posterDune),
-        MangaRankEntry(title: 'Jujutsu Kaisen', countLabel: '2.1M followers',
-            deltaLabel: '+8%', rank: 2, thumbUrl: _posterArcane),
-        MangaRankEntry(title: 'Chainsaw Man', countLabel: '1.9M followers',
-            deltaLabel: '+7%', rank: 3, thumbUrl: _posterOppenheimer),
-        MangaRankEntry(title: 'Solo Leveling', countLabel: '1.6M followers',
-            deltaLabel: '+6%', rank: 4, thumbUrl: _posterInterstellar),
-        MangaRankEntry(title: 'Demon Slayer', countLabel: '1.4M followers',
-            deltaLabel: '+5%', rank: 5, thumbUrl: _posterThrones),
+        MangaRankEntry(
+          title: 'One Piece',
+          countLabel: '2.8M followers',
+          deltaLabel: '+12%',
+          rank: 1,
+          thumbUrl: _posterDune,
+        ),
+        MangaRankEntry(
+          title: 'Jujutsu Kaisen',
+          countLabel: '2.1M followers',
+          deltaLabel: '+8%',
+          rank: 2,
+          thumbUrl: _posterArcane,
+        ),
+        MangaRankEntry(
+          title: 'Chainsaw Man',
+          countLabel: '1.9M followers',
+          deltaLabel: '+7%',
+          rank: 3,
+          thumbUrl: _posterOppenheimer,
+        ),
+        MangaRankEntry(
+          title: 'Solo Leveling',
+          countLabel: '1.6M followers',
+          deltaLabel: '+6%',
+          rank: 4,
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaRankEntry(
+          title: 'Demon Slayer',
+          countLabel: '1.4M followers',
+          deltaLabel: '+5%',
+          rank: 5,
+          thumbUrl: _posterThrones,
+        ),
       ],
     ),
   ),
@@ -7248,16 +8493,31 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => MangaFollowersCard(
       onSeeAll: () {},
       items: [
-        MangaRelationEntry(title: 'One Piece', sublabel: '2.8M',
-            thumbUrl: _posterDune),
-        MangaRelationEntry(title: 'Naruto', sublabel: '2.4M',
-            thumbUrl: _posterOppenheimer),
-        MangaRelationEntry(title: 'Jujutsu Kaisen', sublabel: '2.1M',
-            thumbUrl: _posterArcane),
-        MangaRelationEntry(title: 'Solo Leveling', sublabel: '1.6M',
-            thumbUrl: _posterInterstellar),
-        MangaRelationEntry(title: 'Attack on Titan', sublabel: '1.3M',
-            thumbUrl: _posterThrones),
+        MangaRelationEntry(
+          title: 'One Piece',
+          sublabel: '2.8M',
+          thumbUrl: _posterDune,
+        ),
+        MangaRelationEntry(
+          title: 'Naruto',
+          sublabel: '2.4M',
+          thumbUrl: _posterOppenheimer,
+        ),
+        MangaRelationEntry(
+          title: 'Jujutsu Kaisen',
+          sublabel: '2.1M',
+          thumbUrl: _posterArcane,
+        ),
+        MangaRelationEntry(
+          title: 'Solo Leveling',
+          sublabel: '1.6M',
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaRelationEntry(
+          title: 'Attack on Titan',
+          sublabel: '1.3M',
+          thumbUrl: _posterThrones,
+        ),
       ],
     ),
   ),
@@ -7293,23 +8553,41 @@ List<_ComponentSpec> _buildComponents() => [
       onSeeAll: null,
       tiles: [
         MangaStatTile(
-            value: '285 742', label: 'Chapitres',
-            icon: Icons.menu_book_outlined, color: Color(0xFF8E7CFF)),
+          value: '285 742',
+          label: 'Chapitres',
+          icon: Icons.menu_book_outlined,
+          color: Color(0xFF8E7CFF),
+        ),
         MangaStatTile(
-            value: '62 481', label: 'Volumes',
-            icon: Icons.auto_stories_outlined, color: Color(0xFF1E90FF)),
+          value: '62 481',
+          label: 'Volumes',
+          icon: Icons.auto_stories_outlined,
+          color: Color(0xFF1E90FF),
+        ),
         MangaStatTile(
-            value: '4 991', label: 'Mangas',
-            icon: Icons.public_rounded, color: Color(0xFF2ED573)),
+          value: '4 991',
+          label: 'Mangas',
+          icon: Icons.public_rounded,
+          color: Color(0xFF2ED573),
+        ),
         MangaStatTile(
-            value: '2 843', label: 'Auteurs',
-            icon: Icons.person_outline, color: Color(0xFFFFA502)),
+          value: '2 843',
+          label: 'Auteurs',
+          icon: Icons.person_outline,
+          color: Color(0xFFFFA502),
+        ),
         MangaStatTile(
-            value: '3 102', label: 'Artistes',
-            icon: Icons.palette_rounded, color: Color(0xFFFF6B81)),
+          value: '3 102',
+          label: 'Artistes',
+          icon: Icons.palette_rounded,
+          color: Color(0xFFFF6B81),
+        ),
         MangaStatTile(
-            value: '1 245', label: 'Groupes',
-            icon: Icons.group_rounded, color: Color(0xFF1BC8BF)),
+          value: '1 245',
+          label: 'Groupes',
+          icon: Icons.group_rounded,
+          color: Color(0xFF1BC8BF),
+        ),
       ],
     ),
   ),
@@ -7325,16 +8603,41 @@ List<_ComponentSpec> _buildComponents() => [
       onSeeAll: () {},
       onFilterChanged: (_) {},
       items: [
-        MangaRankEntry(title: 'One Piece', ratingLabel: '9.2',
-            countLabel: '2.8M', rank: 1, thumbUrl: _posterDune),
-        MangaRankEntry(title: 'Fullmetal Alchemist', ratingLabel: '9.1',
-            countLabel: '1.9M', rank: 2, thumbUrl: _posterInterstellar),
-        MangaRankEntry(title: 'Naruto', ratingLabel: '8.9',
-            countLabel: '2.4M', rank: 3, thumbUrl: _posterOppenheimer),
-        MangaRankEntry(title: 'Attack on Titan', ratingLabel: '8.8',
-            countLabel: '1.7M', rank: 4, thumbUrl: _posterThrones),
-        MangaRankEntry(title: 'Death Note', ratingLabel: '8.7',
-            countLabel: '1.5M', rank: 5, thumbUrl: _posterArcane),
+        MangaRankEntry(
+          title: 'One Piece',
+          ratingLabel: '9.2',
+          countLabel: '2.8M',
+          rank: 1,
+          thumbUrl: _posterDune,
+        ),
+        MangaRankEntry(
+          title: 'Fullmetal Alchemist',
+          ratingLabel: '9.1',
+          countLabel: '1.9M',
+          rank: 2,
+          thumbUrl: _posterInterstellar,
+        ),
+        MangaRankEntry(
+          title: 'Naruto',
+          ratingLabel: '8.9',
+          countLabel: '2.4M',
+          rank: 3,
+          thumbUrl: _posterOppenheimer,
+        ),
+        MangaRankEntry(
+          title: 'Attack on Titan',
+          ratingLabel: '8.8',
+          countLabel: '1.7M',
+          rank: 4,
+          thumbUrl: _posterThrones,
+        ),
+        MangaRankEntry(
+          title: 'Death Note',
+          ratingLabel: '8.7',
+          countLabel: '1.5M',
+          rank: 5,
+          thumbUrl: _posterArcane,
+        ),
       ],
     ),
   ),
@@ -7387,12 +8690,27 @@ List<_ComponentSpec> _buildComponents() => [
       subtitle: 'Format horizontal immersif.',
       icon: Icons.view_carousel_outlined,
       items: [
-        _lsEntry('Dune: Part Two', 'Action · Aventure', '2h 46m', '8.7',
-            _backdropDune),
-        _lsEntry('The Batman', 'Action · Policier', '2h 56m', '7.8',
-            _backdropInterstellar),
-        _lsEntry('Interstellar', 'Drame · Science-fiction', '2h 49m', '8.6',
-            _backdropOppenheimer),
+        _lsEntry(
+          'Dune: Part Two',
+          'Action · Aventure',
+          '2h 46m',
+          '8.7',
+          _backdropDune,
+        ),
+        _lsEntry(
+          'The Batman',
+          'Action · Policier',
+          '2h 56m',
+          '7.8',
+          _backdropInterstellar,
+        ),
+        _lsEntry(
+          'Interstellar',
+          'Drame · Science-fiction',
+          '2h 49m',
+          '8.6',
+          _backdropOppenheimer,
+        ),
       ],
     ),
   ),
@@ -7407,14 +8725,34 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => LandscapeFilmsSection(
       onSeeAll: () {},
       items: [
-        _lsEntry('Dune: Part Two', 'Action · Aventure · Science-fiction',
-            '2h 46m', '8.7', _backdropDune),
-        _lsEntry('The Batman', 'Action · Policier · Thriller', '2h 56m', '7.8',
-            _backdropInterstellar),
-        _lsEntry('Interstellar', 'Drame · Science-fiction', '2h 49m', '8.6',
-            _backdropOppenheimer),
-        _lsEntry('John Wick 4', 'Action · Thriller', '2h 49m', '7.6',
-            _backdropArcane),
+        _lsEntry(
+          'Dune: Part Two',
+          'Action · Aventure · Science-fiction',
+          '2h 46m',
+          '8.7',
+          _backdropDune,
+        ),
+        _lsEntry(
+          'The Batman',
+          'Action · Policier · Thriller',
+          '2h 56m',
+          '7.8',
+          _backdropInterstellar,
+        ),
+        _lsEntry(
+          'Interstellar',
+          'Drame · Science-fiction',
+          '2h 49m',
+          '8.6',
+          _backdropOppenheimer,
+        ),
+        _lsEntry(
+          'John Wick 4',
+          'Action · Thriller',
+          '2h 49m',
+          '7.6',
+          _backdropArcane,
+        ),
       ],
     ),
   ),
@@ -7429,14 +8767,34 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => LandscapeSeriesSection(
       onSeeAll: () {},
       items: [
-        _lsEntry('The Last of Us', 'Drame · Action · Thriller',
-            'S2 · 9 épisodes', '9.2', _backdropDune),
-        _lsEntry('Stranger Things', 'Mystère · Science-fiction · Thriller',
-            'S4 · 9 épisodes', '8.7', _backdropInterstellar),
-        _lsEntry('Wednesday', 'Comédie · Fantastique · Mystère',
-            'S1 · 8 épisodes', '8.1', _backdropOppenheimer),
-        _lsEntry('Supernatural', 'Fantastique · Drame · Action',
-            'S15 · 20 épisodes', '8.4', _backdropArcane),
+        _lsEntry(
+          'The Last of Us',
+          'Drame · Action · Thriller',
+          'S2 · 9 épisodes',
+          '9.2',
+          _backdropDune,
+        ),
+        _lsEntry(
+          'Stranger Things',
+          'Mystère · Science-fiction · Thriller',
+          'S4 · 9 épisodes',
+          '8.7',
+          _backdropInterstellar,
+        ),
+        _lsEntry(
+          'Wednesday',
+          'Comédie · Fantastique · Mystère',
+          'S1 · 8 épisodes',
+          '8.1',
+          _backdropOppenheimer,
+        ),
+        _lsEntry(
+          'Supernatural',
+          'Fantastique · Drame · Action',
+          'S15 · 20 épisodes',
+          '8.4',
+          _backdropArcane,
+        ),
       ],
     ),
   ),
@@ -7451,14 +8809,34 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => LandscapeMangaSection(
       onSeeAll: () {},
       items: [
-        _lsEntry('Solo Leveling', 'Action · Fantasy · Aventure', 'Ch. 160+',
-            '9.4', _backdropDune),
-        _lsEntry('Jujutsu Kaisen', 'Action · Surnaturel · Combat', 'Ch. 270+',
-            '9.1', _backdropArcane),
-        _lsEntry('One Piece', 'Action · Aventure · Comédie', 'Ch. 1100+',
-            '9.2', _backdropOppenheimer),
-        _lsEntry('Chainsaw Man', 'Action · Surnaturel · Thriller', 'Ch. 167+',
-            '8.8', _backdropInterstellar),
+        _lsEntry(
+          'Solo Leveling',
+          'Action · Fantasy · Aventure',
+          'Ch. 160+',
+          '9.4',
+          _backdropDune,
+        ),
+        _lsEntry(
+          'Jujutsu Kaisen',
+          'Action · Surnaturel · Combat',
+          'Ch. 270+',
+          '9.1',
+          _backdropArcane,
+        ),
+        _lsEntry(
+          'One Piece',
+          'Action · Aventure · Comédie',
+          'Ch. 1100+',
+          '9.2',
+          _backdropOppenheimer,
+        ),
+        _lsEntry(
+          'Chainsaw Man',
+          'Action · Surnaturel · Thriller',
+          'Ch. 167+',
+          '8.8',
+          _backdropInterstellar,
+        ),
       ],
     ),
   ),
@@ -7473,14 +8851,34 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => LandscapeNovelsSection(
       onSeeAll: () {},
       items: [
-        _lsEntry('The Beginning After The End', 'Fantastique · Aventure',
-            'Ch. 218+', '9.3', _backdropDune),
-        _lsEntry('Lord of the Mysteries', 'Mystère · Fantasy', 'Ch. 1430+',
-            '9.1', _backdropInterstellar),
-        _lsEntry('Omniscient Reader', 'Action · Fantasy', 'Ch. 551+', '9.2',
-            _backdropOppenheimer),
-        _lsEntry('Trash of the Count’s Family', 'Fantasy · Aventure',
-            'Ch. 600+', '8.9', _backdropArcane),
+        _lsEntry(
+          'The Beginning After The End',
+          'Fantastique · Aventure',
+          'Ch. 218+',
+          '9.3',
+          _backdropDune,
+        ),
+        _lsEntry(
+          'Lord of the Mysteries',
+          'Mystère · Fantasy',
+          'Ch. 1430+',
+          '9.1',
+          _backdropInterstellar,
+        ),
+        _lsEntry(
+          'Omniscient Reader',
+          'Action · Fantasy',
+          'Ch. 551+',
+          '9.2',
+          _backdropOppenheimer,
+        ),
+        _lsEntry(
+          'Trash of the Count’s Family',
+          'Fantasy · Aventure',
+          'Ch. 600+',
+          '8.9',
+          _backdropArcane,
+        ),
       ],
     ),
   ),
@@ -7537,18 +8935,36 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => LandscapeGenreRow(
       onSeeAll: () {},
       tiles: [
-        LandscapeGenreTile(title: 'Action', countLabel: '1 248 contenus',
-            thumbUrl: _backdropDune),
-        LandscapeGenreTile(title: 'Romance', countLabel: '982 contenus',
-            thumbUrl: _backdropArcane),
-        LandscapeGenreTile(title: 'Aventure', countLabel: '876 contenus',
-            thumbUrl: _backdropInterstellar),
-        LandscapeGenreTile(title: 'Fantasy', countLabel: '1 532 contenus',
-            thumbUrl: _backdropOppenheimer),
-        LandscapeGenreTile(title: 'Horreur', countLabel: '694 contenus',
-            thumbUrl: _backdropDune),
-        LandscapeGenreTile(title: 'Comédie', countLabel: '1 203 contenus',
-            thumbUrl: _backdropArcane),
+        LandscapeGenreTile(
+          title: 'Action',
+          countLabel: '1 248 contenus',
+          thumbUrl: _backdropDune,
+        ),
+        LandscapeGenreTile(
+          title: 'Romance',
+          countLabel: '982 contenus',
+          thumbUrl: _backdropArcane,
+        ),
+        LandscapeGenreTile(
+          title: 'Aventure',
+          countLabel: '876 contenus',
+          thumbUrl: _backdropInterstellar,
+        ),
+        LandscapeGenreTile(
+          title: 'Fantasy',
+          countLabel: '1 532 contenus',
+          thumbUrl: _backdropOppenheimer,
+        ),
+        LandscapeGenreTile(
+          title: 'Horreur',
+          countLabel: '694 contenus',
+          thumbUrl: _backdropDune,
+        ),
+        LandscapeGenreTile(
+          title: 'Comédie',
+          countLabel: '1 203 contenus',
+          thumbUrl: _backdropArcane,
+        ),
       ],
     ),
   ),
@@ -7590,25 +9006,29 @@ List<_ComponentSpec> _buildComponents() => [
       onSeeAll: () {},
       items: [
         HomeSpotlightEntry(
-            title: 'The Last Heir',
-            kindLabel: 'Série',
-            ratingLabel: '8.4',
-            thumbUrl: _backdropArcane),
+          title: 'The Last Heir',
+          kindLabel: 'Série',
+          ratingLabel: '8.4',
+          thumbUrl: _backdropArcane,
+        ),
         HomeSpotlightEntry(
-            title: 'Dune: Part Two',
-            kindLabel: 'Film',
-            ratingLabel: '8.7',
-            thumbUrl: _backdropDune),
+          title: 'Dune: Part Two',
+          kindLabel: 'Film',
+          ratingLabel: '8.7',
+          thumbUrl: _backdropDune,
+        ),
         HomeSpotlightEntry(
-            title: 'Solo Leveling',
-            kindLabel: 'Manga',
-            ratingLabel: '9.4',
-            thumbUrl: _backdropInterstellar),
+          title: 'Solo Leveling',
+          kindLabel: 'Manga',
+          ratingLabel: '9.4',
+          thumbUrl: _backdropInterstellar,
+        ),
         HomeSpotlightEntry(
-            title: 'Reincarnation of a…',
-            kindLabel: 'Novel',
-            ratingLabel: '8.6',
-            thumbUrl: _backdropOppenheimer),
+          title: 'Reincarnation of a…',
+          kindLabel: 'Novel',
+          ratingLabel: '8.6',
+          thumbUrl: _backdropOppenheimer,
+        ),
       ],
     ),
   ),
@@ -7623,21 +9043,25 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => HomeGenreTileCard(
       items: [
         HomeGenreCardEntry(
-            title: 'Action',
-            tagline: 'Sensations fortes…',
-            thumbUrl: _backdropDune),
+          title: 'Action',
+          tagline: 'Sensations fortes…',
+          thumbUrl: _backdropDune,
+        ),
         HomeGenreCardEntry(
-            title: 'Romance',
-            tagline: 'Des histoires d\'amour…',
-            thumbUrl: _backdropArcane),
+          title: 'Romance',
+          tagline: 'Des histoires d\'amour…',
+          thumbUrl: _backdropArcane,
+        ),
         HomeGenreCardEntry(
-            title: 'Fantastique',
-            tagline: 'Des mondes incroyables…',
-            thumbUrl: _backdropInterstellar),
+          title: 'Fantastique',
+          tagline: 'Des mondes incroyables…',
+          thumbUrl: _backdropInterstellar,
+        ),
         HomeGenreCardEntry(
-            title: 'Aventure',
-            tagline: 'Explorer l\'inconnu…',
-            thumbUrl: _backdropOppenheimer),
+          title: 'Aventure',
+          tagline: 'Explorer l\'inconnu…',
+          thumbUrl: _backdropOppenheimer,
+        ),
       ],
     ),
   ),
@@ -7653,35 +9077,41 @@ List<_ComponentSpec> _buildComponents() => [
       onSeeAll: () {},
       items: [
         HomePopularEntry(
-            title: 'Stranger Things',
-            meta: 'Série · 2016',
-            ratingLabel: '8.7',
-            thumbUrl: _posterThrones),
+          title: 'Stranger Things',
+          meta: 'Série · 2016',
+          ratingLabel: '8.7',
+          thumbUrl: _posterThrones,
+        ),
         HomePopularEntry(
-            title: 'The Last of Us',
-            meta: 'Série · 2023',
-            ratingLabel: '9.5',
-            thumbUrl: _posterDune),
+          title: 'The Last of Us',
+          meta: 'Série · 2023',
+          ratingLabel: '9.5',
+          thumbUrl: _posterDune,
+        ),
         HomePopularEntry(
-            title: 'Breaking Bad',
-            meta: 'Série · 2008',
-            ratingLabel: '9.8',
-            thumbUrl: _posterOppenheimer),
+          title: 'Breaking Bad',
+          meta: 'Série · 2008',
+          ratingLabel: '9.8',
+          thumbUrl: _posterOppenheimer,
+        ),
         HomePopularEntry(
-            title: 'Wicked',
-            meta: 'Film · 2024',
-            ratingLabel: '7.4',
-            thumbUrl: _posterInterstellar),
+          title: 'Wicked',
+          meta: 'Film · 2024',
+          ratingLabel: '7.4',
+          thumbUrl: _posterInterstellar,
+        ),
         HomePopularEntry(
-            title: 'One Piece',
-            meta: 'Anime · 1999',
-            ratingLabel: '9.2',
-            thumbUrl: _posterArcane),
+          title: 'One Piece',
+          meta: 'Anime · 1999',
+          ratingLabel: '9.2',
+          thumbUrl: _posterArcane,
+        ),
         HomePopularEntry(
-            title: 'Jujutsu Kaisen',
-            meta: 'Anime · 2020',
-            ratingLabel: '9.1',
-            thumbUrl: _backdropDune),
+          title: 'Jujutsu Kaisen',
+          meta: 'Anime · 2020',
+          ratingLabel: '9.1',
+          thumbUrl: _backdropDune,
+        ),
       ],
     ),
   ),
@@ -7697,45 +9127,53 @@ List<_ComponentSpec> _buildComponents() => [
       onSeeAll: () {},
       items: [
         HomeSpotlightEntry(
-            title: 'Solo Leveling',
-            kindLabel: 'Manga',
-            ratingLabel: '9.4',
-            thumbUrl: _posterDune),
+          title: 'Solo Leveling',
+          kindLabel: 'Manga',
+          ratingLabel: '9.4',
+          thumbUrl: _posterDune,
+        ),
         HomeSpotlightEntry(
-            title: 'My Hero Academia',
-            kindLabel: 'Manga',
-            ratingLabel: '8.7',
-            thumbUrl: _posterThrones),
+          title: 'My Hero Academia',
+          kindLabel: 'Manga',
+          ratingLabel: '8.7',
+          thumbUrl: _posterThrones,
+        ),
         HomeSpotlightEntry(
-            title: 'Jujutsu Kaisen',
-            kindLabel: 'Manga',
-            ratingLabel: '9.1',
-            thumbUrl: _posterArcane),
+          title: 'Jujutsu Kaisen',
+          kindLabel: 'Manga',
+          ratingLabel: '9.1',
+          thumbUrl: _posterArcane,
+        ),
         HomeSpotlightEntry(
-            title: 'One Piece',
-            kindLabel: 'Manga',
-            ratingLabel: '9.2',
-            thumbUrl: _posterOppenheimer),
+          title: 'One Piece',
+          kindLabel: 'Manga',
+          ratingLabel: '9.2',
+          thumbUrl: _posterOppenheimer,
+        ),
         HomeSpotlightEntry(
-            title: 'Chainsaw Man',
-            kindLabel: 'Manga',
-            ratingLabel: '8.8',
-            thumbUrl: _posterInterstellar),
+          title: 'Chainsaw Man',
+          kindLabel: 'Manga',
+          ratingLabel: '8.8',
+          thumbUrl: _posterInterstellar,
+        ),
         HomeSpotlightEntry(
-            title: 'Attack on Titan',
-            kindLabel: 'Manga',
-            ratingLabel: '9.0',
-            thumbUrl: _backdropArcane),
+          title: 'Attack on Titan',
+          kindLabel: 'Manga',
+          ratingLabel: '9.0',
+          thumbUrl: _backdropArcane,
+        ),
         HomeSpotlightEntry(
-            title: 'Reincarnation of a…',
-            kindLabel: 'Novel',
-            ratingLabel: '8.6',
-            thumbUrl: _backdropInterstellar),
+          title: 'Reincarnation of a…',
+          kindLabel: 'Novel',
+          ratingLabel: '8.6',
+          thumbUrl: _backdropInterstellar,
+        ),
         HomeSpotlightEntry(
-            title: 'Classroom of the Elite',
-            kindLabel: 'Novel',
-            ratingLabel: '8.3',
-            thumbUrl: _backdropDune),
+          title: 'Classroom of the Elite',
+          kindLabel: 'Novel',
+          ratingLabel: '8.3',
+          thumbUrl: _backdropDune,
+        ),
       ],
     ),
   ),
@@ -7770,11 +9208,12 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => HomeMyListCard(
       onSeeAll: () {},
       items: [
-        HomeMyListEntry(
-            title: 'The Last Heir', thumbUrl: _backdropArcane),
+        HomeMyListEntry(title: 'The Last Heir', thumbUrl: _backdropArcane),
         HomeMyListEntry(title: 'Dune', thumbUrl: _backdropDune),
         HomeMyListEntry(
-            title: 'Solo Leveling', thumbUrl: _backdropInterstellar),
+          title: 'Solo Leveling',
+          thumbUrl: _backdropInterstellar,
+        ),
         HomeMyListEntry(title: 'Wicked', thumbUrl: _backdropOppenheimer),
       ],
     ),
@@ -7787,9 +9226,7 @@ List<_ComponentSpec> _buildComponents() => [
     section: 'ACCUEIL & LECTURE',
     icon: Icons.auto_awesome_outlined,
     kind: _PreviewKind.hmAI,
-    result: (_) => HomeAIRecommenderCard(
-      onSend: (_) {},
-    ),
+    result: (_) => HomeAIRecommenderCard(onSend: (_) {}),
   ),
   _ComponentSpec(
     title: 'Mini-lecteur de reprise',
@@ -8040,10 +9477,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mediaSection,
     result: (_) => SizedBox(
       width: 340,
-      child: RankedMovies(
-        title: 'Top 10 cette semaine',
-        items: _tmdbItems,
-      ),
+      child: RankedMovies(title: 'Top 10 cette semaine', items: _tmdbItems),
     ),
   ),
   _ComponentSpec(
@@ -8073,10 +9507,7 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.mediaSection,
     result: (_) => SizedBox(
       width: 340,
-      child: FeaturedMovieRail(
-        title: 'À découvrir',
-        items: _tmdbItems,
-      ),
+      child: FeaturedMovieRail(title: 'À découvrir', items: _tmdbItems),
     ),
   ),
   _ComponentSpec(
@@ -8087,10 +9518,8 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Section des plateformes disponibles',
     icon: Icons.live_tv_outlined,
     kind: _PreviewKind.providersSection,
-    result: (_) => const SizedBox(
-      width: 340,
-      child: MoviesFromWatchProviders(),
-    ),
+    result: (_) =>
+        const SizedBox(width: 340, child: MoviesFromWatchProviders()),
   ),
   _ComponentSpec(
     section: 'FILMS & SÉRIES · SECTIONS',
@@ -8139,7 +9568,10 @@ List<_ComponentSpec> _buildComponents() => [
         animeTitle: 'Arcane',
         episodeNumber: 4,
         episodeTitle: 'Happy Progress Day!',
-        progress: const home_episode.EpisodeProgress(value: .62, timeLeft: '12 min'),
+        progress: const home_episode.EpisodeProgress(
+          value: .62,
+          timeLeft: '12 min',
+        ),
       ),
       onTap: () {},
     ),
@@ -8833,31 +10265,187 @@ StreamingEpisode _streamEpisode(
 
 // ─── Données d'aperçu des cartes collections / franchises ───
 
+// Couvertures réelles servies par le CDN AniList (vérifiées HTTP 200).
+// Chaque constante expose une œuvre différente : les aperçus ne réutilisent
+// plus la même poignée d'images, et plus aucune URL ne renvoie 404.
 const _posterDune =
-    'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx105778-euxXZEIfDY2u.png';
 const _posterInterstellar =
-    'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30013-BeslEMqiPhlk.jpg';
 const _posterOppenheimer =
-    'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx101517-H3TdM3g5ZUe9.jpg';
 const _posterThrones =
-    'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx53390-1RsuABC34P9D.jpg';
 const _posterArcane =
-    'https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30002-Cul4OeN7bYtn.jpg';
 const _backdropDune =
-    'https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/banner/105778-ppHaMwown6c9.jpg';
 const _backdropInterstellar =
-    'https://image.tmdb.org/t/p/w1280/pbrkL804c8yAv3zBZR4QPEafpAR.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/banner/30013-hbbRZqC5MjYh.jpg';
 const _backdropOppenheimer =
-    'https://image.tmdb.org/t/p/w1280/rLb2cwF3Pazuxaj0sRXQ037tGI1.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/banner/101517-FrJtb3Th3HtF.jpg';
 const _backdropArcane =
-    'https://image.tmdb.org/t/p/w1280/rkB4LyZHo1NHXFEDHl8M3g1Q3Q.jpg';
+    'https://s4.anilist.co/file/anilistcdn/media/manga/banner/53390-6Uru5rrjh8zv.jpg';
+
+/// Pool de couvertures manga réelles (AniList, tri par popularité).
+/// Utilisé pour varier les aperçus au lieu de répéter les mêmes visuels.
+const galleryCoverPool = <String>[
+  _posterDune,
+  _posterInterstellar,
+  _posterOppenheimer,
+  _posterThrones,
+  _posterArcane,
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx105398-b673Vt5ZSuz3.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx87216-c9bSNVD10UuD.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx63327-glC9cDxYBja9.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx34632-5xMDkx3pXsEh.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85486-INqnYx8gL3eX.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx74347-sZpmNJ5xLwRK.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30656-9mW113O7rDnA.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx108556-NHjkz0BNJhLx.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30642-0mjRDkf4THpo.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx87423-gPNtu8QbGped.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx119257-Pi21aq3ey9GG.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx106130-yPNeuSu75ey1.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx72451-vVXtRwyttjGG.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30012-1epmVfTSv2rr.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx86635-EdaLQmsn86Fy.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx102988-OoVJxQCH6fbR.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx132029-prGF4gePdSKv.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30026-uCvXMudMzmwI.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30003-E84fwIh22LAQ.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30001-Knby7l1jevE7.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx86123-Ill8uBdtvWrR.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx97852-M7vlc2OGR2gp.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx117195-r3kf8eF0xkDJ.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx120760-MtXvMgujLBpe.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx31706-lRncu9VbcBB7.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx87170-nyuwcN7rU4pc.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85611-Asb0BNP23NsJ.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx65243-mR4MnJFmfaOF.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx101583-VI1PT2QGGT8W.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85143-23oup3ETbFJk.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30021-FE6kmrfpuKyb.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx30011-9yUF1dXWgDOx.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx100994-f6CMjiQQNVeS.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85135-11OOnyaqV71k.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx125828-p78Z8SflkfmO.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/b98416-L44f4idEGMAX.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx31133-Jx6map3Oidz1.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30436-Opk9ZubMPuDU.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx146983-pLf4apCkFwKL.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx118586-CXKgWikBFQgS.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx97553-vqJj5DFS8v2p.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx74489-5HtDCFfut8Be.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx98263-kIeaTXrAbGkj.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30025-mpPVpCKFTowt.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx140475-QEGtrmdvbpOv.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx107237-tyQXghsKmE0t.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/b86964-vTdn1Esqw3va.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx46765-KPXir4sRqJBW.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx100664-uzN5998CDxPJ.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30051-5KJyPlO7z5F4.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx54705-78Th5SRaL0Ns.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx33009-jF9dqLJcZC4n.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx37375-wkgev4kXhamw.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30936-P55KMUW1sgLN.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx105469-IvLF5yIf6LBC.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx98842-Ji0v423UZ4er.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx169355-5pqzh1Wb4NOQ.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30564-RbyFbLzbnKea.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx100230-TA0RQ9d7RVas.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30908-nk6Ct4euJelZ.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx140407-fJQr0fmqq1IO.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx87395-axsA49kSZp72.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx107098-zjO64Bc3Nrm5.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx128067-wnLBg6Cy1ncs.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx101233-ipG2rYitNxyd.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx144946-cscic3n2SwdY.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30583-Ysqwu8uryIUX.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx86218-sIl9tnqHZQyh.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx86310-OraykJ8bRNTr.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx98397-5b3kSYyw7ykd.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx111233-bQQV6KWMBXz4.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30149-YetcNrfacNVj.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx86717-S7z7uizfTfEu.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx100568-4BC0PsdwU4bL.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx136807-KNfQQTRD4HUK.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30104-sUVzNlTWZ5cu.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/b79865-rwKmISrhJJyP.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx54692-3vWUzvrCyArN.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx55515-HhCsfAsd7VK1.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx99943-DX7nDMeqSTk3.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx86399-NwbRFVh5koqc.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx54294-Nabu5Ag0L2ay.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx114960-pivAwNQDdiBa.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30028-VJqBC1ar6AxE.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx116186-V270SY9BukUE.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx86551-0EzmsMZiPSu9.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx33031-LzNWgqS69qAj.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30598-UOCymo2vPcWe.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx61499-aXInaLRa6xv5.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx126297-SPiM7QtUnJ4P.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30336-KWTPMwsNTeSa.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx86082-MXizJxzbijdd.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx100954-xY0Vw2sRRo8t.png',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx132182-maXh2QzYPrqR.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx85849-TYAa7nhwSvbx.jpg',
+];
+
+/// Bandes larges (héros, rails) issues des mêmes œuvres AniList.
+const galleryBannerPool = <String>[
+  _backdropDune,
+  _backdropInterstellar,
+  _backdropOppenheimer,
+  _backdropArcane,
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/30002-3TuoSMl20fUX.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/87216-TVKEGfSxAqKs.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/63327-uaFaG1HAJ0tK.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/34632-JULTgA6q6jAH.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/85486-4mTRih1qOdgk.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/74347-xAQI9BxcpWM3.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/30656-XYzvRlsc3iK4.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/108556-iCiPfU0GU4OM.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/30642-MeizzL2WDv6C.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/n87423-n5n0LZu9Gs5H.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/119257-RtxJMRCunHXc.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/106130-4UbnMTU80zur.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/42451-shG1Ksjxm3pw.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/30012-RpbdVc2yNxhw.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/86635-qjRKbsrM3U9F.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/102988-T9bMDQxSyGpv.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/132029-V1x9JAh3G8QK.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/30026-JXfraiazLTQe.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/30003-MBm3u1K1uHsi.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/1-x9ksIvb9cKK2.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/86123-vPWHXqCLYv86.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/97852-wHsdcKYktdp5.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/117195-VVYq1EEOwR0K.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/120760-f81MiocMQK03.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/31706-W4G3BFn56DOs.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/87170-gsBzHdIHoyEk.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/85611-xK7DMNtc0MNZ.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/65243-naohhXW4M4b9.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/101583-cSP6zPHQzjQD.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/85143-IKyCdaJKfa2M.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/n30021-eZbrTpIjv10E.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/30011-pkX1O0EFqvV7.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/100994-mEIqjSzFKysR.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/85135-BPNyMuWVvZjh.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/125828-wnmpFCNg0WkK.jpg',
+  'https://s4.anilist.co/file/anilistcdn/media/manga/banner/98416-1XM7oOALCGjA.jpg',
+];
+
+/// Couverture variée pour un aperçu donné (jamais d'index hors bornes).
+String coverAt(int index) =>
+    galleryCoverPool[index.abs() % galleryCoverPool.length];
+
+/// Bande large variée pour un aperçu donné.
+String bannerAt(int index) =>
+    galleryBannerPool[index.abs() % galleryBannerPool.length];
 
 /// [ContentItem] de démonstration pour les cartes collections.
-ContentItem _collItem(
-  String title, {
-  String? poster,
-  String? backdrop,
-}) {
+ContentItem _collItem(String title, {String? poster, String? backdrop}) {
   return ContentItem(
     key: 'coll-$title',
     title: title,
@@ -9072,12 +10660,12 @@ RankingEntry _rankEntry(
 RichMediaCardData _richCardData(TmdbMedia item) {
   return RichMediaCardData(
     item: ContentItem.fromTmdb(item),
-    meta: (item.mediaType == 'tv'
-            ? item.firstAirDate
-            : item.releaseDate)
+    meta: (item.mediaType == 'tv' ? item.firstAirDate : item.releaseDate)
         ?.split('-')
         .first,
-    genres: item.mediaType == 'tv' ? 'Action · Drame' : 'Science-fiction · Aventure',
+    genres: item.mediaType == 'tv'
+        ? 'Action · Drame'
+        : 'Science-fiction · Aventure',
     runtimeMinutes: item.mediaType == 'tv' ? 52 : 166,
     seasonNumber: item.mediaType == 'tv' ? 1 : null,
     onPlay: () {},
@@ -9147,9 +10735,9 @@ const _animeItems = <AnilistMedia>[
     titleEnglish: 'One Piece',
     titleRomaji: 'One Piece',
     coverLarge:
-        'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-ELSYx3yMPcKM.jpg',
     bannerImage:
-        'https://image.tmdb.org/t/p/w1280/m0bV4D3dZQYjF4gUeR5Y4kK8v8c.jpg',
+        'https://s4.anilist.co/file/anilistcdn/media/anime/banner/21-wf37VakJmZqs.jpg',
     averageScore: 87,
     format: 'TV',
     episodes: 1122,
@@ -9162,9 +10750,9 @@ const _animeItems = <AnilistMedia>[
     titleEnglish: 'Attack on Titan',
     titleRomaji: 'Shingeki no Kyojin',
     coverLarge:
-        'https://image.tmdb.org/t/p/w500/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg',
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16498-buvcRTBx4NSm.jpg',
     bannerImage:
-        'https://image.tmdb.org/t/p/w1280/2LquGwEhbg3soxSCmYcW5s3j5Yw.jpg',
+        'https://s4.anilist.co/file/anilistcdn/media/anime/banner/16498-8jpFCOcDmneX.jpg',
     averageScore: 91,
     format: 'TV',
     episodes: 89,
@@ -9177,7 +10765,9 @@ const _animeItems = <AnilistMedia>[
     titleEnglish: 'Frieren: Beyond Journey’s End',
     titleRomaji: 'Sousou no Frieren',
     coverLarge:
-        'https://image.tmdb.org/t/p/w500/edZf3G2qkU8aT5s8H3rY5yJ2XbG.jpg',
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg',
+    bannerImage:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/banner/154587-ivXNJ23SM1xB.jpg',
     averageScore: 90,
     format: 'TV',
     episodes: 28,

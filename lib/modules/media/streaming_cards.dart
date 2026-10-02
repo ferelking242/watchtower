@@ -52,9 +52,9 @@ class StreamingCardData {
 
   /// `S4 • Ép. 12 • 45 min`
   String get metaLine => [
-        if (seriesMeta != null && seriesMeta!.isNotEmpty) seriesMeta!,
-        if (extraMeta != null && extraMeta!.isNotEmpty) extraMeta!,
-      ].join(' • ');
+    if (seriesMeta != null && seriesMeta!.isNotEmpty) seriesMeta!,
+    if (extraMeta != null && extraMeta!.isNotEmpty) extraMeta!,
+  ].join(' • ');
 
   /// `62%`
   String? get percentLabel {
@@ -103,11 +103,7 @@ class StreamingEpisode {
 /// ── 1. ContinueWatchingCard ─────────────────────────────────────────────
 /// « Reprend là où tu t'es arrêté » : visuel, progression et actions.
 class ContinueWatchingCard extends StatelessWidget {
-  const ContinueWatchingCard({
-    super.key,
-    required this.data,
-    this.width = 300,
-  });
+  const ContinueWatchingCard({super.key, required this.data, this.width = 300});
 
   final StreamingCardData data;
   final double width;
@@ -142,10 +138,7 @@ class ContinueWatchingCard extends StatelessWidget {
                   Positioned(
                     left: 10,
                     top: 10,
-                    child: _StreamBadge(
-                      label: data.badge!,
-                      color: accent,
-                    ),
+                    child: _StreamBadge(label: data.badge!, color: accent),
                   ),
                 Positioned(
                   left: 12,
@@ -226,7 +219,10 @@ class ContinueWatchingCard extends StatelessWidget {
                       onTap: data.onAddToList,
                     ),
                     const SizedBox(width: 8),
-                    _StreamIconAction(icon: Broken.more_square, onTap: data.onMore),
+                    _StreamIconAction(
+                      icon: Broken.more_square,
+                      onTap: data.onMore,
+                    ),
                   ],
                 ),
               ],
@@ -241,11 +237,7 @@ class ContinueWatchingCard extends StatelessWidget {
 /// ── 2. ContinueWatchingItem ─────────────────────────────────────────────
 /// Élément compact pour une liste « à reprendre ».
 class ContinueWatchingItem extends StatelessWidget {
-  const ContinueWatchingItem({
-    super.key,
-    required this.data,
-    this.width = 380,
-  });
+  const ContinueWatchingItem({super.key, required this.data, this.width = 380});
 
   final StreamingCardData data;
   final double width;
@@ -344,11 +336,7 @@ class ContinueWatchingItem extends StatelessWidget {
 /// ── 3. ResumeWatchingCard ───────────────────────────────────────────────
 /// Carte de reprise rapide : chip, play et barre de progression.
 class ResumeWatchingCard extends StatelessWidget {
-  const ResumeWatchingCard({
-    super.key,
-    required this.data,
-    this.width = 220,
-  });
+  const ResumeWatchingCard({super.key, required this.data, this.width = 220});
 
   final StreamingCardData data;
   final double width;
@@ -561,11 +549,7 @@ class _RecentPoster extends StatelessWidget {
 /// ── 5. WatchAgainCard ───────────────────────────────────────────────────
 /// Carte « À revoir » : chip, titre et bouton Revoir.
 class WatchAgainCard extends StatelessWidget {
-  const WatchAgainCard({
-    super.key,
-    required this.data,
-    this.width = 200,
-  });
+  const WatchAgainCard({super.key, required this.data, this.width = 200});
 
   final StreamingCardData data;
   final double width;
@@ -1320,11 +1304,7 @@ class _SeasonChip extends StatelessWidget {
 /// ── 11. SeriesEpisodeCard ───────────────────────────────────────────────
 /// Série + épisode en format compact (rangée horizontale).
 class SeriesEpisodeCard extends StatelessWidget {
-  const SeriesEpisodeCard({
-    super.key,
-    required this.data,
-    this.width = 400,
-  });
+  const SeriesEpisodeCard({super.key, required this.data, this.width = 400});
 
   final StreamingCardData data;
   final double width;
@@ -1401,11 +1381,7 @@ class SeriesEpisodeCard extends StatelessWidget {
 /// ── 12. WatchProgressCard ───────────────────────────────────────────────
 /// Progression visuelle : vignette, barre et pourcentage.
 class WatchProgressCard extends StatelessWidget {
-  const WatchProgressCard({
-    super.key,
-    required this.data,
-    this.width = 400,
-  });
+  const WatchProgressCard({super.key, required this.data, this.width = 400});
 
   final StreamingCardData data;
   final double width;
@@ -1698,14 +1674,13 @@ class _StreamProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final factor = value.isNaN || value < 0
-        ? 0.0
-        : (value > 1 ? 1.0 : value);
+    final factor = value.isNaN || value < 0 ? 0.0 : (value > 1 ? 1.0 : value);
     return SizedBox(
       height: height,
       child: ClipRRect(
-        borderRadius:
-            square ? BorderRadius.zero : BorderRadius.circular(height / 2),
+        borderRadius: square
+            ? BorderRadius.zero
+            : BorderRadius.circular(height / 2),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -1796,7 +1771,10 @@ class _StreamPrimaryAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(11),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 9),
+          // Un enfant non flexible d'une Row reçoit maxWidth illimité :
+          // `min` évite l'assertion Flutter et le débordement en release.
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 14, color: Colors.white),
@@ -1843,6 +1821,7 @@ class _StreamSecondaryAction extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 14, color: Colors.white),
