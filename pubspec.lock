@@ -17,14 +17,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.0.0"
-  ansicolor:
-    dependency: transitive
-    description:
-      name: ansicolor
-      sha256: "50e982d500bc863e1d703448afdbf9e5a72eb48840a4f766fa361ffd6877055f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.3"
   analyzer_buffer:
     dependency: transitive
     description:
@@ -33,6 +25,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.11"
+  ansicolor:
+    dependency: transitive
+    description:
+      name: ansicolor
+      sha256: "50e982d500bc863e1d703448afdbf9e5a72eb48840a4f766fa361ffd6877055f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.3"
   antlr4:
     dependency: transitive
     description:
@@ -498,9 +498,9 @@ packages:
     source: hosted
     version: "0.7.12"
   desktop_webview_window:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
-      path: packages/desktop_webview_window
+      path: "packages/desktop_webview_window"
       ref: watchtower-webview-f261
       resolved-ref: f261ff20e310d05713249b21c199a9fe17a3de6f
       url: "https://github.com/ferelking242/desktop_webview_window.git"
@@ -683,6 +683,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.1"
+  feather_icon_font:
+    dependency: "direct main"
+    description:
+      name: feather_icon_font
+      sha256: aca83e9106df638278e9419e972ac673f9f7bded56aa93ff375c62203e3a5201
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   ffi:
     dependency: "direct main"
     description:
@@ -791,7 +799,7 @@ packages:
     dependency: "direct overridden"
     description:
       path: "."
-      ref: 458046cd9a88924e5074d96ba45397219d53b230
+      ref: "458046cd9a88924e5074d96ba45397219d53b230"
       resolved-ref: "458046cd9a88924e5074d96ba45397219d53b230"
       url: "https://github.com/ferelking242/fk_user_agent.git"
     source: git
@@ -856,14 +864,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  feather_icon_font:
-    dependency: "direct main"
-    description:
-      name: feather_icon_font
-      sha256: aca83e9106df638278e9419e972ac673f9f7bded56aa93ff375c62203e3a5201
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   flutter_form_builder:
     dependency: "direct main"
     description:
@@ -1074,8 +1074,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: 619c9f8afd00a810dbc0efd0f68f8901695a36c5
-      resolved-ref: 619c9f8afd00a810dbc0efd0f68f8901695a36c5
+      ref: "619c9f8afd00a810dbc0efd0f68f8901695a36c5"
+      resolved-ref: "619c9f8afd00a810dbc0efd0f68f8901695a36c5"
       url: "https://github.com/ferelking242/quickjsR.git"
     source: git
     version: "0.0.1"
@@ -1099,50 +1099,50 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_secure_storage
-      sha256: "9cad52d75ebc511adfae3d447d5d13da15a55a92c9410e50f67335b6d21d16ea"
+      sha256: fe638107c5f69119156ada2db5a57734385fac3f64430bd7252a00d3ead2ca4b
       url: "https://pub.dev"
     source: hosted
-    version: "9.2.4"
+    version: "10.3.4"
+  flutter_secure_storage_darwin:
+    dependency: transitive
+    description:
+      name: flutter_secure_storage_darwin
+      sha256: "82329fa5cdf343773b1b6897dea959105a29f092454259edff92f9f6637e8149"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.2"
   flutter_secure_storage_linux:
     dependency: transitive
     description:
       name: flutter_secure_storage_linux
-      sha256: be76c1d24a97d0b98f8b54bce6b481a380a6590df992d0098f868ad54dc8f688
+      sha256: caa75bd78f017422912e3a904933113b2428eb79f981ac37acd2dd2a700458ea
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.3"
-  flutter_secure_storage_macos:
+    version: "3.0.3"
+  flutter_secure_storage_platform_interface:
     dependency: transitive
     description:
-      name: flutter_secure_storage_macos
-      sha256: "6c0a2795a2d1de26ae202a0d78527d163f4acbb11cde4c75c670f3a0fc064247"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.1.3"
-  flutter_secure_storage_platform_interface:
-    dependency: "direct overridden"
-    description:
       name: flutter_secure_storage_platform_interface
-      sha256: b8337d3d52e429e6c0a7710e38cf9742a3bb05844bd927450eb94f80c11ef85d
+      sha256: "64951127f001f546891c86f414972bf49ef2c4c8a4c92c65f5790cc0c9100045"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.0"
+    version: "2.1.1"
   flutter_secure_storage_web:
     dependency: transitive
     description:
       name: flutter_secure_storage_web
-      sha256: f4ebff989b4f07b2656fb16b47852c0aab9fed9b4ec1c70103368337bc1886a9
+      sha256: "073a62b3aeb866ab4ce795f960413948e51e5a42a9b0c8333b6daf5bb3208a1c"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.1"
+    version: "2.1.1"
   flutter_secure_storage_windows:
     dependency: transitive
     description:
       name: flutter_secure_storage_windows
-      sha256: b20b07cb5ed4ed74fc567b78a72936203f587eba460af1df11281c9326cd3709
+      sha256: "3b7c8e068875dfd46719ff57c90d8c459c87f2302ed6b00ff006b3c9fcad1613"
       url: "https://pub.dev"
     source: hosted
-    version: "3.1.2"
+    version: "4.1.0"
   flutter_sharing_intent:
     dependency: "direct main"
     description:
@@ -1436,7 +1436,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: 1cabe6352d11fd27dda2f534392facc06e9490e5
+      resolved-ref: "1cabe6352d11fd27dda2f534392facc06e9490e5"
       url: "https://github.com/ferelking242/hetu_spotube_plugin.git"
     source: git
     version: "0.0.2"
@@ -1469,10 +1469,10 @@ packages:
     dependency: "direct main"
     description:
       name: home_widget
-      sha256: "7430f7549d42cef2e729bd3c779de748b93f1eb78b1abfe6bca8fffd1cfce3e9"
+      sha256: b8d377e6a5aacc65193170addf252cce7868fa621b740cdd7b517a233871c185
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.0+1"
+    version: "0.9.4"
   hooks:
     dependency: transitive
     description:
@@ -1923,7 +1923,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: 0965c5becba2e826473330eb9ea99dc7030fcf99
+      ref: "0965c5becba2e826473330eb9ea99dc7030fcf99"
       resolved-ref: "0965c5becba2e826473330eb9ea99dc7030fcf99"
       url: "https://github.com/ferelking242/m_extension_server.git"
     source: git
@@ -1964,10 +1964,10 @@ packages:
     dependency: "direct main"
     description:
       name: media_kit
-      sha256: ae9e79597500c7ad6083a3c7b7b7544ddabfceacce7ae5c9709b0ec16a5d6643
+      sha256: dfd5ab85d49a1806b1314a0b81f3d14da48f0db0a657336b2d77c5f17db28944
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.6"
+    version: "1.2.2"
   media_kit_libs_android_video:
     dependency: transitive
     description:
@@ -2020,10 +2020,10 @@ packages:
     dependency: "direct main"
     description:
       name: media_kit_video
-      sha256: afaa509e7b7e0bf247557a3a740cde903a52c34ace9810f94500e127bd7b043d
+      sha256: eac9b5f27310afe6def49f9b785cef155f99f1db6079d2b2b127b8bddafb6472
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.1"
+    version: "2.0.0"
   menu_base:
     dependency: transitive
     description:
@@ -2460,10 +2460,10 @@ packages:
     dependency: "direct main"
     description:
       name: re_editor
-      sha256: "73e5daf7041b382c07ed707d5efd2d0a53851bb9eb6d6987260229ae0ed2f458"
+      sha256: "66671c4774a6b4c5254c9a53ab35a083e7e7da9ae371c519bcf491c70a2a4e56"
       url: "https://pub.dev"
     source: hosted
-    version: "0.9.0"
+    version: "0.10.0"
   re_highlight:
     dependency: "direct main"
     description:
@@ -2784,6 +2784,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
+  shimmer:
+    dependency: "direct main"
+    description:
+      name: shimmer
+      sha256: "5f88c883a22e9f9f299e5ba0e4f7e6054857224976a5d9f839d4ebdc94a14ac9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.0"
   shortid:
     dependency: transitive
     description:
@@ -2804,7 +2812,7 @@ packages:
     dependency: "direct main"
     description:
       name: simple_icons
-      sha256: 21246ffcaaf9f560695596093c2ecf9fa763fd112a15916fbe7d282932430bae
+      sha256: "21246ffcaaf9f560695596093c2ecf9fa763fd112a15916fbe7d282932430bae"
       url: "https://pub.dev"
     source: hosted
     version: "16.23.0"
@@ -2816,14 +2824,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.4"
-  shimmer:
-    dependency: "direct main"
-    description:
-      name: shimmer
-      sha256: 5f88c883a22e9f9f299e5ba0e4f7e6054857224976a5d9f839d4ebdc94a14ac9
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.0"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -3209,7 +3209,7 @@ packages:
     dependency: transitive
     description:
       name: universal_io
-      sha256: "f63cbc48103236abf48e345e07a03ce5757ea86285ed313a6a032596ed9301e2"
+      sha256: f63cbc48103236abf48e345e07a03ce5757ea86285ed313a6a032596ed9301e2
       url: "https://pub.dev"
     source: hosted
     version: "2.3.1"
@@ -3534,7 +3534,7 @@ packages:
     source: hosted
     version: "5.15.0"
   win32_registry:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: win32_registry
       sha256: "6f1b564492d0147b330dd794fee8f512cec4977957f310f9951b5f9d83618dae"

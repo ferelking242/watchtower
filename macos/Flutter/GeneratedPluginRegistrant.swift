@@ -19,7 +19,7 @@ import flutter_inappwebview_macos
 import flutter_local_notifications
 import flutter_new_pipe_extractor
 import flutter_qjs
-import flutter_secure_storage_macos
+import flutter_secure_storage_darwin
 import flutter_timezone
 import flutter_tts
 import flutter_web_auth_2
@@ -64,7 +64,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FlutterLocalNotificationsPlugin.register(with: registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin"))
   FlutterNewPipeExtractorPlugin.register(with: registry.registrar(forPlugin: "FlutterNewPipeExtractorPlugin"))
   FlutterQjsPlugin.register(with: registry.registrar(forPlugin: "FlutterQjsPlugin"))
-  FlutterSecureStoragePlugin.register(with: registry.registrar(forPlugin: "FlutterSecureStoragePlugin"))
+  FlutterSecureStorageDarwinPlugin.register(with: registry.registrar(forPlugin: "FlutterSecureStorageDarwinPlugin"))
   FlutterTimezonePlugin.register(with: registry.registrar(forPlugin: "FlutterTimezonePlugin"))
   FlutterTtsPlugin.register(with: registry.registrar(forPlugin: "FlutterTtsPlugin"))
   FlutterWebAuth2Plugin.register(with: registry.registrar(forPlugin: "FlutterWebAuth2Plugin"))
