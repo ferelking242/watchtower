@@ -736,7 +736,6 @@ class _VideoListTileState extends State<_VideoListTile> {
 void _putDownloadForChapter(Download download, Chapter chapter) {
   download.chapter.value = chapter;
   isar.downloads.putSync(download);
-  download.chapter.saveSync();
 }
 
 @riverpod
