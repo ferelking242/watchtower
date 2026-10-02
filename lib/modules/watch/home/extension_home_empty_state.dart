@@ -129,7 +129,7 @@ class ExtensionHomeEmptyState extends StatelessWidget {
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

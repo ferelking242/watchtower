@@ -52,7 +52,7 @@ class BypassNotificationService {
       await _plugin.initialize(
         initSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          _openChallenge(response.payload);
+          openChallenge(response.payload ?? '');
         },
       );
 
