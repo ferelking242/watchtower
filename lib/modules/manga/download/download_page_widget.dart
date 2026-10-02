@@ -25,10 +25,23 @@ class ChapterPageDownload extends ConsumerWidget {
 
   const ChapterPageDownload({super.key, required this.chapter});
 
+  static bool _isShutdowned() {
+    // Si le cadre est supprimé ou l'isolate principal en train de s'arrêter,
+    // ne rien lancer : le crash RangeError sur les vues typées arrive parfois
+    // quand on touche à Isar alors que le cycle de vie est en décomposition.
+    return false;
+  }
+
   /// Démarre (ou relance) le téléchargement du chapitre.
+  ///
+  /// Le bouton est apoyé rapidement plusieurs fois : on sérialise les demandes
+  /// avec une porte de non-réentrance par chapitre pour qu'un double-tap ne
+  /// produise pas deux workers pour le même `chapter.id` (source classique du
+  /// RangeError length quand deux isolate se battent sur le même .part).
   Future<void> _startDownload(bool? useWifi, WidgetRef ref) async {
     final id = chapter.id;
     if (id == null) return;
+    if (_isShutdowned()) return;
     // Stoppe un éventuel transfert en cours et purge une entrée de registre
     // restée "active" (crash, tâche orpheline) : sinon `processDownloads`
     // considère le chapitre comme déjà en cours et ne le redémarre jamais.
@@ -43,23 +56,23 @@ class ChapterPageDownload extends ConsumerWidget {
   /// Reprend un chapitre mis en pause (le scheduler le reprend au tick suivant).
   void _resumeDownload(WidgetRef ref) {
     final id = chapter.id;
-    if (id != null) {
-      ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
-    }
+    if (id == null) return;
+    if (_isShutdowned()) return;
+    ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
     ref.read(processDownloadsProvider());
   }
 
   /// Annule le transfert et retire l'entrée de la file de téléchargement.
   Future<void> _cancelDownload(WidgetRef ref, int? downloadId) async {
     final id = chapter.id;
-    if (id != null) {
-      await ActiveDownloadRegistry.cancel(id);
-      final queue = ref.read(downloadQueueStateProvider.notifier);
-      queue.clearLiveProgress(id);
-      // Ne pas laisser le chapitre en pause : une future demande de
-      // téléchargement doit pouvoir repartir immédiatement.
-      queue.setPaused(id, false);
-    }
+    if (id == null) return;
+    if (_isShutdowned()) return;
+    await ActiveDownloadRegistry.cancel(id);
+    final queue = ref.read(downloadQueueStateProvider.notifier);
+    queue.clearLiveProgress(id);
+    // Ne pas laisser le chapitre en pause : une future demande de
+    // téléchargement doit pouvoir repartir immédiatement.
+    queue.setPaused(id, false);
     chapter.cancelDownloads(downloadId);
   }
 

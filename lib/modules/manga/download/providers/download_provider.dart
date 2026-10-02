@@ -116,15 +116,21 @@ void _notifyDownloadFailure(String message) {
 
 void _setDownloadStatus(int? id, String status) {
   if (id == null) return;
-  final download = isar.downloads.getSync(id);
-  if (download == null ||
-      download.isDownload == true ||
-      download.status == status) {
-    return;
+  try {
+    final download = isar.downloads.getSync(id);
+    if (download == null ||
+        download.isDownload == true ||
+        download.status == status) {
+      return;
+    }
+    isar.writeTxnSync(() {
+      isar.downloads.putSync(download..status = status);
+    });
+  } catch (_) {
+    // Une entrée corrompue / migration non jouée peut lever un RangeError
+    // lors de la désérialisation. On ignore silencieusement : l'important est
+    // de ne pas faire planter la boucle de téléchargement.
   }
-  isar.writeTxnSync(() {
-    isar.downloads.putSync(download..status = status);
-  });
 }
 
 /// Normalize a raw quality string to a standard label like "1080p", "720p", etc.
@@ -207,10 +213,15 @@ Manga resolveChapterManga(Chapter chapter) {
       manga = chapter.manga.value;
     }
     if (manga == null && chapter.mangaId != null) {
-      manga = isar.mangas.getSync(chapter.mangaId!);
-      if (manga != null) {
-        // Re-attache le lien pour les écritures suivantes (et pour l'UI).
-        chapter.manga.value = manga;
+      try {
+        manga = isar.mangas.getSync(chapter.mangaId!);
+        if (manga != null) {
+          // Re-attache le lien pour les écritures suivantes (et pour l'UI).
+          chapter.manga.value = manga;
+        }
+      } catch (_) {
+        // Manga corrompu / migration non jouée : on laisse null, le caller
+        // (``downloadChapter``) attrape le StateError et markera failed.
       }
     }
   }
@@ -236,8 +247,13 @@ void ensureChapterLinksLoaded(Chapter chapter) {
     } catch (_) {}
   }
   if (chapter.manga.value == null && chapter.mangaId != null) {
-    final manga = isar.mangas.getSync(chapter.mangaId!);
-    if (manga != null) chapter.manga.value = manga;
+    try {
+      final manga = isar.mangas.getSync(chapter.mangaId!);
+      if (manga != null) chapter.manga.value = manga;
+    } catch (_) {
+      // Manga corrompu : on laisse le lien null, le caller décidera si
+      // le chapitre est utilisables (downloadChapter le marquera failed).
+    }
   }
 }
 
@@ -729,7 +745,13 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
   // Demander un téléchargement vaut reprise → on sort toujours de la pause.
   ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
 
-  final existing = isar.downloads.getSync(id);
+  Download? existing;
+  try {
+    existing = isar.downloads.getSync(id);
+  } catch (_) {
+    // Entrée corrompue / migration non jouée : on la recrée propre.
+  }
+
   if (existing == null) {
     // Use a sentinel value of 1 so the progress bar shows "waiting" (0/1)
     // without dividing by zero. setProgress will overwrite this with the
@@ -835,7 +857,28 @@ Future<void> downloadChapter(
     // null value" (→ téléchargement marqué en échec avant même de commencer)
     // quand le lien Isar n'était pas chargé. resolveChapterManga() charge le
     // lien et retombe sur mangaId si nécessaire.
-    final manga = resolveChapterManga(chapter);
+    Manga manga;
+    try {
+      manga = resolveChapterManga(chapter);
+    } on StateError catch (e) {
+      log('[downloadChapter] cannot resolve manga: $e');
+      _notifyDownloadFailure('Manga introuvable pour ce chapitre.');
+      if (chapter.id != null) {
+        isar.writeTxnSync(() {
+          final d = isar.downloads.getSync(chapter.id!);
+          if (d != null) {
+            isar.downloads.putSync(
+              d..failed = 1
+                ..status = 'failed'
+                ..isStartDownload = false,
+            );
+          }
+        });
+      }
+      callback?.call();
+      keepAlive.close();
+      return;
+    }
     // Do NOT call requestPermission() here — permission is granted during
     // onboarding. Calling it at download time shows a system dialog mid-session.
     final mangaMainDirectory = await storageProvider.getMangaMainDirectory(
@@ -913,7 +956,10 @@ Future<void> downloadChapter(
 
     Future<void> setProgress(DownloadProgress progress) async {
       if (progress.total > 0 && AppLogger.isExtremeMode) {
-        final pct = (progress.completed / progress.total * 100).toInt();
+        final pct = (progress.total > 0
+            ? (progress.completed / progress.total.clamp(1, double.infinity) * 100)
+            : 0)
+            .toInt();
         AppLogger.log(
           '[ch:${chapter.id}] page ${progress.completed}/${progress.total} ($pct%) '
           '• type=${progress.itemType.name}',
@@ -932,15 +978,30 @@ Future<void> downloadChapter(
       // For manga: store the real page count so the UI shows "7 / 322 images".
       // We never store raw percentages — the UI derives % from succeeded/total
       // only as a last-resort fallback.
-      final download = isar.downloads.getSync(chapter.id!);
+      //
+      // Crash guard: une entrée Isar corrompue / une migration SQL non jouée
+      // peut lever un RangeError nommé `length` lors de getSync. On attrape
+      // le tout pour que la boucle ne plante pas et on repart sur des valeurs
+      // propres dérivées du callback de progression (qui est toujours fiable).
+      Download? download;
+      int storedSucceeded = 0;
+      int storedTotal = 0;
+      if (chapter.id != null) {
+        try {
+          download = isar.downloads.getSync(chapter.id!);
+          storedSucceeded = download?.succeeded ?? 0;
+          storedTotal = download?.total ?? 0;
+        } catch (_) {
+          download = null;
+        }
+      }
+
       int isarSucceeded;
       int isarTotal;
 
       if (progress.itemType == ItemType.anime) {
         final dBytes = progress.downloadedBytes;
         final tBytes = progress.totalBytes;
-        final storedSucceeded = download?.succeeded ?? 0;
-        final storedTotal = download?.total ?? 0;
 
         // The terminal callback used by the queue is a generic 1/1 event.
         // Never let that event replace a real video byte total already stored
@@ -971,6 +1032,15 @@ Future<void> downloadChapter(
         isarSucceeded = progress.completed;
         isarTotal = progress.total > 0 ? progress.total : 1;
       }
+
+      // Anti-overflow : ne jamais laisser succeeded dépasser total ni être
+      // négatif (source classique du RangeError length quand on calcule
+      // downloadedBytes/totalBytes avec un succeeded incohérent).
+      if (isarSucceeded < 0) isarSucceeded = 0;
+      if (isarTotal > 0 && isarSucceeded > isarTotal) {
+        isarSucceeded = isarTotal;
+      }
+      if (isarTotal <= 0) isarTotal = 1;
 
       if (chapter.id != null &&
           !(progress.isCompleted &&
@@ -1087,42 +1157,53 @@ Future<void> downloadChapter(
               ? 'downloading'
               : 'initializing');
 
-      if (download == null) {
-        final newDl = Download(
-          id: chapter.id,
-          succeeded: writtenSucceeded,
-          failed: 0,
-          total: isarTotal,
-          isDownload: progress.isCompleted,
-          isStartDownload: true,
-          downloadedBytes: exactDownloadedBytes,
-          totalBytes: exactTotalBytes,
-          title: chapter.name,
-          quality: chapterPreferredQuality[chapter.id],
-          posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
-          status: progressStatus,
-        );
-        isar.writeTxnSync(() {
-          isar.downloads.putSync(newDl..chapter.value = chapter);
-        });
+      if (chapter.id == null) {
+        // Pas d'ID → on ne peut rien écrire en base. On met juste à jour le
+        // state Riverpod live (déjà fait plus haut) et on quitte.
+      } else if (download == null) {
+        try {
+          final newDl = Download(
+            id: chapter.id,
+            succeeded: writtenSucceeded,
+            failed: 0,
+            total: isarTotal,
+            isDownload: progress.isCompleted,
+            isStartDownload: true,
+            downloadedBytes: exactDownloadedBytes,
+            totalBytes: exactTotalBytes,
+            title: chapter.name,
+            quality: chapterPreferredQuality[chapter.id],
+            posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
+            status: progressStatus,
+          );
+          isar.writeTxnSync(() {
+            isar.downloads.putSync(newDl..chapter.value = chapter);
+          });
+        } catch (_) {
+          // Écriture avortée (entrée corrompue / verrouillage). On ne
+          // fait pas planter le téléchargement : le_ui continuera d'afficher
+          // la progression live de Riverpod.
+        }
       } else {
         if (progress.total != 0) {
-          isar.writeTxnSync(() {
-            isar.downloads.putSync(
-              download
-                ..succeeded = writtenSucceeded
-                ..total = isarTotal
-                ..failed = 0
-                ..isDownload = progress.isCompleted
-                ..downloadedBytes = exactDownloadedBytes
-                ..totalBytes = exactTotalBytes ?? download.totalBytes
-                ..title = chapter.name
-                ..quality = chapterPreferredQuality[chapter.id]
-                ..posterUrl =
-                    chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
-                ..status = progressStatus,
-            );
-          });
+          try {
+            isar.writeTxnSync(() {
+              isar.downloads.putSync(
+                download
+                  ..succeeded = writtenSucceeded
+                  ..total = isarTotal
+                  ..failed = 0
+                  ..isDownload = progress.isCompleted
+                  ..downloadedBytes = exactDownloadedBytes
+                  ..totalBytes = exactTotalBytes ?? download.totalBytes
+                  ..title = chapter.name
+                  ..quality = chapterPreferredQuality[chapter.id]
+                  ..posterUrl =
+                      chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
+                  ..status = progressStatus,
+              );
+            });
+          } catch (_) {}
         }
       }
 
@@ -1133,12 +1214,17 @@ Future<void> downloadChapter(
         final parentManga = chapter.manga.value;
         if (parentManga != null && parentManga.id != null &&
             parentManga.favorite != true) {
-          final mangaRecord = isar.mangas.getSync(parentManga.id!);
-          if (mangaRecord != null && mangaRecord.favorite != true) {
-            isar.writeTxnSync(() {
-              mangaRecord.favorite = true;
-              isar.mangas.putSync(mangaRecord);
-            });
+          try {
+            final mangaRecord = isar.mangas.getSync(parentManga.id!);
+            if (mangaRecord != null && mangaRecord.favorite != true) {
+              isar.writeTxnSync(() {
+                mangaRecord.favorite = true;
+                isar.mangas.putSync(mangaRecord);
+              });
+            }
+          } catch (_) {
+            // Entrée manga corrompue : on ne fait pas planter la fin du
+            // téléchargement pour ça.
           }
         }
       }
@@ -1148,24 +1234,25 @@ Future<void> downloadChapter(
       // not expose a length, keep the notification indeterminate rather than
       // inventing a denominator.
       if (progress.itemType == ItemType.anime && isarTotal > 0) {
+        final downloadedBytesRaw = progress.downloadedBytes ?? (isarSucceeded * 1024);
         final downloadedBytes =
-            progress.downloadedBytes ?? (isarSucceeded * 1024);
-        final notificationTotalBytes = progress.totalBytes ??
-            (isarTotal > 500 ? isarTotal * 1024 : null);
+            downloadedBytesRaw < 0 ? 0 : downloadedBytesRaw.toInt();
+        final notificationTotalBytes =
+            progress.totalBytes ?? (isarTotal > 500 ? isarTotal * 1024 : null);
         final hasKnownSize =
             notificationTotalBytes != null && notificationTotalBytes > 0;
         final pct = hasKnownSize
-            ? ((downloadedBytes * 100) ~/ notificationTotalBytes!)
-                .clamp(0, 100)
+            ? (((downloadedBytes * 100) ~/ notificationTotalBytes!)).clamp(0, 100)
             : -1;
+        final remaining = hasKnownSize
+            ? (notificationTotalBytes! - downloadedBytes).clamp(0, double.infinity).toInt()
+            : 0;
         final activeCount = ActiveDownloadRegistry.activeCountForType(ItemType.anime);
         final notifTitle = chapter.name ?? 'Téléchargement en cours…';
         final notifSub =
             '$activeCount téléchargement${activeCount > 1 ? 's' : ''} actif${activeCount > 1 ? 's' : ''}';
         final etaSeconds = _speedEmaMbs >= 0.05 && hasKnownSize
-            ? (((notificationTotalBytes! - downloadedBytes).clamp(0, notificationTotalBytes)) /
-                    (_speedEmaMbs * 1024 * 1024))
-                .ceil()
+            ? ((remaining / (_speedEmaMbs * 1024 * 1024)).clamp(0, double.infinity).ceil())
             : null;
         unawaited(BackgroundKeepAlive.update(
           count: activeCount,
@@ -1188,16 +1275,21 @@ Future<void> downloadChapter(
         final finalPath = m3u8Downloader?.fileName ??
             p.join(mangaMainDirectory!.path, '$chapterName.mp4');
         if (await File(finalPath).exists()) {
-          final completedRecord = isar.downloads.getSync(chapter.id!);
-          if (completedRecord != null) {
-            isar.writeTxnSync(() {
-              isar.downloads.putSync(
-                completedRecord
-                  ..filePath = finalPath
-                  ..status = 'completed'
-                  ..isDownload = true,
-              );
-            });
+          try {
+            final completedRecord = isar.downloads.getSync(chapter.id!);
+            if (completedRecord != null) {
+              isar.writeTxnSync(() {
+                isar.downloads.putSync(
+                  completedRecord
+                    ..filePath = finalPath
+                    ..status = 'completed'
+                    ..isDownload = true,
+                );
+              });
+            }
+          } catch (_) {
+            // Notification d'achèvement : on ne fait pas planter la fin du
+            // téléchargement pour une entrée mal désérialisée.
           }
           unawaited(
             WatchtowerNotificationService.instance.showMediaDownloadComplete(
@@ -1213,32 +1305,41 @@ Future<void> downloadChapter(
     setProgress(DownloadProgress(0, 0, itemType));
 
     void savePageUrls() {
-      final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
-      List<ChapterPageurls>? chapterPageUrls = [];
-      for (var chapterPageUrl in settings.chapterPageUrlsList ?? []) {
-        if (chapterPageUrl.chapterId != chapter.id) {
-          chapterPageUrls.add(chapterPageUrl);
+      // La collection Settings porte des objets embarqués (`ChapterPageurls`)
+      // dont les champs `List<String>` sont désérialisés via Uint8List.sublistView
+      // dans le generated `.g.dart`. Une entrée corrompue / une migration non
+      // jouée peut lever un RangeError nommé `length`. On ne fait pas planter
+      // le téléchargement pour ça ; on déchets l'opération.
+      try {
+        final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
+        List<ChapterPageurls>? chapterPageUrls = [];
+        for (var chapterPageUrl in settings.chapterPageUrlsList ?? []) {
+          if (chapterPageUrl.chapterId != chapter.id) {
+            chapterPageUrls.add(chapterPageUrl);
+          }
         }
+        final chapterPageHeaders = pageUrls
+            .map((e) => e.headers == null ? null : jsonEncode(e.headers))
+            .toList();
+        chapterPageUrls.add(
+          ChapterPageurls()
+            ..chapterId = chapter.id
+            ..urls = pageUrls.map((e) => e.url).toList()
+            ..chapterUrl = chapter.url
+            ..headers = chapterPageHeaders.first != null
+                ? chapterPageHeaders.map((e) => e.toString()).toList()
+                : null,
+        );
+        isar.writeTxnSync(
+          () => isar.settings.putSync(
+            settings
+              ..chapterPageUrlsList = chapterPageUrls
+              ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+      } catch (_) {
+        // Write-only fallback : on s'en moque pendant le téléchargement.
       }
-      final chapterPageHeaders = pageUrls
-          .map((e) => e.headers == null ? null : jsonEncode(e.headers))
-          .toList();
-      chapterPageUrls.add(
-        ChapterPageurls()
-          ..chapterId = chapter.id
-          ..urls = pageUrls.map((e) => e.url).toList()
-          ..chapterUrl = chapter.url
-          ..headers = chapterPageHeaders.first != null
-              ? chapterPageHeaders.map((e) => e.toString()).toList()
-              : null,
-      );
-      isar.writeTxnSync(
-        () => isar.settings.putSync(
-          settings
-            ..chapterPageUrlsList = chapterPageUrls
-            ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
     }
 
     String? fetchError;
@@ -1377,9 +1478,16 @@ Future<void> downloadChapter(
       final cookie = MClient.getCookiesPref(chapterUrl);
       final headers = htmlHeader;
       if (cookie.isNotEmpty) {
-        final userAgent = (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent!;
-        headers.addAll(cookie);
-        headers[HttpHeaders.userAgentHeader] = userAgent;
+        try {
+          final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+          final userAgent = settings.userAgent;
+          if (userAgent != null) {
+            headers.addAll(cookie);
+            headers[HttpHeaders.userAgentHeader] = userAgent;
+          }
+        } catch (_) {
+          // Settings corrompues : on continue sans user-agent.
+        }
       }
       final res = await http.get(Uri.parse(chapterUrl), headers: headers);
       if (res.headers.containsKey("Location")) {
@@ -1406,17 +1514,22 @@ Future<void> downloadChapter(
       // transaction" on some Isar versions, which then propagates to the
       // outer catch and results in a double-crash log.
       isar.writeTxnSync(() {
-        final dl = isar.downloads.getSync(chapter.id!);
-        if (dl != null) {
-          isar.downloads.putSync(
-            dl
-              ..failed = (dl.failed ?? 0) + 1
-              ..isDownload = false
-                ..status = 'failed'
-              // Stop processDownloads from re-queuing this chapter on every
-              // 900ms tick.  The user can retry manually from the queue UI.
-              ..isStartDownload = false,
-          );
+        try {
+          final dl = isar.downloads.getSync(chapter.id!);
+          if (dl != null) {
+            isar.downloads.putSync(
+              dl
+                ..failed = (dl.failed ?? 0) + 1
+                ..isDownload = false
+                  ..status = 'failed'
+                // Stop processDownloads from re-queuing this chapter on every
+                // 900ms tick.  The user can retry manually from the queue UI.
+                ..isStartDownload = false,
+            );
+          }
+        } catch (_) {
+          // Entrée corrompue : on ne fait pas planter le téléchargement,
+          // on laisse le bloc extérieur gérer l'échec.
         }
       });
       // CRITICAL: release processDownloads slot so the next queued
@@ -1505,9 +1618,16 @@ Future<void> downloadChapter(
               ? videoHeader
               : htmlHeader;
           if (cookie.isNotEmpty) {
-            final userAgent = (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent!;
-            headers.addAll(cookie);
-            headers[HttpHeaders.userAgentHeader] = userAgent;
+            try {
+              final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+              final userAgent = settings.userAgent;
+              if (userAgent != null) {
+                headers.addAll(cookie);
+                headers[HttpHeaders.userAgentHeader] = userAgent;
+              }
+            } catch (_) {
+              // Settings corrompues : on continue sans user-agent.
+            }
           }
           // Copy headers so each page gets its own map (avoids mutating
           // the shared `headers` reference across loop iterations).
@@ -1654,6 +1774,23 @@ Future<void> downloadChapter(
           } else {
             log('[downloadChapter][novel] ERROR: getHtmlContent returned empty string for ${chapter.url}');
             // Mark as failed so the user can retry
+            try {
+              final dl = isar.downloads.getSync(chapter.id!);
+              if (dl != null) {
+                isar.writeTxnSync(() {
+                  isar.downloads.putSync(
+                    dl
+                      ..failed = 1
+                      ..status = 'failed'
+                      ..isStartDownload = false,
+                  );
+                });
+              }
+            } catch (_) {}
+          }
+        } catch (e, st) {
+          log('[downloadChapter][novel] EXCEPTION in getHtmlContent: $e\n$st');
+          try {
             final dl = isar.downloads.getSync(chapter.id!);
             if (dl != null) {
               isar.writeTxnSync(() {
@@ -1665,9 +1802,14 @@ Future<void> downloadChapter(
                 );
               });
             }
-          }
-        } catch (e, st) {
-          log('[downloadChapter][novel] EXCEPTION in getHtmlContent: $e\n$st');
+          } catch (_) {}
+        }
+      } else if (file.existsSync()) {
+        log('[downloadChapter][novel] file already exists, marking complete');
+        await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
+      } else {
+        log('[downloadChapter][novel] novelPage is null — nothing to download for ${chapter.url}');
+        try {
           final dl = isar.downloads.getSync(chapter.id!);
           if (dl != null) {
             isar.writeTxnSync(() {
@@ -1679,23 +1821,7 @@ Future<void> downloadChapter(
               );
             });
           }
-        }
-      } else if (file.existsSync()) {
-        log('[downloadChapter][novel] file already exists, marking complete');
-        await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
-      } else {
-        log('[downloadChapter][novel] novelPage is null — nothing to download for ${chapter.url}');
-        final dl = isar.downloads.getSync(chapter.id!);
-        if (dl != null) {
-          isar.writeTxnSync(() {
-            isar.downloads.putSync(
-              dl
-                ..failed = 1
-                ..status = 'failed'
-                ..isStartDownload = false,
-            );
-          });
-        }
+        } catch (_) {}
       }
     } else if (hasM3U8File && m3u8Downloader != null) {
       // ── Engine selection ────────────────────────────────────────────────
@@ -1802,19 +1928,21 @@ Future<void> downloadChapter(
         if (caughtError != null) {
           // Mark the Isar record as failed so the UI can offer retry.
           log('[downloadChapter][anime/HLS→fail] chapterId=${chapter.id}');
-          final dl = isar.downloads.getSync(chapter.id!);
-          if (dl != null) {
-            isar.writeTxnSync(() {
-              // isStartDownload=false stops processDownloads from
-              // re-queueing this broken episode every 900ms tick.
-              isar.downloads.putSync(
-                dl
-                  ..failed = 1
-                  ..status = 'failed'
-                  ..isStartDownload = false,
-              );
-            });
-          }
+          try {
+            final dl = isar.downloads.getSync(chapter.id!);
+            if (dl != null) {
+              isar.writeTxnSync(() {
+                // isStartDownload=false stops processDownloads from
+                // re-queueing this broken episode every 900ms tick.
+                isar.downloads.putSync(
+                  dl
+                    ..failed = 1
+                    ..status = 'failed'
+                    ..isStartDownload = false,
+                );
+              });
+            }
+          } catch (_) {}
           throw caughtError;
         }
       }
@@ -1905,8 +2033,13 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           } catch (_) {}
         }
         if (ch.manga.value == null && ch.mangaId != null) {
-          final manga = isar.mangas.getSync(ch.mangaId!);
-          if (manga != null) ch.manga.value = manga;
+          try {
+            final manga = isar.mangas.getSync(ch.mangaId!);
+            if (manga != null) ch.manga.value = manga;
+          } catch (_) {
+            // Manga corrompu : on laisse le champ null, le chapitre sera
+            // ignoré plus tard dans la boucle (ch == null ? continue).
+          }
         }
       }
 

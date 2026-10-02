@@ -40,5 +40,24 @@ void main() {
       );
       expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
     });
+
+    test('cancel is idempotent and clears the slot', () {
+      expect(
+        ActiveDownloadRegistry.tryRegisterInternal(
+          downloadId,
+          '$downloadId',
+          itemType: ItemType.manga,
+          source: 'test',
+        ),
+        isTrue,
+      );
+      expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
+      // Annulation double : ne doit pas planter ni launcher d'opération
+      // fantôme (source classique du RangeError length quand deux isolate
+      // se battent pour le même .part).
+      ActiveDownloadRegistry.cancel(downloadId);
+      ActiveDownloadRegistry.cancel(downloadId);
+      expect(ActiveDownloadRegistry.isActive(downloadId), isFalse);
+    });
   });
 }
