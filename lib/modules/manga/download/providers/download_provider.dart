@@ -772,7 +772,12 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     isar.writeTxnSync(() {
       isar.downloads.putSync(download..chapter.value = chapter);
     });
-  } else if (!(existing.isDownload ?? false) &&
+    return;
+  }
+
+  // existing est maintenant non-nullable dans ce bloc.
+  final existingNonNull = existing;
+  if (!(existingNonNull.isDownload ?? false) &&
       !ActiveDownloadRegistry.isActive(id)) {
     // ROOT-CAUSE FIX ("le téléchargement ne fait rien") : une entrée
     // échouée / annulée / en pause restait en base. addDownloadToQueue la
@@ -781,21 +786,21 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     // true) ne la prenait jamais → file morte.
     // On ré-arme donc SYSTÉMATIQUEMENT toute entrée existante qui n'est pas
     // déjà téléchargée (garde-fou : on ne touche pas à un transfert en cours).
-    existing.isDownload = false;
-    existing.isStartDownload = true;
-    existing.succeeded = 0;
-    existing.failed = 0;
-    existing.total = 1;
-    existing.downloadedBytes = null;
-    existing.totalBytes = null;
-    existing.filePath = null;
-    existing.title = chapter.name;
-    existing.posterUrl =
+    existingNonNull.isDownload = false;
+    existingNonNull.isStartDownload = true;
+    existingNonNull.succeeded = 0;
+    existingNonNull.failed = 0;
+    existingNonNull.total = 1;
+    existingNonNull.downloadedBytes = null;
+    existingNonNull.totalBytes = null;
+    existingNonNull.filePath = null;
+    existingNonNull.title = chapter.name;
+    existingNonNull.posterUrl =
         chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl;
-    existing.quality = chapterPreferredQuality[id];
-    existing.status = 'fetching_metadata';
+    existingNonNull.quality = chapterPreferredQuality[id];
+    existingNonNull.status = 'fetching_metadata';
     isar.writeTxnSync(() {
-      isar.downloads.putSync(existing..chapter.value = chapter);
+      isar.downloads.putSync(existingNonNull..chapter.value = chapter);
     });
   }
 }
