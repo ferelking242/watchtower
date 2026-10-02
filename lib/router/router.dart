@@ -107,7 +107,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:watchtower/remote/remote_mode_screen.dart';
 import 'package:watchtower/remote/remote_setup_screen.dart';
-import 'package:watchtower/modules/manga/detail/chapter_detail_screen.dart';
 part 'router.g.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -464,13 +463,6 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute<(String, Track?)>(
       name: "watchOrder",
       builder: (data) => WatchOrderScreen(name: data.$1, track: data.$2),
-    ),
-    // Nouvelle page « Chapter detail » (onglet de la page manga).
-    // En construction : l'écran affiche un état dédié.
-    _genericRoute<String?>(
-      name: "chapterDetail",
-      allowNullExtra: true,
-      builder: (title) => ChapterDetailScreen(title: title),
     ),
     _genericRoute(name: "onboarding", child: const OnboardingScreen()),
     _genericRoute<ItemType>(

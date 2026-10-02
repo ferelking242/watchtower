@@ -291,10 +291,17 @@ class ChapterPageDownload extends ConsumerWidget {
     if (isStarted || isActive) {
       return ArrowPopupMenuButton(
         popUpAnimationStyle: popupAnimationStyle,
-        child: _progressBadge(
-          value: isActive ? fraction : null,
-          fraction: fraction,
-          color: color,
+        child: Tooltip(
+          message: download?.status == 'waiting_wifi'
+              ? 'En attente du Wi-Fi'
+              : isActive
+              ? 'Téléchargement en cours'
+              : 'En attente de téléchargement',
+          child: _progressBadge(
+            value: isActive ? fraction : null,
+            fraction: fraction,
+            color: color,
+          ),
         ),
         onSelected: (value) {
           if (value == 0) {

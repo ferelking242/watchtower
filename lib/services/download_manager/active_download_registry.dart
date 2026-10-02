@@ -65,6 +65,27 @@ class ActiveDownloadRegistry {
     _engineSource.remove(downloadId);
   }
 
+  /// Claim a chapter before the first asynchronous step of its worker.
+  ///
+  /// Multiple queue schedulers can observe the same persisted item at once;
+  /// this synchronous check-and-register prevents them from launching
+  /// duplicate workers for it.
+  static bool tryRegisterInternal(
+    int downloadId,
+    String taskId, {
+    ItemType? itemType,
+    String? source,
+  }) {
+    if (isActive(downloadId)) return false;
+    registerInternal(
+      downloadId,
+      taskId,
+      itemType: itemType,
+      source: source,
+    );
+    return true;
+  }
+
   static void unregister(int downloadId) {
     _engines.remove(downloadId);
     _engineItemType.remove(downloadId);

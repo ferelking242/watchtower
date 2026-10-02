@@ -25,6 +25,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
+import 'package:watchtower/services/download_manager/download_connectivity.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/get_video_list.dart';
@@ -111,6 +112,19 @@ void _notifyDownloadFailure(String message) {
   } catch (_) {
     // botToast ne doit jamais faire échouer la boucle de téléchargement.
   }
+}
+
+void _setDownloadStatus(int? id, String status) {
+  if (id == null) return;
+  final download = isar.downloads.getSync(id);
+  if (download == null ||
+      download.isDownload == true ||
+      download.status == status) {
+    return;
+  }
+  isar.writeTxnSync(() {
+    isar.downloads.putSync(download..status = status);
+  });
 }
 
 /// Normalize a raw quality string to a standard label like "1080p", "720p", etc.
@@ -772,32 +786,36 @@ Future<void> downloadChapter(
   VoidCallback? callback,
 }) async {
   final keepAlive = ref.keepAlive();
+  final chapterId = chapter.id;
+  final mangaForRegistry = chapter.manga.value;
+  final ownsActiveSlot = chapterId == null ||
+      ActiveDownloadRegistry.tryRegisterInternal(
+        chapterId,
+        '$chapterId',
+        itemType: mangaForRegistry?.itemType ?? ItemType.manga,
+        source: mangaForRegistry?.source ?? '_unknown',
+      );
+  if (!ownsActiveSlot) {
+    log('[downloadChapter] duplicate worker ignored chapterId=$chapterId');
+    callback?.call();
+    keepAlive.close();
+    return;
+  }
+
   try {
     bool onlyOnWifi = useWifi ?? ref.read(onlyOnWifiStateProvider);
-    final connectivity = await Connectivity().checkConnectivity();
-    final isOnWifi =
-        connectivity.contains(ConnectivityResult.wifi) ||
-        connectivity.contains(ConnectivityResult.ethernet);
-    if (onlyOnWifi && !isOnWifi) {
-      botToast(navigatorKey.currentContext!.l10n.downloads_are_limited_to_wifi);
-      callback?.call();
-      keepAlive.close();
-      return;
-    }
-
-    // Register immediately so any concurrent processDownloads call sees this
-    // chapter as active and does not double-start it while the page-URL fetch
-    // is still in progress (was the root cause of the "0/1 page" stuck bug).
-    // NOTE: manga and itemType are declared below (after getMangaMainDirectory),
-    // so we read them directly from the already-loaded relation here.
-    // processDownloads always calls ch.manga.loadSync() before dispatching, so
-    // chapter.manga.value is non-null by the time we reach this point.
-    if (chapter.id != null) {
-      ActiveDownloadRegistry.registerInternal(
-        chapter.id!, '${chapter.id}',
-        itemType: chapter.manga.value?.itemType ?? ItemType.manga,
-        source: chapter.manga.value?.source ?? '_unknown',
-      );
+    if (onlyOnWifi) {
+      final connectivity = await Connectivity().checkConnectivity();
+      if (!hasWifiOrEthernet(connectivity)) {
+        _setDownloadStatus(chapterId, 'waiting_wifi');
+        final context = navigatorKey.currentContext;
+        if (context != null) {
+          botToast(context.l10n.downloads_are_limited_to_wifi);
+        }
+        callback?.call();
+        keepAlive.close();
+        return;
+      }
     }
 
     final http = MClient.init(
@@ -1840,8 +1858,8 @@ Future<void> downloadChapter(
   } finally {
     // Always clean up the registry entry so the chapter is no longer seen
     // as "active" after this function exits (success, failure, or timeout).
-    if (chapter.id != null) {
-      ActiveDownloadRegistry.unregister(chapter.id!);
+    if (chapterId != null && ownsActiveSlot) {
+      ActiveDownloadRegistry.unregister(chapterId);
     }
   }
 }
@@ -1913,6 +1931,35 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           (prioMap[b.chapter.value?.id ?? -1] ?? 0)
               .compareTo(prioMap[a.chapter.value?.id ?? -1] ?? 0));
 
+      final onlyOnWifi = useWifi ?? ref.read(onlyOnWifiStateProvider);
+      if (onlyOnWifi && toStart.isNotEmpty) {
+        bool isOnWifi = false;
+        try {
+          isOnWifi = hasWifiOrEthernet(
+            await Connectivity().checkConnectivity(),
+          );
+        } catch (e) {
+          log('[processDownloads] connectivity check failed: $e');
+        }
+        if (!isOnWifi) {
+          for (final download in toStart) {
+            _setDownloadStatus(download.id, 'waiting_wifi');
+          }
+          log(
+            '[processDownloads] ${toStart.length} item(s) waiting for Wi-Fi',
+          );
+          // Keep the persisted queue alive, but do not launch and immediately
+          // re-launch a worker on every short scheduler tick.
+          await Future.delayed(const Duration(seconds: 5));
+          return true;
+        }
+        for (final download in toStart) {
+          if (download.status == 'waiting_wifi') {
+            _setDownloadStatus(download.id, 'queued');
+          }
+        }
+      }
+
       // Exit when nothing is waiting AND nothing is running.
       if (toStart.isEmpty && !ActiveDownloadRegistry.hasActive) {
         log('[processDownloads] queue drained — stopping');
@@ -1974,6 +2021,9 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         if (curType >= tLimit || curSrc >= sLimit) continue outer;
 
         queue.removeAt(0);
+        if (d.status == 'waiting_wifi' || d.status == 'queued') {
+          _setDownloadStatus(d.id, 'fetching_metadata');
+        }
 
         AppLogger.log(
           'Queue → [ch:${chapter.id}] "${(chapter.name ?? '').length > 35 ? (chapter.name ?? '').substring(0, 35) + '…' : (chapter.name ?? '')}" '
@@ -1986,9 +2036,8 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         // Small stagger to avoid thundering herd on the remote server.
         await Future.delayed(const Duration(milliseconds: 150));
 
-        // Start the download.  downloadChapter registers itself in
-        // ActiveDownloadRegistry synchronously (before any await), so the next
-        // iteration of this loop sees the correct live count immediately.
+        // Start the download. Its worker claims the registry slot before its
+        // first await, so another scheduler cannot launch the same chapter.
         ref.read(downloadChapterProvider(chapter: chapter, useWifi: useWifi));
       }
 

@@ -61,7 +61,7 @@ import 'package:path/path.dart' as p;
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 /// Onglets de la page de détail, dans l'ordre demandé :
-/// Chapter detail · Similar · Commentaires.
+/// Chapitres · Similar · Commentaires.
 ///
 /// L'ordre de cette enum pilote l'ordre des onglets (index du TabController).
 enum _DetailSection { chapters, similar, comments }
@@ -1664,9 +1664,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                       ),
                     ),
                   const SizedBox(height: 8),
-                  // Onglets propres : ligne de séparation en bas + indicateur
-                  // animé sous l'onglet actif (Chapter detail · Similar ·
-                  // Commentaires).
+                  // Onglets avec séparation basse et indicateur animé.
                   _DetailTabs(
                     isLoading: widget.isLoading,
                     controller: _sectionController,
@@ -1677,11 +1675,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     },
                   ),
                   const SizedBox(height: 12),
-                  if (_detailSection == _DetailSection.chapters &&
-                      !isLocalArchive)
-                    _ChapterDetailUnderConstruction(
-                      mangaName: widget.manga!.name ?? '',
-                    ),
                   if (widget.manga!.itemType == ItemType.anime)
                     SizedBox(
                       width: context.width(1),
@@ -2570,9 +2563,8 @@ Future<bool> _showSplitChaptersDialog(BuildContext context) async {
 
 // ── Detail section tabs ──────────────────────────────────────────────────────
 
-/// Onglets « posés » de la page de détail : une ligne continue en bas et un
-/// indicateur animé sous l'onglet actif, dans l'ordre :
-/// Chapter detail · Similar · Commentaires.
+/// Onglets de la page de détail avec une ligne continue en bas et un indicateur
+/// animé sous l'onglet actif.
 class _DetailTabs extends StatelessWidget {
   final TabController controller;
   final ValueChanged<_DetailSection> onSelect;
@@ -2594,8 +2586,8 @@ class _DetailTabs extends StatelessWidget {
     final tabs = [
       (
         section: _DetailSection.chapters,
-        label: 'Chapter detail',
-        labelWidth: 88.0,
+        label: 'Chapitres',
+        labelWidth: 62.0,
         icon: Broken.document_text,
       ),
       (
@@ -2612,17 +2604,7 @@ class _DetailTabs extends StatelessWidget {
       ),
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        // Trait continu au-dessus des onglets
-        border: Border(
-          top: BorderSide(
-            color: scheme.outlineVariant.withValues(alpha: 0.55),
-            width: 0.8,
-          ),
-        ),
-      ),
-      child: TabBar(
+    return TabBar(
         controller: controller,
         onTap: (index) => onSelect(_DetailSection.values[index]),
         isScrollable: false,
@@ -2691,88 +2673,6 @@ class _DetailTabs extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Encart « En cours de construction » de l'onglet Chapter detail ────────────
-
-/// Petit bandeau affiché sous les onglets : la nouvelle page « Chapter detail »
-/// est en construction, ce raccourci permet de l'ouvrir malgré tout.
-class _ChapterDetailUnderConstruction extends StatelessWidget {
-  final String mangaName;
-
-  const _ChapterDetailUnderConstruction({required this.mangaName});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.6),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(Broken.document_text, size: 18, color: scheme.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Chapter detail',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'En cours de construction',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      height: 1.35,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.tonal(
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                visualDensity: VisualDensity.compact,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              onPressed: () =>
-                  context.push('/chapterDetail', extra: mangaName),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Ouvrir', style: TextStyle(fontSize: 12)),
-                  SizedBox(width: 5),
-                  Icon(Broken.arrow_right_2, size: 14),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
