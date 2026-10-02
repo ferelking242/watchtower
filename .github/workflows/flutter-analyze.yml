@@ -67,6 +67,12 @@ jobs:
       - name: Generate localizations
         run: flutter gen-l10n
 
+      - name: Fix flutter_new_pipe_extractor missing assets dir
+        run: |
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read d; do
+            mkdir -p "$d/assets"
+          done
+
       - name: Run download manager regression tests
         run: flutter test test/download_manager_regressions_test.dart
 

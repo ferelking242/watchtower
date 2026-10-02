@@ -1931,7 +1931,8 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           (prioMap[b.chapter.value?.id ?? -1] ?? 0)
               .compareTo(prioMap[a.chapter.value?.id ?? -1] ?? 0));
 
-      final onlyOnWifi = useWifi ?? ref.read(onlyOnWifiStateProvider);
+      final onlyOnWifi =
+          useWifi ?? (ref.read(onlyOnWifiStateProvider) == true);
       if (onlyOnWifi && toStart.isNotEmpty) {
         bool isOnWifi = false;
         try {
