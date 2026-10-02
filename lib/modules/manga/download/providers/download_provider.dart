@@ -87,6 +87,32 @@ String friendlyErrorMessage(Object e) {
   return 'Une erreur inattendue est survenue.\n${e.toString().split('\n').first}';
 }
 
+/// Dernière erreur de téléchargement signalée à l'utilisateur.
+///
+/// Sans ce signalement, un échec (source injoignable, 404, stockage, etc.)
+/// restait totalement silencieux : l'entrée repassait en "non démarré" et
+/// l'utilisateur avait l'impression que le bouton de téléchargement ne
+/// faisait rien. On limite les répétitions (file de plusieurs chapitres) pour
+/// ne pas noyer l'écran sous les toasts identiques.
+String? _lastDownloadFailureMessage;
+DateTime? _lastDownloadFailureAt;
+
+void _notifyDownloadFailure(String message) {
+  final now = DateTime.now();
+  if (_lastDownloadFailureMessage == message &&
+      _lastDownloadFailureAt != null &&
+      now.difference(_lastDownloadFailureAt!) < const Duration(seconds: 6)) {
+    return;
+  }
+  _lastDownloadFailureMessage = message;
+  _lastDownloadFailureAt = now;
+  try {
+    botToast(message);
+  } catch (_) {
+    // botToast ne doit jamais faire échouer la boucle de téléchargement.
+  }
+}
+
 /// Normalize a raw quality string to a standard label like "1080p", "720p", etc.
 String _normalizeQuality(String raw) {
   final s = raw.trim().toLowerCase();
@@ -678,14 +704,25 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
   // manga serait effacé par le `put`, l'entrée deviendrait orpheline et le
   // téléchargement échouerait aussitôt).
   ensureChapterLinksLoaded(chapter);
-  final existing = isar.downloads.getSync(chapter.id!);
+  final id = chapter.id;
+  if (id == null) return;
+
+  // ROOT-CAUSE FIX ("le téléchargement ne marche pas") : un chapitre passé par
+  // "pause" ou "annuler" depuis le gestionnaire de téléchargements reste dans
+  // `pausedIds`, un état PERSISTÉ dans SharedPreferences et restauré à chaque
+  // démarrage. `processDownloads` ignore alors ce chapitre à chaque tick, sans
+  // aucun retour visuel : le bouton semblait mort, même après redémarrage.
+  // Demander un téléchargement vaut reprise → on sort toujours de la pause.
+  ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
+
+  final existing = isar.downloads.getSync(id);
   if (existing == null) {
     // Use a sentinel value of 1 so the progress bar shows "waiting" (0/1)
     // without dividing by zero. setProgress will overwrite this with the
     // real page count (manga) or real byte total (anime) as soon as the
     // first progress callback fires.
     final download = Download(
-      id: chapter.id,
+      id: id,
       succeeded: 0,
       failed: 0,
       total: 1,
@@ -693,20 +730,21 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
       isStartDownload: true,
       title: chapter.name,
       posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
-      quality: chapterPreferredQuality[chapter.id],
+      quality: chapterPreferredQuality[id],
       status: 'fetching_metadata',
     );
     isar.writeTxnSync(() {
       isar.downloads.putSync(download..chapter.value = chapter);
     });
   } else if (!(existing.isDownload ?? false) &&
-      !(existing.isStartDownload ?? false)) {
+      !ActiveDownloadRegistry.isActive(id)) {
     // ROOT-CAUSE FIX ("le téléchargement ne fait rien") : une entrée
-    // échouée / annulée restait en base avec isStartDownload = false.
-    // addDownloadToQueue la voyait déjà existante et rendait la main sans
-    // rien changer, donc processDownloads (qui ne démarre QUE les entrées
-    // isStartDownload == true) ne la prenait jamais → file morte.
-    // On ré-arme l'entrée existante pour qu'elle reparte dans la queue.
+    // échouée / annulée / en pause restait en base. addDownloadToQueue la
+    // voyait déjà existante et rendait la main sans rien changer, donc
+    // processDownloads (qui ne démarre QUE les entrées isStartDownload ==
+    // true) ne la prenait jamais → file morte.
+    // On ré-arme donc SYSTÉMATIQUEMENT toute entrée existante qui n'est pas
+    // déjà téléchargée (garde-fou : on ne touche pas à un transfert en cours).
     existing.isDownload = false;
     existing.isStartDownload = true;
     existing.succeeded = 0;
@@ -718,7 +756,7 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     existing.title = chapter.name;
     existing.posterUrl =
         chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl;
-    existing.quality = chapterPreferredQuality[chapter.id];
+    existing.quality = chapterPreferredQuality[id];
     existing.status = 'fetching_metadata';
     isar.writeTxnSync(() {
       isar.downloads.putSync(existing..chapter.value = chapter);
@@ -774,16 +812,18 @@ Future<void> downloadChapter(
     PageUrl? novelPage;
     List<PageUrl> pages = [];
     final StorageProvider storageProvider = StorageProvider();
+    // Résolution robuste du manga EN PREMIER : `getMangaMainDirectory()` fait
+    // `chapter.manga.value!` et levait donc un "Null check operator used on a
+    // null value" (→ téléchargement marqué en échec avant même de commencer)
+    // quand le lien Isar n'était pas chargé. resolveChapterManga() charge le
+    // lien et retombe sur mangaId si nécessaire.
+    final manga = resolveChapterManga(chapter);
     // Do NOT call requestPermission() here — permission is granted during
     // onboarding. Calling it at download time shows a system dialog mid-session.
     final mangaMainDirectory = await storageProvider.getMangaMainDirectory(
       chapter,
     );
     List<Track>? subtitles;
-    // Résolution robuste : charge le lien, sinon retombe sur mangaId. Un
-    // chapitre dont le lien n'était pas chargé faisait échouer TOUT le
-    // téléchargement avec "chapter.manga not loaded".
-    final manga = resolveChapterManga(chapter);
     final chapterName = chapter.name!.replaceForbiddenCharacters(' ');
     final itemType = manga.itemType;
     final chapterDirectory = (await storageProvider.getMangaChapterDirectory(
@@ -1339,6 +1379,9 @@ Future<void> downloadChapter(
         tag: LogTag.download,
       );
       log('[downloadChapter] aborting — fetch error: $fetchError');
+      // Rendre l'échec visible : sinon l'icône revenait à son état initial et
+      // l'utilisateur croyait que le bouton n'avait rien fait.
+      _notifyDownloadFailure(fetchError!);
       // Use writeTxnSync + getSync/putSync — never mix sync ops inside
       // async writeTxn; that nests an implicit read-txn inside the write-txn
       // and causes "Cannot perform this operation from within an active
@@ -1765,6 +1808,7 @@ Future<void> downloadChapter(
     // Always fire the callback even on error so processDownloads can unblock
     // its slot counter and exit cleanly instead of looping forever.
     log('[downloadChapter] UNCAUGHT ERROR chapterId=${chapter.id}: $e\n$st');
+    _notifyDownloadFailure(friendlyErrorMessage(e));
     AppLogger.log(
       '[ch:${chapter.id}] CRASH: $e',
       logLevel: LogLevel.error,

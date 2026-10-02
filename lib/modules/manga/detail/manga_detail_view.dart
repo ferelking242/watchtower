@@ -480,7 +480,9 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                               padding: const EdgeInsets.all(12),
                               popUpAnimationStyle: popupAnimationStyle,
                               icon: const Icon(
-                                Broken.document_download,
+                                // Icône de téléchargement Broken (anneau de
+                                // progression affiché sur les tuiles chapitre).
+                                Broken.receive_square,
                                 size: 23,
                               ),
                               itemBuilder: (context) {
@@ -1134,7 +1136,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     ),
                   if (!isLocalArchive)
                     BottomSelectButton(
-                      icon: Icon(Broken.document_download, color: color),
+                      icon: Icon(Broken.receive_square, color: color),
                       onPressed: () {
                         // Lecture ponctuelle : jamais ref.watch dans un
                         // callback (Riverpod n'autorise le watch que dans
