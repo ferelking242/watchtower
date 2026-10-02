@@ -9,6 +9,8 @@ class MManga {
 
   String? imageUrl;
 
+  String? previewUrl;
+
   String? description;
 
   String? author;
@@ -29,6 +31,7 @@ class MManga {
     this.artist,
     this.genre,
     this.imageUrl,
+    this.previewUrl,
     this.link,
     this.name,
     this.status = Status.unknown,
@@ -41,6 +44,7 @@ class MManga {
       name: json['name'],
       link: json['link'],
       imageUrl: json['imageUrl'],
+      previewUrl: json['previewUrl'],
       description: json['description'],
       author: json['author'],
       collectionId: json['collectionId'],
@@ -66,6 +70,7 @@ class MManga {
       'name': name,
       'link': link,
       'imageUrl': imageUrl,
+      'previewUrl': previewUrl,
       'description': description,
       'author': author,
       'collectionId': collectionId,

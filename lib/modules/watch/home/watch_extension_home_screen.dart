@@ -24,6 +24,7 @@ import 'package:watchtower/services/search.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/modules/search/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
+import 'package:watchtower/modules/watch/home/extension_video_preview.dart';
 import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.dart';
 import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
@@ -1019,16 +1020,21 @@ void _openSection(
   required Source source,
   required String id,
   required String title,
+  String? cardStyle,
 }) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) =>
-          ExtensionSectionPage(source: source, sectionId: id, title: title),
+      builder: (_) => ExtensionSectionPage(
+        source: source,
+        sectionId: id,
+        title: title,
+        cardStyle: cardStyle,
+      ),
     ),
   );
 }
 
-class _ExtensionLayoutSection extends ConsumerWidget {
+class _ExtensionLayoutSection extends ConsumerStatefulWidget {
   final Source source;
   final UiSection section;
   final VoidCallback onSearch;
@@ -1042,12 +1048,196 @@ class _ExtensionLayoutSection extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final content = switch (section.id) {
-      'popular' => ref.watch(getPopularProvider(source: source, page: 1)),
-      'latest' => ref.watch(getLatestUpdatesProvider(source: source, page: 1)),
+  ConsumerState<_ExtensionLayoutSection> createState() =>
+      _ExtensionLayoutSectionState();
+}
+
+class _ExtensionLayoutSectionState
+    extends ConsumerState<_ExtensionLayoutSection> {
+  String? _selectedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedMonth = _initialMonth();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ExtensionLayoutSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.section.monthSelector?.initialMonth !=
+        widget.section.monthSelector?.initialMonth) {
+      _selectedMonth = _initialMonth();
+    }
+  }
+
+  String _monthKey(DateTime month) =>
+      '${month.year}-${month.month.toString().padLeft(2, '0')}';
+
+  DateTime _latestCompletedMonth() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month - 1, 1);
+  }
+
+  String _initialMonth() {
+    final configured = widget.section.monthSelector?.initialMonth;
+    final latest = _latestCompletedMonth();
+    final parsed = configured == null
+        ? null
+        : DateTime.tryParse('$configured-01');
+    if (parsed != null && !parsed.isAfter(latest)) return _monthKey(parsed);
+    return _monthKey(latest);
+  }
+
+  List<String> _monthOptions() {
+    final selector = widget.section.monthSelector!;
+    final latest = _latestCompletedMonth();
+    final count = selector.monthsBack.clamp(1, 120);
+    final values = <String>{
+      for (var offset = 0; offset < count; offset++)
+        _monthKey(DateTime(latest.year, latest.month - offset, 1)),
+      _selectedMonth ?? _initialMonth(),
+    }.toList()
+      ..sort((a, b) => b.compareTo(a));
+    return values;
+  }
+
+  String _monthLabel(String monthKey) {
+    final date = DateTime.tryParse('$monthKey-01');
+    if (date == null) return monthKey;
+    const names = [
+      'janvier',
+      'février',
+      'mars',
+      'avril',
+      'mai',
+      'juin',
+      'juillet',
+      'août',
+      'septembre',
+      'octobre',
+      'novembre',
+      'décembre',
+    ];
+    final name = names[date.month - 1];
+    return '${name[0].toUpperCase()}${name.substring(1)} ${date.year}';
+  }
+
+  String get _listId {
+    final selector = widget.section.monthSelector;
+    if (selector == null) return widget.section.id;
+    return '${selector.listIdPrefix}${_selectedMonth ?? _initialMonth()}';
+  }
+
+  String get _title {
+    final base = widget.section.title?.trim().isNotEmpty == true
+        ? widget.section.title!.trim()
+        : widget.section.id;
+    return base.replaceAll(
+      '{month}',
+      _monthLabel(_selectedMonth ?? _initialMonth()),
+    );
+  }
+
+  Widget _withMonthSelector(BuildContext context, Widget child) {
+    final selector = widget.section.monthSelector;
+    if (selector == null) return child;
+    final selected = _selectedMonth ?? _initialMonth();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppUI.pagePadding(context),
+            0,
+            AppUI.pagePadding(context),
+            8,
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF171820),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: .10)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.calendar_month_rounded,
+                  color: Colors.white70,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Choisir un mois',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: selected,
+                    dropdownColor: const Color(0xFF20212A),
+                    borderRadius: BorderRadius.circular(12),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    items: [
+                      for (final month in _monthOptions())
+                        DropdownMenuItem(
+                          value: month,
+                          child: Text(_monthLabel(month)),
+                        ),
+                    ],
+                    onChanged: (month) {
+                      if (month == null || month == _selectedMonth) return;
+                      setState(() => _selectedMonth = month);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+
+  void _openItem(BuildContext context, MManga item) {
+    final previewUrl = item.previewUrl?.trim() ?? '';
+    if (widget.source.touchToPreview && previewUrl.isNotEmpty) {
+      unawaited(
+        showExtensionVideoPreview(
+          context: context,
+          item: item,
+          previewUrl: previewUrl,
+          onOpen: () => widget.onOpen(item),
+        ),
+      );
+      return;
+    }
+    widget.onOpen(item);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final content = switch (widget.section.id) {
+      'popular' => ref.watch(
+        getPopularProvider(source: widget.source, page: 1),
+      ),
+      'latest' => ref.watch(
+        getLatestUpdatesProvider(source: widget.source, page: 1),
+      ),
       _ => ref.watch(
-        getCustomListProvider(source: source, listId: section.id, page: 1),
+        getCustomListProvider(source: widget.source, listId: _listId, page: 1),
       ),
     };
 
@@ -1056,48 +1246,51 @@ class _ExtensionLayoutSection extends ConsumerWidget {
     // rail does not disappear just because another page is being fetched.
     final cachedItems = content.value?.list;
     if (cachedItems != null && cachedItems.isNotEmpty) {
-      return _buildSection(context, cachedItems);
+      return _withMonthSelector(
+        context,
+        _buildSection(context, cachedItems),
+      );
     }
 
-    return content.when(
+    final sectionContent = content.when(
       loading: () => _ExtensionLayoutSectionLoading(
-        title: section.title ?? section.id,
-        component: section.component,
+        title: _title,
+        component: widget.section.component,
       ),
-      error: (_, __) =>
-          _ExtensionLayoutSectionError(title: section.title ?? section.id),
+      error: (_, __) => _ExtensionLayoutSectionError(title: _title),
       data: (pages) {
         final items = pages?.list ?? const <MManga>[];
         if (items.isEmpty) {
-          return _ExtensionLayoutSectionEmpty(
-            title: section.title ?? section.id,
-          );
+          return _ExtensionLayoutSectionEmpty(title: _title);
         }
         return _buildSection(context, items);
       },
     );
+    return _withMonthSelector(context, sectionContent);
   }
 
   Widget _buildSection(BuildContext context, List<MManga> items) {
-    final title = section.title?.trim().isNotEmpty == true
-        ? section.title!.trim()
-        : section.id;
-    final onSeeAll = () =>
-        _openSection(context, source: source, id: section.id, title: title);
-    final sectionAction = section.seeAll ? onSeeAll : null;
+    final onSeeAll = () => _openSection(
+      context,
+      source: widget.source,
+      id: _listId,
+      title: _title,
+      cardStyle: widget.section.cardStyle,
+    );
+    final sectionAction = widget.section.seeAll ? onSeeAll : null;
 
     return ExtensionLayoutPreview(
-      title: title,
-      component: section.component,
-      source: source,
+      title: _title,
+      component: widget.section.component,
+      source: widget.source,
       items: items,
-      onOpen: onOpen,
+      onOpen: (item) => _openItem(context, item),
       onSeeAll: sectionAction,
-      columns: section.columns,
-      rows: section.rows,
-      cardStyle: section.cardStyle,
-      gridOrder: section.gridOrder,
-      scrollDirection: section.scrollDirection,
+      columns: widget.section.columns,
+      rows: widget.section.rows,
+      cardStyle: widget.section.cardStyle,
+      gridOrder: widget.section.gridOrder,
+      scrollDirection: widget.section.scrollDirection,
     );
   }
 }

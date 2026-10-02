@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:watchtower/modules/watch/detail/watch_progress_key.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -912,9 +913,18 @@ class _FullscreenControlsOverlayState
   // ── Save/load progress ─────────────────────────────────────────────────────
   Future<void> _loadSavedProgress() async {
     try {
-      final dir  = await getTemporaryDirectory();
-      final id   = widget.title.hashCode;
+      final dir = await getApplicationSupportDirectory();
+      final id = stableWatchProgressKey(widget.title);
       final file = File('${dir.path}/wt_progress_$id.json');
+      if (!await file.exists()) {
+        // Read one-time legacy progress written to the temporary directory.
+        final legacyDir = await getTemporaryDirectory();
+        final legacy = File(
+          '${legacyDir.path}/wt_progress_${widget.title.hashCode}.json',
+        );
+        if (!await legacy.exists()) return;
+        await legacy.copy(file.path);
+      }
       if (!await file.exists()) return;
       final raw  = json.decode(await file.readAsString()) as Map;
       final ms   = (raw['ms'] as num?)?.toInt() ?? 0;
@@ -933,15 +943,28 @@ class _FullscreenControlsOverlayState
 
   void _startSaveProgressTimer() {
     _saveProgressTimer?.cancel();
-    _saveProgressTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
-      if (!mounted) return;
-      try {
-        final dir  = await getTemporaryDirectory();
-        final id   = widget.title.hashCode;
-        final ms   = widget.player.state.position.inMilliseconds;
-        await File('${dir.path}/wt_progress_$id.json').writeAsString(json.encode({'ms': ms}));
-      } catch (_) {}
-    });
+    _saveProgressTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_saveProgress()),
+    );
+  }
+
+  Future<void> _saveProgress() async {
+    if (!mounted) return;
+    final title = widget.title;
+    final ms = widget.player.state.position.inMilliseconds;
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final id = stableWatchProgressKey(title);
+      await File(
+        '${dir.path}/wt_progress_$id.json',
+      ).writeAsString(
+        json.encode({
+          'ms': ms,
+          'savedAt': DateTime.now().millisecondsSinceEpoch,
+        }),
+      );
+    } catch (_) {}
   }
 
   // ── Gesture hint ──────────────────────────────────────────────────────────
@@ -981,6 +1004,7 @@ class _FullscreenControlsOverlayState
     _seekDebounceTimer?.cancel();
     _nextEpTimer?.cancel();
     _saveProgressTimer?.cancel();
+    unawaited(_saveProgress());
     _posSub?.cancel();
     _bufSub?.cancel();
     _bufferingSub?.cancel();

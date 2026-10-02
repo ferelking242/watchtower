@@ -164,6 +164,7 @@ class UiSection {
   final String? cardStyle;
   final String? gridOrder;
   final String? scrollDirection;
+  final UiMonthSelector? monthSelector;
 
   final bool seeAll;
   final bool paginated;
@@ -180,6 +181,7 @@ class UiSection {
     this.cardStyle,
     this.gridOrder,
     this.scrollDirection,
+    this.monthSelector,
     this.seeAll = false,
     this.paginated = false,
     this.requiresAuth = false,
@@ -196,6 +198,11 @@ class UiSection {
     cardStyle: json['cardStyle'] as String?,
     gridOrder: json['gridOrder'] as String?,
     scrollDirection: json['scrollDirection'] as String?,
+    monthSelector: json['monthSelector'] is Map
+        ? UiMonthSelector.fromJson(
+            Map<String, dynamic>.from(json['monthSelector'] as Map),
+          )
+        : null,
     seeAll: json['seeAll'] as bool? ?? false,
     paginated: json['paginated'] as bool? ?? false,
     requiresAuth: json['requiresAuth'] as bool? ?? false,
@@ -216,6 +223,7 @@ class UiSection {
     if (cardStyle != null) 'cardStyle': cardStyle,
     if (gridOrder != null) 'gridOrder': gridOrder,
     if (scrollDirection != null) 'scrollDirection': scrollDirection,
+    if (monthSelector != null) 'monthSelector': monthSelector!.toJson(),
     if (seeAll) 'seeAll': id,
   };
 
@@ -239,7 +247,11 @@ class UiSection {
     'doubleFeature' => 'doubleFeature',
     'editorialSplit' => 'editorialSplit',
     'landscapeStacked' => 'landscapeStacked',
+    'showcase' => 'landscapeStacked',
     'backdropWide' => 'backdropWide',
+    'rankedWide' => 'rankedWide',
+    'collectionCards' => 'collectionCards',
+    'playlistCarousel' => 'collectionCards',
     'metadataPoster' => 'metadataPoster',
     'statusPoster' => 'statusPoster',
     'discoverGrid' => 'discoverGrid',
@@ -247,5 +259,32 @@ class UiSection {
     'universeExplorer' => 'universeExplorer',
     'collectionTimeline' => 'collectionTimeline',
     _ => 'spotlight',
+  };
+}
+
+/// Optional month picker configuration for a section whose custom-list ID
+/// includes the selected YYYY-MM value.
+class UiMonthSelector {
+  final String listIdPrefix;
+  final String? initialMonth;
+  final int monthsBack;
+
+  const UiMonthSelector({
+    required this.listIdPrefix,
+    this.initialMonth,
+    this.monthsBack = 36,
+  });
+
+  factory UiMonthSelector.fromJson(Map<String, dynamic> json) =>
+      UiMonthSelector(
+        listIdPrefix: json['listIdPrefix'] as String? ?? 'month_',
+        initialMonth: json['initialMonth'] as String?,
+        monthsBack: (json['monthsBack'] as num?)?.toInt() ?? 36,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'listIdPrefix': listIdPrefix,
+    if (initialMonth != null) 'initialMonth': initialMonth,
+    'monthsBack': monthsBack,
   };
 }

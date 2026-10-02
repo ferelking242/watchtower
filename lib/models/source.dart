@@ -198,6 +198,31 @@ class Source {
         .toList(growable: false);
   }
 
+  /// Enables tapping an extension card to play its short preview before
+  /// opening the full detail/player screen.
+  bool get touchToPreview => _metadataValues()['touchToPreview'] == true;
+
+  void setTouchToPreview(bool? enabled) {
+    final raw = (additionalParams ?? '')
+        .split('\n$_metadataMarker')
+        .first
+        .trimRight();
+    final metadata = _metadataValues();
+    if (enabled == true) {
+      metadata['touchToPreview'] = true;
+    } else {
+      metadata.remove('touchToPreview');
+    }
+    if (metadata.isEmpty) {
+      additionalParams = raw;
+      return;
+    }
+    final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
+    additionalParams = raw.isEmpty
+        ? '$_metadataMarker$encoded'
+        : '$raw\n$_metadataMarker$encoded';
+  }
+
   void setSupportedLanguages(Iterable<String>? values) {
     final normalized = (values ?? const <String>[])
         .map((value) => value.trim().toLowerCase())
@@ -273,6 +298,7 @@ class Source {
       if (uiLayoutVersion != null) 'uiLayoutVersion': uiLayoutVersion,
       if (pendingUiLayoutVersion != null)
         'pendingUiLayoutVersion': pendingUiLayoutVersion,
+      if (touchToPreview) 'touchToPreview': true,
     };
     if (metadata.isEmpty) return raw;
     final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
@@ -319,6 +345,9 @@ class Source {
     final languages = json['langs'];
     if (languages is List) {
       setSupportedLanguages(languages.whereType<String>());
+    }
+    if (json['touchToPreview'] is bool) {
+      setTouchToPreview(json['touchToPreview'] as bool);
     }
     isObsolete = json['isObsolete'];
     isLocal = json['isLocal'];
@@ -378,6 +407,7 @@ class Source {
     'version': version,
     'versionLast': versionLast,
     'additionalParams': persistedAdditionalParams,
+    if (touchToPreview) 'touchToPreview': true,
     'sourceCodeLanguage': sourceCodeLanguage.index,
     'isObsolete': isObsolete,
     'isLocal': isLocal,

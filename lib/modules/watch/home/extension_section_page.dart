@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +11,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
+import 'package:watchtower/modules/watch/home/extension_video_preview.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
@@ -19,11 +22,13 @@ class ExtensionSectionPage extends ConsumerStatefulWidget {
   final Source source;
   final String sectionId;
   final String title;
+  final String? cardStyle;
 
   const ExtensionSectionPage({
     required this.source,
     required this.sectionId,
     required this.title,
+    this.cardStyle,
     super.key,
   });
 
@@ -130,11 +135,30 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
             title: item.name?.trim().isNotEmpty == true
                 ? item.name!.trim()
                 : 'Collection',
+            cardStyle: collection.listId.startsWith('search_')
+                ? 'landscape'
+                : null,
           ),
         ),
       );
       return;
     }
+    if (widget.source.touchToPreview &&
+        item.previewUrl?.trim().isNotEmpty == true) {
+      unawaited(
+        showExtensionVideoPreview(
+          context: context,
+          item: item,
+          previewUrl: item.previewUrl!.trim(),
+          onOpen: () => _openFullVideo(item),
+        ),
+      );
+      return;
+    }
+    _openFullVideo(item);
+  }
+
+  void _openFullVideo(MManga item) {
     pushToMangaReaderDetail(
       ref: ref,
       context: context,
@@ -252,9 +276,10 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
     if (items.isEmpty) {
       return const Center(child: Text('Aucun résultat'));
     }
-    if (items.every(
-      (item) => ExtensionCollectionRoute.fromItem(item) != null,
-    )) {
+    if (widget.cardStyle != 'tag' &&
+        items.every(
+          (item) => ExtensionCollectionRoute.fromItem(item) != null,
+        )) {
       return ListView(
         padding: EdgeInsets.fromLTRB(
           AppUI.pagePadding(context),
@@ -294,6 +319,8 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         ],
       );
     }
+    final isTagGrid = widget.cardStyle == 'tag';
+    final isLandscapeGrid = widget.cardStyle == 'landscape';
     return GridView.builder(
       controller: _scrollController,
       padding: EdgeInsets.fromLTRB(
@@ -304,7 +331,11 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
       ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: AppUI.mediaGridColumns(context),
-        childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
+        childAspectRatio: isTagGrid
+            ? 2.6
+            : isLandscapeGrid
+            ? 1.25
+            : AppUI.mediaGridChildAspectRatio(context),
         crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
         mainAxisSpacing: 16,
       ),
@@ -313,10 +344,24 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         if (index >= items.length) {
           return const AppShimmerBlock(radius: AppUI.cardRadius);
         }
+        final item = items[index];
+        if (isTagGrid) {
+          return TagCard(
+            item: ContentItem.fromManga(item),
+            onTap: () => _openItem(item),
+          );
+        }
+        if (isLandscapeGrid) {
+          return LandscapeCard(
+            item: ContentItem.fromManga(item),
+            width: double.infinity,
+            onTap: () => _openItem(item),
+          );
+        }
         return PosterCard(
-          item: ContentItem.fromManga(items[index]),
+          item: ContentItem.fromManga(item),
           width: double.infinity,
-          onTap: () => _openItem(items[index]),
+          onTap: () => _openItem(item),
         );
       },
     );

@@ -199,6 +199,19 @@ class LandscapeCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            if (item.description?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 3),
+              Text(
+                item.description!.trim(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
             if (item.rating != null && item.rating! > 0) ...[
               const SizedBox(height: 3),
               Row(
