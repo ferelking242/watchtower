@@ -263,17 +263,21 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                       isar.mangas.putSync(model);
                     });
                   },
-                  child: Column(
-                    children: [
-                      const Icon(Broken.heart_filled, size: 20),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.in_library,
-                        style: const TextStyle(fontSize: 11),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+                  // Squelette pendant le chargement : mêmes icône (20) et
+                  // libellé (11) que le bouton réel, dans le même ElevatedButton.
+                  child: widget.isLoading
+                      ? const DetailActionButtonSkeleton(labelWidth: 46)
+                      : Column(
+                          children: [
+                            const Icon(Broken.heart_filled, size: 20),
+                            const SizedBox(height: 4),
+                            Text(
+                              l10n.in_library,
+                              style: const TextStyle(fontSize: 11),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
                 ),
               )
             : ElevatedButton(
@@ -303,24 +307,26 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                     });
                   }
                 },
-                child: Column(
-                  children: [
-                    Icon(
-                      Broken.heart,
-                      size: 20,
-                      color: context.secondaryColor,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.add_to_library,
-                      style: TextStyle(
-                        color: context.secondaryColor,
-                        fontSize: 11,
+                child: widget.isLoading
+                    ? const DetailActionButtonSkeleton(labelWidth: 70)
+                    : Column(
+                        children: [
+                          Icon(
+                            Broken.heart,
+                            size: 20,
+                            color: context.secondaryColor,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.add_to_library,
+                            style: TextStyle(
+                              color: context.secondaryColor,
+                              fontSize: 11,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
               ),
         manga: widget.manga,
         isExtended: (value) {

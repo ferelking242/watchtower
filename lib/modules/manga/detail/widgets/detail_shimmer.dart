@@ -7,8 +7,43 @@ import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dar
 //
 // The goal is a *detailed* skeleton: the real layout is drawn with grey blocks
 // that sweep with a light gradient until the real data/image arrives, instead
-// of a flat pulsing rectangle.
+// of a flat pulsing rectangle. Sizes and spacings intentionally mirror the
+// real widgets (see `_bodyContainer`, `_coverCard`, `ReadMoreWidget` and
+// `_DetailTabs`) so the skeleton sits exactly where the content will appear
+// and nothing jumps when it is swapped in.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Real-layout metrics shared by the skeletons and documented next to the
+/// widgets they imitate. Keep in sync with:
+///  * cover card  → `MangaDetailView._coverCard` (65 × 1.5 by 65 × 2.3)
+///  * cover pad   → `_coverCard` Padding(horizontal: 13, vertical: 20)
+///  * action row  → `_actionFavouriteAndWebview` ElevatedButtons
+///                  (icon 20, gap 4, label fontSize 11)
+///  * description → `ReadMoreWidget` (Padding all 8 + horizontal 6, maxLines 3)
+///  * tabs        → `_DetailTabs` TabBar (height 44, icon 15, gap 6, label 13)
+class DetailSkeletonMetrics {
+  DetailSkeletonMetrics._();
+
+  static const double coverWidth = 65 * 1.5; // 97.5
+  static const double coverHeight = 65 * 2.3; // 149.5
+  static const double coverRadius = 5;
+  static const EdgeInsets coverPadding = EdgeInsets.symmetric(
+    horizontal: 13,
+    vertical: 20,
+  );
+
+  static const double actionIconSize = 20;
+  static const double actionLabelHeight = 12;
+  static const double actionGap = 4;
+
+  static const double descriptionLineHeight = 13;
+  static const double descriptionLineGap = 7;
+
+  static const double tabHeight = 44;
+  static const double tabIconSize = 15;
+  static const double tabGap = 6;
+  static const double tabLabelHeight = 12;
+}
 
 class DetailShimmer {
   DetailShimmer._();
@@ -68,21 +103,24 @@ class DetailShimmerBox extends StatelessWidget {
   }
 }
 
-/// Detailed skeleton for the hero (cover + back drop) area: a big cover block
-/// plus the title/author/status lines and the action row underneath.
+/// Detailed skeleton of the hero band that sits behind the manga detail body
+/// (the full-width cover/backdrop image is 300 px tall).
+///
+/// Only the top of that band is really visible — the body stacks an opaque
+/// gradient over it below roughly 90 px — so the skeleton reproduces exactly
+/// the part that shows through: the cover card and the title / author / status
+/// column, at the same coordinates as `MangaDetailView._bodyContainer`.
 class DetailHeroShimmer extends StatelessWidget {
   final double height;
-  final bool compact;
 
-  const DetailHeroShimmer({
-    super.key,
-    this.height = 300,
-    this.compact = false,
-  });
+  const DetailHeroShimmer({super.key, this.height = 300});
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    // Le contenu réel de la page commence sous la barre de statut (SafeArea
+    // du Scaffold) : on décale le squelette d'autant pour que la cover du
+    // shimmer coïncide avec la vraie cover dessinée par-dessus.
+    final topInset = MediaQuery.paddingOf(context).top;
     return Shimmer.fromColors(
       baseColor: DetailShimmer.baseColor(context),
       highlightColor: DetailShimmer.highlightColor(context),
@@ -91,99 +129,145 @@ class DetailHeroShimmer extends StatelessWidget {
         height: height,
         width: double.infinity,
         color: Colors.white,
-        padding: EdgeInsets.fromLTRB(13, compact ? 24 : 60, 13, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Cover
-                Container(
-                  width: 98,
-                  height: 148,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Title (2 lines)
-                      Container(
-                        height: 16,
-                        width: double.infinity,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(height: 7),
-                      Container(
-                        height: 16,
-                        width: 140,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(height: 14),
-                      // Author
-                      Container(
-                        height: 11,
-                        width: 110,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(height: 8),
-                      // Status + source
-                      Container(
-                        height: 11,
-                        width: 170,
-                        color: Colors.white,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Action row (Favoris / Webview / Trackers)
-            Row(
-              children: [
-                for (int i = 0; i < 3; i++) ...[
-                  Expanded(
-                    child: Container(
-                      height: 38,
+        child: Padding(
+          padding: EdgeInsets.only(top: topInset),
+          // Colonne `min` : la rangée garde la hauteur intrinsèque du vrai
+          // bloc cover + titres et reste collée en haut de la bande, sinon la
+          // cover serait centrée 40 px plus bas que la vraie.
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: DetailSkeletonMetrics.coverPadding,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Cover : mêmes cotes et même rayon que `_coverCard`.
+                    Container(
+                      width: DetailSkeletonMetrics.coverWidth,
+                      height: DetailSkeletonMetrics.coverHeight,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(
+                          DetailSkeletonMetrics.coverRadius,
+                        ),
                       ),
                     ),
-                  ),
-                  if (i < 2) const SizedBox(width: 8),
-                ],
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Description lines
-            Container(height: 10, width: double.infinity, color: Colors.white),
-            const SizedBox(height: 6),
-            Container(height: 10, width: 220, color: Colors.white),
-            const SizedBox(height: 12),
-            // Tabs
-            Row(
-              children: [
-                for (int i = 0; i < 3; i++) ...[
-                  Container(
-                    height: 12,
-                    width: i == 0 ? 74 : 56,
-                    color: Colors.white,
-                  ),
-                  if (i < 2) const SizedBox(width: 22),
-                ],
-              ],
-            ),
-          ],
+                    const SizedBox(width: 12),
+                    // Titre + auteur + statut, centrés verticalement comme la
+                    // colonne `_titles()` (titre puis `titleDescription`).
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            height: 24,
+                            width: double.infinity,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            height: 24,
+                            width: 150,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            height: 12,
+                            width: 120,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            height: 12,
+                            width: 175,
+                            color: Colors.white,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// Contenu shimmer d'un bouton d'action (icône 20 px + libellé 11 px) à
+/// insérer dans les VRAIS `ElevatedButton` de la rangée d'actions : le chrome,
+/// les marges internes et la position du bouton restent ceux du bouton
+/// chargé — seuls ses contenus scintillent.
+class DetailActionButtonSkeleton extends StatelessWidget {
+  /// Largeur du bloc de libellé, choisie pour correspondre au texte réel
+  /// (« In library », « 3 jours », « Tracking », « Webview »…).
+  final double labelWidth;
+
+  const DetailActionButtonSkeleton({super.key, this.labelWidth = 46});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const DetailShimmerBox(
+          width: DetailSkeletonMetrics.actionIconSize,
+          height: DetailSkeletonMetrics.actionIconSize,
+          radius: 6,
+        ),
+        const SizedBox(height: DetailSkeletonMetrics.actionGap),
+        DetailShimmerBox(
+          width: labelWidth,
+          height: DetailSkeletonMetrics.actionLabelHeight,
+          radius: 3,
+        ),
+      ],
+    );
+  }
+}
+
+/// Squelette de la description : trois lignes (le vrai texte utilise
+/// `maxLines: 3`) puis le chevron « voir plus », aux mêmes marges que
+/// `ReadMoreWidget` (Padding horizontal 6 dans le Padding(all: 8) appelant).
+class DetailDescriptionSkeleton extends StatelessWidget {
+  const DetailDescriptionSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const DetailShimmerBox(
+            width: double.infinity,
+            height: DetailSkeletonMetrics.descriptionLineHeight,
+            radius: 4,
+          ),
+          const SizedBox(height: DetailSkeletonMetrics.descriptionLineGap),
+          const DetailShimmerBox(
+            width: double.infinity,
+            height: DetailSkeletonMetrics.descriptionLineHeight,
+            radius: 4,
+          ),
+          const SizedBox(height: DetailSkeletonMetrics.descriptionLineGap),
+          // Dernière ligne plus courte + chevron, comme le vrai texte tronqué.
+          Row(
+            children: [
+              const Expanded(
+                child: DetailShimmerBox(
+                  height: DetailSkeletonMetrics.descriptionLineHeight,
+                  radius: 4,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const DetailShimmerBox(width: 18, height: 18, radius: 5),
+            ],
+          ),
+        ],
       ),
     );
   }

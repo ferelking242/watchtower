@@ -332,10 +332,8 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         width: context.width(1),
                         height: 300,
                         fit: BoxFit.cover,
-                        placeholderBuilder: (context) => DetailHeroShimmer(
-                          height: 300,
-                          compact: true,
-                        ),
+                        placeholderBuilder: (context) =>
+                            const DetailHeroShimmer(height: 300),
                         loadedBuilder: (context, image) => Stack(
                           children: [
                             image,
@@ -1644,7 +1642,14 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.manga!.description != null)
+                  if (widget.isLoading)
+                    // Description : squelette aux mêmes marges que
+                    // ReadMoreWidget (Padding 8 puis horizontal 6).
+                    const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: DetailDescriptionSkeleton(),
+                    )
+                  else if (widget.manga!.description != null)
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: ReadMoreWidget(
@@ -1661,6 +1666,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   // animé sous l'onglet actif (Chapter detail · Similar ·
                   // Commentaires).
                   _DetailTabs(
+                    isLoading: widget.isLoading,
                     controller: _sectionController,
                     onSelect: (s) {
                       if (_detailSection != s) {
@@ -1888,9 +1894,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (widget.isLoading)
+          // Même encombrement que le vrai titre (fontSize 20).
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 3),
-            child: DetailShimmerBox(width: 170, height: 20, radius: 5),
+            padding: EdgeInsets.symmetric(vertical: 2),
+            child: DetailShimmerBox(width: 180, height: 24, radius: 6),
           )
         else
           SelectableText(
@@ -1938,23 +1945,25 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                     };
                     context.push("/mangawebview", extra: data);
                   },
-                  child: Column(
-                    children: [
-                      Icon(
-                        Broken.global,
-                        size: 20,
-                        color: context.secondaryColor,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        context.l10n.webview,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: context.secondaryColor,
+                  child: widget.isLoading
+                      ? const DetailActionButtonSkeleton(labelWidth: 48)
+                      : Column(
+                          children: [
+                            Icon(
+                              Broken.global,
+                              size: 20,
+                              color: context.secondaryColor,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              context.l10n.webview,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.secondaryColor,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -1972,23 +1981,31 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
         ),
         onPressed: () =>
             context.push("/calendarScreen", extra: widget.manga!.itemType),
-        child: Column(
-          children: [
-            Icon(
-              Broken.timer,
-              size: 20,
-              color: context.secondaryColor,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widget.manga?.smartUpdateDays != null
-                  ? context.l10n.n_days(widget.manga!.smartUpdateDays!)
-                  : "N/A",
-              style: TextStyle(fontSize: 11, color: context.secondaryColor),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+        // Pendant le chargement : même contenu (icône 20 + libellé 11) que le
+        // bouton réel, inséré dans le VRAI ElevatedButton — le chrome, les
+        // marges et la position du bouton sont donc identiques.
+        child: widget.isLoading
+            ? const DetailActionButtonSkeleton(labelWidth: 52)
+            : Column(
+                children: [
+                  Icon(
+                    Broken.timer,
+                    size: 20,
+                    color: context.secondaryColor,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.manga?.smartUpdateDays != null
+                        ? context.l10n.n_days(widget.manga!.smartUpdateDays!)
+                        : "N/A",
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.secondaryColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -2019,6 +2036,11 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   .mangaIdEqualTo(widget.manga!.id!)
                   .watch(fireImmediately: true),
               builder: (context, snapshot) {
+                if (widget.isLoading) {
+                  // Squelette : même contenu (icône 20 + libellé 11) que le
+                  // bouton traceurs, dans le VRAI ElevatedButton.
+                  return const DetailActionButtonSkeleton(labelWidth: 44);
+                }
                 final l10n = l10nLocalizations(context)!;
                 List<Track>? trackRes = snapshot.hasData ? snapshot.data : [];
                 bool isNotEmpty = trackRes!.isNotEmpty;
@@ -2553,7 +2575,16 @@ class _DetailTabs extends StatelessWidget {
   final TabController controller;
   final ValueChanged<_DetailSection> onSelect;
 
-  const _DetailTabs({required this.controller, required this.onSelect});
+  /// Pendant le chargement, le contenu de chaque onglet (icône + libellé) est
+  /// remplacé par des blocs shimmer : la barre garde exactement sa géométrie
+  /// réelle (hauteur 44, icône 15, écart 6, libellé 13) et sa position.
+  final bool isLoading;
+
+  const _DetailTabs({
+    required this.controller,
+    required this.onSelect,
+    this.isLoading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2562,12 +2593,19 @@ class _DetailTabs extends StatelessWidget {
       (
         section: _DetailSection.chapters,
         label: 'Chapter detail',
+        labelWidth: 88.0,
         icon: Broken.document_text,
       ),
-      (section: _DetailSection.similar, label: 'Similar', icon: Broken.star),
+      (
+        section: _DetailSection.similar,
+        label: 'Similar',
+        labelWidth: 45.0,
+        icon: Broken.star,
+      ),
       (
         section: _DetailSection.comments,
         label: 'Commentaires',
+        labelWidth: 78.0,
         icon: Broken.message,
       ),
     ];
@@ -2617,20 +2655,36 @@ class _DetailTabs extends StatelessWidget {
         tabs: [
           for (final tab in tabs)
             Tab(
-              height: 44,
+              height: DetailSkeletonMetrics.tabHeight,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(tab.icon, size: 15),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      tab.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  if (isLoading)
+                    const DetailShimmerBox(
+                      width: DetailSkeletonMetrics.tabIconSize,
+                      height: DetailSkeletonMetrics.tabIconSize,
+                      radius: 4,
+                    )
+                  else
+                    Icon(tab.icon, size: DetailSkeletonMetrics.tabIconSize),
+                  const SizedBox(width: DetailSkeletonMetrics.tabGap),
+                  if (isLoading)
+                    Flexible(
+                      child: DetailShimmerBox(
+                        width: tab.labelWidth,
+                        height: DetailSkeletonMetrics.tabLabelHeight,
+                        radius: 4,
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: Text(
+                        tab.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
