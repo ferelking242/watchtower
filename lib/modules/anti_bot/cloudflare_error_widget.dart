@@ -1,24 +1,21 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 import 'package:watchtower/models/settings.dart';
 
+/// True only when the error text carries actual anti-bot evidence.
+///
+/// A bare 403/503, a timeout, or the word “challenge” alone is NOT Cloudflare:
+/// those errors keep the normal error rendering path.
 bool isCloudflareError(String? error) {
-    if (error == null) return false;
-    final l = error.toLowerCase();
-    return l.contains('cloudflare') ||
-        l.contains('cf_clearance') ||
-        l.contains('challenge') ||
-        l.contains('failed to bypass') ||
-        l.contains('just a moment') ||
-        l.contains('attention required') ||
-        l.contains('cf-ray') ||
-        (l.contains('503') && l.contains('server')) ||
-        (l.contains('403') && l.contains('cloud')) ||
-        (l.contains('timeout') && l.contains('connection'));
-  }
+  final assessment = assessErrorMessage(error);
+  return assessment.cloudflareInvolved ||
+      assessment.challenge ||
+      assessment.blocked;
+}
 
 class CloudflareErrorWidget extends StatefulWidget {
   final String? errorText;
@@ -140,8 +137,10 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
               ),
               const SizedBox(height: 8),
               Text(
-                'Cette source est protégée par un système anti-bot (Cloudflare). '
-                'Vous devez résoudre le challenge pour y accéder.',
+                'Un anti-bot (souvent Cloudflare) a bloqué cette source. '
+                'Ouvrez la page ci-dessous pour vérifier qu’un challenge est '
+                'réellement présent — si elle se charge normalement, l’erreur '
+                'vient d’ailleurs et aucun challenge n’est à résoudre.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
@@ -169,12 +168,24 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
               SizedBox(
                 width: double.infinity,
                 child: _GlowButton(
-                  label: 'Affronter le challenge',
+                  label: 'Ouvrir / vérifier la page',
                   icon: Icons.shield_rounded,
                   color: cs.primary,
                   onTap: widget.url != null ? _beatChallenge : null,
                 ),
               ),
+              if (widget.url == null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'URL de la requête inconnue — ouvrez la source puis relancez le diagnostic.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 12),
               // ── Remote bypass button ─────────────────────────────────────
               SizedBox(

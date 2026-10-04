@@ -873,8 +873,9 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
       }
     }
 
-    if (isCloudflareError(error.toString()) ||
-        ((source.hasCloudflare ?? false) && error.toString().toLowerCase().contains('timeout'))) {
+    // A plain timeout is a network error — `hasCloudflare` on the source only
+    // means the site uses Cloudflare, not that this request hit a challenge.
+    if (isCloudflareError(error.toString())) {
       return SingleChildScrollView(
         child: Padding(padding: const EdgeInsets.all(16),
           child: CloudflareErrorWidget(

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:munchtoast/munchtoast.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:go_router/go_router.dart';
 import 'package:html/dom.dart' hide Text;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -686,8 +685,6 @@ void Function() botToast(
   double? fontSize,
   double alignX = 0,
   double alignY = 0.99,
-  bool hasCloudFlare = false,
-  String? url,
   int animationDuration = 200,
   List<DismissDirection> dismissDirections = const [
     DismissDirection.horizontal,
@@ -725,8 +722,7 @@ void Function() botToast(
       title.toLowerCase().contains('fail')) {
     type = MunchToastType.error;
   } else if (title.toLowerCase().contains('warn') ||
-      title.toLowerCase().contains('attention') ||
-      hasCloudFlare) {
+      title.toLowerCase().contains('attention')) {
     type = MunchToastType.warning;
   } else if (title.toLowerCase().contains('success') ||
       title.toLowerCase().contains('ok') ||
@@ -743,7 +739,7 @@ void Function() botToast(
   try {
     MunchToast.show(
       context,
-      message: hasCloudFlare ? '$title – Cloudflare' : title,
+      message: title,
       type: type,
       position: MunchToastPosition.top,
       duration: Duration(seconds: second),
@@ -754,27 +750,6 @@ void Function() botToast(
       borderRadius: 12,
       elevation: 6,
     );
-
-    if (hasCloudFlare && url != null) {
-      MunchToast.show(
-        context,
-        message: '🛡 Source protégée — Affrontez le challenge pour continuer',
-        type: MunchToastType.warning,
-        position: MunchToastPosition.top,
-        duration: Duration(seconds: second),
-        action: MunchToastAction(
-          label: 'Affronter →',
-          onPressed: () {
-            context!.push('/mangawebview', extra: {
-              'url': url,
-              'title': 'Résoudre le challenge',
-            });
-          },
-        ),
-        margin: const EdgeInsets.only(top: 8, right: 12, left: 12),
-        borderRadius: 12,
-      );
-    }
   } catch (e, st) {
     AppLogger.log(
       'botToast failed silently: $e\n$st\n(message="$title")',

@@ -73,8 +73,11 @@ jobs:
             mkdir -p "$d/assets"
           done
 
-      - name: Run download manager regression tests
-        run: flutter test test/download_manager_regressions_test.dart
+      - name: Run regression tests
+        run: |
+          flutter test \
+            test/download_manager_regressions_test.dart \
+            test/cloudflare_detection_test.dart
 
       - name: Run cached page URL regression tests
         run: flutter test test/page_url_cache_test.dart

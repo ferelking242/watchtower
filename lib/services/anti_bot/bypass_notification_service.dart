@@ -169,10 +169,9 @@ class BypassNotificationService {
       );
     }
 
-    final challengeUrl = resolveCloudflareChallengeUrl(
-      url,
-      sourceBaseUrl: source?.baseUrl,
-    );
+    // Open the exact failing URL: the panel reports whether a challenge is
+    // really displayed instead of assuming the site root shows one.
+    final challengeUrl = resolveCloudflareChallengeUrl(url);
     if (challengeUrl == null) {
       _openChallengeHosts.remove(host);
       return;

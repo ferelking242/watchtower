@@ -18,6 +18,7 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/services/http/rhttp/rhttp.dart' as rhttp;
 import 'package:watchtower/services/http/doh/doh_resolver.dart';
 import 'package:watchtower/services/http/doh/doh_providers.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/utils/constant.dart';
 
@@ -516,36 +517,67 @@ class LoggerInterceptor extends InterceptorContract {
     final start = _pending.remove('$meth $url');
     final ms    = start != null ? DateTime.now().difference(start).inMilliseconds : null;
     final size  = (response is Response) ? response.bodyBytes.length : null;
-    final cloudflare = showCloudFlareError && isCloudflare(response);
+    final assessment = showCloudFlareError
+        ? antiBotAssessmentOf(response)
+        : const AntiBotAssessment();
+    final cloudflareChallenge = assessment.challenge;
+    final antiBotBlock = assessment.blocked;
 
     final timePart = ms   != null ? '  ${ms}ms'      : '';
     final sizePart = size != null ? '  ${_sz(size)}' : '';
-    final cfPart   = cloudflare   ? '  ⚠ Cloudflare' : '';
+    final cfPart   = cloudflareChallenge
+        ? '  ⚠ Cloudflare challenge'
+        : antiBotBlock ? '  ⛔ anti-bot block' : '';
 
     final msg = '← $status$timePart$sizePart  ${_short(url)}$cfPart';
 
-    final level = (cloudflare || status >= 500)
+    final level = (cloudflareChallenge || antiBotBlock || status >= 500)
         ? LogLevel.error
         : status >= 400 ? LogLevel.warning : LogLevel.debug;
 
     AppLogger.log(msg, logLevel: level, tag: LogTag.network);
 
-    if (cloudflare) {
+    if (cloudflareChallenge || antiBotBlock) {
+      AppLogger.log(
+        antiBotLogLine(
+          assessment: assessment,
+          url: url,
+          statusCode: status,
+          headers: response.headers,
+        ),
+        logLevel: LogLevel.debug,
+        tag: LogTag.network,
+      );
+    }
+
+    // Only an interactive challenge is actionable in a WebView. A WAF block
+    // page gets a plain warning and never opens a “resolve challenge” flow.
+    if (cloudflareChallenge) {
       BypassNotificationService.instance
           .notifyChallengeDetected(url: url)
           .ignore();
       try {
         final host = Uri.tryParse(url)?.host ?? url;
-        botToast('🛡 $host bloqué par Cloudflare', second: 4);
+        botToast('🛡 $host — challenge Cloudflare détecté', second: 4);
+      } catch (_) {}
+    } else if (antiBotBlock) {
+      try {
+        final host = Uri.tryParse(url)?.host ?? url;
+        botToast('⛔ $host bloqué par un anti-bot (sans challenge)', second: 4);
       } catch (_) {}
     }
     return response;
   }
 }
 
-bool isCloudflare(BaseResponse response) {
-  return [403, 503].contains(response.statusCode) &&
-      ["cloudflare-nginx", "cloudflare"].contains(response.headers["server"]);
+/// Evidence-based anti-bot assessment of an HTTP response. A 403/503 alone is
+/// never reported as Cloudflare (see anti_bot_detection.dart).
+AntiBotAssessment antiBotAssessmentOf(BaseResponse response) {
+  return assessHttpResponse(
+    statusCode: response.statusCode,
+    headers: response.headers,
+    body: response is Response ? response.body : null,
+  );
 }
 
 class ResolveCloudFlareChallenge extends RetryPolicy {
@@ -555,13 +587,13 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
   @override
   int get maxRetryAttempts => 3;
 
-  void _toastFailure(String url) {
+  /// Opens the manual challenge on the exact failing URL. Network retries can
+  /// also run without a mounted navigator, so the notification service queues
+  /// the request until the first frame exists.
+  void _openChallenge(String url) {
     try {
-      botToast('❌ Résolution échouée — résolvez manuellement', second: 8);
+      botToast('🛡 Challenge Cloudflare — résolvez-le sur la page', second: 6);
     } catch (_) {}
-    // Keep the manual challenge in the foreground on the source screen.
-    // Network retries can also run without a mounted navigator, so the
-    // notification service queues the request until the first frame exists.
     try {
       BypassNotificationService.instance.openChallenge(url);
     } catch (_) {}
@@ -570,11 +602,17 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
   @override
   Future<bool> shouldAttemptRetryOnResponse(BaseResponse response) async {
     if (!showCloudFlareError || Platform.isLinux) return false;
-    if (!isCloudflare(response)) return false;
+
+    final assessment = antiBotAssessmentOf(response);
+    if (!assessment.challenge) {
+      // A plain 403/503 — or a WAF block page — is not a challenge: keep the
+      // normal HTTP error path and never open a Cloudflare UI for it.
+      return false;
+    }
 
     final url = response.request?.url.toString();
     if (url == null || url.isEmpty) return false;
-    _toastFailure(url);
+    _openChallenge(url);
     return false;
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/eval/javascript/http.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_chapter.dart';
@@ -343,8 +344,22 @@ class MihonExtensionService implements ExtensionService {
 
   String _formatPlatformError(PlatformException e) {
     final msg = e.message ?? 'Unknown extension error';
-    if (msg.contains('Cloudflare') || msg.toLowerCase().contains('403')) {
-      return "Failed to bypass Cloudflare.\n\nYou can try to bypass it manually in the webview\n\nstatusCode: 403";
+    final assessment = assessErrorMessage(msg);
+
+    // Cloudflare is only reported with actual evidence from the extension
+    // message. A bare “403” is a regular access-denied error and must not be
+    // turned into a Cloudflare challenge.
+    if (assessment.challenge || assessment.blocked) {
+      return 'Cloudflare blocked the extension request.\n\n'
+          'Open the source to check whether an interactive challenge is present '
+          'before trying to resolve it.\n\n'
+          'detail: $msg';
+    }
+    if (msg.toLowerCase().contains('403') ||
+        msg.toLowerCase().contains('forbidden')) {
+      return 'HTTP 403 — the site refused the request (access denied / forbidden), '
+          'with no evidence of an anti-bot challenge.\n\n'
+          'detail: $msg';
     }
     return msg;
   }
@@ -360,19 +375,38 @@ class MihonExtensionService implements ExtensionService {
   Future<List<Map<String, dynamic>>> getComments(String url) async => [];
 }
 
+/// Inspects the JSON envelope returned by the desktop Dalvik bridge.
+///
+/// Structured: `{error: String, code: int}`. Only a 403 backed by actual
+/// anti-bot evidence (markers in the message) is reported as Cloudflare;
+/// everything else keeps its plain HTTP error message.
 void hasError(Response response) {
+  dynamic decoded;
   try {
-    final errorMessage = jsonDecode(response.body)['error'];
-    final code = jsonDecode(response.body)['code'];
-    if (errorMessage != null && code != null) {
-      if ((code as int) == 403) {
-        throw "errorMessage: Failed to bypass Cloudflare.\n\n\nYou can try to bypass it manually in the webview \n\n\nstatusCode: 403";
-      }
-      throw "errorMessage: $errorMessage \n\n\nstatusCode: $code";
-    }
-  } catch (e) {
-    if (e.toString().startsWith('errorMessage:')) {
-      throw e.toString().replaceFirst('errorMessage: ', '');
-    }
+    decoded = jsonDecode(response.body);
+  } catch (_) {
+    return; // Not a JSON envelope: leave the response untouched.
   }
+  if (decoded is! Map) return;
+
+  final errorMessage = decoded['error'];
+  final rawCode = decoded['code'];
+  final code =
+      rawCode is int ? rawCode : int.tryParse(rawCode?.toString() ?? '');
+  if (errorMessage == null || code == null) return;
+
+  final text = errorMessage.toString();
+  final assessment = assessErrorMessage(text);
+
+  if (code == 403 && (assessment.challenge || assessment.blocked)) {
+    throw 'Cloudflare blocked the request (HTTP 403).\n\n'
+        'You can try to resolve the challenge from the source page.\n\n'
+        'statusCode: 403';
+  }
+  if (code == 403) {
+    throw 'HTTP 403 — the site refused the request (access denied / forbidden), '
+        'with no evidence of an anti-bot challenge.\n\n'
+        'detail: $text\n\nstatusCode: 403';
+  }
+  throw '$text \n\n\nstatusCode: $code';
 }
