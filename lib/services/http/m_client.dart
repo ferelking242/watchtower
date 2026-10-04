@@ -264,6 +264,23 @@ class MClient {
     }
   }
 
+  /// True when a non-empty `cf_clearance` cookie is present in the native
+  /// WebView store for [url]. Cookie values are never read or logged.
+  static Future<bool> hasCfClearanceCookie(String url) async {
+    if (kIsWeb || url.isEmpty) return false;
+    try {
+      final cookies = await flutter_inappwebview.CookieManager.instance(
+        webViewEnvironment: webViewEnvironment,
+      ).getCookies(url: flutter_inappwebview.WebUri(url));
+      return cookies.any(
+        (cookie) =>
+            cookie.name == 'cf_clearance' && (cookie.value ?? '').isNotEmpty,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<void> setCookie(
     String url,
     String ua,
