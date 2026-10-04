@@ -18,7 +18,9 @@ import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/page_url_cache.dart';
 import 'package:watchtower/services/search.dart';
+import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -227,12 +229,21 @@ class RemoteApiHandler {
       if (id == null) return _error('Invalid chapter id', status: 400);
       final chapter = isar.chapters.getSync(id);
       if (chapter == null) return _error('Chapter not found', status: 404);
-      final settings = isar.settings.getSync(kSettingsId);
-      final stored = settings?.chapterPageUrlsList
-          ?.where((e) => e.chapterId == id)
+      // Lecture auto-réparante + réponse normalisée par le codec unique du
+      // cache : `pages`/`headers` toujours alignées, quel que soit l'état du
+      // record stocké (63 URLs / 59 headers d'un ancien cache, etc.).
+      final settings = readSettingsSafely(isar: isar);
+      final stored = (settings.chapterPageUrlsList ?? [])
+          .where((e) => e.chapterId == id)
           .firstOrNull;
-      if (stored?.urls != null && stored!.urls!.isNotEmpty) {
-        return _json({'pages': stored.urls, 'headers': stored.headers ?? []});
+      final pages = decodeChapterPageurls(stored);
+      if (pages.isNotEmpty) {
+        return _json({
+          'pages': pages.map((p) => p.url).toList(),
+          'headers': pages
+              .map((p) => jsonEncode(p.headers ?? const <String, String>{}))
+              .toList(),
+        });
       }
       return _json({
         'pages': [],

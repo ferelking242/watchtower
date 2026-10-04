@@ -183,7 +183,7 @@ flutter build linux                                            # Linux
 | State | Riverpod 3.x |
 | Local DB | Isar (community fork) |
 | Prefs | Hive 2.x |
-| Video | media_kit (kodjodevf fork) |
+| Video | media_kit (fork communautaire) |
 | Navigation | GoRouter 17.x |
 | JS Extensions | QuickJS via FFI |
 | Rust | flutter_rust_bridge 2.x |

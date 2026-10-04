@@ -30,6 +30,7 @@ import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
 import 'package:watchtower/services/page_url_cache.dart';
+import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/download_manager/m3u8/m3u8_downloader.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
@@ -1319,25 +1320,32 @@ Future<void> downloadChapter(
     setProgress(DownloadProgress(0, 0, itemType));
 
     void savePageUrls() {
-      // La collection Settings porte des objets embarqués (`ChapterPageurls`)
-      // dont les champs `List<String>` sont désérialisés via Uint8List.sublistView
-      // dans le generated `.g.dart`. Une entrée corrompue / une migration non
-      // jouée peut lever un RangeError nommé `length`. On ne fait pas planter
-      // le téléchargement pour ça ; on déchets l'opération.
+      // Lecture auto-réparante + écriture via l'API unique du cache
+      // (page_url_cache.dart) : entrée alignée `headers == null ||
+      // headers.length == urls.length`, taille du cache bornée, écriture
+      // sautée si rien n'a changé. Un échec est journalisé (pas de
+      // corruption masquée silencieusement) sans faire échouer le
+      // téléchargement.
       try {
-        final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
-        List<ChapterPageurls>? chapterPageUrls = [];
-        for (var chapterPageUrl in settings.chapterPageUrlsList ?? []) {
-          if (chapterPageUrl.chapterId != chapter.id) {
-            chapterPageUrls.add(chapterPageUrl);
-          }
+        final settings = readSettingsSafely(isar: isar);
+        final existingEntry = (settings.chapterPageUrlsList ?? [])
+            .where((element) => element.chapterId == chapter.id)
+            .firstOrNull;
+        if (cachedPagesUnchanged(existingEntry, pageUrls)) {
+          // Même contenu que ce que getChapterPages vient d'écrire — on ne
+          // réécrit pas le record (écriture interrompue = record corrompu).
+          AppLogger.log(
+            '[ch:${chapter.id}] page cache already up to date — skip Isar write',
+            logLevel: LogLevel.debug,
+            tag: LogTag.download,
+          );
+          return;
         }
-        chapterPageUrls.add(
-          ChapterPageurls()
-            ..chapterId = chapter.id
-            ..urls = pageUrls.map((e) => e.url).toList()
-            ..chapterUrl = chapter.url
-            ..headers = encodeCachedPageHeaders(pageUrls),
+        final chapterPageUrls = mergeChapterPageurls(
+          settings.chapterPageUrlsList,
+          chapterId: chapter.id,
+          chapterUrl: chapter.url,
+          pageUrls: pageUrls,
         );
         isar.writeTxnSync(
           () => isar.settings.putSync(
@@ -1346,8 +1354,14 @@ Future<void> downloadChapter(
               ..updatedAt = DateTime.now().millisecondsSinceEpoch,
           ),
         );
-      } catch (_) {
-        // Write-only fallback : on s'en moque pendant le téléchargement.
+      } catch (e, st) {
+        AppLogger.log(
+          '[ch:${chapter.id}] savePageUrls FAILED: $e',
+          logLevel: LogLevel.error,
+          tag: LogTag.download,
+          error: e,
+          stackTrace: st,
+        );
       }
     }
 
@@ -1488,7 +1502,7 @@ Future<void> downloadChapter(
       final headers = htmlHeader;
       if (cookie.isNotEmpty) {
         try {
-          final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+          final settings = readSettingsSafely(isar: isar);
           final userAgent = settings.userAgent;
           if (userAgent != null) {
             headers.addAll(cookie);
@@ -1628,7 +1642,7 @@ Future<void> downloadChapter(
               : htmlHeader;
           if (cookie.isNotEmpty) {
             try {
-              final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+              final settings = readSettingsSafely(isar: isar);
               final userAgent = settings.userAgent;
               if (userAgent != null) {
                 headers.addAll(cookie);

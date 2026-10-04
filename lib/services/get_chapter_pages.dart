@@ -7,6 +7,7 @@ import 'package:watchtower/modules/more/settings/browse/providers/browse_state_p
 import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/page_url_cache.dart';
+import 'package:watchtower/services/settings_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -103,9 +104,13 @@ Future<GetChapterPagesModel> getChapterPages(
     Directory? path;
     List<PageUrl> pageUrls = [];
     List<bool> isLocaleList = [];
-    final settings = isar.settings.getSync(kSettingsId);
+    // Lecture auto-réparante : un enregistrement Settings corrompu (cache de
+    // pages embarqué désérialisable → `RangeError (length)`) ne doit jamais
+    // faire échouer le démarrage d'un téléchargement / l'ouverture d'un
+    // chapitre. readSettingsSafely répare le record au passage.
+    final settings = readSettingsSafely(isar: isar);
     List<ChapterPageurls>? chapterPageUrlsList =
-        settings!.chapterPageUrlsList ?? [];
+        settings.chapterPageUrlsList ?? [];
     final isarPageUrls = chapterPageUrlsList
         .where((element) => element.chapterId == chapter.id)
         .firstOrNull;
@@ -136,10 +141,7 @@ Future<GetChapterPagesModel> getChapterPages(
           logLevel: LogLevel.debug,
           tag: LogTag.page,
         );
-        pageUrls = decodeCachedPageUrls(
-          urls: isarPageUrls!.urls,
-          headers: isarPageUrls.headers,
-        );
+        pageUrls = decodeChapterPageurls(isarPageUrls);
       } else {
         // ── Cache miss → call extension ─────────────────────────────────
         AppLogger.log(
@@ -228,26 +230,47 @@ Future<GetChapterPagesModel> getChapterPages(
         }
       }
       if (!incognitoMode) {
-        List<ChapterPageurls>? chapterPageUrls = [];
-        for (var chapterPageUrl in settings.chapterPageUrlsList ?? []) {
-          if (chapterPageUrl.chapterId != chapter.id) {
-            chapterPageUrls.add(chapterPageUrl);
+        try {
+          final existingEntry = (settings.chapterPageUrlsList ?? [])
+              .where((element) => element.chapterId == chapter.id)
+              .firstOrNull;
+          if (cachedPagesUnchanged(existingEntry, pageUrls)) {
+            // Cache hit → ne pas réécrire l'intégralité du méga-record
+            // `Settings` pour des données identiques (c'était la principale
+            // source d'écritures interrompues, donc de records corrompus).
+            AppLogger.log(
+              '[$chLabel] getChapterPages page cache already up to date — '
+              'skip Isar write',
+              logLevel: LogLevel.debug,
+              tag: LogTag.page,
+            );
+          } else {
+            final chapterPageUrls = mergeChapterPageurls(
+              settings.chapterPageUrlsList,
+              chapterId: chapter.id,
+              chapterUrl: chapter.url,
+              pageUrls: pageUrls,
+            );
+            isar.writeTxnSync(() {
+              isar.settings.putSync(
+                settings
+                  ..chapterPageUrlsList = chapterPageUrls
+                  ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+              );
+            });
           }
-        }
-        chapterPageUrls.add(
-          ChapterPageurls()
-            ..chapterId = chapter.id
-            ..urls = pageUrls.map((e) => e.url).toList()
-            ..chapterUrl = chapter.url
-            ..headers = encodeCachedPageHeaders(pageUrls),
-        );
-        isar.writeTxnSync(() {
-          isar.settings.putSync(
-            settings
-              ..chapterPageUrlsList = chapterPageUrls
-              ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+        } catch (e, st) {
+          // Persister le cache de pages ne doit jamais faire échouer la
+          // lecture d'un chapitre — mais l'échec est journalisé, jamais
+          // masqué silencieusement.
+          AppLogger.log(
+            '[$chLabel] getChapterPages page cache write FAILED: $e',
+            logLevel: LogLevel.error,
+            tag: LogTag.page,
+            error: e,
+            stackTrace: st,
           );
-        });
+        }
       }
       for (var i = 0; i < pageUrls.length; i++) {
         uChapDataPreloadp.add(

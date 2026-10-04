@@ -11,12 +11,11 @@ import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/modules/manga/detail/providers/track_state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
-import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/modules/more/settings/track/providers/track_providers.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:watchtower/utils/constant.dart';
 part 'reader_controller_provider.g.dart';
 
 @riverpod
@@ -64,7 +63,7 @@ class ReaderController extends _$ReaderController {
     return chapter;
   }
 
-  final incognitoMode = (isar.settings.getSync(kSettingsId) ?? Settings()).incognitoMode!;
+  final incognitoMode = readSettingsSafely(isar: isar).incognitoMode!;
   ReaderMode getReaderMode() {
     final personalReaderModeList =
         getIsarSetting().personalReaderModeList ?? [];
@@ -74,7 +73,7 @@ class ReaderController extends _$ReaderController {
     if (personalReaderMode.isNotEmpty) {
       return personalReaderMode.first.readerMode;
     }
-    return (isar.settings.getSync(kSettingsId) ?? Settings()).defaultReaderMode;
+    return readSettingsSafely(isar: isar).defaultReaderMode;
   }
 
   (bool, double) autoScrollValues() {
@@ -180,7 +179,10 @@ class ReaderController extends _$ReaderController {
   }
 
   Settings getIsarSetting() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings());
+    // Lecture auto-réparante : le lecteur lit le même record `Settings`
+    // (getPageIndex → chapterPageUrlsList). Un record corrompu ne doit pas
+    // tuer l'UI — readSettingsSafely répare et journalise.
+    return readSettingsSafely(isar: isar);
   }
 
   bool getShowPageNumber() {
@@ -466,7 +468,7 @@ extension ChapterExtensions on Chapter {
 extension MangaExtensions on Manga {
   List<Chapter> getFilteredChapterList() {
     final data = this.chapters.toList().reversed.toList();
-    final _unreadList = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterUnreadList;
+    final _unreadList = readSettingsSafely(isar: isar).chapterFilterUnreadList;
     final filterUnread =
         (_unreadList?.where((element) => element.mangaId == id)
                     .toList()
@@ -474,14 +476,14 @@ extension MangaExtensions on Manga {
                 ChapterFilterUnread(mangaId: id, type: 0))
             .type!;
 
-    final _bookmarkedList = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterBookmarkedList;
+    final _bookmarkedList = readSettingsSafely(isar: isar).chapterFilterBookmarkedList;
     final filterBookmarked =
         (_bookmarkedList?.where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
                 ChapterFilterBookmarked(mangaId: id, type: 0))
             .type!;
-    final _downloadedList = (isar.settings.getSync(kSettingsId) ?? Settings()).chapterFilterDownloadedList;
+    final _downloadedList = readSettingsSafely(isar: isar).chapterFilterDownloadedList;
     final filterDownloaded =
         (_downloadedList?.where((element) => element.mangaId == id)
                     .toList()
@@ -489,7 +491,7 @@ extension MangaExtensions on Manga {
                 ChapterFilterDownloaded(mangaId: id, type: 0))
             .type!;
 
-    final _sortList = (isar.settings.getSync(kSettingsId) ?? Settings()).sortChapterList;
+    final _sortList = readSettingsSafely(isar: isar).sortChapterList;
     final sortChapter =
         (_sortList?.where((element) => element.mangaId == id)
                     .toList()
@@ -559,7 +561,7 @@ extension MangaExtensions on Manga {
 }
 
 List<String>? _getFilterScanlator(Manga manga) {
-  final scanlators = (isar.settings.getSync(kSettingsId) ?? Settings()).filterScanlatorList ?? [];
+  final scanlators = readSettingsSafely(isar: isar).filterScanlatorList ?? [];
   final filter = scanlators
       .where((element) => element.mangaId == manga.id)
       .toList();

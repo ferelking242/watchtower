@@ -1162,8 +1162,33 @@ class ChapterPageurls {
   ChapterPageurls({this.chapterId, this.urls});
   ChapterPageurls.fromJson(Map<String, dynamic> json) {
     chapterId = json['chapterId'];
+    chapterUrl = json['chapterUrl'];
     urls = json['urls']?.cast<String>();
     headers = json['headers']?.cast<String>();
+    // ── Normalisation d'alignement ────────────────────────────────────────
+    // `urls` et `headers` sont deux listes parallèles : les anciennes
+    // sauvegardes / caches peuvent contenir des listes de longueurs
+    // différentes (63 URLs / 59 headers, etc.). On rétablit l'invariant
+    // "headers == null ou headers.length == urls.length" ICI pour qu'aucun
+    // chemin (restauration de backup, API remote, cache Isar) ne puisse
+    // réinjecter des listes désalignées. Les headers manquants sont
+    // matérialisés par '{}' (objet JSON vide) afin de préserver la position
+    // de chaque page.
+    if (urls == null) {
+      // Entrée sans cache : on préserve l'absence (null ≠ liste vide).
+      headers = null;
+    } else if (urls.isEmpty) {
+      headers = null;
+    } else if (headers != null) {
+      if (headers!.length < urls.length) {
+        headers = [
+          ...headers!,
+          ...List.filled(urls.length - headers!.length, '{}'),
+        ];
+      } else if (headers!.length > urls.length) {
+        headers = headers!.sublist(0, urls.length);
+      }
+    }
   }
 
   Map<String, dynamic> toJson() => {

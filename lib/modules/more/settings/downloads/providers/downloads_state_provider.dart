@@ -7,9 +7,9 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/services/settings_store.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path/path.dart' as path;
-import 'package:watchtower/utils/constant.dart';
 part 'downloads_state_provider.g.dart';
 
 /// Lecture sûre de l'enregistrement `Settings`.
@@ -20,25 +20,11 @@ part 'downloads_state_provider.g.dart';
 /// et surtout `processDownloads` à chaque tick via `onlyOnWifiStateProvider`)
 /// : sans garde, UNE seule lecture corrompue tue la boucle de téléchargement
 /// via `runZonedGuarded` et le bouton « Télécharger » ne fait plus rien.
-Settings safeReadSettings() {
-  try {
-    return isar.settings.getSync(kSettingsId) ?? Settings();
-  } on RangeError {
-    // Réparation : record illisible → on le réécrit proprement avec les
-    // défauts du schéma courant afin de débloquer toutes les lectures.
-    try {
-      final fresh = Settings();
-      isar.writeTxnSync(() => isar.settings.putSync(fresh));
-      return fresh;
-    } catch (_) {
-      return Settings();
-    }
-  } catch (_) {
-    // Erreur transitoire (ex. lecture pendant une transaction) : défauts,
-    // sans écraser les réglages existants.
-    return Settings();
-  }
-}
+///
+/// L'implémentation vit dans `services/settings_store.dart` (partagée avec le
+/// lecteur, le downloader et la réparation au démarrage) : réparation du
+/// record illisible + journalisation systématique de la corruption.
+Settings safeReadSettings() => readSettingsSafely(isar: isar);
 
 @riverpod
 class OnlyOnWifiState extends _$OnlyOnWifiState {

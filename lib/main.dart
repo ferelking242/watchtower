@@ -12,6 +12,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
+import 'package:watchtower/services/settings_store.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar_community/isar.dart';
@@ -281,6 +282,13 @@ void main(List<String> args) async {
         isar = _mockIsar;
       } else {
         isar = await storage.initDB(null, inspector: false);
+        // Auto-réparation du record `Settings` : un record corrompu (ex. cache
+        // de pages embarqué dont les préfixes de taille dépassent les octets
+        // présents → `RangeError (length)` à la désérialisation) rendait
+        // TOUTE lecture de settings fautive dans toute l'app, dont le
+        // démarrage des téléchargements. On lit+répare dès l'ouverture de la
+        // base, avant le moindre écran / scheduler.
+        healSettingsRecord(isar: isar);
         // _ensureLocalSources() is intentionally deferred to _postLaunchInit().
         // Running it here (before runApp) triggers Isar Rust FFI string_to_bytes
         // malloc on the main thread while memory is tight on iPhone 7 (2 GB).
