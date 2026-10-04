@@ -16,6 +16,7 @@ import 'package:watchtower/services/download_manager/active_download_registry.da
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -36,23 +37,37 @@ class ChapterPageDownload extends ConsumerWidget {
   Future<void> _startDownload(bool? useWifi, WidgetRef ref) async {
     final id = chapter.id;
     if (id == null) return;
+    var stage = 'cancel previous worker';
     try {
       // Stoppe un éventuel transfert en cours et purge une entrée de registre
       // restée "active" (crash, tâche orpheline) : sinon `processDownloads`
       // considère le chapitre comme déjà en cours et ne le redémarre jamais.
       await ActiveDownloadRegistry.cancel(id);
+      stage = 'read queue state';
       final queue = ref.read(downloadQueueStateProvider.notifier);
+      stage = 'clear stale progress';
       queue.clearLiveProgress(id);
+      stage = 'attach manga';
       final mangaForChapter = manga;
       if (mangaForChapter != null &&
           mangaForChapter.id != null &&
           chapter.mangaId == mangaForChapter.id) {
         chapter.manga.value = mangaForChapter;
       }
+      stage = 'persist queue entry';
       await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+      stage = 'unpause chapter';
       queue.setPaused(id, false);
+      stage = 'start scheduler';
       ref.read(processDownloadsProvider(useWifi: useWifi));
     } catch (e, stackTrace) {
+      AppLogger.log(
+        'Download start failed during "$stage" for chapterId=$id',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+        error: e,
+        stackTrace: stackTrace,
+      );
       debugPrint('[ChapterPageDownload] start failed for $id: $e\n$stackTrace');
       botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');
     }
