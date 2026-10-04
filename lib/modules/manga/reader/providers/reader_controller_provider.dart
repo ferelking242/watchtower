@@ -11,6 +11,7 @@ import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/modules/manga/detail/providers/track_state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
+import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/modules/more/settings/track/providers/track_providers.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';

@@ -1174,19 +1174,23 @@ class ChapterPageurls {
     // réinjecter des listes désalignées. Les headers manquants sont
     // matérialisés par '{}' (objet JSON vide) afin de préserver la position
     // de chaque page.
-    if (urls == null) {
+    // Copies locales : `urls`/`headers` sont des champs publics mutables,
+    // Dart n'y applique donc pas la promotion de type.
+    final List<String>? urlsList = urls;
+    final List<String>? headersList = headers;
+    if (urlsList == null) {
       // Entrée sans cache : on préserve l'absence (null ≠ liste vide).
       headers = null;
-    } else if (urls.isEmpty) {
+    } else if (urlsList.isEmpty) {
       headers = null;
-    } else if (headers != null) {
-      if (headers!.length < urls.length) {
+    } else if (headersList != null) {
+      if (headersList.length < urlsList.length) {
         headers = [
-          ...headers!,
-          ...List.filled(urls.length - headers!.length, '{}'),
+          ...headersList,
+          ...List.filled(urlsList.length - headersList.length, '{}'),
         ];
-      } else if (headers!.length > urls.length) {
-        headers = headers!.sublist(0, urls.length);
+      } else if (headersList.length > urlsList.length) {
+        headers = headersList.sublist(0, urlsList.length);
       }
     }
   }
