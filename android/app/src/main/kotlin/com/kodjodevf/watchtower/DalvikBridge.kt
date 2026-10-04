@@ -5,6 +5,8 @@ import android.util.Log
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Cookie
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -80,6 +82,7 @@ class DalvikBridge(private val context: Context) {
 
         val source = instantiate(loader, entryClass)
         injectDeps(source, loader)
+        applyAppSession(req)
 
         return runBlocking {
             when (method) {
@@ -174,7 +177,38 @@ class DalvikBridge(private val context: Context) {
         }
     }
 
-    // ── Suspend-function caller ───────────────────────────────────────────────
+    // ── App session (user-agent + cookies) ─────────────────────────────
+    // Extensions run their own OkHttp stack. Without this they send a bare
+    // `Dalvik/…` user-agent and start with an empty cookie jar, which anti-bot
+    // services (Cloudflare in particular) reject even though the in-app WebView
+    // loads the same site fine. The Dart side sends the app user-agent and the
+    // cookies it holds for the source domain on every callDalvik payload.
+
+    private fun applyAppSession(req: JSONObject) {
+        try {
+            val ua = req.optString("userAgent", "").trim()
+            if (ua.isNotEmpty()) networkHelper.setUA(ua)
+
+            val host = req.optString("cookieHost", "").trim()
+            val rawCookies = req.optJSONArray("cookies") ?: return
+            if (host.isEmpty() || rawCookies.length() == 0) return
+
+            val url = "https://$host/".toHttpUrl()
+            val cookies = ArrayList<Cookie>()
+            for (i in 0 until rawCookies.length()) {
+                val entry = rawCookies.optJSONObject(i) ?: continue
+                val name = entry.optString("name", "")
+                val value = entry.optString("value", "")
+                if (name.isEmpty() || value.isEmpty()) continue
+                cookies.add(Cookie.Builder().name(name).value(value).domain(host).build())
+            }
+            if (cookies.isNotEmpty()) networkHelper.cookieJar.addAll(url, cookies)
+        } catch (e: Exception) {
+            Log.w(TAG, "applyAppSession: ${e.message}")
+        }
+    }
+
+    // ── Suspend-function caller ───────────────────────────────────────────
 
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T> callSuspend(obj: Any, name: String, vararg args: Any?): T {

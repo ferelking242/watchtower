@@ -56,12 +56,30 @@ class MihonExtensionService implements ExtensionService {
 
   // ── Core helper: routes to MethodChannel on Android, HTTP elsewhere ─────────
 
+  /// Session shared with the in-process Dalvik bridge. Extensions run their
+  /// own OkHttp stack, which otherwise starts with an empty cookie jar and a
+  /// bare `Dalvik/…` user-agent — two guaranteed anti-bot rejections on sites
+  /// that load fine in the in-app WebView. This mirrors what Mihon does by
+  /// sharing its WebView cookies and default user-agent with extensions.
+  Map<String, dynamic> _dalvikSession() {
+    final baseUrl = source.baseUrl;
+    final host = Uri.tryParse(baseUrl ?? '')?.host ?? '';
+    return {
+      'userAgent': MClient.userAgentForRequests(),
+      'cookieHost': host,
+      'cookies': [
+        for (final entry in MClient.getCookiesPref(baseUrl ?? '').entries)
+          {'name': entry.key, 'value': entry.value},
+      ],
+    };
+  }
+
   Future<String> _callDalvik(Map<String, dynamic> body) async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
         final result = await _kDalvikChannel.invokeMethod<String>(
           'callDalvik',
-          {'json': jsonEncode(body)},
+          {'json': jsonEncode({...body, ..._dalvikSession()})},
         );
         return result ?? '{}';
       } on PlatformException catch (e) {

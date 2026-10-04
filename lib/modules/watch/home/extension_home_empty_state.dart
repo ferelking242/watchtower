@@ -195,6 +195,22 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                         height: 1.45,
                                       ),
                                     ),
+                                  ] else ...[
+                                    const SizedBox(height: 10),
+                                    const Text(
+                                      'La source a répondu mais n’a renvoyé '
+                                      'aucun élément. Le site sert peut-être '
+                                      'une protection anti-bot invisible, ou '
+                                      'l’extension est obsolète : mets-la à '
+                                      'jour, puis réessaie. Les LOGS donnent '
+                                      'le détail.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        height: 1.45,
+                                      ),
+                                    ),
                                   ],
                                   const SizedBox(height: 18),
                                   SizedBox(
