@@ -63,4 +63,46 @@ void main() {
 
     expect(refreshes, 1);
   });
+
+  testWidgets('opens the challenge panel for a detected Cloudflare error', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {},
+          onRefresh: () async {},
+          header: const SizedBox.shrink(),
+          challengeUrl: 'https://source.example/',
+          error: Exception('HTTP 403 blocked by Cloudflare challenge'),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Vérification Cloudflare requise'), findsOneWidget);
+    expect(find.text('Challenge Cloudflare'), findsOneWidget);
+  });
+
+  testWidgets('does not auto-open the panel for unrelated errors', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {},
+          onRefresh: () async {},
+          header: const SizedBox.shrink(),
+          challengeUrl: 'https://source.example/',
+          error: Exception('SocketException: connection timed out'),
+        ),
+      ),
+    );
+
+    expect(find.text('Impossible de charger le contenu'), findsOneWidget);
+    expect(find.text('Challenge Cloudflare'), findsNothing);
+    expect(find.text('Vérifier l’accès à la source'), findsOneWidget);
+  });
 }

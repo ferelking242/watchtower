@@ -2,6 +2,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Whether this platform can host an inline challenge webview.
@@ -92,6 +93,20 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           .getCookies(url: WebUri(widget.url));
       final cleared = cookies.any((c) => c.name == 'cf_clearance');
       if (cleared && mounted) {
+        try {
+          await MClient.setCookie(
+            widget.url,
+            MClient.userAgentForRequests(),
+            null,
+          );
+        } catch (e) {
+          AppLogger.log(
+            'CloudflareBypassPanel cookie persistence failed: $e',
+            logLevel: LogLevel.warning,
+            tag: kLogTagNet,
+          );
+        }
+        if (!mounted) return;
         setState(() {
           _phase = _CfPhase.resolved;
           _checkingCookie = false;
@@ -244,10 +259,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
                     javaScriptEnabled: true,
                     domStorageEnabled: true,
                     useShouldOverrideUrlLoading: false,
-                    userAgent:
-                        'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) '
-                        'AppleWebKit/605.1.15 (KHTML, like Gecko) '
-                        'Version/16.5 Mobile/15E148 Safari/604.1',
+                    userAgent: MClient.userAgentForRequests(),
                   ),
                   onLoadStart: (ctrl, url) {
                     if (mounted) {

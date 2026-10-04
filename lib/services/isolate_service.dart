@@ -176,6 +176,7 @@ class GetIsolateService {
               final filterList = message['filterList'] as List?;
               final proxyServer = message['proxyServer'] as String?;
               final useLoggerValue = message['useLogger'] as bool?;
+              MClient.installWorkerSettingsSnapshot(message['httpSettings']);
               if (useLoggerValue != null) {
                 useLogger = useLoggerValue;
               }
@@ -459,6 +460,7 @@ class GetIsolateService {
       'source': ?source,
       'proxyServer': ?proxyServer,
       'responsePort': responsePort.sendPort,
+      'httpSettings': MClient.exportWorkerSettingsSnapshot(),
       'useLogger': ?useLogger,
     });
 

@@ -1,15 +1,14 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 
 String? extensionRequestFailureMessage(Object? error) {
   if (error == null) return null;
   final detail = error.toString().toLowerCase();
-  if (detail.contains('cloudflare') ||
-      detail.contains('cf-chl-') ||
-      detail.contains('captcha') ||
-      detail.contains('challenge')) {
+  if (extensionErrorIsCloudflareChallenge(error)) {
     return 'La source demande une vérification anti-bot. Ouvre-la, termine la vérification, puis réessaie.';
   }
   if (detail.contains('socketexception') ||
@@ -29,12 +28,28 @@ String? extensionRequestFailureMessage(Object? error) {
   return 'La source n’a pas pu répondre correctement. Réessaie; si le problème persiste, consulte les journaux.';
 }
 
-class ExtensionHomeEmptyState extends StatelessWidget {
+bool extensionErrorIsCloudflareChallenge(Object? error) {
+  if (error == null) return false;
+  final detail = error.toString().toLowerCase();
+  return detail.contains('cloudflare') ||
+      detail.contains('cf-chl-') ||
+      detail.contains('cf_clearance') ||
+      detail.contains('cf-ray') ||
+      detail.contains('captcha') ||
+      detail.contains('challenge') ||
+      detail.contains('just a moment') ||
+      detail.contains('attention required') ||
+      (detail.contains('403') && detail.contains('cloud')) ||
+      (detail.contains('503') && detail.contains('cloud'));
+}
+
+class ExtensionHomeEmptyState extends StatefulWidget {
   const ExtensionHomeEmptyState({
     required this.onRetry,
     required this.onRefresh,
     required this.header,
     this.error,
+    this.challengeUrl,
     super.key,
   });
 
@@ -42,20 +57,47 @@ class ExtensionHomeEmptyState extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Widget header;
   final Object? error;
+  final String? challengeUrl;
+
+  @override
+  State<ExtensionHomeEmptyState> createState() =>
+      _ExtensionHomeEmptyStateState();
+}
+
+class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
+  late bool _showChallenge =
+      extensionErrorIsCloudflareChallenge(widget.error);
+
+  @override
+  void didUpdateWidget(covariant ExtensionHomeEmptyState oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (extensionErrorIsCloudflareChallenge(widget.error)) {
+      _showChallenge = true;
+    }
+  }
+
+  void _retrySource() {
+    unawaited(widget.onRetry());
+  }
 
   @override
   Widget build(BuildContext context) {
-    final failureMessage = extensionRequestFailureMessage(error);
+    final failureMessage = extensionRequestFailureMessage(widget.error);
+    final challengeUrl = widget.challengeUrl?.trim();
+    final hasChallengeUrl = challengeUrl?.isNotEmpty == true;
+    final challengeDetected = extensionErrorIsCloudflareChallenge(
+      widget.error,
+    );
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: Column(
         children: [
-          header,
+          widget.header,
           Expanded(
             child: SafeArea(
               top: false,
               child: ExtensionAppleRefreshable(
-                onRefresh: onRefresh,
+                onRefresh: widget.onRefresh,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final animationSize = math.min(
@@ -85,10 +127,13 @@ class ExtensionHomeEmptyState extends StatelessWidget {
                                   // Free to use under the Lottie Simple License.
                                   // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
                                   Semantics(
-                                    label: error == null
+                                    label: challengeDetected
+                                        ? 'Vérification Cloudflare nécessaire'
+                                        : widget.error == null
                                         ? 'Boîte vide'
                                         : 'Échec de connexion à la source',
-                                    child: error == null
+                                    child: widget.error == null &&
+                                            !challengeDetected
                                         ? Lottie.asset(
                                             'assets/animations/empty_box_partho.json',
                                             key: const ValueKey(
@@ -113,7 +158,9 @@ class ExtensionHomeEmptyState extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    error == null
+                                    challengeDetected
+                                        ? 'Vérification Cloudflare requise'
+                                        : widget.error == null
                                         ? 'Aucun contenu disponible'
                                         : 'Impossible de charger le contenu',
                                     textAlign: TextAlign.center,
@@ -136,12 +183,24 @@ class ExtensionHomeEmptyState extends StatelessWidget {
                                         height: 1.45,
                                       ),
                                     ),
+                                  ] else if (challengeDetected) ...[
+                                    const SizedBox(height: 10),
+                                    const Text(
+                                      'La source demande une vérification. '
+                                      'Termine-la dans le panneau, puis réessaie.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        height: 1.45,
+                                      ),
+                                    ),
                                   ],
                                   const SizedBox(height: 18),
                                   SizedBox(
                                     width: 190,
                                     child: FilledButton.icon(
-                                      onPressed: onRetry,
+                                      onPressed: _retrySource,
                                       icon: const Icon(
                                         Icons.refresh_rounded,
                                         size: 18,
@@ -164,6 +223,33 @@ class ExtensionHomeEmptyState extends StatelessWidget {
                                       ),
                                     ),
                                   ),
+                                  if (hasChallengeUrl && !_showChallenge) ...[
+                                    const SizedBox(height: 8),
+                                    TextButton.icon(
+                                      onPressed: () => setState(
+                                        () => _showChallenge = true,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.shield_outlined,
+                                        size: 18,
+                                      ),
+                                      label: const Text(
+                                        'Vérifier l’accès à la source',
+                                      ),
+                                    ),
+                                  ],
+                                  if (hasChallengeUrl && _showChallenge) ...[
+                                    const SizedBox(height: 12),
+                                    CloudflareBypassPanel(
+                                      url: challengeUrl!,
+                                      compact: true,
+                                      onResolved: _retrySource,
+                                      onRetry: _retrySource,
+                                      onClose: () => setState(
+                                        () => _showChallenge = false,
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 12),
                                   const Text(
                                     'Tirer vers le bas pour actualiser',

@@ -25,6 +25,75 @@ class MClient {
   MClient();
   static final defaultClient = IOClient(HttpClient());
   static final Map<rhttp.ClientSettings, Client> rhttpPool = {};
+  static List<MCookie>? _workerCookieSnapshot;
+  static String? _workerUserAgentSnapshot;
+
+  /// Pass a plain-data HTTP session snapshot to extension workers. Worker
+  /// isolates do not open Isar, so they cannot read settings directly.
+  static Map<String, Object?> exportWorkerSettingsSnapshot() {
+    try {
+      final settings = isar.settings.getSync(kSettingsId);
+      return {
+        'cookies': [
+          for (final cookie in settings?.cookiesList ?? <MCookie>[])
+            if ((cookie.host ?? '').isNotEmpty &&
+                (cookie.cookie ?? '').isNotEmpty)
+              {
+                'host': cookie.host!,
+                'cookie': cookie.cookie!,
+              },
+        ],
+        'userAgent': settings?.userAgent ?? defaultUserAgent,
+      };
+    } catch (_) {
+      return {
+        'cookies': <Map<String, String>>[],
+        'userAgent': defaultUserAgent,
+      };
+    }
+  }
+
+  static void installWorkerSettingsSnapshot(Object? value) {
+    final snapshot = value is Map ? value : const <Object?, Object?>{};
+    final rawCookies = snapshot['cookies'];
+    final entries = rawCookies is List ? rawCookies : const <dynamic>[];
+    _workerCookieSnapshot = entries
+        .whereType<Map>()
+        .map(
+          (entry) => MCookie(
+            host: entry['host']?.toString() ?? '',
+            cookie: entry['cookie']?.toString() ?? '',
+          ),
+        )
+        .where(
+          (cookie) =>
+              (cookie.host ?? '').isNotEmpty &&
+              (cookie.cookie ?? '').isNotEmpty,
+        )
+        .toList(growable: false);
+    _workerUserAgentSnapshot = snapshot['userAgent']?.toString();
+  }
+
+  @visibleForTesting
+  static void clearWorkerSettingsSnapshot() {
+    _workerCookieSnapshot = null;
+    _workerUserAgentSnapshot = null;
+  }
+
+  static String userAgentForRequests() {
+    final workerUserAgent = _workerUserAgentSnapshot;
+    if (_workerCookieSnapshot != null) {
+      return workerUserAgent?.trim().isNotEmpty == true
+          ? workerUserAgent!
+          : defaultUserAgent;
+    }
+    try {
+      return isar.settings.getSync(kSettingsId)?.userAgent ?? defaultUserAgent;
+    } catch (_) {
+      return defaultUserAgent;
+    }
+  }
+
   static Client httpClient({
     Map<String, dynamic>? reqcopyWith,
     rhttp.ClientSettings? settings,
@@ -112,12 +181,22 @@ class MClient {
   }
 
   static Map<String, String> getCookiesPref(String url) {
-    List<MCookie> cookiesList;
+    final workerCookies = _workerCookieSnapshot;
+    if (workerCookies != null) {
+      return _cookiesForUrl(url, workerCookies);
+    }
     try {
-      cookiesList = isar.settings.getSync(kSettingsId)?.cookiesList ?? [];
+      final cookiesList = isar.settings.getSync(kSettingsId)?.cookiesList ?? [];
+      return _cookiesForUrl(url, cookiesList);
     } catch (_) {
       return {};
     }
+  }
+
+  static Map<String, String> _cookiesForUrl(
+    String url,
+    List<MCookie> cookiesList,
+  ) {
     if (cookiesList.isEmpty) return {};
     final host = Uri.tryParse(url)?.host;
     if (host == null || host.isEmpty) return {};
@@ -333,11 +412,7 @@ class MCookieManager extends InterceptorContract {
   Future<BaseRequest> interceptRequest({required BaseRequest request}) async {
     final cookie = MClient.getCookiesPref(request.url.toString());
     if (cookie.isNotEmpty) {
-      Settings? settings;
-      try {
-        settings = await isar.settings.get(kSettingsId);
-      } catch (_) {}
-      final userAgent = settings?.userAgent ?? defaultUserAgent;
+      final userAgent = MClient.userAgentForRequests();
       if (request.headers[HttpHeaders.cookieHeader] == null) {
         request.headers.addAll(cookie);
       }
