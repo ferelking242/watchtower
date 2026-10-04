@@ -234,24 +234,40 @@ Manga resolveChapterManga(Chapter chapter) {
   return manga;
 }
 
-/// Garantit que les liens Isar d'un chapitre sont chargés avant de l'écrire.
+/// Garantit que le manga associé au chapitre est lisible avant la mise en file.
 ///
-/// Isar efface un lien qui n'est pas chargé lors d'un `put` : écrire un
-/// chapitre dont `manga` n'était pas loadé supprimait donc la relation
-/// chapitre → manga, et le chapitre devenait inutilisable (l'entrée de
-/// téléchargement était ensuite filtrée du gestionnaire).
+/// Les liens Isar peuvent être absents ou corrompus dans d'anciennes bases.
+/// On essaie le lien puis le mangaId de secours, en transformant les erreurs
+/// de désérialisation en message exploitable au lieu de les laisser remonter
+/// sous forme de RangeError générique.
 void ensureChapterLinksLoaded(Chapter chapter) {
-  if (!chapter.manga.isLoaded && chapter.mangaId == null) {
-    chapter.manga.loadSync();
+  Object? linkError;
+  Manga? manga;
+  try {
+    manga = chapter.manga.value;
+    if (manga == null && !chapter.manga.isLoaded) {
+      chapter.manga.loadSync();
+      manga = chapter.manga.value;
+    }
+  } catch (error) {
+    linkError = error;
   }
-  if (chapter.manga.value == null && chapter.mangaId != null) {
-    final manga = isar.mangas.getSync(chapter.mangaId!);
-    if (manga != null) chapter.manga.value = manga;
+  if (manga == null && chapter.mangaId != null) {
+    try {
+      manga = isar.mangas.getSync(chapter.mangaId!);
+      if (manga != null) {
+        chapter.manga.value = manga;
+      }
+    } catch (error) {
+      linkError = error;
+      manga = null;
+    }
   }
-  if (chapter.manga.value == null) {
+  if (manga == null) {
+    final detail = linkError == null ? '' : ': $linkError';
     throw StateError(
-      'Manga introuvable pour le chapitre "${chapter.name}" '
-      '(mangaId=${chapter.mangaId}) — téléchargement impossible.',
+      'Impossible de lire le manga lié au chapitre "${chapter.name}" '
+      '(mangaId=${chapter.mangaId})$detail',
     );
   }
 }

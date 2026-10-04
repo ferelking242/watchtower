@@ -23,8 +23,9 @@ import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 
 class ChapterPageDownload extends ConsumerWidget {
   final Chapter chapter;
+  final Manga? manga;
 
-  const ChapterPageDownload({super.key, required this.chapter});
+  const ChapterPageDownload({super.key, required this.chapter, this.manga});
 
   /// Démarre (ou relance) le téléchargement du chapitre.
   ///
@@ -42,10 +43,17 @@ class ChapterPageDownload extends ConsumerWidget {
       await ActiveDownloadRegistry.cancel(id);
       final queue = ref.read(downloadQueueStateProvider.notifier);
       queue.clearLiveProgress(id);
+      final mangaForChapter = manga;
+      if (mangaForChapter != null &&
+          mangaForChapter.id != null &&
+          chapter.mangaId == mangaForChapter.id) {
+        chapter.manga.value = mangaForChapter;
+      }
       await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
       queue.setPaused(id, false);
       ref.read(processDownloadsProvider(useWifi: useWifi));
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[ChapterPageDownload] start failed for $id: $e\n$stackTrace');
       botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');
     }
   }

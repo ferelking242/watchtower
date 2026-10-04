@@ -1,6 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/main.dart' as app;
 import 'package:watchtower/models/chapter.dart';
@@ -110,6 +111,33 @@ void main() {
       expect(
         testIsar.downloads.getSync(chapter.id!)!.chapter.value,
         same(chapter),
+      );
+    });
+
+    test('corrupt manga reads become a clear queue error', () {
+      app.isar = _CorruptMangaIsar();
+      final chapter = Chapter(
+        id: 930003,
+        mangaId: 932003,
+        name: 'Unreadable manga relation',
+        url: 'https://example.invalid/corrupt',
+      );
+
+      expect(
+        () => ensureChapterLinksLoaded(chapter),
+        throwsA(
+          isA<StateError>()
+              .having(
+                (error) => error.message,
+                'message',
+                contains('mangaId=932003'),
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                contains('RangeError'),
+              ),
+        ),
       );
     });
 
@@ -249,4 +277,22 @@ class _FailingTransactionIsar extends MockIsar {
   T writeTxnSync<T>(T Function() callback, {bool silent = false}) {
     throw StateError('simulated Isar write failure');
   }
+}
+
+class _CorruptMangaIsar extends MockIsar {
+  late final _CorruptMangaCollection _mangaCollection =
+      _CorruptMangaCollection(this);
+
+  @override
+  IsarCollection<T> collection<T>() {
+    if (T == Manga) return _mangaCollection as IsarCollection<T>;
+    return super.collection<T>();
+  }
+}
+
+class _CorruptMangaCollection extends MockIsarCollection<Manga> {
+  _CorruptMangaCollection(MockIsar isar) : super(isar);
+
+  @override
+  Manga? getSync(int id) => throw RangeError('index 62, length 59');
 }

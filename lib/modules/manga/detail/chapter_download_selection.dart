@@ -16,3 +16,16 @@ List<T> selectChaptersToDownload<T>({
   if (startIndex >= chapters.length) return const [];
   return chapters.skip(startIndex).take(limit).toList(growable: false);
 }
+
+/// Maps a sliver item index (which includes the chapter header at index 0) to
+/// a chapter index. Returns null when a lazy list invokes its builder with a
+/// stale index after the chapter list has shrunk.
+int? chapterIndexForListItem({
+  required int itemIndex,
+  required int chapterCount,
+  required bool reverse,
+}) {
+  final index = itemIndex - 1;
+  if (index < 0 || index >= chapterCount) return null;
+  return reverse ? chapterCount - index - 1 : index;
+}

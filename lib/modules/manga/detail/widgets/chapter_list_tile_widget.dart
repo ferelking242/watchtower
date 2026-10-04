@@ -24,11 +24,13 @@ class ChapterListTileWidget extends ConsumerWidget {
   final List<Chapter> chapterList;
   final List<Chapter> allChapters;
   final bool sourceExist;
+  final Manga manga;
   const ChapterListTileWidget({
     required this.chapterList,
     required this.chapter,
     required this.allChapters,
     required this.sourceExist,
+    required this.manga,
     super.key,
   });
 
@@ -48,6 +50,7 @@ class ChapterListTileWidget extends ConsumerWidget {
           isar.writeTxnSync(() {
             chap.isBookmarked = !chap.isBookmarked!;
             chap.updatedAt = DateTime.now().millisecondsSinceEpoch;
+            chap.manga.value = manga;
             isar.chapters.putSync(chap);
           });
         } else if (direction == DismissDirection.endToStart) {
@@ -59,6 +62,7 @@ class ChapterListTileWidget extends ConsumerWidget {
               chap.lastPageRead = "1";
             }
             chap.updatedAt = DateTime.now().millisecondsSinceEpoch;
+            chap.manga.value = manga;
             isar.chapters.putSync(chap);
           });
         }
@@ -114,7 +118,12 @@ class ChapterListTileWidget extends ConsumerWidget {
             selectedColor: chapter.isRead!
                 ? Colors.white.withValues(alpha: 0.3)
                 : Colors.white,
-            onTap: () async => _handleInteraction(ref, context),
+            onTap: () async {
+              if (chapter.mangaId == manga.id) {
+                chapter.manga.value = manga;
+              }
+              _handleInteraction(ref, context);
+            },
             title: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -159,7 +168,7 @@ class ChapterListTileWidget extends ConsumerWidget {
                       ),
                     ],
                   ),
-                if ((chapter.manga.value!.isLocalArchive ?? false) == false)
+                if ((manga.isLocalArchive ?? false) == false)
                   Text(
                     chapter.dateUpload == null || chapter.dateUpload!.isEmpty
                         ? ""
@@ -177,7 +186,7 @@ class ChapterListTileWidget extends ConsumerWidget {
                       children: [
                         const Text(' • '),
                         Text(
-                          chapter.manga.value!.itemType == ItemType.anime
+                          manga.itemType == ItemType.anime
                               ? l10n.episode_progress(
                                   Duration(
                                     milliseconds: int.parse(
@@ -186,8 +195,7 @@ class ChapterListTileWidget extends ConsumerWidget {
                                   ).toString().substringBefore("."),
                                 )
                               : l10n.page(
-                                  chapter.manga.value!.itemType ==
-                                          ItemType.manga
+                                  manga.itemType == ItemType.manga
                                       ? chapter.lastPageRead!
                                       : "${((double.tryParse(chapter.lastPageRead!) ?? 0) * 100).toStringAsFixed(0)} %",
                                 ),
@@ -235,9 +243,9 @@ class ChapterListTileWidget extends ConsumerWidget {
               ],
             ),
             trailing:
-                !sourceExist || (chapter.manga.value!.isLocalArchive ?? false)
+                !sourceExist || (manga.isLocalArchive ?? false)
                 ? null
-                : ChapterPageDownload(chapter: chapter),
+                : ChapterPageDownload(chapter: chapter, manga: manga),
           ),
         ),
       ),

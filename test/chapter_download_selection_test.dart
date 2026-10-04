@@ -57,4 +57,44 @@ void main() {
       );
     });
   });
+
+  group('chapterIndexForListItem', () {
+    test('returns null for a stale sliver index after the list shrinks', () {
+      expect(
+        chapterIndexForListItem(
+          itemIndex: 63,
+          chapterCount: 59,
+          reverse: false,
+        ),
+        isNull,
+      );
+    });
+
+    test('maps the header and reversed chapter indices safely', () {
+      expect(
+        chapterIndexForListItem(
+          itemIndex: 0,
+          chapterCount: 59,
+          reverse: false,
+        ),
+        isNull,
+      );
+      expect(
+        chapterIndexForListItem(
+          itemIndex: 1,
+          chapterCount: 59,
+          reverse: true,
+        ),
+        58,
+      );
+      expect(
+        chapterIndexForListItem(
+          itemIndex: 59,
+          chapterCount: 59,
+          reverse: true,
+        ),
+        0,
+      );
+    });
+  });
 }

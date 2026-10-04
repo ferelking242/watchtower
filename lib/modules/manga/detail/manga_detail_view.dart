@@ -224,13 +224,22 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
   Future<void> _queueChapters(Iterable<Chapter> chapters) async {
     try {
       for (final chapter in chapters) {
+        final manga = widget.manga;
+        if (manga != null &&
+            manga.id != null &&
+            chapter.mangaId == manga.id) {
+          // The detail route already has this Manga instance. Prefer it over
+          // re-reading a potentially corrupt Isar row while adding chapters.
+          chapter.manga.value = manga;
+        }
         await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
         final id = chapter.id;
         if (id != null) {
           ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[MangaDetailView] queue failed: $e\n$stackTrace');
       botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');
     } finally {
       // Persisted entries are always processed, including when a later item
@@ -794,7 +803,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                 : 2,
                             itemBuilder: (context, index) {
                               final l10n = l10nLocalizations(context)!;
-                              int finalIndex = index - 1;
                               if (index == 0) {
                                 return context.isTablet
                                     ? Column(
@@ -951,20 +959,20 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                   },
                                 );
                               }
-                              int reverseIndex =
-                                  chapters.length -
-                                  chapters.reversed.toList().indexOf(
-                                    chapters.reversed.toList()[finalIndex],
-                                  ) -
-                                  1;
-                              final indexx = reverse
-                                  ? reverseIndex
-                                  : finalIndex;
+                              final chapterIndex = chapterIndexForListItem(
+                                itemIndex: index,
+                                chapterCount: chapters.length,
+                                reverse: reverse,
+                              );
+                              if (chapterIndex == null) {
+                                return const SizedBox.shrink();
+                              }
                               return ChapterListTileWidget(
-                                chapter: chapters[indexx],
+                                chapter: chapters[chapterIndex],
                                 chapterList: chapterList,
                                 allChapters: chapters,
                                 sourceExist: widget.sourceExist,
+                                manga: widget.manga!,
                               );
                             },
                           ),
@@ -1066,6 +1074,9 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                       ),
                       onPressed: () {
                         int index = chapters.indexOf(chap.first);
+                        if (index < 0 || index + 1 >= chapters.length) {
+                          return;
+                        }
                         final List<Chapter> updatedChapters = [];
                         final now = DateTime.now().millisecondsSinceEpoch;
                         chapters[index + 1].updateTrackChapterRead(ref);
