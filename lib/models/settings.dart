@@ -1197,6 +1197,7 @@ class ChapterPageurls {
 
   Map<String, dynamic> toJson() => {
     'chapterId': chapterId,
+    'chapterUrl': chapterUrl,
     'urls': urls,
     'headers': headers,
   };
