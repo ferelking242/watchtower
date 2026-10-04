@@ -1,13 +1,22 @@
+import 'dart:async';
+
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:watchtower/services/anti_bot/cloudflare_page_detector.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Whether this platform can host an inline challenge webview.
 bool cloudflareWebviewSupported() =>
-    !kIsWeb && !Platform.isLinux && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS || Platform.isWindows);
+    !kIsWeb &&
+    !Platform.isLinux &&
+    (Platform.isAndroid ||
+        Platform.isIOS ||
+        Platform.isMacOS ||
+        Platform.isWindows);
 
 /// Reusable inline Cloudflare challenge resolver.
 ///
@@ -34,6 +43,9 @@ class CloudflareBypassPanel extends StatefulWidget {
   /// Small heading style for embedded cards (no big hero layout).
   final bool compact;
 
+  /// Expands the real browser surface to fill a full-screen route.
+  final bool fullScreen;
+
   const CloudflareBypassPanel({
     super.key,
     required this.url,
@@ -42,19 +54,27 @@ class CloudflareBypassPanel extends StatefulWidget {
     this.onRetry,
     this.onClose,
     this.compact = false,
+    this.fullScreen = false,
   });
 
   @override
   State<CloudflareBypassPanel> createState() => _CloudflareBypassPanelState();
 }
 
-enum _CfPhase { checking, loading, resolved, unsupported }
+enum _CfPhase { checking, loading, waiting, resolved, unsupported }
 
 class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
-  _CfPhase _phase = _CfPhase.checking;
+  _CfPhase _phase = _CfPhase.loading;
   double _progress = 0;
   bool _checkingCookie = false;
+  bool _cookieStoreReady = false;
+  bool _resolvedCallbackSent = false;
+  bool _pageLoaded = false;
+  bool _hardBlocked = false;
+  bool _cookiePersistenceFailed = false;
   String _host = '';
+  InAppWebViewController? _webViewController;
+  Timer? _challengePollTimer;
 
   @override
   void initState() {
@@ -69,8 +89,22 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
       if (mounted) setState(() => _phase = _CfPhase.unsupported);
       return;
     }
-    // Start with an early cookie probe: maybe the clearance already exists.
-    await _probeCookie(showSpinner: false);
+    // The challenge WebView and extension HTTP client have separate cookie
+    // stores. Seed the browser store before its first navigation.
+    try {
+      await MClient.restoreCookiesToWebView(widget.url);
+    } catch (e) {
+      AppLogger.log(
+        'CloudflareBypassPanel cookie restore failed: $e',
+        logLevel: LogLevel.debug,
+        tag: kLogTagNet,
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _cookieStoreReady = true;
+      _phase = _CfPhase.waiting;
+    });
   }
 
   String _hostFrom(String url) {
@@ -82,22 +116,61 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     }
   }
 
-  Future<void> _probeCookie({bool showSpinner = true}) async {
+  Future<void> _probeCookie({
+    bool showSpinner = true,
+    InAppWebViewController? controller,
+  }) async {
     if (_checkingCookie) return;
+    final activeController = controller ?? _webViewController;
+    if (!_cookieStoreReady || activeController == null) return;
     setState(() {
       _checkingCookie = true;
       if (showSpinner) _phase = _CfPhase.checking;
     });
     try {
+      final pageUrl =
+          (await activeController.getUrl())?.toString() ?? widget.url;
+      final pageSnapshot =
+          (await activeController.evaluateJavascript(
+            source: '''
+              (() => {
+                const challenge = !!document.querySelector(
+                  '#challenge-form, #challenge-running, #cf-challenge-running, ' +
+                  '.cf-browser-verification, iframe[src*="challenges.cloudflare.com"], ' +
+                  'iframe[src*="turnstile"], input[name="cf-turnstile-response"]'
+                );
+                const title = document.title || '';
+                const body = (document.body?.innerText || '').slice(0, 10000);
+                return 'WT_CF_CHALLENGE=' + (challenge ? '1' : '0') +
+                  '\\n' + title + '\\n' + body;
+              })()
+            ''',
+          ))?.toString() ??
+          '';
+      final stillChallenging =
+          isCloudflareChallengeSnapshot(pageSnapshot);
+      final blocked =
+          isCloudflareBlockedSnapshot(pageSnapshot);
+      _hardBlocked = blocked;
       final cookies = await CookieManager.instance()
-          .getCookies(url: WebUri(widget.url));
-      final cleared = cookies.any((c) => c.name == 'cf_clearance');
-      if (cleared && mounted) {
+          .getCookies(
+            url: WebUri(pageUrl),
+            webViewController: activeController,
+          );
+      final hasClearance = cookies.any((c) => c.name == 'cf_clearance');
+      if (hasClearance && !stillChallenging && !blocked && mounted) {
+        var persisted = false;
         try {
           await MClient.setCookie(
-            widget.url,
+            pageUrl,
             MClient.userAgentForRequests(),
-            null,
+            activeController,
+          );
+          final storedCookies = MClient.getCookiesPref(pageUrl).values;
+          persisted = storedCookies.any(
+            (header) => header
+                .split(';')
+                .any((cookie) => cookie.trim().startsWith('cf_clearance=')),
           );
         } catch (e) {
           AppLogger.log(
@@ -106,14 +179,25 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             tag: kLogTagNet,
           );
         }
+        if (!persisted) {
+          _cookiePersistenceFailed = true;
+        } else {
+          _cookiePersistenceFailed = false;
+        }
         if (!mounted) return;
-        setState(() {
-          _phase = _CfPhase.resolved;
-          _checkingCookie = false;
-        });
-        await Future<void>.delayed(const Duration(milliseconds: 400));
-        if (mounted) widget.onResolved?.call();
-        return;
+        if (persisted) {
+          _challengePollTimer?.cancel();
+          setState(() {
+            _phase = _CfPhase.resolved;
+            _checkingCookie = false;
+          });
+          if (!_resolvedCallbackSent) {
+            _resolvedCallbackSent = true;
+            await Future<void>.delayed(const Duration(milliseconds: 250));
+            if (mounted) widget.onResolved?.call();
+          }
+          return;
+        }
       }
     } catch (e) {
       AppLogger.log(
@@ -122,13 +206,38 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         tag: kLogTagNet,
       );
     }
-    if (mounted) setState(() => _checkingCookie = false);
+    if (mounted) {
+      setState(() {
+        _checkingCookie = false;
+        _phase = _CfPhase.waiting;
+      });
+    }
   }
 
-  Future<void> _onLoadStop(Uri? url) async {
+  Future<void> _onLoadStop(
+    InAppWebViewController controller,
+    Uri? _,
+  ) async {
     if (!mounted) return;
-    setState(() => _progress = 1);
-    await _probeCookie();
+    setState(() {
+      _progress = 1;
+      _pageLoaded = true;
+    });
+    _challengePollTimer ??= Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (_pageLoaded && _phase != _CfPhase.resolved) {
+          unawaited(_probeCookie(showSpinner: false));
+        }
+      },
+    );
+    await _probeCookie(showSpinner: false, controller: controller);
+  }
+
+  @override
+  void dispose() {
+    _challengePollTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -137,15 +246,19 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     final supported = cloudflareWebviewSupported();
 
     return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(widget.compact ? 12 : 16),
-        border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.7)),
-      ),
+        decoration: widget.fullScreen
+            ? null
+            : BoxDecoration(
+                color: cs.surfaceContainerHigh.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(widget.compact ? 12 : 16),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.7),
+                ),
+              ),
       clipBehavior: Clip.antiAlias,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+          mainAxisSize:
+              widget.fullScreen ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Header ────────────────────────────────────────────────────
@@ -215,9 +328,13 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
 
           // ── Body ──────────────────────────────────────────────────────
           if (supported)
-            _buildWebview(cs)
+            widget.fullScreen
+                ? Expanded(child: _buildWebview(cs))
+                : _buildWebview(cs)
           else
-            _buildUnsupported(cs),
+            widget.fullScreen
+                ? Expanded(child: _buildUnsupported(cs))
+                : _buildUnsupported(cs),
         ],
       ),
     );
@@ -225,7 +342,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
 
   Widget _buildWebview(ColorScheme cs) {
     if (_phase == _CfPhase.resolved) {
-      return Padding(
+      final resolvedContent = Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
         child: Row(children: [
           Icon(Icons.check_circle_rounded, size: 16, color: Colors.green.shade600),
@@ -238,46 +355,55 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           ),
         ]),
       );
+      return widget.fullScreen ? Center(child: resolvedContent) : resolvedContent;
+    }
+
+    if (!_cookieStoreReady) {
+      final loading = const Center(child: CircularProgressIndicator());
+      return widget.fullScreen
+          ? loading
+          : SizedBox(height: widget.compact ? 230 : 320, child: loading);
     }
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize:
+          widget.fullScreen ? MainAxisSize.max : MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // The challenge page itself — rendered inline, right here.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              height: widget.compact ? 230 : 320,
-              child: ColoredBox(
-                color: Colors.white,
-                child: InAppWebView(
-                  initialUrlRequest: URLRequest(url: WebUri(widget.url)),
-                  initialSettings: InAppWebViewSettings(
-                    javaScriptEnabled: true,
-                    domStorageEnabled: true,
-                    useShouldOverrideUrlLoading: false,
-                    userAgent: MClient.userAgentForRequests(),
-                  ),
-                  onLoadStart: (ctrl, url) {
-                    if (mounted) {
-                      setState(() {
-                        _progress = 0;
-                        _phase = _CfPhase.loading;
-                      });
-                    }
-                  },
-                  onProgressChanged: (ctrl, progress) {
-                    if (mounted) setState(() => _progress = progress / 100.0);
-                  },
-                  onLoadStop: (ctrl, url) => _onLoadStop(url),
-                ),
+        if (_hardBlocked)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+            child: Text(
+              'Le site renvoie un refus d’accès Cloudflare, pas un challenge '
+              'interactif. Cette page ne peut pas le résoudre.',
+              style: TextStyle(
+                color: cs.error,
+                fontSize: 12,
+              ),
+            ),
+          )
+        else if (_cookiePersistenceFailed)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+            child: Text(
+              'Le navigateur a obtenu le cookie, mais l’application n’a pas '
+              'pu l’enregistrer pour les requêtes de la source.',
+              style: TextStyle(
+                color: cs.error,
+                fontSize: 12,
               ),
             ),
           ),
-        ),
+        if (widget.fullScreen)
+          Expanded(child: _buildBrowser())
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+            child: SizedBox(
+              height: widget.compact ? 230 : 320,
+              child: _buildBrowser(),
+            ),
+          ),
 
         // ── Footer actions ──────────────────────────────────────────────
         Padding(
@@ -312,6 +438,44 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBrowser() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(widget.fullScreen ? 0 : 10),
+      child: ColoredBox(
+        color: Colors.white,
+        child: InAppWebView(
+          initialUrlRequest: URLRequest(url: WebUri(widget.url)),
+          initialSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            domStorageEnabled: true,
+          thirdPartyCookiesEnabled: true,
+            useShouldOverrideUrlLoading: false,
+            userAgent: MClient.userAgentForRequests(),
+          ),
+          onWebViewCreated: (controller) {
+            _webViewController = controller;
+          },
+          onLoadStart: (controller, url) {
+            if (mounted) {
+              setState(() {
+                _webViewController = controller;
+                _progress = 0;
+                _pageLoaded = false;
+                _hardBlocked = false;
+                _cookiePersistenceFailed = false;
+                _phase = _CfPhase.loading;
+              });
+            }
+          },
+          onProgressChanged: (controller, progress) {
+            if (mounted) setState(() => _progress = progress / 100.0);
+          },
+          onLoadStop: (controller, url) => _onLoadStop(controller, url),
+        ),
+      ),
     );
   }
 
@@ -376,6 +540,11 @@ class _ShieldStatus extends StatelessWidget {
           Icons.shield_outlined,
           Colors.amber.shade700,
           true,
+        ),
+      _CfPhase.waiting => (
+          Icons.shield_outlined,
+          Colors.amber.shade700,
+          false,
         ),
       _CfPhase.resolved => (Icons.shield_rounded, Colors.green.shade600, false),
       _CfPhase.unsupported => (Icons.shield_outlined, cs.outlineVariant, false),

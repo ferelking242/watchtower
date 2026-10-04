@@ -76,6 +76,9 @@ jobs:
       - name: Run download manager regression tests
         run: flutter test test/download_manager_regressions_test.dart
 
+      - name: Run Cloudflare challenge tests
+        run: flutter test test/cloudflare_challenge_url_test.dart
+
       - name: Record outdated package report
         if: always()
         run: |

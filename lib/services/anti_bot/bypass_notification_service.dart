@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_challenge_screen.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
+import 'package:watchtower/services/anti_bot/cloudflare_challenge_url.dart';
 import 'package:watchtower/router/router.dart' show navigatorKey;
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -168,17 +169,43 @@ class BypassNotificationService {
       );
     }
 
-    final page = source == null
-        ? CloudflareChallengeScreen(url: url)
-        : WatchExtensionHomeScreen(
-            source: source,
-            initialCloudflareChallengeUrl: url,
-          );
+    final challengeUrl = resolveCloudflareChallengeUrl(
+      url,
+      sourceBaseUrl: source?.baseUrl,
+    );
+    if (challengeUrl == null) {
+      _openChallengeHosts.remove(host);
+      return;
+    }
+    final resolvedSource = source;
     unawaited(
       navigator
-          .push<void>(
-            MaterialPageRoute<void>(builder: (_) => page),
+          .push<bool>(
+            MaterialPageRoute<bool>(
+              builder: (_) => CloudflareChallengeScreen(
+                url: challengeUrl,
+                sourceName: resolvedSource?.name,
+              ),
+            ),
           )
+          .then<void>((resolved) async {
+            if (resolved != true || resolvedSource == null) return;
+            final activeNavigator = navigatorKey.currentState;
+            if (activeNavigator == null) return;
+            await activeNavigator.push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    WatchExtensionHomeScreen(source: resolvedSource),
+              ),
+            );
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            AppLogger.log(
+              'Cloudflare challenge navigation failed: $error',
+              logLevel: LogLevel.warning,
+              tag: LogTag.network,
+            );
+          })
           .whenComplete(() => _openChallengeHosts.remove(host)),
     );
   }
@@ -248,8 +275,8 @@ class BypassNotificationService {
         ? '🛡 Source bloquée — ${snapshot.keys.first}'
         : '🛡 $total sources bloquées par un anti-bot';
     final body = total == 1
-        ? 'Touche pour résoudre le challenge Cloudflare'
-        : '${snapshot.keys.take(3).join(', ')}${snapshot.length > 3 ? '…' : ''} — touche pour résoudre';
+        ? 'Touche pour ouvrir la page Cloudflare'
+        : '${snapshot.keys.take(3).join(', ')}${snapshot.length > 3 ? '…' : ''} — touche pour ouvrir';
 
     try {
       final androidDetails = AndroidNotificationDetails(
