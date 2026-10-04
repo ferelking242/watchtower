@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui';
@@ -30,6 +29,7 @@ import 'package:watchtower/services/download_manager/external_downloader_launche
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
+import 'package:watchtower/services/page_url_cache.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/download_manager/m3u8/m3u8_downloader.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
@@ -1332,17 +1332,12 @@ Future<void> downloadChapter(
             chapterPageUrls.add(chapterPageUrl);
           }
         }
-        final chapterPageHeaders = pageUrls
-            .map((e) => e.headers == null ? null : jsonEncode(e.headers))
-            .toList();
         chapterPageUrls.add(
           ChapterPageurls()
             ..chapterId = chapter.id
             ..urls = pageUrls.map((e) => e.url).toList()
             ..chapterUrl = chapter.url
-            ..headers = chapterPageHeaders.first != null
-                ? chapterPageHeaders.map((e) => e.toString()).toList()
-                : null,
+            ..headers = encodeCachedPageHeaders(pageUrls),
         );
         isar.writeTxnSync(
           () => isar.settings.putSync(

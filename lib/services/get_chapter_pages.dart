@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
@@ -7,8 +6,8 @@ import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/page_url_cache.dart';
 import 'package:path/path.dart' as p;
-import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/page.dart';
@@ -137,14 +136,10 @@ Future<GetChapterPagesModel> getChapterPages(
           logLevel: LogLevel.debug,
           tag: LogTag.page,
         );
-        for (var i = 0; i < isarPageUrls.urls!.length; i++) {
-          Map<String, String>? headers;
-          if (isarPageUrls.headers?.isNotEmpty ?? false) {
-            headers = (jsonDecode(isarPageUrls.headers![i]) as Map?)
-                ?.toMapStringString;
-          }
-          pageUrls.add(PageUrl(isarPageUrls.urls![i], headers: headers));
-        }
+        pageUrls = decodeCachedPageUrls(
+          urls: isarPageUrls!.urls,
+          headers: isarPageUrls.headers,
+        );
       } else {
         // ── Cache miss → call extension ─────────────────────────────────
         AppLogger.log(
@@ -239,17 +234,12 @@ Future<GetChapterPagesModel> getChapterPages(
             chapterPageUrls.add(chapterPageUrl);
           }
         }
-        final chapterPageHeaders = pageUrls
-            .map((e) => e.headers == null ? null : jsonEncode(e.headers))
-            .toList();
         chapterPageUrls.add(
           ChapterPageurls()
             ..chapterId = chapter.id
             ..urls = pageUrls.map((e) => e.url).toList()
             ..chapterUrl = chapter.url
-            ..headers = chapterPageHeaders.first != null
-                ? chapterPageHeaders.map((e) => e.toString()).toList()
-                : null,
+            ..headers = encodeCachedPageHeaders(pageUrls),
         );
         isar.writeTxnSync(() {
           isar.settings.putSync(
