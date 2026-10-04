@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -241,6 +243,50 @@ void main() {
         'failed',
       );
       expect(testIsar.downloads.getSync(nextChapter.id!)!.isDownload, isTrue);
+    });
+  });
+
+  group('Download Isar serialization', () {
+    test('reserves space for all persisted string fields', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'watchtower-download-serialization-',
+      );
+      Isar? database;
+      try {
+        final isar = await Isar.open(
+          [DownloadSchema, ChapterSchema, MangaSchema],
+          directory: directory.path,
+          name: 'download-serialization-regression',
+        );
+        database = isar;
+
+        final title = List.filled(62, 'x').join();
+        final download = Download(
+          id: 930040,
+          succeeded: 0,
+          failed: 0,
+          total: 1,
+          isDownload: false,
+          isStartDownload: true,
+          title: title,
+          quality: 'Original',
+          posterUrl: 'https://example.invalid/poster.jpg',
+          filePath: '/tmp/chapter.cbz',
+          status: 'fetching_metadata',
+        );
+
+        isar.writeTxnSync(() => isar.downloads.putSync(download));
+
+        final stored = isar.downloads.getSync(download.id!);
+        expect(stored?.title, title);
+        expect(stored?.quality, 'Original');
+        expect(stored?.posterUrl, 'https://example.invalid/poster.jpg');
+        expect(stored?.filePath, '/tmp/chapter.cbz');
+        expect(stored?.status, 'fetching_metadata');
+      } finally {
+        if (database?.isOpen ?? false) await database!.close();
+        await directory.delete(recursive: true);
+      }
     });
   });
 }
