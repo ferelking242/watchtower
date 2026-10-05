@@ -243,6 +243,49 @@ void main() {
       expect(testIsar.downloads.getSync(nextChapter.id!)!.isDownload, isTrue);
     });
   });
+
+  group('Download Isar serialization', () {
+    test('estimates room for each persisted string field', () {
+      final title = List.filled(62, 'x').join();
+      final download = Download(
+        id: 930040,
+        succeeded: 0,
+        failed: 0,
+        total: 1,
+        isDownload: false,
+        isStartDownload: true,
+        title: title,
+        quality: 'Original',
+        posterUrl: 'https://example.invalid/poster.jpg',
+        filePath: '/tmp/chapter.cbz',
+        status: 'fetching_metadata',
+      );
+      const staticSize = 59;
+      final offsets = List<int>.filled(13, 0)..[12] = staticSize;
+
+      // The regression is in generated Isar size estimation. Check the
+      // generated schema directly so the test does not require native Isar.
+      // ignore: invalid_use_of_protected_member
+      final estimatedSize = DownloadSchema.estimateSize(
+        download,
+        offsets,
+        const <Type, List<int>>{},
+      );
+      final strings = [
+        download.title,
+        download.quality,
+        download.posterUrl,
+        download.filePath,
+        download.status,
+      ].whereType<String>();
+      final expectedSize = strings.fold<int>(
+        staticSize,
+        (size, value) => size + 3 + value.length * 3,
+      );
+
+      expect(estimatedSize, expectedSize);
+    });
+  });
 }
 
 Chapter _testChapter(int id) {
