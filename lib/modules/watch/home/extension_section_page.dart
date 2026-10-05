@@ -10,8 +10,10 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
+import 'package:watchtower/modules/watch/home/extension_person_route.dart';
 import 'package:watchtower/modules/watch/home/extension_video_preview.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -102,8 +104,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         return;
       }
       final seen = {
-        for (final item in _items)
-          item.link ?? item.name ?? '${item.hashCode}',
+        for (final item in _items) item.link ?? item.name ?? '${item.hashCode}',
       };
       final nextItems = result.list
           .where(
@@ -188,11 +189,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.cloud_off_rounded,
-            color: Colors.white54,
-            size: 44,
-          ),
+          const Icon(Icons.cloud_off_rounded, color: Colors.white54, size: 44),
           const SizedBox(height: 14),
           const Text(
             'Impossible de charger cette section',
@@ -219,6 +216,14 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
   void _openItem(MManga item) {
     if (item.link?.isNotEmpty != true) return;
     final collection = ExtensionCollectionRoute.fromItem(item);
+    if (collection == null && isExtensionPersonItem(item)) {
+      openExtensionPersonScreen(
+        context: context,
+        source: widget.source,
+        item: item,
+      );
+      return;
+    }
     if (collection != null) {
       if (collection.listId.startsWith('playlist_')) {
         _playFirstFromCollection(collection.listId);
@@ -226,12 +231,13 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
       }
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => ExtensionSectionPage(
+          builder: (_) => TmdbMoviesListScreen.extension(
             source: widget.source,
             sectionId: collection.listId,
             title: item.name?.trim().isNotEmpty == true
                 ? item.name!.trim()
                 : 'Collection',
+            initialExtensionItems: const [],
             cardStyle: collection.listId.startsWith('search_')
                 ? 'landscape'
                 : null,
@@ -286,7 +292,9 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
       if (!mounted) return;
       if (first == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aucune vidéo disponible dans cette playlist.')),
+          const SnackBar(
+            content: Text('Aucune vidéo disponible dans cette playlist.'),
+          ),
         );
         return;
       }
@@ -395,18 +403,20 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
                   ),
                   backgroundColor: const Color(0xFF1C2529),
                   side: BorderSide(
-                    color: Theme.of(context).colorScheme.primary.withValues(
-                      alpha: .38,
-                    ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: .38),
                   ),
                   labelStyle: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
-                  label: Text(item.name?.trim().isNotEmpty == true
-                      ? item.name!.trim()
-                      : 'Browse'),
+                  label: Text(
+                    item.name?.trim().isNotEmpty == true
+                        ? item.name!.trim()
+                        : 'Browse',
+                  ),
                 ),
             ],
           ),
@@ -433,8 +443,8 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
         mainAxisSpacing: 16,
       ),
-      itemCount: items.length +
-          (_loadingMore || _loadMoreError != null ? 1 : 0),
+      itemCount:
+          items.length + (_loadingMore || _loadMoreError != null ? 1 : 0),
       itemBuilder: (_, index) {
         if (index >= items.length) {
           if (_loadMoreError != null) {

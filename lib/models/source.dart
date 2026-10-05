@@ -326,8 +326,9 @@ class Source {
     isAdded = json['isAdded'];
     isFullData = json['isFullData'];
     isManga = json['isManga'];
-    final itemTypeIndex =
-        json['itemType'] is num ? (json['itemType'] as num).toInt() : 0;
+    final itemTypeIndex = json['itemType'] is num
+        ? (json['itemType'] as num).toInt()
+        : 0;
     itemType = itemTypeIndex >= 0 && itemTypeIndex < ItemType.values.length
         ? ItemType.values[itemTypeIndex]
         : ItemType.manga;
@@ -354,7 +355,8 @@ class Source {
     final sourceCodeLanguageIndex = json['sourceCodeLanguage'] is num
         ? (json['sourceCodeLanguage'] as num).toInt()
         : 0;
-    sourceCodeLanguage = sourceCodeLanguageIndex >= 0 &&
+    sourceCodeLanguage =
+        sourceCodeLanguageIndex >= 0 &&
             sourceCodeLanguageIndex < SourceCodeLanguage.values.length
         ? SourceCodeLanguage.values[sourceCodeLanguageIndex]
         : SourceCodeLanguage.dart;
@@ -456,6 +458,25 @@ class Source {
       additionalParams: additionalParams,
     );
   }
+
+  /// Riverpod provider families receive freshly deserialized Source instances
+  /// after returning to an extension. Compare the stable source identity so
+  /// their existing short-lived provider cache remains usable.
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! Source) return false;
+    return id == other.id &&
+        name == other.name &&
+        lang == other.lang &&
+        baseUrl == other.baseUrl &&
+        sourceCodeUrl == other.sourceCodeUrl &&
+        version == other.version;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, lang, baseUrl, sourceCodeUrl, version);
 }
 
 enum SourceCodeLanguage { dart, javascript, mihon }

@@ -13,6 +13,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/media_content_sections.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
@@ -22,6 +23,7 @@ import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
+import 'package:watchtower/modules/watch/home/extension_person_route.dart';
 import 'package:watchtower/modules/search/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 import 'package:watchtower/modules/watch/home/extension_video_preview.dart';
@@ -50,19 +52,20 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
     this.initialSectionId,
     this.layoutEditorMode = false,
     super.key,
-  })
-    : isLocalLibrary = false,
-      localItemType = null;
+  }) : isLocalLibrary = false,
+       localItemType = null;
 
-  WatchExtensionHomeScreen.localLibrary({
-    required ItemType itemType,
-    super.key,
-  }) : source = Source(name: 'local_smart_library', lang: '', itemType: itemType),
-       isLocalLibrary = true,
-       localItemType = itemType,
-       initialSearchQuery = null,
-       initialSectionId = null,
-       layoutEditorMode = false;
+  WatchExtensionHomeScreen.localLibrary({required ItemType itemType, super.key})
+    : source = Source(
+        name: 'local_smart_library',
+        lang: '',
+        itemType: itemType,
+      ),
+      isLocalLibrary = true,
+      localItemType = itemType,
+      initialSearchQuery = null,
+      initialSectionId = null,
+      layoutEditorMode = false;
 
   @override
   ConsumerState<WatchExtensionHomeScreen> createState() =>
@@ -73,8 +76,7 @@ class _WatchExtensionHomeScreenState
     extends ConsumerState<WatchExtensionHomeScreen> {
   final _feedController = ScrollController();
   bool _showCompactHeader = false;
-  late bool _isSearching =
-      widget.initialSearchQuery?.trim().isNotEmpty == true;
+  late bool _isSearching = widget.initialSearchQuery?.trim().isNotEmpty == true;
   bool _layoutReady = false;
   Object? _layoutError;
   UiLayout _layout = UiLayout.empty;
@@ -173,7 +175,9 @@ class _WatchExtensionHomeScreenState
   void _logRequestFailure(String request, Object? error) {
     if (error == null) return;
     final detail = error.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
-    final summary = detail.length > 240 ? '${detail.substring(0, 240)}…' : detail;
+    final summary = detail.length > 240
+        ? '${detail.substring(0, 240)}…'
+        : detail;
     final key = '$request:${error.runtimeType}:$summary';
     if (!_loggedRequestErrors.add(key)) return;
     debugPrint(
@@ -270,7 +274,9 @@ class _WatchExtensionHomeScreenState
   Future<void> _applyLayoutComponent(String component) async {
     final sectionId = _pendingReplacementSectionId;
     if (sectionId == null) {
-      _showEditorMessage('Maintiens d’abord une section, puis choisis « Remplacer ».');
+      _showEditorMessage(
+        'Maintiens d’abord une section, puis choisis « Remplacer ».',
+      );
       return;
     }
     final sections = _copyLayoutSections();
@@ -299,7 +305,9 @@ class _WatchExtensionHomeScreenState
         _layout = LayoutRegistry.instance.get(source);
       });
     } catch (error) {
-      _showEditorMessage('Layout enregistré, mais aperçu impossible à actualiser : $error');
+      _showEditorMessage(
+        'Layout enregistré, mais aperçu impossible à actualiser : $error',
+      );
     }
   }
 
@@ -357,6 +365,10 @@ class _WatchExtensionHomeScreenState
   void _openItem(MManga item) {
     if (item.link == null || item.link!.isEmpty) return;
     final collection = ExtensionCollectionRoute.fromItem(item);
+    if (collection == null && isExtensionPersonItem(item)) {
+      openExtensionPersonScreen(context: context, source: source, item: item);
+      return;
+    }
     if (collection != null) {
       if (collection.listId.startsWith('playlist_')) {
         unawaited(_playFirstFromCollection(collection.listId));
@@ -364,12 +376,16 @@ class _WatchExtensionHomeScreenState
       }
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => ExtensionSectionPage(
+          builder: (_) => TmdbMoviesListScreen.extension(
             source: source,
             sectionId: collection.listId,
             title: item.name?.trim().isNotEmpty == true
                 ? item.name!.trim()
                 : source.name ?? 'Collection',
+            initialExtensionItems: const [],
+            cardStyle: collection.listId.startsWith('search_')
+                ? 'landscape'
+                : null,
           ),
         ),
       );
@@ -401,7 +417,9 @@ class _WatchExtensionHomeScreenState
       if (!mounted) return;
       if (first == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aucune vidéo disponible dans cette playlist.')),
+          const SnackBar(
+            content: Text('Aucune vidéo disponible dans cette playlist.'),
+          ),
         );
         return;
       }
@@ -441,10 +459,11 @@ class _WatchExtensionHomeScreenState
 
     final initialSectionId = widget.initialSectionId;
     if (initialSectionId != null && !widget.isLocalLibrary) {
-      return ExtensionSectionPage(
+      return TmdbMoviesListScreen.extension(
         source: source,
         sectionId: initialSectionId,
         title: initialSectionId == 'latest' ? 'Latest' : initialSectionId,
+        initialExtensionItems: const [],
       );
     }
 
@@ -472,18 +491,12 @@ class _WatchExtensionHomeScreenState
     final sectionAsyncValues = [
       for (final section in sections)
         switch (section.id) {
-          'popular' => ref.watch(
-            getPopularProvider(source: source, page: 1),
-          ),
+          'popular' => ref.watch(getPopularProvider(source: source, page: 1)),
           'latest' => ref.watch(
             getLatestUpdatesProvider(source: source, page: 1),
           ),
           _ => ref.watch(
-            getCustomListProvider(
-              source: source,
-              listId: section.id,
-              page: 1,
-            ),
+            getCustomListProvider(source: source, listId: section.id, page: 1),
           ),
         },
     ];
@@ -542,11 +555,7 @@ class _WatchExtensionHomeScreenState
         popularAsync?.hasError == true ? 'popular' : 'latest',
         error,
       );
-      return _ExtensionEmpty(
-        source: source,
-        onRefresh: _refresh,
-        error: error,
-      );
+      return _ExtensionEmpty(source: source, onRefresh: _refresh, error: error);
     }
 
     return _ExtensionFeed(
@@ -562,15 +571,14 @@ class _WatchExtensionHomeScreenState
       layoutEditorMode: widget.layoutEditorMode,
       editorDestination: _editorDestination,
       editorDockExpanded: _editorDockExpanded,
-      onEditorDestinationChanged: (destination) =>
-          setState(() {
-            if (destination == _LayoutEditorDestination.home &&
-                _editorDestination == _LayoutEditorDestination.gallery) {
-              _pendingReplacementSectionId = null;
-            }
-            _editorDestination = destination;
-            _editorDockExpanded = false;
-          }),
+      onEditorDestinationChanged: (destination) => setState(() {
+        if (destination == _LayoutEditorDestination.home &&
+            _editorDestination == _LayoutEditorDestination.gallery) {
+          _pendingReplacementSectionId = null;
+        }
+        _editorDestination = destination;
+        _editorDockExpanded = false;
+      }),
       onToggleEditorDock: () =>
           setState(() => _editorDockExpanded = !_editorDockExpanded),
       onMoveSection: _moveEditorSection,
@@ -712,13 +720,11 @@ class _ExtensionFeed extends StatelessWidget {
                     content: Text('« $title » sera retirée de cet accueil.'),
                     actions: [
                       TextButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(false),
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
                         child: const Text('Annuler'),
                       ),
                       FilledButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(true),
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
                         child: const Text('Supprimer'),
                       ),
                     ],
@@ -743,119 +749,122 @@ class _ExtensionFeed extends StatelessWidget {
       return _ExtensionEmpty(source: source, onRefresh: onRefresh);
     }
     final homeFeed = Stack(
-        children: [
-          ExtensionAppleRefreshable(
-            onRefresh: onRefresh,
-            child: CustomScrollView(
-              controller: controller,
-              physics: const AlwaysScrollableScrollPhysics(
-                // Keep the hero fixed while pulling to refresh. The custom
-                // indicator is painted above the feed instead of relying on
-                // iOS' expanding spinner/displacement.
-                parent: ClampingScrollPhysics(),
-              ),
-              slivers: [
-                if (!hasDeclaredSections)
-                  SliverToBoxAdapter(
-                    child: (popular.isNotEmpty || latest.isNotEmpty)
-                        ? MediaHeroCarousel(
-                            items: (popular.isNotEmpty ? popular : latest)
-                                .map(ContentItem.fromManga)
-                                .toList(growable: false),
-                            onOpen: (index) => onOpen(
-                              (popular.isNotEmpty ? popular : latest)[index],
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                if (layoutEditorMode && sections.isEmpty)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'Aucune section. Utilise l’éditeur JSON pour en créer une.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70),
-                      ),
+      children: [
+        ExtensionAppleRefreshable(
+          onRefresh: onRefresh,
+          child: CustomScrollView(
+            controller: controller,
+            physics: const AlwaysScrollableScrollPhysics(
+              // Keep the hero fixed while pulling to refresh. The custom
+              // indicator is painted above the feed instead of relying on
+              // iOS' expanding spinner/displacement.
+              parent: ClampingScrollPhysics(),
+            ),
+            slivers: [
+              if (!hasDeclaredSections)
+                SliverToBoxAdapter(
+                  child: (popular.isNotEmpty || latest.isNotEmpty)
+                      ? MediaHeroCarousel(
+                          items: (popular.isNotEmpty ? popular : latest)
+                              .map(ContentItem.fromManga)
+                              .toList(growable: false),
+                          onOpen: (index) => onOpen(
+                            (popular.isNotEmpty ? popular : latest)[index],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              if (layoutEditorMode && sections.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'Aucune section. Utilise l’éditeur JSON pour en créer une.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70),
                     ),
                   ),
-                SliverList(
-                  delegate: SliverChildListDelegate.fixed(
-                    hasDeclaredSections
-                        ? List<Widget>.generate(sections.length, (index) {
-                            final section = sections[index];
-                            final rendered = _ExtensionLayoutSection(
-                              source: source,
-                              section: section,
-                              onSearch: onSearch,
-                              onOpen: onOpen,
-                            );
-                            if (!layoutEditorMode) return rendered;
-                            return GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onLongPress: () => _showSectionActions(
-                                context,
-                                index,
-                                section,
-                                sections.length,
-                              ),
-                              child: Stack(
-                                children: [
-                                  rendered,
-                                  const Positioned(
-                                    right: 14,
-                                    top: 8,
-                                    child: IgnorePointer(
-                                      child: Tooltip(
-                                        message: 'Maintenir pour modifier',
-                                        child: Icon(
-                                          Icons.edit_rounded,
-                                          size: 17,
-                                          color: Colors.white70,
-                                        ),
+                ),
+              SliverList(
+                delegate: SliverChildListDelegate.fixed(
+                  hasDeclaredSections
+                      ? List<Widget>.generate(sections.length, (index) {
+                          final section = sections[index];
+                          final rendered = _ExtensionLayoutSection(
+                            source: source,
+                            section: section,
+                            onSearch: onSearch,
+                            onOpen: onOpen,
+                          );
+                          if (!layoutEditorMode) return rendered;
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onLongPress: () => _showSectionActions(
+                              context,
+                              index,
+                              section,
+                              sections.length,
+                            ),
+                            child: Stack(
+                              children: [
+                                rendered,
+                                const Positioned(
+                                  right: 14,
+                                  top: 8,
+                                  child: IgnorePointer(
+                                    child: Tooltip(
+                                      message: 'Maintenir pour modifier',
+                                      child: Icon(
+                                        Icons.edit_rounded,
+                                        size: 17,
+                                        color: Colors.white70,
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                            );
-                          })
-                        : [
-                            MediaPosterRail(
+                                ),
+                              ],
+                            ),
+                          );
+                        })
+                      : [
+                          MediaPosterRail(
+                            title: 'Popular',
+                            items: popular
+                                .map(ContentItem.fromManga)
+                                .toList(growable: false),
+                            onOpen: (index) => onOpen(popular[index]),
+                            onSeeAll: () => _openSection(
+                              context,
+                              source: source,
+                              id: 'popular',
                               title: 'Popular',
-                              items: popular
+                              initialItems: popular,
+                            ),
+                          ),
+                          if (latest.isNotEmpty)
+                            MediaPosterRail(
+                              title: 'Latest',
+                              items: latest
                                   .map(ContentItem.fromManga)
                                   .toList(growable: false),
-                              onOpen: (index) => onOpen(popular[index]),
+                              onOpen: (index) => onOpen(latest[index]),
                               onSeeAll: () => _openSection(
                                 context,
                                 source: source,
-                                id: 'popular',
-                                title: 'Popular',
+                                id: 'latest',
+                                title: 'Latest',
+                                initialItems: latest,
                               ),
                             ),
-                            if (latest.isNotEmpty)
-                                MediaPosterRail(
-                                title: 'Latest',
-                                  items: latest
-                                      .map(ContentItem.fromManga)
-                                      .toList(growable: false),
-                                  onOpen: (index) => onOpen(latest[index]),
-                                onSeeAll: () => _openSection(
-                                  context,
-                                  source: source,
-                                  id: 'latest',
-                                  title: 'Latest',
-                                ),
-                              ),
-                          ],
-                  ),
+                        ],
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 112)),
-              ],
-            ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 112)),
+            ],
           ),
-          if (!layoutEditorMode) Positioned(
+        ),
+        if (!layoutEditorMode)
+          Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -875,7 +884,8 @@ class _ExtensionFeed extends StatelessWidget {
               ),
             ),
           ),
-          if (!layoutEditorMode) Positioned(
+        if (!layoutEditorMode)
+          Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -899,8 +909,8 @@ class _ExtensionFeed extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      );
+      ],
+    );
     final Widget selectedPage = IndexedStack(
       index: editorDestination.index,
       children: [
@@ -911,9 +921,8 @@ class _ExtensionFeed extends StatelessWidget {
           onSelectLayoutComponent: isSelectingComponent
               ? onSelectLayoutComponent
               : null,
-          onClose: () => onEditorDestinationChanged(
-            _LayoutEditorDestination.home,
-          ),
+          onClose: () =>
+              onEditorDestinationChanged(_LayoutEditorDestination.home),
         ),
         LayoutJsonEditorScreen(
           key: ValueKey(layoutEditorRevision),
@@ -982,8 +991,7 @@ class _LayoutEditorDock extends StatelessWidget {
                     _DockDestinationButton(
                       icon: Icons.widgets_outlined,
                       label: 'Galerie composants',
-                      selected:
-                          destination == _LayoutEditorDestination.gallery,
+                      selected: destination == _LayoutEditorDestination.gallery,
                       onTap: () => onSelect(_LayoutEditorDestination.gallery),
                     ),
                     _DockDestinationButton(
@@ -1004,7 +1012,9 @@ class _LayoutEditorDock extends StatelessWidget {
                 : 'Ouvrir le dock d\'édition',
             onPressed: onToggle,
             // Bouton flottant « < » qui déplie le dock de navigation.
-            child: Icon(expanded ? Icons.close_rounded : Icons.expand_more_rounded),
+            child: Icon(
+              expanded ? Icons.close_rounded : Icons.expand_more_rounded,
+            ),
           ),
         ],
       ),
@@ -1035,8 +1045,9 @@ class _DockDestinationButton extends StatelessWidget {
         style: TextButton.styleFrom(
           alignment: Alignment.centerLeft,
           foregroundColor: selected ? colors.primary : colors.onSurface,
-          backgroundColor:
-              selected ? colors.primary.withValues(alpha: .12) : null,
+          backgroundColor: selected
+              ? colors.primary.withValues(alpha: .12)
+              : null,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
         icon: Icon(icon, size: 19),
@@ -1051,14 +1062,16 @@ void _openSection(
   required Source source,
   required String id,
   required String title,
+  List<MManga> initialItems = const [],
   String? cardStyle,
 }) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => ExtensionSectionPage(
+      builder: (_) => TmdbMoviesListScreen.extension(
         source: source,
         sectionId: id,
         title: title,
+        initialExtensionItems: initialItems,
         cardStyle: cardStyle,
       ),
     ),
@@ -1128,8 +1141,7 @@ class _ExtensionLayoutSectionState
       for (var offset = 0; offset < count; offset++)
         _monthKey(DateTime(latest.year, latest.month - offset, 1)),
       _selectedMonth ?? _initialMonth(),
-    }.toList()
-      ..sort((a, b) => b.compareTo(a));
+    }.toList()..sort((a, b) => b.compareTo(a));
     return values;
   }
 
@@ -1277,10 +1289,7 @@ class _ExtensionLayoutSectionState
     // rail does not disappear just because another page is being fetched.
     final cachedItems = content.value?.list;
     if (cachedItems != null && cachedItems.isNotEmpty) {
-      return _withMonthSelector(
-        context,
-        _buildSection(context, cachedItems),
-      );
+      return _withMonthSelector(context, _buildSection(context, cachedItems));
     }
 
     final sectionContent = content.when(
@@ -1331,6 +1340,7 @@ class _ExtensionLayoutSectionState
       source: widget.source,
       id: _listId,
       title: _title,
+      initialItems: content.value?.list ?? const <MManga>[],
       cardStyle: widget.section.cardStyle,
     );
     final sectionAction = widget.section.seeAll ? onSeeAll : null;
@@ -1464,10 +1474,7 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     if (component == 'spotlight') {
       return AppHeroShimmer(
-        height: (MediaQuery.sizeOf(context).height * .56).clamp(
-          480.0,
-          590.0,
-        ),
+        height: (MediaQuery.sizeOf(context).height * .56).clamp(480.0, 590.0),
       );
     }
     if (component == 'categoryPills') {
@@ -2092,7 +2099,11 @@ class _ExtensionRankedWideRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(title: title, actionLabel: 'All >', onAction: onSeeAll),
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
         ...items.asMap().entries.map(
           (entry) => Padding(
             padding: EdgeInsets.fromLTRB(
@@ -2192,7 +2203,11 @@ class _ExtensionShowcaseRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(title: title, actionLabel: 'All >', onAction: onSeeAll),
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
         ...items.map(
           (item) => Padding(
             padding: EdgeInsets.fromLTRB(
@@ -2359,7 +2374,11 @@ class _ExtensionCollectionCardRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(title: title, actionLabel: 'All >', onAction: onSeeAll),
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'All >',
+          onAction: onSeeAll,
+        ),
         SizedBox(
           height: 112,
           child: ListView.separated(
@@ -2391,7 +2410,9 @@ class _ExtensionCollectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPlaylist =
         item.collectionId?.startsWith('playlist_') == true ||
-        ExtensionCollectionRoute.fromItem(item)?.listId.startsWith('playlist_') ==
+        ExtensionCollectionRoute.fromItem(
+              item,
+            )?.listId.startsWith('playlist_') ==
             true;
     return GestureDetector(
       onTap: onTap,
@@ -2681,18 +2702,20 @@ class _ExtensionCollectionRail extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 7),
                 backgroundColor: const Color(0xFF1C2529),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.primary.withValues(
-                    alpha: .38,
-                  ),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: .38),
                 ),
                 labelStyle: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
-                label: Text(item.name?.trim().isNotEmpty == true
-                    ? item.name!.trim()
-                    : 'Browse'),
+                label: Text(
+                  item.name?.trim().isNotEmpty == true
+                      ? item.name!.trim()
+                      : 'Browse',
+                ),
               );
             },
           ),
@@ -2986,9 +3009,7 @@ class _ExtensionImage extends StatelessWidget {
     final child = url == null || url!.isEmpty
         ? const ColoredBox(
             color: Color(0xFF22242C),
-            child: Center(
-              child: Icon(Broken.video, color: Colors.white54),
-            ),
+            child: Center(child: Icon(Broken.video, color: Colors.white54)),
           )
         : cachedNetworkImage(
             imageUrl: url!,
@@ -3211,10 +3232,7 @@ class _ExtensionHomeLoading extends StatelessWidget {
               ),
               _ExtensionSkeletonSection(
                 titleWidth: 94,
-                child: SizedBox(
-                  height: 206,
-                  child: AppLandscapeRowShimmer(),
-                ),
+                child: SizedBox(height: 206, child: AppLandscapeRowShimmer()),
               ),
               const SizedBox(height: 112),
             ],
@@ -3292,10 +3310,7 @@ class _ExtensionShowcaseShimmer extends StatelessWidget {
                 const Expanded(
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: 92,
-                        child: AppShimmerBlock(radius: 10),
-                      ),
+                      SizedBox(width: 92, child: AppShimmerBlock(radius: 10)),
                       SizedBox(width: 10),
                       Expanded(child: AppShimmerBlock(radius: 10)),
                     ],

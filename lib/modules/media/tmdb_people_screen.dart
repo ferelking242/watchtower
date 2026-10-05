@@ -2,12 +2,24 @@ import 'dart:ui' as ui;
 
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:isar_community/isar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/eval/model/m_chapter.dart';
+import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
+import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/services/get_detail.dart';
 
 const _tmdbBackground = Color(0xFF0B0B11);
 
@@ -349,27 +361,48 @@ class _CastCrewPersonCard extends StatelessWidget {
   }
 }
 
-class TmdbPersonScreen extends StatefulWidget {
+class TmdbPersonScreen extends ConsumerStatefulWidget {
   final TmdbPersonRef person;
+  final Source? extensionSource;
+  final MManga? extensionPerson;
 
-  const TmdbPersonScreen({super.key, required this.person});
+  const TmdbPersonScreen({
+    super.key,
+    required this.person,
+    this.extensionSource,
+    this.extensionPerson,
+  });
 
   @override
-  State<TmdbPersonScreen> createState() => _TmdbPersonScreenState();
+  ConsumerState<TmdbPersonScreen> createState() => _TmdbPersonScreenState();
 }
 
-class _TmdbPersonScreenState extends State<TmdbPersonScreen>
+class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   late Future<TmdbPersonDetails> _details;
+  Future<MManga>? _extensionDetails;
+
+  bool get _isExtensionProfile =>
+      widget.extensionSource != null && widget.extensionPerson != null;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this)
-      ..addListener(_onTabChanged);
-    _details = fetchTmdbPersonDetails(widget.person);
+    _tabController = TabController(
+      length: _isExtensionProfile ? 2 : 3,
+      vsync: this,
+    )..addListener(_onTabChanged);
+    if (_isExtensionProfile) {
+      final source = widget.extensionSource!;
+      final profile = widget.extensionPerson!;
+      _extensionDetails = ref.read(
+        getDetailProvider(url: profile.link ?? '', source: source).future,
+      );
+    } else {
+      _details = fetchTmdbPersonDetails(widget.person);
+    }
   }
 
   void _onTabChanged() {
@@ -378,6 +411,16 @@ class _TmdbPersonScreenState extends State<TmdbPersonScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_isExtensionProfile) {
+      return Scaffold(
+        backgroundColor: _tmdbBackground,
+        body: FutureBuilder<MManga>(
+          future: _extensionDetails,
+          builder: (context, snapshot) =>
+              _buildExtensionProfile(context, snapshot.data),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: _tmdbBackground,
       body: FutureBuilder<TmdbPersonDetails>(
@@ -485,6 +528,234 @@ class _TmdbPersonScreenState extends State<TmdbPersonScreen>
     }
   }
 
+  Widget _buildExtensionProfile(BuildContext context, MManga? details) {
+    final profile = widget.extensionPerson!;
+    final title = details?.name?.trim().isNotEmpty == true
+        ? details!.name!.trim()
+        : (profile.name?.trim().isNotEmpty == true
+              ? profile.name!.trim()
+              : 'Profil');
+    final image = details?.imageUrl?.trim().isNotEmpty == true
+        ? details!.imageUrl!.trim()
+        : profile.imageUrl?.trim();
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverAppBar(
+          pinned: true,
+          stretch: true,
+          expandedHeight: 330,
+          toolbarHeight: 64,
+          backgroundColor: _tmdbBackground,
+          surfaceTintColor: Colors.transparent,
+          automaticallyImplyLeading: false,
+          leadingWidth: 68,
+          leading: Padding(
+            padding: const EdgeInsetsDirectional.only(start: 12),
+            child: _PersonHeroButton(
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              onPressed: () => context.pop(),
+            ),
+          ),
+          title: AnimatedBuilder(
+            animation: _scrollController,
+            builder: (context, _) {
+              final visible =
+                  _scrollController.hasClients &&
+                  _scrollController.offset > 250;
+              return AnimatedOpacity(
+                opacity: visible ? 1 : 0,
+                duration: const Duration(milliseconds: 160),
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            },
+          ),
+          flexibleSpace: FlexibleSpaceBar(
+            collapseMode: CollapseMode.parallax,
+            stretchModes: const [StretchMode.zoomBackground],
+            background: _ExtensionPersonHero(name: title, imageUrl: image),
+          ),
+        ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _PersonTabsDelegate(
+            controller: _tabController,
+            labels: const ['About', 'Movies'],
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 24, 18, 44),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: KeyedSubtree(
+                key: ValueKey(_tabController.index),
+                child: _tabController.index == 0
+                    ? _ExtensionPersonAbout(item: profile, details: details)
+                    : _ExtensionPersonVideos(
+                        profile: profile,
+                        details: details,
+                        onOpen: (video) => _openExtensionVideo(video),
+                        onDownload: (videos) =>
+                            _queueExtensionDownloads(videos, details, title),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openExtensionVideo(MChapter video) async {
+    final source = widget.extensionSource!;
+    final profile = widget.extensionPerson!;
+    final url = video.url?.trim();
+    if (url == null || url.isEmpty) return;
+    final name = video.name?.trim();
+    final item = MManga(
+      name: name?.isNotEmpty == true ? name : url,
+      link: url,
+      imageUrl: video.thumbnailUrl ?? profile.imageUrl,
+      status: Status.unknown,
+    );
+    await pushToMangaReaderDetail(
+      ref: ref,
+      context: context,
+      getManga: item,
+      lang: source.lang ?? '',
+      source: source.name ?? '',
+      sourceId: source.id,
+      itemType: source.itemType,
+    );
+  }
+
+  Future<void> _queueExtensionDownloads(
+    List<MChapter> videos,
+    MManga? details,
+    String profileTitle,
+  ) async {
+    final source = widget.extensionSource!;
+    final profile = widget.extensionPerson!;
+    final profileLink = profile.link?.trim();
+    final selected = videos
+        .where((video) => video.url?.trim().isNotEmpty == true)
+        .toList(growable: false);
+    if (profileLink == null || profileLink.isEmpty || selected.isEmpty) return;
+
+    var queuePersisted = false;
+    try {
+      final lang = source.lang ?? '';
+      final sourceName = source.name ?? '';
+      final candidates = isar.mangas
+          .filter()
+          .langEqualTo(lang)
+          .sourceEqualTo(sourceName)
+          .findAllSync();
+      Manga? manga;
+      for (final candidate in candidates) {
+        if (candidate.sourceId == source.id && candidate.link == profileLink) {
+          manga = candidate;
+          break;
+        }
+      }
+      manga ??= Manga(
+        source: sourceName,
+        author: details?.author ?? '',
+        artist: details?.artist ?? '',
+        genre: details?.genre?.cast<String>(),
+        imageUrl: details?.imageUrl ?? profile.imageUrl,
+        lang: lang,
+        link: profileLink,
+        name: profileTitle,
+        status: Status.unknown,
+        description: details?.description ?? '',
+        sourceId: source.id,
+        itemType: source.itemType,
+        isManga: false,
+      );
+      manga
+        ..name = profileTitle
+        ..imageUrl = details?.imageUrl ?? profile.imageUrl ?? manga.imageUrl
+        ..description = details?.description ?? manga.description
+        ..sourceId = source.id
+        ..itemType = source.itemType;
+
+      final currentManga = manga;
+      final existingChapters = currentManga.id == Isar.autoIncrement
+          ? <Chapter>[]
+          : isar.chapters
+                .filter()
+                .mangaIdEqualTo(currentManga.id)
+                .findAllSync();
+      final chaptersByUrl = <String, Chapter>{
+        for (final chapter in existingChapters)
+          if (chapter.url?.trim().isNotEmpty == true)
+            chapter.url!.trim(): chapter,
+      };
+      final queue = <Chapter>[];
+      isar.writeTxnSync(() {
+        currentManga.id = isar.mangas.putSync(currentManga);
+        for (final video in selected) {
+          final url = video.url!.trim();
+          final chapter =
+              chaptersByUrl[url] ??
+              Chapter(
+                mangaId: currentManga.id,
+                name: video.name?.trim().isNotEmpty == true
+                    ? video.name!.trim()
+                    : url,
+                url: url,
+                thumbnailUrl: video.thumbnailUrl ?? currentManga.imageUrl,
+                dateUpload: video.dateUpload,
+                scanlator: video.scanlator,
+                description: video.description,
+              );
+          chapter.manga.value = currentManga;
+          chapter.id = isar.chapters.putSync(chapter);
+          queue.add(chapter);
+        }
+      });
+      queuePersisted = queue.isNotEmpty;
+      for (final chapter in queue) {
+        await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+        if (chapter.id != null) {
+          ref
+              .read(downloadQueueStateProvider.notifier)
+              .setPaused(chapter.id!, false);
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              selected.length == 1
+                  ? 'Téléchargement ajouté à la file.'
+                  : '${selected.length} téléchargements ajoutés à la file.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Impossible de préparer le téléchargement : $error'),
+        ),
+      );
+    } finally {
+      if (queuePersisted) ref.read(processDownloadsProvider());
+    }
+  }
+
   @override
   void dispose() {
     _tabController
@@ -492,6 +763,286 @@ class _TmdbPersonScreenState extends State<TmdbPersonScreen>
       ..dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+}
+
+class _ExtensionPersonHero extends StatelessWidget {
+  final String name;
+  final String? imageUrl;
+
+  const _ExtensionPersonHero({required this.name, required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final image = imageUrl?.trim();
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (image == null || image.isEmpty)
+          const ColoredBox(color: Color(0xFF25252A))
+        else
+          ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+            child: ExtendedImage.network(
+              image,
+              fit: BoxFit.cover,
+              cache: true,
+              loadStateChanged: (state) =>
+                  state.extendedImageLoadState == LoadState.completed
+                  ? null
+                  : const AppShimmerBlock(radius: 0),
+            ),
+          ),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x22000000), Color(0xF5000000)],
+              stops: [0.05, 1],
+            ),
+          ),
+        ),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 62, 18, 18),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _ActorAvatar(url: image),
+                const SizedBox(height: 12),
+                Text(
+                  name,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    shadows: [Shadow(color: Colors.black54, blurRadius: 10)],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtensionPersonAbout extends StatelessWidget {
+  final MManga item;
+  final MManga? details;
+
+  const _ExtensionPersonAbout({required this.item, required this.details});
+
+  @override
+  Widget build(BuildContext context) {
+    final description = details?.description?.trim().isNotEmpty == true
+        ? details!.description!.trim()
+        : item.description?.trim();
+    final genres = <String>{
+      ...(details?.genre ?? const <String>[]),
+      ...(item.genre ?? const <String>[]),
+    }.where((value) => value.trim().isNotEmpty).toList(growable: false);
+    final author = details?.author?.trim();
+    final artist = details?.artist?.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _PeopleSectionTitle(title: 'About'),
+        const SizedBox(height: 10),
+        Text(
+          description?.isNotEmpty == true
+              ? description!
+              : 'Aucune description disponible.',
+          style: const TextStyle(color: Colors.white70, height: 1.55),
+        ),
+        if ((author?.isNotEmpty == true) || (artist?.isNotEmpty == true)) ...[
+          const SizedBox(height: 20),
+          if (author?.isNotEmpty == true)
+            _ExtensionInfoLine(label: 'Author', value: author!),
+          if (artist?.isNotEmpty == true)
+            _ExtensionInfoLine(label: 'Artist', value: artist!),
+        ],
+        if (genres.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const _PeopleSectionTitle(title: 'Tags'),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final genre in genres)
+                Chip(
+                  label: Text(genre),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: const Color(0xFF20212A),
+                  side: BorderSide(color: Colors.white.withValues(alpha: .12)),
+                  labelStyle: const TextStyle(color: Colors.white70),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ExtensionInfoLine extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ExtensionInfoLine({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 88,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ExtensionPersonVideos extends StatelessWidget {
+  final MManga profile;
+  final MManga? details;
+  final ValueChanged<MChapter> onOpen;
+  final ValueChanged<List<MChapter>> onDownload;
+
+  const _ExtensionPersonVideos({
+    required this.profile,
+    required this.details,
+    required this.onOpen,
+    required this.onDownload,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final videos = (details?.chapters ?? const <MChapter>[])
+        .where((video) => video.url?.trim().isNotEmpty == true)
+        .toList(growable: false);
+    if (videos.isEmpty) return const _PeopleEmpty();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${videos.length} films',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: () => onDownload(videos),
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: const Text('Tout télécharger'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        for (final video in videos)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: const Color(0xFF171820),
+              borderRadius: BorderRadius.circular(14),
+              child: ListTile(
+                onTap: () => onOpen(video),
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _videoThumbnail(video),
+                ),
+                title: Text(
+                  video.name?.trim().isNotEmpty == true
+                      ? video.name!.trim()
+                      : 'Video',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: video.duration?.trim().isNotEmpty == true
+                    ? Text(
+                        video.duration!.trim(),
+                        style: const TextStyle(color: Colors.white54),
+                      )
+                    : null,
+                trailing: IconButton(
+                  tooltip: 'Télécharger cette vidéo',
+                  onPressed: () => onDownload([video]),
+                  icon: const Icon(
+                    Icons.download_rounded,
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _videoThumbnail(MChapter video) {
+    String? imageUrl;
+    for (final candidate in [
+      video.thumbnailUrl,
+      details?.imageUrl,
+      profile.imageUrl,
+    ]) {
+      final value = candidate?.trim();
+      if (value?.isNotEmpty == true) {
+        imageUrl = value;
+        break;
+      }
+    }
+    if (imageUrl == null) {
+      return const SizedBox(
+        width: 72,
+        height: 46,
+        child: ColoredBox(
+          color: Color(0xFF25252A),
+          child: Icon(Icons.movie_outlined, color: Colors.white54, size: 20),
+        ),
+      );
+    }
+    return ExtendedImage.network(
+      imageUrl,
+      width: 72,
+      height: 46,
+      fit: BoxFit.cover,
+      cache: true,
+      loadStateChanged: (state) =>
+          state.extendedImageLoadState == LoadState.completed
+          ? null
+          : const AppShimmerBlock(radius: 8),
+    );
   }
 }
 
@@ -611,8 +1162,12 @@ class _PersonHeroButton extends StatelessWidget {
 
 class _PersonTabsDelegate extends SliverPersistentHeaderDelegate {
   final TabController controller;
+  final List<String> labels;
 
-  const _PersonTabsDelegate({required this.controller});
+  const _PersonTabsDelegate({
+    required this.controller,
+    this.labels = const ['About', 'Movies', 'TV Shows'],
+  });
 
   @override
   double get minExtent => 58;
@@ -633,21 +1188,12 @@ class _PersonTabsDelegate extends SliverPersistentHeaderDelegate {
         animation: controller,
         builder: (context, _) => Row(
           children: [
-            _PersonTab(
-              label: 'About',
-              selected: controller.index == 0,
-              onTap: () => controller.animateTo(0),
-            ),
-            _PersonTab(
-              label: 'Movies',
-              selected: controller.index == 1,
-              onTap: () => controller.animateTo(1),
-            ),
-            _PersonTab(
-              label: 'TV Shows',
-              selected: controller.index == 2,
-              onTap: () => controller.animateTo(2),
-            ),
+            for (var index = 0; index < labels.length; index++)
+              _PersonTab(
+                label: labels[index],
+                selected: controller.index == index,
+                onTap: () => controller.animateTo(index),
+              ),
           ],
         ),
       ),
@@ -655,7 +1201,8 @@ class _PersonTabsDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(covariant _PersonTabsDelegate oldDelegate) => false;
+  bool shouldRebuild(covariant _PersonTabsDelegate oldDelegate) =>
+      oldDelegate.controller != controller || oldDelegate.labels != labels;
 }
 
 class _PersonTab extends StatelessWidget {
