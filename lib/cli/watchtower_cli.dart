@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:ffi' show Abi;
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
 import 'package:watchtower/eval/interface.dart';
 import 'package:watchtower/eval/lib.dart';
 import 'package:watchtower/eval/model/filter.dart';
@@ -130,10 +129,10 @@ class _Step {
     'ok': ok,
     'status': ok ? 'passed' : 'failed',
     'ms': ms,
-    if (count != null) 'count': count,
-    if (error != null) 'error': error,
-    if (errorType != null) 'errorType': errorType,
-    if (extra != null) ...extra!,
+    'count': ?count,
+    'error': ?error,
+    'errorType': ?errorType,
+    ...?extra,
   };
 }
 
@@ -162,7 +161,7 @@ Future<int> runWatchtowerCli(List<String> args) async {
   try {
     final options = WatchtowerCliOptions.parse(args);
     if (options.version) {
-      print('Watchtower $_version');
+      stdout.writeln('Watchtower $_version');
       return 0;
     }
     if (options.help || options.positional.isEmpty) {
@@ -171,27 +170,27 @@ Future<int> runWatchtowerCli(List<String> args) async {
     }
     final command = options.positional.first;
     if (command == 'version') {
-      print('Watchtower $_version');
+      stdout.writeln('Watchtower $_version');
       return 0;
     }
     if (command == 'help') {
       stdout.write(_help);
       return 0;
     }
-    if (command == 'doctor') return _doctor(options);
-    if (command == 'plugins') return _runPlugins(options);
+    if (command == 'doctor') return await _doctor(options);
+    if (command == 'plugins') return await _runPlugins(options);
     if (command == 'extensions') {
       final subcommand = options.positional.length > 1
           ? options.positional[1]
           : 'list';
       final catalog = await _loadCatalog(options);
       if (subcommand == 'list') return _listExtensions(catalog, options);
-      if (subcommand == 'test') return _testExtensions(catalog, options);
+      if (subcommand == 'test') return await _testExtensions(catalog, options);
       throw FormatException('Unknown extensions command: $subcommand');
     }
     if (command == 'source') {
       final catalog = await _loadCatalog(options);
-      return _runSource(catalog, options);
+      return await _runSource(catalog, options);
     }
     throw FormatException('Unknown command: $command');
   } catch (error, stack) {
@@ -238,10 +237,7 @@ Future<int> _doctor(WatchtowerCliOptions options) async {
     'dart': Platform.version,
     'native': true,
     'isolatePool': {'available': isolatePoolAvailable},
-    'quickJs': {
-      'available': quickJsAvailable,
-      if (runtimeError != null) 'error': runtimeError,
-    },
+    'quickJs': {'available': quickJsAvailable, 'error': ?runtimeError},
   };
   _printJsonOrLines(result, options);
   return isolatePoolAvailable && quickJsAvailable ? 0 : 1;
@@ -293,7 +289,7 @@ Future<int> _runPlugins(WatchtowerCliOptions options) async {
     if (options.json) {
       _printJsonOrLines({
         ...catalog.toJson(),
-        if (revision != null) 'repositoryRevision': revision,
+        'repositoryRevision': ?revision,
         'plugins': selected,
         'total': selected.length,
       }, options);
@@ -321,8 +317,8 @@ Future<int> _runPlugins(WatchtowerCliOptions options) async {
       .toList();
   final report = {
     'root': catalog.root,
-    if (revision != null) 'repositoryRevision': revision,
-    if (catalog.lastUpdated != null) 'lastUpdated': catalog.lastUpdated,
+    'repositoryRevision': ?revision,
+    'lastUpdated': ?catalog.lastUpdated,
     'total': selected.length,
     'valid': failures.isEmpty,
     'failures': failures,
@@ -487,7 +483,7 @@ int _listExtensions(_Catalog catalog, WatchtowerCliOptions options) {
   if (options.json) {
     _printJsonOrLines({
       'root': catalog.root,
-      if (catalog.revision != null) 'repositoryRevision': catalog.revision,
+      'repositoryRevision': ?catalog.revision,
       'total': catalog.items.length,
       'failures': catalog.failures,
       'sources': catalog.items.map(_sourceJson).toList(),
@@ -495,7 +491,7 @@ int _listExtensions(_Catalog catalog, WatchtowerCliOptions options) {
     return catalog.failures.isEmpty ? 0 : 1;
   }
   for (final item in catalog.items) {
-    print(
+    stdout.writeln(
       '${item.source.id}\t${_sourceType(item.source)}\t'
       '${item.source.sourceCodeLanguage.name}\t'
       '${item.source.lang}\t${item.source.name}\t${item.file}',
@@ -542,7 +538,7 @@ Future<int> _testExtensions(
       'version': _version,
       'mode': options.mode,
       'repository': catalog.root,
-      if (catalog.revision != null) 'repositoryRevision': catalog.revision,
+      'repositoryRevision': ?catalog.revision,
       'total': results.length,
       'passed': passed,
       'failed': results.length - passed,
@@ -557,11 +553,13 @@ Future<int> _testExtensions(
     if (options.json) {
       _printJsonOrLines(report, options);
     } else {
-      print(
+      stdout.writeln(
         'Done: $passed passed, ${results.length - passed} failed '
         '(${results.length} tested)',
       );
-      if (options.report != null) print('Report: ${options.report}');
+      if (options.report != null) {
+        stdout.writeln('Report: ${options.report}');
+      }
     }
     return passed == results.length && catalog.failures.isEmpty ? 0 : 1;
   } finally {
@@ -678,7 +676,7 @@ Future<_TestResult> _testOne(
   } else {
     MManga? detail;
     await step('detail', (service) async {
-      detail = await service.getDetail(probe!);
+      detail = await service.getDetail(probe);
       return detail!;
     });
     await step(
@@ -700,7 +698,7 @@ Future<_TestResult> _testOne(
     } else if (item.source.itemType == ItemType.manga) {
       List<PageUrl>? pages;
       await step('pages', (service) async {
-        pages = await service.getPageList(mediaUrl!);
+        pages = await service.getPageList(mediaUrl);
         return pages!;
       });
       if (options.mode == 'deep' && pages != null && pages!.isNotEmpty) {
@@ -709,7 +707,7 @@ Future<_TestResult> _testOne(
     } else if (item.source.itemType == ItemType.novel) {
       String? html;
       await step('html', (service) async {
-        html = await service.getHtmlContent(detail?.name ?? '', mediaUrl!);
+        html = await service.getHtmlContent(detail?.name ?? '', mediaUrl);
         return html!;
       });
       if (options.mode == 'deep' && html != null) {
@@ -718,7 +716,7 @@ Future<_TestResult> _testOne(
     } else {
       List<Video>? videos;
       await step('videos', (service) async {
-        videos = await service.getVideoList(mediaUrl!);
+        videos = await service.getVideoList(mediaUrl);
         return videos!;
       });
       if (options.mode == 'deep' && videos != null && videos!.isNotEmpty) {
