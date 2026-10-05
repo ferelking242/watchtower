@@ -113,10 +113,13 @@ It can run without X11 or Wayland:
 ./watchtower --cli help
 ./watchtower --cli doctor --json
 ./watchtower --cli extensions list --repo ./watchtower-extensions
+./watchtower --cli extensions list --repo ./watchtower-extensions \
+  --type watch --lang fr --include-unindexed
 ./watchtower --cli plugins list --repo ./watchtower-extensions
 ./watchtower --cli plugins validate --repo ./watchtower-extensions --json
 ./watchtower --cli extensions test \
   --repo ./watchtower-extensions \
+  --type watch --lang fr --include-unindexed \
   --mode smoke \
   --report extensions.json
 ./watchtower --cli source 1900000002 inspect \
@@ -144,6 +147,11 @@ filters, preferences and headers. `smoke` also calls popular/latest/search,
 suggestions, details and the matching page, novel or video operation. `deep`
 adds page-two and HTTP probes. Mihon sources need a reachable bridge URL passed
 with `--mihon-proxy`; the CLI appends `/dalvik`.
+
+`--lang fr` filters by the effective source language. A language directory such
+as `src/watch/fr` takes precedence over outdated `lang` fields in the index.
+`--include-unindexed` explicitly adds JavaScript files under `src/` that are
+missing from the published index; it does not modify the catalog.
 
 `source` exposes the available `ExtensionService` operations, including filters,
 preferences, headers, custom lists, comments, recommendations and HTML. Use

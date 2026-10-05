@@ -30,6 +30,9 @@ et la bibliothèque lorsque les services existants le permettent.
 - `extensions test` vérifie le moteur, les filtres, préférences et headers;
   `smoke` appelle les opérations catalogue, suggestions, détail et média selon
   le type de contenu. `deep` ajoute la page 2 et le premier probe HTTP.
+- Le catalogue CLI filtre maintenant par langue et peut inclure, sur demande,
+  les sources JavaScript locales non indexées. Pour les extensions classées dans
+  un dossier de langue, ce chemin prévaut sur un champ `lang` périmé de l’index.
 - Les commandes plugin valident la structure et les types des métadonnées dans
   `index/plugins.json`. Elles n’exécutent pas le runtime du plugin, ne valident
   pas le schéma complet des manifests/UI et ne lisent pas les archives binaires.
@@ -62,7 +65,7 @@ et la bibliothèque lorsque les services existants le permettent.
 - Rendre les diagnostics vérifiables au lieu de déclarer des capacités natives
   sans les tester.
 - Ajouter des tests isolés du réseau pour le parseur, le catalogue, les erreurs,
-  les sorties JSON et les codes de retour.
+  les sorties JSON, les filtres de langue et les codes de retour.
 - Garder les commandes actuelles compatibles, sauf correction explicitement
   documentée.
 

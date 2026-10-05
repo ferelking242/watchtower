@@ -43,6 +43,7 @@ void main() {
 
       expect(options.repo, './catalog with spaces');
       expect(options.type, 'anime');
+      expect(options.language, isNull);
       expect(options.query, 'space opera');
       expect(options.filtersJson, contains('TextFilter'));
       expect(options.name, 'Chapter 1');
@@ -64,11 +65,30 @@ void main() {
       expect(options.concurrency, 4);
       expect(options.timeoutSeconds, 45);
       expect(options.includeNsfw, isTrue);
+      expect(options.includeUnindexed, isFalse);
 
       final excluded = WatchtowerCliOptions.parse(['--exclude-nsfw', '--json']);
       expect(excluded.includeNsfw, isFalse);
       expect(excluded.json, isTrue);
     });
+
+    test(
+      'accepts language aliases and explicitly enables unindexed scanning',
+      () {
+        final options = WatchtowerCliOptions.parse([
+          'extensions',
+          'test',
+          '--language=FR',
+          '--scan-unindexed',
+        ]);
+
+        expect(options.language, 'fr');
+        expect(options.includeUnindexed, isTrue);
+
+        final alias = WatchtowerCliOptions.parse(['--lang', 'fr']);
+        expect(alias.language, 'fr');
+      },
+    );
 
     test('rejects unknown options and missing or empty option values', () {
       expect(

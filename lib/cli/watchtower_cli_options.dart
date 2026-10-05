@@ -2,6 +2,7 @@ class WatchtowerCliOptions {
   final List<String> positional = [];
   String? repo;
   String? type;
+  String? language;
   String mode = 'load';
   String? report;
   String? query;
@@ -15,6 +16,7 @@ class WatchtowerCliOptions {
   int concurrency = 4;
   int timeoutSeconds = 45;
   bool includeNsfw = true;
+  bool includeUnindexed = false;
   bool all = false;
   bool json = false;
   bool quiet = false;
@@ -103,6 +105,15 @@ class WatchtowerCliOptions {
             }
             result.type = normalized;
           });
+        case '--lang':
+        case '--language':
+          setString((value) {
+            final normalized = value.trim().toLowerCase();
+            if (normalized.isEmpty) {
+              throw FormatException('$name must not be empty.');
+            }
+            result.language = normalized;
+          });
         case '--mode':
           setString((value) {
             if (!supportedModes.contains(value)) {
@@ -166,6 +177,12 @@ class WatchtowerCliOptions {
             throw FormatException('$name does not take a value.');
           }
           result.all = true;
+        case '--include-unindexed':
+        case '--scan-unindexed':
+          if (inlineValue != null) {
+            throw FormatException('$name does not take a value.');
+          }
+          result.includeUnindexed = true;
         case '--json':
           if (inlineValue != null) {
             throw FormatException('$name does not take a value.');

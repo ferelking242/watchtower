@@ -16,6 +16,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:path/path.dart' as p;
+import 'watchtower_cli_catalog.dart';
 import 'watchtower_cli_plugins.dart';
 import 'watchtower_cli_options.dart';
 import 'watchtower_cli_safety.dart';
@@ -49,6 +50,8 @@ Options générales:
   --repo, --extensions DIR     Dépôt watchtower-extensions local
   --extensions-dir DIR         Alias explicite de --repo
   --type TYPE                  manga, watch, novel, music, game ou plugin
+  --lang, --language LANG      Filtre par langue (ex. fr)
+  --include-unindexed          Inclut les fichiers source absents de l'index
   --include-nsfw               Alias conservé : inclut les extensions NSFW
   --exclude-nsfw               Exclut les extensions NSFW
   --all                        Teste toutes les extensions (comportement par défaut)
@@ -356,9 +359,14 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
 
   final items = <_CatalogItem>[];
   final failures = <Map<String, dynamic>>[];
+  final indexedSourcePaths = <String>{};
   await for (final entity in indexDir.list()) {
     if (entity is! File || !entity.path.endsWith('.json')) continue;
     if (entity.uri.pathSegments.last == 'plugins.json') continue;
+    if (options.type != null &&
+        !_matchesIndexFile(entity.path, options.type!)) {
+      continue;
+    }
     try {
       final raw = jsonDecode(await entity.readAsString());
       if (raw is! List) continue;
@@ -382,7 +390,21 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
             (metadata['sourceCodeUrl']?.toString().contains('/nsfw/') ?? false);
         if (isNsfw && !options.includeNsfw) continue;
         final sourcePath = _sourcePath(root, metadata);
+        final pathType = watchtowerCliSourceTypeFromPath(sourcePath);
+        if (options.type != null &&
+            pathType != null &&
+            !_matchesRequestedType(pathType, options.type!)) {
+          continue;
+        }
+        final sourceLanguage = watchtowerCliSourceLanguage(
+          metadata,
+          sourcePath,
+        );
+        if (options.language != null && sourceLanguage != options.language) {
+          continue;
+        }
         final codeFile = File(sourcePath);
+        indexedSourcePaths.add(p.normalize(codeFile.absolute.path));
         if (!await codeFile.exists()) {
           failures.add({
             'name': metadata['name'],
@@ -392,9 +414,16 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
           });
           continue;
         }
+        final sourceCode = await codeFile.readAsString();
+        final effectiveLanguage = watchtowerCliSourceLanguage(
+          metadata,
+          sourcePath,
+          sourceCode: sourceCode,
+        );
         final source = Source.fromJson({
           ...metadata,
-          'sourceCode': await codeFile.readAsString(),
+          'lang': effectiveLanguage ?? metadata['lang'],
+          'sourceCode': sourceCode,
           'isAdded': true,
           'isActive': true,
           'isLocal': true,
@@ -410,6 +439,15 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
       failures.add({'file': entity.path, 'error': error.toString()});
     }
   }
+  if (options.includeUnindexed) {
+    await _loadUnindexedSources(
+      root,
+      options,
+      items,
+      failures,
+      indexedSourcePaths,
+    );
+  }
   items.sort((a, b) => (a.source.name ?? '').compareTo(b.source.name ?? ''));
   failures.sort(
     (a, b) =>
@@ -421,6 +459,82 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
     items: items,
     failures: failures,
   );
+}
+
+Future<void> _loadUnindexedSources(
+  String root,
+  WatchtowerCliOptions options,
+  List<_CatalogItem> items,
+  List<Map<String, dynamic>> failures,
+  Set<String> indexedSourcePaths,
+) async {
+  final sourceDirectory = Directory(p.join(root, 'src'));
+  if (!await sourceDirectory.exists()) return;
+
+  final absoluteRoot = Directory(root).absolute.path;
+  await for (final entity in sourceDirectory.list(
+    recursive: true,
+    followLinks: false,
+  )) {
+    if (entity is! File ||
+        !entity.path.endsWith('.js') ||
+        entity.path.endsWith('.min.js') ||
+        p.basename(entity.path) == 'server.js') {
+      continue;
+    }
+    final absolutePath = p.normalize(File(entity.path).absolute.path);
+    if (indexedSourcePaths.contains(absolutePath)) continue;
+
+    final relativePath = p
+        .relative(absolutePath, from: absoluteRoot)
+        .replaceAll(r'\', '/');
+    final type = watchtowerCliSourceTypeFromPath(relativePath);
+    if (type == null ||
+        (options.type != null && !_matchesRequestedType(type, options.type!)) ||
+        (!options.includeNsfw && relativePath.startsWith('src/nsfw/'))) {
+      continue;
+    }
+
+    try {
+      final sourceCode = await entity.readAsString();
+      final language =
+          watchtowerCliSourceLanguage(
+            const {},
+            relativePath,
+            sourceCode: sourceCode,
+          ) ??
+          'all';
+      if (options.language != null && language != options.language) continue;
+      final metadata = watchtowerCliMetadataForUnindexedSource(
+        relativePath: relativePath,
+        sourceCode: sourceCode,
+        type: type,
+        language: language,
+      );
+      if (!options.includeNsfw && metadata['isNsfw'] == true) continue;
+      final source = Source.fromJson({...metadata, 'sourceCode': sourceCode});
+      items.add(
+        _CatalogItem(metadata: metadata, source: source, file: absolutePath),
+      );
+    } catch (error) {
+      failures.add({
+        'file': entity.path,
+        'error': 'could not load unindexed source: ${error.toString()}',
+      });
+    }
+  }
+}
+
+bool _matchesRequestedType(String actual, String requested) {
+  if (actual == requested) return true;
+  return (actual == 'watch' && requested == 'anime') ||
+      (actual == 'anime' && requested == 'watch');
+}
+
+bool _matchesIndexFile(String indexPath, String requested) {
+  final indexedType = p.basenameWithoutExtension(indexPath);
+  final requestedType = requested == 'anime' ? 'watch' : requested;
+  return indexedType == requestedType;
 }
 
 String _sourcePath(String root, Map<String, dynamic> metadata) {
@@ -484,6 +598,11 @@ int _listExtensions(_Catalog catalog, WatchtowerCliOptions options) {
     _printJsonOrLines({
       'root': catalog.root,
       'repositoryRevision': ?catalog.revision,
+      'filters': {
+        if (options.type != null) 'type': options.type,
+        if (options.language != null) 'language': options.language,
+        'includeUnindexed': options.includeUnindexed,
+      },
       'total': catalog.items.length,
       'failures': catalog.failures,
       'sources': catalog.items.map(_sourceJson).toList(),
@@ -537,6 +656,11 @@ Future<int> _testExtensions(
       'generatedAt': DateTime.now().toUtc().toIso8601String(),
       'version': _version,
       'mode': options.mode,
+      'filters': {
+        if (options.type != null) 'type': options.type,
+        if (options.language != null) 'language': options.language,
+        'includeUnindexed': options.includeUnindexed,
+      },
       'repository': catalog.root,
       'repositoryRevision': ?catalog.revision,
       'total': results.length,
@@ -919,6 +1043,9 @@ List<dynamic> _filtersFromJson(String? source, FilterList defaults) {
 
 Map<String, dynamic> _sourceJson(_CatalogItem item) => {
   ...item.metadata,
+  'id': item.source.id,
+  'name': item.source.name,
+  'lang': item.source.lang,
   'file': item.file,
   'type': _sourceType(item.source),
   'engine': item.source.sourceCodeLanguage.name,
