@@ -115,10 +115,21 @@ Map<String, String> _normalizedHeaders(Map<String, String>? headers) {
   return normalized;
 }
 
+bool _isCodeOrJsonContentType(String contentType) {
+  final mimeType = contentType.split(';').first.trim();
+  return mimeType.contains('javascript') ||
+      mimeType.contains('ecmascript') ||
+      mimeType == 'application/json' ||
+      mimeType == 'text/json' ||
+      mimeType.endsWith('+json');
+}
+
 /// Inspects an HTTP response (status + headers + optional body).
 ///
 /// `403` / `503` alone → pageType [AntiBotPageType.unknown], so the caller
-/// keeps the normal “HTTP error” path instead of a Cloudflare UI.
+/// keeps the normal “HTTP error” path instead of a Cloudflare UI. Challenge
+/// body markers are ignored for JavaScript and JSON payloads, where they may
+/// appear as source/data rather than as a page shown to the user.
 AntiBotAssessment assessHttpResponse({
   required int statusCode,
   Map<String, String>? headers,
@@ -146,7 +157,9 @@ AntiBotAssessment assessHttpResponse({
     evidence.add('header:cf-mitigated=${cfMitigated.split(',').first.trim()}');
   }
 
-  final haystack = (body ?? '').toLowerCase();
+  final haystack = _isCodeOrJsonContentType(contentType)
+      ? ''
+      : (body ?? '').toLowerCase();
   final challengeMarkers = _foundMarkers(haystack, kChallengeMarkers);
   final blockMarkers = _foundMarkers(haystack, kBlockMarkers);
 

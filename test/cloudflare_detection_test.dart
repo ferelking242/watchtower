@@ -87,6 +87,52 @@ void main() {
       expect(a.cloudflareInvolved, isTrue);
     });
 
+    test('challenge markers in JavaScript/JSON payloads are not page challenges',
+        () {
+      const sourceLikeBody = '''
+        const markers = [
+          "just a moment",
+          "checking your browser",
+          "challenge-platform",
+          "cf-chl",
+          "attention required"
+        ];
+      ''';
+
+      for (final contentType in [
+        'application/javascript; charset=utf-8',
+        'application/json; charset=utf-8',
+      ]) {
+        final a = assessHttpResponse(
+          statusCode: 200,
+          headers: {
+            'server': 'cloudflare',
+            'cf-ray': 'abc123-CDG',
+            'content-type': contentType,
+          },
+          body: sourceLikeBody,
+        );
+
+        expect(a.pageType, AntiBotPageType.normal, reason: contentType);
+        expect(a.challenge, isFalse, reason: contentType);
+        expect(a.blocked, isFalse, reason: contentType);
+        expect(a.cloudflareInvolved, isTrue, reason: contentType);
+      }
+    });
+
+    test('cf-mitigated challenge header remains actionable for JavaScript', () {
+      final a = assessHttpResponse(
+        statusCode: 200,
+        headers: {
+          'content-type': 'application/javascript',
+          'cf-mitigated': 'challenge',
+        },
+        body: 'const app = true;',
+      );
+      expect(a.challenge, isTrue);
+      expect(a.evidence, contains('header:cf-mitigated=challenge'));
+    });
+
     test('Test 7: a JSON API 403 is never rewritten as Cloudflare', () {
       final a = assessHttpResponse(
         statusCode: 403,
