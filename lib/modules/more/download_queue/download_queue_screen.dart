@@ -1874,28 +1874,26 @@ class _DownloadCard extends ConsumerWidget {
     final succeeded = invalidVideoCounters ? 0 : storedSucceeded;
     final total = invalidVideoCounters ? 1 : storedTotal;
 
-    final liveDownloadedBytes = liveProgress != null
-        ? liveProgress.downloadedBytes
-        : download.downloadedBytes;
-    final liveTotalBytes =
-        liveProgress != null ? liveProgress.totalBytes : download.totalBytes;
     final live = liveProgress;
+    final liveDownloadedBytes =
+        live != null ? live.downloadedBytes : download.downloadedBytes;
+    final liveTotalBytes =
+        live != null ? live.totalBytes : download.totalBytes;
     // Byte counters are only meaningful for video transfers. Older/corrupt
     // Isar rows could otherwise show the same impossible multi-petabyte size
     // on manga pages and episodes.
     final exactDownloadedBytes = itemType == ItemType.anime
         ? trustedDownloadByteCount(liveDownloadedBytes, allowZero: true) ??
-            (liveProgress == null && succeeded > 500
+            (live == null && succeeded > 500
                 ? trustedDownloadBytesFromKilobytes(succeeded)
                 : null)
         : null;
     final exactTotalBytes = itemType == ItemType.anime
-        ? liveProgress?.isIndeterminate == true
+        ? live?.isIndeterminate == true
             ? null
             : trustedDownloadByteCount(liveTotalBytes)
         : null;
     final hasObservedBytes = (exactDownloadedBytes ?? 0) > 0;
-    final live = liveProgress;
     final isIndeterminateTransfer = !isComplete &&
         !hasFailed &&
         !isPaused &&

@@ -6,4 +6,4 @@
 - [GitHub Actions availability](github-actions-availability.md) — les workflows de validation peuvent être désactivés côté dépôt; le push seul ne garantit pas un run CI.
 - [Component gallery fidelity](component-gallery-fidelity.md) — gallery entries must render production widgets and production section renderers, never visual duplicates.
 - [Stale filter indices](stale-filter-indices.md) — saved selection indices can outlive dynamic options; guard every values[index] access.
-- [Riverpod queue provider side effects](riverpod-queue-provider.md) — persist in the enqueue provider; update pause state and start scheduling after its Future completes.
+- [French-Stream usage scope](frenchstream-usage-scope.md) — l’utilisateur a confirmé que son usage dans Watchtower est légal.
