@@ -27,6 +27,7 @@ import 'package:watchtower/services/download_manager/active_download_registry.da
 import 'package:watchtower/services/download_manager/download_connectivity.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
+import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
 import 'package:watchtower/services/page_url_cache.dart';
@@ -1010,18 +1011,32 @@ Future<void> downloadChapter(
         }
       }
 
+      final reportedDownloadedBytes = progress.itemType == ItemType.anime
+          ? trustedDownloadByteCount(
+              progress.downloadedBytes,
+              allowZero: true,
+            )
+          : null;
+      final reportedTotalBytes = progress.itemType == ItemType.anime
+          ? trustedDownloadByteCount(progress.totalBytes)
+          : null;
+      final persistedTotalBytes = progress.itemType == ItemType.anime
+          ? trustedDownloadByteCount(download?.totalBytes)
+          : null;
+
       int isarSucceeded;
       int isarTotal;
 
       if (progress.itemType == ItemType.anime) {
-        final dBytes = progress.downloadedBytes;
-        final tBytes = progress.totalBytes;
+        final dBytes = reportedDownloadedBytes;
+        final tBytes = reportedTotalBytes;
 
         // The terminal callback used by the queue is a generic 1/1 event.
         // Never let that event replace a real video byte total already stored
         // in Isar (for example 14 MB / 140 MB).
         if (progress.isCompleted && dBytes == null && tBytes == null &&
-            storedTotal > 500) {
+            storedTotal > 500 &&
+            storedTotal <= maxTrustedDownloadBytes ~/ 1024) {
           isarSucceeded = storedSucceeded;
           isarTotal = storedTotal;
         } else if (dBytes != null && tBytes != null && tBytes > 0) {
@@ -1033,7 +1048,9 @@ Future<void> downloadChapter(
           // sentinel state and render live byte progress from Riverpod rather
           // than inventing a fake denominator.
           isarSucceeded = (dBytes / 1024).ceil();
-          isarTotal = progress.isCompleted && storedTotal > 500
+          isarTotal = progress.isCompleted &&
+                  storedTotal > 500 &&
+                  storedTotal <= maxTrustedDownloadBytes ~/ 1024
               ? storedTotal
               : 1;
         } else {
@@ -1063,9 +1080,8 @@ Future<void> downloadChapter(
         ref.read(downloadQueueStateProvider.notifier).setLiveProgress(
           chapter.id!,
           DownloadLiveProgress(
-            downloadedBytes: progress.downloadedBytes ??
-                (itemType == ItemType.anime ? isarSucceeded * 1024 : 0),
-            totalBytes: progress.totalBytes,
+            downloadedBytes: reportedDownloadedBytes,
+            totalBytes: reportedTotalBytes ?? persistedTotalBytes,
             completedUnits: progress.completed,
             totalUnits: progress.total,
           ),
@@ -1115,7 +1131,11 @@ Future<void> downloadChapter(
         //   • anime  → succeeded is in KB; anything >500 KB is a real progress value.
         //   • manga  → succeeded is page count; anything >1 means real progress.
         final threshold = progress.itemType == ItemType.anime ? 500 : 1;
-        _resumeSucceededKbOffset = stored > threshold ? stored : 0;
+        _resumeSucceededKbOffset = stored > threshold &&
+                (progress.itemType != ItemType.anime ||
+                    stored <= maxTrustedDownloadBytes ~/ 1024)
+            ? stored
+            : 0;
       }
 
       // ── Resume-safe corrections (manga and known-size files) ──────────────
@@ -1136,8 +1156,10 @@ Future<void> downloadChapter(
         final storedTotal = download.total ?? 0;
         final freezeThreshold = progress.itemType == ItemType.anime ? 500 : 1;
         final hasTrustworthyAnimeTotal = progress.itemType != ItemType.anime ||
-            progress.totalBytes != null;
+            reportedTotalBytes != null || persistedTotalBytes != null;
         if (storedTotal > freezeThreshold &&
+            (progress.itemType != ItemType.anime ||
+                storedTotal <= maxTrustedDownloadBytes ~/ 1024) &&
             !progress.isCompleted &&
             hasTrustworthyAnimeTotal) {
           // Freeze: use stored total regardless of new estimate direction.
@@ -1148,7 +1170,7 @@ Future<void> downloadChapter(
         // that report units/percentages instead of cumulative bytes.
         final hasCumulativeVideoBytes =
             progress.itemType == ItemType.anime &&
-            progress.downloadedBytes != null;
+            reportedDownloadedBytes != null;
         if (_resumeSucceededKbOffset > 0 && !hasCumulativeVideoBytes) {
           isarSucceeded += _resumeSucceededKbOffset;
           if (isarSucceeded > isarTotal) isarSucceeded = isarTotal;
@@ -1162,9 +1184,18 @@ Future<void> downloadChapter(
       // jumping backwards to 0 on the very first tick after resume).
       final writtenSucceeded =
           (progress.completed == 0 && _resumeSucceededKbOffset <= 0) ? 0 : isarSucceeded;
-      final exactDownloadedBytes = progress.downloadedBytes ??
-          (progress.itemType == ItemType.anime ? isarSucceeded * 1024 : null);
-      final exactTotalBytes = progress.totalBytes;
+      final exactDownloadedBytes = progress.itemType == ItemType.anime
+          ? reportedDownloadedBytes ??
+              (progress.isCompleted
+                  ? trustedDownloadByteCount(
+                      download?.downloadedBytes,
+                      allowZero: true,
+                    )
+                  : null)
+          : null;
+      final exactTotalBytes = progress.itemType == ItemType.anime
+          ? reportedTotalBytes ?? persistedTotalBytes
+          : null;
       final progressStatus = progress.isCompleted
           ? 'completed'
           : (exactDownloadedBytes != null && exactDownloadedBytes > 0
@@ -1210,7 +1241,7 @@ Future<void> downloadChapter(
                   ..failed = 0
                   ..isDownload = progress.isCompleted
                   ..downloadedBytes = exactDownloadedBytes
-                  ..totalBytes = exactTotalBytes ?? downloadNonNull.totalBytes
+                  ..totalBytes = exactTotalBytes
                   ..title = chapter.name
                   ..quality = chapterPreferredQuality[chapter.id]
                   ..posterUrl =
@@ -1249,11 +1280,14 @@ Future<void> downloadChapter(
       // not expose a length, keep the notification indeterminate rather than
       // inventing a denominator.
       if (progress.itemType == ItemType.anime && isarTotal > 0) {
-        final downloadedBytesRaw = progress.downloadedBytes ?? (isarSucceeded * 1024);
-        final downloadedBytes =
-            downloadedBytesRaw < 0 ? 0 : downloadedBytesRaw.toInt();
-        final notificationTotalBytes =
-            progress.totalBytes ?? (isarTotal > 500 ? isarTotal * 1024 : null);
+        final downloadedBytes = reportedDownloadedBytes ??
+            trustedDownloadBytesFromKilobytes(isarSucceeded) ??
+            0;
+        final notificationTotalBytes = reportedTotalBytes ??
+            trustedDownloadBytesFromKilobytes(
+              isarTotal > 500 ? isarTotal : null,
+              allowZero: false,
+            );
         final hasKnownSize =
             notificationTotalBytes != null && notificationTotalBytes > 0;
         final pct = hasKnownSize

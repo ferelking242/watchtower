@@ -418,9 +418,10 @@ class ChapterPageDownload extends ConsumerWidget {
         );
       } else {
         final totalBytes = liveProgress.totalBytes ?? 0;
-        if (totalBytes > 0) {
+        final downloadedBytes = liveProgress.downloadedBytes;
+        if (totalBytes > 0 && downloadedBytes != null) {
           candidates.add(
-            (liveProgress.downloadedBytes / totalBytes)
+            (downloadedBytes / totalBytes)
                 .clamp(0.0, 1.0)
                 .toDouble(),
           );

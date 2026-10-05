@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:grouped_list/grouped_list.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 import 'package:watchtower/main.dart';
@@ -17,6 +16,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
+import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/global_style.dart';
@@ -1323,6 +1323,7 @@ class _GroupedDownloadTabListState
     extends ConsumerState<_GroupedDownloadTabList> {
   /// Sources currently collapsed by the user (in-memory, resets on screen close).
   final _collapsed = <String>{};
+  final _collapsedSeries = <String>{};
 
   /// Custom source order persisted in [DownloadSettingsService].
   List<String> _order = [];
@@ -1376,6 +1377,115 @@ class _GroupedDownloadTabListState
     if (src.isEmpty || src == 'autre') return 'Autre';
     final s = src.replaceAll('-', ' ').replaceAll('_', ' ');
     return s[0].toUpperCase() + s.substring(1);
+  }
+
+  Map<String, List<Download>> _groupBySeries(List<Download> items) {
+    final groups = <String, List<Download>>{};
+    for (final download in items) {
+      final chapter = download.chapter.value;
+      final manga = chapter?.manga.value;
+      final mangaId = manga?.id ?? chapter?.mangaId;
+      final itemId = download.id ?? chapter?.id ?? identityHashCode(download);
+      final key =
+          mangaId != null ? 'manga:$mangaId' : 'chapter:$itemId';
+      (groups[key] ??= <Download>[]).add(download);
+    }
+    return groups;
+  }
+
+  Widget _buildSeriesGroup(String key, List<Download> items) {
+    final firstDownload = items.first;
+    final manga = firstDownload.chapter.value?.manga.value;
+    final itemType = manga?.itemType ?? ItemType.manga;
+    final title = manga?.name ??
+        firstDownload.title ??
+        firstDownload.chapter.value?.name ??
+        'Téléchargement';
+    final isCollapsed = _collapsedSeries.contains(key);
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => setState(() {
+              if (isCollapsed) {
+                _collapsedSeries.remove(key);
+              } else {
+                _collapsedSeries.add(key);
+              }
+            }),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow.withValues(alpha: 0.72),
+                border: Border(
+                  bottom: BorderSide(
+                    color: scheme.outlineVariant.withValues(alpha: 0.35),
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  _CoverThumbnail(
+                    imageUrl: manga?.imageUrl,
+                    customBytes: manga?.customCoverImage?.cast<int>(),
+                    itemType: itemType,
+                    width: 40,
+                    height: 56,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurface,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${items.length}',
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  AnimatedRotation(
+                    turns: isCollapsed ? -0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 200),
+          crossFadeState: isCollapsed
+              ? CrossFadeState.showFirst
+              : CrossFadeState.showSecond,
+          firstChild: const SizedBox.shrink(),
+          secondChild: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: items.map(_buildDismissible).toList(),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildDismissible(Download element) {
@@ -1517,16 +1627,7 @@ class _GroupedDownloadTabListState
     final sources = _orderedSources(groups);
     final scheme = Theme.of(context).colorScheme;
 
-    // Single source: plain flat list (no grouping overhead).
-    if (sources.length <= 1) {
-      return ListView.builder(
-        padding: const EdgeInsets.only(bottom: 80),
-        itemCount: widget.entries.length,
-        itemBuilder: (_, i) => _buildDismissible(widget.entries[i]),
-      );
-    }
-
-    // Multiple sources: collapsible groups with drag-to-reorder.
+    // Keep source/extension sections visible even when only one is installed.
     return ReorderableListView.builder(
       padding: const EdgeInsets.only(bottom: 80),
       buildDefaultDragHandles: false,
@@ -1548,6 +1649,7 @@ class _GroupedDownloadTabListState
       itemBuilder: (ctx, idx) {
         final src = sources[idx];
         final items = groups[src]!;
+        final seriesGroups = _groupBySeries(items);
         final isCollapsed = _collapsed.contains(src);
         final itemType = items.first.chapter.value?.manga.value?.itemType;
 
@@ -1674,7 +1776,9 @@ class _GroupedDownloadTabListState
                 firstChild: const SizedBox.shrink(),
                 secondChild: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: items.map(_buildDismissible).toList(),
+                  children: seriesGroups.entries
+                      .map((entry) => _buildSeriesGroup(entry.key, entry.value))
+                      .toList(),
                 ),
               ),
             ],
@@ -1756,21 +1860,38 @@ class _DownloadCard extends ConsumerWidget {
     final layout = ref.watch(downloadCardLayoutStateProvider);
 
     // Progress calculation
-    final succeeded = download.succeeded ?? 0;
-    final total = download.total ?? 100;
+    final storedSucceeded = download.succeeded ?? 0;
+    final storedTotal = download.total ?? 100;
     final failed = download.failed ?? 0;
     final isComplete = download.isDownload ?? false;
     final hasFailed = failed > 0 && !isComplete;
     final isPaused = this.isPaused;
+    final invalidVideoCounters = itemType == ItemType.anime &&
+        (storedSucceeded < 0 ||
+            storedTotal < 0 ||
+            storedSucceeded > maxTrustedDownloadBytes ~/ 1024 ||
+            storedTotal > maxTrustedDownloadBytes ~/ 1024);
+    final succeeded = invalidVideoCounters ? 0 : storedSucceeded;
+    final total = invalidVideoCounters ? 1 : storedTotal;
 
-    final liveDownloadedBytes =
-        liveProgress?.downloadedBytes ?? download.downloadedBytes;
-    final liveTotalBytes = liveProgress?.totalBytes ?? download.totalBytes;
+    final liveDownloadedBytes = liveProgress != null
+        ? liveProgress.downloadedBytes
+        : download.downloadedBytes;
+    final liveTotalBytes =
+        liveProgress != null ? liveProgress.totalBytes : download.totalBytes;
     final live = liveProgress;
-    final exactDownloadedBytes = liveDownloadedBytes ??
-        (itemType == ItemType.anime && succeeded > 500 ? succeeded * 1024 : null);
-    final exactTotalBytes = liveTotalBytes ??
-        (itemType == ItemType.anime && total > 500 ? total * 1024 : null);
+    // Byte counters are only meaningful for video transfers. Older/corrupt
+    // Isar rows could otherwise show the same impossible multi-petabyte size
+    // on manga pages and episodes.
+    final exactDownloadedBytes = itemType == ItemType.anime
+        ? trustedDownloadByteCount(liveDownloadedBytes, allowZero: true) ??
+            (liveProgress == null && succeeded > 500
+                ? trustedDownloadBytesFromKilobytes(succeeded)
+                : null)
+        : null;
+    final exactTotalBytes = itemType == ItemType.anime
+        ? trustedDownloadByteCount(liveTotalBytes)
+        : null;
     final progress = exactTotalBytes != null && exactTotalBytes > 0
         ? (exactDownloadedBytes ?? 0) / exactTotalBytes
         : live != null
@@ -2368,13 +2489,22 @@ class _DownloadCard extends ConsumerWidget {
         if (liveProgress != null) {
           final downloaded = liveProgress!.downloadedBytes;
           final knownTotal = liveProgress!.totalBytes;
-          if (knownTotal != null && knownTotal > 0) {
+          if (downloaded != null && knownTotal != null && knownTotal > 0) {
             return '${_formatBytes(downloaded)} / ${_formatBytes(knownTotal)}';
           }
-          if (downloaded > 0) {
+          if (downloaded != null && downloaded > 0) {
             // Never display a fake "taille finale" denominator. The real
             // total is shown as soon as the engine provides it.
             return _formatBytes(downloaded);
+          }
+          if (liveProgress!.totalUnits > 1 &&
+              liveProgress!.completedUnits > 0) {
+            final percent = (liveProgress!.completedUnits /
+                    liveProgress!.totalUnits *
+                    100)
+                .round()
+                .clamp(0, 100);
+            return '$percent%';
           }
           return 'Préparation du flux…';
         }

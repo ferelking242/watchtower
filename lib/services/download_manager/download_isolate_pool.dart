@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/page.dart';
+import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
@@ -781,14 +782,25 @@ _ParsedContentRange? _parseContentRange(String? value) {
   final trimmed = value.trim();
   final unsatisfied = RegExp(r'^bytes\s+\*/(\d+)$').firstMatch(trimmed);
   if (unsatisfied != null) {
-    return _ParsedContentRange(0, -1, int.parse(unsatisfied.group(1)!));
+    final total = int.tryParse(unsatisfied.group(1)!);
+    return total == null ? null : _ParsedContentRange(0, -1, total);
   }
   final match = RegExp(r'^bytes\s+(\d+)-(\d+)/(\d+|\*)$').firstMatch(trimmed);
   if (match == null) return null;
+  final start = int.tryParse(match.group(1)!);
+  final end = int.tryParse(match.group(2)!);
+  final total = match.group(3) == '*' ? null : int.tryParse(match.group(3)!);
+  if (start == null ||
+      end == null ||
+      start > end ||
+      (match.group(3) != '*' && total == null) ||
+      (total != null && total <= end)) {
+    return null;
+  }
   return _ParsedContentRange(
-    int.parse(match.group(1)!),
-    int.parse(match.group(2)!),
-    match.group(3) == '*' ? null : int.parse(match.group(3)!),
+    start,
+    end,
+    total,
   );
 }
 
@@ -815,9 +827,9 @@ Future<int?> _probeContentLength(
     final headResponse = await client
         .send(head)
         .timeout(const Duration(seconds: 15));
-    final headLength = headResponse.contentLength;
     await headResponse.stream.drain();
-    if (headLength != null && headLength > 0) return headLength;
+    final headLength = trustedDownloadByteCount(headResponse.contentLength);
+    if (headLength != null) return headLength;
   } catch (_) {
     // Some CDNs reject HEAD. Fall through to the one-byte range probe.
   }
@@ -837,15 +849,13 @@ Future<int?> _probeContentLength(
         _responseHeader(response, 'content-range'),
       );
       if ((response.statusCode == 206 || response.statusCode == 416) &&
-          parsed?.total != null &&
-          parsed!.total! > 0) {
-        return parsed.total;
+          trustedDownloadByteCount(parsed?.total) != null) {
+        return trustedDownloadByteCount(parsed?.total);
       }
       // A server may ignore Range but still provide the full size in 200.
       if (response.statusCode == 200 &&
-          response.contentLength != null &&
-          response.contentLength! > 0) {
-        return response.contentLength;
+          trustedDownloadByteCount(response.contentLength) != null) {
+        return trustedDownloadByteCount(response.contentLength);
       }
     } finally {
       await response.stream.listen((_) {}).cancel();
@@ -927,8 +937,8 @@ Future<void> _downloadFile(
         }
 
         int startFrom = await partFile.exists() ? await partFile.length() : 0;
-        int? knownTotal = (metadata['totalBytes'] as num?)?.toInt();
-        if (knownTotal != null && knownTotal <= 0) knownTotal = null;
+        final rawKnownTotal = (metadata['totalBytes'] as num?)?.toInt();
+        int? knownTotal = trustedDownloadByteCount(rawKnownTotal);
 
         if (knownTotal == null) {
           // HEAD is not reliable across video CDNs. The fallback range probe
@@ -956,7 +966,8 @@ Future<void> _downloadFile(
 
         if (response.statusCode == 416) {
           // A complete .part can be finalized without downloading again.
-          final remoteTotal = parsedRange?.total;
+          final remoteTotal =
+              trustedDownloadByteCount(parsedRange?.total);
           if (requestedOffset > 0 &&
               remoteTotal != null &&
               remoteTotal == requestedOffset) {
@@ -1013,12 +1024,17 @@ Future<void> _downloadFile(
         }
 
         final responseLength = response.contentLength;
-        int? totalBytes = parsedRange?.total;
-        if (totalBytes == null &&
-            responseLength != null &&
-            responseLength > 0) {
-          totalBytes = responseLength + (resumed ? startFrom : 0);
-        }
+        final parsedTotal = trustedDownloadByteCount(parsedRange?.total);
+        final rangedResponseLength = responseLength == null ||
+                responseLength > maxTrustedDownloadBytes -
+                    (resumed ? startFrom : 0)
+            ? null
+            : responseLength + (resumed ? startFrom : 0);
+        final responseReportedTotal = parsedTotal ??
+            (parsedRange?.total == null
+                ? trustedDownloadByteCount(rangedResponseLength)
+                : null);
+        int? totalBytes = responseReportedTotal;
         totalBytes ??= knownTotal;
 
         final etag = _responseHeader(response, 'etag');
@@ -1075,9 +1091,14 @@ Future<void> _downloadFile(
         }
 
         final written = await partFile.length();
-        if (totalBytes != null && written != totalBytes) {
+        // Only enforce lengths declared by this GET response. A HEAD/range
+        // probe is advisory and can be stale on signed/CDN URLs; treating it
+        // as authoritative used to leave valid completed files stuck as
+        // "incomplete" forever.
+        if (responseReportedTotal != null &&
+            written != responseReportedTotal) {
           throw DownloadPoolException(
-            'Incomplete download: $written/$totalBytes bytes ($finalPath)',
+            'Incomplete download: $written/$responseReportedTotal bytes ($finalPath)',
           );
         }
         if (written == 0) {

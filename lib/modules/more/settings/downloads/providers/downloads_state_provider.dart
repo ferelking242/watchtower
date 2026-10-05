@@ -758,7 +758,7 @@ class DownloadQueueStateData {
 /// Byte/segment progress that is only valid for the current app session.
 /// [totalBytes] is null until the server gives a trustworthy final length.
 class DownloadLiveProgress {
-  final int downloadedBytes;
+  final int? downloadedBytes;
   final int? totalBytes;
   final int completedUnits;
   final int totalUnits;
