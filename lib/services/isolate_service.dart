@@ -28,6 +28,7 @@ class _ExtensionWorker {
   ReceivePort? receivePort;
   StreamSubscription? receiveSub;
   SendPort? sendPort;
+  Future<void>? restartFuture;
 }
 
 void _forwardExtensionLog(String message) {
@@ -57,6 +58,7 @@ void _forwardExtensionLog(String message) {
 
 class GetIsolateService {
   bool _isRunning = false;
+  RootIsolateToken? _rootIsolateToken;
   final List<_ExtensionWorker> _workers = [];
   final Map<String, _ExtensionWorker> _sourceWorkers = {};
   int _nextWorker = 0;
@@ -65,7 +67,14 @@ class GetIsolateService {
     if (!_isRunning) {
       try {
         await _initGetIsolateService();
-      } catch (_) {
+      } catch (e, st) {
+        AppLogger.log(
+          'Failed to start extension workers: $e',
+          logLevel: LogLevel.error,
+          tag: LogTag.extension_,
+          error: e,
+          stackTrace: st,
+        );
         await stop();
       }
     }
@@ -73,6 +82,7 @@ class GetIsolateService {
 
   Future<void> _initGetIsolateService() async {
     final rootToken = RootIsolateToken.instance!;
+    _rootIsolateToken = rootToken;
     final workerCount = getRecommendedExtensionWorkerCount();
     try {
       for (var i = 0; i < workerCount; i++) {
@@ -99,34 +109,121 @@ class GetIsolateService {
       if (message is String) _forwardExtensionLog(message);
     });
 
-    worker.isolate = await Isolate.spawn(
-      _getIsolateServiceEntryPoint,
-      _IsolateData(
-        sendPort: receivePort.sendPort,
-        rootIsolateToken: rootToken,
-      ),
-    );
-    worker.sendPort = await handshake.future.timeout(
-      const Duration(seconds: 20),
-      onTimeout: () =>
-          throw StateError('Extension worker handshake timed out after 20 s'),
-    );
-    return worker;
+    try {
+      worker.isolate = await Isolate.spawn(
+        _getIsolateServiceEntryPoint,
+        _IsolateData(
+          sendPort: receivePort.sendPort,
+          rootIsolateToken: rootToken,
+        ),
+      );
+      worker.sendPort = await handshake.future.timeout(
+        const Duration(seconds: 20),
+        onTimeout: () =>
+            throw StateError('Extension worker handshake timed out after 20 s'),
+      );
+      return worker;
+    } catch (_) {
+      worker.isolate?.kill(priority: Isolate.immediate);
+      await worker.receiveSub?.cancel();
+      worker.receivePort?.close();
+      rethrow;
+    }
   }
 
   String _sourceKey(Source? source) =>
       '${source?.id ?? source?.name ?? source?.hashCode}:'
       '${source?.lang ?? ""}';
 
-  _ExtensionWorker _workerForSource(Source? source) {
+  Future<_ExtensionWorker> _workerForSource(Source? source) async {
     final key = _sourceKey(source);
     final existing = _sourceWorkers[key];
-    if (existing != null) return existing;
+    if (existing != null) {
+      final restart = existing.restartFuture;
+      if (restart == null) return existing;
+      await restart;
+      final replacement = _sourceWorkers[key];
+      if (replacement != null) return replacement;
+    }
 
-    final worker = _workers[_nextWorker % _workers.length];
-    _nextWorker++;
-    _sourceWorkers[key] = worker;
-    return worker;
+    while (true) {
+      final available = _workers
+          .where((worker) => worker.restartFuture == null)
+          .toList();
+      if (available.isNotEmpty) {
+        final worker = available[_nextWorker % available.length];
+        _nextWorker++;
+        _sourceWorkers[key] = worker;
+        return worker;
+      }
+
+      final restarting = _workers
+          .map((worker) => worker.restartFuture)
+          .whereType<Future<void>>()
+          .toList();
+      if (restarting.isEmpty) {
+        throw StateError('No healthy extension worker is available');
+      }
+      await Future.wait(restarting);
+    }
+  }
+
+  Future<void> _restartWorker(_ExtensionWorker failedWorker) {
+    final existingRestart = failedWorker.restartFuture;
+    if (existingRestart != null) return existingRestart;
+
+    final restart = _replaceTimedOutWorker(failedWorker);
+    failedWorker.restartFuture = restart;
+    return restart;
+  }
+
+  Future<void> _replaceTimedOutWorker(_ExtensionWorker failedWorker) async {
+    if (!_workers.contains(failedWorker)) return;
+
+    // A timed-out extension call is still running in this isolate. Its
+    // per-source service queue would otherwise remain blocked, so replace the
+    // entire worker to give retries a fresh ExtensionServiceRegistry.
+    failedWorker.isolate?.kill(priority: Isolate.immediate);
+    await failedWorker.receiveSub?.cancel();
+    failedWorker.receivePort?.close();
+
+    try {
+      final rootToken = _rootIsolateToken ?? RootIsolateToken.instance;
+      if (rootToken == null) {
+        throw StateError('Root isolate token is unavailable');
+      }
+      final replacement = await _spawnWorker(rootToken);
+      final currentIndex = _workers.indexOf(failedWorker);
+      if (currentIndex < 0) {
+        replacement.isolate?.kill(priority: Isolate.immediate);
+        await replacement.receiveSub?.cancel();
+        replacement.receivePort?.close();
+        return;
+      }
+      _workers[currentIndex] = replacement;
+      for (final entry in _sourceWorkers.entries.toList()) {
+        if (identical(entry.value, failedWorker)) {
+          _sourceWorkers[entry.key] = replacement;
+        }
+      }
+      AppLogger.log(
+        'Replaced timed-out extension worker; source requests can retry',
+        logLevel: LogLevel.warning,
+        tag: LogTag.extension_,
+      );
+    } catch (e, st) {
+      _sourceWorkers.removeWhere((_, worker) => identical(worker, failedWorker));
+      _workers.remove(failedWorker);
+      _isRunning = _workers.isNotEmpty;
+      AppLogger.log(
+        'Could not replace timed-out extension worker: $e',
+        logLevel: LogLevel.error,
+        tag: LogTag.extension_,
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   static Future<void> _getIsolateServiceEntryPoint(
@@ -383,6 +480,9 @@ class GetIsolateService {
     // ── Native path ───────────────────────────────────────────────────────
 
     if (!_isRunning || _workers.isEmpty) {
+      await start();
+    }
+    if (!_isRunning || _workers.isEmpty) {
       AppLogger.log(
         'Isolate not running — cannot execute $serviceType for ${source?.name}',
         logLevel: LogLevel.error,
@@ -391,6 +491,7 @@ class GetIsolateService {
       throw Exception('Isolate not running');
     }
 
+    final worker = await _workerForSource(source);
     final responsePort = ReceivePort();
     final completer = Completer<T>();
     late final StreamSubscription sub;
@@ -416,6 +517,14 @@ class GetIsolateService {
         sub.cancel();
         responsePort.close();
         completer.completeError('Isolate response timeout');
+        // Future.timeout only stops waiting on the caller; it cannot cancel
+        // QuickJS work inside the worker. Restarting it clears the blocked
+        // per-source queue so a retry does not hang behind this request.
+        unawaited(
+          _restartWorker(worker).catchError(
+            (Object _, StackTrace __) {},
+          ),
+        );
       }
     });
 
@@ -450,7 +559,6 @@ class GetIsolateService {
       }
     });
 
-    final worker = _workerForSource(source);
     worker.sendPort!.send({
       'url': ?url,
       'page': ?page,

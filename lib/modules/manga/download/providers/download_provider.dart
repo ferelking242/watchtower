@@ -834,10 +834,23 @@ Future<void> downloadChapter(
       );
   if (!ownsActiveSlot) {
     log('[downloadChapter] duplicate worker ignored chapterId=$chapterId');
+    AppLogger.log(
+      '[ch:$chapterId] duplicate worker ignored; another worker owns this download',
+      logLevel: LogLevel.warning,
+      tag: LogTag.download,
+    );
     callback?.call();
     keepAlive.close();
     return;
   }
+  AppLogger.log(
+    '[ch:$chapterId] download worker started '
+    'type=${mangaForRegistry?.itemType.name ?? "unknown"} '
+    'source=${mangaForRegistry?.source ?? "?"} '
+    'url=${chapter.url ?? "n/a"}',
+    logLevel: LogLevel.info,
+    tag: LogTag.download,
+  );
 
   try {
     bool onlyOnWifi = useWifi ?? ref.read(onlyOnWifiStateProvider);
@@ -1407,6 +1420,12 @@ Future<void> downloadChapter(
 
     if (itemType == ItemType.manga) {
       try {
+        AppLogger.log(
+          '[ch:${chapter.id}] fetching manga page metadata '
+          'source=${manga.source ?? "?"} url=${chapter.url ?? "n/a"}',
+          logLevel: LogLevel.info,
+          tag: LogTag.download,
+        );
         final value = await ref
             .read(getChapterPagesProvider(chapter: chapter).future)
             .timeout(const Duration(seconds: 90));
@@ -1430,6 +1449,12 @@ Future<void> downloadChapter(
       }
     } else if (itemType == ItemType.anime) {
       try {
+        AppLogger.log(
+          '[ch:${chapter.id}] fetching episode video metadata '
+          'source=${manga.source ?? "?"} url=${chapter.url ?? "n/a"}',
+          logLevel: LogLevel.info,
+          tag: LogTag.download,
+        );
         final value = await ref
             .read(getVideoListProvider(episode: chapter).future)
             .timeout(const Duration(seconds: 90));
@@ -1560,6 +1585,11 @@ Future<void> downloadChapter(
 
     // If the fetch failed (exception, empty result, or timeout), mark failed and abort.
     if (fetchError != null) {
+      if (itemType == ItemType.manga) {
+        ref.invalidate(getChapterPagesProvider(chapter: chapter));
+      } else if (itemType == ItemType.anime) {
+        ref.invalidate(getVideoListProvider(episode: chapter));
+      }
       AppLogger.log(
         '[ch:' + (chapter.id?.toString() ?? '?') + '] FETCH ERROR: $fetchError',
         logLevel: LogLevel.error,

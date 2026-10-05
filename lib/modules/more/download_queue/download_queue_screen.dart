@@ -21,6 +21,7 @@ import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
@@ -1401,6 +1402,11 @@ class _GroupedDownloadTabListState
         firstDownload.title ??
         firstDownload.chapter.value?.name ??
         'Téléchargement';
+    final completedCount =
+        items.where((download) => download.isDownload == true).length;
+    final seriesProgress =
+        items.isEmpty ? 0.0 : completedCount / items.length;
+    final seriesPercent = (seriesProgress * 100).round();
     final isCollapsed = _collapsedSeries.contains(key);
     final scheme = Theme.of(context).colorScheme;
 
@@ -1439,15 +1445,53 @@ class _GroupedDownloadTabListState
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.onSurface,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    child: itemType == ItemType.manga
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.onSurface,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 5),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: MbGradientProgressBar(
+                                      value: seriesProgress,
+                                      height: 3,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 7),
+                                  Text(
+                                    '$seriesPercent% · $completedCount/${items.length}',
+                                    style: TextStyle(
+                                      color: scheme.onSurfaceVariant,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurface,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1652,6 +1696,20 @@ class _GroupedDownloadTabListState
         final seriesGroups = _groupBySeries(items);
         final isCollapsed = _collapsed.contains(src);
         final itemType = items.first.chapter.value?.manga.value?.itemType;
+        final sourceManga = items.first.chapter.value?.manga.value;
+        final sourceIconUrl = sourceManga == null
+            ? null
+            : getSource(
+                sourceManga.lang ?? '',
+                src,
+                sourceManga.sourceId,
+              )?.iconUrl
+                ?.trim();
+        final sourceFallbackIcon = itemType == ItemType.anime
+            ? Icons.play_circle_outline
+            : itemType == ItemType.novel
+                ? Icons.auto_stories_outlined
+                : Icons.menu_book_outlined;
 
         return KeyedSubtree(
           key: ValueKey('src_$src'),
@@ -1660,109 +1718,108 @@ class _GroupedDownloadTabListState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Source group header ─────────────────────────────────
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => setState(() {
-                    if (_collapsed.contains(src)) {
-                      _collapsed.remove(src);
-                    } else {
-                      _collapsed.add(src);
-                    }
-                  }),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          scheme.surfaceContainerHigh.withValues(alpha: 0.55),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: scheme.outlineVariant.withValues(alpha: 0.5),
-                          width: 0.5,
+              ReorderableDelayedDragStartListener(
+                index: idx,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => setState(() {
+                      if (_collapsed.contains(src)) {
+                        _collapsed.remove(src);
+                      } else {
+                        _collapsed.add(src);
+                      }
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            scheme.surfaceContainerHigh.withValues(alpha: 0.55),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: scheme.outlineVariant.withValues(alpha: 0.5),
+                            width: 0.5,
+                          ),
                         ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        // Drag handle — only this initiates reorder
-                        ReorderableDragStartListener(
-                          index: idx,
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: sourceIconUrl?.isNotEmpty == true
+                                ? cachedNetworkImage(
+                                    imageUrl: sourceIconUrl!,
+                                    fit: BoxFit.contain,
+                                    width: 28,
+                                    height: 28,
+                                    useCustomNetworkImage: false,
+                                    errorWidget: Icon(
+                                      sourceFallbackIcon,
+                                      size: 15,
+                                      color: scheme.primary,
+                                    ),
+                                  )
+                                : Icon(
+                                    sourceFallbackIcon,
+                                    size: 15,
+                                    color: scheme.primary,
+                                  ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Source name
+                          Expanded(
+                            child: Text(
+                              _displayName(src),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // Count badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${items.length}',
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Collapse chevron
+                          AnimatedRotation(
+                            turns: isCollapsed ? -0.25 : 0,
+                            duration: const Duration(milliseconds: 200),
                             child: Icon(
-                              Icons.drag_handle_rounded,
-                              size: 18,
-                              color: scheme.onSurfaceVariant
-                                  .withValues(alpha: 0.45),
+                              Icons.expand_more_rounded,
+                              size: 20,
+                              color: scheme.onSurfaceVariant,
                             ),
                           ),
-                        ),
-                        // Source type icon
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Icon(
-                            itemType == ItemType.anime
-                                ? Icons.play_circle_outline
-                                : itemType == ItemType.novel
-                                    ? Icons.auto_stories_outlined
-                                    : Icons.menu_book_outlined,
-                            size: 15,
-                            color: scheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Source name
-                        Expanded(
-                          child: Text(
-                            _displayName(src),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        // Count badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${items.length}',
-                            style: TextStyle(
-                              color: scheme.primary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        // Collapse chevron
-                        AnimatedRotation(
-                          turns: isCollapsed ? -0.25 : 0,
-                          duration: const Duration(milliseconds: 200),
-                          child: Icon(
-                            Icons.expand_more_rounded,
-                            size: 20,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
