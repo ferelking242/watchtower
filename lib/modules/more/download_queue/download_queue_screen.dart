@@ -1971,15 +1971,13 @@ class _DownloadCard extends ConsumerWidget {
 
     final scheme = Theme.of(context).colorScheme;
 
-    // The sentinel record written by addDownloadToQueue has succeeded=0, total=1.
-    // It means "we know a download is queued but haven't fetched page URLs yet".
-    // Show a dedicated label for this state instead of the generic "En attente".
+    // Show metadata retrieval only after the scheduler dispatches the item.
+    // A newly queued sentinel (0/1) can wait behind capacity or Wi-Fi gates.
     final isRetrievingMetadata = !isComplete &&
         !hasFailed &&
         !isPaused &&
         !hasObservedBytes &&
-        (download.status == 'fetching_metadata' ||
-            (live == null && succeeded == 0 && total == 1));
+        download.status == 'fetching_metadata';
     final isPreparingDownload = !isComplete &&
         !hasFailed &&
         !isPaused &&

@@ -807,7 +807,7 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     ..title = chapter.name
     ..posterUrl = chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
     ..quality = chapterPreferredQuality[id]
-    ..status = 'fetching_metadata';
+    ..status = 'queued';
 
   isar.writeTxnSync(() {
     if (corruptRecord) isar.downloads.deleteSync(id);
@@ -1645,6 +1645,13 @@ Future<void> downloadChapter(
       callback?.call();
       keepAlive.close();
       return;
+    }
+
+    // Metadata has resolved successfully. Show preparation/transfer setup
+    // from this point rather than leaving a queued item labelled as metadata.
+    if (chapterId != null &&
+        (pageUrls.isNotEmpty || novelPage != null || m3u8Downloader != null)) {
+      _setDownloadStatus(chapterId, 'initializing');
     }
 
     log('[downloadChapter] itemType=$itemType chapterId=${chapter.id} chapterName=$chapterName');

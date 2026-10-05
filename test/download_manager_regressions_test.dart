@@ -91,7 +91,7 @@ void main() {
       expect(queued, isNotNull);
       expect(queued!.isDownload, isFalse);
       expect(queued.isStartDownload, isTrue);
-      expect(queued.status, 'fetching_metadata');
+      expect(queued.status, 'queued');
       expect(queued.chapter.value, same(chapter));
     });
 
@@ -173,7 +173,7 @@ void main() {
         expect(queued.isStartDownload, isTrue, reason: status);
         expect(queued.failed, 0, reason: status);
         expect(queued.total, 1, reason: status);
-        expect(queued.status, 'fetching_metadata', reason: status);
+        expect(queued.status, 'queued', reason: status);
       }
     });
 
@@ -193,12 +193,14 @@ void main() {
       final failedChapter = _testChapter(930030);
       final nextChapter = _testChapter(930031);
       final workerStarts = <int>[];
+      final workerStatuses = <int, String?>{};
       final failedWorker = downloadChapterProvider(
         chapter: failedChapter,
         useWifi: false,
       ).overrideWith((ref) async {
         workerStarts.add(failedChapter.id!);
         final queued = testIsar.downloads.getSync(failedChapter.id!)!;
+        workerStatuses[failedChapter.id!] = queued.status;
         testIsar.writeTxnSync(() {
           testIsar.downloads.putSync(
             queued
@@ -214,6 +216,7 @@ void main() {
       ).overrideWith((ref) async {
         workerStarts.add(nextChapter.id!);
         final queued = testIsar.downloads.getSync(nextChapter.id!)!;
+        workerStatuses[nextChapter.id!] = queued.status;
         testIsar.writeTxnSync(() {
           testIsar.downloads.putSync(
             queued
@@ -236,6 +239,7 @@ void main() {
       await container.read(processDownloadsProvider(useWifi: false).future);
 
       expect(workerStarts, containsAll([failedChapter.id, nextChapter.id]));
+      expect(workerStatuses.values, everyElement('fetching_metadata'));
       expect(
         testIsar.downloads.getSync(failedChapter.id!)!.status,
         'failed',
