@@ -194,22 +194,25 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   void _loadExtensionSources() {
-    try {
-      _extensionSources
-        ..clear()
-        ..addAll(
-          isar.sources
-              .where()
-              .findAllSync()
-              .where((source) => (source.name ?? '').trim().isNotEmpty)
-              .toList()
-            ..sort(
-              (a, b) => (b.name ?? '').length.compareTo((a.name ?? '').length),
-            ),
-        );
-    } catch (_) {
-      // The in-memory log viewer can still be opened before the database loads.
-    }
+    isar.sources.where().findAll().then<void>(
+      (sources) {
+        if (!mounted) return;
+        final extensions = sources
+            .where((source) => (source.name ?? '').trim().isNotEmpty)
+            .toList()
+          ..sort(
+            (a, b) => (b.name ?? '').length.compareTo((a.name ?? '').length),
+          );
+        setState(() {
+          _extensionSources
+            ..clear()
+            ..addAll(extensions);
+        });
+      },
+      onError: (Object _) {
+        // The in-memory log viewer can still be opened before the database loads.
+      },
+    );
   }
 
   Source? _sourceForLogLine(String raw) {
