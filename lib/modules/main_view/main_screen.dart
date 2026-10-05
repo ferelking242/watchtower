@@ -1186,7 +1186,6 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/updates',
     '/browse',
     '/settings',
-    '/profile',
     '/trackerLibrary',
     '/globalSearch',
     '/marketplace',
@@ -1869,7 +1868,6 @@ double _getNavigationRailWidthLegacy(bool isLongPressed, String? location) {
     '/updates',
     '/browse',
     '/settings',
-    '/profile',
     '/trackerLibrary',
   };
   return (location == null || validLocations.contains(location)) ? 200 : 0;
@@ -1946,7 +1944,6 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/updates',
     '/browse',
     '/settings',
-    '/profile',
     '/trackerLibrary',
     '/marketplace',
     '/marketplace/plugins',

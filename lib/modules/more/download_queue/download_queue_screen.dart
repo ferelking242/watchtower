@@ -110,7 +110,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         if (snapshot.hasError) {
           return Scaffold(
             appBar: AppBar(
-              leading: const BackButton(),
+              leading: BackButton(
+                onPressed: () => context.go('/WatchtowerHome'),
+              ),
               title: const Text('Téléchargements'),
             ),
             body: Center(
@@ -181,15 +183,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             automaticallyImplyLeading: false,
             leading: IconButton(
               icon: const Icon(Icons.chevron_left_rounded),
-              // Return to the screen that opened the queue. Keep a safe
-              // fallback for notification/deep-link entry without a stack.
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/settings');
-                }
-              },
+              onPressed: () => context.go('/WatchtowerHome'),
             ),
             titleSpacing: 16,
             title: const Text(
