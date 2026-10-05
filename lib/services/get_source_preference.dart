@@ -8,7 +8,7 @@ const extensionLanguagesKey = '__watchtower_languages';
 const extensionKeepSessionKey = '__watchtower_keep_session';
 
 List<SourcePreference> getSourcePreference({required Source source}) {
-  final service = getExtensionService(source, "");
+  final service = getExtensionService(source);
   try {
     final preferences = service.getSourcePreferences()
         .map((preference) => preference..sourceId = source.id)

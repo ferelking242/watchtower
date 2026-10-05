@@ -17,6 +17,7 @@ Stream<List<Source>> getExtensionsStream(Ref ref, ItemType itemType) async* {
                 s.id != null &&
                 (s.isActive ?? false) &&
                 s.itemType == itemType &&
+                s.sourceCodeLanguage != SourceCodeLanguage.unsupported &&
                 s.isObsolete != true &&
                 (s.repo == null || s.repo?.hidden != true))
             .toList(),

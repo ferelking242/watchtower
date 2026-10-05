@@ -71,13 +71,6 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
 
   List<SourcePreference>? _loadPreferences() {
     try {
-      if (source.sourceCodeLanguage == SourceCodeLanguage.mihon &&
-          source.preferenceList != null) {
-        final preferences = (jsonDecode(source.preferenceList!) as List)
-            .map((e) => SourcePreference.fromJson(e))
-            .toList();
-        return withWatchtowerDefaults(source, preferences);
-      }
       return getSourcePreference(source: source)
           .map((e) => getSourcePreferenceEntry(e.key!, source.id!))
           .toList();

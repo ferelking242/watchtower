@@ -61,8 +61,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               .and()
               .itemTypeEqualTo(widget.itemType)
               .findAllSync();
-    if (_showNSFW) return sources;
-    return sources.where((e) => !(e.isNsfw ?? false)).toList();
+    final supported = sources
+        .where((e) => e.sourceCodeLanguage != SourceCodeLanguage.unsupported)
+        .toList();
+    if (_showNSFW) return supported;
+    return supported.where((e) => !(e.isNsfw ?? false)).toList();
   }();
 
   /// Unique, sorted language codes present in _allSources.
@@ -374,8 +377,8 @@ class _FilterRow extends StatelessWidget {
         return 'JS';
       case SourceCodeLanguage.dart:
         return 'Dart';
-      case SourceCodeLanguage.mihon:
-        return 'Mihon';
+      case SourceCodeLanguage.unsupported:
+        return 'Other';
     }
   }
 
@@ -411,7 +414,7 @@ class _FilterRow extends StatelessWidget {
             onTap: onPinnedToggled,
           ),
 
-          // Source code type chips (JS / Dart / Mihon / LN Reader)
+          // Source code type chips (JS / Dart / LN Reader)
           for (final type in availableTypes) ...[
             const SizedBox(width: 6),
             _Chip(

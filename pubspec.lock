@@ -1919,15 +1919,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
-  m_extension_server:
-    dependency: "direct main"
-    description:
-      path: "."
-      ref: "0965c5becba2e826473330eb9ea99dc7030fcf99"
-      resolved-ref: "0965c5becba2e826473330eb9ea99dc7030fcf99"
-      url: "https://github.com/ferelking242/m_extension_server.git"
-    source: git
-    version: "0.0.2"
   markdown:
     dependency: transitive
     description:

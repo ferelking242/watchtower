@@ -52,11 +52,9 @@ Future<MManga> getDetail(
     return MManga(link: url, name: '', description: '');
   }
 
-  final proxyServer = ref.read(androidProxyServerStateProvider);
   return getIsolateService.get<MManga>(
     url: url,
     source: source,
     serviceType: 'getDetail',
-    proxyServer: proxyServer,
   );
 }

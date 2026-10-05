@@ -7,3 +7,4 @@
 - [Component gallery fidelity](component-gallery-fidelity.md) — gallery entries must render production widgets and production section renderers, never visual duplicates.
 - [Stale filter indices](stale-filter-indices.md) — saved selection indices can outlive dynamic options; guard every values[index] access.
 - [French-Stream usage scope](frenchstream-usage-scope.md) — l’utilisateur a confirmé que son usage dans Watchtower est légal.
+- [Legacy extension removal](legacy-extension-removal.md) — retire le runtime APK, mais préserve le schéma Isar et l’import Neko.

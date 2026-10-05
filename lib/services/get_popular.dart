@@ -62,7 +62,6 @@ Future<MPages?> getPopular(
         page: page,
         source: source,
         serviceType: 'getPopular',
-        proxyServer: ref.read(androidProxyServerStateProvider),
       );
     }
 
@@ -92,7 +91,6 @@ Future<MPages?> getPopular(
       page: page,
       source: source,
       serviceType: 'getPopular',
-      proxyServer: ref.read(androidProxyServerStateProvider),
     );
   }
 

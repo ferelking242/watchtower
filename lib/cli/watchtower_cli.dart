@@ -456,7 +456,6 @@ Future<_TestResult> _testOne(
     try {
       final value = await withExtensionService(
         item.source,
-        '',
         (service) => action(service).timeout(
           Duration(seconds: options.timeoutSeconds),
         ),
@@ -566,7 +565,7 @@ Future<int> _runSource(_Catalog catalog, _CliOptions options) async {
   );
   await getIsolateService.start();
   try {
-    final value = await withExtensionService(item.source, '', (service) async {
+    final value = await withExtensionService(item.source, (service) async {
       switch (operation) {
         case 'popular':
           return service.getPopular(options.page);

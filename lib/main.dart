@@ -43,7 +43,6 @@ import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart'
     show hasPendingExtensionUpdate, installExtensionUpdate;
-import 'package:watchtower/services/m_extension_server.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/src/rust/frb_generated.dart';
@@ -66,7 +65,6 @@ import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/mpv_config_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
-import 'package:watchtower/services/mihon_auto_sync.dart';
 import 'package:watchtower/services/device_capabilities.dart';
 import 'cli/watchtower_cli.dart'
     if (dart.library.js_interop) 'cli/watchtower_cli_stub.dart';
@@ -561,7 +559,6 @@ class _MyAppState extends ConsumerState<MyApp>
         unawaited(windowManager.show());
         unawaited(windowManager.focus());
       }
-      unawaited(_startExtensionServerAndSync());
       // Refresh installed extension repositories once after the first frame.
       // This is the source of truth for both the in-app notification centre
       // and the actionable native notification.
@@ -723,7 +720,6 @@ class _MyAppState extends ConsumerState<MyApp>
       windowManager.removeListener(this);
       WindowGeometry.save();
     }
-    MExtensionServerPlatform(ref).stopServer();
     _linkSubscription?.cancel();
     discordRpc?.destroy();
     AppLogger.dispose();
@@ -926,14 +922,6 @@ class _MyAppState extends ConsumerState<MyApp>
       await MpvConfigService.ensureInstalled(dir);
     } catch (e) {
       debugPrint('_setupMpvConfig: deferred download failed: $e');
-    }
-  }
-
-  Future<void> _startExtensionServerAndSync() async {
-    await MExtensionServerPlatform(ref).startServer();
-    if (!kIsWeb && Platform.isAndroid) {
-      await Future.delayed(const Duration(seconds: 2));
-      unawaited(MihonAutoSync.run());
     }
   }
 

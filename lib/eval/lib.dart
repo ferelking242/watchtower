@@ -5,16 +5,14 @@ import 'package:watchtower/models/source.dart';
 
 import 'dart/service.dart';
 import 'javascript/service.dart';
-import 'mihon/service.dart';
 
-ExtensionService getExtensionService(
-  Source source,
-  String androidProxyServer,
-) {
+ExtensionService getExtensionService(Source source) {
   return switch (source.sourceCodeLanguage) {
     SourceCodeLanguage.dart => DartExtensionService(source),
     SourceCodeLanguage.javascript => JsExtensionService(source),
-    SourceCodeLanguage.mihon => MihonExtensionService(source, androidProxyServer),
+    SourceCodeLanguage.unsupported => throw UnsupportedError(
+      'This source format is no longer supported',
+    ),
   };
 }
 
@@ -36,7 +34,7 @@ class ExtensionServiceRegistry {
   ].join('|');
 
   /// Returns the cached service for [source], creating one if needed.
-  static ExtensionService get(Source source, String proxyServer) {
+  static ExtensionService get(Source source) {
     final key = _key(source);
     final signature = _signature(source);
     if (_signatures[key] != null && _signatures[key] != signature) {
@@ -44,14 +42,13 @@ class ExtensionServiceRegistry {
       if (previous != null) _dispose(previous);
     }
     _signatures[key] = signature;
-    return _cache.putIfAbsent(key, () => getExtensionService(source, proxyServer));
+    return _cache.putIfAbsent(key, () => getExtensionService(source));
   }
 
   /// Runs calls for one source in order. Extension runtimes are not reentrant:
   /// two async JS/Dart calls can otherwise interleave on the same interpreter.
   static Future<T> run<T>(
     Source source,
-    String proxyServer,
     Future<T> Function(ExtensionService service) action,
   ) {
     final key = _key(source);
@@ -71,7 +68,7 @@ class ExtensionServiceRegistry {
       }
 
       try {
-        result.complete(await action(get(source, proxyServer)));
+        result.complete(await action(get(source)));
       } catch (error, stackTrace) {
         result.completeError(error, stackTrace);
       }
@@ -164,9 +161,8 @@ class _ExtensionSourceQueue {
 /// after each call — it is reused to avoid concurrent QuickJS runtime crashes.
 Future<T> withExtensionService<T>(
   Source source,
-  String proxyServer,
   Future<T> Function(ExtensionService service) action,
 ) {
-  return ExtensionServiceRegistry.run(source, proxyServer, action);
+  return ExtensionServiceRegistry.run(source, action);
 }
   

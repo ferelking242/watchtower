@@ -243,29 +243,29 @@ final class RestoreKotatsuBackupFamily extends $Family
   String toString() => r'restoreKotatsuBackupProvider';
 }
 
-@ProviderFor(restoreTachiBkBackup)
-final restoreTachiBkBackupProvider = RestoreTachiBkBackupFamily._();
+@ProviderFor(restoreNekoBackup)
+final restoreNekoBackupProvider = RestoreNekoBackupFamily._();
 
-final class RestoreTachiBkBackupProvider
+final class RestoreNekoBackupProvider
     extends $FunctionalProvider<void, void, void>
     with $Provider<void> {
-  RestoreTachiBkBackupProvider._({
-    required RestoreTachiBkBackupFamily super.from,
+  RestoreNekoBackupProvider._({
+    required RestoreNekoBackupFamily super.from,
     required (String, BackupType) super.argument,
   }) : super(
          retry: null,
-         name: r'restoreTachiBkBackupProvider',
+         name: r'restoreNekoBackupProvider',
          isAutoDispose: true,
          dependencies: null,
          $allTransitiveDependencies: null,
        );
 
   @override
-  String debugGetCreateSourceHash() => _$restoreTachiBkBackupHash();
+  String debugGetCreateSourceHash() => _$restoreNekoBackupHash();
 
   @override
   String toString() {
-    return r'restoreTachiBkBackupProvider'
+    return r'restoreNekoBackupProvider'
         ''
         '$argument';
   }
@@ -278,7 +278,7 @@ final class RestoreTachiBkBackupProvider
   @override
   void create(Ref ref) {
     final argument = this.argument as (String, BackupType);
-    return restoreTachiBkBackup(ref, argument.$1, argument.$2);
+    return restoreNekoBackup(ref, argument.$1, argument.$2);
   }
 
   /// {@macro riverpod.override_with_value}
@@ -291,7 +291,7 @@ final class RestoreTachiBkBackupProvider
 
   @override
   bool operator ==(Object other) {
-    return other is RestoreTachiBkBackupProvider && other.argument == argument;
+    return other is RestoreNekoBackupProvider && other.argument == argument;
   }
 
   @override
@@ -300,23 +300,23 @@ final class RestoreTachiBkBackupProvider
   }
 }
 
-String _$restoreTachiBkBackupHash() =>
+String _$restoreNekoBackupHash() =>
     r'54434eaa9dc875d03ffb1dcf62ad2d7971649d61';
 
-final class RestoreTachiBkBackupFamily extends $Family
+final class RestoreNekoBackupFamily extends $Family
     with $FunctionalFamilyOverride<void, (String, BackupType)> {
-  RestoreTachiBkBackupFamily._()
+  RestoreNekoBackupFamily._()
     : super(
         retry: null,
-        name: r'restoreTachiBkBackupProvider',
+        name: r'restoreNekoBackupProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
         isAutoDispose: true,
       );
 
-  RestoreTachiBkBackupProvider call(String path, BackupType bkType) =>
-      RestoreTachiBkBackupProvider._(argument: (path, bkType), from: this);
+  RestoreNekoBackupProvider call(String path, BackupType bkType) =>
+      RestoreNekoBackupProvider._(argument: (path, bkType), from: this);
 
   @override
-  String toString() => r'restoreTachiBkBackupProvider';
+  String toString() => r'restoreNekoBackupProvider';
 }

@@ -61,7 +61,6 @@ Future<MPages?> getLatestUpdates(
         page: page,
         source: source,
         serviceType: 'getLatestUpdates',
-        proxyServer: ref.read(androidProxyServerStateProvider),
       );
     }
 
@@ -90,7 +89,6 @@ Future<MPages?> getLatestUpdates(
       page: page,
       source: source,
       serviceType: 'getLatestUpdates',
-      proxyServer: ref.read(androidProxyServerStateProvider),
     );
   }
 

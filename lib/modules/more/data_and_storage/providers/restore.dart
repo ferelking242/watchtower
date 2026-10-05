@@ -18,7 +18,6 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
-import 'package:watchtower/modules/more/data_and_storage/providers/proto/BackupAniyomi.pb.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/proto/BackupMihon.pb.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/blend_level_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/flex_scheme_color_state_provider.dart';
@@ -49,10 +48,8 @@ void doRestore(Ref ref, {required String path, required BuildContext context}) {
       case BackupType.kotatsu:
         ref.read(restoreKotatsuBackupProvider(archive));
         break;
-      case BackupType.mihon:
-      case BackupType.aniyomi:
       case BackupType.neko:
-        ref.read(restoreTachiBkBackupProvider(path, backupType));
+        ref.read(restoreNekoBackupProvider(path, backupType));
         break;
       default:
     }
@@ -70,7 +67,7 @@ void doRestore(Ref ref, {required String path, required BuildContext context}) {
 
 void showBotToast(String text) => botToast(text, second: 5);
 
-enum BackupType { unknown, watchtower, mihon, aniyomi, kotatsu, neko }
+enum BackupType { unknown, watchtower, kotatsu, neko }
 
 BackupType checkBackupType(String path, Archive archive) {
   if (path.toLowerCase().contains("watchtower") &&
@@ -90,11 +87,7 @@ BackupType checkBackupType(String path, Archive archive) {
     return BackupType.kotatsu;
   } else if (path.toLowerCase().endsWith(".tachibk") ||
       path.toLowerCase().endsWith(".proto.gz")) {
-    return path.contains("xyz.jmir.tachiyomi.mi") || path.contains("aniyomi.mi")
-        ? BackupType.aniyomi
-        : path.contains("tachiyomi") || path.contains("mihon")
-        ? BackupType.mihon
-        : path.contains("neko")
+    return path.toLowerCase().contains("neko")
         ? BackupType.neko
         : BackupType.unknown;
   }
@@ -342,7 +335,8 @@ void restoreKotatsuBackup(Ref ref, Archive archive) {
 }
 
 @riverpod
-void restoreTachiBkBackup(Ref ref, String path, BackupType bkType) {
+void restoreNekoBackup(Ref ref, String path, BackupType bkType) {
+  if (bkType != BackupType.neko) return;
   final inputStream = InputFileStream(path);
   final content = GZipDecoder().decodeBytes(inputStream.toUint8List());
   inputStream.close();
@@ -379,7 +373,7 @@ void restoreTachiBkBackup(Ref ref, String path, BackupType bkType) {
         lang: 'en',
         link: tempManga.url,
         name: tempManga.title,
-        status: _convertStatusFromTachiBk(tempManga.status),
+        status: _convertNekoStatus(tempManga.status),
         description: tempManga.description,
         categories: cats
             .where((cat) => tempManga.categories.contains(cat.pos!))
@@ -391,18 +385,15 @@ void restoreTachiBkBackup(Ref ref, String path, BackupType bkType) {
         lastUpdate: tempManga.lastModifiedAt * 1000,
         sourceId: null,
       );
-      if (bkType == BackupType.neko) {
-        manga.source = "MangaDex";
-      }
+      manga.source = "MangaDex";
       isar.mangas.putSync(manga);
       History? history;
       for (var tempChapter in tempManga.chapters) {
         final chapter = Chapter(
           mangaId: manga.id!,
           name: tempChapter.name,
-          dateUpload: bkType != BackupType.neko
-              ? "${tempChapter.dateUpload * 1000}"
-              : "${DateTime.now().millisecondsSinceEpoch - tempChapter.dateUpload.abs()}",
+          dateUpload:
+              "${DateTime.now().millisecondsSinceEpoch - tempChapter.dateUpload.abs()}",
           isBookmarked: tempChapter.bookmark,
           isRead: tempChapter.read,
           lastPageRead: tempChapter.lastPageRead != 0
@@ -418,9 +409,8 @@ void restoreTachiBkBackup(Ref ref, String path, BackupType bkType) {
                 tempChapter.lastModifiedAt * 1000)) {
           history = History(
             mangaId: manga.id,
-            date: bkType != BackupType.neko
-                ? "${tempChapter.lastModifiedAt * 1000}"
-                : "${DateTime.now().millisecondsSinceEpoch - tempChapter.dateUpload.abs()}",
+            date:
+                "${DateTime.now().millisecondsSinceEpoch - tempChapter.dateUpload.abs()}",
             itemType: ItemType.manga,
             chapterId: chapter.id,
           )..chapter.value = chapter;
@@ -432,80 +422,6 @@ void restoreTachiBkBackup(Ref ref, String path, BackupType bkType) {
       }
     }
   });
-  if (bkType == BackupType.aniyomi) {
-    final backupAnime = BackupAniyomi.fromBuffer(content);
-    List<Category> cats = [];
-    isar.writeTxnSync(() {
-      for (var category in backupAnime.backupAnimeCategories) {
-        final cat = Category(
-          name: category.name,
-          forItemType: ItemType.anime,
-          pos: category.order,
-        );
-        isar.categorys.putSync(cat);
-        cats.add(cat);
-      }
-      for (var tempAnime in backupAnime.backupAnime) {
-        final anime = Manga(
-          source:
-              backupAnime.backupAnimeSources
-                  .where((src) => src.sourceId == tempAnime.source).firstOrNull
-                  ?.name ??
-              "Unknown",
-          author: tempAnime.author,
-          artist: tempAnime.artist,
-          genre: tempAnime.genre,
-          imageUrl: tempAnime.thumbnailUrl,
-          lang: 'en',
-          link: tempAnime.url,
-          name: tempAnime.title,
-          status: _convertStatusFromTachiBk(tempAnime.status),
-          description: tempAnime.description,
-          categories: cats
-              .where((cat) => tempAnime.categories.contains(cat.pos!))
-              .map((cat) => cat.id!)
-              .toList(),
-          itemType: ItemType.anime,
-          favorite: true,
-          dateAdded: tempAnime.dateAdded * 1000,
-          lastUpdate: tempAnime.lastModifiedAt * 1000,
-          sourceId: null,
-        );
-        isar.mangas.putSync(anime);
-        History? history;
-        for (var tempEpisode in tempAnime.episodes) {
-          final episode = Chapter(
-            mangaId: anime.id!,
-            name: tempEpisode.name,
-            dateUpload: "${tempEpisode.dateUpload * 1000}",
-            isBookmarked: tempEpisode.bookmark,
-            isRead: tempEpisode.seen,
-            lastPageRead: tempEpisode.lastSecondSeen != 0
-                ? "${tempEpisode.lastSecondSeen * 1000}"
-                : "1",
-            scanlator: tempEpisode.scanlator,
-            url: tempEpisode.url,
-          );
-          isar.chapters.putSync(episode..manga.value = anime);
-          episode.manga.saveSync();
-          if ((history == null ||
-              int.parse(history.date ?? "0") <
-                  tempEpisode.lastModifiedAt * 1000)) {
-            history = History(
-              mangaId: anime.id,
-              date: "${tempEpisode.lastModifiedAt * 1000}",
-              itemType: ItemType.anime,
-              chapterId: episode.id,
-            )..chapter.value = episode;
-          }
-        }
-        if (history != null) {
-          isar.historys.putSync(history);
-          history.chapter.saveSync();
-        }
-      }
-    });
-  }
   isar.writeTxnSync(() {
     isar.downloads.clearSync();
     isar.updates.clearSync();
@@ -531,7 +447,7 @@ void _invalidateCommonState(Ref ref) {
   ref.read(routerCurrentLocationStateProvider.notifier).refresh();
 }
 
-Status _convertStatusFromTachiBk(int idx) {
+Status _convertNekoStatus(int idx) {
   switch (idx) {
     case 1:
       return Status.ongoing;

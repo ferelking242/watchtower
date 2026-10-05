@@ -89,10 +89,6 @@ dependencies:
   table_calendar: ^3.2.0
   local_auth: ^3.0.1
   wakelock_plus: ^1.4.0
-  m_extension_server:
-    git:
-      url: https://github.com/ferelking242/m_extension_server.git
-      ref: 0965c5becba2e826473330eb9ea99dc7030fcf99
   flutter_tts: ^4.2.5
   flutter_local_notifications: ^18.0.1
   shimmer: ^3.0.0

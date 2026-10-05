@@ -89,7 +89,6 @@ import 'package:watchtower/modules/more/more_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/ui_settings_screen.dart';
 import 'package:watchtower/modules/more/settings/browse/browse_screen.dart';
-import 'package:watchtower/modules/more/settings/browse/extension_server_screen.dart';
 import 'package:watchtower/modules/more/settings/general/general_screen.dart';
 import 'package:watchtower/modules/more/settings/general/recommendations_screen.dart';
 import 'package:watchtower/modules/more/settings/general/extension_cookie_manager_screen.dart';
@@ -394,10 +393,6 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute(name: "readerMode", child: const ReaderScreen()),
     _genericRoute(name: "browseS", child: const BrowseSScreen()),
-    _genericRoute(
-      name: "extensionServer",
-      child: const ExtensionServerScreen(),
-    ),
     _genericRoute<ItemType>(
       name: "SourceRepositories",
       builder: (itemType) => SourceRepositories(itemType: itemType),

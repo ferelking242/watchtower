@@ -101,7 +101,6 @@ class RemoteApiHandler {
         page: page,
         source: source,
         serviceType: 'getCustomList',
-        proxyServer: ref.read(androidProxyServerStateProvider),
       );
       return _json({
         'mangas': _pagesToList(result),
@@ -168,7 +167,6 @@ class RemoteApiHandler {
         url: url,
         source: source,
         serviceType: 'getVideoList',
-        proxyServer: ref.read(androidProxyServerStateProvider),
       );
       return _json({'videos': videos.map(_videoToMap).toList()});
     } catch (e) { return _error(e.toString()); }
@@ -186,7 +184,6 @@ class RemoteApiHandler {
         url: url,
         source: source,
         serviceType: 'getPageList',
-        proxyServer: ref.read(androidProxyServerStateProvider),
       );
       return _json({
         'pages': pages

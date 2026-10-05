@@ -217,13 +217,6 @@ class StorageProvider {
     return Directory(dbDir);
   }
 
-  Future<Directory?> getExtensionServerDirectory() async {
-    final defaultDirectory = await getDefaultDirectory();
-    String dbDir = path.join(defaultDirectory!.path, 'extension_server');
-    await createDirectorySafely(dbDir);
-    return Directory(dbDir);
-  }
-
   Future<Directory?> getBtDirectory() async {
     final dbDir = await _btDirectoryPath();
     await createDirectorySafely(dbDir);
@@ -529,27 +522,6 @@ class StorageProvider {
       website: 'https://github.com/ferelking242/watchtower-extensions',
     );
 
-    // Keiyoushi — communauté officielle Mihon/Tachiyomi (manga)
-    // 1 468 packages, CI GitHub Actions auto-rebuild à chaque commit
-    const _keiyoushiUrl =
-        'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json';
-    final keiyoushiMangaRepo = Repo(
-      jsonUrl: _keiyoushiUrl,
-      name: 'Keiyoushi – Manga (Mihon)',
-      website: 'https://keiyoushi.github.io',
-    );
-
-    // Aniyomi — extensions anime officielles (Jellyfin, Google Drive…)
-    // Les extensions de streaming ont été retirées du repo officiel (pressions légales).
-    // Les utilisateurs peuvent ajouter des dépôts communautaires manuellement.
-    const _aniyomiUrl =
-        'https://raw.githubusercontent.com/aniyomiorg/aniyomi-extensions/repo/index.min.json';
-    final aniyomiWatchRepo = Repo(
-      jsonUrl: _aniyomiUrl,
-      name: 'Aniyomi – Anime',
-      website: 'https://aniyomi.org',
-    );
-
     bool _isWatchtowerRepo(Repo r) =>
         r.jsonUrl?.contains('ferelking242/watchtower-extensions') == true;
 
@@ -561,14 +533,6 @@ class StorageProvider {
         // A — Watchtower: jsDelivr → raw.githubusercontent (jsDelivr @main is unreliable)
         if (r.jsonUrl?.startsWith(_cdnBase) == true) {
           r.jsonUrl = r.jsonUrl!.replaceFirst(_cdnBase, _wtBase);
-          changed = true;
-        }
-        // B — Mihon: old broken mihonapp/extensions → keiyoushi (real repo)
-        if (r.jsonUrl?.contains('mihonapp/extensions') == true) {
-          r.jsonUrl = r.jsonUrl!.replaceFirst(
-            'https://raw.githubusercontent.com/mihonapp/extensions',
-            'https://raw.githubusercontent.com/keiyoushi/extensions',
-          );
           changed = true;
         }
         // D — Watchtower: old manga|watch|novel/index.json → index/manga|watch|novel.json
@@ -626,8 +590,7 @@ class StorageProvider {
         settings.animeExtensionsRepo = _cleanRepos(settings.animeExtensionsRepo);
         settings.novelExtensionsRepo = _cleanRepos(settings.novelExtensionsRepo);
 
-        // 2 — Ensure Watchtower base repos are present (users can add
-        //     third-party repos like Keiyoushi or Aniyomi manually via settings)
+        // 2 — Ensure Watchtower base repositories are present.
         if (!_hasRepo(settings.mangaExtensionsRepo, 'index/manga.json')) {
           settings.mangaExtensionsRepo = [...settings.mangaExtensionsRepo!, mangaRepo];
           needsUpdate = true;
@@ -641,8 +604,7 @@ class StorageProvider {
           needsUpdate = true;
         }
 
-        // 3 — Remove Keiyoushi/Aniyomi if forcibly added in an older version
-        //     (we no longer push third-party repos onto users without consent)
+        // 3 — Remove legacy APK-extension repositories from older versions.
         final prevMangaLen = settings.mangaExtensionsRepo?.length ?? 0;
         final prevAnimeLen = settings.animeExtensionsRepo?.length ?? 0;
         settings.mangaExtensionsRepo = settings.mangaExtensionsRepo

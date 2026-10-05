@@ -1,12 +1,9 @@
 import 'dart:convert';
 import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/eval/lib.dart';
-import 'package:watchtower/main.dart';
-import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:watchtower/utils/constant.dart';
 
 part 'headers.g.dart';
 
@@ -16,7 +13,6 @@ Map<String, String> headers(
   required String source,
   required String lang,
   required int? sourceId,
-  String androidProxyServer = "",
 }) {
   final mSource = getSource(lang, source, sourceId);
 
@@ -28,15 +24,11 @@ Map<String, String> headers(
     if (fromSource != null && fromSource.isNotEmpty) {
       headers.addAll((jsonDecode(fromSource) as Map).toMapStringString!);
     }
-    final service = getExtensionService(mSource, androidProxyServer);
+    final service = getExtensionService(mSource);
     try {
       headers.addAll(service.getHeaders());
     } finally {
       service.dispose();
-    }
-    if (mSource.sourceCodeLanguage == SourceCodeLanguage.mihon) {
-      final ua = (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent;
-      if (ua != null && ua.isNotEmpty) headers['user-agent'] = ua;
     }
   }
 

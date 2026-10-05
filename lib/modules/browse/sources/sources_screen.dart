@@ -48,7 +48,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         .where(
           (source) =>
               source.itemType == widget.itemType &&
-              source.isAdded == true,
+              source.isAdded == true &&
+              source.sourceCodeLanguage != SourceCodeLanguage.unsupported,
         )
         .where((source) => widget.filters.matches(source, widget.searchQuery))
         .toList();

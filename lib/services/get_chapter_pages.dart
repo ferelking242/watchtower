@@ -155,7 +155,6 @@ Future<GetChapterPagesModel> getChapterPages(
           url: chapter.url!,
           source: source,
           serviceType: 'getPageList',
-          proxyServer: ref.read(androidProxyServerStateProvider),
         );
         sw.stop();
 

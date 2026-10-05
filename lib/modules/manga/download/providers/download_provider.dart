@@ -1856,7 +1856,6 @@ Future<void> downloadChapter(
         try {
           final html = await withExtensionService(
             source,
-            ref.read(androidProxyServerStateProvider),
             (service) => service.getHtmlContent(
               chapter.manga.value!.name!,
               chapter.url!,

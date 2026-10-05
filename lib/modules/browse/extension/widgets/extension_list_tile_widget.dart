@@ -385,8 +385,6 @@ class _ExtensionListTileWidgetState
     final lang = widget.source.sourceCodeLanguage;
     final isJs = lang == SourceCodeLanguage.javascript;
     final isDart = lang == SourceCodeLanguage.dart;
-    final isMihon = lang == SourceCodeLanguage.mihon;
-    final isAniyomi = isMihon && widget.source.itemType == ItemType.anime;
 
     final tile = ListTile(
       onTap: _isLoading
@@ -489,27 +487,6 @@ class _ExtensionListTileWidgetState
                 child: const Text(
                   "JS",
                   style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          if (isMihon)
-            Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: isAniyomi
-                      ? const Color(0xFF7B2FBE).withValues(alpha: 0.9)
-                      : Colors.indigo.shade600.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  isAniyomi ? 'ANIYOMI' : 'MIHON',
-                  style: const TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,

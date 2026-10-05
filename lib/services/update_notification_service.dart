@@ -431,7 +431,7 @@ class WatchtowerNotificationService {
     );
   }
 
-  /// Notification "Mise à jour disponible !" style Mihon.
+  /// Extension update notification.
   /// Affiche les boutons [Télécharger] et [Quoi de neuf].
   Future<void> showUpdateAvailable({
     required String version,

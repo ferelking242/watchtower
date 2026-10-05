@@ -57,7 +57,6 @@ Future<MPages?> getCustomList(
       page: page,
       source: source,
       serviceType: 'getCustomList',
-      proxyServer: ref.read(androidProxyServerStateProvider),
     );
     if (pages == null || listId != 'history' || !source.touchToPreview) {
       return pages;

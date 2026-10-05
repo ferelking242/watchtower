@@ -134,7 +134,7 @@ Chacune apporte **sa propre pile** (DB, state, navigation, lecteur audio). Résu
 
 ### 3.5 Risque : 22 dépendances Git / forks non-officiels
 
-`media_kit`, `flutter_inappwebview`, `flutter_qjs`, `on_audio_query`, `yt_dlp_dart`, `scrobblenaut`, `hetu_*`, `bonsoir_android`, `flutter_secure_storage_linux`, `draggable_scrollbar`, `desktop_webview_window`, `flutter_discord_rpc_fork`, `m_extension_server`, `flutter_broadcasts`, `disable_battery_optimization`… Ces forks pointent vers des commits figés (`ref: <sha>`) : **le build casse silencieusement si un fork disparaît** et les correctifs de sécurité ne sont jamais reçus.
+`media_kit`, `flutter_inappwebview`, `flutter_qjs`, `on_audio_query`, `yt_dlp_dart`, `scrobblenaut`, `hetu_*`, `bonsoir_android`, `flutter_secure_storage_linux`, `draggable_scrollbar`, `desktop_webview_window`, `flutter_discord_rpc_fork`, `flutter_broadcasts`, `disable_battery_optimization`… Ces forks pointent vers des commits figés (`ref: <sha>`) : **le build casse silencieusement si un fork disparaît** et les correctifs de sécurité ne sont jamais reçus.
 
 ### 3.5 `web_stubs/` — le hack web
 

@@ -194,15 +194,9 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       epManga.source!,
       epManga.sourceId,
     );
-    final proxyServer = ref.read(androidProxyServerStateProvider);
-
     // ── Torrent path ──────────────────────────────────────────────────────
-    final isMihonTorrent =
-        source?.sourceCodeLanguage == SourceCodeLanguage.mihon &&
-        source!.name!.contains("(Torrent");
     if ((source?.isTorrent ?? false) ||
-        epManga.source == "torrent" ||
-        isMihonTorrent) {
+        epManga.source == "torrent") {
       AppLogger.log(
         '[$epLabel] getVideoList TORRENT path  archivePath=${episode.archivePath ?? "none"}',
         logLevel: LogLevel.debug,
@@ -234,7 +228,6 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
           url: episode.url!,
           source: source,
           serviceType: 'getVideoList',
-          proxyServer: proxyServer,
         );
       } catch (e) {
         AppLogger.log(
@@ -280,7 +273,6 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       url: episode.url!,
       source: source,
       serviceType: 'getVideoList',
-      proxyServer: proxyServer,
     );
     sw.stop();
 

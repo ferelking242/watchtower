@@ -16,7 +16,6 @@ Future<void> fetchItemSourcesList(
   required bool reFresh,
   required ItemType itemType,
 }) async {
-  final androidProxyServer = ref.watch(androidProxyServerStateProvider);
   final repos = ref.watch(extensionsRepoStateProvider(itemType));
   Object? lastError;
 
@@ -27,7 +26,6 @@ Future<void> fetchItemSourcesList(
           repo: repo,
           refresh: reFresh,
           id: id,
-          androidProxyServer: androidProxyServer,
           autoUpdateExtensions: ref.watch(autoUpdateExtensionsStateProvider),
           itemType: itemType,
         );

@@ -9,59 +9,6 @@ part of 'browse_state_provider.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
-@ProviderFor(AndroidProxyServerState)
-final androidProxyServerStateProvider = AndroidProxyServerStateProvider._();
-
-final class AndroidProxyServerStateProvider
-    extends $NotifierProvider<AndroidProxyServerState, String> {
-  AndroidProxyServerStateProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'androidProxyServerStateProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$androidProxyServerStateHash();
-
-  @$internal
-  @override
-  AndroidProxyServerState create() => AndroidProxyServerState();
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(String value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<String>(value),
-    );
-  }
-}
-
-String _$androidProxyServerStateHash() =>
-    r'3ac060f8a61added586dcefc889fa44c71263c5b';
-
-abstract class _$AndroidProxyServerState extends $Notifier<String> {
-  String build();
-  @$mustCallSuper
-  @override
-  void runBuild() {
-    final ref = this.ref as $Ref<String, String>;
-    final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<String, String>,
-              String,
-              Object?,
-              Object?
-            >;
-    element.handleCreate(ref, build);
-  }
-}
-
 @ProviderFor(OnlyIncludePinnedSourceState)
 final onlyIncludePinnedSourceStateProvider =
     OnlyIncludePinnedSourceStateProvider._();

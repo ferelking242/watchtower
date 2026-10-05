@@ -7,7 +7,7 @@ import 'package:watchtower/utils/log/logger.dart';
 const _kLoaderChannel = MethodChannel('com.watchtower.app.ext_loader');
 
 /// Copy an APK file (from Downloads, Files app, etc.) into the private
-/// extensions dir — no system installer needed, like Mihon's private extensions.
+/// extensions dir — no system installer needed.
 Future<bool> installPrivateExtension(String apkPath) async {
   if (!Platform.isAndroid) return false;
   try {

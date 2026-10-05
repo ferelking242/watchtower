@@ -108,7 +108,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         .toSet();
     if (types.isEmpty) return null;
 
-    final proxyServer = ref.read(androidProxyServerStateProvider);
     Object? firstError;
     await Future.wait(
       types.map((type) async {
@@ -119,7 +118,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               repo: repo,
               refresh: true,
               id: null,
-              androidProxyServer: proxyServer,
               autoUpdateExtensions: false,
               itemType: type,
             );

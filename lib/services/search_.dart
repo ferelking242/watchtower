@@ -43,6 +43,5 @@ Future<MPages?> search(
     source: source,
     page: page,
     serviceType: 'search',
-    proxyServer: ref.read(androidProxyServerStateProvider),
   );
 }

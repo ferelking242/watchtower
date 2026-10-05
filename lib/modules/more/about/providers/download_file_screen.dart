@@ -167,7 +167,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // What's New — Mihon-style inline (no card)
+                  // What's New — sectioned inline (no card)
                   if (upd.$2.trim().isNotEmpty) ...[
                     _ChangelogWidget(body: upd.$2, cs: cs),
                     const SizedBox(height: 12),
@@ -709,9 +709,9 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
   }
 }
 
-// ── Changelog widget (Mihon-style) ──────────────────────────────────────────
+// ── Changelog widget ────────────────────────────────────────────────────────
 
-/// Renders a GitHub release body in Mihon-style sections without a card.
+/// Renders a GitHub release body in sectioned blocks without a card.
 class _ChangelogWidget extends StatelessWidget {
   final String body;
   final ColorScheme cs;

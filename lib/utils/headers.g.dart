@@ -26,7 +26,6 @@ final class HeadersProvider
       String source,
       String lang,
       int? sourceId,
-      String androidProxyServer,
     })
     super.argument,
   }) : super(
@@ -61,14 +60,12 @@ final class HeadersProvider
               String source,
               String lang,
               int? sourceId,
-              String androidProxyServer,
             });
     return headers(
       ref,
       source: argument.source,
       lang: argument.lang,
       sourceId: argument.sourceId,
-      androidProxyServer: argument.androidProxyServer,
     );
   }
 
@@ -101,7 +98,6 @@ final class HeadersFamily extends $Family
             String source,
             String lang,
             int? sourceId,
-            String androidProxyServer,
           })
         > {
   HeadersFamily._()
@@ -117,13 +113,11 @@ final class HeadersFamily extends $Family
     required String source,
     required String lang,
     required int? sourceId,
-    String androidProxyServer = '',
   }) => HeadersProvider._(
     argument: (
       source: source,
       lang: lang,
       sourceId: sourceId,
-      androidProxyServer: androidProxyServer,
     ),
     from: this,
   );

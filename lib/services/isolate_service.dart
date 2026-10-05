@@ -243,11 +243,6 @@ class GetIsolateService {
     // leaves the main isolate's `isar` global uninitialized → every Riverpod
     // provider crashes with LateInitializationError at startup.
     //
-    // The one caller that reads `isar` inside this isolate (MihonService
-    // .getCookie → (isar.settings.getSync(kSettingsId) ?? Settings()).userAgent)
-    // is guarded with a try-catch and falls back to an empty user-agent when
-    // isar is not available in this isolate's memory space.
-
     final receivePort = ReceivePort();
     Zone.current
         .fork(
@@ -271,7 +266,6 @@ class GetIsolateService {
               final page = message['page'] as int?;
               final query = message['query'] as String?;
               final filterList = message['filterList'] as List?;
-              final proxyServer = message['proxyServer'] as String?;
               final useLoggerValue = message['useLogger'] as bool?;
               MClient.installWorkerSettingsSnapshot(message['httpSettings']);
               if (useLoggerValue != null) {
@@ -287,7 +281,6 @@ class GetIsolateService {
               try {
                 final result = await withExtensionService(
                   source!,
-                  proxyServer ?? '',
                   (service) async {
                     switch (serviceType) {
                       case 'getDetail':
@@ -409,11 +402,9 @@ class GetIsolateService {
     List<dynamic>? filterList,
     Source? source,
     String? serviceType,
-    String? proxyServer,
   }) async {
     return withExtensionService<T>(
       source!,
-      proxyServer ?? '',
       (service) async {
         switch (serviceType) {
           case 'getDetail':
@@ -452,9 +443,7 @@ class GetIsolateService {
     List<dynamic>? filterList,
     Source? source,
     String? serviceType,
-    String? proxyServer,
     bool? autoUpdateExtensions,
-    String? androidProxyServer,
     bool? useLogger,
   }) async {
     // ── Web path ──────────────────────────────────────────────────────────
@@ -474,7 +463,6 @@ class GetIsolateService {
         filterList: filterList,
         source: source,
         serviceType: serviceType,
-        proxyServer: proxyServer,
       );
     }
     // ── Native path ───────────────────────────────────────────────────────
@@ -566,7 +554,6 @@ class GetIsolateService {
       'filterList': ?filterList,
       'serviceType': ?serviceType,
       'source': ?source,
-      'proxyServer': ?proxyServer,
       'responsePort': responsePort.sendPort,
       'httpSettings': MClient.exportWorkerSettingsSnapshot(),
       'useLogger': ?useLogger,

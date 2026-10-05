@@ -52,13 +52,13 @@ class Source {
 
   String? headers;
 
-  /// For Mihon ext
+  /// Legacy extension metadata retained for existing stored records.
   bool? supportLatest;
 
-  /// For Mihon ext
+  /// Legacy extension metadata retained for existing stored records.
   String? filterList;
 
-  /// For Mihon ext
+  /// Legacy extension metadata retained for existing stored records.
   String? preferenceList;
 
   bool? isManga;
@@ -479,4 +479,4 @@ class Source {
       Object.hash(id, name, lang, baseUrl, sourceCodeUrl, version);
 }
 
-enum SourceCodeLanguage { dart, javascript, mihon }
+enum SourceCodeLanguage { dart, javascript, unsupported }

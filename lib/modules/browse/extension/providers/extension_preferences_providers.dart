@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/models/source.dart';
@@ -34,22 +32,6 @@ void setPreferenceSetting(SourcePreference sourcePreference, Source source) {
       .keyEqualTo(sourcePreference.key)
       .findFirstSync();
   db.writeTxnSync(() {
-    if (source.sourceCodeLanguage == SourceCodeLanguage.mihon &&
-        source.preferenceList != null) {
-      final prefs = (jsonDecode(source.preferenceList!) as List)
-          .map((e) => SourcePreference.fromJson(e))
-          .toList();
-      final idx = prefs.indexWhere((e) => e.key == sourcePreference.key);
-      if (idx != -1) {
-        prefs[idx] = sourcePreference..id = null;
-        db.sources.putSync(
-          source
-            ..preferenceList = jsonEncode(
-              prefs.map((e) => e.toJson()).toList(),
-            ),
-        );
-      }
-    }
     if (sourcePref != null) {
       db.sourcePreferences.putSync(sourcePreference);
     } else {
@@ -81,7 +63,7 @@ dynamic getPreferenceValue(int sourceId, String key) {
 SourcePreference getSourcePreferenceEntry(String key, int sourceId) {
   final db = _db;
 
-  // ── Isolate path: no DB → try to resolve from source.preferenceList only ──
+  // ── Isolate path: no DB → return an empty preference safely ──────────────
   if (db == null) {
     // We cannot look up the source from Isar here; return an empty preference
     // so JS preferences.get() returns null rather than crashing with a

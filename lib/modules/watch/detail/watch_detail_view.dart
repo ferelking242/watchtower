@@ -2408,7 +2408,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             url: widget.manga.link ?? '',
             source: _recSrc,
             serviceType: 'getRecommendations',
-            proxyServer: '',
           )
           .then((raw) => raw.map((e) => Map<String, dynamic>.from(e as Map)).toList()),
       builder: (context, snap) {
@@ -3904,7 +3903,7 @@ class _CommentsSectionState extends State<_CommentsSection> {
     try {
       final raw = await getIsolateService.get<List<dynamic>>(
         url: widget.url, source: src,
-        serviceType: 'getComments', proxyServer: '',
+        serviceType: 'getComments',
       );
       if (!mounted) return;
       final mapped = raw.map((e) {

@@ -123,24 +123,6 @@ class BrowseSScreen extends ConsumerWidget {
                       ),
                       trailing: const Icon(Icons.chevron_right),
                     ),
-                  if (!kIsWeb)
-                    ListTile(
-                      onTap: () => context.push('/extensionServer'),
-                      title: Text(
-                        (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-                            ? l10n.android_proxy_server
-                            : l10n.android_proxy_server_mihon,
-                      ),
-                      subtitle: Text(
-                        (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-                            ? l10n.apkbridge_description
-                            : l10n.android_proxy_server_mihon_description,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: context.secondaryColor,
-                        ),
-                      ),
-                    ),
                   ListTile(
                       onTap: () {
                         Navigator.of(context).push(

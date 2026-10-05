@@ -107,7 +107,7 @@ jobs:
           echo "full=${VNAME}+${VCODE}" >> "$GITHUB_OUTPUT"
           echo "Bumped to ${VNAME}+${VCODE} (tag: ${TAG})"
 
-      - name: Generate Mihon-style changelog
+      - name: Generate release changelog
         id: changelog
         run: |
           python3 - << 'PYEOF'

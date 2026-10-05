@@ -4,10 +4,7 @@ import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as rawHttp;
-import 'package:http_interceptor/http_interceptor.dart';
 import 'package:isar_community/isar.dart';
-import 'package:watchtower/eval/model/filter.dart';
-import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
@@ -143,7 +140,6 @@ Future<String> _fetchIndexBody({
 Future<void> fetchSourcesList({
   int? id,
   required bool refresh,
-  required String androidProxyServer,
   required bool autoUpdateExtensions,
   required ItemType itemType,
   required Repo? repo,
@@ -171,58 +167,7 @@ Future<void> fetchSourcesList({
 
   final sourceList = (jsonDecode(req.body) as List)
       .expand((e) sync* {
-        if (e['name'] != null &&
-            e['pkg'] != null &&
-            e['version'] != null &&
-            e['code'] != null &&
-            e['lang'] != null &&
-            e['nsfw'] != null &&
-            e['sources'] != null &&
-            e['apk'] != null) {
-          final repoUrl = url
-              .replaceAll("/index.min.json", "")
-              .replaceAll("/manga.min.json", "")
-              .replaceAll("/watch.min.json", "")
-              .replaceAll("/novel.min.json", "");
-          final sources = e['sources'] as List;
-          for (final source in sources) {
-            final src = Source.fromJson(e)
-              ..apiUrl = ''
-              ..appMinVerReq = ''
-              ..dateFormat = ''
-              ..dateFormatLocale = ''
-              ..hasCloudflare = false
-              ..headers = ''
-              ..isActive = true
-              ..isAdded = false
-              ..isFullData = false
-              ..isNsfw = e['nsfw'] == 1
-              ..isPinned = false
-              ..lastUsed = false
-              ..sourceCode = ''
-              ..typeSource = ''
-              ..versionLast = '0.0.1'
-              ..isObsolete = false
-              ..isLocal = false
-              ..name = source['name']
-              ..lang = (source['lang'] as String?)?.toLowerCase()
-              ..baseUrl = source['baseUrl']
-              ..sourceCodeUrl = "$repoUrl/apk/${e['apk']}"
-              ..sourceCodeLanguage = SourceCodeLanguage.mihon
-              ..itemType =
-                  (e['pkg'] as String).startsWith(
-                    "eu.kanade.tachiyomi.animeextension",
-                  )
-                  ? ItemType.anime
-                  : ItemType.manga
-              ..iconUrl = "$repoUrl/icon/${e['pkg']}.png"
-              ..notes = Platform.isAndroid
-                  ? null
-                  : "Requires Android Proxy Server (ApkBridge) for installing and using the extensions!";
-            src.id = 'mihon-${source['id']}'.hashCode;
-            yield src;
-          }
-        } else if (e['id'] is String &&
+        if (e['id'] is String &&
             e['name'] != null &&
             e['site'] != null &&
             e['lang'] != null &&
@@ -280,7 +225,7 @@ Future<void> fetchSourcesList({
         tag: LogTag.extension_,
       );
       try {
-        await _updateSource(matchingSource, androidProxyServer, repo, itemType);
+        await _updateSource(matchingSource, repo, itemType);
         AppLogger.log(
           'Install OK: "${matchingSource.name}"',
           tag: LogTag.extension_,
@@ -309,7 +254,7 @@ Future<void> fetchSourcesList({
     // ── Batch mode: one bulk DB read instead of N individual reads ────────────
     // This replaces O(n) individual isar.sources.get() calls with a single
     // query + in-memory lookup, which eliminates the main UI-freeze cause
-    // when processing large index files (Keiyoushi/Aniyomi = 1000–3000 sources).
+    // when processing large extension index files.
     final allExisting = await isar.sources
         .filter()
         .itemTypeEqualTo(itemType)
@@ -429,7 +374,7 @@ Future<void> fetchSourcesList({
         tag: LogTag.extension_,
       );
       try {
-        await _updateSource(source, androidProxyServer, repo, itemType);
+        await _updateSource(source, repo, itemType);
         AppLogger.log(
           'Auto-update OK: "${source.name}"',
           tag: LogTag.extension_,
@@ -464,7 +409,6 @@ Future<void> installExtensionUpdate(Source source) async {
   await fetchSourcesList(
     id: id,
     refresh: true,
-    androidProxyServer: '',
     autoUpdateExtensions: true,
     itemType: source.itemType,
     repo: repo,
@@ -531,7 +475,6 @@ String extensionUpdateLabel(Source source) {
 
 Future<void> _updateSource(
   Source source,
-  String androidProxyServer,
   Repo? repo,
   ItemType itemType,
 ) async {
@@ -563,74 +506,28 @@ Future<void> _updateSource(
       'Download failed for "${source.name}": HTTP ${req.statusCode}',
     );
   }
-  final sourceCode = source.sourceCodeLanguage == SourceCodeLanguage.mihon
-      ? base64.encode(req.bodyBytes)
-      : req.body;
+  final sourceCode = req.body;
 
   Map<String, String> headers = {};
-  bool? supportLatest;
-  FilterList? filterList;
-  List<SourcePreference>? preferenceList;
   source.sourceCode = sourceCode;
-  if (source.sourceCodeLanguage == SourceCodeLanguage.mihon) {
-    // Dalvik calls require ApkBridge at androidProxyServer.
-    // If it is not running we still save the extension (APK downloaded +
-    // isAdded = true) so it appears in Browse. Metadata will be populated
-    // the next time the user opens the extension with ApkBridge running.
-    try {
-      headers = await fetchHeadersDalvik(http, source, androidProxyServer);
-    } catch (e) {
-      AppLogger.log(
-        '_updateSource: fetchHeadersDalvik failed for "${source.name}" '
-        '(ApkBridge may not be running): $e',
-        logLevel: LogLevel.warning,
-        tag: LogTag.extension_,
-      );
-    }
-    try {
-      supportLatest = await fetchSupportLatestDalvik(
-        http,
-        source,
-        androidProxyServer,
-      );
-    } catch (_) {}
-    try {
-      filterList = await fetchFilterListDalvik(
-        http,
-        source,
-        androidProxyServer,
-      );
-    } catch (_) {}
-    try {
-      preferenceList = await fetchPreferencesDalvik(
-        http,
-        source,
-        androidProxyServer,
-      );
-    } catch (_) {}
-  } else {
-    try {
-      headers = await getIsolateService.get<Map<String, String>>(
-        source: source,
-        serviceType: 'getHeaders',
-      );
-    } catch (e) {
-      AppLogger.log(
-        'getHeaders failed for "${source.name}" (non-fatal): $e',
-        logLevel: LogLevel.warning,
-        tag: LogTag.extension_,
-      );
-      headers = {};
-    }
+  try {
+    headers = await getIsolateService.get<Map<String, String>>(
+      source: source,
+      serviceType: 'getHeaders',
+    );
+  } catch (e) {
+    AppLogger.log(
+      'getHeaders failed for "${source.name}" (non-fatal): $e',
+      logLevel: LogLevel.warning,
+      tag: LogTag.extension_,
+      error: e,
+      stackTrace: StackTrace.current,
+    );
+    headers = {};
   }
 
   final updatedSource = Source()
     ..headers = jsonEncode(headers)
-    ..supportLatest = supportLatest
-    ..filterList = filterList != null ? jsonEncode(filterList.toJson()) : null
-    ..preferenceList = preferenceList != null
-        ? jsonEncode(preferenceList.map((e) => e.toJson()).toList())
-        : null
     ..isAdded = true
     ..isActive = source.isActive ?? true
     ..isPinned = source.isPinned ?? false
@@ -800,168 +697,6 @@ int compareVersions(String version1, String version2) {
   }
 
   return 0;
-}
-
-Future<Map<String, String>> fetchHeadersDalvik(
-  InterceptedClient client,
-  Source source,
-  String androidProxyServer,
-) async {
-  try {
-    final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({"method": "headers$name", "data": source.sourceCode}),
-    );
-    final data = jsonDecode(res.body) as List;
-    final Map<String, String> headers = {};
-    for (var i = 0; i + 1 < data.length; i += 2) {
-      headers[data[i]] = data[i + 1];
-    }
-    return headers;
-  } catch (_) {
-    return {};
-  }
-}
-
-Future<bool> fetchSupportLatestDalvik(
-  InterceptedClient client,
-  Source source,
-  String androidProxyServer,
-) async {
-  try {
-    final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": "supportLatest$name",
-        "data": source.sourceCode,
-      }),
-    );
-    return res.body.trim() == "true";
-  } catch (_) {
-    return false;
-  }
-}
-
-Future<FilterList?> fetchFilterListDalvik(
-  InterceptedClient client,
-  Source source,
-  String androidProxyServer,
-) async {
-  try {
-    final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({"method": "filters$name", "data": source.sourceCode}),
-    );
-    final data = jsonDecode(res.body) as List;
-
-    return FilterList(filtersFromJson(data));
-  } catch (_) {
-    return null;
-  }
-}
-
-List<dynamic> filtersFromJson(List<dynamic> json) {
-  return json.expand((e) sync* {
-    if (e['name'] is String &&
-        e['state'] is Map<String, dynamic> &&
-        e['values'] is List) {
-      yield SortFilter(
-        "${e['name']}Filter",
-        e['name'],
-        SortState(e['state']['index'], e['state']['ascending'], null),
-        (e['values'] as List)
-            .map((e) => SelectFilterOption(e, e, null))
-            .toList(),
-        null,
-      );
-    } else if (e['name'] is String &&
-        e['state'] is int &&
-        (e['values'] is List || e['vals'] is List)) {
-      yield SelectFilter(
-        "${e['name']}Filter",
-        e['name'],
-        e['state'],
-        e['vals'] is List
-            ? (e['vals'] as List)
-                  .map((e) => SelectFilterOption(e['first'], e['second'], null))
-                  .toList()
-            : e['values'] is List
-            ? (e['values'] as List)
-                  .map(
-                    (e) => (e is Map)
-                        ? SelectFilterOption(e['value'], e['value'], null)
-                        : SelectFilterOption(e, e, null),
-                  )
-                  .toList()
-            : [],
-        "SelectFilter",
-      );
-    } else if (e['name'] is String && e['state'] is bool) {
-      yield CheckBoxFilter(
-        null,
-        e['name'],
-        e['id'] ?? e['name'],
-        null,
-        state: e['state'],
-      );
-    } else if (e['included'] is bool &&
-        e['ignored'] is bool &&
-        e['excluded'] is bool) {
-      yield TriStateFilter(
-        null,
-        e['name'],
-        e['id'] ?? e['name'],
-        null,
-        state: e['state'],
-      );
-    } else if (e['name'] is String && e['state'] is List) {
-      yield GroupFilter(
-        "${e['name']}Filter",
-        e['name'],
-        filtersFromJson((e['state'] as List)),
-        "GroupFilter",
-      );
-    } else if (e['name'] is String && e['state'] is String) {
-      yield TextFilter(
-        "${e['name']}Filter",
-        e['name'],
-        null,
-        state: e['state'],
-      );
-    } else if (e['name'] is String && e['state'] is int) {
-      yield HeaderFilter(e['name'], "${e['name']}Filter");
-    }
-  }).toList();
-}
-
-Future<List<SourcePreference>?> fetchPreferencesDalvik(
-  InterceptedClient client,
-  Source source,
-  String androidProxyServer,
-) async {
-  try {
-    final name = source.itemType == ItemType.anime ? "Anime" : "Manga";
-    final res = await client.post(
-      Uri.parse("$androidProxyServer/dalvik"),
-      body: jsonEncode({
-        "method": "preferences$name",
-        "data": source.sourceCode,
-      }),
-    );
-    final data = jsonDecode(res.body) as List;
-    return data
-        .map(
-          (e) => SourcePreference.fromJson(e)
-            ..id = null
-            ..sourceId = source.id,
-        )
-        .toList();
-  } catch (_) {
-    return null;
-  }
 }
 
 String _convertLang(dynamic e) {

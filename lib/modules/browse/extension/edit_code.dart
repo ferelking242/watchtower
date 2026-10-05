@@ -560,9 +560,6 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                                       _errorText = "";
                                     });
                                     if (source != null) {
-                                      final proxyServer = ref.read(
-                                        androidProxyServerStateProvider,
-                                      );
                                       try {
                                         Future<dynamic> Function(
                                           ExtensionService service,
@@ -575,7 +572,6 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                                                     page: _page,
                                                     source: source,
                                                     serviceType: 'getPopular',
-                                                    proxyServer: proxyServer,
                                                     useLogger: true,
                                                   );
                                           result = getManga!.toJson();
@@ -587,7 +583,6 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                                                     source: source,
                                                     serviceType:
                                                         'getLatestUpdates',
-                                                    proxyServer: proxyServer,
                                                     useLogger: true,
                                                   );
                                           result = getManga!.toJson();
@@ -600,7 +595,6 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                                                     source: source,
                                                     page: _page,
                                                     serviceType: 'search',
-                                                    proxyServer: proxyServer,
                                                     useLogger: true,
                                                   );
                                           result = getManga!.toJson();
@@ -611,7 +605,6 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                                                     url: _url,
                                                     source: source,
                                                     serviceType: 'getDetail',
-                                                    proxyServer: proxyServer,
                                                     useLogger: true,
                                                   );
                                           result = getManga.toJson();
@@ -648,7 +641,6 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                                         if (serviceFunc != null) {
                                           result = await withExtensionService(
                                             source!,
-                                            proxyServer,
                                             serviceFunc,
                                           );
                                         }

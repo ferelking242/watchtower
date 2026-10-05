@@ -39,7 +39,13 @@ class ExtensionsLang extends ConsumerWidget {
                 final sources = isar.sources
                     .filter()
                     .itemTypeEqualTo(itemType)
-                    .findAllSync();
+                    .findAllSync()
+                    .where(
+                      (source) =>
+                          source.sourceCodeLanguage !=
+                          SourceCodeLanguage.unsupported,
+                    )
+                    .toList();
                 for (var source in sources) {
                   isar.sources.putSync(
                     source
@@ -58,7 +64,15 @@ class ExtensionsLang extends ConsumerWidget {
             .itemTypeEqualTo(itemType)
             .watch(fireImmediately: true),
         builder: (context, snapshot) {
-          List<Source>? entries = snapshot.hasData ? snapshot.data : [];
+          List<Source>? entries = snapshot.hasData
+              ? snapshot.data!
+                    .where(
+                      (source) =>
+                          source.sourceCodeLanguage !=
+                          SourceCodeLanguage.unsupported,
+                    )
+                    .toList()
+              : [];
           final languages = entries!.map((e) => e.lang!).toSet().toList();
 
           languages.sort((a, b) => a.compareTo(b));

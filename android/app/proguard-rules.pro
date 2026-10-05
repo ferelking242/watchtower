@@ -118,19 +118,8 @@
   -keep class libmtorrentserver.** { *; }
   -dontwarn libmtorrentserver.**
 
-  # DalvikBridge calls Kotlin coroutines suspend functions and hands OkHttp
-  # instances to extension APKs entirely via reflection (see build.gradle
-  # comments) — R8 cannot trace those call sites, so both libraries need an
-  # explicit keep or they can be stripped/renamed even though they still work
-  # when this app's own code calls them directly.
-  -keep class kotlinx.coroutines.** { *; }
-  -dontwarn kotlinx.coroutines.**
-  -keep class okhttp3.** { *; }
-  -dontwarn okhttp3.**
-
-  # This app's own MainActivity/DalvikBridge/glance widget code is loaded via
-  # manifest components and reflection from extension APKs (DexClassLoader) —
-  # keep it verbatim so extension APKs can resolve it by name at runtime.
+  # The glance widget is loaded via manifest components and reflection —
+  # keep its implementation verbatim.
   -keep class com.watchtower.app.** { *; }
   -keep class com.kodjodevf.watchtower.** { *; }
 

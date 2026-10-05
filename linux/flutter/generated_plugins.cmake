@@ -14,7 +14,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   gtk
   isar_community_flutter_libs
   local_notifier
-  m_extension_server
   media_kit_libs_linux
   media_kit_video
   screen_retriever_linux

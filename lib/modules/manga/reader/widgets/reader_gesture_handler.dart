@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
-/// Navigation layout variants matching Mihon.
+/// Reader navigation layout variants.
 ///
 ///  0 = Default  – current three-column + top/bottom zones
 ///  1 = L-shaped – top-left = prev, bottom-right = next, rest = UI

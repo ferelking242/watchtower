@@ -73,10 +73,7 @@ Future<(String, EpubNovel?)> getHtmlContent(
         chapter.manga.value!.source!,
         chapter.manga.value!.sourceId,
       );
-      final proxyServer = ref.read(androidProxyServerStateProvider);
-      final html = await withExtensionService(source!, proxyServer, (
-        service,
-      ) async {
+      final html = await withExtensionService(source!, (service) async {
         if (htmlContent != null) {
           return await service.cleanHtmlContent(htmlContent);
         } else {

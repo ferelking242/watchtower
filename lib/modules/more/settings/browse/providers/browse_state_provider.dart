@@ -11,39 +11,6 @@ import 'package:watchtower/utils/constant.dart';
 part 'browse_state_provider.g.dart';
 
 @riverpod
-class AndroidProxyServerState extends _$AndroidProxyServerState {
-  @override
-  String build() {
-    String proxyServer =
-        (isar.settings.getSync(kSettingsId) ?? Settings()).androidProxyServer ??
-        "http://127.0.0.1:8080";
-    if (!proxyServer.startsWith("http")) {
-      proxyServer = "http://$proxyServer";
-    }
-    if ((proxyServer.contains("localhost") ||
-            RegExp(
-              r'^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$',
-            ).hasMatch(proxyServer.replaceAll("://", ":").split(":")[1])) &&
-        proxyServer.split(":").length < 3) {
-      proxyServer = "$proxyServer:8080";
-    }
-    return proxyServer;
-  }
-
-  void set(String value) {
-    final settings = isar.settings.getSync(kSettingsId);
-    state = value;
-    isar.writeTxnSync(
-      () => isar.settings.putSync(
-        settings!
-          ..androidProxyServer = value
-          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-      ),
-    );
-  }
-}
-
-@riverpod
 class OnlyIncludePinnedSourceState extends _$OnlyIncludePinnedSourceState {
   @override
   bool build() {
@@ -92,24 +59,6 @@ List<Repo> _defaultMangaRepos() => [
     jsonUrl: '$_kWtExtBase/index/manga.json',
     website: 'https://github.com/ferelking242/watchtower-extensions',
   ),
-  Repo(
-    name: 'Keiyoushi Extensions',
-    jsonUrl:
-        'https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json',
-    website: 'https://github.com/keiyoushi/extensions',
-  ),
-  Repo(
-    name: 'Yuzono Manga Repo',
-    jsonUrl:
-        'https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.min.json',
-    website: 'https://github.com/yuzono/manga-repo',
-  ),
-  Repo(
-    name: 'Kareadita Tach Extension',
-    jsonUrl:
-        'https://raw.githubusercontent.com/Kareadita/tach-extension/repo/index.min.json',
-    website: 'https://github.com/Kareadita/tach-extension',
-  ),
 ];
 
 List<Repo> _defaultAnimeRepos() => [
@@ -117,12 +66,6 @@ List<Repo> _defaultAnimeRepos() => [
     name: 'Watchtower Officiel – Watch',
     jsonUrl: '$_kWtExtBase/index/watch.json',
     website: 'https://github.com/ferelking242/watchtower-extensions',
-  ),
-  Repo(
-    name: 'Aniyomi Extensions',
-    jsonUrl:
-        'https://raw.githubusercontent.com/aniyomiorg/aniyomi-extensions/repo/index.min.json',
-    website: 'https://github.com/aniyomiorg/aniyomi-extensions',
   ),
 ];
 
