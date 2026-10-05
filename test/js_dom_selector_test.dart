@@ -15,9 +15,19 @@ void main() {
 
     for (final rootType in ['documentElement', 'parent']) {
       final rootKey = getDocumentElement([html, rootType]) as int;
+      final rootText = getElementString(['text', rootKey]) as String;
+      expect(
+        rootText,
+        contains('XNXX result'),
+        reason: 'The $rootType bridge root did not retain the parsed HTML.',
+      );
       final resultKey = selectFirst(['.thumb-container', rootKey]) as int;
 
-      expect(getElementString(['text', resultKey]), 'XNXX result');
+      expect(
+        getElementString(['text', resultKey]),
+        'XNXX result',
+        reason: 'Descendant selector failed from the $rootType bridge root.',
+      );
     }
   });
 }
