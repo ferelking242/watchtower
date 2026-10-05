@@ -194,7 +194,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   void _loadExtensionSources() {
-    isar.sources.where().findAll().then<void>(
+    isar.sources.buildQuery<Source>().findAll().then<void>(
       (sources) {
         if (!mounted) return;
         final extensions = sources
