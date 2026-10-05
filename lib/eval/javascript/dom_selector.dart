@@ -26,6 +26,7 @@ import 'dart:convert';
         final element = switch (type) {
           'body' => doc.body,
           'documentElement' => doc.documentElement,
+          'parent' => doc.documentElement,
           'head' => doc.head,
           _ => doc.parent,
         };
@@ -345,7 +346,7 @@ import 'dart:convert';
       constructor(html) {
           this.key = sendMessage(
               "get_doc_element",
-              JSON.stringify([html, "parent"])
+              JSON.stringify([html, "documentElement"])
           );
       }
       getElement(type) {
