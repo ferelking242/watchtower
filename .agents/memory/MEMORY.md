@@ -1,5 +1,5 @@
 - [Smart Library boundaries](smart-library-scan-boundaries.md) — keep Watch video discovery and Manga chapter/archive discovery as separate scan policies.
-- [Flutter toolchain](flutter-toolchain.md) — require Flutter 3.47.2/Dart 3.11+ and use repository CI; check `build_web.yml` after pushes.
+- [Flutter and Android builds](flutter-toolchain.md) — use repository CI and preserve the case-sensitive NewPipe artifact coordinate.
 - [Push GitHub](github-push-auth.md) — if GitHub CLI auth works but Git rejects a push, clear configured helpers and select the GitHub CLI helper.
 - [Browse source boundary](browse-source-boundary.md) — Browse doit lire les sources installées persistées; les fetchs réseau restent explicites.
 - [Component gallery navigation](component-gallery-navigation.md) — la galerie est une destination interne de Library, pas une URL publique GitHub Pages.

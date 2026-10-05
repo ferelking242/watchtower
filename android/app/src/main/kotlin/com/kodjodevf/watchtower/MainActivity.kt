@@ -3,22 +3,17 @@ package com.watchtower.app
   import android.app.DownloadManager
   import android.app.PendingIntent
   import android.app.PictureInPictureParams
-  import android.content.BroadcastReceiver
   import android.content.Context
   import android.content.Intent
-  import android.content.IntentFilter
   import android.content.pm.PackageInstaller
   import android.content.pm.PackageManager
   import android.net.Uri
   import android.os.Build
   import android.os.Environment
-  import android.util.Log
   import androidx.annotation.NonNull
-  import androidx.core.content.ContextCompat
   import androidx.core.content.FileProvider
   import io.flutter.embedding.android.FlutterFragmentActivity
   import io.flutter.embedding.engine.FlutterEngine
-  import io.flutter.plugin.common.EventChannel
   import io.flutter.plugin.common.MethodChannel
   import io.flutter.plugin.common.StandardMethodCodec
   import com.kodjodevf.watchtower.DownloadForegroundService
@@ -29,72 +24,8 @@ package com.watchtower.app
 
   class MainActivity : FlutterFragmentActivity() {
 
-      // ── Mihon / Aniyomi extension feature flags ───────────────────────────
       companion object {
-          // Tachiyomi / Mihon extensions
-          private const val EXT_FEATURE_TACHI   = "tachiyomi.extension"
-          // Aniyomi extensions
-          private const val EXT_FEATURE_ANIYOMI = "aniyomi.extension"
-
-          private const val PRIVATE_EXT_DIR = "exts"
-          private const val PRIVATE_EXT_EXT = ".ext"
           private const val SHIZUKU_CODE    = 1042
-
-          private const val TAG = "WatchtowerExt"
-
-          @Suppress("DEPRECATION")
-          private val PKG_FLAGS =
-              android.content.pm.PackageManager.GET_CONFIGURATIONS or
-              android.content.pm.PackageManager.GET_META_DATA
-
-          /** Returns true if the PackageInfo has any known extension feature */
-          private fun android.content.pm.PackageInfo.isExtension(): Boolean =
-              reqFeatures?.any { f ->
-                  f.name == EXT_FEATURE_TACHI || f.name == EXT_FEATURE_ANIYOMI
-              } == true
-      }
-
-      // ── Extension watcher ─────────────────────────────────────────────────
-      private var extEventSink: EventChannel.EventSink? = null
-
-      private val extReceiver = object : BroadcastReceiver() {
-          override fun onReceive(ctx: Context, intent: Intent?) {
-              val pkg   = intent?.data?.schemeSpecificPart ?: return
-              val event = when (intent.action) {
-                  Intent.ACTION_PACKAGE_ADDED    -> "added"
-                  Intent.ACTION_PACKAGE_REPLACED -> "replaced"
-                  Intent.ACTION_PACKAGE_REMOVED  -> "removed"
-                  else -> return
-              }
-              Log.d(TAG, "[PackageChanged] event=$event pkg=$pkg")
-
-              if (event == "removed") {
-                  extEventSink?.success(mapOf("event" to event, "pkg" to pkg))
-                  return
-              }
-              try {
-                  val pm = applicationContext.packageManager
-                  val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                      pm.getPackageInfo(pkg,
-                          android.content.pm.PackageManager.PackageInfoFlags.of(PKG_FLAGS.toLong()))
-                  } else {
-                      @Suppress("DEPRECATION")
-                      pm.getPackageInfo(pkg, PKG_FLAGS)
-                  }
-                  if (info.isExtension()) {
-                      Log.d(TAG, "[PackageChanged] Forwarding ext event=$event pkg=$pkg")
-                      extEventSink?.success(mapOf(
-                          "event"     to event,
-                          "pkg"       to pkg,
-                          "sourceDir" to (info.applicationInfo?.sourceDir ?: "")
-                      ))
-                  } else {
-                      Log.d(TAG, "[PackageChanged] Ignored (not extension) pkg=$pkg")
-                  }
-              } catch (ex: Exception) {
-                  Log.w(TAG, "[PackageChanged] Error processing $pkg: ${ex.message}")
-              }
-          }
       }
 
       // ── Shizuku permission callback ────────────────────────────────────────
@@ -145,129 +76,6 @@ package com.watchtower.app
               }
           }
 
-          // ── 3. Extension loader ────────────────────────────────────────────
-          MethodChannel(
-              flutterEngine.dartExecutor.binaryMessenger,
-              "com.watchtower.app.ext_loader",
-              StandardMethodCodec.INSTANCE,
-              flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
-          ).setMethodCallHandler { call, result ->
-              when (call.method) {
-
-                  // Scan ALL installed extension packages (Mihon + Aniyomi)
-                  "getInstalledExtensions" -> try {
-                      val pm = packageManager
-                      val allPkgs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                          pm.getInstalledPackages(android.content.pm.PackageManager.PackageInfoFlags.of(PKG_FLAGS.toLong()))
-                      } else {
-                          @Suppress("DEPRECATION")
-                          pm.getInstalledPackages(PKG_FLAGS)
-                      }
-                      val exts = allPkgs
-                          .filter { it.isExtension() }
-                          .mapNotNull { info ->
-                              try {
-                                  val map = mapOf(
-                                      "pkg"         to info.packageName,
-                                      "versionName" to (info.versionName ?: ""),
-                                      "sourceDir"   to (info.applicationInfo?.sourceDir ?: "")
-                                  )
-                                  Log.d(TAG, "[ExtensionScan] Found package ${info.packageName}")
-                                  map
-                              } catch (_: Exception) { null }
-                          }
-                      Log.d(TAG, "[ExtensionScan] Total packages found: ${exts.size}")
-                      result.success(exts)
-                  } catch (e: Exception) {
-                      Log.e(TAG, "[ExtensionScan] Scan error: ${e.message}")
-                      result.error("SCAN_ERROR", e.message, null)
-                  }
-
-                  "getPrivateExtensionsDir" -> {
-                      val dir = File(filesDir, PRIVATE_EXT_DIR).also { it.mkdirs() }
-                      result.success(dir.absolutePath)
-                  }
-
-                  "listPrivateExtensions" -> {
-                      val files = File(filesDir, PRIVATE_EXT_DIR)
-                          .listFiles()
-                          ?.filter { it.isFile && it.name.endsWith(PRIVATE_EXT_EXT) }
-                          ?.map { mapOf("path" to it.absolutePath, "filename" to it.name) }
-                          ?: emptyList<Map<String, String>>()
-                      Log.d(TAG, "[ExtensionScan] Private extensions: ${files.size}")
-                      result.success(files)
-                  }
-
-                  "installPrivateExtension" -> {
-                      val srcPath = call.argument<String>("path") ?: run {
-                          result.error("NO_PATH", "path required", null)
-                          return@setMethodCallHandler
-                      }
-                      try {
-                          val pm = packageManager
-                          val info = pm.getPackageArchiveInfo(srcPath, PKG_FLAGS)
-                          if (info == null || !info.isExtension()) {
-                              result.error("NOT_EXT", "Not a Tachiyomi/Aniyomi extension", null)
-                              return@setMethodCallHandler
-                          }
-                          val dest = File(
-                              File(filesDir, PRIVATE_EXT_DIR).also { it.mkdirs() },
-                              "${info.packageName}$PRIVATE_EXT_EXT"
-                          )
-                          File(srcPath).copyTo(dest, overwrite = true)
-                          Log.d(TAG, "[ExtensionAdded] Private ext installed: ${info.packageName}")
-                          result.success(mapOf(
-                              "pkg"       to info.packageName,
-                              "sourceDir" to dest.absolutePath
-                          ))
-                      } catch (e: Exception) {
-                          Log.e(TAG, "[ExtensionValidation] installPrivateExtension error: ${e.message}")
-                          result.error("INSTALL_ERROR", e.message, null)
-                      }
-                  }
-
-                  "removePrivateExtension" -> {
-                      val pkg = call.argument<String>("pkg") ?: run {
-                          result.error("NO_PKG", "pkg required", null)
-                          return@setMethodCallHandler
-                      }
-                      File(File(filesDir, PRIVATE_EXT_DIR), "$pkg$PRIVATE_EXT_EXT").delete()
-                      Log.d(TAG, "[ExtensionRemoved] Private ext removed: $pkg")
-                      result.success(null)
-                  }
-
-                  else -> result.notImplemented()
-              }
-          }
-
-          // ── 4. Inline Dalvik bridge ────────────────────────────────────────
-          // Runs Mihon/Aniyomi extension APKs in-process via DexClassLoader.
-          // Eliminates the need for a separate ApkBridge app.
-          val dalvikBridgeInstance = DalvikBridge(applicationContext)
-          MethodChannel(
-              flutterEngine.dartExecutor.binaryMessenger,
-              "com.watchtower.app.dalvik_bridge",
-              StandardMethodCodec.INSTANCE,
-              flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
-          ).setMethodCallHandler { call, result ->
-              when (call.method) {
-                  "callDalvik" -> {
-                      val json = call.argument<String>("json") ?: run {
-                          result.error("NO_JSON", "json argument required", null)
-                          return@setMethodCallHandler
-                      }
-                      try {
-                          val response = dalvikBridgeInstance.call(json)
-                          result.success(response)
-                      } catch (e: Exception) {
-                          Log.e(TAG, "[DalvikBridge] Error: ${e.message}", e)
-                          result.error("DALVIK_ERROR", e.message ?: "unknown", null)
-                      }
-                  }
-                  else -> result.notImplemented()
-              }
-          }
-
           // ── 5. PiP ─────────────────────────────────────────────────────────
           // ── Device capabilities (RAM detection) ───────────────────────────
           // Queried once at startup by DeviceCapabilities.dart to select the
@@ -308,32 +116,6 @@ package com.watchtower.app
                   else -> result.notImplemented()
               }
           }
-
-          // ── 5. Extension watcher ───────────────────────────────────────────
-          EventChannel(
-              flutterEngine.dartExecutor.binaryMessenger,
-              "com.watchtower.app.ext_watcher"
-          ).setStreamHandler(object : EventChannel.StreamHandler {
-              override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                  extEventSink = events
-                  val filter = IntentFilter().apply {
-                      addAction(Intent.ACTION_PACKAGE_ADDED)
-                      addAction(Intent.ACTION_PACKAGE_REPLACED)
-                      addAction(Intent.ACTION_PACKAGE_REMOVED)
-                      addDataScheme("package")
-                  }
-                  ContextCompat.registerReceiver(
-                      applicationContext, extReceiver, filter,
-                      ContextCompat.RECEIVER_NOT_EXPORTED
-                  )
-                  Log.d(TAG, "[PackageChanged] Watcher registered")
-              }
-              override fun onCancel(arguments: Any?) {
-                  try { applicationContext.unregisterReceiver(extReceiver) } catch (_: Exception) {}
-                  extEventSink = null
-                  Log.d(TAG, "[PackageChanged] Watcher cancelled")
-              }
-          })
 
           // ── 6. Home screen shortcuts ────────────────────────────────────────
           MethodChannel(
