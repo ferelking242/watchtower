@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +12,8 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/download_connectivity.dart';
+import 'package:watchtower/services/download_manager/download_isolate_pool.dart'
+    show DownloadPoolInitializationGate;
 import 'package:watchtower/utils/mock_isar.dart';
 
 void main() {
@@ -19,6 +23,50 @@ void main() {
       expect(hasWifiOrEthernet([ConnectivityResult.ethernet]), isTrue);
       expect(hasWifiOrEthernet([ConnectivityResult.mobile]), isFalse);
       expect(hasWifiOrEthernet([ConnectivityResult.none]), isFalse);
+    });
+  });
+
+  group('download pool initialization', () {
+    test('coalesces concurrent worker startup requests', () async {
+      final gate = DownloadPoolInitializationGate();
+      final startup = Completer<void>();
+      var startupCalls = 0;
+
+      final first = gate.initialize(() {
+        startupCalls++;
+        return startup.future;
+      });
+      final second = gate.initialize(() async {
+        startupCalls++;
+      });
+
+      expect(startupCalls, 1);
+      startup.complete();
+      await Future.wait([first, second]);
+
+      expect(startupCalls, 1);
+      expect(gate.isInitialized, isTrue);
+    });
+
+    test('failed worker startup can be retried', () async {
+      final gate = DownloadPoolInitializationGate();
+      var startupCalls = 0;
+
+      await expectLater(
+        gate.initialize(() async {
+          startupCalls++;
+          throw StateError('simulated worker startup failure');
+        }),
+        throwsA(isA<StateError>()),
+      );
+      expect(gate.isInitialized, isFalse);
+
+      await gate.initialize(() async {
+        startupCalls++;
+      });
+
+      expect(startupCalls, 2);
+      expect(gate.isInitialized, isTrue);
     });
   });
 

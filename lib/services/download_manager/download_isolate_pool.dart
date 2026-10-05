@@ -16,6 +16,7 @@ import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
 import 'package:watchtower/src/rust/frb_generated.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
 import 'package:encrypt/encrypt.dart' as encrypt;
 
@@ -38,6 +39,8 @@ class DownloadIsolatePool {
   final List<_PoolWorker> _workers = [];
   final Queue<_DownloadTask> _taskQueue = Queue();
   final Set<int> _availableWorkers = {}; // Track available workers by index
+  final DownloadPoolInitializationGate _initializationGate =
+      DownloadPoolInitializationGate();
   final int poolSize;
   bool _initialized = false;
 
@@ -65,21 +68,64 @@ class DownloadIsolatePool {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    if (kDebugMode) {
-      if (kDebugMode)
-        print('[DownloadPool] Initializing with $poolSize workers...');
-    }
+    await _initializationGate.initialize(_initializeWorkers);
+  }
 
-    for (int i = 0; i < poolSize; i++) {
-      final worker = await _PoolWorker.create(i);
-      _workers.add(worker);
-      _availableWorkers.add(i); // All workers start as available
-    }
+  Future<void> _initializeWorkers() async {
+    final poolStopwatch = Stopwatch()..start();
+    final startingWorkers = <_PoolWorker>[];
+    AppLogger.log(
+      'Download pool initialization started workers=$poolSize',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
 
-    _initialized = true;
-    if (kDebugMode) {
-      if (kDebugMode)
-        print('[DownloadPool] Pool initialized with $poolSize workers');
+    try {
+      for (int i = 0; i < poolSize; i++) {
+        final workerStopwatch = Stopwatch()..start();
+        AppLogger.log(
+          'Download worker $i startup started',
+          logLevel: LogLevel.debug,
+          tag: LogTag.download,
+        );
+        final worker = await _PoolWorker.create(i);
+        startingWorkers.add(worker);
+        AppLogger.log(
+          'Download worker $i ready in ${workerStopwatch.elapsedMilliseconds}ms',
+          logLevel: LogLevel.info,
+          tag: LogTag.download,
+        );
+      }
+
+      _workers
+        ..clear()
+        ..addAll(startingWorkers);
+      _availableWorkers
+        ..clear()
+        ..addAll(List<int>.generate(poolSize, (index) => index));
+      _initialized = true;
+      AppLogger.log(
+        'Download pool ready workers=$poolSize '
+        'in ${poolStopwatch.elapsedMilliseconds}ms',
+        logLevel: LogLevel.info,
+        tag: LogTag.download,
+      );
+    } catch (error, stackTrace) {
+      for (final worker in startingWorkers) {
+        worker.dispose();
+      }
+      _workers.clear();
+      _availableWorkers.clear();
+      _initialized = false;
+      AppLogger.log(
+        'Download pool startup failed after ${poolStopwatch.elapsedMilliseconds}ms; '
+        'partial workers were stopped',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
     }
   }
 
@@ -97,6 +143,14 @@ class DownloadIsolatePool {
     void Function()? onCancelled,
   }) async {
     if (!_initialized) await initialize();
+
+    AppLogger.log(
+      '[ch:$taskId] pool submit pages=${pageUrls.length} '
+      'pageConcurrency=$concurrentDownloads active=$activeWorkers '
+      'queued=$pendingTasks',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
 
     // Mark the task as active (not cancelled) and stamp a new listener version.
     downloadTaskCancellation[taskId] = false;
@@ -129,6 +183,15 @@ class DownloadIsolatePool {
     //  - We also check the listener version to discard messages that arrived
     //    after a newer submission (resume) claimed the same taskId.
     receivePort.listen((message) {
+      if (message is _DownloadPoolLog) {
+        AppLogger.log(
+          '[ch:${message.taskId}] ${message.message}',
+          logLevel: message.level,
+          tag: LogTag.download,
+        );
+        return;
+      }
+
       final isCurrent = _listenerVersion[taskId] == myVersion;
 
       if (message is DownloadProgress) {
@@ -194,6 +257,13 @@ class DownloadIsolatePool {
     void Function()? onCancelled,
   }) async {
     if (!_initialized) await initialize();
+
+    AppLogger.log(
+      '[ch:$taskId] pool submit segments=${segments.length} '
+      'active=$activeWorkers queued=$pendingTasks',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
 
     downloadTaskCancellation[taskId] = false;
     final myVersion = (_listenerVersion[taskId] ?? 0) + 1;
@@ -277,6 +347,12 @@ class DownloadIsolatePool {
   /// Add a task to the queue and try to process it
   void _enqueueTask(_DownloadTask task) {
     _taskQueue.add(task);
+    AppLogger.log(
+      '[ch:${task.taskId}] pool queued pending=$pendingTasks '
+      'active=$activeWorkers',
+      logLevel: LogLevel.debug,
+      tag: LogTag.download,
+    );
     _processQueue();
   }
 
@@ -288,23 +364,37 @@ class DownloadIsolatePool {
       _availableWorkers.remove(workerIndex);
       final worker = _workers[workerIndex];
 
-      if (kDebugMode) {
-        if (kDebugMode)
-          print(
-            '[DownloadPool] Worker $workerIndex starting task ${task.taskId}',
-          );
-      }
+      AppLogger.log(
+        '[ch:${task.taskId}] pool dispatch worker=$workerIndex '
+        'active=$activeWorkers pending=$pendingTasks',
+        logLevel: LogLevel.info,
+        tag: LogTag.download,
+      );
 
-      worker.executeTask(task).then((_) {
-        _availableWorkers.add(workerIndex); // Worker is free again
-        if (kDebugMode) {
-          if (kDebugMode)
-            print(
-              '[DownloadPool] Worker $workerIndex finished task ${task.taskId}, available workers: ${_availableWorkers.length}',
-            );
-        }
-        _processQueue(); // Process the next task
-      });
+      worker.executeTask(task).then<void>(
+        (_) {
+          _availableWorkers.add(workerIndex); // Worker is free again
+          AppLogger.log(
+            '[ch:${task.taskId}] pool worker=$workerIndex finished '
+            'available=${_availableWorkers.length}',
+            logLevel: LogLevel.info,
+            tag: LogTag.download,
+          );
+          _processQueue(); // Process the next task
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          _availableWorkers.add(workerIndex);
+          AppLogger.log(
+            '[ch:${task.taskId}] pool worker=$workerIndex failed while '
+            'running the task',
+            logLevel: LogLevel.warning,
+            tag: LogTag.download,
+            error: error,
+            stackTrace: stackTrace,
+          );
+          _processQueue();
+        },
+      );
     }
   }
 
@@ -324,6 +414,45 @@ class DownloadIsolatePool {
     _availableWorkers.clear();
     downloadTaskCancellation.clear();
     _initialized = false;
+    _initializationGate.reset();
+  }
+}
+
+/// Coalesces concurrent first-use requests into a single worker-pool startup.
+///
+/// This small gate is isolated from isolate creation so its concurrency and
+/// retry behavior can be covered by unit tests without starting native workers.
+@visibleForTesting
+class DownloadPoolInitializationGate {
+  bool _initialized = false;
+  Future<void>? _initializing;
+
+  bool get isInitialized => _initialized;
+
+  Future<void> initialize(Future<void> Function() createWorkers) {
+    if (_initialized) return Future<void>.value();
+    final current = _initializing;
+    if (current != null) return current;
+
+    final attempt = _runInitialization(createWorkers);
+    _initializing = attempt;
+    return attempt;
+  }
+
+  Future<void> _runInitialization(
+    Future<void> Function() createWorkers,
+  ) async {
+    try {
+      await createWorkers();
+      _initialized = true;
+    } finally {
+      _initializing = null;
+    }
+  }
+
+  void reset() {
+    _initialized = false;
+    _initializing = null;
   }
 }
 
@@ -343,6 +472,15 @@ class _DownloadTask {
     required this.params,
     required this.sendPort,
   });
+}
+
+/// Lightweight diagnostic event forwarded from a download isolate.
+class _DownloadPoolLog {
+  final String taskId;
+  final String message;
+  final LogLevel level;
+
+  const _DownloadPoolLog(this.taskId, this.message, this.level);
 }
 
 /// Parameters for file download
@@ -447,7 +585,7 @@ class _Throttle {
 /// Pool worker that executes tasks in a persistent Isolate
 class _PoolWorker {
   final int id;
-  late Isolate _isolate;
+  Isolate? _isolate;
   late SendPort _sendPort;
   late ReceivePort _receivePort;
   SendPort? _cancelPort;
@@ -463,34 +601,63 @@ class _PoolWorker {
 
   Future<void> _spawn() async {
     _receivePort = ReceivePort();
-
-    _isolate = await Isolate.spawn(
-      _workerEntryPoint,
-      _WorkerInit(id, _receivePort.sendPort),
-    );
-
-    // The worker first sends back its task SendPort, then its cancel
-    // SendPort. We complete the ready future once both are received.
     final taskPortCompleter = Completer<SendPort>();
     final cancelPortCompleter = Completer<SendPort>();
-    _receivePort.listen((message) {
-      if (message is _WorkerHandshake) {
-        if (!taskPortCompleter.isCompleted) {
-          taskPortCompleter.complete(message.taskPort);
-        }
-        if (!cancelPortCompleter.isCompleted) {
-          cancelPortCompleter.complete(message.cancelPort);
-        }
-      } else if (message is SendPort && !taskPortCompleter.isCompleted) {
-        // Backwards-compatible path (old worker entry point sent a bare
-        // SendPort). Should not be hit but keeps things robust.
-        taskPortCompleter.complete(message);
-      }
-    });
 
-    _sendPort = await taskPortCompleter.future;
-    _cancelPort = await cancelPortCompleter.future;
-    _ready.complete();
+    try {
+      _isolate = await Isolate.spawn(
+        _workerEntryPoint,
+        _WorkerInit(id, _receivePort.sendPort),
+      );
+
+      // The worker first sends back its task SendPort, then its cancel
+      // SendPort. Bound this wait: Rust initialization can fail inside the
+      // isolate before it reaches the handshake, otherwise the queue hangs.
+      _receivePort.listen((message) {
+        if (message is _WorkerHandshake) {
+          if (!taskPortCompleter.isCompleted) {
+            taskPortCompleter.complete(message.taskPort);
+          }
+          if (!cancelPortCompleter.isCompleted) {
+            cancelPortCompleter.complete(message.cancelPort);
+          }
+        } else if (message is SendPort && !taskPortCompleter.isCompleted) {
+          // Backwards-compatible path for workers that only send a task port.
+          taskPortCompleter.complete(message);
+          if (!cancelPortCompleter.isCompleted) {
+            cancelPortCompleter.completeError(
+              StateError('Worker $id did not provide a cancellation port'),
+            );
+          }
+        }
+      });
+
+      final ports = await Future.wait<SendPort>([
+        taskPortCompleter.future,
+        cancelPortCompleter.future,
+      ]).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw TimeoutException(
+          'Download worker $id did not complete its startup handshake '
+          'within 20 seconds',
+        ),
+      );
+
+      _sendPort = ports[0];
+      _cancelPort = ports[1];
+      _ready.complete();
+    } catch (error, stackTrace) {
+      _receivePort.close();
+      _isolate?.kill();
+      AppLogger.log(
+        'Download worker $id failed to start',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   /// Execute a task in this worker
@@ -534,7 +701,7 @@ class _PoolWorker {
   }
 
   void dispose() {
-    _isolate.kill();
+    _isolate?.kill();
     _receivePort.close();
   }
 }
@@ -671,6 +838,13 @@ Future<void> _processFileDownload(
   final total = params.pageUrls.length;
 
   if (total == 0) {
+    replyPort.send(
+      _DownloadPoolLog(
+        taskId,
+        'transfer skipped because there are no pending pages',
+        LogLevel.warning,
+      ),
+    );
     replyPort.send(DownloadComplete());
     return;
   }
@@ -678,6 +852,13 @@ Future<void> _processFileDownload(
   try {
     final throttle = _Throttle(params.speedLimitKBs.toDouble());
     final int concurrency = params.concurrentDownloads.clamp(1, 32);
+    replyPort.send(
+      _DownloadPoolLog(
+        taskId,
+        'transfer started pages=$total pageConcurrency=$concurrency',
+        LogLevel.info,
+      ),
+    );
     // Circular slot buffer: slot i is awaited before launching item i,
     // guaranteeing at most `concurrency` downloads in flight at once.
     final slots = List<Future<void>>.filled(concurrency, Future.value());
@@ -745,6 +926,9 @@ Future<void> _processFileDownload(
       return;
     }
 
+    replyPort.send(
+      _DownloadPoolLog(taskId, 'all $total pages transferred', LogLevel.info),
+    );
     replyPort.send(DownloadComplete());
   } catch (e) {
     replyPort.send(_toSendable(DownloadPoolException('Download failed', e)));
@@ -882,6 +1066,16 @@ Future<void> _downloadFile(
   int writeMode = 0,
   _Throttle? throttle,
 }) async {
+  final fileLabel = path.basename(pageUrl.fileName ?? 'download');
+  final host = Uri.tryParse(pageUrl.url)?.host ?? 'unknown';
+  replyPort.send(
+    _DownloadPoolLog(
+      taskId,
+      'page request started file=$fileLabel host=$host',
+      LogLevel.debug,
+    ),
+  );
+
   try {
     if (itemType != ItemType.anime) {
       const imageTimeout = Duration(seconds: 30);
@@ -911,11 +1105,6 @@ Future<void> _downloadFile(
         await part.rename(finalPath);
       } else {
         await File(finalPath).writeAsBytes(bytes, flush: true);
-      }
-      if (kDebugMode) {
-        debugPrint(
-          '[DLPool] ${path.basename(finalPath)} ok (${bytes.length}B)',
-        );
       }
     } else {
       await _withRetry(() async {
@@ -1123,7 +1312,23 @@ Future<void> _downloadFile(
         );
       }, 3);
     }
+    final output = File(pageUrl.fileName!);
+    final writtenBytes = await output.length();
+    replyPort.send(
+      _DownloadPoolLog(
+        taskId,
+        'page saved file=$fileLabel bytes=$writtenBytes',
+        LogLevel.debug,
+      ),
+    );
   } catch (e) {
+    replyPort.send(
+      _DownloadPoolLog(
+        taskId,
+        'page request failed file=$fileLabel host=$host',
+        LogLevel.warning,
+      ),
+    );
     throw DownloadPoolException(
       'Failed to process file: ${pageUrl.fileName!}',
       e,

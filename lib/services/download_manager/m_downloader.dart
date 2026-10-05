@@ -10,6 +10,7 @@ import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
 
 /// Map to allow cancellation of downloads
@@ -80,6 +81,13 @@ class MDownloader {
   }
 
   Future<void> download(void Function(DownloadProgress) onProgress) async {
+    final taskId = chapter.id?.toString() ?? '?';
+    AppLogger.log(
+      '[ch:$taskId] MDownloader started pages=${pageUrls.length} '
+      'pageConcurrency=$concurrentDownloads',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
     try {
       await _downloadFilesWithProgress(pageUrls, onProgress);
 
@@ -105,7 +113,19 @@ class MDownloader {
         _log('Subtitle file downloaded: ${element.label}');
         await subtitleFile.writeAsBytes(response.bodyBytes);
       }
-    } catch (e) {
+      AppLogger.log(
+        '[ch:$taskId] MDownloader finished',
+        logLevel: LogLevel.info,
+        tag: LogTag.download,
+      );
+    } catch (e, stackTrace) {
+      AppLogger.log(
+        '[ch:$taskId] MDownloader failed',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+        error: e,
+        stackTrace: stackTrace,
+      );
       throw MDownloaderException('Download failed', e);
     } finally {
       close();
@@ -118,9 +138,16 @@ class MDownloader {
   ) async {
     final completer = Completer<void>();
     final taskId = '${chapter.id}';
+    final poolStopwatch = Stopwatch()..start();
 
     // Mark as active for compatibility with cancelDownloads()
     isolateChapsSendPorts[taskId] = true;
+
+    AppLogger.log(
+      '[ch:$taskId] submitting ${pageUrls.length} page files to download pool',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
 
     await DownloadIsolatePool.instance.submitFileDownload(
       taskId: taskId,
@@ -160,7 +187,26 @@ class MDownloader {
       },
     );
 
-    return completer.future;
+    AppLogger.log(
+      '[ch:$taskId] pool accepted task in '
+      '${poolStopwatch.elapsedMilliseconds}ms; waiting for page results',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
+
+    try {
+      await completer.future;
+    } catch (error, stackTrace) {
+      AppLogger.log(
+        '[ch:$taskId] pool task returned an error after '
+        '${poolStopwatch.elapsedMilliseconds}ms',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 }
 

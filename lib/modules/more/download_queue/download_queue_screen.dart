@@ -1403,69 +1403,120 @@ class _GroupedDownloadTabListState
     final seriesPercent = (seriesProgress * 100).round();
     final isCollapsed = _collapsedSeries.contains(key);
     final scheme = Theme.of(context).colorScheme;
+    final unfinishedItems = items
+        .where((download) => download.isDownload != true)
+        .toList();
+    final allUnfinishedPaused = unfinishedItems.isNotEmpty &&
+        unfinishedItems.every((download) {
+          final id = download.id ?? -1;
+          return widget.queueState.pausedIds.contains(id) ||
+              download.status == 'paused';
+        });
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => setState(() {
-              if (isCollapsed) {
-                _collapsedSeries.remove(key);
-              } else {
-                _collapsedSeries.add(key);
+        Dismissible(
+          key: ValueKey('dl_series_$key'),
+          direction: DismissDirection.horizontal,
+          dismissThresholds: const {
+            DismissDirection.startToEnd: 0.30,
+            DismissDirection.endToStart: 0.30,
+          },
+          background: _seriesSwipeBackground(
+            alignment: Alignment.centerLeft,
+            color: Colors.red.shade700,
+            icon: Icons.delete_outline_rounded,
+            label: 'Supprimer la série',
+          ),
+          secondaryBackground: _seriesSwipeBackground(
+            alignment: Alignment.centerRight,
+            color: Colors.orange.shade700,
+            icon: allUnfinishedPaused
+                ? Icons.play_arrow_rounded
+                : Icons.pause_rounded,
+            label: allUnfinishedPaused ? 'Reprendre la série' : 'Pause série',
+          ),
+          confirmDismiss: (direction) async {
+            if (direction == DismissDirection.endToStart) {
+              final shouldResume = allUnfinishedPaused;
+              for (final download in unfinishedItems) {
+                final id = download.id ?? -1;
+                final isPaused = widget.queueState.pausedIds.contains(id) ||
+                    download.status == 'paused';
+                if (shouldResume || !isPaused) {
+                  widget.onPauseResume(download);
+                }
               }
-            }),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow.withValues(alpha: 0.72),
-                border: Border(
-                  bottom: BorderSide(
-                    color: scheme.outlineVariant.withValues(alpha: 0.35),
-                    width: 0.5,
-                  ),
-                ),
+            } else {
+              for (final download in items) {
+                widget.onDelete(download);
+              }
+            }
+            // Keep the series header in place; callbacks update its children
+            // and the group disappears only if all entries were deleted.
+            return false;
+          },
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.45),
+                width: 0.7,
               ),
-              child: Row(
-                children: [
-                  _CoverThumbnail(
-                    imageUrl: manga?.imageUrl,
-                    customBytes: manga?.customCoverImage?.cast<int>(),
-                    itemType: itemType,
-                    width: 40,
-                    height: 56,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: itemType == ItemType.manga
-                        ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.onSurface,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 5),
-                              Row(
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => setState(() {
+                  if (isCollapsed) {
+                    _collapsedSeries.remove(key);
+                  } else {
+                    _collapsedSeries.add(key);
+                  }
+                }),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
+                  child: Row(
+                    children: [
+                      _CoverThumbnail(
+                        imageUrl: manga?.imageUrl,
+                        customBytes: manga?.customCoverImage?.cast<int>(),
+                        itemType: itemType,
+                        width: 50,
+                        height: 70,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: itemType == ItemType.manga
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: MbGradientProgressBar(
-                                      value: seriesProgress,
-                                      height: 3,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 7),
                                   Text(
-                                    '$seriesPercent% · $completedCount/${items.length}',
+                                    title,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      height: 1.2,
+                                      fontWeight: FontWeight.w700,
+                                      color: scheme.onSurface,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  MbGradientProgressBar(
+                                    value: seriesProgress,
+                                    height: 4,
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    '$seriesPercent% · $completedCount/'
+                                    '${items.length} chapitres',
                                     style: TextStyle(
                                       color: scheme.onSurfaceVariant,
                                       fontSize: 10,
@@ -1473,39 +1524,45 @@ class _GroupedDownloadTabListState
                                     ),
                                   ),
                                 ],
+                              )
+                            : Text(
+                                title,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: scheme.onSurface,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
-                          )
-                        : Text(
-                            title,
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${items.length}',
                             style: TextStyle(
-                              fontSize: 13,
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: scheme.onSurface,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
+                          const SizedBox(height: 4),
+                          AnimatedRotation(
+                            turns: isCollapsed ? -0.25 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              Icons.expand_more_rounded,
+                              size: 21,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${items.length}',
-                    style: TextStyle(
-                      color: scheme.onSurfaceVariant,
-                      fontSize: 11,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  AnimatedRotation(
-                    turns: isCollapsed ? -0.25 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 20,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -1518,14 +1575,53 @@ class _GroupedDownloadTabListState
           firstChild: const SizedBox.shrink(),
           secondChild: Column(
             mainAxisSize: MainAxisSize.min,
-            children: items.map(_buildDismissible).toList(),
+            children: items
+                .map(
+                  (download) => _buildDismissible(
+                    download,
+                    isSeriesChild: itemType == ItemType.manga,
+                  ),
+                )
+                .toList(),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDismissible(Download element) {
+  Widget _seriesSwipeBackground({
+    required Alignment alignment,
+    required Color color,
+    required IconData icon,
+    required String label,
+  }) {
+    final isLeft = alignment == Alignment.centerLeft;
+    return Container(
+      color: color,
+      alignment: alignment,
+      padding: EdgeInsets.only(left: isLeft ? 24 : 0, right: isLeft ? 0 : 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white, size: 26),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDismissible(
+    Download element, {
+    bool isSeriesChild = false,
+  }) {
     final isPaused = widget.queueState.pausedIds.contains(element.id ?? -1);
     final itemType = element.chapter.value?.manga.value?.itemType;
     final defaultBadge = itemType == ItemType.manga
@@ -1613,6 +1709,7 @@ class _GroupedDownloadTabListState
         },
         child: _DownloadCard(
           download: element,
+          isSeriesChild: isSeriesChild,
           isPaused: isPaused,
           engine: engine,
           retryCount: retryCount,
@@ -1845,6 +1942,7 @@ class _GroupedDownloadTabListState
 
 class _DownloadCard extends ConsumerWidget {
   final Download download;
+  final bool isSeriesChild;
   final bool isPaused;
   final String engine;
   final int retryCount;
@@ -1866,6 +1964,7 @@ class _DownloadCard extends ConsumerWidget {
 
   const _DownloadCard({
     required this.download,
+    this.isSeriesChild = false,
     required this.isPaused,
     required this.engine,
     required this.retryCount,
@@ -2083,6 +2182,99 @@ class _DownloadCard extends ConsumerWidget {
         ),
       ),
     );
+
+    if (isSeriesChild) {
+      final chapterLabel = chapter?.name?.trim();
+      final childTitle = chapterLabel == null || chapterLabel.isEmpty
+          ? 'Chapitre'
+          : chapterLabel;
+      final childDetails = itemType == ItemType.manga && total > 1
+          ? '$succeeded/$total pages · $statusText'
+          : statusText;
+
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLow.withValues(alpha: 0.78),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.30),
+            width: 0.5,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          child: Row(
+            children: [
+              _CoverThumbnail(
+                imageUrl: manga?.imageUrl,
+                customBytes: manga?.customCoverImage?.cast<int>(),
+                itemType: itemType,
+                width: 40,
+                height: 56,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      childTitle,
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontSize: 12.5,
+                        height: 1.15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      manga?.name ?? 'Série inconnue',
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 10,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      childDetails,
+                      style: TextStyle(
+                        color: hasFailed ? Colors.redAccent : statusColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (progressBar != null) ...[
+                      const SizedBox(height: 4),
+                      progressBar,
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 5),
+              MbRowActions(
+                isComplete: isComplete,
+                hasFailed: hasFailed,
+                isPaused: isPaused,
+                onPauseResume: onPauseResume,
+                onCancel: onCancel,
+                onDelete: onDelete,
+                onRetry: onRetry,
+                onOpen: onOpen,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     // ── Minimal layout ──────────────────────────────────────────────────────
     // Ultra-dense: single row with title · chapter, status dot, and action icon.
