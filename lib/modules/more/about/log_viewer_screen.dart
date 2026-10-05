@@ -6,12 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive/hive.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
+import 'package:watchtower/main.dart' show isar;
+import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -29,14 +34,17 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   List<_LogLine> _filtered = [];
   bool _loading = true;
   bool _autoScroll = true;
+  int _logMode = LogMode.normal.index;
   final ScrollController _scroll = ScrollController();
   final TextEditingController _search = TextEditingController();
 
   // Active filter sets — empty set means "all levels / all tags".
   final Set<_LineType> _levelFilter = {};
   final Set<String> _tagFilter = {};
+  final Set<_LogCategory> _categoryFilter = {};
   // Collapsed session header indexes (use original line index)
   final Set<int> _collapsedSessions = {};
+  final List<Source> _extensionSources = [];
 
   static final _tagRegex = RegExp(r'\]\[[^\]]+\] \[([A-Z_]+)\]');
 
@@ -44,6 +52,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   void initState() {
     super.initState();
     _search.addListener(_applyFilter);
+    _loadLogMode();
+    _loadExtensionSources();
     _loadLogs();
   }
 
@@ -74,7 +84,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             files.sort((a, b) => b.path.compareTo(a.path));
             final content = await files.first.readAsString();
             _rawContent = content;
-            _lines = _parse(content);
+            _parseAndCollapseSessions(content);
             _applyFilter();
             setState(() => _loading = false);
             if (_autoScroll) _scrollToBottom();
@@ -87,7 +97,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         if (await legacy.exists()) {
           final content = await legacy.readAsString();
           _rawContent = content;
-          _lines = _parse(content);
+          _parseAndCollapseSessions(content);
           _applyFilter();
           setState(() => _loading = false);
           if (_autoScroll) _scrollToBottom();
@@ -101,7 +111,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       if (recent.isNotEmpty) {
         final content = recent.join('\n');
         _rawContent = content;
-        _lines = _parse(content);
+        _parseAndCollapseSessions(content);
         _applyFilter();
       } else {
         _lines = [];
@@ -130,24 +140,121 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         type = _LineType.warning;
       } else if (raw.contains('][DEBUG]')) {
         type = _LineType.debug;
+      } else if (_failureRegex.hasMatch(raw)) {
+        type = _LineType.error;
       } else if (raw.contains('][INFO ')) {
-        type = _LineType.info;
+        type = _isSuccessMessage(raw) ? _LineType.success : _LineType.info;
       } else if (raw.startsWith('  ')) {
         type = _LineType.continuation;
+      } else if (_isSuccessMessage(raw)) {
+        type = _LineType.success;
       } else {
         type = _LineType.info;
       }
       String? tag;
       final m = _tagRegex.firstMatch(raw);
       if (m != null) tag = m.group(1);
+      final source = tag == 'EXT' ? _sourceForLogLine(raw) : null;
       result.add(_LogLine(
         raw: raw,
         type: type,
         tag: tag,
         sessionId: sessionId,
+        extensionName: source?.name,
+        extensionIconUrl: source?.iconUrl,
+        extensionSourceId: source?.id,
       ));
     }
     return result;
+  }
+
+  static final _successRegex = RegExp(
+    r'\b(success(?:ful(?:ly)?)?|succeeded|complete(?:d)?|finished|installed|connected|loaded|saved|ready)\b',
+    caseSensitive: false,
+  );
+  static final _failureRegex = RegExp(
+    r'\b(error|exception|failed|failure|unable to)\b',
+    caseSensitive: false,
+  );
+
+  bool _isSuccessMessage(String raw) => _successRegex.hasMatch(raw);
+
+  void _parseAndCollapseSessions(String content) {
+    _lines = _parse(content);
+    _collapsedSessions
+      ..clear()
+      ..addAll(
+        _lines
+            .where(
+              (line) =>
+                  line.type == _LineType.session && line.raw.startsWith('══'),
+            )
+            .map((line) => line.sessionId),
+      );
+  }
+
+  void _loadExtensionSources() {
+    try {
+      _extensionSources
+        ..clear()
+        ..addAll(
+          isar.sources
+              .where()
+              .findAllSync()
+              .where((source) => (source.name ?? '').trim().isNotEmpty)
+              .toList()
+            ..sort(
+              (a, b) => (b.name ?? '').length.compareTo((a.name ?? '').length),
+            ),
+        );
+    } catch (_) {
+      // The in-memory log viewer can still be opened before the database loads.
+    }
+  }
+
+  Source? _sourceForLogLine(String raw) {
+    final normalized = raw.toLowerCase();
+    for (final source in _extensionSources) {
+      final name = source.name?.trim();
+      if (name != null && name.isNotEmpty && normalized.contains(name.toLowerCase())) {
+        return source;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadLogMode() async {
+    try {
+      final box = await Hive.openBox('advanced_settings');
+      final value = box.get(kLogMode, defaultValue: LogMode.normal.index);
+      final modeIndex = value is int ? value : LogMode.normal.index;
+      if (mounted) {
+        setState(
+          () => _logMode =
+              modeIndex.clamp(0, LogMode.values.length - 1).toInt(),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _setLogMode(LogMode mode) async {
+    final box = await Hive.openBox('advanced_settings');
+    await box.put(kLogMode, mode.index);
+    await box.put(kLogMinLevel, mode.minLevel);
+    for (final entry in mode.defaultTags.entries) {
+      await box.put(entry.key, entry.value);
+    }
+    await AppLogger.reloadSettings();
+    if (!mounted) return;
+    setState(() => _logMode = mode.index);
+    if (mode.isHeavy) {
+      botToast(
+        mode == LogMode.extreme
+            ? '⚡ Extreme – tout est logué. RAM +++. À utiliser avec précaution.'
+            : '⚠ Mode Debug actif – consommation RAM élevée',
+        second: 5,
+      );
+    }
   }
 
   Set<String> get _availableTags {
@@ -178,6 +285,12 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             l.type != _LineType.continuation) {
           if (l.tag == null || !_tagFilter.contains(l.tag)) return false;
         }
+        if (_categoryFilter.isNotEmpty &&
+            l.type != _LineType.session &&
+            l.type != _LineType.continuation &&
+            !_categoryFilter.any((category) => category.matches(l))) {
+          return false;
+        }
         if (q.isNotEmpty && !l.raw.toLowerCase().contains(q)) return false;
         return true;
       }).toList();
@@ -207,6 +320,18 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     _applyFilter();
   }
 
+  void _toggleCategory(_LogCategory category) {
+    setState(() {
+      if (!_categoryFilter.add(category)) _categoryFilter.remove(category);
+    });
+    _applyFilter();
+  }
+
+  void _clearCategoryFilters() {
+    setState(_categoryFilter.clear);
+    _applyFilter();
+  }
+
   void _toggleSessionCollapse(int sessionId) {
     setState(() {
       if (_collapsedSessions.contains(sessionId)) {
@@ -222,7 +347,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     setState(() {
       _levelFilter.clear();
       _tagFilter.clear();
-      _collapsedSessions.clear();
+      _categoryFilter.clear();
       _search.clear();
     });
     _applyFilter();
@@ -328,6 +453,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   int get _errorCount => _lines.where((l) => l.type == _LineType.error).length;
   int get _warnCount => _lines.where((l) => l.type == _LineType.warning).length;
+  int get _successCount => _lines.where((l) => l.type == _LineType.success).length;
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +470,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         elevation: 0,
         title: Row(
           children: [
-            Icon(Icons.terminal_rounded, size: 18, color: cs.primary),
+            Icon(Broken.code_1, size: 18, color: cs.primary),
             const SizedBox(width: 8),
             Text(
               'Logs',
@@ -360,17 +486,21 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               const SizedBox(width: 4),
               _Badge(label: '${_warnCount}W', color: Colors.orange),
             ],
+            if (_successCount > 0) ...[
+              const SizedBox(width: 4),
+              _Badge(label: '${_successCount}✓', color: Colors.green),
+            ],
           ],
         ),
         actions: [
           IconButton(
             tooltip: 'Copier tout',
-            icon: const Icon(Icons.copy_rounded, size: 20),
+            icon: const Icon(Broken.copy, size: 20),
             onPressed: _loading ? null : _copyAll,
           ),
           ArrowPopupMenuButton<String>(
             tooltip: 'Télécharger / Partager',
-            icon: const Icon(Icons.download_rounded, size: 20),
+            icon: const Icon(Broken.document_download, size: 20),
             onSelected: (v) {
               switch (v) {
                 case 'txt':
@@ -389,7 +519,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 value: 'txt',
                 child: ListTile(
                   dense: true,
-                  leading: Icon(Icons.text_snippet_outlined, size: 18),
+                  leading: Icon(Broken.document_text, size: 18),
                   title: Text('Télécharger .txt'),
                 ),
               ),
@@ -397,7 +527,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 value: 'md',
                 child: ListTile(
                   dense: true,
-                  leading: Icon(Icons.description_outlined, size: 18),
+                  leading: Icon(Broken.document_1, size: 18),
                   title: Text('Télécharger .md'),
                 ),
               ),
@@ -405,7 +535,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 value: 'share',
                 child: ListTile(
                   dense: true,
-                  leading: Icon(Icons.share_outlined, size: 18),
+                  leading: Icon(Broken.share, size: 18),
                   title: Text('Partager'),
                 ),
               ),
@@ -413,12 +543,12 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ),
           IconButton(
             tooltip: 'Rafraîchir',
-            icon: const Icon(Icons.refresh_rounded, size: 20),
+            icon: const Icon(Broken.refresh, size: 20),
             onPressed: _loadLogs,
           ),
           PopupMenuButton<String>(
             tooltip: 'Options',
-            icon: const Icon(Icons.more_vert_rounded, size: 20),
+            icon: const Icon(Broken.more_2, size: 20),
             onSelected: (v) {
               if (v == 'refresh') _loadLogs();
               if (v == 'overlay') LogOverlayController.instance.toggle();
@@ -431,40 +561,71 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               });
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'refresh', child: ListTile(dense: true, leading: Icon(Icons.refresh_rounded, size: 18), title: Text('Rafraîchir'))),
+              const PopupMenuItem(value: 'refresh', child: ListTile(dense: true, leading: Icon(Broken.refresh, size: 18), title: Text('Rafraîchir'))),
               PopupMenuItem(
                 value: 'overlay',
                 child: ValueListenableBuilder<bool>(
                   valueListenable: LogOverlayController.instance.visibleListenable,
-                  builder: (_, v, __) => ListTile(dense: true, leading: Icon(v ? Icons.picture_in_picture_alt_rounded : Icons.picture_in_picture_outlined, size: 18, color: v ? Colors.greenAccent : null), title: Text(v ? 'Cacher overlay' : 'Overlay live')),
+                  builder: (_, v, __) => ListTile(dense: true, leading: Icon(v ? Broken.monitor : Broken.video_slash, size: 18, color: v ? Colors.greenAccent : null), title: Text(v ? 'Cacher overlay' : 'Overlay live')),
                 ),
               ),
               PopupMenuItem(
                 value: 'scroll',
-                child: ListTile(dense: true, leading: Icon(_autoScroll ? Icons.vertical_align_bottom_rounded : Icons.vertical_align_center_rounded, size: 18, color: _autoScroll ? cs.primary : null), title: Text(_autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF')),
+                child: ListTile(dense: true, leading: Icon(_autoScroll ? Broken.arrow_down : Broken.arrow_up, size: 18, color: _autoScroll ? cs.primary : null), title: Text(_autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF')),
               ),
-              const PopupMenuItem(value: 'clear', child: ListTile(dense: true, leading: Icon(Icons.delete_sweep_rounded, size: 18, color: Colors.red), title: Text('Vider les logs'))),
+              const PopupMenuItem(value: 'clear', child: ListTile(dense: true, leading: Icon(Broken.trash, size: 18, color: Colors.red), title: Text('Vider les logs'))),
             ],
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
+          preferredSize: const Size.fromHeight(100),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+            child: Column(
               children: [
-                IconButton(
-                  tooltip: 'Filtres',
-                  icon: Icon(
-                    Icons.filter_list_rounded,
-                    size: 20,
-                    color: (_levelFilter.isNotEmpty || _tagFilter.isNotEmpty)
-                        ? cs.primary
-                        : null,
-                  ),
-                  onPressed: () => _showFiltersSheet(context, cs),
+                _buildModeSelector(cs),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    AdaptiveOverlayMenuButton(
+                      menuWidth: (MediaQuery.sizeOf(context).width - 20)
+                          .clamp(160.0, 290.0)
+                          .toDouble(),
+                      trigger: Tooltip(
+                        message: 'Filtres',
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Icon(
+                            _levelFilter.isNotEmpty ||
+                                    _tagFilter.isNotEmpty ||
+                                    _categoryFilter.isNotEmpty
+                                ? Broken.filter_tick
+                                : Broken.filter,
+                            size: 20,
+                            color: _levelFilter.isNotEmpty ||
+                                    _tagFilter.isNotEmpty ||
+                                    _categoryFilter.isNotEmpty
+                                ? cs.primary
+                                : cs.onSurface.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ),
+                      contentBuilder: (_) => _LogFiltersMenu(
+                        levels: _levelFilter,
+                        categories: _categoryFilter,
+                        tags: _tagFilter,
+                        availableTags: _availableTags.toList()..sort(),
+                        onToggleLevel: _toggleLevel,
+                        onToggleCategory: _toggleCategory,
+                        onToggleTag: _toggleTag,
+                        onClearCategories: _clearCategoryFilters,
+                        onClear: _clearFilters,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(child: _buildSearchField(cs, bgColor)),
+                  ],
                 ),
-                Expanded(child: _buildSearchField(cs, bgColor)),
               ],
             ),
           ),
@@ -478,7 +639,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.receipt_long_outlined,
+                        Broken.document_1,
                         size: 48,
                         color: cs.onSurface.withValues(alpha: 0.2),
                       ),
@@ -494,11 +655,12 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       ),
                       if (_levelFilter.isNotEmpty ||
                           _tagFilter.isNotEmpty ||
+                          _categoryFilter.isNotEmpty ||
                           _search.text.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         TextButton.icon(
                           onPressed: _clearFilters,
-                          icon: const Icon(Icons.clear_all_rounded, size: 16),
+                          icon: const Icon(Broken.refresh_left_square, size: 16),
                           label: const Text('Effacer les filtres'),
                         ),
                       ],
@@ -518,7 +680,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           : FloatingActionButton.small(
               tooltip: 'Aller en bas',
               onPressed: _scrollToBottom,
-              child: const Icon(Icons.keyboard_double_arrow_down_rounded),
+              child: const Icon(Broken.arrow_down),
             ),
       bottomNavigationBar: Container(
         color: surfaceColor,
@@ -573,190 +735,51 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     );
   }
 
-  void _showFiltersSheet(BuildContext ctx, ColorScheme cs) {
-    final tags = _availableTags.toList()..sort();
-    showModalBottomSheet(
-      context: ctx,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (_, setSheetState) {
-          void toggleLevel(_LineType t) {
-            setSheetState(() {
-              _levelFilter.contains(t) ? _levelFilter.remove(t) : _levelFilter.add(t);
-            });
-            setState(_applyFilter);
-          }
-          void toggleTag(String tag) {
-            setSheetState(() {
-              _tagFilter.contains(tag) ? _tagFilter.remove(tag) : _tagFilter.add(tag);
-            });
-            setState(_applyFilter);
-          }
-          return Container(
-            decoration: BoxDecoration(
-              color: Theme.of(ctx).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle bar
-                Center(
-                  child: Container(
-                    width: 40, height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: cs.onSurface.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Text('Filtres', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
-                    const Spacer(),
-                    if (_levelFilter.isNotEmpty || _tagFilter.isNotEmpty)
-                      TextButton(
-                        onPressed: () { setSheetState(() { _levelFilter.clear(); _tagFilter.clear(); }); setState(_applyFilter); },
-                        child: const Text('Réinitialiser'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text('Niveau', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withValues(alpha: 0.55))),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    _LevelChip(type: _LineType.error, label: 'Errors', color: Colors.red, selected: _levelFilter.contains(_LineType.error), onTap: () => toggleLevel(_LineType.error)),
-                    _LevelChip(type: _LineType.warning, label: 'Warn', color: Colors.orange, selected: _levelFilter.contains(_LineType.warning), onTap: () => toggleLevel(_LineType.warning)),
-                    _LevelChip(type: _LineType.info, label: 'Info', color: Colors.green, selected: _levelFilter.contains(_LineType.info), onTap: () => toggleLevel(_LineType.info)),
-                    _LevelChip(type: _LineType.debug, label: 'Debug', color: Colors.grey, selected: _levelFilter.contains(_LineType.debug), onTap: () => toggleLevel(_LineType.debug)),
-                  ],
-                ),
-                if (tags.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text('Tags', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withValues(alpha: 0.55))),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: tags.map((tag) => FilterChip(
-                      label: Text(tag, style: const TextStyle(fontSize: 11)),
-                      selected: _tagFilter.contains(tag),
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) => toggleTag(tag),
-                    )).toList(),
-                  ),
-                ],
-                const SizedBox(height: 8),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildFilterBar(ColorScheme cs, Color bgColor) {
-    final tags = _availableTags.toList()..sort();
-    return Container(
-      height: 76,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildModeSelector(ColorScheme cs) {
+    const colors = {
+      LogMode.normal: Colors.green,
+      LogMode.verbose: Colors.blue,
+      LogMode.debug: Colors.orange,
+      LogMode.extreme: Colors.red,
+    };
+    return SizedBox(
+      height: 34,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
         children: [
-          SizedBox(
-            height: 32,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              children: [
-                _LevelChip(
-                    type: _LineType.error,
-                    label: 'Errors',
-                    color: Colors.red,
-                    selected: _levelFilter.contains(_LineType.error),
-                    onTap: () => _toggleLevel(_LineType.error)),
-                _LevelChip(
-                    type: _LineType.warning,
-                    label: 'Warn',
-                    color: Colors.orange,
-                    selected: _levelFilter.contains(_LineType.warning),
-                    onTap: () => _toggleLevel(_LineType.warning)),
-                _LevelChip(
-                    type: _LineType.info,
-                    label: 'Info',
-                    color: Colors.green,
-                    selected: _levelFilter.contains(_LineType.info),
-                    onTap: () => _toggleLevel(_LineType.info)),
-                _LevelChip(
-                    type: _LineType.debug,
-                    label: 'Debug',
-                    color: Colors.grey,
-                    selected: _levelFilter.contains(_LineType.debug),
-                    onTap: () => _toggleLevel(_LineType.debug)),
-                if (_levelFilter.isNotEmpty ||
-                    _tagFilter.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: ActionChip(
-                      visualDensity: VisualDensity.compact,
-                      labelPadding:
-                          const EdgeInsets.symmetric(horizontal: 4),
-                      label: const Text('Reset',
-                          style: TextStyle(fontSize: 10)),
-                      avatar: const Icon(Icons.clear_rounded, size: 12),
-                      onPressed: _clearFilters,
-                    ),
-                  ),
-              ],
+          const Padding(
+            padding: EdgeInsets.fromLTRB(6, 0, 10, 0),
+            child: Center(
+              child: Icon(Broken.setting_2, size: 16),
             ),
           ),
-          const SizedBox(height: 4),
-          SizedBox(
-            height: 30,
-            child: tags.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Text(
-                      'Aucun tag détecté dans les logs',
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: cs.onSurface.withValues(alpha: 0.4)),
-                    ),
-                  )
-                : ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    itemCount: tags.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 4),
-                    itemBuilder: (_, i) {
-                      final t = tags[i];
-                      final selected = _tagFilter.contains(t);
-                      return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        labelPadding: const EdgeInsets.symmetric(
-                            horizontal: 4),
-                        label: Text(t,
-                            style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: 'monospace')),
-                        selected: selected,
-                        onSelected: (_) => _toggleTag(t),
-                        selectedColor: cs.primary.withValues(alpha: 0.25),
-                        showCheckmark: false,
-                      );
-                    },
-                  ),
-          ),
+          for (final mode in LogMode.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                label: Text(mode.displayName),
+                selected: _logMode == mode.index,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                selectedColor: colors[mode]!,
+                backgroundColor: colors[mode]!.withValues(alpha: 0.1),
+                side: BorderSide(
+                  color: _logMode == mode.index
+                      ? colors[mode]!
+                      : colors[mode]!.withValues(alpha: 0.4),
+                ),
+                labelStyle: TextStyle(
+                  color: _logMode == mode.index
+                      ? Colors.white
+                      : cs.onSurface.withValues(alpha: 0.75),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+                onSelected: (selected) {
+                  if (selected) _setLogMode(mode);
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -772,10 +795,10 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   fontSize: 12,
                   color: cs.onSurface.withValues(alpha: 0.4),
                 ),
-                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                prefixIcon: const Icon(Broken.search_normal, size: 18),
                 suffixIcon: _search.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 16),
+                        icon: const Icon(Broken.close_circle, size: 16),
                         onPressed: () {
                           _search.clear();
                           _applyFilter();
@@ -809,6 +832,146 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             );
   }
 
+}
+
+class _LogFiltersMenu extends StatefulWidget {
+  final Set<_LineType> levels;
+  final Set<_LogCategory> categories;
+  final Set<String> tags;
+  final List<String> availableTags;
+  final ValueChanged<_LineType> onToggleLevel;
+  final ValueChanged<_LogCategory> onToggleCategory;
+  final ValueChanged<String> onToggleTag;
+  final VoidCallback onClearCategories;
+  final VoidCallback onClear;
+
+  const _LogFiltersMenu({
+    required this.levels,
+    required this.categories,
+    required this.tags,
+    required this.availableTags,
+    required this.onToggleLevel,
+    required this.onToggleCategory,
+    required this.onToggleTag,
+    required this.onClearCategories,
+    required this.onClear,
+  });
+
+  @override
+  State<_LogFiltersMenu> createState() => _LogFiltersMenuState();
+}
+
+class _LogFiltersMenuState extends State<_LogFiltersMenu> {
+  void _toggleLevel(_LineType type) {
+    widget.onToggleLevel(type);
+    setState(() {});
+  }
+
+  void _toggleCategory(_LogCategory category) {
+    widget.onToggleCategory(category);
+    setState(() {});
+  }
+
+  void _toggleTag(String tag) {
+    widget.onToggleTag(tag);
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AdaptiveOverlaySection(title: 'Type de contenu'),
+        AdaptiveOverlayItem(
+          icon: Broken.global,
+          label: 'Tout afficher',
+          selected: widget.categories.isEmpty,
+          onTap: () {
+            widget.onClearCategories();
+            setState(() {});
+          },
+        ),
+        for (final category in _LogCategory.values)
+          AdaptiveOverlayItem(
+            icon: category.icon,
+            label: category.label,
+            selected: widget.categories.contains(category),
+            onTap: () => _toggleCategory(category),
+          ),
+        const AdaptiveOverlayDivider(),
+        const AdaptiveOverlaySection(title: 'Niveau'),
+        for (final entry in const [
+          (_LineType.error, 'Erreur', Broken.close_circle),
+          (_LineType.warning, 'Avertissement', Broken.warning_2),
+          (_LineType.success, 'Réussite', Broken.tick_circle),
+          (_LineType.info, 'Info', Broken.info_circle),
+          (_LineType.debug, 'Debug', Broken.code_1),
+        ])
+          AdaptiveOverlayItem(
+            icon: entry.$3,
+            label: entry.$2,
+            selected: widget.levels.contains(entry.$1),
+            onTap: () => _toggleLevel(entry.$1),
+          ),
+        if (widget.availableTags.isNotEmpty) ...[
+          const AdaptiveOverlayDivider(),
+          const AdaptiveOverlaySection(title: 'Tags'),
+          for (final tag in widget.availableTags)
+            AdaptiveOverlayItem(
+              icon: Broken.tag,
+              label: tag,
+              selected: widget.tags.contains(tag),
+              onTap: () => _toggleTag(tag),
+            ),
+        ],
+        if (widget.levels.isNotEmpty ||
+            widget.categories.isNotEmpty ||
+            widget.tags.isNotEmpty) ...[
+          const AdaptiveOverlayDivider(),
+          AdaptiveOverlayItem(
+            icon: Broken.refresh_left_square,
+            label: 'Réinitialiser tous les filtres',
+            onTap: () {
+              widget.onClear();
+              setState(() {});
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ExtensionLogo extends StatelessWidget {
+  final String? iconUrl;
+  final int? sourceId;
+
+  const _ExtensionLogo({required this.iconUrl, required this.sourceId});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = iconUrl?.trim() ?? '';
+    if (url.isEmpty) {
+      return const Icon(Broken.global, size: 10, color: Color(0xFF6366F1));
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: Image.network(
+        url,
+        key: ValueKey('extension-logo-${sourceId ?? 0}-$url'),
+        width: 12,
+        height: 12,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const Icon(
+          Broken.global,
+          size: 10,
+          color: Color(0xFF6366F1),
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Log list ──────────────────────────────────────────────────────────────────
@@ -847,8 +1010,8 @@ class _LogList extends StatelessWidget {
                 children: [
                   Icon(
                     collapsed
-                        ? Icons.chevron_right_rounded
-                        : Icons.expand_more_rounded,
+                        ? Broken.arrow_right_3
+                        : Broken.arrow_down,
                     size: 18,
                     color: Colors.blue.shade400,
                   ),
@@ -874,60 +1037,6 @@ class _LogList extends StatelessWidget {
   }
 }
 
-class _LevelChip extends StatelessWidget {
-  final _LineType type;
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _LevelChip({
-    required this.type,
-    required this.label,
-    required this.color,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: FilterChip(
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-        avatar: Icon(
-          type == _LineType.error
-              ? Icons.error_outline_rounded
-              : type == _LineType.warning
-                  ? Icons.warning_amber_rounded
-                  : type == _LineType.info
-                      ? Icons.info_outline_rounded
-                      : Icons.bug_report_outlined,
-          size: 13,
-          color: color,
-        ),
-        label: Text(label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: selected ? color : null,
-            )),
-        selected: selected,
-        onSelected: (_) => onTap(),
-        selectedColor: color.withValues(alpha: 0.18),
-        side: BorderSide(
-          color: selected
-              ? color.withValues(alpha: 0.7)
-              : Colors.transparent,
-        ),
-        showCheckmark: false,
-      ),
-    );
-  }
-}
-
 class _LogLineWidget extends StatelessWidget {
   final _LogLine line;
   final bool isDark;
@@ -943,8 +1052,8 @@ class _LogLineWidget extends StatelessWidget {
     switch (line.type) {
       case _LineType.session:
         return isDark
-            ? Colors.blue.withValues(alpha: 0.12)
-            : Colors.blue.withValues(alpha: 0.06);
+            ? Colors.indigo.withValues(alpha: 0.13)
+            : Colors.indigo.withValues(alpha: 0.07);
       case _LineType.error:
         return isDark
             ? Colors.red.withValues(alpha: 0.1)
@@ -953,6 +1062,10 @@ class _LogLineWidget extends StatelessWidget {
         return isDark
             ? Colors.orange.withValues(alpha: 0.08)
             : Colors.orange.withValues(alpha: 0.04);
+      case _LineType.success:
+        return isDark
+            ? Colors.green.withValues(alpha: 0.08)
+            : Colors.green.withValues(alpha: 0.035);
       default:
         return Colors.transparent;
     }
@@ -961,26 +1074,36 @@ class _LogLineWidget extends StatelessWidget {
   Color _textColor() {
     switch (line.type) {
       case _LineType.session:
-        return isDark ? Colors.blue.shade300 : Colors.blue.shade700;
+        return isDark ? Colors.indigo.shade200 : Colors.indigo.shade800;
       case _LineType.error:
         return isDark ? Colors.red.shade300 : Colors.red.shade700;
       case _LineType.warning:
         return isDark ? Colors.orange.shade300 : Colors.orange.shade700;
+      case _LineType.success:
+        return isDark ? Colors.green.shade300 : Colors.green.shade800;
       case _LineType.debug:
         return isDark ? Colors.grey.shade400 : Colors.grey.shade600;
       case _LineType.continuation:
         return isDark
             ? Colors.white.withValues(alpha: 0.5)
             : Colors.black.withValues(alpha: 0.45);
-      default:
-        return isDark ? Colors.green.shade300 : Colors.green.shade800;
+      case _LineType.info:
+        return isDark ? Colors.cyan.shade200 : Colors.cyan.shade900;
     }
   }
 
   static final _urlRegex = RegExp(
-    r'(https?:\/\/[^\s<>"\)\]]+)',
+    r'(https?:\/\/[^\s<>"\)\],;]+)',
     caseSensitive: false,
   );
+
+  static String _prettyUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return url;
+    final path = uri.path == '/' ? '' : uri.path;
+    final label = '${uri.host}$path';
+    return label.length > 44 ? '${label.substring(0, 41)}…' : label;
+  }
 
   // ── Tag → colour mapping ──────────────────────────────────────────────────
     static const Map<String, Color> _tagColors = {
@@ -1008,7 +1131,7 @@ class _LogLineWidget extends StatelessWidget {
       final color = _textColor();
       final tagColor = line.tag != null ? (_tagColors[line.tag!] ?? Colors.blueGrey) : null;
       final extMatch = (line.tag == 'EXT') ? _extNameRx.firstMatch(text) : null;
-      final extName = extMatch?.group(1);
+      final extName = line.extensionName ?? extMatch?.group(1);
 
       Widget textChild;
       if (searchQuery.isNotEmpty) {
@@ -1020,8 +1143,11 @@ class _LogLineWidget extends StatelessWidget {
           if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start)));
           final url = text.substring(m.start, m.end);
           spans.add(TextSpan(
-            text: url,
-            style: TextStyle(color: Colors.blue.shade400, decoration: TextDecoration.underline),
+            text: _prettyUrl(url),
+            style: TextStyle(
+              color: Colors.lightBlue.shade400,
+              fontWeight: FontWeight.w600,
+            ),
             recognizer: TapGestureRecognizer()..onTap = () => _openUrl(context, url),
           ));
           last = m.end;
@@ -1076,7 +1202,10 @@ class _LogLineWidget extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.extension_rounded, size: 8, color: Color(0xFF6366F1)),
+                      _ExtensionLogo(
+                        iconUrl: line.extensionIconUrl,
+                        sourceId: line.extensionSourceId,
+                      ),
                       const SizedBox(width: 2),
                       Text(
                         extName,
@@ -1119,7 +1248,7 @@ class _LogUrlWebView extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Ouvrir dans le navigateur',
-            icon: const Icon(Icons.open_in_new_rounded, size: 20),
+            icon: const Icon(Broken.global, size: 20),
             onPressed: () => launchUrl(
               Uri.parse(url),
               mode: LaunchMode.externalApplication,
@@ -1215,17 +1344,69 @@ class _Badge extends StatelessWidget {
 
 // ─── Models ────────────────────────────────────────────────────────────────────
 
-enum _LineType { session, error, warning, info, debug, continuation }
+enum _LogCategory { extensions, watch, manga, images }
+
+final _imageCategoryRegex = RegExp(
+  r'\b(images?|img|thumbnails?|covers?|posters?|avatars?|banners?)\b|\.(jpe?g|png|webp|gif|bmp)\b',
+  caseSensitive: false,
+);
+
+extension on _LogCategory {
+  String get label => switch (this) {
+        _LogCategory.extensions => 'Extensions',
+        _LogCategory.watch => 'Watch',
+        _LogCategory.manga => 'Manga',
+        _LogCategory.images => 'Images',
+      };
+
+  IconData get icon => switch (this) {
+        _LogCategory.extensions => Broken.global,
+        _LogCategory.watch => Broken.video,
+        _LogCategory.manga => Broken.book_1,
+        _LogCategory.images => Broken.image,
+      };
+
+  bool matches(_LogLine line) {
+    final tag = line.tag;
+    switch (this) {
+      case _LogCategory.extensions:
+        return tag == 'EXT' || tag == 'REPO';
+      case _LogCategory.watch:
+        return tag == 'WATCH' || tag == 'HLS' || tag == 'PLAYER';
+      case _LogCategory.manga:
+        return tag == 'MANGA' || tag == 'READER' || tag == 'PAGE';
+      case _LogCategory.images:
+        return _imageCategoryRegex.hasMatch(line.raw);
+    }
+  }
+}
+
+enum _LineType {
+  session,
+  error,
+  warning,
+  success,
+  info,
+  debug,
+  continuation,
+}
 
 class _LogLine {
   final String raw;
   final _LineType type;
   final String? tag;
   final int sessionId;
+  final String? extensionName;
+  final String? extensionIconUrl;
+  final int? extensionSourceId;
+
   const _LogLine({
     required this.raw,
     required this.type,
     this.tag,
     this.sessionId = -1,
+    this.extensionName,
+    this.extensionIconUrl,
+    this.extensionSourceId,
   });
 }
