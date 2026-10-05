@@ -9,6 +9,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/remote/remote_client.dart';
+import 'package:watchtower/services/extension_page_cache.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'get_latest_updates.g.dart';
@@ -23,66 +24,78 @@ Future<MPages?> getLatestUpdates(
   final cacheTimer = Timer(const Duration(minutes: 2), keepAlive.close);
   ref.onDispose(cacheTimer.cancel);
 
-  // ── Web: route through remote server ────────────────────────────────────
-  if (kIsWeb && RemoteClient.instance.isConfigured && source.id != null) {
-    final data = await RemoteClient.instance.get(
-      '/api/sources/${source.id}/latest',
-      params: {'page': '$page'},
-    );
-    final results = (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
-    if (results == null) {
-      throw StateError('Remote latest response did not contain mangas');
-    }
-    return MPages(
-      list: results
-          .map(
-            (m) => MManga(
-              name: m['name'] as String?,
-              imageUrl: m['imageUrl'] as String?,
-              link: m['link'] as String?,
-              author: m['author'] as String?,
-              description: m['description'] as String?,
-            ),
-          )
-          .toList(),
-      hasNextPage: data['hasNextPage'] as bool? ?? (results.length >= 20),
-    );
-  }
-
-  if (kIsWeb) {
-    return getIsolateService.get<MPages?>(
-      page: page,
-      source: source,
-      serviceType: 'getLatestUpdates',
-      proxyServer: ref.read(androidProxyServerStateProvider),
-    );
-  }
-
-  if (source.name == "local" && source.lang == "") {
-    final result =
-        (await isar.mangas
-                .filter()
-                .itemTypeEqualTo(source.itemType)
-                .group(
-                  (q) => q
-                      .sourceEqualTo("local")
-                      .or()
-                      .linkContains("Watchtower/local")
-                      .or()
-                      .linkContains("Watchtower\\local"),
-                )
-                .sortByDateAddedDesc()
-                .offset(max(0, page - 1) * 50)
-                .limit(50)
-                .findAll())
-            .map((e) => MManga(name: e.name))
-            .toList();
-    return MPages(list: result, hasNextPage: true);
-  }
-  return getIsolateService.get<MPages?>(
-    page: page,
+  final cacheKey = ExtensionPageCacheKey.forSource(
     source: source,
-    serviceType: 'getLatestUpdates',
-    proxyServer: ref.read(androidProxyServerStateProvider),
+    service: 'latest',
+    page: page,
   );
+  Future<MPages?> load() async {
+      // ── Web: route through remote server ──────────────────────────────────
+      if (kIsWeb && RemoteClient.instance.isConfigured && source.id != null) {
+        final data = await RemoteClient.instance.get(
+          '/api/sources/${source.id}/latest',
+          params: {'page': '$page'},
+        );
+        final results = (data['mangas'] as List?)?.cast<Map<String, dynamic>>();
+        if (results == null) {
+          throw StateError('Remote latest response did not contain mangas');
+        }
+        return MPages(
+          list: results
+              .map(
+                (m) => MManga(
+                  name: m['name'] as String?,
+                  imageUrl: m['imageUrl'] as String?,
+                  link: m['link'] as String?,
+                  author: m['author'] as String?,
+                  description: m['description'] as String?,
+                ),
+              )
+              .toList(),
+          hasNextPage: data['hasNextPage'] as bool? ?? (results.length >= 20),
+        );
+      }
+
+      if (kIsWeb) {
+        return getIsolateService.get<MPages?>(
+          page: page,
+          source: source,
+          serviceType: 'getLatestUpdates',
+          proxyServer: ref.read(androidProxyServerStateProvider),
+        );
+      }
+
+      if (source.name == "local" && source.lang == "") {
+        final result =
+            (await isar.mangas
+                    .filter()
+                    .itemTypeEqualTo(source.itemType)
+                    .group(
+                      (q) => q
+                          .sourceEqualTo("local")
+                          .or()
+                          .linkContains("Watchtower/local")
+                          .or()
+                          .linkContains("Watchtower\\local"),
+                    )
+                    .sortByDateAddedDesc()
+                    .offset(max(0, page - 1) * 50)
+                    .limit(50)
+                    .findAll())
+                .map((e) => MManga(name: e.name))
+                .toList();
+        return MPages(list: result, hasNextPage: true);
+      }
+      return getIsolateService.get<MPages?>(
+        page: page,
+        source: source,
+        serviceType: 'getLatestUpdates',
+        proxyServer: ref.read(androidProxyServerStateProvider),
+      );
+  }
+
+  // Local library pages are backed by live Isar queries and must reflect
+  // library writes immediately rather than waiting for the extension TTL.
+  if (!kIsWeb && source.name == 'local' && source.lang == '') return load();
+  return extensionPageCache.getOrLoad(cacheKey, load);
 }

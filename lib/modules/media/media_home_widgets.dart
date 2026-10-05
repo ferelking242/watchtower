@@ -1731,7 +1731,7 @@ class TmdbTagTile extends StatelessWidget {
   }
 }
 
-class TmdbMoviesListScreen extends StatefulWidget {
+class TmdbMoviesListScreen extends ConsumerStatefulWidget {
   const TmdbMoviesListScreen({
     required this.title,
     required this.path,

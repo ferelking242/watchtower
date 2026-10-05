@@ -16,6 +16,7 @@ import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/extension_page_cache.dart';
 import 'package:watchtower/services/get_source_baseurl.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/services/supports_latest.dart';
@@ -394,6 +395,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
   Future<void> _onRefreshHome() async {
     // Invalidate all providers that feed the home view so data actually reloads
+    extensionPageCache.invalidateSource(source);
     ref.invalidate(getPopularProvider(source: source, page: 1));
     ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
     for (final cl in _customLists) {
@@ -864,6 +866,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
   Widget _buildError(BuildContext ctx, Object error) {
     void retry() {
+      extensionPageCache.invalidateSource(source);
       if (_selectedIdx == _kLatestIdx) {
         ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
       } else if (_isSearching && _query.isNotEmpty) {

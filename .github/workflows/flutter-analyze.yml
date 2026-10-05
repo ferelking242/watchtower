@@ -85,6 +85,9 @@ jobs:
       - name: Run cached page URL regression tests
         run: flutter test test/page_url_cache_test.dart
 
+      - name: Run extension page cache tests
+        run: flutter test test/extension_page_cache_test.dart
+
       - name: Run corrupted Settings record repair tests
         run: flutter test test/settings_store_test.dart
 

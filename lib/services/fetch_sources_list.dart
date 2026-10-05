@@ -20,6 +20,7 @@ import 'package:watchtower/modules/more/settings/general/extension_cookie_manage
     show autoRegisterExtensionCookieSlot;
 import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
+import 'package:watchtower/services/extension_page_cache.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 
 // ── Web proxy helper ─────────────────────────────────────────────────────────
@@ -534,6 +535,9 @@ Future<void> _updateSource(
   Repo? repo,
   ItemType itemType,
 ) async {
+  if (source.id != null) {
+    extensionPageCache.invalidateSource(source);
+  }
   AppLogger.log(
     'Downloading source code for "${source.name}" | url=${source.sourceCodeUrl}',
     tag: LogTag.extension_,

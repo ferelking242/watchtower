@@ -19,6 +19,7 @@ import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/extension_page_cache.dart';
 import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
@@ -326,6 +327,7 @@ class _WatchExtensionHomeScreenState
 
   Future<void> _refresh() async {
     _loggedRequestErrors.clear();
+    extensionPageCache.invalidateSource(source);
     if (!_layoutReady && source.providesHome) {
       await _loadLayout();
       if (!mounted) return;
@@ -1314,6 +1316,7 @@ class _ExtensionLayoutSectionState
   }
 
   void _retry() {
+    extensionPageCache.invalidateSource(widget.source);
     switch (widget.section.id) {
       case 'popular':
         ref.invalidate(getPopularProvider(source: widget.source, page: 1));
@@ -1340,7 +1343,7 @@ class _ExtensionLayoutSectionState
       source: widget.source,
       id: _listId,
       title: _title,
-      initialItems: content.value?.list ?? const <MManga>[],
+      initialItems: items,
       cardStyle: widget.section.cardStyle,
     );
     final sectionAction = widget.section.seeAll ? onSeeAll : null;
