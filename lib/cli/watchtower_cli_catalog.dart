@@ -189,15 +189,15 @@ Map<String, dynamic> _sourceDeclaration(String sourceCode) {
   final configuredIds = _integerMapProperty(sourceCode, 'ids');
   final id = _integerProperty(sourceCode, 'id');
   return {
-    if (name != null) 'name': name,
-    if (baseUrl != null) 'baseUrl': baseUrl,
-    if (apiUrl != null) 'apiUrl': apiUrl,
-    if (iconUrl != null) 'iconUrl': iconUrl,
-    if (typeSource != null) 'typeSource': typeSource,
-    if (version != null) 'version': version,
+    'name': ?name,
+    'baseUrl': ?baseUrl,
+    'apiUrl': ?apiUrl,
+    'iconUrl': ?iconUrl,
+    'typeSource': ?typeSource,
+    'version': ?version,
     if (languages.isNotEmpty) 'langs': languages,
     if (configuredIds.isNotEmpty) 'ids': configuredIds,
-    if (id != null) 'id': id,
+    'id': ?id,
   };
 }
 
