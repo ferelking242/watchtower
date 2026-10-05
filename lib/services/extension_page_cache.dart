@@ -117,8 +117,8 @@ class ExtensionPageCache {
 
   /// Drops every page for this source, including any in-flight result.
   ///
-  /// In-flight network work cannot always be cancelled, so its generation is
-  /// advanced and the eventual result is prevented from repopulating cache.
+  /// In-flight network work cannot always be cancelled, so removing it from
+  /// the active-request map prevents its eventual result from repopulating cache.
   void invalidateSource(Source source) =>
       invalidateSourceKey(extensionSourceCacheKey(source));
 
