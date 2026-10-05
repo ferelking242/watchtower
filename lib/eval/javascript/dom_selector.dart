@@ -11,6 +11,36 @@ import 'dart:convert';
     final Map<int, Element?> _elements = {};
     int _elementKey = 0;
 
+    Element? _selectFirst(Element? root, String selector) {
+      if (root == null) return null;
+      try {
+        final match = root.querySelector(selector);
+        if (match != null) return match;
+      } catch (_) {
+        // The custom selector engine below supports non-standard pseudo selectors.
+      }
+      try {
+        return root.selectFirst(selector);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    List<Element> _selectAll(Element? root, String selector) {
+      if (root == null) return const [];
+      try {
+        final matches = root.querySelectorAll(selector);
+        if (matches.isNotEmpty) return matches.toList();
+      } catch (_) {
+        // Fall through for the extension's custom pseudo selectors.
+      }
+      try {
+        return root.select(selector) ?? const [];
+      } catch (_) {
+        return const [];
+      }
+    }
+
     void init() {
       // ── Web: browser-native DOM (DOMParser) — no bridge calls needed ─────────
       if (kIsWeb) {
@@ -66,14 +96,15 @@ import 'dart:convert';
         final input = args[0];
         final selector = args[1];
         _elementKey++;
-        _elements[_elementKey] = parse(input).selectFirst(selector);
+        _elements[_elementKey] =
+            _selectFirst(parse(input).documentElement, selector);
         return _elementKey;
       });
       runtime.onMessage('ele_selectFirst', (dynamic args) {
         final selector = args[0];
         final key = args[1];
         _elementKey++;
-        _elements[_elementKey] = _elements[key]?.selectFirst(selector);
+        _elements[_elementKey] = _selectFirst(_elements[key], selector);
         return _elementKey;
       });
       runtime.onMessage('ele_element_sibling', (dynamic args) {
@@ -174,9 +205,9 @@ import 'dart:convert';
       runtime.onMessage('doc_select', (dynamic args) {
         final input = args[0];
         final selector = args[1];
-        final elements = parse(input).select(selector);
+        final elements = _selectAll(parse(input).documentElement, selector);
         List<int> elementKeys = [];
-        for (var element in elements ?? []) {
+        for (var element in elements) {
           _elementKey++;
           _elements[_elementKey] = element;
           elementKeys.add(_elementKey);
@@ -186,9 +217,9 @@ import 'dart:convert';
       runtime.onMessage('ele_select', (dynamic args) {
         final selector = args[0];
         final key = args[1];
-        final elements = _elements[key]?.select(selector);
+        final elements = _selectAll(_elements[key], selector);
         List<int> elementKeys = [];
-        for (var element in elements ?? []) {
+        for (var element in elements) {
           _elementKey++;
           _elements[_elementKey] = element;
           elementKeys.add(_elementKey);
