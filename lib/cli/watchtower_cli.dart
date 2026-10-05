@@ -385,11 +385,12 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
             itemType >= ItemType.values.length) {
           continue;
         }
+        final sourcePath = _sourcePath(root, metadata);
+        indexedSourcePaths.add(p.normalize(File(sourcePath).absolute.path));
         final isNsfw =
             metadata['isNsfw'] == true ||
             (metadata['sourceCodeUrl']?.toString().contains('/nsfw/') ?? false);
         if (isNsfw && !options.includeNsfw) continue;
-        final sourcePath = _sourcePath(root, metadata);
         final pathType = watchtowerCliSourceTypeFromPath(sourcePath);
         if (options.type != null &&
             pathType != null &&
@@ -404,7 +405,6 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
           continue;
         }
         final codeFile = File(sourcePath);
-        indexedSourcePaths.add(p.normalize(codeFile.absolute.path));
         if (!await codeFile.exists()) {
           failures.add({
             'name': metadata['name'],
