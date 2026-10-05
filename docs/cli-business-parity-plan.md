@@ -17,22 +17,29 @@ et la bibliothèque lorsque les services existants le permettent.
   l’interface Flutter. Le CLI est donc une porte d’entrée vers les fonctions
   métier, pas une application parallèle.
 - `lib/cli/watchtower_cli.dart` fournit `help`, `version`, `doctor`,
-  `extensions list`, `extensions test` et `source`. Le catalogue attendu est un
-  dépôt local avec `index/*.json`; les entrées sans `sourceCodeUrl` et
-  `index/plugins.json` sont ignorés.
-- Le chargement force `sourceCodeLanguage` à JavaScript. Le CLI ne suit donc pas
-  le choix de moteur porté par `Source`, alors que Watchtower prend en charge
-  les moteurs JavaScript, Dart et Mihon.
-- La commande `source` couvre popular/latest/search/detail/videos/pages, mais
-  pas l’ensemble de `ExtensionService` : filtres, préférences, headers, listes
-  personnalisées, suggestions, recommandations, commentaires et HTML.
-- `extensions test --mode load` charge le moteur et lit préférences/headers.
-  `smoke` et `deep` ajoutent quelques appels; `deep` ne vérifie qu’une page et
-  une URL média. L’exploration par filtres et les fonctionnalités facultatives
-  des extensions ne sont pas couvertes.
-- Il n’y a pas de tests CLI dédiés. Les tests existants sont des tests de
-  composants/services de l’application et ne protègent ni le parseur CLI, ni
-  ses codes de retour, ni ses rapports.
+  `extensions list`, `extensions test`, `plugins list/show/validate` et
+  `source`. Le catalogue des sources reste un dépôt local avec `index/*.json`;
+  les entrées sans `sourceCodeUrl` et `index/plugins.json` sont traitées
+  séparément.
+- Le chargement des sources respecte maintenant `sourceCodeLanguage` au lieu de
+  forcer JavaScript. Un pont HTTP explicite est nécessaire aux appels Mihon en
+  mode headless.
+- `source` expose maintenant les opérations de `ExtensionService` : popular,
+  latest, search et filtres réels, détail, pages, vidéos, préférences, headers,
+  listes personnalisées, suggestions, recommandations, commentaires et HTML.
+- `extensions test` vérifie le moteur, les filtres, préférences et headers;
+  `smoke` appelle les opérations catalogue, suggestions, détail et média selon
+  le type de contenu. `deep` ajoute la page 2 et le premier probe HTTP.
+- Les commandes plugin valident la structure et les types des métadonnées dans
+  `index/plugins.json`. Elles n’exécutent pas le runtime du plugin, ne valident
+  pas le schéma complet des manifests/UI et ne lisent pas les archives binaires.
+- Des tests dédiés couvrent maintenant le parseur d’options, la validation de
+  l’index plugin et le masquage de secrets. La CI Linux/Windows a été étendue à
+  ces tests et à l’analyse des fichiers CLI; l’exécution distante doit encore
+  être vérifiée après push.
+- Les tests du chemin d’application et les commandes de bibliothèque, historique,
+  progression, téléchargements et trackers restent indisponibles : le démarrage
+  headless n’initialise pas Isar/Hive.
 - Le chemin CLI retourne avant l’initialisation normale de Watchtower : Isar,
   Hive, bibliothèque, historique, progression, téléchargement, trackers,
   musique et services de fichiers ne sont pas accessibles comme commandes.
@@ -63,16 +70,20 @@ et la bibliothèque lorsque les services existants le permettent.
 
 ### Phase 2 — Parité des extensions et plugins
 
-- Respecter le moteur déclaré de chaque source (JavaScript, Dart, Mihon).
-- Couvrir les méthodes de `ExtensionService`, les filtres réels, les listes
-  personnalisées et les capacités facultatives.
-- Inventorier et valider le manifeste, le schéma UI et les scripts des plugins;
-  n’exécuter un plugin que par son runtime existant, avec timeout, capture de
-  sortie et limites documentées.
-- Produire des rapports par étape, reproductibles et exploitables en CI.
+- [x] Respecter le moteur déclaré de chaque source (JavaScript, Dart, Mihon);
+  configurer explicitement le pont Mihon en mode headless.
+- [x] Exposer les méthodes de `ExtensionService`, les filtres réels et les
+  listes personnalisées, avec les capacités facultatives du service.
+- [ ] Ajouter des fixtures d’exécution pour chaque moteur et tester les
+  opérations source avec des doubles déterministes.
+- [ ] Valider les manifests et schémas UI complets des plugins. L’index plugin
+  est actuellement validé statiquement; aucun script de plugin n’est exécuté.
+- [x] Produire des rapports par étape et y enregistrer la révision du dépôt
+  d’extensions lorsqu’elle est disponible.
 
 **Sortie de phase :** fixtures locales pour chaque type de moteur/plugin et
-rapport avec statut fiable par capacité.
+rapport avec statut fiable par capacité. La phase reste partielle jusqu’à ce
+que les fixtures et la validation complète des manifests soient livrées.
 
 ### Phase 3 — Commandes des fonctions métier
 

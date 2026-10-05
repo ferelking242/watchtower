@@ -29,6 +29,14 @@ void main() {
         'anime',
         '--query',
         'space opera',
+        '--filters-json',
+        '[{"type_name":"TextFilter","name":"genre","state":"fantasy"}]',
+        '--name',
+        'Chapter 1',
+        '--mihon-proxy',
+        'http://127.0.0.1:8765',
+        '--text',
+        '<article>body</article>',
         '--page',
         '2',
       ]);
@@ -36,6 +44,10 @@ void main() {
       expect(options.repo, './catalog with spaces');
       expect(options.type, 'anime');
       expect(options.query, 'space opera');
+      expect(options.filtersJson, contains('TextFilter'));
+      expect(options.name, 'Chapter 1');
+      expect(options.mihonProxy, 'http://127.0.0.1:8765');
+      expect(options.text, '<article>body</article>');
       expect(options.page, 2);
       expect(options.positional, ['source', 'source-id', 'search']);
     });
@@ -77,16 +89,19 @@ void main() {
       );
     });
 
-    test('rejects unsupported types and modes instead of hiding the mistake', () {
-      expect(
-        () => WatchtowerCliOptions.parse(['--type', 'comic']),
-        throwsFormatException,
-      );
-      expect(
-        () => WatchtowerCliOptions.parse(['--mode', 'quick']),
-        throwsFormatException,
-      );
-    });
+    test(
+      'rejects unsupported types and modes instead of hiding the mistake',
+      () {
+        expect(
+          () => WatchtowerCliOptions.parse(['--type', 'comic']),
+          throwsFormatException,
+        );
+        expect(
+          () => WatchtowerCliOptions.parse(['--mode', 'quick']),
+          throwsFormatException,
+        );
+      },
+    );
 
     test('rejects out-of-range numeric options instead of clamping them', () {
       for (final args in [

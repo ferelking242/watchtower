@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:watchtower/eval/interface.dart';
 import 'package:watchtower/eval/lib.dart';
+import 'package:watchtower/eval/model/filter.dart';
+import 'package:watchtower/eval/model/m_chapter.dart';
+import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/manga.dart';
@@ -12,11 +16,15 @@ import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:path/path.dart' as p;
+import 'watchtower_cli_plugins.dart';
 import 'watchtower_cli_options.dart';
+import 'watchtower_cli_safety.dart';
 
 const _version = '8.1.160';
 
-const _help = '''
+const _help =
+    '''
 Watchtower CLI $_version
 
 Usage:
@@ -25,10 +33,18 @@ Usage:
 Commands:
   help                         Affiche cette aide
   version                      Affiche la version
-  doctor                       Vérifie le binaire et le runtime QuickJS
+  doctor                       Vérifie la plateforme, QuickJS et les isolates
   extensions list              Liste les extensions d'un dépôt local
   extensions test              Teste les extensions avec le vrai moteur Watchtower
-  source <id|name> <operation> Exécute une opération sur une extension
+  plugins list                 Liste les plugins du catalogue local
+  plugins show <id>            Affiche les métadonnées d'un plugin
+  plugins validate [id]        Valide le catalogue des plugins
+  source <id|name> <operation> Exécute une opération réelle sur une extension
+
+Opérations source:
+  popular, latest, search, detail, videos, pages, filters, preferences,
+  headers, suggestions, custom-list, recommendations, comments, html,
+  clean-html, supports-latest, inspect
 
 Options générales:
   --repo, --extensions DIR     Dépôt watchtower-extensions local
@@ -44,21 +60,27 @@ Options générales:
   --json                       Sortie JSON uniquement
   --quiet                      Masque la progression
   --version                    Affiche la version
-  --query TEXT                 Requête pour source ... search
-  --url URL                    URL pour source ... detail/videos/pages
+  --query TEXT                 Requête pour search ou suggestions
+  --filters-json JSON          Filtres sérialisés à passer à search
+  --url URL                    URL pour detail/videos/pages/comments/etc.
+  --name TEXT                  Nom du contenu pour source ... html
+  --input-file FILE            HTML à nettoyer avec source ... clean-html
+  --text TEXT                  Texte HTML direct pour source ... clean-html
+  --mihon-proxy URL            Base URL du pont Mihon (ajoute /dalvik)
   --page N                     Numéro de page (défaut: 1)
   -h, --help                   Affiche cette aide
 
 Modes de test:
-  load                         Charge chaque extension dans QuickJS et vérifie ses préférences
-  smoke                        load + popular, latest, search, détail et premier média
+  load                         Charge chaque source avec son moteur déclaré et lit ses métadonnées
+  smoke                        load + filtres, popular, latest, suggestions, recherche, détail et média
   deep                         smoke + page 2 et vérification HTTP du premier média
 
 Exemples:
   watchtower --cli doctor
   watchtower --cli extensions list --repo ./watchtower-extensions
   watchtower --cli extensions test --repo ./watchtower-extensions --mode smoke --report report.json
-  watchtower --cli source 1900000002 popular --repo ./watchtower-extensions
+  watchtower --cli plugins validate --repo ./watchtower-extensions --json
+  watchtower --cli source 1900000002 search --query "space opera" --filters-json '[]'
 ''';
 
 class _CatalogItem {
@@ -75,11 +97,13 @@ class _CatalogItem {
 
 class _Catalog {
   final String root;
+  final String? revision;
   final List<_CatalogItem> items;
   final List<Map<String, dynamic>> failures;
 
   const _Catalog({
     required this.root,
+    required this.revision,
     required this.items,
     required this.failures,
   });
@@ -90,6 +114,7 @@ class _Step {
   final int ms;
   final int? count;
   final String? error;
+  final String? errorType;
   final Map<String, dynamic>? extra;
 
   const _Step({
@@ -97,16 +122,19 @@ class _Step {
     required this.ms,
     this.count,
     this.error,
+    this.errorType,
     this.extra,
   });
 
   Map<String, dynamic> toJson() => {
-        'ok': ok,
-        'ms': ms,
-        if (count != null) 'count': count,
-        if (error != null) 'error': error,
-        if (extra != null) ...extra!,
-      };
+    'ok': ok,
+    'status': ok ? 'passed' : 'failed',
+    'ms': ms,
+    if (count != null) 'count': count,
+    if (error != null) 'error': error,
+    if (errorType != null) 'errorType': errorType,
+    if (extra != null) ...extra!,
+  };
 }
 
 class _TestResult {
@@ -118,15 +146,16 @@ class _TestResult {
   _TestResult(this.item);
 
   Map<String, dynamic> toJson() => {
-        'id': item.source.id,
-        'name': item.source.name,
-        'lang': item.source.lang,
-        'itemType': item.source.itemType.name,
-        'file': item.file,
-        'ok': ok,
-        'ms': totalMs,
-        'steps': steps.map((key, value) => MapEntry(key, value.toJson())),
-      };
+    'id': item.source.id,
+    'name': item.source.name,
+    'lang': item.source.lang,
+    'itemType': item.source.itemType.name,
+    'engine': item.source.sourceCodeLanguage.name,
+    'file': item.file,
+    'ok': ok,
+    'ms': totalMs,
+    'steps': steps.map((key, value) => MapEntry(key, value.toJson())),
+  };
 }
 
 Future<int> runWatchtowerCli(List<String> args) async {
@@ -150,9 +179,11 @@ Future<int> runWatchtowerCli(List<String> args) async {
       return 0;
     }
     if (command == 'doctor') return _doctor(options);
+    if (command == 'plugins') return _runPlugins(options);
     if (command == 'extensions') {
-      final subcommand =
-          options.positional.length > 1 ? options.positional[1] : 'list';
+      final subcommand = options.positional.length > 1
+          ? options.positional[1]
+          : 'list';
       final catalog = await _loadCatalog(options);
       if (subcommand == 'list') return _listExtensions(catalog, options);
       if (subcommand == 'test') return _testExtensions(catalog, options);
@@ -164,27 +195,160 @@ Future<int> runWatchtowerCli(List<String> args) async {
     }
     throw FormatException('Unknown command: $command');
   } catch (error, stack) {
-    stderr.writeln('watchtower: $error');
-    if (Platform.environment['WATCHTOWER_DEBUG'] == '1') stderr.writeln(stack);
+    stderr.writeln('watchtower: ${sanitizeCliText(error.toString())}');
+    if (Platform.environment['WATCHTOWER_DEBUG'] == '1') {
+      stderr.writeln(sanitizeCliText(stack.toString()));
+    }
     return 2;
   }
 }
 
 Future<int> _doctor(WatchtowerCliOptions options) async {
+  var isolatePoolAvailable = false;
+  var quickJsAvailable = false;
+  String? runtimeError;
+  try {
+    await getIsolateService.start();
+    isolatePoolAvailable = true;
+    final probe = Source(
+      id: -1,
+      name: 'Watchtower runtime probe',
+      sourceCode: 'class DefaultExtension {}',
+    )..sourceCodeLanguage = SourceCodeLanguage.javascript;
+    await withExtensionService<bool>(
+      probe,
+      '',
+      (service) async => service.supportsLatest,
+    ).timeout(Duration(seconds: options.timeoutSeconds));
+    quickJsAvailable = true;
+  } catch (error) {
+    runtimeError = _shortError(error);
+  } finally {
+    ExtensionServiceRegistry.disposeAll();
+    if (isolatePoolAvailable) {
+      try {
+        await getIsolateService.stop();
+      } catch (_) {}
+    }
+  }
   final result = {
     'version': _version,
     'platform': Platform.operatingSystem,
-    'architecture': Platform.operatingSystemVersion,
+    'architecture': Abi.current().toString(),
     'dart': Platform.version,
     'native': true,
-    'quickJs': true,
+    'isolatePool': {'available': isolatePoolAvailable},
+    'quickJs': {
+      'available': quickJsAvailable,
+      if (runtimeError != null) 'error': runtimeError,
+    },
   };
   _printJsonOrLines(result, options);
-  return 0;
+  return isolatePoolAvailable && quickJsAvailable ? 0 : 1;
+}
+
+Future<int> _runPlugins(WatchtowerCliOptions options) async {
+  final subcommand = options.positional.length > 1
+      ? options.positional[1]
+      : 'list';
+  if (!const {'list', 'show', 'validate'}.contains(subcommand)) {
+    throw FormatException('Unknown plugins command: $subcommand');
+  }
+  final root =
+      options.repo ??
+      Platform.environment['WATCHTOWER_EXTENSIONS_DIR'] ??
+      '../watchtower-extensions';
+  final catalog = await loadWatchtowerCliPluginCatalog(root);
+  final revision = await _readGitRevision(root);
+  final requestedId = options.positional.length > 2
+      ? options.positional[2].toLowerCase()
+      : null;
+  final visiblePlugins = catalog.plugins
+      .where((plugin) => options.includeNsfw || plugin['isNsfw'] != true)
+      .toList();
+  final selected = requestedId == null
+      ? visiblePlugins
+      : visiblePlugins
+            .where(
+              (plugin) => plugin['id']?.toString().toLowerCase() == requestedId,
+            )
+            .toList();
+  if (requestedId != null && selected.isEmpty) {
+    throw ArgumentError('Plugin not found: $requestedId');
+  }
+
+  if (subcommand == 'show') {
+    if (requestedId == null) {
+      throw ArgumentError('Usage: plugins show <id>');
+    }
+    if (selected.length != 1) {
+      throw StateError(
+        'Plugin id is ambiguous in this catalogue; run plugins validate first.',
+      );
+    }
+    _printJsonOrLines(selected.single, options);
+    return 0;
+  }
+  if (subcommand == 'list') {
+    if (options.json) {
+      _printJsonOrLines({
+        ...catalog.toJson(),
+        if (revision != null) 'repositoryRevision': revision,
+        'plugins': selected,
+        'total': selected.length,
+      }, options);
+    } else {
+      for (final plugin in selected) {
+        stdout.writeln(
+          '${plugin['id']}\t${plugin['version']}\t'
+          '${plugin['category'] ?? '-'}\t${plugin['name']}',
+        );
+      }
+      stderr.writeln('${selected.length} plugin(s) in ${catalog.root}');
+    }
+    return 0;
+  }
+
+  final selectedIds = selected
+      .map((plugin) => plugin['id']?.toString())
+      .toSet();
+  final failures = catalog.failures
+      .where(
+        (failure) =>
+            requestedId == null ||
+            selectedIds.contains(failure['id']?.toString()),
+      )
+      .toList();
+  final report = {
+    'root': catalog.root,
+    if (revision != null) 'repositoryRevision': revision,
+    if (catalog.lastUpdated != null) 'lastUpdated': catalog.lastUpdated,
+    'total': selected.length,
+    'valid': failures.isEmpty,
+    'failures': failures,
+    'plugins': selected,
+  };
+  if (options.json) {
+    _printJsonOrLines(report, options);
+  } else {
+    stdout.writeln(
+      failures.isEmpty
+          ? 'Valid: ${selected.length} plugin(s)'
+          : 'Invalid: ${failures.length} issue(s) in the plugin catalog',
+    );
+    for (final failure in failures) {
+      stderr.writeln(
+        '${failure['id'] ?? 'entry ${failure['index']}'} '
+        '${failure['field'] ?? ''}: ${failure['error']}',
+      );
+    }
+  }
+  return failures.isEmpty ? 0 : 1;
 }
 
 Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
-  final root = options.repo ??
+  final root =
+      options.repo ??
       Platform.environment['WATCHTOWER_EXTENSIONS_DIR'] ??
       '../watchtower-extensions';
   final indexDir = Directory('$root/index');
@@ -212,10 +376,13 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
         final itemType = metadata['itemType'];
         // The subtitles catalogue is consumed by the subtitle provider, not
         // by ExtensionService. It has no corresponding Source enum value.
-        if (itemType is! int || itemType < 0 || itemType >= ItemType.values.length) {
+        if (itemType is! int ||
+            itemType < 0 ||
+            itemType >= ItemType.values.length) {
           continue;
         }
-        final isNsfw = metadata['isNsfw'] == true ||
+        final isNsfw =
+            metadata['isNsfw'] == true ||
             (metadata['sourceCodeUrl']?.toString().contains('/nsfw/') ?? false);
         if (isNsfw && !options.includeNsfw) continue;
         final sourcePath = _sourcePath(root, metadata);
@@ -232,7 +399,6 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
         final source = Source.fromJson({
           ...metadata,
           'sourceCode': await codeFile.readAsString(),
-          'sourceCodeLanguage': 1,
           'isAdded': true,
           'isActive': true,
           'isLocal': true,
@@ -240,18 +406,25 @@ Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
         if (options.type != null && !_matchesType(source, options.type!)) {
           continue;
         }
-        items.add(_CatalogItem(
-          metadata: metadata,
-          source: source,
-          file: sourcePath,
-        ));
+        items.add(
+          _CatalogItem(metadata: metadata, source: source, file: sourcePath),
+        );
       }
     } catch (error) {
       failures.add({'file': entity.path, 'error': error.toString()});
     }
   }
   items.sort((a, b) => (a.source.name ?? '').compareTo(b.source.name ?? ''));
-  return _Catalog(root: root, items: items, failures: failures);
+  failures.sort(
+    (a, b) =>
+        (a['file']?.toString() ?? '').compareTo(b['file']?.toString() ?? ''),
+  );
+  return _Catalog(
+    root: Directory(root).absolute.path,
+    revision: await _readGitRevision(root),
+    items: items,
+    failures: failures,
+  );
 }
 
 String _sourcePath(String root, Map<String, dynamic> metadata) {
@@ -259,10 +432,35 @@ String _sourcePath(String root, Map<String, dynamic> metadata) {
   final parsed = Uri.tryParse(raw);
   final path = parsed?.path ?? raw;
   final marker = path.indexOf('/src/');
-  if (marker >= 0) return '$root/${path.substring(marker + 1)}';
   final pkgPath = metadata['pkgPath']?.toString() ?? '';
-  if (pkgPath.startsWith('src/')) return '$root$pkgPath';
-  return '$root/$pkgPath';
+  final relativePath = marker >= 0
+      ? path.substring(marker + 1)
+      : pkgPath.isNotEmpty
+      ? pkgPath
+      : path;
+  final absoluteRoot = p.normalize(Directory(root).absolute.path);
+  final sourcePath = p.normalize(p.join(absoluteRoot, relativePath));
+  if (!p.isWithin(absoluteRoot, sourcePath)) {
+    throw FormatException('Source code path escapes the extension repository.');
+  }
+  return sourcePath;
+}
+
+Future<String?> _readGitRevision(String root) async {
+  try {
+    final result = await Process.run('git', [
+      '-C',
+      root,
+      'rev-parse',
+      '--verify',
+      'HEAD',
+    ], runInShell: false);
+    if (result.exitCode == 0) {
+      final revision = result.stdout.toString().trim();
+      if (revision.isNotEmpty) return revision;
+    }
+  } catch (_) {}
+  return null;
 }
 
 String _sourceType(Source source) {
@@ -289,6 +487,7 @@ int _listExtensions(_Catalog catalog, WatchtowerCliOptions options) {
   if (options.json) {
     _printJsonOrLines({
       'root': catalog.root,
+      if (catalog.revision != null) 'repositoryRevision': catalog.revision,
       'total': catalog.items.length,
       'failures': catalog.failures,
       'sources': catalog.items.map(_sourceJson).toList(),
@@ -296,11 +495,15 @@ int _listExtensions(_Catalog catalog, WatchtowerCliOptions options) {
     return catalog.failures.isEmpty ? 0 : 1;
   }
   for (final item in catalog.items) {
-    print('${item.source.id}\t${_sourceType(item.source)}\t'
-        '${item.source.lang}\t${item.source.name}\t${item.file}');
+    print(
+      '${item.source.id}\t${_sourceType(item.source)}\t'
+      '${item.source.sourceCodeLanguage.name}\t'
+      '${item.source.lang}\t${item.source.name}\t${item.file}',
+    );
   }
   stderr.writeln(
-      '${catalog.items.length} extension(s), ${catalog.failures.length} file failure(s)');
+    '${catalog.items.length} extension(s), ${catalog.failures.length} file failure(s)',
+  );
   return catalog.failures.isEmpty ? 0 : 1;
 }
 
@@ -308,6 +511,7 @@ Future<int> _testExtensions(
   _Catalog catalog,
   WatchtowerCliOptions options,
 ) async {
+  _validatedMihonProxy(options.mihonProxy);
   await getIsolateService.start();
   try {
     final results = <_TestResult>[];
@@ -321,23 +525,24 @@ Future<int> _testExtensions(
         results.add(result);
         if (!options.quiet && !options.json) {
           stdout.writeln(
-              '${result.ok ? 'PASS' : 'FAIL'} ${index + 1}/${catalog.items.length} '
-              '${item.source.name} [${item.source.lang}]');
+            '${result.ok ? 'PASS' : 'FAIL'} ${index + 1}/${catalog.items.length} '
+            '${item.source.name} [${item.source.lang}]',
+          );
         }
       }
     }
 
-    await Future.wait(
-      List.generate(options.concurrency, (_) => worker()),
+    await Future.wait(List.generate(options.concurrency, (_) => worker()));
+    results.sort(
+      (a, b) => (a.item.source.name ?? '').compareTo(b.item.source.name ?? ''),
     );
-    results.sort((a, b) => (a.item.source.name ?? '')
-        .compareTo(b.item.source.name ?? ''));
     final passed = results.where((result) => result.ok).length;
     final report = {
       'generatedAt': DateTime.now().toUtc().toIso8601String(),
       'version': _version,
       'mode': options.mode,
       'repository': catalog.root,
+      if (catalog.revision != null) 'repositoryRevision': catalog.revision,
       'total': results.length,
       'passed': passed,
       'failed': results.length - passed,
@@ -346,14 +551,16 @@ Future<int> _testExtensions(
     };
     if (options.report != null) {
       await File(options.report!).writeAsString(
-        const JsonEncoder.withIndent('  ').convert(report),
+        const JsonEncoder.withIndent('  ').convert(redactCliOutput(report)),
       );
     }
     if (options.json) {
       _printJsonOrLines(report, options);
     } else {
-      print('Done: $passed passed, ${results.length - passed} failed '
-          '(${results.length} tested)');
+      print(
+        'Done: $passed passed, ${results.length - passed} failed '
+        '(${results.length} tested)',
+      );
       if (options.report != null) print('Report: ${options.report}');
     }
     return passed == results.length && catalog.failures.isEmpty ? 0 : 1;
@@ -369,6 +576,20 @@ Future<_TestResult> _testOne(
 ) async {
   final result = _TestResult(item);
   final started = Stopwatch()..start();
+  if (item.source.sourceCodeLanguage == SourceCodeLanguage.mihon &&
+      options.mihonProxy == null) {
+    result.ok = false;
+    result.steps['runtime'] = const _Step(
+      ok: false,
+      ms: 0,
+      error: 'Mihon sources require --mihon-proxy on the headless CLI.',
+      errorType: 'unsupported',
+    );
+    started.stop();
+    result.totalMs = started.elapsedMilliseconds;
+    return result;
+  }
+
   Future<void> step(
     String name,
     Future<Object?> Function(ExtensionService service) action,
@@ -377,15 +598,15 @@ Future<_TestResult> _testOne(
     try {
       final value = await withExtensionService(
         item.source,
-        '',
-        (service) => action(service).timeout(
-          Duration(seconds: options.timeoutSeconds),
-        ),
+        options.mihonProxy ?? '',
+        (service) =>
+            action(service).timeout(Duration(seconds: options.timeoutSeconds)),
       );
       result.steps[name] = _Step(
         ok: true,
         ms: watch.elapsedMilliseconds,
         count: _count(value),
+        extra: value is Map ? Map<String, dynamic>.from(value) : null,
       );
     } catch (error) {
       result.ok = false;
@@ -393,14 +614,24 @@ Future<_TestResult> _testOne(
         ok: false,
         ms: watch.elapsedMilliseconds,
         error: _shortError(error),
+        errorType: _errorType(error),
       );
     }
   }
 
+  var supportsLatest = true;
   await step('load', (service) async {
-    service.getSourcePreferences();
-    service.getHeaders();
-    return true;
+    supportsLatest = service.supportsLatest;
+    final preferences = service.getSourcePreferences();
+    final headers = service.getHeaders();
+    final filters = service.getFilterList().filters;
+    return {
+      'engine': item.source.sourceCodeLanguage.name,
+      'supportsLatest': supportsLatest,
+      'preferences': preferences.length,
+      'headers': headers.length,
+      'filters': filters.length,
+    };
   });
   if (options.mode == 'load' || !result.ok) {
     started.stop();
@@ -409,18 +640,32 @@ Future<_TestResult> _testOne(
   }
 
   MPages? popular;
+  List<dynamic> filters = const [];
   await step('popular', (service) async {
     popular = await service.getPopular(1);
     return popular!;
   });
-  await step('latest', (service) => service.getLatestUpdates(1));
-  await step('search', (service) => service.search('a', 1, const []));
+  await step('filters', (service) async {
+    filters = service.getFilterList().filters;
+    return filters;
+  });
+  if (supportsLatest) {
+    await step('latest', (service) => service.getLatestUpdates(1));
+  } else {
+    result.steps['latest'] = const _Step(
+      ok: true,
+      ms: 0,
+      extra: {'status': 'unsupported'},
+    );
+  }
+  await step('search', (service) => service.search('a', 1, filters));
+  await step('suggestions', (service) => service.getSuggestions('a'));
   if (options.mode == 'deep') {
     await step('popularPage2', (service) => service.getPopular(2));
   }
 
   final probe = popular?.list
-      ?.map((item) => item.link)
+      .map((item) => item.link)
       .whereType<String>()
       .firstWhere((value) => value.isNotEmpty, orElse: () => '');
   if (probe == null || probe.isEmpty) {
@@ -436,6 +681,11 @@ Future<_TestResult> _testOne(
       detail = await service.getDetail(probe!);
       return detail!;
     });
+    await step(
+      'recommendations',
+      (service) => service.getRecommendations(probe),
+    );
+    await step('comments', (service) => service.getComments(probe));
     final mediaUrl = detail?.chapters
         ?.map((chapter) => chapter.url)
         .whereType<String>()
@@ -456,6 +706,15 @@ Future<_TestResult> _testOne(
       if (options.mode == 'deep' && pages != null && pages!.isNotEmpty) {
         await step('httpProbe', (_) => _probeHttp(pages!.first.url));
       }
+    } else if (item.source.itemType == ItemType.novel) {
+      String? html;
+      await step('html', (service) async {
+        html = await service.getHtmlContent(detail?.name ?? '', mediaUrl!);
+        return html!;
+      });
+      if (options.mode == 'deep' && html != null) {
+        await step('cleanHtml', (service) => service.cleanHtmlContent(html!));
+      }
     } else {
       List<Video>? videos;
       await step('videos', (service) async {
@@ -472,40 +731,129 @@ Future<_TestResult> _testOne(
   return result;
 }
 
-Future<int> _runSource(
-  _Catalog catalog,
-  WatchtowerCliOptions options,
-) async {
+Future<int> _runSource(_Catalog catalog, WatchtowerCliOptions options) async {
   if (options.positional.length < 3) {
-    throw ArgumentError(
-        'Usage: source <id|name> <popular|latest|search|detail|videos|pages>');
+    throw ArgumentError('Usage: source <id|name> <operation> [arguments]');
   }
   final needle = options.positional[1].toLowerCase();
   final operation = options.positional[2];
+  const supportedOperations = {
+    'popular',
+    'latest',
+    'search',
+    'detail',
+    'videos',
+    'pages',
+    'filters',
+    'preferences',
+    'headers',
+    'suggestions',
+    'custom-list',
+    'recommendations',
+    'comments',
+    'html',
+    'clean-html',
+    'supports-latest',
+    'inspect',
+  };
+  if (!supportedOperations.contains(operation)) {
+    throw FormatException('Unknown source operation: $operation');
+  }
   final item = catalog.items.firstWhere(
     (candidate) =>
         candidate.source.name?.toLowerCase() == needle ||
         candidate.source.id.toString() == needle,
     orElse: () => throw ArgumentError('Extension not found: $needle'),
   );
+  final mihonProxy = _validatedMihonProxy(options.mihonProxy);
+  if (item.source.sourceCodeLanguage == SourceCodeLanguage.mihon &&
+      mihonProxy == null) {
+    throw ArgumentError(
+      'Mihon extensions need a reachable bridge. Pass --mihon-proxy <base-url>.',
+    );
+  }
+  final url = _requiredOption(options.url, '--url', operation);
+  final query = _requiredOption(options.query, '--query', operation);
+  final name = _requiredOption(options.name, '--name', operation);
+  final customListId = options.positional.length > 3
+      ? options.positional[3]
+      : null;
+  if (operation == 'custom-list' &&
+      (customListId == null || customListId.trim().isEmpty)) {
+    throw ArgumentError('Usage: source <id|name> custom-list <list-id>');
+  }
+  if (operation == 'clean-html' &&
+      options.inputFile == null &&
+      options.text == null) {
+    throw ArgumentError(
+      'source clean-html requires --input-file FILE or --text HTML.',
+    );
+  }
   await getIsolateService.start();
   try {
-    final value = await withExtensionService(item.source, '', (service) async {
+    final value = await withExtensionService(item.source, mihonProxy ?? '', (
+      service,
+    ) async {
       switch (operation) {
         case 'popular':
           return service.getPopular(options.page);
         case 'latest':
+          if (!service.supportsLatest) {
+            throw UnsupportedError(
+              'This source does not support latest updates.',
+            );
+          }
           return service.getLatestUpdates(options.page);
         case 'search':
-          return service.search(options.query ?? '', options.page, const []);
+          return service.search(
+            query!,
+            options.page,
+            _filtersFromJson(options.filtersJson, service.getFilterList()),
+          );
         case 'detail':
-          return service.getDetail(options.url ?? '');
+          return service.getDetail(url!);
         case 'videos':
-          return service.getVideoList(options.url ?? '');
+          return service.getVideoList(url!);
         case 'pages':
-          return service.getPageList(options.url ?? '');
+          return service.getPageList(url!);
+        case 'filters':
+          return service.getFilterList();
+        case 'preferences':
+          return service.getSourcePreferences();
+        case 'headers':
+          return service.getHeaders();
+        case 'supports-latest':
+          return {'supported': service.supportsLatest};
+        case 'suggestions':
+          return service.getSuggestions(query!);
+        case 'custom-list':
+          return service.getCustomList(customListId!, options.page);
+        case 'recommendations':
+          return service.getRecommendations(url!);
+        case 'comments':
+          return service.getComments(url!);
+        case 'html':
+          return service.getHtmlContent(name!, url!);
+        case 'clean-html':
+          final html =
+              options.text ?? await File(options.inputFile!).readAsString();
+          return service.cleanHtmlContent(html);
+        case 'inspect':
+          return {
+            'id': item.source.id,
+            'name': item.source.name,
+            'lang': item.source.lang,
+            'type': _sourceType(item.source),
+            'engine': item.source.sourceCodeLanguage.name,
+            'version': item.source.version,
+            'baseUrl': item.source.baseUrl,
+            'supportsLatest': service.supportsLatest,
+            'headers': service.getHeaders(),
+            'filters': service.getFilterList(),
+            'preferences': service.getSourcePreferences(),
+          };
         default:
-          throw ArgumentError('Unknown source operation: $operation');
+          throw StateError('Operation was not validated: $operation');
       }
     }).timeout(Duration(seconds: options.timeoutSeconds));
     _printJsonOrLines(_serialize(value), options);
@@ -516,58 +864,130 @@ Future<int> _runSource(
   }
 }
 
+String? _requiredOption(String? value, String option, String operation) {
+  const urlOperations = {
+    'detail',
+    'videos',
+    'pages',
+    'recommendations',
+    'comments',
+    'html',
+  };
+  if ((option == '--url' && urlOperations.contains(operation)) ||
+      (option == '--query' &&
+          const {'search', 'suggestions'}.contains(operation)) ||
+      (option == '--name' && operation == 'html')) {
+    if (value == null || value.trim().isEmpty) {
+      throw ArgumentError('source $operation requires $option.');
+    }
+  }
+  return value;
+}
+
+String? _validatedMihonProxy(String? value) {
+  if (value == null) return null;
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      !uri.hasAuthority ||
+      uri.host.isEmpty ||
+      !const {'http', 'https'}.contains(uri.scheme) ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment) {
+    throw ArgumentError(
+      '--mihon-proxy must be an HTTP(S) base URL without credentials or query parameters.',
+    );
+  }
+  return value.replaceFirst(RegExp(r'/+$'), '');
+}
+
+List<dynamic> _filtersFromJson(String? source, FilterList defaults) {
+  if (source == null) return defaults.filters;
+  final decoded = jsonDecode(source);
+  final raw = decoded is Map ? decoded['filters'] : decoded;
+  if (raw is! List) {
+    throw const FormatException(
+      '--filters-json must be a JSON array or an object with a filters array.',
+    );
+  }
+  final parsed = fromJsonFilterValuesToList(raw);
+  if (parsed.length != raw.length) {
+    throw const FormatException(
+      '--filters-json contains an unknown or invalid filter type.',
+    );
+  }
+  return parsed;
+}
+
 Map<String, dynamic> _sourceJson(_CatalogItem item) => {
-      ...item.metadata,
-      'file': item.file,
-      'type': _sourceType(item.source),
-    };
+  ...item.metadata,
+  'file': item.file,
+  'type': _sourceType(item.source),
+  'engine': item.source.sourceCodeLanguage.name,
+};
 
 dynamic _serialize(Object? value) {
   if (value is MPages) {
     return {
-      'list': value.list?.map(_serialize).toList() ?? [],
+      'list': value.list.map(_serialize).toList(),
       'hasNextPage': value.hasNextPage,
     };
   }
   if (value is MManga) {
     return {
       'name': value.name,
+      'previewUrl': value.previewUrl,
       'imageUrl': value.imageUrl,
       'link': value.link,
       'author': value.author,
+      'artist': value.artist,
+      'collectionId': value.collectionId,
       'description': value.description,
+      'status': value.status?.name,
+      'genre': value.genre,
       'chapters': value.chapters?.map(_serialize).toList() ?? [],
     };
   }
+  if (value is FilterList) return _serialize(value.toJson());
+  if (value is SourcePreference) return _serialize(value.toJson());
+  if (value is MChapter) return value.toJson();
   if (value is Video) return value.toJson();
   if (value is PageUrl) return value.toJson();
   if (value is Iterable) return value.map(_serialize).toList();
-  if (value is Map) return value.map((key, val) => MapEntry('$key', _serialize(val)));
+  if (value is Map) {
+    return value.map((key, val) => MapEntry('$key', _serialize(val)));
+  }
   return value;
 }
 
 int? _count(Object? value) {
-  if (value is MPages) return value.list?.length ?? 0;
+  if (value is MPages) return value.list.length;
   if (value is Iterable) return value.length;
   if (value is MManga) return value.chapters?.length ?? 0;
   return null;
 }
 
 String _shortError(Object error) {
-  final value = error.toString().replaceAll('\n', ' ');
+  final value = sanitizeCliText(error.toString()).replaceAll('\n', ' ');
   return value.length > 500 ? '${value.substring(0, 497)}...' : value;
+}
+
+String _errorType(Object error) {
+  if (error is TimeoutException) return 'timeout';
+  if (error is SocketException || error is HttpException) return 'network';
+  if (error is UnsupportedError) return 'unsupported';
+  if (error is FormatException || error is ArgumentError) return 'input';
+  return 'runtime';
 }
 
 Future<int> _probeHttp(String url) async {
   final client = HttpClient();
   try {
-    final request = await client.getUrl(Uri.parse(url)).timeout(
-          const Duration(seconds: 20),
-        );
+    final request = await client
+        .getUrl(Uri.parse(url))
+        .timeout(const Duration(seconds: 20));
     request.followRedirects = true;
-    final response = await request.close().timeout(
-          const Duration(seconds: 20),
-        );
+    final response = await request.close().timeout(const Duration(seconds: 20));
     await response.drain<void>();
     if (response.statusCode >= 400) {
       throw HttpException(
@@ -582,11 +1002,14 @@ Future<int> _probeHttp(String url) async {
 }
 
 void _printJsonOrLines(Object value, WatchtowerCliOptions options) {
+  final safeValue = redactCliOutput(value);
   if (options.json) {
-    stdout.writeln(const JsonEncoder.withIndent('  ').convert(value));
-  } else if (value is Map) {
-    for (final entry in value.entries) stdout.writeln('${entry.key}: ${entry.value}');
+    stdout.writeln(const JsonEncoder.withIndent('  ').convert(safeValue));
+  } else if (safeValue is Map) {
+    for (final entry in safeValue.entries) {
+      stdout.writeln('${entry.key}: ${entry.value}');
+    }
   } else {
-    stdout.writeln(value);
+    stdout.writeln(safeValue);
   }
 }

@@ -6,6 +6,11 @@ class WatchtowerCliOptions {
   String? report;
   String? query;
   String? url;
+  String? name;
+  String? filtersJson;
+  String? inputFile;
+  String? text;
+  String? mihonProxy;
   int page = 1;
   int concurrency = 4;
   int timeoutSeconds = 45;
@@ -52,8 +57,7 @@ class WatchtowerCliOptions {
 
       final separator = arg.startsWith('--') ? arg.indexOf('=') : -1;
       final name = separator < 0 ? arg : arg.substring(0, separator);
-      final inlineValue =
-          separator < 0 ? null : arg.substring(separator + 1);
+      final inlineValue = separator < 0 ? null : arg.substring(separator + 1);
 
       void setString(void Function(String value) assign) {
         assign(valueFor(args, i, inlineValue));
@@ -115,6 +119,17 @@ class WatchtowerCliOptions {
           setString((value) => result.query = value);
         case '--url':
           setString((value) => result.url = value);
+        case '--name':
+          setString((value) => result.name = value);
+        case '--filters':
+        case '--filters-json':
+          setString((value) => result.filtersJson = value);
+        case '--input-file':
+          setString((value) => result.inputFile = value);
+        case '--text':
+          setString((value) => result.text = value);
+        case '--mihon-proxy':
+          setString((value) => result.mihonProxy = value);
         case '--page':
           setInteger(
             '--page',
@@ -172,7 +187,9 @@ class WatchtowerCliOptions {
             throw FormatException('Unknown option: $name');
           }
           if (inlineValue != null) {
-            throw FormatException('Unexpected value for positional argument: $arg');
+            throw FormatException(
+              'Unexpected value for positional argument: $arg',
+            );
           }
           result.positional.add(arg);
       }
