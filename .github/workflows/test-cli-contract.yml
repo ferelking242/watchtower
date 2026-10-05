@@ -1,0 +1,51 @@
+name: Watchtower CLI contract tests
+
+on:
+  push:
+    paths:
+      - 'lib/cli/**'
+      - 'test/watchtower_cli_options_test.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/test-cli-contract.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'lib/cli/**'
+      - 'test/watchtower_cli_options_test.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/test-cli-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli-contract:
+    name: CLI contract (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Resolve Dart packages
+        run: flutter pub get
+
+      - name: Test CLI argument contract
+        run: flutter test test/watchtower_cli_options_test.dart
+
+      - name: Analyze CLI code and tests
+        run: flutter analyze --no-pub lib/cli/watchtower_cli.dart lib/cli/watchtower_cli_options.dart test/watchtower_cli_options_test.dart

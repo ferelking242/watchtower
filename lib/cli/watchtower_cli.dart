@@ -12,6 +12,7 @@ import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'watchtower_cli_options.dart';
 
 const _version = '8.1.160';
 
@@ -59,89 +60,6 @@ Exemples:
   watchtower --cli extensions test --repo ./watchtower-extensions --mode smoke --report report.json
   watchtower --cli source 1900000002 popular --repo ./watchtower-extensions
 ''';
-
-class _CliOptions {
-  final List<String> positional = [];
-  String? repo;
-  String? type;
-  String mode = 'load';
-  String? report;
-  String? query;
-  String? url;
-  int page = 1;
-  int concurrency = 4;
-  int timeoutSeconds = 45;
-  bool includeNsfw = true;
-  bool all = false;
-  bool json = false;
-  bool quiet = false;
-  bool help = false;
-  bool version = false;
-
-  static _CliOptions parse(List<String> args) {
-    final result = _CliOptions();
-    for (var i = 0; i < args.length; i++) {
-      final arg = args[i];
-      String? value;
-      String name = arg;
-      if (arg.startsWith('--') && arg.contains('=')) {
-        final split = arg.substring(2).split('=');
-        name = '--${split.first}';
-        value = split.skip(1).join('=');
-      }
-      String takeValue() => value ?? (i + 1 < args.length ? args[++i] : '');
-      switch (name) {
-        case '-h':
-        case '--help':
-          result.help = true;
-        case '--repo':
-        case '--extensions':
-        case '--extensions-dir':
-          result.repo = takeValue();
-        case '--type':
-          result.type = takeValue();
-        case '--mode':
-          result.mode = takeValue();
-        case '--report':
-          result.report = takeValue();
-        case '--query':
-          result.query = takeValue();
-        case '--url':
-          result.url = takeValue();
-        case '--page':
-          result.page = int.tryParse(takeValue()) ?? 1;
-        case '--concurrency':
-          result.concurrency = int.tryParse(takeValue()) ?? 4;
-        case '--timeout':
-          result.timeoutSeconds = int.tryParse(takeValue()) ?? 45;
-        case '--include-nsfw':
-          result.includeNsfw = true;
-        case '--exclude-nsfw':
-          result.includeNsfw = false;
-        case '--all':
-          result.all = true;
-        case '--json':
-          result.json = true;
-        case '--quiet':
-          result.quiet = true;
-        case '--version':
-        case '-V':
-          result.version = true;
-        default:
-          if (arg.startsWith('-')) {
-            throw FormatException('Unknown option: $arg');
-          }
-          result.positional.add(arg);
-      }
-    }
-    result.concurrency = result.concurrency.clamp(1, 16).toInt();
-    result.timeoutSeconds = result.timeoutSeconds.clamp(1, 300).toInt();
-    if (!['load', 'smoke', 'deep'].contains(result.mode)) {
-      throw FormatException('Unknown test mode: ${result.mode}');
-    }
-    return result;
-  }
-}
 
 class _CatalogItem {
   final Map<String, dynamic> metadata;
@@ -213,7 +131,7 @@ class _TestResult {
 
 Future<int> runWatchtowerCli(List<String> args) async {
   try {
-    final options = _CliOptions.parse(args);
+    final options = WatchtowerCliOptions.parse(args);
     if (options.version) {
       print('Watchtower $_version');
       return 0;
@@ -252,7 +170,7 @@ Future<int> runWatchtowerCli(List<String> args) async {
   }
 }
 
-Future<int> _doctor(_CliOptions options) async {
+Future<int> _doctor(WatchtowerCliOptions options) async {
   final result = {
     'version': _version,
     'platform': Platform.operatingSystem,
@@ -265,7 +183,7 @@ Future<int> _doctor(_CliOptions options) async {
   return 0;
 }
 
-Future<_Catalog> _loadCatalog(_CliOptions options) async {
+Future<_Catalog> _loadCatalog(WatchtowerCliOptions options) async {
   final root = options.repo ??
       Platform.environment['WATCHTOWER_EXTENSIONS_DIR'] ??
       '../watchtower-extensions';
@@ -367,7 +285,7 @@ bool _matchesType(Source source, String requested) {
   return false;
 }
 
-int _listExtensions(_Catalog catalog, _CliOptions options) {
+int _listExtensions(_Catalog catalog, WatchtowerCliOptions options) {
   if (options.json) {
     _printJsonOrLines({
       'root': catalog.root,
@@ -386,7 +304,10 @@ int _listExtensions(_Catalog catalog, _CliOptions options) {
   return catalog.failures.isEmpty ? 0 : 1;
 }
 
-Future<int> _testExtensions(_Catalog catalog, _CliOptions options) async {
+Future<int> _testExtensions(
+  _Catalog catalog,
+  WatchtowerCliOptions options,
+) async {
   await getIsolateService.start();
   try {
     final results = <_TestResult>[];
@@ -444,7 +365,7 @@ Future<int> _testExtensions(_Catalog catalog, _CliOptions options) async {
 
 Future<_TestResult> _testOne(
   _CatalogItem item,
-  _CliOptions options,
+  WatchtowerCliOptions options,
 ) async {
   final result = _TestResult(item);
   final started = Stopwatch()..start();
@@ -551,7 +472,10 @@ Future<_TestResult> _testOne(
   return result;
 }
 
-Future<int> _runSource(_Catalog catalog, _CliOptions options) async {
+Future<int> _runSource(
+  _Catalog catalog,
+  WatchtowerCliOptions options,
+) async {
   if (options.positional.length < 3) {
     throw ArgumentError(
         'Usage: source <id|name> <popular|latest|search|detail|videos|pages>');
@@ -657,7 +581,7 @@ Future<int> _probeHttp(String url) async {
   }
 }
 
-void _printJsonOrLines(Object value, _CliOptions options) {
+void _printJsonOrLines(Object value, WatchtowerCliOptions options) {
   if (options.json) {
     stdout.writeln(const JsonEncoder.withIndent('  ').convert(value));
   } else if (value is Map) {
