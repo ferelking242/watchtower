@@ -77,6 +77,8 @@ jobs:
         run: |
           flutter test \
             test/download_manager_regressions_test.dart \
+            test/download_size_test.dart \
+            test/m3u8_download_regressions_test.dart \
             test/cloudflare_detection_test.dart
 
       - name: Run cached page URL regression tests

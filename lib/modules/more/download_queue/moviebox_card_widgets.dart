@@ -126,7 +126,7 @@ class MbThumb extends StatelessWidget {
 }
 
 class MbGradientProgressBar extends StatelessWidget {
-  final double value;
+  final double? value;
   final double height;
   final bool paused;
   final bool failed;
@@ -141,6 +141,7 @@ class MbGradientProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final progressValue = value;
     final scheme = Theme.of(context).colorScheme;
     final background = paused
         ? mbAmber.withValues(alpha: 0.18)
@@ -152,6 +153,18 @@ class MbGradientProgressBar extends StatelessWidget {
         : paused
             ? const LinearGradient(colors: [mbAmber, Color(0xFFFF8F00)])
             : const LinearGradient(colors: [mbGreen, mbTeal]);
+
+    if (progressValue == null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(height / 2),
+        child: LinearProgressIndicator(
+          value: null,
+          minHeight: height,
+          backgroundColor: background,
+          valueColor: AlwaysStoppedAnimation<Color>(gradient.colors.first),
+        ),
+      );
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(height / 2),
@@ -165,7 +178,7 @@ class MbGradientProgressBar extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: FractionallySizedBox(
-                  widthFactor: value.clamp(0.0, 1.0).toDouble(),
+                  widthFactor: progressValue.clamp(0.0, 1.0).toDouble(),
                   child: DecoratedBox(decoration: BoxDecoration(gradient: gradient)),
                 ),
               ),

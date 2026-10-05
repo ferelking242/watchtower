@@ -1070,13 +1070,11 @@ Future<void> _downloadFile(
             received += chunk.length;
             try {
               replyPort.send(
-                DownloadProgress(
-                  received,
-                  totalBytes ?? received,
-                  itemType,
-                  pageUrl: pageUrl,
+                DownloadProgress.directFile(
                   downloadedBytes: received,
                   totalBytes: totalBytes,
+                  itemType: itemType,
+                  pageUrl: pageUrl,
                 ),
               );
             } catch (_) {}

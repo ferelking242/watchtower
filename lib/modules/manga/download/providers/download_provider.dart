@@ -1044,10 +1044,11 @@ Future<void> downloadChapter(
           isarSucceeded = (dBytes / 1024).ceil();
           isarTotal = (tBytes / 1024).ceil();
         } else if (dBytes != null && dBytes > 0) {
-          // HLS normally has no final Content-Length. Keep Isar in its
-          // sentinel state and render live byte progress from Riverpod rather
-          // than inventing a fake denominator.
-          isarSucceeded = (dBytes / 1024).ceil();
+          // Without a trustworthy byte total, never derive a denominator
+          // from the bytes received so far.
+          isarSucceeded = progress.isIndeterminate && !progress.isCompleted
+              ? 0
+              : (dBytes / 1024).ceil();
           isarTotal = progress.isCompleted &&
                   storedTotal > 500 &&
                   storedTotal <= maxTrustedDownloadBytes ~/ 1024
@@ -1084,6 +1085,7 @@ Future<void> downloadChapter(
             totalBytes: reportedTotalBytes ?? persistedTotalBytes,
             completedUnits: progress.completed,
             totalUnits: progress.total,
+            isIndeterminate: progress.isIndeterminate,
           ),
         );
       }
@@ -1099,7 +1101,9 @@ Future<void> downloadChapter(
           }
         } else if (progress.itemType == ItemType.anime && !progress.isCompleted) {
           final nowMs = DateTime.now().millisecondsSinceEpoch;
-          final kbNow = isarSucceeded; // includes resume offset → cumulative
+          final kbNow = progress.downloadedBytes != null
+              ? (progress.downloadedBytes! / 1024).ceil()
+              : isarSucceeded; // includes resume offset → cumulative
           if (_speedLastKb < 0) {
             _speedLastKb = kbNow;
             _speedLastMs = nowMs;
@@ -1231,7 +1235,7 @@ Future<void> downloadChapter(
         }
       } else {
         final downloadNonNull = download;
-        if (progress.total != 0) {
+        if (progress.total != 0 || progress.downloadedBytes != null) {
           try {
             isar.writeTxnSync(() {
               isar.downloads.putSync(

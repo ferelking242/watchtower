@@ -762,11 +762,13 @@ class DownloadLiveProgress {
   final int? totalBytes;
   final int completedUnits;
   final int totalUnits;
+  final bool isIndeterminate;
 
   const DownloadLiveProgress({
     required this.downloadedBytes,
     required this.totalBytes,
     required this.completedUnits,
     required this.totalUnits,
+    this.isIndeterminate = false,
   });
 }

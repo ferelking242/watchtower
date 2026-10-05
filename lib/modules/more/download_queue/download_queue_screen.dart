@@ -1890,12 +1890,25 @@ class _DownloadCard extends ConsumerWidget {
                 : null)
         : null;
     final exactTotalBytes = itemType == ItemType.anime
-        ? trustedDownloadByteCount(liveTotalBytes)
+        ? liveProgress?.isIndeterminate == true
+            ? null
+            : trustedDownloadByteCount(liveTotalBytes)
         : null;
+    final hasObservedBytes = (exactDownloadedBytes ?? 0) > 0;
+    final live = liveProgress;
+    final isIndeterminateTransfer = !isComplete &&
+        !hasFailed &&
+        !isPaused &&
+        ((live?.isIndeterminate ?? false) ||
+            (live == null &&
+                itemType == ItemType.anime &&
+                hasObservedBytes &&
+                exactTotalBytes == null &&
+                total <= 1));
     final progress = exactTotalBytes != null && exactTotalBytes > 0
         ? (exactDownloadedBytes ?? 0) / exactTotalBytes
         : live != null
-            ? live.totalUnits > 0
+            ? !live.isIndeterminate && live.totalUnits > 0
                 ? live.completedUnits / live.totalUnits
                 : 0.0
         : total > 0
@@ -1907,8 +1920,20 @@ class _DownloadCard extends ConsumerWidget {
     // The sentinel record written by addDownloadToQueue has succeeded=0, total=1.
     // It means "we know a download is queued but haven't fetched page URLs yet".
     // Show a dedicated label for this state instead of the generic "En attente".
-    final isRetrievingMetadata = !isComplete && !hasFailed && !isPaused &&
-        succeeded == 0 && total == 1;
+    final isRetrievingMetadata = !isComplete &&
+        !hasFailed &&
+        !isPaused &&
+        !hasObservedBytes &&
+        (download.status == 'fetching_metadata' ||
+            (live == null && succeeded == 0 && total == 1));
+    final isPreparingDownload = !isComplete &&
+        !hasFailed &&
+        !isPaused &&
+        !hasObservedBytes &&
+        !isRetrievingMetadata &&
+        download.status == 'initializing';
+    final isProgressIndeterminate =
+        isRetrievingMetadata || isPreparingDownload || isIndeterminateTransfer;
 
     // During an active download show only the measured speed on the right.
     // The byte counter/progress belongs on the left; repeating "En cours…"
@@ -1923,10 +1948,16 @@ class _DownloadCard extends ConsumerWidget {
             : isPaused
                 ? 'En pause'
                 : isRetrievingMetadata
-                    ? 'Récupération…'
-                    : progress > 0
-                        ? speedLabel
-                        : 'En attente';
+                    ? 'Récupération des métadonnées…'
+                    : isPreparingDownload
+                        ? 'Préparation du téléchargement…'
+                        : isIndeterminateTransfer
+                            ? (speedLabel.isNotEmpty
+                                ? speedLabel
+                                : 'Téléchargement en cours…')
+                            : progress > 0
+                                ? speedLabel
+                                : 'En attente';
     final Color statusColor = isComplete
         ? scheme.primary
         : hasFailed
@@ -1945,7 +1976,8 @@ class _DownloadCard extends ConsumerWidget {
                 (speedMbs * 1024 * 1024))
             .ceil()
         : null;
-    final byteDetails = exactDownloadedBytes != null
+    final byteDetails =
+        exactDownloadedBytes != null && exactDownloadedBytes > 0
         ? [
             if (exactTotalBytes != null)
               '${_formatBytes(exactDownloadedBytes)} / ${_formatBytes(exactTotalBytes)}'
@@ -1963,9 +1995,10 @@ class _DownloadCard extends ConsumerWidget {
 
     // Progress bar — no TweenAnimationBuilder so progress never "resets to 0"
     // on each Isar stream rebuild (the regression bug). Direct value is correct.
-    final progressBar = !isComplete && (progress > 0 || isRetrievingMetadata)
+    final progressBar = !isComplete &&
+            (progress > 0 || isProgressIndeterminate)
         ? MbGradientProgressBar(
-            value: isRetrievingMetadata ? 0 : progress,
+            value: isProgressIndeterminate ? null : progress,
             height: (layout == DownloadCardLayout.minimal ||
                     layout == DownloadCardLayout.compact)
                 ? 2
@@ -2031,7 +2064,7 @@ class _DownloadCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                if (progress > 0 && !isComplete)
+                if ((progress > 0 || isIndeterminateTransfer) && !isComplete)
                   Text(
                     _buildProgressLabel(itemType, succeeded, total, failed),
                     style: TextStyle(
@@ -2078,7 +2111,9 @@ class _DownloadCard extends ConsumerWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(1),
                   child: LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
+                    value: isProgressIndeterminate
+                        ? null
+                        : progress.clamp(0.0, 1.0),
                     minHeight: 2,
                     backgroundColor: scheme.surfaceContainerHighest,
                     valueColor: AlwaysStoppedAnimation<Color>(
@@ -2131,9 +2166,17 @@ class _DownloadCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  statusText,
-                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w500),
+                Flexible(
+                  child: Text(
+                    statusText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 actionBtn,
@@ -2223,16 +2266,21 @@ class _DownloadCard extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            statusText,
-                            style: TextStyle(
-                              color: statusColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              statusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                           const Spacer(),
-                          if (progress > 0 && !isComplete)
+                          if ((progress > 0 || isIndeterminateTransfer) &&
+                              !isComplete)
                             Text(
                               _buildProgressLabel(
                                 itemType,
@@ -2331,9 +2379,17 @@ class _DownloadCard extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        statusText,
-                        style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w500),
+                      Flexible(
+                        child: Text(
+                          statusText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -2410,7 +2466,11 @@ class _DownloadCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 7),
                 MbGradientProgressBar(
-                  value: progress > 0 ? progress : 0,
+                  value: isProgressIndeterminate
+                      ? null
+                      : progress > 0
+                          ? progress
+                          : 0,
                   height: 3,
                   paused: isPaused,
                   failed: hasFailed,
@@ -2424,7 +2484,15 @@ class _DownloadCard extends ConsumerWidget {
                             ? byteDetails
                             : isComplete
                                 ? 'Terminé'
-                                : _buildProgressLabel(itemType, succeeded, total, failed),
+                                : isRetrievingMetadata ||
+                                      isPreparingDownload
+                                ? ''
+                                : _buildProgressLabel(
+                                    itemType,
+                                    succeeded,
+                                    total,
+                                    failed,
+                                  ),
                         style: TextStyle(
                           color: scheme.onSurfaceVariant,
                           fontSize: 11,
@@ -2432,22 +2500,28 @@ class _DownloadCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      hasFailed
-                          ? 'Échec'
-                          : isPaused
-                              ? 'En pause'
-                              : isRetrievingMetadata
-                                  ? 'Récupération…'
-                                  : statusText,
-                      style: TextStyle(
-                        color: hasFailed
-                            ? mbRed
+                    Flexible(
+                      child: Text(
+                        hasFailed
+                            ? 'Échec'
                             : isPaused
-                                ? mbAmber
-                                : scheme.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                                ? 'En pause'
+                                : isRetrievingMetadata
+                                    ? 'Récupération des métadonnées…'
+                                    : isPreparingDownload
+                                        ? 'Préparation du téléchargement…'
+                                        : statusText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: hasFailed
+                              ? mbRed
+                              : isPaused
+                                  ? mbAmber
+                                  : scheme.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -2481,7 +2555,7 @@ class _DownloadCard extends ConsumerWidget {
         }
         // total==1 && succeeded==0 is the sentinel state (addDownloadToQueue
         // writes succeeded=0, total=1 while URLs are being fetched).
-        // statusText already shows "Récupération…" — suppress the label here
+        // statusText already names metadata retrieval — suppress the label here
         // so we don't also show a confusing "0 / 1 image".
         if (succeeded == 0) return '';
         return '';

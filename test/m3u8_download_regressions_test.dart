@@ -9,6 +9,35 @@ import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
 
 void main() {
+  group('Direct file progress', () {
+    test('a missing Content-Length stays indeterminate', () {
+      final progress = DownloadProgress.directFile(
+        downloadedBytes: 512 * 1024,
+        totalBytes: null,
+        itemType: ItemType.anime,
+      );
+
+      // An unknown-size file has bytes but no meaningful unit denominator.
+      expect(progress.completed, 512 * 1024);
+      expect(progress.total, 0);
+      expect(progress.downloadedBytes, 512 * 1024);
+      expect(progress.totalBytes, isNull);
+      expect(progress.isIndeterminate, isTrue);
+    });
+
+    test('a known Content-Length keeps byte progress determinate', () {
+      final progress = DownloadProgress.directFile(
+        downloadedBytes: 512 * 1024,
+        totalBytes: 2 * 1024 * 1024,
+        itemType: ItemType.anime,
+      );
+
+      expect(progress.isIndeterminate, isFalse);
+      expect(progress.completed, 512 * 1024);
+      expect(progress.total, 2 * 1024 * 1024);
+    });
+  });
+
   group('HLS playlist resolution', () {
     test('resolves nested variant, key, and segment URLs', () {
       const masterUrl = 'https://cdn.example.test/hls/master/index.m3u8';
@@ -94,6 +123,7 @@ segments/0002.m4s
     expect(progress.downloadedBytes, 4096);
     expect(progress.total, 3);
     expect(progress.totalBytes, isNull);
+    expect(progress.isIndeterminate, isFalse);
   });
 
   test('HLS resume progress keeps the original segment total', () {
@@ -109,6 +139,7 @@ segments/0002.m4s
     expect(progress.total, 10);
     expect(progress.downloadedBytes, 12 * 1024 * 1024);
     expect(progress.totalBytes, isNull);
+    expect(progress.isIndeterminate, isFalse);
   });
 
   test('HLS resume state counts only non-empty completed segments', () async {

@@ -329,9 +329,11 @@ class ChapterPageDownload extends ConsumerWidget {
         child: Tooltip(
           message: download?.status == 'waiting_wifi'
               ? 'En attente du Wi-Fi'
-              : isActive
-              ? 'Téléchargement en cours'
-              : 'En attente de téléchargement',
+              : download?.status == 'fetching_metadata'
+                  ? 'Récupération des métadonnées…'
+                  : isActive
+                      ? 'Téléchargement en cours'
+                      : 'En attente de téléchargement',
           child: _progressBadge(
             value: isActive ? fraction : null,
             fraction: fraction,
@@ -410,29 +412,34 @@ class ChapterPageDownload extends ConsumerWidget {
   ) {
     final candidates = <double>[];
     if (liveProgress != null) {
-      if (liveProgress.totalUnits > 0 && liveProgress.completedUnits > 0) {
+      final totalBytes = liveProgress.totalBytes;
+      final downloadedBytes = liveProgress.downloadedBytes;
+      if (!liveProgress.isIndeterminate &&
+          totalBytes != null &&
+          totalBytes > 0 &&
+          downloadedBytes != null) {
+        candidates.add(
+          (downloadedBytes / totalBytes)
+              .clamp(0.0, 1.0)
+              .toDouble(),
+        );
+      } else if (!liveProgress.isIndeterminate &&
+          liveProgress.totalUnits > 0 &&
+          liveProgress.completedUnits > 0) {
         candidates.add(
           (liveProgress.completedUnits / liveProgress.totalUnits)
               .clamp(0.0, 1.0)
               .toDouble(),
         );
-      } else {
-        final totalBytes = liveProgress.totalBytes ?? 0;
-        final downloadedBytes = liveProgress.downloadedBytes;
-        if (totalBytes > 0 && downloadedBytes != null) {
-          candidates.add(
-            (downloadedBytes / totalBytes)
-                .clamp(0.0, 1.0)
-                .toDouble(),
-          );
-        }
       }
     }
-    final total = download?.total ?? 0;
-    if (total > 1) {
-      candidates.add(
-        ((download?.succeeded ?? 0) / total).clamp(0.0, 1.0).toDouble(),
-      );
+    if (liveProgress?.isIndeterminate != true) {
+      final total = download?.total ?? 0;
+      if (total > 1) {
+        candidates.add(
+          ((download?.succeeded ?? 0) / total).clamp(0.0, 1.0).toDouble(),
+        );
+      }
     }
     if (candidates.isEmpty) return null;
     return candidates.reduce((a, b) => a > b ? a : b);

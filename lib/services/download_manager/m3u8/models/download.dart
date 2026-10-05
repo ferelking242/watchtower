@@ -45,6 +45,10 @@ class DownloadProgress {
   bool isCompleted;
   ItemType itemType;
 
+  /// True when a direct transfer has no trustworthy final length.
+  /// Its byte count is real, but it must not be presented as a percentage.
+  final bool isIndeterminate;
+
   /// Bytes downloaded so far (used for video progress display, in bytes).
   /// When non-null and [totalBytes] > 0, the UI shows "14 MB / 58 MB"
   /// instead of a percentage.
@@ -60,9 +64,25 @@ class DownloadProgress {
     this.segment,
     this.pageUrl,
     this.isCompleted = false,
+    this.isIndeterminate = false,
     this.downloadedBytes,
     this.totalBytes,
   });
+
+  DownloadProgress.directFile({
+    required int downloadedBytes,
+    required int? totalBytes,
+    required ItemType itemType,
+    PageUrl? pageUrl,
+  }) : this(
+         downloadedBytes,
+         totalBytes ?? 0,
+         itemType,
+         pageUrl: pageUrl,
+         isIndeterminate: totalBytes == null || totalBytes <= 0,
+         downloadedBytes: downloadedBytes,
+         totalBytes: totalBytes,
+       );
 
   @override
   String toString() {
