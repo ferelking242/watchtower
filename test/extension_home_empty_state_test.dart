@@ -141,7 +141,7 @@ void main() {
 
       expect(find.text('Accès API bloqué'), findsOneWidget);
       expect(
-        find.textContaining('Cloudflare bloque la requête API'),
+        find.textContaining('Cloudflare bloque l’API'),
         findsOneWidget,
       );
       expect(find.textContaining('aucun code HTTP'), findsOneWidget);
