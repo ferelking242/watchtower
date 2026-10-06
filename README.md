@@ -113,10 +113,22 @@ It can run without X11 or Wayland:
 ./watchtower --cli help
 ./watchtower --cli doctor --json
 ./watchtower --cli extensions list --repo ./watchtower-extensions
+./watchtower --cli extensions list --repo ./watchtower-extensions \
+  --type watch --lang fr --include-unindexed
+./watchtower --cli plugins list --repo ./watchtower-extensions
+./watchtower --cli plugins validate --repo ./watchtower-extensions --json
 ./watchtower --cli extensions test \
   --repo ./watchtower-extensions \
-  --mode load \
+  --type watch --lang fr --include-unindexed \
+  --mode smoke \
   --report extensions.json
+./watchtower --cli source 1900000002 inspect \
+  --repo ./watchtower-extensions --json
+./watchtower --cli source 1900000002 search \
+  --repo ./watchtower-extensions \
+  --query "space opera" \
+  --filters-json '{"filters":[]}' \
+  --json
 ```
 
 The `Build Linux Headless CLI` workflow publishes a `.7z` archive containing
@@ -130,9 +142,30 @@ sudo ./watchtower-linux/install-linux-headless.sh ./watchtower-linux
   --prefix "$HOME/.local/share/watchtower"
 ```
 
-`load` validates that every catalog extension can be loaded by the real
-runtime. `smoke` adds catalogue operations, and `deep` also probes pagination
-and returned media URLs.
+`load` checks that the declared runtime can load each source and read its
+filters, preferences and headers. `smoke` also calls popular/latest/search,
+suggestions, details and the matching page, novel or video operation. `deep`
+adds page-two and HTTP probes.
+
+`--lang fr` filters by the effective source language. A language directory such
+as `src/watch/fr` takes precedence over outdated `lang` fields in the index.
+`--include-unindexed` explicitly adds JavaScript files under `src/` that are
+missing from the published index; it does not modify the catalog.
+
+`source` exposes the available `ExtensionService` operations, including filters,
+preferences, headers, custom lists, comments, recommendations and HTML. Use
+`--filters-json` to pass filter values in Watchtower's `type_name` format.
+Output, error messages and test reports redact common credentials and signed
+URL parameters.
+
+`plugins list`, `plugins show` and `plugins validate` only inspect the local
+`index/plugins.json` catalogue. They do not install or execute plugins or
+validate downloaded plugin binaries/manifests. Library, history, progress,
+download queue and tracker commands are not available yet: the headless entry
+point does not initialize Watchtower's Isar/Hive application stores.
+
+Commands return `0` on success, `1` when a health/test/validation check fails,
+and `2` for invalid command usage or an unhandled CLI operation error.
 
 ---
 
