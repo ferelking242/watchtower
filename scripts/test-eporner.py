@@ -13,12 +13,21 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 
 SOURCE_ID = "1900000141"
 SOURCE_NAME = "Eporner"
 TIMEOUT_SECONDS = 60
 ANSI_ESCAPE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+SITE_HEADERS = {
+    "Referer": "https://www.eporner.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+    ),
+}
 
 
 def safe_error(stderr: str, returncode: int | None) -> str:
@@ -63,6 +72,51 @@ def decode_cli_json(stdout: str, operation: str) -> Any | None:
         if matches_operation(value, operation):
             return value
     return None
+
+
+def probe_site() -> list[dict[str, Any]]:
+    routes = [
+        ("popular", "https://www.eporner.com/"),
+        ("latest", "https://www.eporner.com/new/"),
+        ("search", "https://www.eporner.com/search/a/"),
+    ]
+    probes = []
+    for name, url in routes:
+        started = time.monotonic()
+        request = Request(url, headers=SITE_HEADERS)
+        try:
+            with urlopen(request, timeout=20) as response:
+                body = response.read(2 * 1024 * 1024)
+                probes.append(
+                    {
+                        "route": name,
+                        "http_status": response.status,
+                        "bytes_read": len(body),
+                        "duration_seconds": round(time.monotonic() - started, 2),
+                    }
+                )
+        except HTTPError as error:
+            body = error.read(2 * 1024 * 1024)
+            probes.append(
+                {
+                    "route": name,
+                    "http_status": error.code,
+                    "bytes_read": len(body),
+                    "duration_seconds": round(time.monotonic() - started, 2),
+                }
+            )
+        except Exception as error:
+            message = re.sub(r"https?://\S+", "<url>", str(error))
+            probes.append(
+                {
+                    "route": name,
+                    "http_status": None,
+                    "bytes_read": 0,
+                    "duration_seconds": round(time.monotonic() - started, 2),
+                    "error": message[:250],
+                }
+            )
+    return probes
 
 
 def run_operation(
@@ -151,6 +205,7 @@ def write_reports(
     build_sha: str,
     extension_sha: str,
     steps: list[dict[str, Any]],
+    site_probes: list[dict[str, Any]],
 ) -> bool:
     output.mkdir(parents=True, exist_ok=True)
     passed = all(step["status"] == "PASS" for step in steps)
@@ -159,6 +214,7 @@ def write_reports(
         "source": {"name": SOURCE_NAME, "id": SOURCE_ID},
         "binary_build": {"run_id": build_run_id, "commit": build_sha},
         "extension_catalog_commit": extension_sha,
+        "direct_site_http_probes": site_probes,
         "passed": sum(step["status"] == "PASS" for step in steps),
         "failed": sum(step["status"] != "PASS" for step in steps),
         "steps": steps,
@@ -188,6 +244,21 @@ def write_reports(
         lines.append(
             f"| {step['operation']} | {step['status']} | {count} | "
             f"{step['duration_seconds']:.2f}s | {note} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Direct site HTTP probes (diagnostic only; not extension results)",
+            "",
+            "| Route | HTTP | Bytes | Time | Note |",
+            "|---|---:|---:|---:|---|",
+        ]
+    )
+    for probe in site_probes:
+        lines.append(
+            f"| {probe['route']} | {probe.get('http_status') or 'ERROR'} | "
+            f"{probe['bytes_read']} | {probe['duration_seconds']:.2f}s | "
+            f"{probe.get('error', '')} |"
         )
     lines.append("")
     summary = "\n".join(lines)
@@ -294,12 +365,14 @@ def main() -> int:
                     videos["status"] = "FAIL"
                     videos["error"] = "No playable video URLs returned"
 
+    site_probes = probe_site()
     passed = write_reports(
         args.output,
         args.build_run_id,
         args.build_sha,
         args.extension_sha,
         steps,
+        site_probes,
     )
     return 0 if passed else 1
 
