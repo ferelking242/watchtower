@@ -48,20 +48,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then
-            run_id="$(jq -r '.workflow_run.id' "$GITHUB_EVENT_PATH")"
-            head_sha="$(jq -r '.workflow_run.head_sha' "$GITHUB_EVENT_PATH")"
-          else
-            run_json="$(gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow build-server.yml \
-              --branch main \
-              --status success \
-              --limit 1 \
-              --json databaseId,headSha)"
-            run_id="$(jq -r '.[0].databaseId // empty' <<<"$run_json")"
-            head_sha="$(jq -r '.[0].headSha // empty' <<<"$run_json")"
-          fi
+          run_json="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow build-server.yml \
+            --branch main \
+            --status success \
+            --limit 1 \
+            --json databaseId,headSha)"
+          run_id="$(jq -r '.[0].databaseId // empty' <<<"$run_json")"
+          head_sha="$(jq -r '.[0].headSha // empty' <<<"$run_json")"
           test -n "$run_id"
           test -n "$head_sha"
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
