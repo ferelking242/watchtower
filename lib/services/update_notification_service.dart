@@ -68,6 +68,15 @@ const String _kActionWhatsNew = 'action_whats_new';
 const String _kActionInstall = 'action_install';
 const String _kActionInstallExtensions = 'action_install_extensions';
 const String _kActionPlay = 'action_play';
+const String _kActionMediaPause = 'action_media_pause';
+const String _kActionMediaResume = 'action_media_resume';
+const String _kActionMediaCancel = 'action_media_cancel';
+const String _kActionMediaRetry = 'action_media_retry';
+const String _kMediaDownloadActiveCategory = 'media_download_active';
+const String _kMediaDownloadPausedCategory = 'media_download_paused';
+const String _kMediaDownloadFailedCategory = 'media_download_failed';
+
+enum MediaDownloadNotificationAction { pause, resume, cancel, retry }
 
 class WatchtowerNotificationService {
   WatchtowerNotificationService._();
@@ -81,6 +90,8 @@ class WatchtowerNotificationService {
   bool _installingExtensionsFromNotification = false;
   Completer<void>? _initCompleter;
   Future<String?> Function()? _extensionUpdateInstaller;
+  Future<void> Function(int chapterId, MediaDownloadNotificationAction action)?
+  _mediaDownloadActionHandler;
   String? _pendingDownloadUrl;
   String? _pendingReleaseUrl;
   String? _pendingInstallPath;
@@ -92,6 +103,13 @@ class WatchtowerNotificationService {
 
   void registerExtensionUpdateInstaller(Future<String?> Function() installer) {
     _extensionUpdateInstaller = installer;
+  }
+
+  void registerMediaDownloadActionHandler(
+    Future<void> Function(int chapterId, MediaDownloadNotificationAction action)
+    handler,
+  ) {
+    _mediaDownloadActionHandler = handler;
   }
 
   Future<void> init() async {
@@ -106,6 +124,68 @@ class WatchtowerNotificationService {
         requestAlertPermission: false,
         requestBadgePermission: false,
         requestSoundPermission: false,
+        notificationCategories: <DarwinNotificationCategory>[
+          DarwinNotificationCategory(
+            _kMediaDownloadActiveCategory,
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                _kActionMediaPause,
+                'Pause',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                _kActionMediaCancel,
+                'Annuler',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                  DarwinNotificationActionOption.destructive,
+                },
+              ),
+            ],
+          ),
+          DarwinNotificationCategory(
+            _kMediaDownloadPausedCategory,
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                _kActionMediaResume,
+                'Reprendre',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                _kActionMediaCancel,
+                'Annuler',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                  DarwinNotificationActionOption.destructive,
+                },
+              ),
+            ],
+          ),
+          DarwinNotificationCategory(
+            _kMediaDownloadFailedCategory,
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                _kActionMediaRetry,
+                'Réessayer',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                _kActionMediaCancel,
+                'Annuler',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                  DarwinNotificationActionOption.destructive,
+                },
+              ),
+            ],
+          ),
+        ],
       );
       const initSettings = InitializationSettings(
         android: androidInit,
@@ -186,6 +266,7 @@ class WatchtowerNotificationService {
   }
 
   void _handleAction(NotificationResponse response) {
+    if (_dispatchMediaDownloadAction(response)) return;
     final actionId = response.actionId;
     final isExtensionUpdate =
         response.payload?.contains('"type":"extension_updates"') == true;
@@ -212,6 +293,58 @@ class WatchtowerNotificationService {
           mode: LaunchMode.externalApplication,
         ),
       );
+    }
+  }
+
+  bool _dispatchMediaDownloadAction(NotificationResponse response) {
+    final action = switch (response.actionId) {
+      _kActionMediaPause => MediaDownloadNotificationAction.pause,
+      _kActionMediaResume => MediaDownloadNotificationAction.resume,
+      _kActionMediaCancel => MediaDownloadNotificationAction.cancel,
+      _kActionMediaRetry => MediaDownloadNotificationAction.retry,
+      _ => null,
+    };
+    if (action == null) return false;
+
+    try {
+      final rawPayload = response.payload;
+      if (rawPayload == null) return false;
+      final decodedPayload = jsonDecode(rawPayload);
+      if (decodedPayload is! Map ||
+          decodedPayload['type'] != 'media_download') {
+        return false;
+      }
+      final chapterId = (decodedPayload['chapterId'] as num?)?.toInt();
+      if (chapterId == null) return false;
+      final handler = _mediaDownloadActionHandler;
+      if (handler == null) {
+        unawaited(_openDownloadQueue());
+      } else {
+        unawaited(
+          handler(chapterId, action).catchError((
+            Object error,
+            StackTrace stack,
+          ) {
+            AppLogger.log(
+              'Media download notification action failed',
+              logLevel: LogLevel.error,
+              tag: LogTag.download,
+              error: error,
+              stackTrace: stack,
+            );
+          }),
+        );
+      }
+      return true;
+    } catch (error, stackTrace) {
+      AppLogger.log(
+        'Could not read media download notification action',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
     }
   }
 
@@ -751,8 +884,8 @@ class WatchtowerNotificationService {
         isCompleted: isCompleted,
         isPaused: isPaused,
         isFailed: isFailed,
-        lastShownAt: previous?.lastShownAt ??
-            DateTime.fromMillisecondsSinceEpoch(0),
+        lastShownAt:
+            previous?.lastShownAt ?? DateTime.fromMillisecondsSinceEpoch(0),
       );
       _mediaDownloadNotices[chapterId] = notice;
 
@@ -774,9 +907,7 @@ class WatchtowerNotificationService {
         _kDownloadChannelId,
         _kDownloadChannelName,
         channelDescription: 'Progression de chaque téléchargement Watchtower',
-        importance: isTerminal
-            ? Importance.defaultImportance
-            : Importance.low,
+        importance: isTerminal ? Importance.defaultImportance : Importance.low,
         priority: isTerminal ? Priority.defaultPriority : Priority.low,
         ticker: displayTitle,
         groupKey: _kMediaDownloadGroupKey,
@@ -802,10 +933,60 @@ class WatchtowerNotificationService {
                   cancelNotification: false,
                 ),
               ]
-            : null,
+            : isFailed
+            ? const [
+                AndroidNotificationAction(
+                  _kActionMediaRetry,
+                  'Réessayer',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+                AndroidNotificationAction(
+                  _kActionMediaCancel,
+                  'Annuler',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+              ]
+            : isPaused
+            ? const [
+                AndroidNotificationAction(
+                  _kActionMediaResume,
+                  'Reprendre',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+                AndroidNotificationAction(
+                  _kActionMediaCancel,
+                  'Annuler',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+              ]
+            : const [
+                AndroidNotificationAction(
+                  _kActionMediaPause,
+                  'Pause',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+                AndroidNotificationAction(
+                  _kActionMediaCancel,
+                  'Annuler',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+              ],
       );
       final iosDetails = DarwinNotificationDetails(
         threadIdentifier: _kMediaDownloadGroupKey,
+        categoryIdentifier: isCompleted
+            ? null
+            : isFailed
+            ? _kMediaDownloadFailedCategory
+            : isPaused
+            ? _kMediaDownloadPausedCategory
+            : _kMediaDownloadActiveCategory,
         presentAlert: isCompleted || isFailed,
         presentBadge: false,
         presentSound: false,
@@ -864,16 +1045,33 @@ class WatchtowerNotificationService {
       itemType: notice.itemType,
       completed: notice.completed,
       total: notice.total,
-      downloadedBytes: notice.downloadedBytes,
-      totalBytes: notice.totalBytes,
+      downloadedBytes: null,
+      totalBytes: null,
       filePath: notice.filePath,
       isPaused: isPaused,
     );
   }
 
-  Future<void> markMediaDownloadFailed(int chapterId) async {
+  Future<void> markMediaDownloadFailed(
+    int chapterId, {
+    String? seriesTitle,
+    String? chapterTitle,
+    String? itemType,
+  }) async {
     final notice = _mediaDownloadNotices[chapterId];
-    if (notice == null) return;
+    if (notice == null) {
+      if (chapterTitle == null || itemType == null) return;
+      await showMediaDownloadProgress(
+        chapterId: chapterId,
+        seriesTitle: seriesTitle ?? chapterTitle,
+        chapterTitle: chapterTitle,
+        itemType: itemType,
+        completed: 0,
+        total: 1,
+        isFailed: true,
+      );
+      return;
+    }
     await showMediaDownloadProgress(
       chapterId: chapterId,
       seriesTitle: notice.seriesTitle,
@@ -904,7 +1102,8 @@ class WatchtowerNotificationService {
   }
 
   int? _mediaProgressPercent(_MediaDownloadNotice notice) {
-    if (notice.totalBytes != null &&
+    if (notice.itemType == 'anime' &&
+        notice.totalBytes != null &&
         notice.totalBytes! > 0 &&
         notice.downloadedBytes != null) {
       return ((notice.downloadedBytes! / notice.totalBytes!) * 100)
@@ -925,6 +1124,16 @@ class WatchtowerNotificationService {
     if (notice.isFailed) return 'Échec du téléchargement';
     if (notice.isPaused) return 'En pause';
     if (notice.isCompleted) return 'Téléchargement terminé';
+    if (notice.itemType == 'manga' && notice.downloadedBytes != null) {
+      final imageProgress = notice.totalBytes != null && notice.totalBytes! > 0
+          ? '${_formatNotificationBytes(notice.downloadedBytes!)} / '
+                '${_formatNotificationBytes(notice.totalBytes!)}'
+          : _formatNotificationBytes(notice.downloadedBytes!);
+      final pageProgress = notice.total > 0
+          ? '${notice.completed}/${notice.total} pages · '
+          : '';
+      return '${pageProgress}image en cours · $imageProgress';
+    }
     if (notice.downloadedBytes != null && notice.totalBytes != null) {
       return '${_mediaProgressPercent(notice) ?? 0} % · '
           '${_formatNotificationBytes(notice.downloadedBytes!)} / '
@@ -958,13 +1167,14 @@ class WatchtowerNotificationService {
 
     final active = notices.where((notice) => notice.isOngoing).toList();
     final paused = notices.where((notice) => notice.isPaused).toList();
-    final completed = notices
-        .where((notice) => notice.isCompleted || notice.isFailed)
-        .toList();
+    final failed = notices.where((notice) => notice.isFailed).toList();
+    final completed = notices.where((notice) => notice.isCompleted).toList();
     final visible = active.isNotEmpty
         ? active
         : paused.isNotEmpty
         ? paused
+        : failed.isNotEmpty
+        ? failed
         : completed;
 
     late final String title;
@@ -993,12 +1203,20 @@ class WatchtowerNotificationService {
           .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
           .join(' • ');
       summaryText = 'En pause';
+    } else if (failed.isNotEmpty) {
+      title = failed.length == 1
+          ? 'Échec du téléchargement'
+          : '${failed.length} téléchargements en échec';
+      body = failed.reversed
+          .take(5)
+          .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
+          .join(' • ');
+      summaryText = 'À réessayer';
     } else {
       title = completed.length == 1
           ? 'Téléchargement terminé'
           : '${completed.length} téléchargements terminés';
-      body = completed
-          .reversed
+      body = completed.reversed
           .take(5)
           .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
           .join(' • ');
@@ -1009,8 +1227,9 @@ class WatchtowerNotificationService {
       _kDownloadChannelId,
       _kDownloadChannelName,
       channelDescription: 'Progression de chaque téléchargement Watchtower',
-      importance:
-          active.isNotEmpty ? Importance.low : Importance.defaultImportance,
+      importance: active.isNotEmpty
+          ? Importance.low
+          : Importance.defaultImportance,
       priority: active.isNotEmpty ? Priority.low : Priority.defaultPriority,
       groupKey: _kMediaDownloadGroupKey,
       setAsGroupSummary: true,

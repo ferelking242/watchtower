@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -113,6 +114,8 @@ String friendlyErrorMessage(Object e) {
 /// ne pas noyer l'écran sous les toasts identiques.
 String? _lastDownloadFailureMessage;
 DateTime? _lastDownloadFailureAt;
+bool _processDownloadsSchedulerRunning = false;
+bool? _processDownloadsWifiOverride;
 
 void _notifyDownloadFailure(String message) {
   final now = DateTime.now();
@@ -149,6 +152,104 @@ void _setDownloadStatus(int? id, String status) {
   }
 }
 
+Future<void> handleMediaDownloadNotificationAction(
+  WidgetRef ref,
+  int chapterId,
+  MediaDownloadNotificationAction action,
+) async {
+  final notifier = ref.read(downloadQueueStateProvider.notifier);
+  final notifications = WatchtowerNotificationService.instance;
+  final download = isar.downloads.getSync(chapterId);
+  if (download == null) {
+    await notifications.cancelMediaDownloadNotification(chapterId);
+    return;
+  }
+  final isPaused =
+      ref.read(downloadQueueStateProvider).pausedIds.contains(chapterId) ||
+      download.status == 'paused';
+
+  switch (action) {
+    case MediaDownloadNotificationAction.pause:
+      if (isPaused) return;
+      notifier.togglePause(chapterId);
+      notifier.clearLiveProgress(chapterId);
+      isar.writeTxnSync(() {
+        final stored = isar.downloads.getSync(chapterId);
+        if (stored != null) {
+          isar.downloads.putSync(stored..status = 'paused');
+        }
+      });
+      await notifications.setMediaDownloadPaused(chapterId, isPaused: true);
+      break;
+    case MediaDownloadNotificationAction.resume:
+      if (!isPaused) return;
+      notifier.togglePause(chapterId);
+      notifier.clearLiveProgress(chapterId);
+      isar.writeTxnSync(() {
+        final stored = isar.downloads.getSync(chapterId);
+        if (stored != null && stored.isDownload != true) {
+          isar.downloads.putSync(
+            stored
+              ..isDownload = false
+              ..isStartDownload = true
+              ..status = 'queued',
+          );
+        }
+      });
+      await notifications.setMediaDownloadPaused(chapterId, isPaused: false);
+      ref.read(processDownloadsProvider());
+      break;
+    case MediaDownloadNotificationAction.cancel:
+      await ActiveDownloadRegistry.cancel(chapterId);
+      DownloadIsolatePool.instance.cancelTask('$chapterId');
+      DownloadIsolatePool.instance.cancelTask('m3u8_$chapterId');
+      notifier.setPaused(chapterId, false);
+      isar.writeTxnSync(() => isar.downloads.deleteSync(chapterId));
+      await notifications.cancelMediaDownloadNotification(chapterId);
+      break;
+    case MediaDownloadNotificationAction.retry:
+      var chapter = download.chapter.value;
+      if (chapter == null && !download.chapter.isLoaded) {
+        try {
+          download.chapter.loadSync();
+          chapter = download.chapter.value;
+        } catch (_) {}
+      }
+      chapter ??= isar.chapters.getSync(chapterId);
+      if (chapter == null) {
+        await notifications.cancelMediaDownloadNotification(chapterId);
+        return;
+      }
+      ensureChapterLinksLoaded(chapter);
+      notifier.incrementRetry(chapterId);
+      notifier.clearLiveProgress(chapterId);
+      notifier.setPaused(chapterId, false);
+      await ActiveDownloadRegistry.cancel(chapterId);
+      DownloadIsolatePool.instance.cancelTask('$chapterId');
+      DownloadIsolatePool.instance.cancelTask('m3u8_$chapterId');
+      isar.writeTxnSync(() {
+        final stored = isar.downloads.getSync(chapterId);
+        if (stored != null) {
+          isar.downloads.putSync(
+            stored
+              ..succeeded = 0
+              ..failed = 0
+              ..total = 1
+              ..isDownload = false
+              ..isStartDownload = true
+              ..downloadedBytes = null
+              ..totalBytes = null
+              ..filePath = null
+              ..status = 'fetching_metadata',
+          );
+        }
+      });
+      await notifications.cancelMediaDownloadNotification(chapterId);
+      ref.read(processDownloadsProvider());
+      break;
+  }
+}
+
 /// Normalize a raw quality string to a standard label like "1080p", "720p", etc.
 String _normalizeQuality(String raw) {
   final s = raw.trim().toLowerCase();
@@ -161,7 +262,8 @@ String _normalizeQuality(String raw) {
 
   // Common keyword mapping
   if (s.contains('4k') || s.contains('2160')) return '2160p (4K)';
-  if (s.contains('1080') || s.contains('fhd') || s.contains('full hd')) return '1080p';
+  if (s.contains('1080') || s.contains('fhd') || s.contains('full hd'))
+    return '1080p';
   if (s.contains('720') || s.contains('hd')) return '720p';
   if (s.contains('480') || s.contains('sd')) return '480p';
   if (s.contains('360')) return '360p';
@@ -323,8 +425,9 @@ Future<bool> showAnimeQualityPickerAndQueue({
   List<Video> videos = [];
   String? errorMsg;
   try {
-    final result =
-        await ref.read(getVideoListProvider(episode: chapter).future);
+    final result = await ref.read(
+      getVideoListProvider(episode: chapter).future,
+    );
     videos = result.$1;
   } catch (e) {
     errorMsg = friendlyErrorMessage(e);
@@ -351,8 +454,12 @@ Future<bool> showAnimeQualityPickerAndQueue({
   }
 
   // Split into direct (mp4/webm) and extracted (m3u8/mpd) links.
-  final directVideos = uniqueVideos.where((v) => _isDirectLink(v.originalUrl)).toList();
-  final extractedVideos = uniqueVideos.where((v) => !_isDirectLink(v.originalUrl)).toList();
+  final directVideos = uniqueVideos
+      .where((v) => _isDirectLink(v.originalUrl))
+      .toList();
+  final extractedVideos = uniqueVideos
+      .where((v) => !_isDirectLink(v.originalUrl))
+      .toList();
 
   if (!context.mounted) return false;
 
@@ -374,8 +481,9 @@ Future<bool> showAnimeQualityPickerAndQueue({
           child: _QualityPickerDialog(
             directVideos: directVideos,
             extractedVideos: extractedVideos,
-            preferredExternalDownloader: DownloadSettingsService
-                .instance.preferredExternalDownloader ?? '',
+            preferredExternalDownloader:
+                DownloadSettingsService.instance.preferredExternalDownloader ??
+                '',
             onSelect: (v, external) {
               selected = v;
               sendToExternal = external;
@@ -391,7 +499,8 @@ Future<bool> showAnimeQualityPickerAndQueue({
   if (selected == null) return false;
 
   if (sendToExternal) {
-    final appId = DownloadSettingsService.instance.preferredExternalDownloader ?? '';
+    final appId =
+        DownloadSettingsService.instance.preferredExternalDownloader ?? '';
     final launched = await ExternalDownloaderLauncher.launch(
       url: selected!.originalUrl,
       appId: appId.isEmpty ? 'adm' : appId,
@@ -410,9 +519,7 @@ Future<bool> showAnimeQualityPickerAndQueue({
   }
   await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
   if (chapter.id != null) {
-    ref
-        .read(downloadQueueStateProvider.notifier)
-        .setPaused(chapter.id!, false);
+    ref.read(downloadQueueStateProvider.notifier).setPaused(chapter.id!, false);
   }
   ref.read(processDownloadsProvider());
   return true;
@@ -503,10 +610,7 @@ class _QualityPickerDialog extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: onCancel,
-                  child: const Text('Annuler'),
-                ),
+                TextButton(onPressed: onCancel, child: const Text('Annuler')),
               ],
             ),
           ),
@@ -568,7 +672,8 @@ class _VideoList extends StatelessWidget {
         final label = _normalizeQuality(v.quality);
         final urlClean = v.originalUrl.split('?').first;
         final ext = urlClean.split('.').last.toUpperCase();
-        final isM3u8 = urlClean.toLowerCase().endsWith('.m3u8') ||
+        final isM3u8 =
+            urlClean.toLowerCase().endsWith('.m3u8') ||
             v.originalUrl.toLowerCase().contains('.m3u8');
 
         return _VideoListTile(
@@ -622,8 +727,8 @@ class _VideoListTileState extends State<_VideoListTile> {
     final extLabel = widget.isM3u8
         ? 'M3U8'
         : widget.ext.length <= 6
-            ? widget.ext
-            : 'STREAM';
+        ? widget.ext
+        : 'STREAM';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -678,7 +783,11 @@ class _VideoListTileState extends State<_VideoListTile> {
                   borderRadius: BorderRadius.circular(16),
                   child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Icon(Icons.copy_rounded, size: 16, color: cs.onSurfaceVariant),
+                    child: Icon(
+                      Icons.copy_rounded,
+                      size: 16,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -708,7 +817,11 @@ class _VideoListTileState extends State<_VideoListTile> {
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Icon(Icons.download_rounded, color: cs.primary, size: 22),
+                    child: Icon(
+                      Icons.download_rounded,
+                      color: cs.primary,
+                      size: 22,
+                    ),
                   ),
                 ),
               ),
@@ -820,7 +933,8 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
       corruptRecord = true;
     }
 
-    if ((existing?.isDownload ?? false) || ActiveDownloadRegistry.isActive(id)) {
+    if ((existing?.isDownload ?? false) ||
+        ActiveDownloadRegistry.isActive(id)) {
       AppLogger.log(
         '[ch:$id] queue request ignored: already completed or active',
         logLevel: LogLevel.debug,
@@ -899,7 +1013,8 @@ Future<void> downloadChapter(
   final keepAlive = ref.keepAlive();
   final chapterId = chapter.id;
   final mangaForRegistry = chapter.manga.value;
-  final ownsActiveSlot = chapterId == null ||
+  final ownsActiveSlot =
+      chapterId == null ||
       ActiveDownloadRegistry.tryRegisterInternal(
         chapterId,
         '$chapterId',
@@ -966,11 +1081,20 @@ Future<void> downloadChapter(
       log('[downloadChapter] cannot resolve manga: $e');
       _notifyDownloadFailure('Manga introuvable pour ce chapitre.');
       if (chapter.id != null) {
+        unawaited(
+          WatchtowerNotificationService.instance.markMediaDownloadFailed(
+            chapter.id!,
+            seriesTitle: mangaForRegistry?.name ?? chapter.name ?? '',
+            chapterTitle: chapter.name ?? 'Téléchargement',
+            itemType: mangaForRegistry?.itemType.name ?? ItemType.manga.name,
+          ),
+        );
         isar.writeTxnSync(() {
           final d = isar.downloads.getSync(chapter.id!);
           if (d != null) {
             isar.downloads.putSync(
-              d..failed = 1
+              d
+                ..failed = 1
                 ..status = 'failed'
                 ..isStartDownload = false,
             );
@@ -1044,7 +1168,9 @@ Future<void> downloadChapter(
           ).future,
         );
       } catch (error) {
-        botToast('Erreur lors de la création du CBZ : ${friendlyErrorMessage(error)}');
+        botToast(
+          'Erreur lors de la création du CBZ : ${friendlyErrorMessage(error)}',
+        );
       }
     }
 
@@ -1061,12 +1187,24 @@ Future<void> downloadChapter(
     var _speedLastMs = 0;
     var _speedEmaMbs = 0.0;
     var mediaCompletionNotified = false;
+    var transferStatusMarked = false;
+    var lastMangaBytesUpdateAt = DateTime.fromMillisecondsSinceEpoch(0);
     var lastLoggedProgressBucket = -1;
 
     Future<void> setProgress(DownloadProgress progress) async {
+      if (progress.itemType == ItemType.manga &&
+          progress.downloadedBytes != null) {
+        final now = DateTime.now();
+        if (now.difference(lastMangaBytesUpdateAt) <
+            const Duration(milliseconds: 180)) {
+          return;
+        }
+        lastMangaBytesUpdateAt = now;
+      }
       if (progress.total > 0) {
-        final percent =
-            (progress.completed / progress.total * 100).clamp(0, 100).toInt();
+        final percent = (progress.completed / progress.total * 100)
+            .clamp(0, 100)
+            .toInt();
         final bucket = (percent ~/ 10) * 10;
         if (bucket >= 10 && bucket > lastLoggedProgressBucket) {
           lastLoggedProgressBucket = bucket;
@@ -1079,10 +1217,13 @@ Future<void> downloadChapter(
         }
       }
       if (progress.total > 0 && AppLogger.isExtremeMode) {
-        final pct = (progress.total > 0
-            ? (progress.completed / progress.total.clamp(1, double.infinity) * 100)
-            : 0)
-            .toInt();
+        final pct =
+            (progress.total > 0
+                    ? (progress.completed /
+                          progress.total.clamp(1, double.infinity) *
+                          100)
+                    : 0)
+                .toInt();
         AppLogger.log(
           '[ch:${chapter.id}] page ${progress.completed}/${progress.total} ($pct%) '
           '• type=${progress.itemType.name}',
@@ -1129,10 +1270,7 @@ Future<void> downloadChapter(
       }
 
       final reportedDownloadedBytes = progress.itemType == ItemType.anime
-          ? trustedDownloadByteCount(
-              progress.downloadedBytes,
-              allowZero: true,
-            )
+          ? trustedDownloadByteCount(progress.downloadedBytes, allowZero: true)
           : null;
       final reportedTotalBytes = progress.itemType == ItemType.anime
           ? trustedDownloadByteCount(progress.totalBytes)
@@ -1140,6 +1278,21 @@ Future<void> downloadChapter(
       final persistedTotalBytes = progress.itemType == ItemType.anime
           ? trustedDownloadByteCount(download?.totalBytes)
           : null;
+      final liveDownloadedBytes = progress.itemType == ItemType.anime
+          ? reportedDownloadedBytes
+          : trustedDownloadByteCount(progress.downloadedBytes, allowZero: true);
+      final liveTotalBytes = progress.itemType == ItemType.anime
+          ? reportedTotalBytes ?? persistedTotalBytes
+          : trustedDownloadByteCount(progress.totalBytes);
+      final isPerFileByteProgress =
+          progress.itemType != ItemType.anime &&
+          progress.downloadedBytes != null;
+      if (isPerFileByteProgress &&
+          !transferStatusMarked &&
+          chapter.id != null) {
+        _setDownloadStatus(chapter.id, 'downloading');
+        transferStatusMarked = true;
+      }
 
       int isarSucceeded;
       int isarTotal;
@@ -1151,7 +1304,9 @@ Future<void> downloadChapter(
         // The terminal callback used by the queue is a generic 1/1 event.
         // Never let that event replace a real video byte total already stored
         // in Isar (for example 14 MB / 140 MB).
-        if (progress.isCompleted && dBytes == null && tBytes == null &&
+        if (progress.isCompleted &&
+            dBytes == null &&
+            tBytes == null &&
             storedTotal > 500 &&
             storedTotal <= maxTrustedDownloadBytes ~/ 1024) {
           isarSucceeded = storedSucceeded;
@@ -1166,7 +1321,8 @@ Future<void> downloadChapter(
           isarSucceeded = progress.isIndeterminate && !progress.isCompleted
               ? 0
               : (dBytes / 1024).ceil();
-          isarTotal = progress.isCompleted &&
+          isarTotal =
+              progress.isCompleted &&
                   storedTotal > 500 &&
                   storedTotal <= maxTrustedDownloadBytes ~/ 1024
               ? storedTotal
@@ -1191,20 +1347,24 @@ Future<void> downloadChapter(
       }
       if (isarTotal <= 0) isarTotal = 1;
 
-      if (chapter.id != null &&
-          !(progress.isCompleted &&
-              progress.downloadedBytes == null &&
-              progress.totalBytes == null)) {
-        ref.read(downloadQueueStateProvider.notifier).setLiveProgress(
-          chapter.id!,
-          DownloadLiveProgress(
-            downloadedBytes: reportedDownloadedBytes,
-            totalBytes: reportedTotalBytes ?? persistedTotalBytes,
-            completedUnits: progress.completed,
-            totalUnits: progress.total,
-            isIndeterminate: progress.isIndeterminate,
-          ),
-        );
+      if (chapter.id != null) {
+        final progressNotifier = ref.read(downloadQueueStateProvider.notifier);
+        if (progress.isCompleted) {
+          progressNotifier.clearLiveProgress(chapter.id!);
+        } else if (!(progress.downloadedBytes == null &&
+            progress.totalBytes == null &&
+            progress.total == 0)) {
+          progressNotifier.setLiveProgress(
+            chapter.id!,
+            DownloadLiveProgress(
+              downloadedBytes: liveDownloadedBytes,
+              totalBytes: liveTotalBytes,
+              completedUnits: progress.completed,
+              totalUnits: progress.total,
+              isIndeterminate: progress.isIndeterminate,
+            ),
+          );
+        }
       }
 
       // ── Speed Master: update the live speed shown in the download queue ──
@@ -1216,7 +1376,8 @@ Future<void> downloadChapter(
             _speedLastKb = -1;
             notifier.setSpeed(chapter.id!, 0);
           }
-        } else if (progress.itemType == ItemType.anime && !progress.isCompleted) {
+        } else if (progress.itemType == ItemType.anime &&
+            !progress.isCompleted) {
           final nowMs = DateTime.now().millisecondsSinceEpoch;
           final kbNow = progress.downloadedBytes != null
               ? (progress.downloadedBytes! / 1024).ceil()
@@ -1230,8 +1391,9 @@ Future<void> downloadChapter(
             if (dtSec >= 0.5) {
               final instMbs = ((kbNow - _speedLastKb) / 1024.0) / dtSec;
               if (instMbs >= 0) {
-                _speedEmaMbs =
-                    _speedEmaMbs <= 0 ? instMbs : (_speedEmaMbs * 0.7 + instMbs * 0.3);
+                _speedEmaMbs = _speedEmaMbs <= 0
+                    ? instMbs
+                    : (_speedEmaMbs * 0.7 + instMbs * 0.3);
                 notifier.setSpeed(chapter.id!, _speedEmaMbs);
               }
               // Negative delta = a resume reset happened mid-session: re-seed.
@@ -1252,7 +1414,8 @@ Future<void> downloadChapter(
         //   • anime  → succeeded is in KB; anything >500 KB is a real progress value.
         //   • manga  → succeeded is page count; anything >1 means real progress.
         final threshold = progress.itemType == ItemType.anime ? 500 : 1;
-        _resumeSucceededKbOffset = stored > threshold &&
+        _resumeSucceededKbOffset =
+            stored > threshold &&
                 (progress.itemType != ItemType.anime ||
                     stored <= maxTrustedDownloadBytes ~/ 1024)
             ? stored
@@ -1276,8 +1439,10 @@ Future<void> downloadChapter(
       if (download != null) {
         final storedTotal = download.total ?? 0;
         final freezeThreshold = progress.itemType == ItemType.anime ? 500 : 1;
-        final hasTrustworthyAnimeTotal = progress.itemType != ItemType.anime ||
-            reportedTotalBytes != null || persistedTotalBytes != null;
+        final hasTrustworthyAnimeTotal =
+            progress.itemType != ItemType.anime ||
+            reportedTotalBytes != null ||
+            persistedTotalBytes != null;
         if (storedTotal > freezeThreshold &&
             (progress.itemType != ItemType.anime ||
                 storedTotal <= maxTrustedDownloadBytes ~/ 1024) &&
@@ -1304,15 +1469,17 @@ Future<void> downloadChapter(
       // (= offset alone, so the bar stays at the pre-pause position instead of
       // jumping backwards to 0 on the very first tick after resume).
       final writtenSucceeded =
-          (progress.completed == 0 && _resumeSucceededKbOffset <= 0) ? 0 : isarSucceeded;
+          (progress.completed == 0 && _resumeSucceededKbOffset <= 0)
+          ? 0
+          : isarSucceeded;
       final exactDownloadedBytes = progress.itemType == ItemType.anime
           ? reportedDownloadedBytes ??
-              (progress.isCompleted
-                  ? trustedDownloadByteCount(
-                      download?.downloadedBytes,
-                      allowZero: true,
-                    )
-                  : null)
+                (progress.isCompleted
+                    ? trustedDownloadByteCount(
+                        download?.downloadedBytes,
+                        allowZero: true,
+                      )
+                    : null)
           : null;
       final exactTotalBytes = progress.itemType == ItemType.anime
           ? reportedTotalBytes ?? persistedTotalBytes
@@ -1333,32 +1500,38 @@ Future<void> downloadChapter(
         // Pas d'ID → on ne peut rien écrire en base. On met juste à jour le
         // state Riverpod live (déjà fait plus haut) et on quitte.
       } else if (download == null) {
-        try {
-          final newDl = Download(
-            id: chapter.id,
-            succeeded: writtenSucceeded,
-            failed: 0,
-            total: isarTotal,
-            isDownload: progress.isCompleted,
-            isStartDownload: true,
-            downloadedBytes: exactDownloadedBytes,
-            totalBytes: exactTotalBytes,
-            title: chapter.name,
-            quality: chapterPreferredQuality[chapter.id],
-            posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
-            status: progressStatus,
-          );
-          isar.writeTxnSync(() {
-            _putDownloadForChapter(newDl, chapter);
-          });
-        } catch (_) {
-          // Écriture avortée (entrée corrompue / verrouillage). On ne
-          // fait pas planter le téléchargement : le_ui continuera d'afficher
-          // la progression live de Riverpod.
+        if (isPerFileByteProgress) {
+          // Byte ticks for a page are volatile UI progress; do not create or
+          // rewrite Isar rows until a full page has passed image validation.
+        } else {
+          try {
+            final newDl = Download(
+              id: chapter.id,
+              succeeded: writtenSucceeded,
+              failed: 0,
+              total: isarTotal,
+              isDownload: progress.isCompleted,
+              isStartDownload: true,
+              downloadedBytes: exactDownloadedBytes,
+              totalBytes: exactTotalBytes,
+              title: chapter.name,
+              quality: chapterPreferredQuality[chapter.id],
+              posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
+              status: progressStatus,
+            );
+            isar.writeTxnSync(() {
+              _putDownloadForChapter(newDl, chapter);
+            });
+          } catch (_) {
+            // Écriture avortée (entrée corrompue / verrouillage). On ne
+            // fait pas planter le téléchargement : le_ui continuera d'afficher
+            // la progression live de Riverpod.
+          }
         }
       } else {
         final downloadNonNull = download;
-        if (progress.total != 0 || progress.downloadedBytes != null) {
+        if (!isPerFileByteProgress &&
+            (progress.total != 0 || progress.downloadedBytes != null)) {
           try {
             isar.writeTxnSync(() {
               isar.downloads.putSync(
@@ -1385,7 +1558,8 @@ Future<void> downloadChapter(
       // add it automatically so the user can find their downloads in Library.
       if (progress.isCompleted) {
         final parentManga = chapter.manga.value;
-        if (parentManga != null && parentManga.id != null &&
+        if (parentManga != null &&
+            parentManga.id != null &&
             parentManga.favorite != true) {
           try {
             final mangaRecord = isar.mangas.getSync(parentManga.id!);
@@ -1411,8 +1585,8 @@ Future<void> downloadChapter(
             itemType: progress.itemType.name,
             completed: progress.completed,
             total: progress.total,
-            downloadedBytes: reportedDownloadedBytes,
-            totalBytes: reportedTotalBytes ?? persistedTotalBytes,
+            downloadedBytes: liveDownloadedBytes,
+            totalBytes: liveTotalBytes,
           ),
         );
       }
@@ -1425,17 +1599,20 @@ Future<void> downloadChapter(
       final seriesTitle = chapter.manga.value?.name?.trim().isNotEmpty == true
           ? chapter.manga.value!.name!.trim()
           : chapterTitle;
-      final registeredCount =
-          ActiveDownloadRegistry.activeCountForType(progress.itemType);
+      final registeredCount = ActiveDownloadRegistry.activeCountForType(
+        progress.itemType,
+      );
       final activeCount = registeredCount > 0 ? registeredCount : 1;
       final notificationTitle = activeCount == 1
           ? seriesTitle
           : '$activeCount téléchargements en cours';
       if (progress.itemType == ItemType.anime) {
-        final downloadedBytes = reportedDownloadedBytes ??
+        final downloadedBytes =
+            reportedDownloadedBytes ??
             trustedDownloadBytesFromKilobytes(isarSucceeded) ??
             0;
-        final notificationTotalBytes = reportedTotalBytes ??
+        final notificationTotalBytes =
+            reportedTotalBytes ??
             trustedDownloadBytesFromKilobytes(
               isarTotal > 500 ? isarTotal : null,
               allowZero: false,
@@ -1443,37 +1620,48 @@ Future<void> downloadChapter(
         final hasKnownSize =
             notificationTotalBytes != null && notificationTotalBytes > 0;
         final pct = hasKnownSize
-            ? (((downloadedBytes * 100) ~/ notificationTotalBytes!)).clamp(0, 100)
+            ? (((downloadedBytes * 100) ~/ notificationTotalBytes!)).clamp(
+                0,
+                100,
+              )
             : -1;
         final remaining = hasKnownSize
-            ? (notificationTotalBytes! - downloadedBytes).clamp(0, double.infinity).toInt()
+            ? (notificationTotalBytes! - downloadedBytes)
+                  .clamp(0, double.infinity)
+                  .toInt()
             : 0;
-        final activeCount = ActiveDownloadRegistry.activeCountForType(ItemType.anime);
+        final activeCount = ActiveDownloadRegistry.activeCountForType(
+          ItemType.anime,
+        );
         final chapterTitle = chapter.name?.trim();
         final notifSub = chapterTitle?.isNotEmpty == true
             ? chapterTitle!
             : 'Vidéo en cours de téléchargement';
         final etaSeconds = _speedEmaMbs >= 0.05 && hasKnownSize
-            ? ((remaining / (_speedEmaMbs * 1024 * 1024)).clamp(0, double.infinity).ceil())
+            ? ((remaining / (_speedEmaMbs * 1024 * 1024))
+                  .clamp(0, double.infinity)
+                  .ceil())
             : null;
-        unawaited(BackgroundKeepAlive.update(
-          count: activeCount,
-          title: notificationTitle,
-          progress: pct,
-          subtitle: notifSub,
-          downloadedBytes: downloadedBytes,
-          totalBytes: notificationTotalBytes,
-          speedMbs: _speedEmaMbs,
-          etaSeconds: etaSeconds,
-          quality: chapterPreferredQuality[chapter.id] ?? '',
-          force: progress.isCompleted,
-        ));
+        unawaited(
+          BackgroundKeepAlive.update(
+            count: activeCount,
+            title: notificationTitle,
+            progress: pct,
+            subtitle: notifSub,
+            downloadedBytes: downloadedBytes,
+            totalBytes: notificationTotalBytes,
+            speedMbs: _speedEmaMbs,
+            etaSeconds: etaSeconds,
+            quality: chapterPreferredQuality[chapter.id] ?? '',
+            force: progress.isCompleted,
+          ),
+        );
       } else {
         final pct = progress.total > 0
             ? ((progress.completed / progress.total) * 100)
-                .round()
-                .clamp(0, 100)
-                .toInt()
+                  .round()
+                  .clamp(0, 100)
+                  .toInt()
             : -1;
         unawaited(
           BackgroundKeepAlive.update(
@@ -1496,7 +1684,8 @@ Future<void> downloadChapter(
         final directory = mangaMainDirectory;
         if (directory != null) {
           if (progress.itemType == ItemType.anime) {
-            candidatePath = m3u8Downloader?.fileName ??
+            candidatePath =
+                m3u8Downloader?.fileName ??
                 p.join(directory.path, '$chapterName.mp4');
           } else if (progress.itemType == ItemType.manga) {
             candidatePath = p.join(directory.path, '${chapter.name}.cbz');
@@ -1504,8 +1693,8 @@ Future<void> downloadChapter(
             candidatePath = p.join(directory.path, '$chapterName.html');
           }
         }
-        final completedPath = candidatePath != null &&
-                await File(candidatePath).exists()
+        final completedPath =
+            candidatePath != null && await File(candidatePath).exists()
             ? candidatePath
             : null;
         if (completedPath != null) {
@@ -1602,8 +1791,16 @@ Future<void> downloadChapter(
         if (value.pageUrls.isNotEmpty) {
           pageUrls = value.pageUrls;
           AppLogger.log(
-            '[ch:' + (chapter.id?.toString() ?? '?') + '] ${pageUrls.length} pages fetched'
-            ' • url[0]=' + (pageUrls.isNotEmpty ? pageUrls.first.url.substring(0, pageUrls.first.url.length.clamp(0, 80)) : 'none'),
+            '[ch:' +
+                (chapter.id?.toString() ?? '?') +
+                '] ${pageUrls.length} pages fetched'
+                    ' • url[0]=' +
+                (pageUrls.isNotEmpty
+                    ? pageUrls.first.url.substring(
+                        0,
+                        pageUrls.first.url.length.clamp(0, 80),
+                      )
+                    : 'none'),
             logLevel: LogLevel.info,
             tag: LogTag.download,
           );
@@ -1615,7 +1812,11 @@ Future<void> downloadChapter(
         log('[downloadChapter] timeout after 90s for chapterId=${chapter.id}');
       } catch (e, st) {
         fetchError = friendlyErrorMessage(e);
-        log('[downloadChapter][manga] getChapterPages error: $e', error: e, stackTrace: st);
+        log(
+          '[downloadChapter][manga] getChapterPages error: $e',
+          error: e,
+          stackTrace: st,
+        );
       }
     } else if (itemType == ItemType.anime) {
       try {
@@ -1635,15 +1836,22 @@ Future<void> downloadChapter(
         bool looksLikeHls(dynamic v) {
           final u = (v.originalUrl ?? '').toString().toLowerCase();
           if (u.endsWith('.m3u8') || u.endsWith('.m3u')) return true;
-          if (u.contains('.m3u8') || u.contains('/hls/') ||
-              u.contains('hls-cdn') || u.contains('hls.')) return true;
+          if (u.contains('.m3u8') ||
+              u.contains('/hls/') ||
+              u.contains('hls-cdn') ||
+              u.contains('hls.'))
+            return true;
           final q = (v.quality ?? '').toString().toLowerCase();
           if (q.contains('hls') || q.contains('auto')) return true;
           return false;
         }
+
         final m3u8Urls = value.$1.where(looksLikeHls).toList();
         final nonM3u8Urls = value.$1
-            .where((element) => !looksLikeHls(element) && element.originalUrl.isMediaVideo())
+            .where(
+              (element) =>
+                  !looksLikeHls(element) && element.originalUrl.isMediaVideo(),
+            )
             .toList();
         nonM3U8File = nonM3u8Urls.isNotEmpty;
         hasM3U8File = nonM3U8File ? false : m3u8Urls.isNotEmpty;
@@ -1651,10 +1859,13 @@ Future<void> downloadChapter(
         // Honour the user's quality pick from the picker dialog (if any):
         // move the chosen Video to the front of the list so that
         // `videosUrls.first` below picks it.
-        final preferredOriginal =
-            chapter.id != null ? chapterPreferredOriginalUrl[chapter.id!] : null;
+        final preferredOriginal = chapter.id != null
+            ? chapterPreferredOriginalUrl[chapter.id!]
+            : null;
         if (preferredOriginal != null && videosUrls.isNotEmpty) {
-          final idx = videosUrls.indexWhere((v) => v.originalUrl == preferredOriginal);
+          final idx = videosUrls.indexWhere(
+            (v) => v.originalUrl == preferredOriginal,
+          );
           if (idx > 0) {
             final picked = videosUrls.removeAt(idx);
             videosUrls = [picked, ...videosUrls];
@@ -1665,12 +1876,16 @@ Future<void> downloadChapter(
         // Batch download sheet: language chosen by label (see
         // [chapterPreferredLang]). Filter FIRST so a multi-lang source never
         // silently downloads the wrong audio track.
-        final preferredLang =
-            chapter.id != null ? chapterPreferredLang[chapter.id!] : null;
+        final preferredLang = chapter.id != null
+            ? chapterPreferredLang[chapter.id!]
+            : null;
         if (preferredLang != null && videosUrls.length > 1) {
           final langMatches = videosUrls
-              .where((v) =>
-                  v.quality.toUpperCase().contains(preferredLang.toUpperCase()))
+              .where(
+                (v) => v.quality.toUpperCase().contains(
+                  preferredLang.toUpperCase(),
+                ),
+              )
               .toList();
           if (langMatches.isNotEmpty) videosUrls = langMatches;
           // One-shot: clear so a future re-download asks again.
@@ -1682,8 +1897,9 @@ Future<void> downloadChapter(
         // list we download ONLY it — previously a missing match silently fell
         // back to the first entry (often 1080p/auto), so a user asking for
         // 360p could end up with a 1 GB file.
-        final preferredQuality =
-            chapter.id != null ? chapterPreferredQuality[chapter.id!] : null;
+        final preferredQuality = chapter.id != null
+            ? chapterPreferredQuality[chapter.id!]
+            : null;
         if (preferredQuality != null && videosUrls.isNotEmpty) {
           final exactMatches = videosUrls
               .where((v) => _qualityDigits(v.quality) == preferredQuality)
@@ -1725,7 +1941,11 @@ Future<void> downloadChapter(
         log('[downloadChapter] timeout after 90s for chapterId=${chapter.id}');
       } catch (e, st) {
         fetchError = friendlyErrorMessage(e);
-        log('[downloadChapter][anime] getVideoList error: $e', error: e, stackTrace: st);
+        log(
+          '[downloadChapter][anime] getVideoList error: $e',
+          error: e,
+          stackTrace: st,
+        );
       }
     } else if (itemType == ItemType.novel && chapter.url != null) {
       final manga = chapter.manga.value!;
@@ -1769,6 +1989,16 @@ Future<void> downloadChapter(
       // Rendre l'échec visible : sinon l'icône revenait à son état initial et
       // l'utilisateur croyait que le bouton n'avait rien fait.
       _notifyDownloadFailure(fetchError!);
+      if (chapter.id != null) {
+        unawaited(
+          WatchtowerNotificationService.instance.markMediaDownloadFailed(
+            chapter.id!,
+            seriesTitle: manga.name ?? chapter.name ?? '',
+            chapterTitle: chapter.name ?? 'Téléchargement',
+            itemType: itemType.name,
+          ),
+        );
+      }
       // Use writeTxnSync + getSync/putSync — never mix sync ops inside
       // async writeTxn; that nests an implicit read-txn inside the write-txn
       // and causes "Cannot perform this operation from within an active
@@ -1782,7 +2012,7 @@ Future<void> downloadChapter(
               dl
                 ..failed = (dl.failed ?? 0) + 1
                 ..isDownload = false
-                  ..status = 'failed'
+                ..status = 'failed'
                 // Stop processDownloads from re-queuing this chapter on every
                 // 900ms tick.  The user can retry manually from the queue UI.
                 ..isStartDownload = false,
@@ -1859,7 +2089,9 @@ Future<void> downloadChapter(
             logLevel: LogLevel.error,
             tag: LogTag.download,
           );
-          throw StateError('getDirectory() returned null for chapterId=${chapter.id}');
+          throw StateError(
+            'getDirectory() returned null for chapterId=${chapter.id}',
+          );
         }
         final mainDirectory = mainDirectoryRaw;
         AppLogger.log(
@@ -1903,7 +2135,9 @@ Future<void> downloadChapter(
           }
           // Copy headers so each page gets its own map (avoids mutating
           // the shared `headers` reference across loop iterations).
-          final Map<String, String> pageHeaders = Map<String, String>.from(headers);
+          final Map<String, String> pageHeaders = Map<String, String>.from(
+            headers,
+          );
           pageHeaders.addAll(page.headers ?? {});
 
           if (itemType == ItemType.manga) {
@@ -1961,7 +2195,8 @@ Future<void> downloadChapter(
         final taskId = '${chapter.id}';
         if (chapter.id != null) {
           ActiveDownloadRegistry.registerInternal(
-            chapter.id!, taskId,
+            chapter.id!,
+            taskId,
             itemType: itemType,
             source: manga.source ?? '_unknown',
           );
@@ -1970,7 +2205,10 @@ Future<void> downloadChapter(
               .setEngine(chapter.id!, 'ATLAS');
         }
         AppLogger.log(
-          '[ch:' + (chapter.id?.toString() ?? '?') + '] START ${pages.length} imgs → ' + itemType.name,
+          '[ch:' +
+              (chapter.id?.toString() ?? '?') +
+              '] START ${pages.length} imgs → ' +
+              itemType.name,
           logLevel: LogLevel.info,
           tag: LogTag.download,
         );
@@ -1978,13 +2216,17 @@ Future<void> downloadChapter(
         for (var _li = 0; _li < pages.length && _li < 3; _li++) {
           final _u = pages[_li].url;
           AppLogger.log(
-            '[ch:' + (chapter.id?.toString() ?? '?') + '] url[$_li] '
-            + (_u.length > 90 ? _u.substring(0, 90) + '…' : _u),
+            '[ch:' +
+                (chapter.id?.toString() ?? '?') +
+                '] url[$_li] ' +
+                (_u.length > 90 ? _u.substring(0, 90) + '…' : _u),
             logLevel: LogLevel.debug,
             tag: LogTag.download,
           );
         }
-        log('[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}');
+        log(
+          '[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}',
+        );
         try {
           if (itemType == ItemType.manga) {
             _setDownloadStatus(chapterId, 'downloading');
@@ -2008,7 +2250,9 @@ Future<void> downloadChapter(
           // Fix: explicitly await a final setProgress here, guaranteed to finish
           // before callback?.call() unblocks processDownloads.  The double-call
           // is idempotent (processConvert skips if the archive already exists).
-          await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
+          await setProgress(
+            DownloadProgress(1, 1, itemType, isCompleted: true),
+          );
           AppLogger.log(
             '[ch:' + (chapter.id?.toString() ?? '?') + '] COMPLETE ✓',
             logLevel: LogLevel.info,
@@ -2016,7 +2260,9 @@ Future<void> downloadChapter(
           );
           log('[downloadChapter][manga] completed chapterId=${chapter.id}');
         } catch (e) {
-          log('[downloadChapter][manga] FAILED chapterId=${chapter.id} error=$e');
+          log(
+            '[downloadChapter][manga] FAILED chapterId=${chapter.id} error=$e',
+          );
           rethrow;
         } finally {
           if (chapter.id != null) {
@@ -2041,7 +2287,9 @@ Future<void> downloadChapter(
               chapter.url!,
             ),
           );
-          log('[downloadChapter][novel] getHtmlContent returned ${html.length} chars');
+          log(
+            '[downloadChapter][novel] getHtmlContent returned ${html.length} chars',
+          );
           if (html.isNotEmpty) {
             await file.writeAsString(html);
             log('[downloadChapter][novel] HTML saved');
@@ -2137,7 +2385,8 @@ Future<void> downloadChapter(
         );
         if (chapter.id != null) {
           ActiveDownloadRegistry.registerEngine(
-            chapter.id!, aria2Engine,
+            chapter.id!,
+            aria2Engine,
             itemType: itemType,
             source: manga.source ?? '_unknown',
           );
@@ -2145,10 +2394,14 @@ Future<void> downloadChapter(
         bool aria2Failed = false;
         try {
           await aria2Engine.start((progress) => setProgress(progress));
-          log('[downloadChapter][anime/Aria2] completed chapterId=${chapter.id}');
+          log(
+            '[downloadChapter][anime/Aria2] completed chapterId=${chapter.id}',
+          );
         } catch (e) {
           aria2Failed = true;
-          log('[downloadChapter][anime/Aria2] FAILED chapterId=${chapter.id} error=$e');
+          log(
+            '[downloadChapter][anime/Aria2] FAILED chapterId=${chapter.id} error=$e',
+          );
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
@@ -2156,7 +2409,9 @@ Future<void> downloadChapter(
         }
         // Aria2 cannot do HLS — fall back to internal HLS for .m3u8 streams
         if (aria2Failed) {
-          log('[downloadChapter][anime/Aria2→HLS] falling back to internal HLS chapterId=${chapter.id}');
+          log(
+            '[downloadChapter][anime/Aria2→HLS] falling back to internal HLS chapterId=${chapter.id}',
+          );
           if (chapter.id != null) {
             ref
                 .read(downloadQueueStateProvider.notifier)
@@ -2165,15 +2420,14 @@ Future<void> downloadChapter(
           final taskId = 'm3u8_${chapter.id}';
           if (chapter.id != null) {
             ActiveDownloadRegistry.registerInternal(
-              chapter.id!, taskId,
+              chapter.id!,
+              taskId,
               itemType: itemType,
               source: manga.source ?? '_unknown',
             );
           }
           try {
-            await m3u8Downloader!.download(
-              (progress) => setProgress(progress),
-            );
+            await m3u8Downloader!.download((progress) => setProgress(progress));
           } finally {
             if (chapter.id != null) {
               ActiveDownloadRegistry.unregister(chapter.id!);
@@ -2186,7 +2440,8 @@ Future<void> downloadChapter(
         final taskId = 'm3u8_${chapter.id}';
         if (chapter.id != null) {
           ActiveDownloadRegistry.registerInternal(
-            chapter.id!, taskId,
+            chapter.id!,
+            taskId,
             itemType: itemType,
             source: manga.source ?? '_unknown',
           );
@@ -2248,8 +2503,12 @@ Future<void> downloadChapter(
     // isDownload=false + isStartDownload=true in Isar → infinite retry loop.
     if (chapter.id != null) {
       unawaited(
-        WatchtowerNotificationService.instance
-            .markMediaDownloadFailed(chapter.id!),
+        WatchtowerNotificationService.instance.markMediaDownloadFailed(
+          chapter.id!,
+          seriesTitle: mangaForRegistry?.name ?? chapter.name ?? '',
+          chapterTitle: chapter.name ?? 'Téléchargement',
+          itemType: mangaForRegistry?.itemType.name ?? ItemType.manga.name,
+        ),
       );
       try {
         final dl = isar.downloads.getSync(chapter.id!);
@@ -2281,6 +2540,12 @@ Future<void> downloadChapter(
 
 @riverpod
 Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
+  if (useWifi != null) _processDownloadsWifiOverride = useWifi;
+  if (_processDownloadsSchedulerRunning) {
+    log('[processDownloads] coalesced duplicate scheduler request');
+    return;
+  }
+  _processDownloadsSchedulerRunning = true;
   // Keep this provider alive so it can run for the full duration of the queue.
   final keepAlive = ref.keepAlive();
   final loggedConcurrencyBlocks = <int>{};
@@ -2300,11 +2565,12 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
       try {
         return await body();
       } catch (e, st) {
-        log('[processDownloads] tick error (ignored, next tick retries): $e\n$st');
+        log(
+          '[processDownloads] tick error (ignored, next tick retries): $e\n$st',
+        );
         try {
-          final ids =
-              (await isar.downloads.where().idProperty().findAll())
-                  .whereType<int>();
+          final ids = (await isar.downloads.where().idProperty().findAll())
+              .whereType<int>();
           for (final id in ids) {
             try {
               isar.downloads.getSync(id);
@@ -2326,280 +2592,316 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
       // Poll interval — short enough to feel snappy, long enough not to thrash.
       await Future.delayed(const Duration(milliseconds: 900));
       return safeTick(() async {
+        // ── Re-query Isar fresh every tick ────────────────────────────────────
+        // This is the key fix: we never take a snapshot of the queue.  Paused
+        // chapters that are later resumed, newly added downloads, and completed
+        // downloads are all naturally handled because we look at the live DB
+        // state on every iteration instead of a stale list built at startup.
+        // isar_community rejects filters on these nullable bool properties at
+        // runtime ("Property does not support this filter"). Read the
+        // collection and apply the same predicate in Dart.
+        final ongoingRaw = isar.downloads
+            .where()
+            .findAllSync()
+            .where(_isPendingDownload)
+            .toList();
 
-      // ── Re-query Isar fresh every tick ────────────────────────────────────
-      // This is the key fix: we never take a snapshot of the queue.  Paused
-      // chapters that are later resumed, newly added downloads, and completed
-      // downloads are all naturally handled because we look at the live DB
-      // state on every iteration instead of a stale list built at startup.
-      // isar_community rejects filters on these nullable bool properties at
-      // runtime ("Property does not support this filter"). Read the
-      // collection and apply the same predicate in Dart.
-      final ongoingRaw = isar.downloads
-          .where()
-          .findAllSync()
-          .where(_isPendingDownload)
-          .toList();
-
-      for (final dl in ongoingRaw) {
-        // Older pause/resume paths could leave a durable "queued" status with
-        // isStartDownload=false. Repair the flags before dispatch so the queue
-        // remains recoverable if the app is closed again.
-        if (dl.isStartDownload != true &&
-            _pendingDownloadStatuses.contains(dl.status) &&
-            dl.id != null &&
-            !ActiveDownloadRegistry.isActive(dl.id!)) {
-          isar.writeTxnSync(() {
-            final stored = isar.downloads.getSync(dl.id!);
-            if (stored != null && stored.isDownload != true) {
-              stored
-                ..isDownload = false
-                ..isStartDownload = true;
-              isar.downloads.putSync(stored);
-            }
-          });
-          dl
-            ..isDownload = false
-            ..isStartDownload = true;
-          AppLogger.log(
-            '[ch:${dl.id}] restored pending state from status=${dl.status}',
-            logLevel: LogLevel.warning,
-            tag: LogTag.download,
-          );
-        }
-
-        try {
-          if (!dl.chapter.isLoaded) dl.chapter.loadSync();
-        } catch (_) {
-          // If the IsarLink is unreadable, try its stable chapter ID below.
-        }
-        var ch = dl.chapter.value;
-        if (ch == null && dl.id != null) {
-          try {
-            ch = isar.chapters.getSync(dl.id!);
-          } catch (_) {
-            // Fall through to a visible failed state below.
-          }
-          if (ch != null) {
-            final recoveredChapter = ch;
-            dl.chapter.value = recoveredChapter;
+        final stalePendingRows = <Download>[];
+        for (final dl in ongoingRaw) {
+          // Older pause/resume paths could leave a durable "queued" status with
+          // isStartDownload=false. Repair the flags before dispatch so the queue
+          // remains recoverable if the app is closed again.
+          if (dl.isStartDownload != true &&
+              _pendingDownloadStatuses.contains(dl.status) &&
+              dl.id != null &&
+              !ActiveDownloadRegistry.isActive(dl.id!)) {
+            var restored = false;
+            var shouldDispatch = false;
             isar.writeTxnSync(() {
               final stored = isar.downloads.getSync(dl.id!);
-              if (stored != null) {
-                stored.chapter.value = recoveredChapter;
-                isar.downloads.putSync(stored);
+              if (stored != null &&
+                  stored.isDownload != true &&
+                  _pendingDownloadStatuses.contains(stored.status)) {
+                shouldDispatch = true;
+                if (stored.isStartDownload != true) {
+                  restored = true;
+                  stored
+                    ..isDownload = false
+                    ..isStartDownload = true;
+                  isar.downloads.putSync(stored);
+                }
               }
             });
+            if (!shouldDispatch) {
+              stalePendingRows.add(dl);
+              continue;
+            }
+            dl
+              ..isDownload = false
+              ..isStartDownload = true;
+            if (restored) {
+              AppLogger.log(
+                '[ch:${dl.id}] restored pending state from status=${dl.status}',
+                logLevel: LogLevel.warning,
+                tag: LogTag.download,
+              );
+            }
+          }
+
+          try {
+            if (!dl.chapter.isLoaded) dl.chapter.loadSync();
+          } catch (_) {
+            // If the IsarLink is unreadable, try its stable chapter ID below.
+          }
+          var ch = dl.chapter.value;
+          if (ch == null && dl.id != null) {
+            try {
+              ch = isar.chapters.getSync(dl.id!);
+            } catch (_) {
+              // Fall through to a visible failed state below.
+            }
+            if (ch != null) {
+              final recoveredChapter = ch;
+              dl.chapter.value = recoveredChapter;
+              isar.writeTxnSync(() {
+                final stored = isar.downloads.getSync(dl.id!);
+                if (stored != null) {
+                  stored.chapter.value = recoveredChapter;
+                  isar.downloads.putSync(stored);
+                }
+              });
+              AppLogger.log(
+                '[ch:${dl.id}] repaired missing Download.chapter link',
+                logLevel: LogLevel.warning,
+                tag: LogTag.download,
+              );
+            }
+          }
+          if (ch == null) {
+            final missingId = dl.id;
             AppLogger.log(
-              '[ch:${dl.id}] repaired missing Download.chapter link',
+              '[ch:${missingId ?? "?"}] queued row has no chapter record; '
+              'marking it failed',
               logLevel: LogLevel.warning,
               tag: LogTag.download,
             );
+            if (missingId != null) {
+              isar.writeTxnSync(() {
+                final stored = isar.downloads.getSync(missingId);
+                if (stored != null && stored.isDownload != true) {
+                  stored
+                    ..failed = (stored.failed ?? 0) + 1
+                    ..isStartDownload = false
+                    ..status = 'failed';
+                  isar.downloads.putSync(stored);
+                }
+              });
+            }
+            continue;
+          }
+          // Relation chapitre → manga : on la charge, et si le lien est vide
+          // (effacé par un ancien `put` sur un lien non chargé) on la
+          // reconstruit depuis mangaId pour ne jamais perdre l'entrée.
+          if (!ch.manga.isLoaded && ch.mangaId != null) {
+            try {
+              ch.manga.loadSync();
+            } catch (_) {}
+          }
+          if (ch.manga.value == null && ch.mangaId != null) {
+            try {
+              final manga = isar.mangas.getSync(ch.mangaId!);
+              if (manga != null) ch.manga.value = manga;
+            } catch (_) {
+              // Manga corrompu : on laisse le champ null, le chapitre sera
+              // ignoré plus tard dans la boucle (ch == null ? continue).
+            }
           }
         }
-        if (ch == null) {
-          final missingId = dl.id;
-          AppLogger.log(
-            '[ch:${missingId ?? "?"}] queued row has no chapter record; '
-            'marking it failed',
-            logLevel: LogLevel.warning,
-            tag: LogTag.download,
-          );
-          if (missingId != null) {
-            isar.writeTxnSync(() {
-              final stored = isar.downloads.getSync(missingId);
-              if (stored != null && stored.isDownload != true) {
-                stored
-                  ..failed = (stored.failed ?? 0) + 1
-                  ..isStartDownload = false
-                  ..status = 'failed';
-                isar.downloads.putSync(stored);
-              }
-            });
+
+        ongoingRaw.removeWhere(stalePendingRows.contains);
+        final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
+
+        // Items that are waiting to start:
+        //   - not paused in the UI
+        //   - not currently registered in the ActiveDownloadRegistry (i.e. not
+        //     already running inside an isolate or external engine)
+        final toStart = ongoingRaw.where((d) {
+          final chId = d.chapter.value?.id;
+          if (chId == null) return false; // orphaned record — skip
+          return !pausedIds.contains(chId) &&
+              !ActiveDownloadRegistry.isActive(chId);
+        }).toList();
+        if (ongoingRaw.isNotEmpty && toStart.isEmpty) {
+          final pausedCount = ongoingRaw
+              .where((d) => pausedIds.contains(d.chapter.value?.id))
+              .length;
+          final activeCount = ongoingRaw
+              .where(
+                (d) =>
+                    ActiveDownloadRegistry.isActive(d.chapter.value?.id ?? -1),
+              )
+              .length;
+          final waitState =
+              'pending=${ongoingRaw.length} paused=$pausedCount active=$activeCount';
+          if (waitState != lastQueueWaitState) {
+            log('[processDownloads] no eligible item: $waitState');
+            lastQueueWaitState = waitState;
           }
-          continue;
-        }
-        // Relation chapitre → manga : on la charge, et si le lien est vide
-        // (effacé par un ancien `put` sur un lien non chargé) on la
-        // reconstruit depuis mangaId pour ne jamais perdre l'entrée.
-        if (!ch.manga.isLoaded && ch.mangaId != null) {
-          try {
-            ch.manga.loadSync();
-          } catch (_) {}
-        }
-        if (ch.manga.value == null && ch.mangaId != null) {
-          try {
-            final manga = isar.mangas.getSync(ch.mangaId!);
-            if (manga != null) ch.manga.value = manga;
-          } catch (_) {
-            // Manga corrompu : on laisse le champ null, le chapitre sera
-            // ignoré plus tard dans la boucle (ch == null ? continue).
-          }
-        }
-      }
-
-      final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
-
-      // Items that are waiting to start:
-      //   - not paused in the UI
-      //   - not currently registered in the ActiveDownloadRegistry (i.e. not
-      //     already running inside an isolate or external engine)
-      final toStart = ongoingRaw.where((d) {
-        final chId = d.chapter.value?.id;
-        if (chId == null) return false; // orphaned record — skip
-        return !pausedIds.contains(chId) && !ActiveDownloadRegistry.isActive(chId);
-      }).toList();
-      if (ongoingRaw.isNotEmpty && toStart.isEmpty) {
-        final pausedCount = ongoingRaw
-            .where((d) => pausedIds.contains(d.chapter.value?.id))
-            .length;
-        final activeCount = ongoingRaw
-            .where((d) =>
-                ActiveDownloadRegistry.isActive(d.chapter.value?.id ?? -1))
-            .length;
-        final waitState =
-            'pending=${ongoingRaw.length} paused=$pausedCount active=$activeCount';
-        if (waitState != lastQueueWaitState) {
-          log('[processDownloads] no eligible item: $waitState');
-          lastQueueWaitState = waitState;
-        }
-      } else {
-        lastQueueWaitState = null;
-      }
-
-      // ── Speed Master: high-priority downloads start first ────────────────
-      // Stable sort: within the same priority the original (FIFO-ish) Isar
-      // order is preserved. Re-read every tick so toggling priority in the
-      // queue UI applies immediately without restarting the scheduler.
-      final prioMap = ref.read(downloadQueueStateProvider).priorities;
-      toStart.sort((a, b) =>
-          (prioMap[b.chapter.value?.id ?? -1] ?? 0)
-              .compareTo(prioMap[a.chapter.value?.id ?? -1] ?? 0));
-
-      final onlyOnWifi =
-          useWifi ?? (ref.read(onlyOnWifiStateProvider) == true);
-      if (onlyOnWifi && toStart.isNotEmpty) {
-        bool isOnWifi = false;
-        try {
-          isOnWifi = hasWifiOrEthernet(
-            await Connectivity().checkConnectivity(),
-          );
-        } catch (e) {
-          log('[processDownloads] connectivity check failed: $e');
-        }
-        if (!isOnWifi) {
-          for (final download in toStart) {
-            _setDownloadStatus(download.id, 'waiting_wifi');
-          }
-          log(
-            '[processDownloads] ${toStart.length} item(s) waiting for Wi-Fi',
-          );
-          // Keep the persisted queue alive, but do not launch and immediately
-          // re-launch a worker on every short scheduler tick.
-          await Future.delayed(const Duration(seconds: 5));
-          return true;
-        }
-        for (final download in toStart) {
-          if (download.status == 'waiting_wifi') {
-            _setDownloadStatus(download.id, 'queued');
-          }
-        }
-      }
-
-      // Exit when nothing is waiting AND nothing is running.
-      if (toStart.isEmpty && !ActiveDownloadRegistry.hasActive) {
-        log('[processDownloads] queue drained — stopping');
-        return false;
-      }
-
-      // ── Re-read limits every tick so settings changes apply immediately ───
-      // IMPORTANT: always load() first — the provider build() methods call
-      // load() without await (synchronous context), so they return the cached
-      // default values on the first build.  Reading directly from the service
-      // after awaiting load() guarantees the user's persisted settings are used.
-      await DownloadSettingsService.instance.load();
-      final typeMax = <ItemType, int>{
-        ItemType.manga: DownloadSettingsService.instance.mangaSimultaneous,
-        ItemType.anime: DownloadSettingsService.instance.watchSimultaneous,
-        ItemType.novel: DownloadSettingsService.instance.novelSimultaneous,
-      };
-      final typePerSrcMax = <ItemType, int>{
-        ItemType.manga: DownloadSettingsService.instance.mangaSimultaneousPerSource,
-        ItemType.anime: DownloadSettingsService.instance.watchSimultaneousPerSource,
-        ItemType.novel: DownloadSettingsService.instance.novelSimultaneousPerSource,
-      };
-
-      // ── Start downloads that fit within the limits ─────────────────────────
-      // Cross-source round-robin: interleave sources fairly.
-      final perSourceQueues = <String, List<Download>>{};
-      for (final d in toStart) {
-        final src = d.chapter.value?.manga.value?.source ?? '_unknown';
-        (perSourceQueues[src] ??= <Download>[]).add(d);
-      }
-      final sourceKeys = perSourceQueues.keys.toList();
-      int rrIdx = 0;
-
-      outer:
-      for (var attempt = 0; attempt < toStart.length; attempt++) {
-        // Round-robin over sources
-        final src = sourceKeys[rrIdx % sourceKeys.length];
-        rrIdx++;
-
-        final queue = perSourceQueues[src];
-        if (queue == null || queue.isEmpty) continue;
-
-        final d = queue.first;
-        final chapter = d.chapter.value;
-        if (chapter == null) { queue.removeAt(0); continue; }
-
-        final type = chapter.manga.value?.itemType ?? ItemType.manga;
-        final chSrc = chapter.manga.value?.source ?? '_unknown';
-
-        // Check live counts from the registry (not local counters — those go
-        // stale after pause/resume because isolates exit without a callback).
-        final curType = ActiveDownloadRegistry.activeCountForType(type);
-        final curSrc = ActiveDownloadRegistry.activeCountForSource(type, chSrc);
-        // Fallback of 2 instead of 1: an unknown ItemType should not
-        // single-thread the queue; 2 is a sane conservative default.
-        final tLimit = typeMax[type] ?? 2;
-        final sLimit = typePerSrcMax[type] ?? 2;
-
-        if (curType >= tLimit || curSrc >= sLimit) {
-          final chapterId = chapter.id;
-          if (chapterId != null && loggedConcurrencyBlocks.add(chapterId)) {
-            AppLogger.log(
-              '[ch:$chapterId] waiting for concurrency slot '
-              'type=${type.name} active=$curType/$tLimit '
-              'source=$curSrc/$sLimit',
-              logLevel: LogLevel.debug,
-              tag: LogTag.download,
-            );
-          }
-          continue outer;
-        }
-        if (chapter.id != null) {
-          loggedConcurrencyBlocks.remove(chapter.id!);
+        } else {
+          lastQueueWaitState = null;
         }
 
-        queue.removeAt(0);
-        if (d.status == 'waiting_wifi' || d.status == 'queued') {
-          _setDownloadStatus(d.id, 'fetching_metadata');
-        }
-
-        AppLogger.log(
-          'Queue dispatch [ch:${chapter.id}] type=${type.name} '
-          'source=$chSrc active=$curType/$tLimit sourceActive=$curSrc/$sLimit',
-          logLevel: LogLevel.info,
-          tag: LogTag.download,
+        // ── Speed Master: high-priority downloads start first ────────────────
+        // Stable sort: within the same priority the original (FIFO-ish) Isar
+        // order is preserved. Re-read every tick so toggling priority in the
+        // queue UI applies immediately without restarting the scheduler.
+        final prioMap = ref.read(downloadQueueStateProvider).priorities;
+        toStart.sort(
+          (a, b) => (prioMap[b.chapter.value?.id ?? -1] ?? 0).compareTo(
+            prioMap[a.chapter.value?.id ?? -1] ?? 0,
+          ),
         );
 
-        // Small stagger to avoid thundering herd on the remote server.
-        await Future.delayed(const Duration(milliseconds: 150));
+        final effectiveUseWifi =
+            _processDownloadsWifiOverride ??
+            (useWifi ?? (ref.read(onlyOnWifiStateProvider) == true));
+        final onlyOnWifi = effectiveUseWifi;
+        if (onlyOnWifi && toStart.isNotEmpty) {
+          bool isOnWifi = false;
+          try {
+            isOnWifi = hasWifiOrEthernet(
+              await Connectivity().checkConnectivity(),
+            );
+          } catch (e) {
+            log('[processDownloads] connectivity check failed: $e');
+          }
+          if (!isOnWifi) {
+            for (final download in toStart) {
+              _setDownloadStatus(download.id, 'waiting_wifi');
+            }
+            log(
+              '[processDownloads] ${toStart.length} item(s) waiting for Wi-Fi',
+            );
+            // Keep the persisted queue alive, but do not launch and immediately
+            // re-launch a worker on every short scheduler tick.
+            await Future.delayed(const Duration(seconds: 5));
+            return true;
+          }
+          for (final download in toStart) {
+            if (download.status == 'waiting_wifi') {
+              _setDownloadStatus(download.id, 'queued');
+            }
+          }
+        }
 
-        // Start the download. Its worker claims the registry slot before its
-        // first await, so another scheduler cannot launch the same chapter.
-        ref.read(downloadChapterProvider(chapter: chapter, useWifi: useWifi));
-      }
+        // Exit when nothing is waiting AND nothing is running.
+        if (toStart.isEmpty && !ActiveDownloadRegistry.hasActive) {
+          log('[processDownloads] queue drained — stopping');
+          return false;
+        }
+
+        // ── Re-read limits every tick so settings changes apply immediately ───
+        // IMPORTANT: always load() first — the provider build() methods call
+        // load() without await (synchronous context), so they return the cached
+        // default values on the first build.  Reading directly from the service
+        // after awaiting load() guarantees the user's persisted settings are used.
+        await DownloadSettingsService.instance.load();
+        final typeMax = <ItemType, int>{
+          ItemType.manga: DownloadSettingsService.instance.mangaSimultaneous,
+          ItemType.anime: DownloadSettingsService.instance.watchSimultaneous,
+          ItemType.novel: DownloadSettingsService.instance.novelSimultaneous,
+        };
+        final typePerSrcMax = <ItemType, int>{
+          ItemType.manga:
+              DownloadSettingsService.instance.mangaSimultaneousPerSource,
+          ItemType.anime:
+              DownloadSettingsService.instance.watchSimultaneousPerSource,
+          ItemType.novel:
+              DownloadSettingsService.instance.novelSimultaneousPerSource,
+        };
+
+        // ── Start downloads that fit within the limits ─────────────────────────
+        // Cross-source round-robin: interleave sources fairly.
+        final perSourceQueues = <String, List<Download>>{};
+        for (final d in toStart) {
+          final src = d.chapter.value?.manga.value?.source ?? '_unknown';
+          (perSourceQueues[src] ??= <Download>[]).add(d);
+        }
+        final sourceKeys = perSourceQueues.keys.toList();
+        int rrIdx = 0;
+
+        outer:
+        for (var attempt = 0; attempt < toStart.length; attempt++) {
+          // Round-robin over sources
+          final src = sourceKeys[rrIdx % sourceKeys.length];
+          rrIdx++;
+
+          final queue = perSourceQueues[src];
+          if (queue == null || queue.isEmpty) continue;
+
+          final d = queue.first;
+          final chapter = d.chapter.value;
+          if (chapter == null) {
+            queue.removeAt(0);
+            continue;
+          }
+
+          final type = chapter.manga.value?.itemType ?? ItemType.manga;
+          final chSrc = chapter.manga.value?.source ?? '_unknown';
+
+          // Check live counts from the registry (not local counters — those go
+          // stale after pause/resume because isolates exit without a callback).
+          final curType = ActiveDownloadRegistry.activeCountForType(type);
+          final curSrc = ActiveDownloadRegistry.activeCountForSource(
+            type,
+            chSrc,
+          );
+          // Fallback of 2 instead of 1: an unknown ItemType should not
+          // single-thread the queue; 2 is a sane conservative default.
+          final tLimit = typeMax[type] ?? 2;
+          final sLimit = typePerSrcMax[type] ?? 2;
+
+          if (curType >= tLimit || curSrc >= sLimit) {
+            final chapterId = chapter.id;
+            if (chapterId != null && loggedConcurrencyBlocks.add(chapterId)) {
+              AppLogger.log(
+                '[ch:$chapterId] waiting for concurrency slot '
+                'type=${type.name} active=$curType/$tLimit '
+                'source=$curSrc/$sLimit',
+                logLevel: LogLevel.debug,
+                tag: LogTag.download,
+              );
+            }
+            continue outer;
+          }
+          if (chapter.id != null) {
+            loggedConcurrencyBlocks.remove(chapter.id!);
+          }
+
+          queue.removeAt(0);
+          if (d.status == 'waiting_wifi' || d.status == 'queued') {
+            _setDownloadStatus(d.id, 'fetching_metadata');
+          }
+
+          AppLogger.log(
+            'Queue dispatch [ch:${chapter.id}] type=${type.name} '
+            'source=$chSrc active=$curType/$tLimit sourceActive=$curSrc/$sLimit',
+            logLevel: LogLevel.info,
+            tag: LogTag.download,
+          );
+
+          // Small stagger to avoid thundering herd on the remote server.
+          await Future.delayed(const Duration(milliseconds: 150));
+
+          // Start the download. Its worker claims the registry slot before its
+          // first await, so another scheduler cannot launch the same chapter.
+          ref.read(
+            downloadChapterProvider(
+              chapter: chapter,
+              useWifi: effectiveUseWifi,
+            ),
+          );
+        }
 
         return true; // keep polling
       });
@@ -2609,5 +2911,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
     // the queue drained normally, threw, or was cancelled.
     keepAlive.close();
     unawaited(BackgroundKeepAlive.stop());
+    _processDownloadsSchedulerRunning = false;
+    _processDownloadsWifiOverride = null;
   }
 }

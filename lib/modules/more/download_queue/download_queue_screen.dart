@@ -177,8 +177,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             .where((d) => typeOf(d) == ItemType.novel)
             .toList();
 
-        final activeDownloadCount =
-            entries.where((download) => download.isDownload != true).length;
+        final unfinishedDownloadCount = entries
+            .where((download) => download.isDownload != true)
+            .length;
 
         final scheme = Theme.of(context).colorScheme;
         return Scaffold(
@@ -192,10 +193,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             titleSpacing: 16,
             title: const Text(
               'Téléchargements',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             actions: [
               // ── Transfert pill — solid gradient, MovieBox style ─────────
@@ -203,8 +201,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 onTap: () => context.push('/transfer'),
                 child: Container(
                   margin: const EdgeInsets.only(right: 12),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [mbTeal, mbGreen]),
                     borderRadius: BorderRadius.circular(8),
@@ -212,8 +212,11 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.swap_horiz_rounded,
-                          color: Colors.white, size: 15),
+                      Icon(
+                        Icons.swap_horiz_rounded,
+                        color: Colors.white,
+                        size: 15,
+                      ),
                       SizedBox(width: 5),
                       Text(
                         'Transfert',
@@ -239,7 +242,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 child: Row(
                   children: [
                     Text(
-                      'Téléchargement ($activeDownloadCount)',
+                      'Non terminés ($unfinishedDownloadCount)',
                       style: TextStyle(
                         color: scheme.onSurface,
                         fontSize: 13,
@@ -262,8 +265,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 ),
               ),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 2,
+                ),
                 child: Row(
                   children: [
                     Flexible(
@@ -342,16 +347,22 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   void _togglePause(Download element, WidgetRef ref) {
     final id = element.id ?? -1;
     if (id == -1) return;
-    final wasPaused = ref.read(downloadQueueStateProvider).pausedIds.contains(id);
+    final wasPaused = ref
+        .read(downloadQueueStateProvider)
+        .pausedIds
+        .contains(id);
     ref.read(downloadQueueStateProvider.notifier).togglePause(id);
+    ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
     final stored = isar.downloads.getSync(id);
     if (stored != null) {
       isar.writeTxnSync(() {
         if (wasPaused) {
-          isar.downloads.putSync(stored
-            ..isDownload = false
-            ..isStartDownload = true
-            ..status = 'queued');
+          isar.downloads.putSync(
+            stored
+              ..isDownload = false
+              ..isStartDownload = true
+              ..status = 'queued',
+          );
         } else {
           isar.downloads.putSync(stored..status = 'paused');
         }
@@ -382,6 +393,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         final ids = entries.map((e) => e.id ?? -1).toList();
         ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
         for (final id in ids.where((id) => id >= 0)) {
+          ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
           unawaited(
             WatchtowerNotificationService.instance.setMediaDownloadPaused(
               id,
@@ -403,6 +415,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         for (final entry in entries) {
           final id = entry.id;
           if (id == null) continue;
+          ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
           unawaited(
             WatchtowerNotificationService.instance.setMediaDownloadPaused(
               id,
@@ -416,10 +429,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             if (id == null) continue;
             final stored = isar.downloads.getSync(id);
             if (stored != null && !(stored.isDownload ?? false)) {
-              isar.downloads.putSync(stored
-                ..isDownload = false
-                ..isStartDownload = true
-                ..status = 'queued');
+              isar.downloads.putSync(
+                stored
+                  ..isDownload = false
+                  ..isStartDownload = true
+                  ..status = 'queued',
+              );
             }
           }
         });
@@ -429,6 +444,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         for (final e in entries) {
           if (e.id != null) {
             ActiveDownloadRegistry.cancel(e.id!);
+            ref
+                .read(downloadQueueStateProvider.notifier)
+                .clearLiveProgress(e.id!);
             unawaited(
               WatchtowerNotificationService.instance.setMediaDownloadPaused(
                 e.id!,
@@ -459,8 +477,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       case _GlobalAction.retryFailed:
         for (final e in entries) {
           if ((e.failed ?? 0) > 0 && e.chapter.value != null) {
-            ref.read(downloadQueueStateProvider.notifier).incrementRetry(e.id ?? -1);
-            ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(e.id ?? -1);
+            ref
+                .read(downloadQueueStateProvider.notifier)
+                .incrementRetry(e.id ?? -1);
+            ref
+                .read(downloadQueueStateProvider.notifier)
+                .clearLiveProgress(e.id ?? -1);
             ref.read(downloadChapterProvider(chapter: e.chapter.value!));
           }
         }
@@ -500,8 +522,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     // First cancel any running engine
     ActiveDownloadRegistry.cancel(id);
     unawaited(
-      WatchtowerNotificationService.instance
-          .cancelMediaDownloadNotification(id),
+      WatchtowerNotificationService.instance.cancelMediaDownloadNotification(
+        id,
+      ),
     );
     DownloadIsolatePool.instance.cancelTask('$id');
     DownloadIsolatePool.instance.cancelTask('m3u8_$id');
@@ -519,11 +542,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     chapter.pushToReaderView(context, ignoreIsRead: true);
   }
 
-  void _retryDownload(
-    Download element,
-    WidgetRef ref,
-    BuildContext context,
-  ) {
+  void _retryDownload(Download element, WidgetRef ref, BuildContext context) {
     if (element.chapter.value != null) {
       final id = element.id ?? -1;
       ref.read(downloadQueueStateProvider.notifier).incrementRetry(id);
@@ -541,16 +560,18 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       isar.writeTxnSync(() {
         final dl = isar.downloads.getSync(id);
         if (dl != null) {
-          isar.downloads.putSync(dl
-            ..succeeded = 0
-            ..failed = 0
-            ..total = 1
-            ..isDownload = false
-            ..isStartDownload = true
-            ..downloadedBytes = null
-            ..totalBytes = null
-            ..filePath = null
-            ..status = 'fetching_metadata');
+          isar.downloads.putSync(
+            dl
+              ..succeeded = 0
+              ..failed = 0
+              ..total = 1
+              ..isDownload = false
+              ..isStartDownload = true
+              ..downloadedBytes = null
+              ..totalBytes = null
+              ..filePath = null
+              ..status = 'fetching_metadata',
+          );
         }
       });
       ref.read(processDownloadsProvider());
@@ -582,73 +603,85 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   }
 
   Widget _chipTab(int index, IconData icon, String label, int count) {
-    return Builder(builder: (context) {
-      final anim = _tabController.animation;
-      final selected = anim != null
-          ? anim.value.round() == index
-          : _tabController.index == index;
-      final scheme = Theme.of(context).colorScheme;
-      return GestureDetector(
-        onTap: () => setState(() => _tabController.animateTo(index)),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: selected ? scheme.onSurface.withValues(alpha: 0.12) : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
+    return Builder(
+      builder: (context) {
+        final anim = _tabController.animation;
+        final selected = anim != null
+            ? anim.value.round() == index
+            : _tabController.index == index;
+        final scheme = Theme.of(context).colorScheme;
+        return GestureDetector(
+          onTap: () => setState(() => _tabController.animateTo(index)),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
               color: selected
-                  ? scheme.onSurface.withValues(alpha: 0.54)
-                  : scheme.onSurface.withValues(alpha: 0.24),
-              width: 1,
+                  ? scheme.onSurface.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected
+                    ? scheme.onSurface.withValues(alpha: 0.54)
+                    : scheme.onSurface.withValues(alpha: 0.24),
+                width: 1,
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
                   size: 14,
                   color: selected
                       ? scheme.onSurface
-                      : scheme.onSurface.withValues(alpha: 0.38)),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected
-                      ? scheme.onSurface
                       : scheme.onSurface.withValues(alpha: 0.38),
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                 ),
-              ),
-              if (count > 0) ...[
                 const SizedBox(width: 5),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    borderRadius: BorderRadius.circular(8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected
+                        ? scheme.onSurface
+                        : scheme.onSurface.withValues(alpha: 0.38),
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                   ),
-                  child: Text(
-                    '$count',
-                    style: const TextStyle(
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 9,
-                        fontWeight: FontWeight.bold),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   void _showGererSheet(
-      BuildContext context, List<Download> entries, WidgetRef ref) {
+    BuildContext context,
+    List<Download> entries,
+    WidgetRef ref,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -731,9 +764,13 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                 controller: scrollCtrl,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
-
                   // ── Actions rapides ──────────────────────────────────────
-                  _SheetSection(label: 'Actions rapides', scheme: scheme, icon: Icons.bolt_rounded, helpText: 'Agir sur toute la file d\'attente'),
+                  _SheetSection(
+                    label: 'Actions rapides',
+                    scheme: scheme,
+                    icon: Icons.bolt_rounded,
+                    helpText: 'Agir sur toute la file d\'attente',
+                  ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
@@ -743,7 +780,9 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         color: scheme.primary,
                         onTap: () {
                           Navigator.pop(context);
-                          widget.parentRef.read(downloadQueueStateProvider.notifier).resumeAll();
+                          widget.parentRef
+                              .read(downloadQueueStateProvider.notifier)
+                              .resumeAll();
                           widget.parentRef.read(processDownloadsProvider());
                         },
                       ),
@@ -755,7 +794,9 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         onTap: () {
                           Navigator.pop(context);
                           final ids = entries.map((e) => e.id ?? -1).toList();
-                          widget.parentRef.read(downloadQueueStateProvider.notifier).pauseAll(ids);
+                          widget.parentRef
+                              .read(downloadQueueStateProvider.notifier)
+                              .pauseAll(ids);
                         },
                       ),
                       const SizedBox(width: 8),
@@ -766,7 +807,8 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         onTap: () {
                           Navigator.pop(context);
                           for (final e in entries) {
-                            if (e.id != null) ActiveDownloadRegistry.cancel(e.id!);
+                            if (e.id != null)
+                              ActiveDownloadRegistry.cancel(e.id!);
                           }
                         },
                       ),
@@ -778,9 +820,16 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         onTap: () {
                           Navigator.pop(context);
                           for (final e in entries) {
-                            if ((e.failed ?? 0) > 0 && e.chapter.value != null) {
-                              widget.parentRef.read(downloadQueueStateProvider.notifier).incrementRetry(e.id ?? -1);
-                              widget.parentRef.read(downloadChapterProvider(chapter: e.chapter.value!));
+                            if ((e.failed ?? 0) > 0 &&
+                                e.chapter.value != null) {
+                              widget.parentRef
+                                  .read(downloadQueueStateProvider.notifier)
+                                  .incrementRetry(e.id ?? -1);
+                              widget.parentRef.read(
+                                downloadChapterProvider(
+                                  chapter: e.chapter.value!,
+                                ),
+                              );
                             }
                           }
                         },
@@ -791,7 +840,13 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 20),
 
                   // ── Simultanés par type ──────────────────────────────────
-                  _SheetSection(label: 'Simultanés', scheme: scheme, icon: Icons.download_for_offline_outlined, helpText: 'Nombre de téléchargements parallèles par type et par source'),
+                  _SheetSection(
+                    label: 'Simultanés',
+                    scheme: scheme,
+                    icon: Icons.download_for_offline_outlined,
+                    helpText:
+                        'Nombre de téléchargements parallèles par type et par source',
+                  ),
                   const SizedBox(height: 10),
 
                   _SimultaneousRow(
@@ -802,8 +857,12 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     perSource: watchPerSrc,
                     maxTotal: 20,
                     maxPerSource: 10,
-                    onTotalChanged: (v) => ref.read(watchSimultaneousStateProvider.notifier).set(v),
-                    onPerSourceChanged: (v) => ref.read(watchSimultaneousPerSourceStateProvider.notifier).set(v),
+                    onTotalChanged: (v) => ref
+                        .read(watchSimultaneousStateProvider.notifier)
+                        .set(v),
+                    onPerSourceChanged: (v) => ref
+                        .read(watchSimultaneousPerSourceStateProvider.notifier)
+                        .set(v),
                     scheme: scheme,
                   ),
                   const SizedBox(height: 8),
@@ -815,8 +874,12 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     perSource: mangaPerSrc,
                     maxTotal: 20,
                     maxPerSource: 10,
-                    onTotalChanged: (v) => ref.read(mangaSimultaneousStateProvider.notifier).set(v),
-                    onPerSourceChanged: (v) => ref.read(mangaSimultaneousPerSourceStateProvider.notifier).set(v),
+                    onTotalChanged: (v) => ref
+                        .read(mangaSimultaneousStateProvider.notifier)
+                        .set(v),
+                    onPerSourceChanged: (v) => ref
+                        .read(mangaSimultaneousPerSourceStateProvider.notifier)
+                        .set(v),
                     scheme: scheme,
                   ),
                   const SizedBox(height: 8),
@@ -828,15 +891,24 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     perSource: novelPerSrc,
                     maxTotal: 20,
                     maxPerSource: 10,
-                    onTotalChanged: (v) => ref.read(novelSimultaneousStateProvider.notifier).set(v),
-                    onPerSourceChanged: (v) => ref.read(novelSimultaneousPerSourceStateProvider.notifier).set(v),
+                    onTotalChanged: (v) => ref
+                        .read(novelSimultaneousStateProvider.notifier)
+                        .set(v),
+                    onPerSourceChanged: (v) => ref
+                        .read(novelSimultaneousPerSourceStateProvider.notifier)
+                        .set(v),
                     scheme: scheme,
                   ),
 
                   const SizedBox(height: 20),
 
                   // ── Disposition des cartes ───────────────────────────────
-                  _SheetSection(label: 'Disposition', scheme: scheme, icon: Icons.view_list_outlined, helpText: 'Densité d\'affichage des éléments de la file'),
+                  _SheetSection(
+                    label: 'Disposition',
+                    scheme: scheme,
+                    icon: Icons.view_list_outlined,
+                    helpText: 'Densité d\'affichage des éléments de la file',
+                  ),
                   const SizedBox(height: 10),
                   // 5 layout modes — use a responsive 3-column grid
                   LayoutBuilder(
@@ -851,11 +923,15 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                             width: itemWidth,
                             child: GestureDetector(
                               onTap: () => ref
-                                  .read(downloadCardLayoutStateProvider.notifier)
+                                  .read(
+                                    downloadCardLayoutStateProvider.notifier,
+                                  )
                                   .set(l),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 180),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 decoration: BoxDecoration(
                                   color: selected
                                       ? scheme.primary.withValues(alpha: 0.15)
@@ -910,7 +986,8 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     label: 'Arrière-plan',
                     subtitle: 'Continuer même app fermée',
                     scheme: scheme,
-                    onTap: () => botToast('Téléchargement en arrière-plan activé'),
+                    onTap: () =>
+                        botToast('Téléchargement en arrière-plan activé'),
                   ),
                   _OptionTile(
                     icon: Icons.delete_sweep_outlined,
@@ -921,11 +998,11 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                     onTap: () {
                       Navigator.pop(context);
                       isar.writeTxnSync(() {
-                          final completed = isar.downloads
-                              .where()
-                              .findAllSync()
-                              .where((download) => download.isDownload == true)
-                              .toList();
+                        final completed = isar.downloads
+                            .where()
+                            .findAllSync()
+                            .where((download) => download.isDownload == true)
+                            .toList();
                         for (final d in completed) {
                           if (d.id != null) isar.downloads.deleteSync(d.id!);
                         }
@@ -980,7 +1057,11 @@ class _SheetSection extends StatelessWidget {
           Tooltip(
             message: helpText!,
             triggerMode: TooltipTriggerMode.tap,
-            child: Icon(Icons.help_outline_rounded, size: 13, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+            child: Icon(
+              Icons.help_outline_rounded,
+              size: 13,
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
           ),
         ],
       ],
@@ -1112,51 +1193,88 @@ class _SimultaneousRow extends StatelessWidget {
 }
 
 class _CounterField extends StatelessWidget {
-    final String label;
-    final int value;
-    final int min;
-    final int max;
-    final ValueChanged<int> onChanged;
-    final ColorScheme scheme;
-    final Color accentColor;
-    final bool compact;
+  final String label;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+  final ColorScheme scheme;
+  final Color accentColor;
+  final bool compact;
 
-    const _CounterField({
-      required this.label,
-      required this.value,
-      required this.min,
-      required this.max,
-      required this.onChanged,
-      required this.scheme,
-      required this.accentColor,
-      this.compact = false,
-    });
+  const _CounterField({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    required this.scheme,
+    required this.accentColor,
+    this.compact = false,
+  });
 
-    @override
-    Widget build(BuildContext context) {
-      if (compact) {
-        // Compact inline layout: label + [-] value [+]
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      // Compact inline layout: label + [-] value [+]
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(width: 4),
+          _CircleBtn(
+            icon: Icons.remove,
+            enabled: value > min,
+            color: accentColor,
+            onTap: value > min ? () => onChanged(value - 1) : null,
+          ),
+          SizedBox(
+            width: 22,
+            child: Center(
+              child: Text(
+                '$value',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurface,
+                ),
+              ),
             ),
-            const SizedBox(width: 4),
+          ),
+          _CircleBtn(
+            icon: Icons.add,
+            enabled: value < max,
+            color: accentColor,
+            onTap: value < max ? () => onChanged(value + 1) : null,
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
             _CircleBtn(
               icon: Icons.remove,
               enabled: value > min,
               color: accentColor,
               onTap: value > min ? () => onChanged(value - 1) : null,
             ),
-            SizedBox(
-              width: 22,
+            Expanded(
               child: Center(
                 child: Text(
                   '$value',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: scheme.onSurface,
                   ),
@@ -1170,48 +1288,11 @@ class _CounterField extends StatelessWidget {
               onTap: value < max ? () => onChanged(value + 1) : null,
             ),
           ],
-        );
-      }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              _CircleBtn(
-                icon: Icons.remove,
-                enabled: value > min,
-                color: accentColor,
-                onTap: value > min ? () => onChanged(value - 1) : null,
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '$value',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                ),
-              ),
-              _CircleBtn(
-                icon: Icons.add,
-                enabled: value < max,
-                color: accentColor,
-                onTap: value < max ? () => onChanged(value + 1) : null,
-              ),
-            ],
-          ),
-        ],
-      );
-    }
+        ),
+      ],
+    );
   }
+}
 
 class _CircleBtn extends StatelessWidget {
   final IconData icon;
@@ -1234,9 +1315,7 @@ class _CircleBtn extends StatelessWidget {
         height: 30,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: enabled
-              ? color.withValues(alpha: 0.15)
-              : Colors.transparent,
+          color: enabled ? color.withValues(alpha: 0.15) : Colors.transparent,
           border: Border.all(
             color: enabled
                 ? color.withValues(alpha: 0.5)
@@ -1247,7 +1326,11 @@ class _CircleBtn extends StatelessWidget {
         child: Icon(
           icon,
           size: 16,
-          color: enabled ? color : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+          color: enabled
+              ? color
+              : Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
         ),
       ),
     );
@@ -1281,7 +1364,11 @@ class _OptionTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: color.withValues(alpha: isDestructive ? 1 : 0.7)),
+            Icon(
+              icon,
+              size: 20,
+              color: color.withValues(alpha: isDestructive ? 1 : 0.7),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1305,7 +1392,11 @@ class _OptionTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, size: 18, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
           ],
         ),
       ),
@@ -1451,8 +1542,7 @@ class _GroupedDownloadTabListState
         final chapter = download.chapter.value;
         final manga = chapter?.manga.value;
         final mangaId = manga?.id ?? chapter?.mangaId;
-        final itemId =
-            download.id ?? chapter?.id ?? identityHashCode(download);
+        final itemId = download.id ?? chapter?.id ?? identityHashCode(download);
         return mangaId != null ? 'manga:$mangaId' : 'chapter:$itemId';
       },
       isComplete: (download) => download.isDownload == true,
@@ -1463,26 +1553,28 @@ class _GroupedDownloadTabListState
     final firstDownload = items.first;
     final manga = firstDownload.chapter.value?.manga.value;
     final itemType = manga?.itemType ?? ItemType.manga;
-    final title = manga?.name ??
+    final title =
+        manga?.name ??
         firstDownload.title ??
         firstDownload.chapter.value?.name ??
         'Téléchargement';
     final seriesProgress = items.isEmpty
         ? 0.0
         : items.fold<double>(0, (sum, download) {
-              final total = download.total ?? 0;
-              if (total <= 0) return sum;
-              final completed = (download.succeeded ?? 0).clamp(0, total);
-              return sum + (completed / total).clamp(0.0, 1.0);
-            }) /
-            items.length;
+                final total = download.total ?? 0;
+                if (total <= 0) return sum;
+                final completed = (download.succeeded ?? 0).clamp(0, total);
+                return sum + (completed / total).clamp(0.0, 1.0);
+              }) /
+              items.length;
     final seriesPercent = (seriesProgress * 100).round();
     final isCollapsed = _collapsedSeries.contains(key);
     final scheme = Theme.of(context).colorScheme;
     final unfinishedItems = items
         .where((download) => download.isDownload != true)
         .toList();
-    final allUnfinishedPaused = unfinishedItems.isNotEmpty &&
+    final allUnfinishedPaused =
+        unfinishedItems.isNotEmpty &&
         unfinishedItems.every((download) {
           final id = download.id ?? -1;
           return widget.queueState.pausedIds.contains(id) ||
@@ -1518,7 +1610,8 @@ class _GroupedDownloadTabListState
               final shouldResume = allUnfinishedPaused;
               for (final download in unfinishedItems) {
                 final id = download.id ?? -1;
-                final isPaused = widget.queueState.pausedIds.contains(id) ||
+                final isPaused =
+                    widget.queueState.pausedIds.contains(id) ||
                     download.status == 'paused';
                 if (shouldResume || !isPaused) {
                   widget.onPauseResume(download);
@@ -1592,7 +1685,7 @@ class _GroupedDownloadTabListState
                                   const SizedBox(height: 5),
                                   Text(
                                     '$seriesPercent% · ${items.length} '
-                                    'chapitres actifs',
+                                    'chapitres non terminés',
                                     style: TextStyle(
                                       color: scheme.onSurfaceVariant,
                                       fontSize: 10,
@@ -1694,23 +1787,23 @@ class _GroupedDownloadTabListState
     );
   }
 
-  Widget _buildDismissible(
-    Download element, {
-    bool isSeriesChild = false,
-  }) {
+  Widget _buildDismissible(Download element, {bool isSeriesChild = false}) {
     final isPaused = widget.queueState.pausedIds.contains(element.id ?? -1);
     final itemType = element.chapter.value?.manga.value?.itemType;
     final defaultBadge = itemType == ItemType.manga
         ? 'ATLAS'
         : itemType == ItemType.novel
-            ? 'HERMES'
-            : 'HYDRA';
-    final engine = widget.queueState.engineMap[element.id ?? -1] ?? defaultBadge;
+        ? 'HERMES'
+        : 'HYDRA';
+    final engine =
+        widget.queueState.engineMap[element.id ?? -1] ?? defaultBadge;
     final retryCount = widget.queueState.retryCounts[element.id ?? -1] ?? 0;
     // ── Speed Master ──
     final priority = widget.queueState.priorities[element.id ?? -1] ?? 0;
-    final speedMbs =
-        (widget.queueState.speeds[element.id ?? -1] ?? 0.0).clamp(0.0, 9999.0);
+    final speedMbs = (widget.queueState.speeds[element.id ?? -1] ?? 0.0).clamp(
+      0.0,
+      9999.0,
+    );
     final liveProgress = widget.queueState.liveProgress[element.id ?? -1];
 
     return Dismissible(
@@ -1779,9 +1872,7 @@ class _GroupedDownloadTabListState
           ref
               .read(downloadQueueStateProvider.notifier)
               .setPriority(element.id ?? -1, newPrio);
-          botToast(newPrio > 0
-              ? 'Priorité haute activée'
-              : 'Priorité normale');
+          botToast(newPrio > 0 ? 'Priorité haute activée' : 'Priorité normale');
         },
         child: _DownloadCard(
           download: element,
@@ -1791,7 +1882,7 @@ class _GroupedDownloadTabListState
           retryCount: retryCount,
           priority: priority,
           speedMbs: speedMbs,
-           liveProgress: liveProgress,
+          liveProgress: liveProgress,
           swipeLeftAction: widget.swipeLeft,
           swipeRightAction: widget.swipeRight,
           onPauseResume: () => widget.onPauseResume(element),
@@ -1816,10 +1907,9 @@ class _GroupedDownloadTabListState
             Icon(
               widget.emptyIcon,
               size: 60,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.12),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.12),
             ),
             const SizedBox(height: 14),
             Text(
@@ -1868,9 +1958,8 @@ class _GroupedDownloadTabListState
         final seriesGroups = _groupBySeries(items);
         final visibleSeriesGroups = seriesGroups.entries
             .where(
-              (entry) => entry.value.any(
-                (download) => download.isDownload != true,
-              ),
+              (entry) =>
+                  entry.value.any((download) => download.isDownload != true),
             )
             .toList(growable: false);
         final isCollapsed = _collapsed.contains(src);
@@ -1882,13 +1971,12 @@ class _GroupedDownloadTabListState
                 sourceManga.lang ?? '',
                 src,
                 sourceManga.sourceId,
-              )?.iconUrl
-                ?.trim();
+              )?.iconUrl?.trim();
         final sourceFallbackIcon = itemType == ItemType.anime
             ? Icons.play_circle_outline
             : itemType == ItemType.novel
-                ? Icons.auto_stories_outlined
-                : Icons.menu_book_outlined;
+            ? Icons.auto_stories_outlined
+            : Icons.menu_book_outlined;
 
         return KeyedSubtree(
           key: ValueKey('src_$src'),
@@ -1915,8 +2003,9 @@ class _GroupedDownloadTabListState
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color:
-                            scheme.surfaceContainerHigh.withValues(alpha: 0.55),
+                        color: scheme.surfaceContainerHigh.withValues(
+                          alpha: 0.55,
+                        ),
                         border: Border(
                           bottom: BorderSide(
                             color: scheme.outlineVariant.withValues(alpha: 0.5),
@@ -2012,14 +2101,12 @@ class _GroupedDownloadTabListState
                 firstChild: const SizedBox.shrink(),
                 secondChild: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: visibleSeriesGroups
-                      .map((entry) {
-                        if (entry.value.length == 1) {
-                          return _buildDismissible(entry.value.single);
-                        }
-                        return _buildSeriesGroup(entry.key, entry.value);
-                      })
-                      .toList(),
+                  children: visibleSeriesGroups.map((entry) {
+                    if (entry.value.length == 1) {
+                      return _buildDismissible(entry.value.single);
+                    }
+                    return _buildSeriesGroup(entry.key, entry.value);
+                  }).toList(),
                 ),
               ),
             ],
@@ -2109,7 +2196,8 @@ class _DownloadCard extends ConsumerWidget {
     final isComplete = download.isDownload ?? false;
     final hasFailed = failed > 0 && !isComplete;
     final isPaused = this.isPaused;
-    final invalidVideoCounters = itemType == ItemType.anime &&
+    final invalidVideoCounters =
+        itemType == ItemType.anime &&
         (storedSucceeded < 0 ||
             storedTotal < 0 ||
             storedSucceeded > maxTrustedDownloadBytes ~/ 1024 ||
@@ -2127,26 +2215,27 @@ class _DownloadCard extends ConsumerWidget {
         : storedTotal;
 
     final live = liveProgress;
-    final liveDownloadedBytes =
-        live != null ? live.downloadedBytes : download.downloadedBytes;
-    final liveTotalBytes =
-        live != null ? live.totalBytes : download.totalBytes;
+    final liveDownloadedBytes = live != null
+        ? live.downloadedBytes
+        : download.downloadedBytes;
+    final liveTotalBytes = live != null ? live.totalBytes : download.totalBytes;
     // Byte counters are only meaningful for video transfers. Older/corrupt
     // Isar rows could otherwise show the same impossible multi-petabyte size
     // on manga pages and episodes.
     final exactDownloadedBytes = itemType == ItemType.anime
         ? trustedDownloadByteCount(liveDownloadedBytes, allowZero: true) ??
-            (live == null && succeeded > 500
-                ? trustedDownloadBytesFromKilobytes(succeeded)
-                : null)
+              (live == null && succeeded > 500
+                  ? trustedDownloadBytesFromKilobytes(succeeded)
+                  : null)
         : null;
     final exactTotalBytes = itemType == ItemType.anime
         ? live?.isIndeterminate == true
-            ? null
-            : trustedDownloadByteCount(liveTotalBytes)
+              ? null
+              : trustedDownloadByteCount(liveTotalBytes)
         : null;
     final hasObservedBytes = (exactDownloadedBytes ?? 0) > 0;
-    final isIndeterminateTransfer = !isComplete &&
+    final isIndeterminateTransfer =
+        !isComplete &&
         !hasFailed &&
         !isPaused &&
         ((live?.isIndeterminate ?? false) ||
@@ -2158,25 +2247,27 @@ class _DownloadCard extends ConsumerWidget {
     final progress = exactTotalBytes != null && exactTotalBytes > 0
         ? (exactDownloadedBytes ?? 0) / exactTotalBytes
         : live != null
-            ? !live.isIndeterminate && live.totalUnits > 0
-                ? (live.completedUnits / live.totalUnits)
+        ? !live.isIndeterminate && live.totalUnits > 0
+              ? (live.completedUnits / live.totalUnits)
                     .clamp(0.0, 1.0)
                     .toDouble()
-                : 0.0
+              : 0.0
         : total > 0
-            ? (succeeded / total).clamp(0.0, 1.0).toDouble()
-            : 0.0;
+        ? (succeeded / total).clamp(0.0, 1.0).toDouble()
+        : 0.0;
 
     final scheme = Theme.of(context).colorScheme;
 
     // Show metadata retrieval only after the scheduler dispatches the item.
     // A newly queued sentinel (0/1) can wait behind capacity or Wi-Fi gates.
-    final isRetrievingMetadata = !isComplete &&
+    final isRetrievingMetadata =
+        !isComplete &&
         !hasFailed &&
         !isPaused &&
         !hasObservedBytes &&
         download.status == 'fetching_metadata';
-    final isPreparingDownload = !isComplete &&
+    final isPreparingDownload =
+        !isComplete &&
         !hasFailed &&
         !isPaused &&
         !hasObservedBytes &&
@@ -2198,7 +2289,8 @@ class _DownloadCard extends ConsumerWidget {
     // During an active download show only the measured speed on the right.
     // The byte counter/progress belongs on the left; repeating "En cours…"
     // wastes the narrow space and was the source of the cramped screenshot.
-    final speedLabel = !isComplete && !hasFailed && !isPaused && speedMbs >= 0.05
+    final speedLabel =
+        !isComplete && !hasFailed && !isPaused && speedMbs >= 0.05
         ? '${speedMbs >= 10 ? speedMbs.toStringAsFixed(0) : speedMbs.toStringAsFixed(1)} MB/s'
         : '';
     final String statusText;
@@ -2221,43 +2313,75 @@ class _DownloadCard extends ConsumerWidget {
     } else {
       statusText = progress > 0
           ? speedLabel.isNotEmpty
-              ? speedLabel
-              : 'Téléchargement en cours…'
+                ? speedLabel
+                : 'Téléchargement en cours…'
           : 'En attente';
     }
     final Color statusColor = isComplete
         ? scheme.primary
         : hasFailed
-            ? Colors.redAccent
-            : isPaused
-                ? Colors.orange
-                : scheme.onSurface.withValues(alpha: 0.54);
+        ? Colors.redAccent
+        : isPaused
+        ? Colors.orange
+        : scheme.onSurface.withValues(alpha: 0.54);
 
     final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
-    final byteDetails = itemType == ItemType.anime &&
+    final byteDetails =
+        itemType == ItemType.anime &&
             (hasObservedBytes || exactTotalBytes != null)
         ? '${_formatBytes(exactDownloadedBytes ?? 0)} / '
               '${exactTotalBytes == null ? 'N/A' : _formatBytes(exactTotalBytes)}'
         : '';
-    final epMatch = RegExp(r'S\s?\d{1,3}\s?[ExXÉ]\s?\d{1,3}', caseSensitive: false).firstMatch(chapter?.name ?? '');
+    final epMatch = RegExp(
+      r'S\s?\d{1,3}\s?[ExXÉ]\s?\d{1,3}',
+      caseSensitive: false,
+    ).firstMatch(chapter?.name ?? '');
     final epTag = epMatch?.group(0)?.replaceAll(RegExp(r'\s'), '');
-    var srcBadge = (manga?.source ?? '').replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+    var srcBadge = (manga?.source ?? '')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .toUpperCase();
     if (srcBadge.length > 10) srcBadge = srcBadge.substring(0, 10);
 
     // Progress bar — no TweenAnimationBuilder so progress never "resets to 0"
     // on each Isar stream rebuild (the regression bug). Direct value is correct.
-    final progressBar = !isComplete &&
-            (progress > 0 || isProgressIndeterminate)
-        ? MbGradientProgressBar(
-            value: isProgressIndeterminate ? null : progress,
-            height: layout == DownloadCardLayout.minimal
-                ? 2
-                : layout == DownloadCardLayout.compact
+    final imageTransferBytes = itemType == ItemType.manga
+        ? live?.downloadedBytes
+        : null;
+    final imageTransferTotal = itemType == ItemType.manga
+        ? live?.totalBytes
+        : null;
+    final progressBar = !isComplete && (progress > 0 || isProgressIndeterminate)
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MbGradientProgressBar(
+                value: isProgressIndeterminate ? null : progress,
+                height: layout == DownloadCardLayout.minimal
+                    ? 2
+                    : layout == DownloadCardLayout.compact
                     ? 4
                     : 6,
-            paused: isPaused,
-            failed: hasFailed,
+                paused: isPaused,
+                failed: hasFailed,
+              ),
+              if (imageTransferBytes != null && !isPaused && !hasFailed) ...[
+                const SizedBox(height: 3),
+                SizedBox(
+                  height: 2,
+                  child: LinearProgressIndicator(
+                    value: imageTransferTotal != null && imageTransferTotal > 0
+                        ? (imageTransferBytes / imageTransferTotal)
+                              .clamp(0.0, 1.0)
+                              .toDouble()
+                        : null,
+                    backgroundColor: scheme.surfaceContainerHighest,
+                    valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
+                  ),
+                ),
+              ],
+            ],
           )
         : null;
 
@@ -2265,26 +2389,29 @@ class _DownloadCard extends ConsumerWidget {
       onTap: hasFailed
           ? onRetry
           : isPaused
-              ? onPauseResume
-              : isComplete
-                  ? onOpen
-                  : onPauseResume,
+          ? onPauseResume
+          : isComplete
+          ? onOpen
+          : onPauseResume,
       child: Container(
         width: 28,
         height: 28,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: actionColor.withValues(alpha: 0.15),
-          border: Border.all(color: actionColor.withValues(alpha: 0.5), width: 1),
+          border: Border.all(
+            color: actionColor.withValues(alpha: 0.5),
+            width: 1,
+          ),
         ),
         child: Icon(
           isComplete
               ? Icons.folder_open_outlined
               : hasFailed
-                  ? Icons.replay
-                  : isPaused
-                      ? Icons.play_arrow_rounded
-                      : Icons.download_rounded,
+              ? Icons.replay
+              : isPaused
+              ? Icons.play_arrow_rounded
+              : Icons.download_rounded,
           color: actionColor,
           size: 16,
         ),
@@ -2296,9 +2423,15 @@ class _DownloadCard extends ConsumerWidget {
       final childTitle = chapterLabel == null || chapterLabel.isEmpty
           ? 'Chapitre'
           : chapterLabel;
+      final imageBytesText = imageTransferBytes == null
+          ? ''
+          : imageTransferTotal != null && imageTransferTotal > 0
+          ? ' · image en cours ${_formatBytes(imageTransferBytes)} / '
+                '${_formatBytes(imageTransferTotal)}'
+          : ' · image en cours ${_formatBytes(imageTransferBytes)}';
       final childDetails = itemType == ItemType.manga && total > 1
-          ? '$succeeded/$total pages · $statusText'
-          : statusText;
+          ? '$succeeded/$total pages · $statusText$imageBytesText'
+          : '$statusText$imageBytesText';
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
@@ -2433,18 +2566,18 @@ class _DownloadCard extends ConsumerWidget {
                   onTap: hasFailed
                       ? onRetry
                       : isPaused
-                          ? onPauseResume
-                          : isComplete
-                              ? onOpen
-                              : onPauseResume,
+                      ? onPauseResume
+                      : isComplete
+                      ? onOpen
+                      : onPauseResume,
                   child: Icon(
                     isComplete
                         ? Icons.folder_open_outlined
                         : hasFailed
-                            ? Icons.replay
-                            : isPaused
-                                ? Icons.play_arrow_rounded
-                                : Icons.download_rounded,
+                        ? Icons.replay
+                        : isPaused
+                        ? Icons.play_arrow_rounded
+                        : Icons.download_rounded,
                     color: actionColor,
                     size: 14,
                   ),
@@ -2466,8 +2599,8 @@ class _DownloadCard extends ConsumerWidget {
                       hasFailed
                           ? Colors.redAccent
                           : isPaused
-                              ? Colors.orange
-                              : scheme.primary,
+                          ? Colors.orange
+                          : scheme.primary,
                     ),
                   ),
                 ),
@@ -2504,7 +2637,10 @@ class _DownloadCard extends ConsumerWidget {
                       ),
                       Text(
                         chapter?.name ?? '',
-                        style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2635,8 +2771,9 @@ class _DownloadCard extends ConsumerWidget {
                                 failed,
                               ),
                               style: TextStyle(
-                                color: scheme.onSurfaceVariant
-                                    .withValues(alpha: 0.7),
+                                color: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
                                 fontSize: 10,
                               ),
                             ),
@@ -2702,7 +2839,10 @@ class _DownloadCard extends ConsumerWidget {
                   const SizedBox(height: 2),
                   Text(
                     chapter?.name ?? '',
-                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2710,7 +2850,10 @@ class _DownloadCard extends ConsumerWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: scheme.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
@@ -2743,8 +2886,16 @@ class _DownloadCard extends ConsumerWidget {
                   Text(
                     isComplete
                         ? 'Téléchargement terminé'
-                        : _buildProgressLabel(itemType, succeeded, total, failed),
-                    style: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: 0.7), fontSize: 11),
+                        : _buildProgressLabel(
+                            itemType,
+                            succeeded,
+                            total,
+                            failed,
+                          ),
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      fontSize: 11,
+                    ),
                   ),
                   if (progressBar != null) ...[
                     const SizedBox(height: 6),
@@ -2815,8 +2966,8 @@ class _DownloadCard extends ConsumerWidget {
                   value: isProgressIndeterminate
                       ? null
                       : progress > 0
-                          ? progress
-                          : 0,
+                      ? progress
+                      : 0,
                   height: 6,
                   paused: isPaused,
                   failed: hasFailed,
@@ -2829,16 +2980,15 @@ class _DownloadCard extends ConsumerWidget {
                         byteDetails.isNotEmpty
                             ? byteDetails
                             : isComplete
-                                ? 'Terminé'
-                                : isRetrievingMetadata ||
-                                      isPreparingDownload
-                                ? ''
-                                : _buildProgressLabel(
-                                    itemType,
-                                    succeeded,
-                                    total,
-                                    failed,
-                                  ),
+                            ? 'Terminé'
+                            : isRetrievingMetadata || isPreparingDownload
+                            ? ''
+                            : _buildProgressLabel(
+                                itemType,
+                                succeeded,
+                                total,
+                                failed,
+                              ),
                         style: TextStyle(
                           color: scheme.onSurfaceVariant,
                           fontSize: 11,
@@ -2851,23 +3001,23 @@ class _DownloadCard extends ConsumerWidget {
                         hasFailed
                             ? 'Échec'
                             : isPaused
-                                ? 'En pause'
-                                : isRetrievingMetadata
-                                    ? 'Récupération des métadonnées…'
-                                    : isPreparingDownload
-                                        ? 'Préparation du téléchargement…'
-                                        : statusText,
+                            ? 'En pause'
+                            : isRetrievingMetadata
+                            ? 'Récupération des métadonnées…'
+                            : isPreparingDownload
+                            ? 'Préparation du téléchargement…'
+                            : statusText,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: hasFailed
                               ? mbRed
                               : isPaused
-                                  ? mbAmber
-                                  : itemType == ItemType.anime &&
-                                        speedLabel.isNotEmpty
-                                  ? mbAmber
-                                  : scheme.onSurfaceVariant,
+                              ? mbAmber
+                              : itemType == ItemType.anime &&
+                                    speedLabel.isNotEmpty
+                              ? mbAmber
+                              : scheme.onSurfaceVariant,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
@@ -2894,9 +3044,23 @@ class _DownloadCard extends ConsumerWidget {
     );
   }
 
-  String _buildProgressLabel(ItemType itemType, int succeeded, int total, int failed) {
+  String _buildProgressLabel(
+    ItemType itemType,
+    int succeeded,
+    int total,
+    int failed,
+  ) {
     switch (itemType) {
       case ItemType.manga:
+        if (liveProgress?.downloadedBytes != null) {
+          final downloaded = liveProgress!.downloadedBytes!;
+          final knownTotal = liveProgress!.totalBytes;
+          final bytesText = knownTotal != null && knownTotal > 0
+              ? '${_formatBytes(downloaded)} / ${_formatBytes(knownTotal)}'
+              : _formatBytes(downloaded);
+          final pageText = total > 1 ? '$succeeded / $total images · ' : '';
+          return '${pageText}image en cours · $bytesText';
+        }
         // Always show "X / Y images" — total is now the real page count,
         // never the synthetic 100 from the old code.
         if (total > 1) {
@@ -2922,11 +3086,10 @@ class _DownloadCard extends ConsumerWidget {
           }
           if (liveProgress!.totalUnits > 1 &&
               liveProgress!.completedUnits > 0) {
-            final percent = (liveProgress!.completedUnits /
-                    liveProgress!.totalUnits *
-                    100)
-                .round()
-                .clamp(0, 100);
+            final percent =
+                (liveProgress!.completedUnits / liveProgress!.totalUnits * 100)
+                    .round()
+                    .clamp(0, 100);
             return '$percent%';
           }
           return 'Préparation du flux…';
@@ -2984,7 +3147,6 @@ class _DownloadCard extends ConsumerWidget {
     }
     return '$bytes B';
   }
-
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -3022,8 +3184,8 @@ class _CoverThumbnail extends StatelessWidget {
         itemType == ItemType.anime
             ? Icons.play_circle_outline
             : itemType == ItemType.novel
-                ? Icons.auto_stories_outlined
-                : Icons.menu_book_outlined,
+            ? Icons.auto_stories_outlined
+            : Icons.menu_book_outlined,
         color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
         size: 22,
       ),
@@ -3125,9 +3287,7 @@ class _EngineBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = engine == 'ARES'
-        ? Colors.teal
-        : scheme.primary;
+    final color = engine == 'ARES' ? Colors.teal : scheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -3139,9 +3299,7 @@ class _EngineBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: engine == 'ARES'
-              ? Colors.teal.shade300
-              : scheme.primary,
+          color: engine == 'ARES' ? Colors.teal.shade300 : scheme.primary,
         ),
       ),
     );
@@ -3274,7 +3432,7 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
   // Width of a single action button
   static const double _btnW = 72.0;
   // Total width revealed for each side
-  static const double _leftMax = _btnW * 2;  // pause + cancel
+  static const double _leftMax = _btnW * 2; // pause + cancel
   static const double _rightMax = _btnW * 2; // open + delete
   // Drag distance needed to snap open
   static const double _snapThreshold = 48.0;
@@ -3288,9 +3446,10 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
       vsync: this,
       duration: const Duration(milliseconds: 220),
     );
-    _slide = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
-    );
+    _slide = Tween<double>(
+      begin: 0,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -3326,9 +3485,10 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
         : 0.0;
 
     final from = _slide.value;
-    _slide = Tween<double>(begin: from, end: snapTo).animate(
-      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
-    );
+    _slide = Tween<double>(
+      begin: from,
+      end: snapTo,
+    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
     _anim.forward(from: 0).then((_) {
       if (snapTo == 0) _direction = 0;
     });
@@ -3336,9 +3496,10 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
 
   void _close() {
     final from = _slide.value;
-    _slide = Tween<double>(begin: from, end: 0).animate(
-      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
-    );
+    _slide = Tween<double>(
+      begin: from,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
     _anim.forward(from: 0).then((_) => _direction = 0);
   }
 
@@ -3501,16 +3662,16 @@ class _PauseResumeAllFab extends ConsumerWidget {
   final List<Download> entries;
   final DownloadQueueStateData queueState;
 
-  const _PauseResumeAllFab({
-    required this.entries,
-    required this.queueState,
-  });
+  const _PauseResumeAllFab({required this.entries, required this.queueState});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeIds =
-        entries.map((e) => e.id ?? -1).where((id) => id != -1).toList();
-    final allPaused = activeIds.isNotEmpty &&
+    final activeIds = entries
+        .map((e) => e.id ?? -1)
+        .where((id) => id != -1)
+        .toList();
+    final allPaused =
+        activeIds.isNotEmpty &&
         activeIds.every((id) => queueState.pausedIds.contains(id));
     final anyActive = activeIds.any((id) => !queueState.pausedIds.contains(id));
 
@@ -3531,9 +3692,7 @@ class _PauseResumeAllFab extends ConsumerWidget {
       return FloatingActionButton(
         tooltip: 'Tout mettre en pause',
         onPressed: () {
-          ref
-              .read(downloadQueueStateProvider.notifier)
-              .pauseAll(activeIds);
+          ref.read(downloadQueueStateProvider.notifier).pauseAll(activeIds);
         },
         backgroundColor: Colors.orange.shade700,
         foregroundColor: Colors.white,

@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/main.dart';
@@ -98,10 +99,7 @@ class DownloadLocationState extends _$DownloadLocationState {
   void set(String location) {
     final settings = safeReadSettings();
     final basePath = _storageProvider?.path;
-    state = (
-      basePath == null ? "" : path.join(basePath, 'download'),
-      location,
-    );
+    state = (basePath == null ? "" : path.join(basePath, 'download'), location);
     isar.writeTxnSync(
       () => isar.settings.putSync(
         settings
@@ -391,8 +389,9 @@ class AllowDeletingBookmarkedChaptersState
 
   Future<void> set(bool v) async {
     state = v;
-    await DownloadSettingsService.instance
-        .setAllowDeletingBookmarkedChapters(v);
+    await DownloadSettingsService.instance.setAllowDeletingBookmarkedChapters(
+      v,
+    );
   }
 }
 
@@ -475,7 +474,8 @@ class NovelSimultaneousState extends _$NovelSimultaneousState {
 // ── Per-source simultaneous downloads ─────────────────────────────────────────
 
 @riverpod
-class WatchSimultaneousPerSourceState extends _$WatchSimultaneousPerSourceState {
+class WatchSimultaneousPerSourceState
+    extends _$WatchSimultaneousPerSourceState {
   @override
   int build() {
     DownloadSettingsService.instance.load();
@@ -489,7 +489,8 @@ class WatchSimultaneousPerSourceState extends _$WatchSimultaneousPerSourceState 
 }
 
 @riverpod
-class MangaSimultaneousPerSourceState extends _$MangaSimultaneousPerSourceState {
+class MangaSimultaneousPerSourceState
+    extends _$MangaSimultaneousPerSourceState {
   @override
   int build() {
     DownloadSettingsService.instance.load();
@@ -503,7 +504,8 @@ class MangaSimultaneousPerSourceState extends _$MangaSimultaneousPerSourceState 
 }
 
 @riverpod
-class NovelSimultaneousPerSourceState extends _$NovelSimultaneousPerSourceState {
+class NovelSimultaneousPerSourceState
+    extends _$NovelSimultaneousPerSourceState {
   @override
   int build() {
     DownloadSettingsService.instance.load();
@@ -755,8 +757,9 @@ class DownloadQueueStateData {
   }
 }
 
-/// Byte/segment progress that is only valid for the current app session.
-/// [totalBytes] is null until the server gives a trustworthy final length.
+/// Transfer progress that is only valid for the current app session.
+/// For images, byte fields describe the image currently being transferred;
+/// completed/total units remain the count of fully saved pages.
 class DownloadLiveProgress {
   final int? downloadedBytes;
   final int? totalBytes;

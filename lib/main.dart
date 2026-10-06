@@ -128,8 +128,7 @@ void _writeCliDiagnostic(String? message, {int? wrapWidth}) {
 }
 
 void main(List<String> args) async {
-  final isCliInvocation =
-      !kIsWeb && args.isNotEmpty && args.first == '--cli';
+  final isCliInvocation = !kIsWeb && args.isNotEmpty && args.first == '--cli';
 
   // Zone-level catch-all for anything that slips through both layers
   runZonedGuarded(
@@ -561,6 +560,10 @@ class _MyAppState extends ConsumerState<MyApp>
   @override
   void initState() {
     super.initState();
+    WatchtowerNotificationService.instance.registerMediaDownloadActionHandler(
+      (chapterId, action) =>
+          handleMediaDownloadNotificationAction(ref, chapterId, action),
+    );
     WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
       windowManager.addListener(this);

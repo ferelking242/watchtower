@@ -371,30 +371,32 @@ class DownloadIsolatePool {
         tag: LogTag.download,
       );
 
-      worker.executeTask(task).then<void>(
-        (_) {
-          _availableWorkers.add(workerIndex); // Worker is free again
-          AppLogger.log(
-            '[ch:${task.taskId}] pool worker=$workerIndex finished '
-            'available=${_availableWorkers.length}',
-            logLevel: LogLevel.info,
-            tag: LogTag.download,
+      worker
+          .executeTask(task)
+          .then<void>(
+            (_) {
+              _availableWorkers.add(workerIndex); // Worker is free again
+              AppLogger.log(
+                '[ch:${task.taskId}] pool worker=$workerIndex finished '
+                'available=${_availableWorkers.length}',
+                logLevel: LogLevel.info,
+                tag: LogTag.download,
+              );
+              _processQueue(); // Process the next task
+            },
+            onError: (Object error, StackTrace stackTrace) {
+              _availableWorkers.add(workerIndex);
+              AppLogger.log(
+                '[ch:${task.taskId}] pool worker=$workerIndex failed while '
+                'running the task',
+                logLevel: LogLevel.warning,
+                tag: LogTag.download,
+                error: error,
+                stackTrace: stackTrace,
+              );
+              _processQueue();
+            },
           );
-          _processQueue(); // Process the next task
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          _availableWorkers.add(workerIndex);
-          AppLogger.log(
-            '[ch:${task.taskId}] pool worker=$workerIndex failed while '
-            'running the task',
-            logLevel: LogLevel.warning,
-            tag: LogTag.download,
-            error: error,
-            stackTrace: stackTrace,
-          );
-          _processQueue();
-        },
-      );
     }
   }
 
@@ -439,9 +441,7 @@ class DownloadPoolInitializationGate {
     return attempt;
   }
 
-  Future<void> _runInitialization(
-    Future<void> Function() createWorkers,
-  ) async {
+  Future<void> _runInitialization(Future<void> Function() createWorkers) async {
     try {
       await createWorkers();
       _initialized = true;
@@ -632,16 +632,17 @@ class _PoolWorker {
         }
       });
 
-      final ports = await Future.wait<SendPort>([
-        taskPortCompleter.future,
-        cancelPortCompleter.future,
-      ]).timeout(
-        const Duration(seconds: 20),
-        onTimeout: () => throw TimeoutException(
-          'Download worker $id did not complete its startup handshake '
-          'within 20 seconds',
-        ),
-      );
+      final ports =
+          await Future.wait<SendPort>([
+            taskPortCompleter.future,
+            cancelPortCompleter.future,
+          ]).timeout(
+            const Duration(seconds: 20),
+            onTimeout: () => throw TimeoutException(
+              'Download worker $id did not complete its startup handshake '
+              'within 20 seconds',
+            ),
+          );
 
       _sendPort = ports[0];
       _cancelPort = ports[1];
@@ -895,6 +896,20 @@ Future<void> _processFileDownload(
                 writeMode: params.writeMode,
                 throttle: throttle,
                 stagingSuffix: '$attemptToken-$i',
+                onImageProgress: params.itemType == ItemType.manga
+                    ? (downloadedBytes, totalBytes) {
+                        replyPort.send(
+                          DownloadProgress(
+                            completed,
+                            total,
+                            params.itemType,
+                            pageUrl: pageUrl,
+                            downloadedBytes: downloadedBytes,
+                            totalBytes: totalBytes,
+                          ),
+                        );
+                      }
+                    : null,
               )
               .then((_) {
                 if (params.itemType != ItemType.anime) {
@@ -994,11 +1009,7 @@ _ParsedContentRange? _parseContentRange(String? value) {
       (total != null && total <= end)) {
     return null;
   }
-  return _ParsedContentRange(
-    start,
-    end,
-    total,
-  );
+  return _ParsedContentRange(start, end, total);
 }
 
 Future<Map<String, dynamic>> _readPartMetadata(File metadataFile) async {
@@ -1091,12 +1102,8 @@ String? imageDownloadResponseError({
     return 'incomplete response body ($actualLength/$declaredLength bytes)';
   }
 
-  final contentType = header('content-type')
-          ?.split(';')
-          .first
-          .trim()
-          .toLowerCase() ??
-      '';
+  final contentType =
+      header('content-type')?.split(';').first.trim().toLowerCase() ?? '';
   if (contentType.startsWith('text/') ||
       contentType.startsWith('application/xhtml+xml') ||
       contentType.startsWith('application/json') ||
@@ -1116,7 +1123,11 @@ String? imageDownloadResponseError({
   if (!isReusableImagePayload(
     length: actualLength,
     prefix: bodyBytes,
-    tail: tailBytes ?? bodyBytes.skip(bodyBytes.length > 32 ? bodyBytes.length - 32 : 0).toList(),
+    tail:
+        tailBytes ??
+        bodyBytes
+            .skip(bodyBytes.length > 32 ? bodyBytes.length - 32 : 0)
+            .toList(),
   )) {
     return 'image payload is incomplete or invalid';
   }
@@ -1128,6 +1139,13 @@ String? imageDownloadResponseError({
 /// It checks common image signatures and their terminal markers without
 /// decoding the whole image. Unknown image formats remain reusable when they
 /// have a plausible size and do not look like an error page.
+@visibleForTesting
+bool isRetryableImageHttpStatus(int statusCode) =>
+    statusCode == 408 ||
+    statusCode == 425 ||
+    statusCode == 429 ||
+    statusCode >= 500;
+
 @visibleForTesting
 bool isReusableImagePayload({
   required int length,
@@ -1176,8 +1194,18 @@ bool isReusableImagePayload({
   if (startsWith(pngSignature)) {
     return length >= 45 &&
         endsWith(const [
-          0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
-          0xae, 0x42, 0x60, 0x82,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x49,
+          0x45,
+          0x4e,
+          0x44,
+          0xae,
+          0x42,
+          0x60,
+          0x82,
         ]);
   }
 
@@ -1203,8 +1231,7 @@ bool isReusableImagePayload({
   }
 
   if (text.startsWith('<?xml') || text.startsWith('<svg')) {
-    final tailText =
-        utf8.decode(tail, allowMalformed: true).toLowerCase();
+    final tailText = utf8.decode(tail, allowMalformed: true).toLowerCase();
     return tailText.contains('</svg>');
   }
 
@@ -1221,11 +1248,7 @@ Future<bool> isReusableDownloadedImage(File file) async {
       final prefix = await handle.read(512);
       await handle.setPosition(length > 32 ? length - 32 : 0);
       final tail = await handle.read(32);
-      return isReusableImagePayload(
-        length: length,
-        prefix: prefix,
-        tail: tail,
-      );
+      return isReusableImagePayload(length: length, prefix: prefix, tail: tail);
     } finally {
       await handle.close();
     }
@@ -1250,6 +1273,7 @@ Future<void> _downloadFile(
   int writeMode = 0,
   _Throttle? throttle,
   required String stagingSuffix,
+  void Function(int downloadedBytes, int? totalBytes)? onImageProgress,
 }) async {
   final fileLabel = path.basename(pageUrl.fileName ?? 'download');
   final host = Uri.tryParse(pageUrl.url)?.host ?? 'unknown';
@@ -1275,43 +1299,55 @@ Future<void> _downloadFile(
       var movedExistingFile = false;
       var installedNewFile = false;
       try {
-        final receivedBytes = await _withRetry<int>(
-        () async {
+        final receivedBytes = await _withRetry<int>(() async {
           if (await part.exists()) await part.delete();
           final request = Request('GET', Uri.parse(pageUrl.url));
           request.headers.addAll(pageUrl.headers ?? const {});
-          if (!request.headers.keys
-              .any((key) => key.toLowerCase() == 'accept-encoding')) {
+          if (!request.headers.keys.any(
+            (key) => key.toLowerCase() == 'accept-encoding',
+          )) {
             request.headers['Accept-Encoding'] = 'identity';
           }
-          final response = await client.send(request).timeout(
-            imageTimeout,
-            onTimeout: () => throw DownloadPoolException(
-              'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
-            ),
-          );
+          final response = await client
+              .send(request)
+              .timeout(
+                imageTimeout,
+                onTimeout: () => throw DownloadPoolException(
+                  'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
+                ),
+              );
           if (response.statusCode != 200) {
             await response.stream.listen((_) {}).cancel();
-            throw DownloadPoolException(
+            throw DownloadPoolException.policy(
               'Invalid image response for $fileLabel: HTTP ${response.statusCode}',
+              retryable: isRetryableImageHttpStatus(response.statusCode),
             );
           }
 
           final prefix = <int>[];
           final tail = <int>[];
           var received = 0;
+          final advertisedLength = response.contentLength;
+          final imageLength = advertisedLength != null && advertisedLength > 0
+              ? advertisedLength
+              : null;
+          var lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
           final sink = part.openWrite();
           try {
-            await for (final chunk
-                in response.stream.timeout(imageTimeout)) {
+            await for (final chunk in response.stream.timeout(imageTimeout)) {
               if (_isCancelled(taskId)) {
-                throw DownloadPoolException(
+                throw DownloadPoolException.notRetryable(
                   'Task $taskId paused/cancelled',
-                  null,
                 );
               }
               sink.add(chunk);
               received += chunk.length;
+              final now = DateTime.now();
+              if (now.difference(lastProgressAt) >=
+                  const Duration(milliseconds: 150)) {
+                lastProgressAt = now;
+                onImageProgress?.call(received, imageLength);
+              }
               if (prefix.length < 512) {
                 prefix.addAll(chunk.take(512 - prefix.length));
               }
@@ -1327,6 +1363,7 @@ Future<void> _downloadFile(
               }
             }
             await sink.flush();
+            onImageProgress?.call(received, imageLength);
           } finally {
             await sink.close();
           }
@@ -1340,14 +1377,15 @@ Future<void> _downloadFile(
             tailBytes: tail,
           );
           if (responseError != null) {
-            throw DownloadPoolException(
+            throw DownloadPoolException.policy(
               'Invalid image response for $fileLabel: $responseError',
+              retryable:
+                  responseError.contains('incomplete response body') ||
+                  responseError.contains('empty response body'),
             );
           }
           return received;
-        },
-        3,
-      );
+        }, 3);
         final stagedBytes = await part.length();
         if (stagedBytes != receivedBytes) {
           throw DownloadPoolException(
@@ -1355,10 +1393,9 @@ Future<void> _downloadFile(
           );
         }
         if (_isCancelled(taskId)) {
-          throw DownloadPoolException('Task $taskId paused/cancelled', null);
-        }
-        if (_isCancelled(taskId)) {
-          throw DownloadPoolException('Task $taskId paused/cancelled', null);
+          throw DownloadPoolException.notRetryable(
+            'Task $taskId paused/cancelled',
+          );
         }
 
         // POSIX filesystems atomically replace an existing path here. If the
@@ -1450,8 +1487,7 @@ Future<void> _downloadFile(
 
         if (response.statusCode == 416) {
           // A complete .part can be finalized without downloading again.
-          final remoteTotal =
-              trustedDownloadByteCount(parsedRange?.total);
+          final remoteTotal = trustedDownloadByteCount(parsedRange?.total);
           if (requestedOffset > 0 &&
               remoteTotal != null &&
               remoteTotal == requestedOffset) {
@@ -1509,12 +1545,14 @@ Future<void> _downloadFile(
 
         final responseLength = response.contentLength;
         final parsedTotal = trustedDownloadByteCount(parsedRange?.total);
-        final rangedResponseLength = responseLength == null ||
-                responseLength > maxTrustedDownloadBytes -
-                    (resumed ? startFrom : 0)
+        final rangedResponseLength =
+            responseLength == null ||
+                responseLength >
+                    maxTrustedDownloadBytes - (resumed ? startFrom : 0)
             ? null
             : responseLength + (resumed ? startFrom : 0);
-        final responseReportedTotal = parsedTotal ??
+        final responseReportedTotal =
+            parsedTotal ??
             (parsedRange?.total == null
                 ? trustedDownloadByteCount(rangedResponseLength)
                 : null);
@@ -1577,8 +1615,7 @@ Future<void> _downloadFile(
         // probe is advisory and can be stale on signed/CDN URLs; treating it
         // as authoritative used to leave valid completed files stuck as
         // "incomplete" forever.
-        if (responseReportedTotal != null &&
-            written != responseReportedTotal) {
+        if (responseReportedTotal != null && written != responseReportedTotal) {
           throw DownloadPoolException(
             'Incomplete download: $written/$responseReportedTotal bytes ($finalPath)',
           );
@@ -1624,10 +1661,7 @@ Future<void> _downloadFile(
         LogLevel.warning,
       ),
     );
-    throw DownloadPoolException(
-      'Failed to process file: $outputPath',
-      e,
-    );
+    throw DownloadPoolException('Failed to process file: $outputPath', e);
   }
 }
 
@@ -1922,9 +1956,7 @@ Future<void> _downloadSegment(
     }
 
     if (await file.length() <= 0) {
-      throw DownloadPoolException(
-        'Segment ${ts.name}: final file is empty',
-      );
+      throw DownloadPoolException('Segment ${ts.name}: final file is empty');
     }
 
     // The marker is deleted together with the temp directory after merging.
@@ -1974,6 +2006,7 @@ Future<T> _withRetry<T>(Future<T> Function() operation, int maxRetries) async {
       return await operation();
     } catch (e) {
       lastError = e;
+      if (e is DownloadPoolException && !e.retryable) rethrow;
       if (attempts >= maxRetries) break;
       final backoffMs = 200 * (1 << (attempts - 1)); // 200, 400, 800, …
       await Future.delayed(Duration(milliseconds: backoffMs.clamp(200, 2000)));
@@ -1989,8 +2022,18 @@ Future<T> _withRetry<T>(Future<T> Function() operation, int maxRetries) async {
 class DownloadPoolException implements Exception {
   final String message;
   final dynamic originalError;
+  final bool retryable;
 
-  DownloadPoolException(this.message, [this.originalError]);
+  DownloadPoolException(this.message, [this.originalError]) : retryable = true;
+
+  DownloadPoolException.policy(
+    this.message, {
+    this.originalError,
+    required this.retryable,
+  });
+
+  DownloadPoolException.notRetryable(this.message, [this.originalError])
+    : retryable = false;
 
   @override
   String toString() =>

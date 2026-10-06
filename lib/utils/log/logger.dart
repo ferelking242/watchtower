@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
@@ -113,31 +114,59 @@ enum LogMode {
     switch (this) {
       case LogMode.normal:
         return {
-          kLogTagExt: true, kLogTagDl: false, kLogTagNet: false,
-          kLogTagUi: false, kLogTagManga: false,
-          kLogTagPage: false, kLogTagHls: false, kLogTagInstall: true,
-          kLogTagReader: false, kLogTagWatch: false, kLogTagMaint: true,
+          kLogTagExt: true,
+          kLogTagDl: false,
+          kLogTagNet: false,
+          kLogTagUi: false,
+          kLogTagManga: false,
+          kLogTagPage: false,
+          kLogTagHls: false,
+          kLogTagInstall: true,
+          kLogTagReader: false,
+          kLogTagWatch: false,
+          kLogTagMaint: true,
         };
       case LogMode.verbose:
         return {
-          kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
-          kLogTagUi: true, kLogTagManga: true,
-          kLogTagPage: false, kLogTagHls: true, kLogTagInstall: true,
-          kLogTagReader: false, kLogTagWatch: true, kLogTagMaint: true,
+          kLogTagExt: true,
+          kLogTagDl: true,
+          kLogTagNet: true,
+          kLogTagUi: true,
+          kLogTagManga: true,
+          kLogTagPage: false,
+          kLogTagHls: true,
+          kLogTagInstall: true,
+          kLogTagReader: false,
+          kLogTagWatch: true,
+          kLogTagMaint: true,
         };
       case LogMode.debug:
         return {
-          kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
-          kLogTagUi: true, kLogTagManga: true,
-          kLogTagPage: false, kLogTagHls: true, kLogTagInstall: true,
-          kLogTagReader: true, kLogTagWatch: true, kLogTagMaint: true,
+          kLogTagExt: true,
+          kLogTagDl: true,
+          kLogTagNet: true,
+          kLogTagUi: true,
+          kLogTagManga: true,
+          kLogTagPage: false,
+          kLogTagHls: true,
+          kLogTagInstall: true,
+          kLogTagReader: true,
+          kLogTagWatch: true,
+          kLogTagMaint: true,
         };
       case LogMode.extreme:
         return {
-          kLogTagExt: true, kLogTagDl: true, kLogTagNet: true,
-          kLogTagUi: true, kLogTagManga: true,
-          kLogTagPage: true, kLogTagHls: true, kLogTagInstall: true,
-          kLogTagReader: true, kLogTagWatch: true, kLogTagMaint: true,
+          kLogTagExt: true,
+          kLogTagDl: true,
+          kLogTagNet: true,
+          kLogTagUi: true,
+          kLogTagManga: true,
+          kLogTagPage: true,
+          kLogTagHls: true,
+          kLogTagInstall: true,
+          kLogTagReader: true,
+          kLogTagWatch: true,
+          kLogTagMaint: true,
         };
     }
   }
@@ -203,11 +232,9 @@ class AppLogger {
   static DateTime? _lastNtfyPush;
   static const _ntfyThrottle = Duration(seconds: 8);
 
-  /// Fire-and-forget: sends ERROR-level log entries to the same ntfy topic
-  /// used for CI build notifications, so a crash on-device reaches the
-  /// phone as a push notification with the full message + stack — no PC,
-  /// no adb, no DevTools required to see what broke.
-  static void _pushToNtfy(String formatted) {
+  /// Fire-and-forget generic signal only. The topic is public, so log messages,
+  /// URLs, paths, and stack traces must remain in the local log viewer.
+  static void _pushToNtfy() {
     final now = DateTime.now();
     if (_lastNtfyPush != null &&
         now.difference(_lastNtfyPush!) < _ntfyThrottle) {
@@ -221,14 +248,12 @@ class AppLogger {
             .post(
               Uri.parse('https://ntfy.sh/watchtower'),
               headers: const {
-                'Title': 'Watchtower crash',
-                'Priority': 'high',
-                'Tags': 'boom',
+                'Title': 'Watchtower error',
+                'Priority': 'default',
+                'Tags': 'warning',
               },
               body: utf8.encode(
-                formatted.length > 3800
-                    ? formatted.substring(0, 3800)
-                    : formatted,
+                'Watchtower encountered an error. Open the in-app logs for details.',
               ),
             )
             .timeout(const Duration(seconds: 5));
@@ -353,11 +378,10 @@ class AppLogger {
       // Load the current log mode so isExtremeMode reflects the user's choice.
       final modeIndex =
           box.get(kLogMode, defaultValue: LogMode.verbose.index) as int;
-      _currentMode = LogMode.values[modeIndex.clamp(0, LogMode.values.length - 1)];
-      _minLevel = box.get(
-        kLogMinLevel,
-        defaultValue: _currentMode.minLevel,
-      ) as int;
+      _currentMode =
+          LogMode.values[modeIndex.clamp(0, LogMode.values.length - 1)];
+      _minLevel =
+          box.get(kLogMinLevel, defaultValue: _currentMode.minLevel) as int;
       _suppressImages = box.get(kLogSuppressImages, defaultValue: true) as bool;
 
       final disabled = <String>{};
@@ -376,8 +400,7 @@ class AppLogger {
         LogTag.repo: kLogTagExt, // REPO shares the EXT toggle
       };
       for (final entry in tagMap.entries) {
-        final defaultEnabled =
-            _currentMode.defaultTags[entry.value] ?? true;
+        final defaultEnabled = _currentMode.defaultTags[entry.value] ?? true;
         final enabled =
             box.get(entry.value, defaultValue: defaultEnabled) as bool;
         if (!enabled) disabled.add(entry.key);
@@ -397,7 +420,6 @@ class AppLogger {
       _logQueue.add('\n── Session ${_timestamp()} ──');
     }
   }
-
 
   // Returns true if this image-related error should be suppressed
   static bool shouldSuppressImageError(String message) {
@@ -433,12 +455,10 @@ class AppLogger {
 
     final formatted = entry.toString();
 
-    // Remote crash reporting — pushes ERROR-level entries to ntfy so they
-    // reach the phone as a notification without needing a PC/adb/DevTools
-    // to read logcat. Fire-and-forget, throttled, never blocks/crashes on
-    // its own failure (no network, ntfy down, etc.).
+    // The ntfy topic is public; send only a generic signal and keep the
+    // diagnostic message and stack trace in local logs.
     if (logLevel == LogLevel.error) {
-      _pushToNtfy(formatted);
+      _pushToNtfy();
     }
 
     // ALWAYS push to the in-memory ring + live broadcast so the floating
@@ -453,7 +473,10 @@ class AppLogger {
 
     // Apply file-writing filters (level, tags, image suppression).
     if (logLevel.index < _minLevel) return;
-    if (tag != null && _disabledTags.contains(tag) && logLevel != LogLevel.error) return;
+    if (tag != null &&
+        _disabledTags.contains(tag) &&
+        logLevel != LogLevel.error)
+      return;
     if (_suppressImages &&
         logLevel == LogLevel.error &&
         (safeMessage.contains('Failed to load') ||
