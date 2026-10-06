@@ -183,6 +183,53 @@ Future<GetChapterPagesModel> getChapterPages(
       );
     }
 
+    // Persist the source response immediately. The directory scan and reader
+    // preload below can take time; a forced app stop during either operation
+    // should not discard the page URLs and request headers needed on resume.
+    if (!incognitoMode && pageUrls.isNotEmpty) {
+      try {
+        final latestSettings = readSettingsSafely(isar: isar);
+        final existingEntry = (latestSettings.chapterPageUrlsList ?? [])
+            .where((element) => element.chapterId == chapter.id)
+            .firstOrNull;
+        if (!cachedPagesUnchanged(existingEntry, pageUrls)) {
+          final protectedChapterIds = isar.downloads
+              .where()
+              .findAllSync()
+              .where(
+                (download) =>
+                    download.id != null && download.isDownload != true,
+              )
+              .map((download) => download.id!)
+              .toSet();
+          final chapterPageUrls = mergeChapterPageurls(
+            latestSettings.chapterPageUrlsList,
+            chapterId: chapter.id,
+            chapterUrl: chapter.url,
+            pageUrls: pageUrls,
+            protectedChapterIds: protectedChapterIds,
+          );
+          isar.writeTxnSync(() {
+            isar.settings.putSync(
+              latestSettings
+                ..chapterPageUrlsList = chapterPageUrls
+                ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+            );
+          });
+        }
+      } catch (e, st) {
+        // A cache failure should remain visible in logs without breaking
+        // chapter reading; the downloader retries this write before transfer.
+        AppLogger.log(
+          '[$chLabel] immediate page cache write FAILED: $e',
+          logLevel: LogLevel.error,
+          tag: LogTag.page,
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+
     if (pageUrls.isNotEmpty || isLocalArchive) {
       if (await File(
             p.join(mangaDirectory!.path, "${chapter.name}.cbz"),
@@ -226,49 +273,6 @@ Future<GetChapterPagesModel> getChapterPages(
       if (isLocalArchive) {
         for (var i = 0; i < archiveImages.length; i++) {
           pageUrls.add(PageUrl(""));
-        }
-      }
-      if (!incognitoMode) {
-        try {
-          final existingEntry = (settings.chapterPageUrlsList ?? [])
-              .where((element) => element.chapterId == chapter.id)
-              .firstOrNull;
-          if (cachedPagesUnchanged(existingEntry, pageUrls)) {
-            // Cache hit → ne pas réécrire l'intégralité du méga-record
-            // `Settings` pour des données identiques (c'était la principale
-            // source d'écritures interrompues, donc de records corrompus).
-            AppLogger.log(
-              '[$chLabel] getChapterPages page cache already up to date — '
-              'skip Isar write',
-              logLevel: LogLevel.debug,
-              tag: LogTag.page,
-            );
-          } else {
-            final chapterPageUrls = mergeChapterPageurls(
-              settings.chapterPageUrlsList,
-              chapterId: chapter.id,
-              chapterUrl: chapter.url,
-              pageUrls: pageUrls,
-            );
-            isar.writeTxnSync(() {
-              isar.settings.putSync(
-                settings
-                  ..chapterPageUrlsList = chapterPageUrls
-                  ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-              );
-            });
-          }
-        } catch (e, st) {
-          // Persister le cache de pages ne doit jamais faire échouer la
-          // lecture d'un chapitre — mais l'échec est journalisé, jamais
-          // masqué silencieusement.
-          AppLogger.log(
-            '[$chLabel] getChapterPages page cache write FAILED: $e',
-            logLevel: LogLevel.error,
-            tag: LogTag.page,
-            error: e,
-            stackTrace: st,
-          );
         }
       }
       for (var i = 0; i < pageUrls.length; i++) {

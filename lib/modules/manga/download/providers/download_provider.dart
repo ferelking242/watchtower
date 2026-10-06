@@ -20,6 +20,7 @@ import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/download/providers/convert_to_cbz.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/router/router.dart';
@@ -1066,6 +1067,7 @@ Future<void> downloadChapter(
     final animeConnections = ref.read(animeConnectionsStateProvider);
 
     List<PageUrl> pageUrls = [];
+    List<PageUrl> pageUrlsForCache = [];
     PageUrl? novelPage;
     List<PageUrl> pages = [];
     final StorageProvider storageProvider = StorageProvider();
@@ -1730,12 +1732,11 @@ Future<void> downloadChapter(
     setProgress(DownloadProgress(0, 0, itemType));
 
     void savePageUrls() {
-      // Lecture auto-réparante + écriture via l'API unique du cache
-      // (page_url_cache.dart) : entrée alignée `headers == null ||
-      // headers.length == urls.length`, taille du cache bornée, écriture
-      // sautée si rien n'a changé. Un échec est journalisé (pas de
-      // corruption masquée silencieusement) sans faire échouer le
-      // téléchargement.
+      if (ref.read(incognitoModeStateProvider)) return;
+      final pageUrlsToCache = pageUrlsForCache.isNotEmpty
+          ? pageUrlsForCache
+          : pageUrls;
+      if (pageUrlsToCache.isEmpty) return;
       try {
         final settings = readSettingsSafely(isar: isar);
         final existingEntry = (settings.chapterPageUrlsList ?? [])
@@ -1751,11 +1752,21 @@ Future<void> downloadChapter(
           );
           return;
         }
+        final protectedChapterIds = isar.downloads
+            .where()
+            .findAllSync()
+            .where(
+              (download) =>
+                  download.id != null && download.isDownload != true,
+            )
+            .map((download) => download.id!)
+            .toSet();
         final chapterPageUrls = mergeChapterPageurls(
           settings.chapterPageUrlsList,
           chapterId: chapter.id,
           chapterUrl: chapter.url,
-          pageUrls: pageUrls,
+          pageUrls: pageUrlsToCache,
+          protectedChapterIds: protectedChapterIds,
         );
         isar.writeTxnSync(
           () => isar.settings.putSync(
@@ -1772,6 +1783,7 @@ Future<void> downloadChapter(
           error: e,
           stackTrace: st,
         );
+        rethrow;
       }
     }
 
@@ -1790,6 +1802,7 @@ Future<void> downloadChapter(
             .timeout(const Duration(seconds: 90));
         if (value.pageUrls.isNotEmpty) {
           pageUrls = value.pageUrls;
+          pageUrlsForCache = value.pageUrls;
           AppLogger.log(
             '[ch:' +
                 (chapter.id?.toString() ?? '?') +
@@ -1919,6 +1932,12 @@ Future<void> downloadChapter(
               ? '${videoUri.scheme}://${videoUri.host}'
               : null;
           if (hasM3U8File) {
+            pageUrlsForCache = [
+              PageUrl(
+                videosUrls.first.url,
+                headers: videosUrls.first.headers,
+              ),
+            ];
             m3u8Downloader = M3u8Downloader(
               m3u8Url: videosUrls.first.url,
               downloadDir: chapterDirectory.path,
@@ -1931,6 +1950,12 @@ Future<void> downloadChapter(
             );
           } else {
             pageUrls = [PageUrl(videosUrls.first.url)];
+            pageUrlsForCache = [
+              PageUrl(
+                videosUrls.first.url,
+                headers: videosUrls.first.headers,
+              ),
+            ];
           }
           videoHeader.addAll(videosUrls.first.headers ?? {});
         } else {
@@ -1971,6 +1996,7 @@ Future<void> downloadChapter(
       } else {
         novelPage = PageUrl(chapterUrl);
       }
+      pageUrlsForCache = [novelPage!];
     }
 
     // If the fetch failed (exception, empty result, or timeout), mark failed and abort.
@@ -2030,6 +2056,10 @@ Future<void> downloadChapter(
       keepAlive.close();
       return;
     }
+
+    // Store recovered URLs and headers before directory preparation or
+    // transfer work so a forced stop does not discard the resume metadata.
+    savePageUrls();
 
     // ── Pause check after async URL fetch ────────────────────────────────────
     // If the user paused while we were fetching URLs (getChapterPages /
@@ -2186,11 +2216,8 @@ Future<void> downloadChapter(
           tag: LogTag.download,
         );
         await processConvert();
-        savePageUrls();
         await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
       } else {
-        savePageUrls();
-
         // Register internal task for pause/cancel support
         final taskId = '${chapter.id}';
         if (chapter.id != null) {

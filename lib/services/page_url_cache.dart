@@ -125,6 +125,7 @@ List<ChapterPageurls> mergeChapterPageurls(
   required String? chapterUrl,
   required List<PageUrl> pageUrls,
   int maxEntries = kMaxChapterPageCacheEntries,
+  Set<int> protectedChapterIds = const <int>{},
 }) {
   final merged = <ChapterPageurls>[];
   for (final entry in existing ?? const <ChapterPageurls>[]) {
@@ -138,7 +139,13 @@ List<ChapterPageurls> mergeChapterPageurls(
     ),
   );
   while (merged.length > maxEntries) {
-    merged.removeAt(0);
+    final evictableIndex = merged.indexWhere(
+      (entry) =>
+          entry.chapterId == null ||
+          !protectedChapterIds.contains(entry.chapterId),
+    );
+    if (evictableIndex == -1) break;
+    merged.removeAt(evictableIndex);
   }
   return merged;
 }
