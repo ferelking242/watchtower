@@ -3,6 +3,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 
 void main() {
+  test('extracts real HTTP status codes from response errors', () {
+    expect(
+      extensionHttpStatusCode(Exception('HttpException: HTTP 404 Not Found')),
+      404,
+    );
+    expect(extensionHttpStatusCode(Exception('statusCode: 503')), 503);
+    expect(
+      extensionRequestFailureMessage(Exception('HTTP 503 Service Unavailable')),
+      contains('HTTP 503'),
+    );
+  });
+
   testWidgets('shows the source header and retries from the empty state', (
     tester,
   ) async {
@@ -64,7 +76,7 @@ void main() {
     expect(refreshes, 1);
   });
 
-  testWidgets('opens the challenge panel for a detected Cloudflare error', (
+  testWidgets('shows a compact Cloudflare state and real response code', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -73,7 +85,6 @@ void main() {
           onRetry: () async {},
           onRefresh: () async {},
           header: const SizedBox.shrink(),
-          challengeUrl: 'https://source.example/',
           error: Exception('HTTP 403 blocked by Cloudflare challenge'),
         ),
       ),
@@ -83,7 +94,25 @@ void main() {
     await tester.pump();
 
     expect(find.text('Vérification Cloudflare requise'), findsOneWidget);
-    expect(find.text('Challenge Cloudflare'), findsOneWidget);
+    expect(find.text('HTTP 403'), findsOneWidget);
+    expect(find.byIcon(Icons.shield_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_off_rounded), findsNothing);
+  });
+
+  testWidgets('shows the HTTP code for a missing source page', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {},
+          onRefresh: () async {},
+          header: const SizedBox.shrink(),
+          error: Exception('HTTP 404 Not Found'),
+        ),
+      ),
+    );
+
+    expect(find.text('HTTP 404'), findsOneWidget);
+    expect(find.textContaining('page introuvable'), findsOneWidget);
   });
 
   testWidgets('does not auto-open the panel for unrelated errors', (

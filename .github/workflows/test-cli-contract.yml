@@ -15,6 +15,11 @@ on:
       - 'lib/services/update_notification_service.dart'
       - 'test/download_queue_grouping_test.dart'
       - 'test/image_download_response_test.dart'
+      - 'lib/modules/watch/home/extension_home_empty_state.dart'
+      - 'lib/modules/watch/home/watch_extension_home_screen.dart'
+      - 'lib/modules/media/content_cards.dart'
+      - 'test/extension_home_empty_state_test.dart'
+      - 'test/content_image_placeholder_test.dart'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/test-cli-contract.yml'
@@ -33,6 +38,11 @@ on:
       - 'lib/services/update_notification_service.dart'
       - 'test/download_queue_grouping_test.dart'
       - 'test/image_download_response_test.dart'
+      - 'lib/modules/watch/home/extension_home_empty_state.dart'
+      - 'lib/modules/watch/home/watch_extension_home_screen.dart'
+      - 'lib/modules/media/content_cards.dart'
+      - 'test/extension_home_empty_state_test.dart'
+      - 'test/content_image_placeholder_test.dart'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/test-cli-contract.yml'
@@ -69,6 +79,9 @@ jobs:
 
       - name: Test download queue and image response contracts
         run: flutter test test/download_queue_grouping_test.dart test/image_download_response_test.dart
+
+      - name: Test Watch empty-state and image placeholder UI
+        run: flutter test test/extension_home_empty_state_test.dart test/content_image_placeholder_test.dart
 
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed lib/cli/watchtower_cli.dart lib/cli/watchtower_cli_options.dart lib/cli/watchtower_cli_catalog.dart lib/cli/watchtower_cli_plugins.dart lib/cli/watchtower_cli_safety.dart lib/modules/more/download_queue/download_queue_grouping.dart test/watchtower_cli_options_test.dart test/watchtower_cli_catalog_test.dart test/watchtower_cli_plugins_test.dart test/watchtower_cli_safety_test.dart test/download_queue_grouping_test.dart test/image_download_response_test.dart

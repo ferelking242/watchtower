@@ -3008,24 +3008,8 @@ class _ExtensionImage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final child = url == null || url!.isEmpty
-        ? const ColoredBox(
-            color: Color(0xFF22242C),
-            child: Center(child: Icon(Broken.video, color: Colors.white54)),
-          )
-        : cachedNetworkImage(
-            imageUrl: url!,
-            width: double.infinity,
-            height: double.infinity,
-            fit: fit,
-            errorWidget: const ColoredBox(
-              color: Color(0xFF22242C),
-              child: Icon(Broken.video, color: Colors.white54),
-            ),
-          );
-    return ClipRRect(borderRadius: BorderRadius.circular(radius), child: child);
-  }
+  Widget build(BuildContext context) =>
+      ContentImage(url: url, fit: fit, radius: radius);
 }
 
 class _ExtensionSourceIcon extends StatelessWidget {

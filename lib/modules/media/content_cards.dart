@@ -390,6 +390,7 @@ class ContentImage extends StatelessWidget {
             width: null,
             height: null,
             fit: fit,
+            errorWidget: const _ContentImagePlaceholder(),
           );
     return ClipRRect(borderRadius: BorderRadius.circular(radius), child: child);
   }
@@ -463,9 +464,57 @@ class _ContentImagePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: const Center(child: Icon(Broken.video, color: Colors.white54)),
+      key: const ValueKey('content-image-placeholder'),
+      color: colors.surfaceContainerHighest,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colors.surfaceContainerHighest,
+                  colors.surface,
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: -22,
+            right: -18,
+            child: Container(
+              width: 78,
+              height: 78,
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: .08),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: colors.surface.withValues(alpha: .55),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colors.onSurface.withValues(alpha: .10),
+                ),
+              ),
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                size: 22,
+                color: colors.onSurfaceVariant.withValues(alpha: .72),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -5,11 +5,45 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 
+int? extensionHttpStatusCode(Object? error) {
+  if (error == null) return null;
+  final detail = error.toString();
+  final patterns = [
+    RegExp(
+      r'\bHTTP(?:/\d+(?:\.\d+)?)?\s*[:=#-]?\s*([1-5]\d{2})\b',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\bstatus(?:\s*code)?\s*(?:(?:is|of)\s+|[:=]\s*)?([1-5]\d{2})\b',
+      caseSensitive: false,
+    ),
+  ];
+  for (final pattern in patterns) {
+    final match = pattern.firstMatch(detail);
+    final code = int.tryParse(match?.group(1) ?? '');
+    if (code != null) return code;
+  }
+  return null;
+}
+
 String? extensionRequestFailureMessage(Object? error) {
   if (error == null) return null;
   final detail = error.toString().toLowerCase();
   if (extensionErrorIsCloudflareChallenge(error)) {
-    return 'La source demande une vérification anti-bot. Ouvre-la, termine la vérification, puis réessaie.';
+    return 'La source demande une vérification anti-bot. Termine-la dans le panneau, puis réessaie.';
+  }
+  final statusCode = extensionHttpStatusCode(error);
+  if (statusCode != null) {
+    return switch (statusCode) {
+      401 || 403 =>
+        'La source a refusé la requête (HTTP $statusCode). Elle peut être temporairement inaccessible ou demander une vérification.',
+      404 => 'La source a renvoyé une page introuvable (HTTP 404).',
+      429 =>
+        'La source limite temporairement les requêtes (HTTP 429). Réessaie dans quelques instants.',
+      >= 500 =>
+        'La source rencontre une erreur serveur (HTTP $statusCode). Réessaie dans quelques instants.',
+      _ => 'La source a renvoyé une erreur HTTP $statusCode.',
+    };
   }
   if (detail.contains('socketexception') ||
       detail.contains('failed host lookup') ||
@@ -21,9 +55,6 @@ String? extensionRequestFailureMessage(Object? error) {
   }
   if (detail.contains('http 401') || detail.contains('http 403')) {
     return 'La source a refusé la requête. Elle peut être temporairement inaccessible ou demander une vérification.';
-  }
-  if (detail.contains('http 5')) {
-    return 'La source rencontre une erreur serveur. Réessaie dans quelques instants.';
   }
   return 'La source n’a pas pu répondre correctement. Réessaie; si le problème persiste, consulte les journaux.';
 }
@@ -83,11 +114,13 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
   @override
   Widget build(BuildContext context) {
     final failureMessage = extensionRequestFailureMessage(widget.error);
+    final httpStatusCode = extensionHttpStatusCode(widget.error);
     final challengeUrl = widget.challengeUrl?.trim();
     final hasChallengeUrl = challengeUrl?.isNotEmpty == true;
     final challengeDetected = extensionErrorIsCloudflareChallenge(
       widget.error,
     );
+    final isPlainEmpty = widget.error == null && !challengeDetected;
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: Column(
@@ -100,10 +133,12 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                 onRefresh: widget.onRefresh,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final animationSize = math.min(
-                      220.0,
-                      math.max(120.0, constraints.maxHeight * .32),
-                    );
+                    final animationSize = isPlainEmpty
+                        ? math.min(
+                            220.0,
+                            math.max(120.0, constraints.maxHeight * .32),
+                          )
+                        : 48.0;
                     return SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(
                         parent: ClampingScrollPhysics(),
@@ -116,47 +151,64 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 420),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 28,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: challengeDetected ? 14 : 22,
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   // LottieFiles: “empty box3” by partho prothimdatta.
                                   // Free to use under the Lottie Simple License.
                                   // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
-                                  Semantics(
-                                    label: challengeDetected
-                                        ? 'Vérification Cloudflare nécessaire'
-                                        : widget.error == null
-                                        ? 'Boîte vide'
-                                        : 'Échec de connexion à la source',
-                                    child: widget.error == null &&
-                                            !challengeDetected
-                                        ? Lottie.asset(
-                                            'assets/animations/empty_box_partho.json',
-                                            key: const ValueKey(
-                                              'extension-empty-lottie',
+                                  Center(
+                                    child: Semantics(
+                                      label: isPlainEmpty
+                                          ? 'Boîte vide'
+                                          : challengeDetected
+                                          ? 'Vérification Cloudflare nécessaire'
+                                          : 'Échec de connexion à la source',
+                                      child: isPlainEmpty
+                                          ? Lottie.asset(
+                                              'assets/animations/empty_box_partho.json',
+                                              key: const ValueKey(
+                                                'extension-empty-lottie',
+                                              ),
+                                              width: animationSize,
+                                              height: animationSize,
+                                              fit: BoxFit.contain,
+                                              repeat: true,
                                             ),
-                                            width: animationSize,
-                                            height: animationSize,
-                                            fit: BoxFit.contain,
-                                            repeat: true,
-                                          )
-                                        : SizedBox(
-                                            width: animationSize,
-                                            height: animationSize,
-                                            child: const Center(
+                                          : Container(
+                                              width: animationSize,
+                                              height: animationSize,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(
+                                                  alpha: .06,
+                                                ),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: Colors.white.withValues(
+                                                    alpha: .10,
+                                                  ),
+                                                ),
+                                              ),
                                               child: Icon(
-                                                Icons.cloud_off_rounded,
-                                                size: 76,
-                                                color: Colors.white54,
+                                                challengeDetected
+                                                    ? Icons.shield_rounded
+                                                    : Icons.warning_amber_rounded,
+                                                size: 24,
+                                                color: challengeDetected
+                                                    ? Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                    : Colors.white70,
                                               ),
                                             ),
-                                          ),
+                                    ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  SizedBox(height: challengeDetected ? 10 : 14),
                                   Text(
                                     challengeDetected
                                         ? 'Vérification Cloudflare requise'
@@ -172,6 +224,39 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
+                                  if (httpStatusCode != null) ...[
+                                    const SizedBox(height: 8),
+                                    Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: .07,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(
+                                              alpha: .12,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'HTTP $httpStatusCode',
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: .3,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                   if (failureMessage != null) ...[
                                     const SizedBox(height: 10),
                                     Text(
@@ -212,33 +297,52 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       ),
                                     ),
                                   ],
-                                  const SizedBox(height: 18),
-                                  SizedBox(
-                                    width: 190,
-                                    child: FilledButton.icon(
-                                      onPressed: _retrySource,
-                                      icon: const Icon(
-                                        Icons.refresh_rounded,
-                                        size: 18,
-                                      ),
-                                      label: const Text('Réessayer'),
-                                      style: FilledButton.styleFrom(
-                                        minimumSize: const Size.fromHeight(48),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 12,
-                                        ),
-                                        textStyle: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                        ),
+                                  if (hasChallengeUrl && _showChallenge) ...[
+                                    const SizedBox(height: 14),
+                                    CloudflareBypassPanel(
+                                      url: challengeUrl!,
+                                      compact: true,
+                                      onResolved: _retrySource,
+                                      onRetry: _retrySource,
+                                      onClose: () => setState(
+                                        () => _showChallenge = false,
                                       ),
                                     ),
-                                  ),
+                                  ],
+                                  if (!(hasChallengeUrl && _showChallenge))
+                                    ...[
+                                      const SizedBox(height: 18),
+                                      Center(
+                                        child: SizedBox(
+                                          width: 190,
+                                          child: FilledButton.icon(
+                                            onPressed: _retrySource,
+                                            icon: const Icon(
+                                              Icons.refresh_rounded,
+                                              size: 18,
+                                            ),
+                                            label: const Text('Réessayer'),
+                                            style: FilledButton.styleFrom(
+                                              minimumSize:
+                                                  const Size.fromHeight(48),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 20,
+                                                    vertical: 12,
+                                                  ),
+                                              textStyle: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   if (hasChallengeUrl && !_showChallenge) ...[
                                     const SizedBox(height: 8),
                                     TextButton.icon(
@@ -254,28 +358,18 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       ),
                                     ),
                                   ],
-                                  if (hasChallengeUrl && _showChallenge) ...[
+                                  if (isPlainEmpty) ...[
                                     const SizedBox(height: 12),
-                                    CloudflareBypassPanel(
-                                      url: challengeUrl!,
-                                      compact: true,
-                                      onResolved: _retrySource,
-                                      onRetry: _retrySource,
-                                      onClose: () => setState(
-                                        () => _showChallenge = false,
+                                    const Text(
+                                      'Tirer vers le bas pour actualiser',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12.5,
+                                        height: 1.4,
                                       ),
                                     ),
                                   ],
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    'Tirer vers le bas pour actualiser',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12.5,
-                                      height: 1.4,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
