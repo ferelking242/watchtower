@@ -704,9 +704,8 @@ Future<_TestResult> _testOne(
     try {
       final value = await withExtensionService(
         item.source,
-        (service) => action(service).timeout(
-          Duration(seconds: options.timeoutSeconds),
-        ),
+        (service) =>
+            action(service).timeout(Duration(seconds: options.timeoutSeconds)),
       );
       result.steps[name] = _Step(
         ok: true,
