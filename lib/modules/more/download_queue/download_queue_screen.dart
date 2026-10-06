@@ -174,7 +174,8 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             .where((d) => typeOf(d) == ItemType.novel)
             .toList();
 
-        final allQueueLength = entries.length;
+        final activeDownloadCount =
+            entries.where((download) => download.isDownload != true).length;
 
         final scheme = Theme.of(context).colorScheme;
         return Scaffold(
@@ -235,7 +236,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 child: Row(
                   children: [
                     Text(
-                      'Téléchargement (${entries.length})',
+                      'Téléchargement ($activeDownloadCount)',
                       style: TextStyle(
                         color: scheme.onSurface,
                         fontSize: 13,
@@ -264,9 +265,15 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   children: [
                     Flexible(
                       child: _buildChipTabBar(
-                        watchCount: watchEntries.length,
-                        mangaCount: mangaEntries.length,
-                        novelCount: novelEntries.length,
+                        watchCount: watchEntries
+                            .where((download) => download.isDownload != true)
+                            .length,
+                        mangaCount: mangaEntries
+                            .where((download) => download.isDownload != true)
+                            .length,
+                        novelCount: novelEntries
+                            .where((download) => download.isDownload != true)
+                            .length,
                       ),
                     ),
                   ],
@@ -1354,12 +1361,25 @@ class _GroupedDownloadTabListState
   }
 
   Map<String, List<Download>> _groupBySource() {
-    final m = <String, List<Download>>{};
+    final allGroups = <String, List<Download>>{};
     for (final d in widget.entries) {
       final src = d.chapter.value?.manga.value?.source ?? 'autre';
-      (m[src] ??= []).add(d);
+      (allGroups[src] ??= []).add(d);
     }
-    return m;
+
+    // Keep completed chapters beside unfinished siblings, but hide a whole
+    // series once every chapter in it has finished downloading.
+    final visibleGroups = <String, List<Download>>{};
+    for (final entry in allGroups.entries) {
+      final activeSeries = _groupBySeries(entry.value).values.where(
+        (items) => items.any((download) => download.isDownload != true),
+      );
+      final visibleItems = activeSeries.expand((items) => items).toList();
+      if (visibleItems.isNotEmpty) {
+        visibleGroups[entry.key] = visibleItems;
+      }
+    }
+    return visibleGroups;
   }
 
   /// Returns sources in the user's preferred order, with any new sources
@@ -1739,7 +1759,8 @@ class _GroupedDownloadTabListState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.entries.isEmpty) {
+    final groups = _groupBySource();
+    if (groups.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1765,7 +1786,6 @@ class _GroupedDownloadTabListState
       );
     }
 
-    final groups = _groupBySource();
     final sources = _orderedSources(groups);
     final scheme = Theme.of(context).colorScheme;
 
@@ -1792,6 +1812,13 @@ class _GroupedDownloadTabListState
         final src = sources[idx];
         final items = groups[src]!;
         final seriesGroups = _groupBySeries(items);
+        final visibleSeriesGroups = seriesGroups.entries
+            .where(
+              (entry) => entry.value.any(
+                (download) => download.isDownload != true,
+              ),
+            )
+            .toList(growable: false);
         final isCollapsed = _collapsed.contains(src);
         final itemType = items.first.chapter.value?.manga.value?.itemType;
         final sourceManga = items.first.chapter.value?.manga.value;
@@ -1931,8 +1958,13 @@ class _GroupedDownloadTabListState
                 firstChild: const SizedBox.shrink(),
                 secondChild: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: seriesGroups.entries
-                      .map((entry) => _buildSeriesGroup(entry.key, entry.value))
+                  children: visibleSeriesGroups
+                      .map((entry) {
+                        if (entry.value.length == 1) {
+                          return _buildDismissible(entry.value.single);
+                        }
+                        return _buildSeriesGroup(entry.key, entry.value);
+                      })
                       .toList(),
                 ),
               ),
@@ -2133,7 +2165,11 @@ class _DownloadCard extends ConsumerWidget {
           ? speedLabel
           : 'Téléchargement en cours…';
     } else {
-      statusText = progress > 0 ? speedLabel : 'En attente';
+      statusText = progress > 0
+          ? speedLabel.isNotEmpty
+              ? speedLabel
+              : 'Téléchargement en cours…'
+          : 'En attente';
     }
     final Color statusColor = isComplete
         ? scheme.primary
@@ -2145,25 +2181,10 @@ class _DownloadCard extends ConsumerWidget {
 
     final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
-    final etaSeconds = speedMbs >= 0.05 &&
-            exactTotalBytes != null &&
-            exactDownloadedBytes != null
-        ? ((exactTotalBytes - exactDownloadedBytes)
-                    .clamp(0, exactTotalBytes) /
-                (speedMbs * 1024 * 1024))
-            .ceil()
-        : null;
-    final byteDetails =
-        exactDownloadedBytes != null && exactDownloadedBytes > 0
-        ? [
-            if (exactTotalBytes != null)
-              '${_formatBytes(exactDownloadedBytes)} / ${_formatBytes(exactTotalBytes)}'
-            else
-              _formatBytes(exactDownloadedBytes),
-            if (!isComplete && speedMbs >= 0.05)
-              '${speedMbs >= 10 ? speedMbs.toStringAsFixed(0) : speedMbs.toStringAsFixed(1)} MB/s',
-            if (!isComplete && etaSeconds != null) 'reste ${_formatEta(etaSeconds)}',
-          ].join(' • ')
+    final byteDetails = itemType == ItemType.anime &&
+            (hasObservedBytes || exactTotalBytes != null)
+        ? '${_formatBytes(exactDownloadedBytes ?? 0)} / '
+              '${exactTotalBytes == null ? 'N/A' : _formatBytes(exactTotalBytes)}'
         : '';
     final epMatch = RegExp(r'S\s?\d{1,3}\s?[ExXÉ]\s?\d{1,3}', caseSensitive: false).firstMatch(chapter?.name ?? '');
     final epTag = epMatch?.group(0)?.replaceAll(RegExp(r'\s'), '');
@@ -2176,10 +2197,11 @@ class _DownloadCard extends ConsumerWidget {
             (progress > 0 || isProgressIndeterminate)
         ? MbGradientProgressBar(
             value: isProgressIndeterminate ? null : progress,
-            height: (layout == DownloadCardLayout.minimal ||
-                    layout == DownloadCardLayout.compact)
+            height: layout == DownloadCardLayout.minimal
                 ? 2
-                : 4,
+                : layout == DownloadCardLayout.compact
+                    ? 4
+                    : 6,
             paused: isPaused,
             failed: hasFailed,
           )
@@ -2741,7 +2763,7 @@ class _DownloadCard extends ConsumerWidget {
                       : progress > 0
                           ? progress
                           : 0,
-                  height: 3,
+                  height: 6,
                   paused: isPaused,
                   failed: hasFailed,
                 ),
@@ -2787,6 +2809,9 @@ class _DownloadCard extends ConsumerWidget {
                           color: hasFailed
                               ? mbRed
                               : isPaused
+                                  ? mbAmber
+                                  : itemType == ItemType.anime &&
+                                        speedLabel.isNotEmpty
                                   ? mbAmber
                                   : scheme.onSurfaceVariant,
                           fontSize: 11,
@@ -2906,13 +2931,6 @@ class _DownloadCard extends ConsumerWidget {
     return '$bytes B';
   }
 
-  String _formatEta(int seconds) {
-    if (seconds < 60) return '${seconds}s';
-    final minutes = seconds ~/ 60;
-    final remaining = seconds % 60;
-    if (minutes < 60) return '${minutes}m ${remaining}s';
-    return '${minutes ~/ 60}h ${minutes % 60}m';
-  }
 }
 
 // ──────────────────────────────────────────────────────────────

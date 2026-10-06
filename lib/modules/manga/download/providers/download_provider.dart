@@ -1405,7 +1405,7 @@ Future<void> downloadChapter(
       // Use the exact byte counters reported by the worker. If a server does
       // not expose a length, keep the notification indeterminate rather than
       // inventing a denominator.
-      if (progress.itemType == ItemType.anime && isarTotal > 0) {
+      if (progress.itemType == ItemType.anime) {
         final downloadedBytes = reportedDownloadedBytes ??
             trustedDownloadBytesFromKilobytes(isarSucceeded) ??
             0;
@@ -1423,15 +1423,16 @@ Future<void> downloadChapter(
             ? (notificationTotalBytes! - downloadedBytes).clamp(0, double.infinity).toInt()
             : 0;
         final activeCount = ActiveDownloadRegistry.activeCountForType(ItemType.anime);
-        final notifTitle = chapter.name ?? 'Téléchargement en cours…';
-        final notifSub =
-            '$activeCount téléchargement${activeCount > 1 ? 's' : ''} actif${activeCount > 1 ? 's' : ''}';
+        final chapterTitle = chapter.name?.trim();
+        final notifSub = chapterTitle?.isNotEmpty == true
+            ? chapterTitle!
+            : 'Vidéo en cours de téléchargement';
         final etaSeconds = _speedEmaMbs >= 0.05 && hasKnownSize
             ? ((remaining / (_speedEmaMbs * 1024 * 1024)).clamp(0, double.infinity).ceil())
             : null;
         unawaited(BackgroundKeepAlive.update(
           count: activeCount,
-          title: notifTitle,
+          title: 'Téléchargement en cours…',
           progress: pct,
           subtitle: notifSub,
           downloadedBytes: downloadedBytes,

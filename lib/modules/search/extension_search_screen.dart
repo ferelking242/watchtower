@@ -60,6 +60,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   List<String> _tabLabels = const ['Tout'];
   bool _listening = false;
   final Map<String, Future<List<SharedSearchHotItem>>> _hotItemFutures = {};
+  int _searchRequestVersion = 0;
 
   @override
   void initState() {
@@ -93,24 +94,45 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   void _onTextChanged(String value) {
     if (value.trim().isEmpty && _query.isNotEmpty) {
       setState(() {
+        _searchRequestVersion++;
         _query = '';
         _submitted = false;
         _results = null;
+        _error = null;
+        _loading = false;
+        _loadingMore = false;
+        _page = 1;
+        _hasNext = true;
+        _seen.clear();
+        _setTabLabels(const ['Tout']);
       });
     }
     setState(() {});
   }
 
+  void _setTabLabels(List<String> labels) {
+    final nextLabels = labels.isEmpty ? const ['Tout'] : labels;
+    if (_tabs.length != nextLabels.length) {
+      final previous = _tabs;
+      _tabs = TabController(length: nextLabels.length, vsync: this);
+      previous.dispose();
+    } else if (_tabs.index != 0) {
+      _tabs.index = 0;
+    }
+    _tabLabels = nextLabels;
+  }
+
   Future<void> _runSearch(String raw) async {
     final query = raw.trim();
     if (query.isEmpty) return;
+    final requestVersion = ++_searchRequestVersion;
     _controller
       ..text = query
       ..selection = TextSelection.collapsed(offset: query.length);
     _focus.unfocus();
     await saveRecentSearch(_recentKey, query);
     final recent = await loadRecentSearches(_recentKey);
-    if (!mounted) return;
+    if (!mounted || requestVersion != _searchRequestVersion) return;
     setState(() {
       _recent = recent;
       _query = query;
@@ -119,10 +141,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       _error = null;
       _page = 1;
       _hasNext = true;
+      _loadingMore = false;
       _seen.clear();
       _loading = true;
-      _tabLabels = const ['Tout'];
-      _tabs.index = 0;
+      _setTabLabels(const ['Tout']);
     });
     try {
       final page = await ref.read(
@@ -133,7 +155,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
           filterList: const [],
         ).future,
       );
-      if (!mounted) return;
+      if (!mounted || requestVersion != _searchRequestVersion) return;
       final items = page?.list ?? const <MManga>[];
       for (final item in items) {
         _seen.add(item.link ?? item.name ?? '${item.hashCode}');
@@ -142,15 +164,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         _results = items;
         _loading = false;
         _hasNext = page?.hasNextPage ?? false;
-        final nextLabels = _deriveTabs(items);
-        if (nextLabels.length != _tabLabels.length) {
-          _tabs.dispose();
-          _tabs = TabController(length: nextLabels.length, vsync: this);
-        }
-        _tabLabels = nextLabels;
+        _setTabLabels(_deriveTabs(items));
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || requestVersion != _searchRequestVersion) return;
       setState(() {
         _error = error;
         _loading = false;
@@ -196,17 +213,19 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
 
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasNext || _results == null) return;
+    final requestVersion = _searchRequestVersion;
+    final query = _query;
     setState(() => _loadingMore = true);
     try {
       final next = await ref.read(
         searchProvider(
           source: widget.source,
-          query: _query,
+          query: query,
           page: _page + 1,
           filterList: const [],
         ).future,
       );
-      if (!mounted) return;
+      if (!mounted || requestVersion != _searchRequestVersion) return;
       final fresh = (next?.list ?? const <MManga>[])
           .where((item) => _seen.add(item.link ?? item.name ?? '${item.hashCode}'))
           .toList(growable: false);
@@ -217,16 +236,26 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         _loadingMore = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loadingMore = false);
+      if (mounted && requestVersion == _searchRequestVersion) {
+        setState(() => _loadingMore = false);
+      }
     }
   }
 
   void _clearAll() {
     _controller.clear();
     setState(() {
+      _searchRequestVersion++;
       _query = '';
       _submitted = false;
       _results = null;
+      _error = null;
+      _loading = false;
+      _loadingMore = false;
+      _page = 1;
+      _hasNext = true;
+      _seen.clear();
+      _setTabLabels(const ['Tout']);
     });
     _focus.requestFocus();
   }

@@ -501,6 +501,7 @@ class _RankedHotList extends StatelessWidget {
           itemCount: list.length,
           itemBuilder: (context, i) {
             final item = list[i];
+            final imageUrl = item.imageUrl?.trim();
             return InkWell(
               onTap: () => onSearch(item.title),
               child: Padding(
@@ -524,7 +525,7 @@ class _RankedHotList extends StatelessWidget {
                     const SizedBox(width: 10),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: item.imageUrl == null
+                      child: imageUrl == null || imageUrl.isEmpty
                           ? Container(
                               width: 44,
                               height: 62,
@@ -536,7 +537,7 @@ class _RankedHotList extends StatelessWidget {
                               ),
                             )
                           : Image.network(
-                              item.imageUrl!,
+                              imageUrl,
                               width: 44,
                               height: 62,
                               fit: BoxFit.cover,

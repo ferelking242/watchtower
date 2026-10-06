@@ -36,8 +36,8 @@ class ContentItem {
     title: item.name?.trim().isNotEmpty == true
         ? item.name!.trim()
         : 'Sans titre',
-    posterUrl: item.imageUrl,
-    backdropUrl: item.imageUrl,
+    posterUrl: _nonEmptyImageUrl(item.imageUrl),
+    backdropUrl: _nonEmptyImageUrl(item.imageUrl),
     description: item.description,
     badge: item.status?.name,
   );
@@ -69,6 +69,11 @@ class ContentItem {
     if (item is AnilistMedia) return ContentItem.fromAnilist(item);
     return ContentItem(key: 'content-${item.hashCode}', title: item.toString());
   }
+}
+
+String? _nonEmptyImageUrl(String? value) {
+  final trimmed = value?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
 
 enum ContentCardVariant { poster, landscape, ranked, tag }

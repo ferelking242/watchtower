@@ -29,6 +29,8 @@ class BackgroundKeepAlive {
   static DateTime? _lastNotificationUpdate;
   static int _lastNotificationProgress = -2;
   static String _lastNotificationTitle = '';
+  static String _lastNotificationSubtitle = '';
+  static int _lastNotificationCount = -1;
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -47,7 +49,8 @@ class BackgroundKeepAlive {
 
   /// Update the notification text (Android) — call when active count changes.
   ///
-  /// [title]    — name of the current chapter/episode (shown as notification title).
+  /// [title]    — short notification heading.
+  /// [subtitle] — name of the current chapter/episode (shown below the bar).
   /// [progress] — download progress 0-100 (-1 = indeterminate).
   static Future<void> update({
     required int count,
@@ -65,6 +68,8 @@ class BackgroundKeepAlive {
       final now = DateTime.now();
       final progressChanged = progress != _lastNotificationProgress;
       final titleChanged = title != _lastNotificationTitle;
+      final subtitleChanged = subtitle != _lastNotificationSubtitle;
+      final countChanged = count != _lastNotificationCount;
       final elapsed = _lastNotificationUpdate == null
           ? const Duration(seconds: 1)
           : now.difference(_lastNotificationUpdate!);
@@ -74,12 +79,16 @@ class BackgroundKeepAlive {
       if (!force &&
           !progressChanged &&
           !titleChanged &&
-          elapsed < const Duration(milliseconds: 650)) {
+          !subtitleChanged &&
+          !countChanged &&
+          elapsed < const Duration(milliseconds: 250)) {
         return;
       }
       _lastNotificationUpdate = now;
       _lastNotificationProgress = progress;
       _lastNotificationTitle = title;
+      _lastNotificationSubtitle = subtitle;
+      _lastNotificationCount = count;
       try {
         await _ch.invokeMethod<void>('update', {
           'count': count,
@@ -102,6 +111,8 @@ class BackgroundKeepAlive {
     _lastNotificationUpdate = null;
     _lastNotificationProgress = -2;
     _lastNotificationTitle = '';
+    _lastNotificationSubtitle = '';
+    _lastNotificationCount = -1;
     if (!kIsWeb && Platform.isAndroid) {
       try {
         await _ch.invokeMethod<void>('stop');

@@ -89,6 +89,9 @@ class MDownloader {
       tag: LogTag.download,
     );
     try {
+      if (pageUrls.isEmpty) {
+        throw MDownloaderException('No image pages were provided');
+      }
       await _downloadFilesWithProgress(pageUrls, onProgress);
 
       // Download subtitles (on the main isolate, no need for pool)

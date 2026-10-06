@@ -1063,6 +1063,47 @@ Future<int?> _probeContentLength(
   return null;
 }
 
+@visibleForTesting
+String? imageDownloadResponseError({
+  required int statusCode,
+  required Map<String, String> headers,
+  required List<int> bodyBytes,
+}) {
+  if (statusCode != 200) return 'HTTP $statusCode';
+  if (bodyBytes.isEmpty) return 'empty response body';
+
+  String? header(String name) {
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == name) return entry.value;
+    }
+    return null;
+  }
+
+  final contentType = header('content-type')
+          ?.split(';')
+          .first
+          .trim()
+          .toLowerCase() ??
+      '';
+  if (contentType.startsWith('text/') ||
+      contentType.startsWith('application/xhtml+xml') ||
+      contentType.startsWith('application/json') ||
+      contentType.endsWith('+json')) {
+    return 'unexpected $contentType response';
+  }
+
+  final prefix = utf8
+      .decode(bodyBytes.take(512).toList(), allowMalformed: true)
+      .trimLeft()
+      .toLowerCase();
+  if (prefix.startsWith('<!doctype html') ||
+      prefix.startsWith('<html') ||
+      prefix.startsWith('<head')) {
+    return 'server returned an HTML page instead of an image';
+  }
+  return null;
+}
+
 /// Download an individual file with durable HTTP Range resume support.
 ///
 /// A video is always written to `<target>.part` and renamed only after the
@@ -1090,56 +1131,103 @@ Future<void> _downloadFile(
     ),
   );
 
+  final outputPath = pageUrl.fileName;
+  if (outputPath == null || outputPath.trim().isEmpty) {
+    throw DownloadPoolException('Download output path is missing');
+  }
+
   try {
     if (itemType != ItemType.anime) {
       const imageTimeout = Duration(seconds: 30);
-      final response = await _withRetry(
-        () => client
-            .get(Uri.parse(pageUrl.url), headers: pageUrl.headers)
-            .timeout(
-              imageTimeout,
-              onTimeout: () => throw DownloadPoolException(
-                'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
-              ),
-            ),
+      final bytes = await _withRetry(
+        () async {
+          final response = await client
+              .get(Uri.parse(pageUrl.url), headers: pageUrl.headers)
+              .timeout(
+                imageTimeout,
+                onTimeout: () => throw DownloadPoolException(
+                  'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
+                ),
+              );
+          final responseError = imageDownloadResponseError(
+            statusCode: response.statusCode,
+            headers: response.headers,
+            bodyBytes: response.bodyBytes,
+          );
+          if (responseError != null) {
+            throw DownloadPoolException(
+              'Invalid image response for $fileLabel: $responseError',
+            );
+          }
+          return response.bodyBytes;
+        },
         3,
       );
-      if (response.statusCode != 200) {
-        throw DownloadPoolException(
-          'HTTP ${response.statusCode} for ${pageUrl.url}',
-        );
-      }
-      final bytes = response.bodyBytes;
-      final finalPath = pageUrl.fileName!;
       if (_isCancelled(taskId)) {
         throw DownloadPoolException('Task $taskId paused/cancelled', null);
       }
-      if (writeMode == 0 && bytes.isNotEmpty) {
-        // Manga pages do not need Range resume. Give every attempt its own
-        // staging file so overlapping retries cannot delete or rename each
-        // other's `.part` file.
-        final part = File('$finalPath.part.$stagingSuffix');
+      // Manga pages are small, non-resumable files. Always stage and verify
+      // them before replacing an existing page, regardless of video write mode.
+      final part = File('$outputPath.part.$stagingSuffix');
+      final backup = File('$outputPath.backup.$stagingSuffix');
+      final out = File(outputPath);
+      var movedExistingFile = false;
+      var installedNewFile = false;
+      try {
+        await part.writeAsBytes(bytes, flush: true);
+        final stagedBytes = await part.length();
+        if (stagedBytes != bytes.length) {
+          throw DownloadPoolException(
+            'Incomplete staged image: $stagedBytes/${bytes.length} bytes',
+          );
+        }
+        if (_isCancelled(taskId)) {
+          throw DownloadPoolException('Task $taskId paused/cancelled', null);
+        }
+
+        // POSIX filesystems atomically replace an existing path here. If the
+        // platform refuses to do so, preserve the old file as a backup while
+        // installing the verified replacement.
         try {
-          await part.writeAsBytes(bytes, flush: true);
-          if (_isCancelled(taskId)) {
-            throw DownloadPoolException('Task $taskId paused/cancelled', null);
-          }
-          final out = File(finalPath);
-          if (await out.exists()) await out.delete();
-          await part.rename(finalPath);
-        } finally {
+          await part.rename(outputPath);
+          installedNewFile = true;
+        } catch (_) {
+          if (!await out.exists()) rethrow;
+          await out.rename(backup.path);
+          movedExistingFile = true;
           try {
-            if (await part.exists()) await part.delete();
+            await part.rename(outputPath);
+            installedNewFile = true;
           } catch (_) {
-            // Cleanup must not replace the original download error.
+            await backup.rename(outputPath);
+            movedExistingFile = false;
+            rethrow;
           }
         }
-      } else {
-        await File(finalPath).writeAsBytes(bytes, flush: true);
+
+        if (movedExistingFile) {
+          try {
+            if (await backup.exists()) await backup.delete();
+          } catch (_) {
+            // Keep the newly verified image if backup cleanup fails.
+          }
+        }
+      } catch (_) {
+        if (installedNewFile && await out.exists()) await out.delete();
+        if (movedExistingFile && await backup.exists()) {
+          await backup.rename(outputPath);
+        }
+        rethrow;
+      } finally {
+        try {
+          if (await part.exists()) await part.delete();
+        } catch (_) {
+          // Cleanup must not replace the original download error.
+        }
       }
     } else {
       await _withRetry(() async {
-        final finalPath = pageUrl.fileName!;
+        final finalPath = outputPath;
         final partFile = File('$finalPath.part');
         final metadataFile = File('$finalPath.part.meta');
         final uri = Uri.parse(pageUrl.url);
@@ -1343,7 +1431,7 @@ Future<void> _downloadFile(
         );
       }, 3);
     }
-    final output = File(pageUrl.fileName!);
+    final output = File(outputPath);
     final writtenBytes = await output.length();
     replyPort.send(
       _DownloadPoolLog(
@@ -1361,7 +1449,7 @@ Future<void> _downloadFile(
       ),
     );
     throw DownloadPoolException(
-      'Failed to process file: ${pageUrl.fileName!}',
+      'Failed to process file: $outputPath',
       e,
     );
   }

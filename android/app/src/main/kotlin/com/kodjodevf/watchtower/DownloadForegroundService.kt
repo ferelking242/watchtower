@@ -202,9 +202,9 @@ class DownloadForegroundService : Service() {
         val sizeText = if (totalBytes != null && totalBytes > 0) {
             "${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)}"
         } else if (downloadedBytes > 0) {
-            formatBytes(downloadedBytes)
+            "${formatBytes(downloadedBytes)} / N/A"
         } else {
-            ""
+            "N/A"
         }
         val speedText = if (speedMbs >= 0.05) {
             "${if (speedMbs >= 10) "%.0f".format(speedMbs) else "%.1f".format(speedMbs)} MB/s"

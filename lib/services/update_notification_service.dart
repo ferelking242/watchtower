@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/source.dart';
@@ -19,7 +20,39 @@ import 'package:watchtower/utils/log/logger.dart';
 const int _kUpdateNotifId = 9910;
 const int _kReminderNotifId = 9911;
 const int _kProgressNotifId = 9912;
-int _nextMediaNotifId = 10000;
+int _nextMediaNotifId =
+    1000000000 + (DateTime.now().millisecondsSinceEpoch % 1000000000);
+const String _kNextMediaNotifIdKey = 'next_media_download_notification_id';
+Future<void>? _mediaNotifIdInitialization;
+
+Future<void> _initializeMediaNotificationIds() {
+  return _mediaNotifIdInitialization ??= () async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getInt(_kNextMediaNotifIdKey);
+    if (savedId != null && savedId >= 1000000000 && savedId <= 1999999999) {
+      _nextMediaNotifId = savedId;
+    }
+  }();
+}
+
+Future<int> _allocateMediaNotificationId() async {
+  try {
+    await _initializeMediaNotificationIds();
+  } catch (_) {
+    // Keep notifications available even if preference storage is unavailable.
+  }
+  final id = _nextMediaNotifId;
+  _nextMediaNotifId = _nextMediaNotifId >= 1999999999
+      ? 1000000000
+      : _nextMediaNotifId + 1;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kNextMediaNotifIdKey, _nextMediaNotifId);
+  } catch (_) {
+    // The in-memory sequence still keeps notifications distinct this session.
+  }
+  return id;
+}
 
 const String _kUpdateChannelId = 'watchtower_updates';
 const String _kUpdateChannelName = 'Mises à jour';
@@ -657,7 +690,7 @@ class WatchtowerNotificationService {
     } catch (_) {
       return;
     }
-    final id = _nextMediaNotifId++;
+    final id = await _allocateMediaNotificationId();
     _pendingMediaPaths[id] = filePath;
     try {
       final androidDetails = AndroidNotificationDetails(
