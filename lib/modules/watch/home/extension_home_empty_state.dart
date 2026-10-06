@@ -29,10 +29,21 @@ int? extensionHttpStatusCode(Object? error) {
 String? extensionRequestFailureMessage(Object? error) {
   if (error == null) return null;
   final detail = error.toString().toLowerCase();
-  if (extensionErrorIsCloudflareChallenge(error)) {
-    return 'La source demande une vérification anti-bot. Termine-la dans le panneau, puis réessaie.';
-  }
   final statusCode = extensionHttpStatusCode(error);
+  if (extensionErrorIsCloudflareApiBlock(error)) {
+    if (statusCode != null) {
+      return 'Cloudflare bloque la requête API de l’extension '
+          '(HTTP $statusCode).';
+    }
+    return 'Cloudflare bloque l’API de l’extension, mais l’erreur ne fournit '
+        'aucun code HTTP. La page du site peut rester accessible sans que '
+        'l’API fonctionne.';
+  }
+  if (extensionErrorIsCloudflareChallenge(error)) {
+    final statusSuffix = statusCode == null ? '' : ' (HTTP $statusCode)';
+    return 'La source demande une vérification anti-bot$statusSuffix. '
+        'Termine-la dans le panneau, puis réessaie.';
+  }
   if (statusCode != null) {
     return switch (statusCode) {
       401 || 403 =>
@@ -59,19 +70,32 @@ String? extensionRequestFailureMessage(Object? error) {
   return 'La source n’a pas pu répondre correctement. Réessaie; si le problème persiste, consulte les journaux.';
 }
 
+bool extensionErrorIsCloudflareApiBlock(Object? error) {
+  if (error == null) return false;
+  final detail = error.toString().toLowerCase();
+  return detail.contains('cloudflare') &&
+      detail.contains('api request') &&
+      (detail.contains('blocked') || detail.contains('block'));
+}
+
 bool extensionErrorIsCloudflareChallenge(Object? error) {
   if (error == null) return false;
   final detail = error.toString().toLowerCase();
-  return detail.contains('cloudflare') ||
+  final hasCloudflareMarker =
+      detail.contains('cloudflare') ||
       detail.contains('cf-chl-') ||
-      detail.contains('cf_clearance') ||
-      detail.contains('cf-ray') ||
-      detail.contains('captcha') ||
-      detail.contains('challenge') ||
-      detail.contains('just a moment') ||
-      detail.contains('attention required') ||
-      (detail.contains('403') && detail.contains('cloud')) ||
-      (detail.contains('503') && detail.contains('cloud'));
+      detail.contains('cf_chl_');
+  return detail.contains('cf-chl-') ||
+      detail.contains('cf_chl_') ||
+      (hasCloudflareMarker &&
+          (detail.contains('captcha') ||
+              detail.contains('just a moment') ||
+              detail.contains('attention required') ||
+              detail.contains('verify you are human') ||
+              detail.contains('challenge page') ||
+              detail.contains('challenge detected') ||
+              detail.contains('challenge required') ||
+              detail.contains('browser verification')));
 }
 
 class ExtensionHomeEmptyState extends StatefulWidget {
@@ -102,8 +126,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
   @override
   void didUpdateWidget(covariant ExtensionHomeEmptyState oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (extensionErrorIsCloudflareChallenge(widget.error)) {
-      _showChallenge = true;
+    final wasChallenge = extensionErrorIsCloudflareChallenge(oldWidget.error);
+    final isChallenge = extensionErrorIsCloudflareChallenge(widget.error);
+    if (wasChallenge != isChallenge) {
+      _showChallenge = isChallenge;
     }
   }
 
@@ -117,6 +143,9 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
     final httpStatusCode = extensionHttpStatusCode(widget.error);
     final challengeUrl = widget.challengeUrl?.trim();
     final hasChallengeUrl = challengeUrl?.isNotEmpty == true;
+    final cloudflareApiBlocked = extensionErrorIsCloudflareApiBlock(
+      widget.error,
+    );
     final challengeDetected = extensionErrorIsCloudflareChallenge(
       widget.error,
     );
@@ -167,8 +196,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       label: isPlainEmpty
                                           ? 'Boîte vide'
                                           : challengeDetected
-                                          ? 'Vérification Cloudflare nécessaire'
-                                          : 'Échec de connexion à la source',
+                                              ? 'Vérification Cloudflare nécessaire'
+                                              : cloudflareApiBlocked
+                                                  ? 'Accès API bloqué'
+                                                  : 'Échec de connexion à la source',
                                       child: isPlainEmpty
                                           ? Lottie.asset(
                                               'assets/animations/empty_box_partho.json',
@@ -212,9 +243,11 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                   Text(
                                     challengeDetected
                                         ? 'Vérification Cloudflare requise'
-                                        : widget.error == null
-                                        ? 'Aucun contenu disponible'
-                                        : 'Impossible de charger le contenu',
+                                        : cloudflareApiBlocked
+                                            ? 'Accès API bloqué'
+                                            : widget.error == null
+                                                ? 'Aucun contenu disponible'
+                                                : 'Impossible de charger le contenu',
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -343,7 +376,9 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                         ),
                                       ),
                                     ],
-                                  if (hasChallengeUrl && !_showChallenge) ...[
+                                  if (hasChallengeUrl &&
+                                      !_showChallenge &&
+                                      !cloudflareApiBlocked) ...[
                                     const SizedBox(height: 8),
                                     TextButton.icon(
                                       onPressed: () => setState(
