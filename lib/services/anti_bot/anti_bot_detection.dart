@@ -7,8 +7,8 @@
 ///
 ///  * Cloudflare CDN markers (`cf-ray`, `cf-mitigated`,
 ///    `server: cloudflare`, `challenge-platform`, `cf-chl`…), and/or
-///  * an interactive challenge (`Just a moment…`, `Verify you are human`,
-///    Turnstile…), and/or
+///  * Cloudflare-specific challenge markup/text, a Cloudflare response header
+///    paired with challenge text, or a Cloudflare challenge DOM element; and/or
 ///  * a Cloudflare block page (`Attention Required`, `You have been blocked`…).
 ///
 /// A page that loads normally is classified [AntiBotPageType.normal] and must
@@ -104,6 +104,15 @@ const List<String> _kCloudflareOnlyMarkers = [
   'cf-challenge-running',
 ];
 
+/// Challenge-page markers that are specific enough to identify Cloudflare
+/// without relying on a generic CAPTCHA message.
+const List<String> _kCloudflareChallengeMarkers = [
+  'challenge-platform',
+  'cf-challenge-running',
+  'cf-chl',
+  'cf_chl',
+];
+
 List<String> _foundMarkers(String haystack, List<String> markers) =>
     [for (final marker in markers) if (haystack.contains(marker)) marker];
 
@@ -167,7 +176,19 @@ AntiBotAssessment assessHttpResponse({
   if (cfOnlyHit) cloudflareInvolved = true;
 
   final challengeRequested = cfMitigated.contains('challenge');
-  if (challengeMarkers.isNotEmpty || challengeRequested) {
+  final hasCloudflareResponseHeader =
+      server.contains('cloudflare') ||
+      cfRay.isNotEmpty ||
+      cfMitigated.isNotEmpty;
+  final hasCloudflareChallengeMarker =
+      _foundMarkers(haystack, _kCloudflareChallengeMarkers).isNotEmpty;
+  final blockRequested = cfMitigated.contains('block');
+  if (challengeRequested ||
+      hasCloudflareChallengeMarker ||
+      (!blockRequested &&
+          challengeMarkers.isNotEmpty &&
+          hasCloudflareResponseHeader &&
+          blockMarkers.isEmpty)) {
     if (challengeRequested) evidence.add('header:cf-mitigated=challenge');
     evidence.addAll(challengeMarkers.map((m) => 'body:$m'));
     return AntiBotAssessment(
@@ -178,7 +199,6 @@ AntiBotAssessment assessHttpResponse({
     );
   }
 
-  final blockRequested = cfMitigated.contains('block');
   if (blockMarkers.isNotEmpty &&
       (cloudflareInvolved || blockRequested) &&
       (statusCode >= 400 || blockRequested || contentType.contains('html'))) {
@@ -203,21 +223,33 @@ AntiBotAssessment assessHttpResponse({
 }
 
 /// Inspects a page already rendered in a WebView (title + visible text).
-AntiBotAssessment assessPageContent({String? title, String? text}) {
+AntiBotAssessment assessPageContent({
+  String? title,
+  String? text,
+  bool cloudflareChallengeDom = false,
+}) {
   final haystack = '${title ?? ''}\n${text ?? ''}'.toLowerCase();
   final hasContent = (title?.trim().isNotEmpty ?? false) ||
       (text?.trim().isNotEmpty ?? false);
 
   final challengeMarkers = _foundMarkers(haystack, kChallengeMarkers);
-  if (challengeMarkers.isNotEmpty) {
+  final cloudflareChallengeMarkers =
+      _foundMarkers(haystack, _kCloudflareChallengeMarkers);
+  final blockMarkers = _foundMarkers(haystack, kBlockMarkers);
+  if (cloudflareChallengeDom ||
+      (challengeMarkers.isNotEmpty &&
+          (cloudflareChallengeMarkers.isNotEmpty ||
+              (haystack.contains('cloudflare') && blockMarkers.isEmpty)))) {
     return AntiBotAssessment(
       pageType: AntiBotPageType.challenge,
       cloudflareInvolved: true,
-      evidence: [for (final m in challengeMarkers) 'page:$m'],
+      evidence: [
+        if (cloudflareChallengeDom) 'dom:cloudflare-challenge',
+        for (final m in challengeMarkers) 'page:$m',
+      ],
     );
   }
 
-  final blockMarkers = _foundMarkers(haystack, kBlockMarkers);
   final cfOnlyHit = _foundMarkers(haystack, _kCloudflareOnlyMarkers).isNotEmpty;
   final mentionsCloudflare = haystack.contains('cloudflare');
   if (blockMarkers.isNotEmpty && (cfOnlyHit || mentionsCloudflare)) {
@@ -242,7 +274,12 @@ AntiBotAssessment assessErrorMessage(String? message) {
   if (haystack.trim().isEmpty) return const AntiBotAssessment();
 
   final challengeMarkers = _foundMarkers(haystack, kChallengeMarkers);
-  if (challengeMarkers.isNotEmpty) {
+  final cloudflareChallengeMarkers =
+      _foundMarkers(haystack, _kCloudflareChallengeMarkers);
+  if (challengeMarkers.isNotEmpty &&
+      (cloudflareChallengeMarkers.isNotEmpty ||
+          (haystack.contains('cloudflare') &&
+              _foundMarkers(haystack, kBlockMarkers).isEmpty))) {
     return AntiBotAssessment(
       pageType: AntiBotPageType.challenge,
       cloudflareInvolved: true,
@@ -307,13 +344,28 @@ const String kCfPageProbeJs = r'''
   try {
     var title = '';
     var text = '';
+    var cloudflareChallengeDom = false;
     try { title = String(document.title || ''); } catch (e) {}
     try {
       var body = document.body;
       text = String((body && (body.innerText || body.textContent)) || '');
     } catch (e) {}
+    try {
+      cloudflareChallengeDom = !!document.querySelector(
+        '#challenge-error-title, #challenge-error-text, #challenge-form, ' +
+        'input[name="cf-turnstile-response"], #cf-challenge-running, ' +
+        'script[src*="/cdn-cgi/challenge-platform/"], ' +
+        'iframe[src*="challenges.cloudflare.com"]'
+      );
+    } catch (e) {}
     if (text.length > 20000) text = text.substring(0, 20000);
-    return JSON.stringify({ ok: true, title: title, url: String(location.href || ''), text: text });
+    return JSON.stringify({
+      ok: true,
+      title: title,
+      url: String(location.href || ''),
+      text: text,
+      cloudflareChallengeDom: cloudflareChallengeDom
+    });
   } catch (e) {
     return JSON.stringify({ ok: false, error: String(e) });
   }
@@ -331,6 +383,7 @@ AntiBotAssessment parsePageProbe(String? raw) {
     return assessPageContent(
       title: decoded['title']?.toString(),
       text: decoded['text']?.toString(),
+      cloudflareChallengeDom: decoded['cloudflareChallengeDom'] == true,
     );
   } catch (_) {
     return const AntiBotAssessment();

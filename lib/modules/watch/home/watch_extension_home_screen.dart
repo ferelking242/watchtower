@@ -3414,7 +3414,7 @@ class _ExtensionEmpty extends StatelessWidget {
     onRetry: onRefresh,
     onRefresh: onRefresh,
     error: error,
-    challengeUrl: source.baseUrl,
+    manualCheckUrl: source.baseUrl,
     header: _ExtensionFeedTopHeader(
       source: source,
       onSearch: () {},

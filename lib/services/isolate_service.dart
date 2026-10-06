@@ -62,6 +62,7 @@ class GetIsolateService {
   final List<_ExtensionWorker> _workers = [];
   final Map<String, _ExtensionWorker> _sourceWorkers = {};
   int _nextWorker = 0;
+  void Function(String url)? onCloudflareChallengeDetected;
 
   Future<void> start() async {
     if (!_isRunning) {
@@ -107,6 +108,21 @@ class GetIsolateService {
         return;
       }
       if (message is String) _forwardExtensionLog(message);
+      if (message is Map &&
+          message['type'] == MClient.workerCloudflareChallengeEventType) {
+        final url = message['url'];
+        if (url is String && url.isNotEmpty) {
+          try {
+            onCloudflareChallengeDetected?.call(url);
+          } catch (_) {
+            AppLogger.log(
+              'Could not route extension Cloudflare challenge to the UI.',
+              logLevel: LogLevel.warning,
+              tag: LogTag.network,
+            );
+          }
+        }
+      }
     });
 
     try {
@@ -232,6 +248,7 @@ class GetIsolateService {
     BackgroundIsolateBinaryMessenger.ensureInitialized(
       isolateData.rootIsolateToken,
     );
+    MClient.installWorkerAntiBotEventPort(isolateData.sendPort);
 
     await initializeDateFormatting();
 

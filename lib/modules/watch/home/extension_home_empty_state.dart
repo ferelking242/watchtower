@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 
 String? extensionRequestFailureMessage(Object? error) {
   if (error == null) return null;
@@ -30,17 +31,7 @@ String? extensionRequestFailureMessage(Object? error) {
 
 bool extensionErrorIsCloudflareChallenge(Object? error) {
   if (error == null) return false;
-  final detail = error.toString().toLowerCase();
-  return detail.contains('cloudflare') ||
-      detail.contains('cf-chl-') ||
-      detail.contains('cf_clearance') ||
-      detail.contains('cf-ray') ||
-      detail.contains('captcha') ||
-      detail.contains('challenge') ||
-      detail.contains('just a moment') ||
-      detail.contains('attention required') ||
-      (detail.contains('403') && detail.contains('cloud')) ||
-      (detail.contains('503') && detail.contains('cloud'));
+  return assessErrorMessage(error.toString()).challenge;
 }
 
 class ExtensionHomeEmptyState extends StatefulWidget {
@@ -49,7 +40,7 @@ class ExtensionHomeEmptyState extends StatefulWidget {
     required this.onRefresh,
     required this.header,
     this.error,
-    this.challengeUrl,
+    this.manualCheckUrl,
     super.key,
   });
 
@@ -57,7 +48,7 @@ class ExtensionHomeEmptyState extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final Widget header;
   final Object? error;
-  final String? challengeUrl;
+  final String? manualCheckUrl;
 
   @override
   State<ExtensionHomeEmptyState> createState() =>
@@ -65,16 +56,10 @@ class ExtensionHomeEmptyState extends StatefulWidget {
 }
 
 class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
-  late bool _showChallenge =
-      extensionErrorIsCloudflareChallenge(widget.error);
-
-  @override
-  void didUpdateWidget(covariant ExtensionHomeEmptyState oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (extensionErrorIsCloudflareChallenge(widget.error)) {
-      _showChallenge = true;
-    }
-  }
+  // An error string does not carry the URL that failed. Only open the
+  // source-homepage check when the user explicitly asks; verified HTTP
+  // challenges are routed separately with their exact request URL.
+  bool _showChallenge = false;
 
   void _retrySource() {
     unawaited(widget.onRetry());
@@ -83,8 +68,8 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
   @override
   Widget build(BuildContext context) {
     final failureMessage = extensionRequestFailureMessage(widget.error);
-    final challengeUrl = widget.challengeUrl?.trim();
-    final hasChallengeUrl = challengeUrl?.isNotEmpty == true;
+    final manualCheckUrl = widget.manualCheckUrl?.trim();
+    final hasManualCheckUrl = manualCheckUrl?.isNotEmpty == true;
     final challengeDetected = extensionErrorIsCloudflareChallenge(
       widget.error,
     );
@@ -239,7 +224,7 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       ),
                                     ),
                                   ),
-                                  if (hasChallengeUrl && !_showChallenge) ...[
+                                  if (hasManualCheckUrl && !_showChallenge) ...[
                                     const SizedBox(height: 8),
                                     TextButton.icon(
                                       onPressed: () => setState(
@@ -254,10 +239,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       ),
                                     ),
                                   ],
-                                  if (hasChallengeUrl && _showChallenge) ...[
+                                  if (hasManualCheckUrl && _showChallenge) ...[
                                     const SizedBox(height: 12),
                                     CloudflareBypassPanel(
-                                      url: challengeUrl!,
+                                      url: manualCheckUrl!,
                                       compact: true,
                                       onResolved: _retrySource,
                                       onRetry: _retrySource,

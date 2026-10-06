@@ -308,6 +308,21 @@ void main(List<String> args) async {
       }
       // Start the background isolate AFTER the DB is open and isar is assigned.
       if (!kIsWeb) {
+        getIsolateService.onCloudflareChallengeDetected = (url) {
+          if (Platform.isLinux) return;
+          final isMobile = Platform.isAndroid || Platform.isIOS;
+          if (!isMobile ||
+              WidgetsBinding.instance.lifecycleState ==
+                  AppLifecycleState.resumed) {
+            BypassNotificationService.instance.openChallenge(url);
+          } else {
+            unawaited(
+              BypassNotificationService.instance.notifyChallengeDetected(
+                url: url,
+              ),
+            );
+          }
+        };
         await getIsolateService.start();
       }
 

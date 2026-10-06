@@ -64,26 +64,54 @@ void main() {
     expect(refreshes, 1);
   });
 
-  testWidgets('opens the challenge panel for a detected Cloudflare error', (
+  testWidgets('does not auto-open the source homepage for a vague CF error', (
     tester,
   ) async {
+    expect(
+      extensionErrorIsCloudflareChallenge(
+        Exception('HTTP 403 blocked by Cloudflare challenge'),
+      ),
+      isFalse,
+    );
+
     await tester.pumpWidget(
       MaterialApp(
         home: ExtensionHomeEmptyState(
           onRetry: () async {},
           onRefresh: () async {},
           header: const SizedBox.shrink(),
-          challengeUrl: 'https://source.example/',
+          manualCheckUrl: 'https://source.example/',
           error: Exception('HTTP 403 blocked by Cloudflare challenge'),
         ),
       ),
     );
 
-    await tester.pump();
-    await tester.pump();
+    expect(find.text('Impossible de charger le contenu'), findsOneWidget);
+    expect(find.text('Challenge Cloudflare'), findsNothing);
+    expect(find.text('Vérifier l’accès à la source'), findsOneWidget);
+  });
+
+  testWidgets('requires an explicit tap when only an error message is known', (
+    tester,
+  ) async {
+    final error = Exception('Cloudflare: Just a moment... Checking your browser');
+    expect(extensionErrorIsCloudflareChallenge(error), isTrue);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {},
+          onRefresh: () async {},
+          header: const SizedBox.shrink(),
+          manualCheckUrl: 'https://source.example/',
+          error: error,
+        ),
+      ),
+    );
 
     expect(find.text('Vérification Cloudflare requise'), findsOneWidget);
-    expect(find.text('Challenge Cloudflare'), findsOneWidget);
+    expect(find.text('Challenge Cloudflare'), findsNothing);
+    expect(find.text('Vérifier l’accès à la source'), findsOneWidget);
   });
 
   testWidgets('does not auto-open the panel for unrelated errors', (
@@ -95,7 +123,7 @@ void main() {
           onRetry: () async {},
           onRefresh: () async {},
           header: const SizedBox.shrink(),
-          challengeUrl: 'https://source.example/',
+          manualCheckUrl: 'https://source.example/',
           error: Exception('SocketException: connection timed out'),
         ),
       ),

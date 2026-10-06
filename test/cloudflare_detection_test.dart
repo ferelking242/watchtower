@@ -51,6 +51,24 @@ void main() {
       expect(a.cloudflareInvolved, isFalse);
     });
 
+    test(
+      'generic human-verification copy without Cloudflare evidence is not CF',
+      () {
+        final a = assessHttpResponse(
+          statusCode: 403,
+          headers: {
+            'server': 'nginx',
+            'content-type': 'text/html',
+          },
+          body: '<html><title>Verify you are human</title>'
+              '<body>Complete the captcha to continue</body></html>',
+        );
+        expect(a.challenge, isFalse);
+        expect(a.cloudflareInvolved, isFalse);
+        expect(a.pageType, AntiBotPageType.unknown);
+      },
+    );
+
     test('Test 4: 503 + a real Cloudflare challenge page IS a challenge', () {
       final a = assessHttpResponse(
         statusCode: 503,
@@ -63,11 +81,15 @@ void main() {
       expect(a.cloudflareInvolved, isTrue);
     });
 
-    test('Test 5: HTML "Just a moment..." → challenge (even with HTTP 200)',
+    test('Test 5: HTTP 200 challenge with Cloudflare response markers',
         () {
       final a = assessHttpResponse(
         statusCode: 200,
-        headers: {'content-type': 'text/html'},
+        headers: {
+          'content-type': 'text/html',
+          'server': 'cloudflare',
+          'cf-ray': 'abc123-CDG',
+        },
         body: '<html><head><title>Just a moment...</title></head><body>'
             'Checking your browser before accessing the site.</body></html>',
       );
@@ -181,7 +203,8 @@ void main() {
 
     test('Test 10: a real challenge page is detected in the WebView probe', () {
       final page = parsePageProbe(
-        '{"ok":true,"title":"Just a moment...","text":"Verify you are human"}',
+        '{"ok":true,"title":"Just a moment...","text":"Verify you are human",'
+        '"cloudflareChallengeDom":true}',
       );
       expect(page.pageType, AntiBotPageType.challenge);
       expect(
@@ -194,6 +217,30 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'Cloudflare challenge DOM can identify a generic verification prompt',
+      () {
+        final page = parsePageProbe(
+          '{"ok":true,"title":"Verify you are human",'
+          '"text":"Complete the verification","cloudflareChallengeDom":true}',
+        );
+        expect(page.pageType, AntiBotPageType.challenge);
+        expect(page.evidence, contains('dom:cloudflare-challenge'));
+      },
+    );
+
+    test(
+      'generic verification text alone is not a Cloudflare WebView challenge',
+      () {
+        final page = parsePageProbe(
+          '{"ok":true,"title":"Verify you are human",'
+          '"text":"Complete the captcha to continue"}',
+        );
+        expect(page.pageType, AntiBotPageType.normal);
+        expect(page.challenge, isFalse);
+      },
+    );
 
     test('Test 11: cf_clearance + challenge cleared → retry is allowed', () {
       expect(
@@ -264,12 +311,29 @@ void main() {
     });
 
     test('real Cloudflare markers are detected', () {
-      expect(assessErrorMessage('Just a moment...').challenge, isTrue);
+      expect(assessErrorMessage('Cloudflare: Just a moment...').challenge, isTrue);
+      expect(
+        assessErrorMessage('Cloudflare verify you are human').challenge,
+        isTrue,
+      );
       expect(assessErrorMessage('Failed to bypass Cloudflare').blocked, isTrue);
       expect(
         assessErrorMessage('Attention Required! | Cloudflare').blocked,
         isTrue,
       );
+    });
+
+    test('generic CAPTCHA words do not identify Cloudflare', () {
+      for (final message in [
+        'captcha required',
+        'verify you are human',
+        'Turnstile verification',
+        'OAuth code_challenge expired',
+      ]) {
+        final assessment = assessErrorMessage(message);
+        expect(assessment.challenge, isFalse, reason: message);
+        expect(assessment.cloudflareInvolved, isFalse, reason: message);
+      }
     });
 
     test('diagnostic logs never contain query values', () {

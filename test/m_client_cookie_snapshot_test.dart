@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -28,4 +29,38 @@ void main() {
     expect(MClient.getCookiesPref('https://unrelated.example/'), isEmpty);
     expect(MClient.userAgentForRequests(), 'Watchtower test agent');
   });
+
+  test(
+    'extension worker forwards the exact challenge URL to the UI isolate',
+    () async {
+      final events = ReceivePort();
+      addTearDown(events.close);
+      MClient.installWorkerAntiBotEventPort(events.sendPort);
+
+      const failedUrl = 'https://source.example/api/search?page=3';
+      expect(MClient.dispatchWorkerCloudflareChallenge(failedUrl), isTrue);
+
+      final event = await events.first.timeout(const Duration(seconds: 1));
+      expect(
+        event,
+        {
+          'type': MClient.workerCloudflareChallengeEventType,
+          'url': failedUrl,
+        },
+      );
+    },
+  );
+
+  test(
+    'challenge URL dispatch is unavailable outside an extension worker',
+    () {
+      MClient.clearWorkerSettingsSnapshot();
+      expect(
+        MClient.dispatchWorkerCloudflareChallenge(
+          'https://source.example/api/search',
+        ),
+        isFalse,
+      );
+    },
+  );
 }

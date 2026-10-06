@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_interceptor/http_interceptor.dart';
@@ -28,6 +29,27 @@ class MClient {
   static final Map<rhttp.ClientSettings, Client> rhttpPool = {};
   static List<MCookie>? _workerCookieSnapshot;
   static String? _workerUserAgentSnapshot;
+  static SendPort? _workerAntiBotEventPort;
+
+  static const workerCloudflareChallengeEventType =
+      'watchtower_cloudflare_challenge';
+
+  /// Installs the main-isolate message port in an extension worker.
+  static void installWorkerAntiBotEventPort(SendPort sendPort) {
+    _workerAntiBotEventPort = sendPort;
+  }
+
+  /// Sends an exact failing URL back to the UI isolate. Returns false outside
+  /// an extension worker so the caller can use its in-isolate UI path.
+  static bool dispatchWorkerCloudflareChallenge(String url) {
+    final port = _workerAntiBotEventPort;
+    if (port == null || url.trim().isEmpty) return false;
+    port.send({
+      'type': workerCloudflareChallengeEventType,
+      'url': url,
+    });
+    return true;
+  }
 
   /// Pass a plain-data HTTP session snapshot to extension workers. Worker
   /// isolates do not open Isar, so they cannot read settings directly.
@@ -79,6 +101,7 @@ class MClient {
   static void clearWorkerSettingsSnapshot() {
     _workerCookieSnapshot = null;
     _workerUserAgentSnapshot = null;
+    _workerAntiBotEventPort = null;
   }
 
   static String userAgentForRequests() {
@@ -570,9 +593,11 @@ class LoggerInterceptor extends InterceptorContract {
     // Only an interactive challenge is actionable in a WebView. A WAF block
     // page gets a plain warning and never opens a “resolve challenge” flow.
     if (cloudflareChallenge) {
-      BypassNotificationService.instance
-          .notifyChallengeDetected(url: url)
-          .ignore();
+      if (!MClient.dispatchWorkerCloudflareChallenge(url)) {
+        BypassNotificationService.instance
+            .notifyChallengeDetected(url: url)
+            .ignore();
+      }
       try {
         final host = Uri.tryParse(url)?.host ?? url;
         botToast('🛡 $host — challenge Cloudflare détecté', second: 4);
@@ -611,6 +636,7 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
     try {
       botToast('🛡 Challenge Cloudflare — résolvez-le sur la page', second: 6);
     } catch (_) {}
+    if (MClient.dispatchWorkerCloudflareChallenge(url)) return;
     try {
       BypassNotificationService.instance.openChallenge(url);
     } catch (_) {}

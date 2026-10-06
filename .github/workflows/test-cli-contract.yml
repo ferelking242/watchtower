@@ -15,6 +15,17 @@ on:
       - 'lib/services/update_notification_service.dart'
       - 'test/download_queue_grouping_test.dart'
       - 'test/image_download_response_test.dart'
+      - 'lib/main.dart'
+      - 'lib/modules/anti_bot/**'
+      - 'lib/modules/watch/home/extension_home_empty_state.dart'
+      - 'lib/modules/watch/home/watch_extension_home_screen.dart'
+      - 'lib/services/anti_bot/**'
+      - 'lib/services/http/m_client.dart'
+      - 'lib/services/isolate_service.dart'
+      - 'test/cloudflare_detection_test.dart'
+      - 'test/cloudflare_challenge_url_test.dart'
+      - 'test/extension_home_empty_state_test.dart'
+      - 'test/m_client_cookie_snapshot_test.dart'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/test-cli-contract.yml'
@@ -33,6 +44,17 @@ on:
       - 'lib/services/update_notification_service.dart'
       - 'test/download_queue_grouping_test.dart'
       - 'test/image_download_response_test.dart'
+      - 'lib/main.dart'
+      - 'lib/modules/anti_bot/**'
+      - 'lib/modules/watch/home/extension_home_empty_state.dart'
+      - 'lib/modules/watch/home/watch_extension_home_screen.dart'
+      - 'lib/services/anti_bot/**'
+      - 'lib/services/http/m_client.dart'
+      - 'lib/services/isolate_service.dart'
+      - 'test/cloudflare_detection_test.dart'
+      - 'test/cloudflare_challenge_url_test.dart'
+      - 'test/extension_home_empty_state_test.dart'
+      - 'test/m_client_cookie_snapshot_test.dart'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/test-cli-contract.yml'
@@ -70,8 +92,53 @@ jobs:
       - name: Test download queue and image response contracts
         run: flutter test test/download_queue_grouping_test.dart test/image_download_response_test.dart
 
+      - name: Test Cloudflare detection and extension recovery
+        run: >-
+          flutter test
+          test/cloudflare_detection_test.dart
+          test/cloudflare_challenge_url_test.dart
+          test/extension_home_empty_state_test.dart
+          test/m_client_cookie_snapshot_test.dart
+
+      - name: Analyze Cloudflare challenge flow
+        run: >-
+          flutter analyze --no-pub
+          lib/main.dart
+          lib/modules/watch/home/extension_home_empty_state.dart
+          lib/modules/watch/home/watch_extension_home_screen.dart
+          lib/services/anti_bot/anti_bot_detection.dart
+          lib/services/http/m_client.dart
+          lib/services/isolate_service.dart
+          test/cloudflare_detection_test.dart
+          test/cloudflare_challenge_url_test.dart
+          test/extension_home_empty_state_test.dart
+          test/m_client_cookie_snapshot_test.dart
+
       - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed lib/cli/watchtower_cli.dart lib/cli/watchtower_cli_options.dart lib/cli/watchtower_cli_catalog.dart lib/cli/watchtower_cli_plugins.dart lib/cli/watchtower_cli_safety.dart lib/modules/more/download_queue/download_queue_grouping.dart test/watchtower_cli_options_test.dart test/watchtower_cli_catalog_test.dart test/watchtower_cli_plugins_test.dart test/watchtower_cli_safety_test.dart test/download_queue_grouping_test.dart test/image_download_response_test.dart
+        run: >-
+          dart format --output=none --set-exit-if-changed
+          lib/cli/watchtower_cli.dart
+          lib/cli/watchtower_cli_options.dart
+          lib/cli/watchtower_cli_catalog.dart
+          lib/cli/watchtower_cli_plugins.dart
+          lib/cli/watchtower_cli_safety.dart
+          lib/modules/more/download_queue/download_queue_grouping.dart
+          lib/main.dart
+          lib/modules/watch/home/extension_home_empty_state.dart
+          lib/modules/watch/home/watch_extension_home_screen.dart
+          lib/services/anti_bot/anti_bot_detection.dart
+          lib/services/http/m_client.dart
+          lib/services/isolate_service.dart
+          test/cloudflare_detection_test.dart
+          test/cloudflare_challenge_url_test.dart
+          test/extension_home_empty_state_test.dart
+          test/m_client_cookie_snapshot_test.dart
+          test/watchtower_cli_options_test.dart
+          test/watchtower_cli_catalog_test.dart
+          test/watchtower_cli_plugins_test.dart
+          test/watchtower_cli_safety_test.dart
+          test/download_queue_grouping_test.dart
+          test/image_download_response_test.dart
 
       - name: Analyze CLI code and tests
         run: flutter analyze --no-pub lib/cli/watchtower_cli.dart lib/cli/watchtower_cli_options.dart lib/cli/watchtower_cli_catalog.dart lib/cli/watchtower_cli_plugins.dart lib/cli/watchtower_cli_safety.dart lib/modules/more/download_queue/download_queue_grouping.dart test/watchtower_cli_options_test.dart test/watchtower_cli_catalog_test.dart test/watchtower_cli_plugins_test.dart test/watchtower_cli_safety_test.dart test/download_queue_grouping_test.dart test/image_download_response_test.dart

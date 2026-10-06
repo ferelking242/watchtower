@@ -29,7 +29,11 @@ void main() {
   group('Cloudflare page detection', () {
     test('recognizes a challenge widget even without English body text', () {
       expect(
-        assessPageContent(title: 'Just a moment...', text: 'Sécurité').challenge,
+        assessPageContent(
+          title: 'Just a moment...',
+          text: 'Sécurité',
+          cloudflareChallengeDom: true,
+        ).challenge,
         isTrue,
       );
     });
