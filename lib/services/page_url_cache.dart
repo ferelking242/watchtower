@@ -3,14 +3,16 @@ import 'dart:convert';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/settings.dart' show ChapterPageurls;
 
-/// Nombre maximal d'entrées (chapitres) conservées dans le cache de pages.
+/// Nombre cible d'entrées (chapitres) conservées dans le cache de pages.
 ///
 /// Le cache vit dans l'enregistrement `Settings` (un seul record réécrit en
 /// entier à chaque insertion). Sans borne, il grandit indéfiniment (un
 /// chapitre = 60+ URLs longues), ce qui rend les écritures de plus en plus
 /// lourdes et augmente le risque d'enregistrement corrompu (cf.
 /// `settings_store.dart` pour le mécanisme de crash). 50 chapitres récents
-/// suffisent pour un usage réel (relecture / téléchargement différé).
+/// suffisent pour un usage réel (relecture / téléchargement différé). Les
+/// chapitres encore présents dans la file sont protégés contre l'éviction;
+/// le cache peut donc dépasser temporairement cette cible.
 const int kMaxChapterPageCacheEntries = 50;
 
 /// Rebuild cached page URLs without assuming the optional headers list is
@@ -114,8 +116,9 @@ bool cachedPagesUnchanged(ChapterPageurls? existing, List<PageUrl> pageUrls) {
 }
 
 /// Remplace (ou insère) l'entrée du chapitre [chapterId] dans la liste du
-/// cache, en replaçant l'entrée à jour en fin de liste (éviction FIFO des
-/// chapitres les plus anciens au-delà de [maxEntries]).
+/// cache, en replaçant l'entrée à jour en fin de liste. Au-delà de
+/// [maxEntries], les entrées les plus anciennes qui ne sont pas protégées
+/// sont évincées; les chapitres incomplets de la file restent conservés.
 ///
 /// L'entrée écrite est toujours alignée ([buildChapterPageurls]) : un cache
 /// existant désaligné est remplacé, jamais fusionné tel quel.

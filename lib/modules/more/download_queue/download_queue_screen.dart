@@ -389,7 +389,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   ) {
     switch (action) {
       case _GlobalAction.pauseAll:
-        final ids = entries.map((e) => e.id ?? -1).toList();
+        final ids = entries
+            .where(_isBulkActionable)
+            .map((entry) => entry.id!)
+            .toList();
         ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
         for (final id in ids.where((id) => id >= 0)) {
           ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
@@ -400,22 +403,20 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             ),
           );
         }
-        isar.writeTxnSync(() {
-          for (final id in ids.where((id) => id >= 0)) {
-            final stored = isar.downloads.getSync(id);
-            if (stored != null) {
-              isar.downloads.putSync(stored..status = 'paused');
-            }
-          }
-        });
         break;
       case _GlobalAction.resumeAll:
-        ref.read(downloadQueueStateProvider.notifier).resumeAll(
-          entries.map((entry) => entry.id).whereType<int>(),
-        );
-        for (final entry in entries) {
-          final id = entry.id;
-          if (id == null) continue;
+        final pausedIds = ref.read(downloadQueueStateProvider).pausedIds;
+        final ids = entries
+            .where(
+              (entry) =>
+                  _isBulkActionable(entry) &&
+                  (entry.status == 'paused' ||
+                      pausedIds.contains(entry.id)),
+            )
+            .map((entry) => entry.id!)
+            .toList();
+        ref.read(downloadQueueStateProvider.notifier).resumeAll(ids);
+        for (final id in ids) {
           ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
           unawaited(
             WatchtowerNotificationService.instance.setMediaDownloadPaused(
@@ -424,37 +425,24 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             ),
           );
         }
-        isar.writeTxnSync(() {
-          for (final entry in entries) {
-            final id = entry.id;
-            if (id == null) continue;
-            final stored = isar.downloads.getSync(id);
-            if (stored != null && !(stored.isDownload ?? false)) {
-              isar.downloads.putSync(
-                stored
-                  ..isDownload = false
-                  ..isStartDownload = true
-                  ..status = 'queued',
-              );
-            }
-          }
-        });
         ref.read(processDownloadsProvider());
         break;
       case _GlobalAction.stopAll:
-        for (final e in entries) {
-          if (e.id != null) {
-            ActiveDownloadRegistry.cancel(e.id!);
-            ref
-                .read(downloadQueueStateProvider.notifier)
-                .clearLiveProgress(e.id!);
-            unawaited(
-              WatchtowerNotificationService.instance.setMediaDownloadPaused(
-                e.id!,
-                isPaused: true,
-              ),
-            );
-          }
+        final ids = entries
+            .where(_isBulkActionable)
+            .map((entry) => entry.id!)
+            .toList();
+        ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
+        for (final id in ids) {
+          ref
+              .read(downloadQueueStateProvider.notifier)
+              .clearLiveProgress(id);
+          unawaited(
+            WatchtowerNotificationService.instance.setMediaDownloadPaused(
+              id,
+              isPaused: true,
+            ),
+          );
         }
         break;
       case _GlobalAction.deleteCompleted:
@@ -777,11 +765,28 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         color: scheme.primary,
                         onTap: () {
                           Navigator.pop(context);
+                          final pausedIds = widget
+                              .parentRef
+                              .read(downloadQueueStateProvider)
+                              .pausedIds;
+                          final ids = entries
+                              .where(
+                                (entry) =>
+                                    _isBulkActionable(entry) &&
+                                    (entry.status == 'paused' ||
+                                        pausedIds.contains(entry.id)),
+                              )
+                              .map((entry) => entry.id!)
+                              .toList();
                           widget.parentRef
                               .read(downloadQueueStateProvider.notifier)
-                              .resumeAll(
-                                entries.map((entry) => entry.id).whereType<int>(),
-                              );
+                              .resumeAll(ids);
+                          for (final id in ids) {
+                            unawaited(
+                              WatchtowerNotificationService.instance
+                                  .setMediaDownloadPaused(id, isPaused: false),
+                            );
+                          }
                           widget.parentRef.read(processDownloadsProvider());
                         },
                       ),
@@ -792,10 +797,19 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         color: Colors.orange,
                         onTap: () {
                           Navigator.pop(context);
-                          final ids = entries.map((e) => e.id ?? -1).toList();
+                          final ids = entries
+                              .where(_isBulkActionable)
+                              .map((entry) => entry.id!)
+                              .toList();
                           widget.parentRef
                               .read(downloadQueueStateProvider.notifier)
                               .pauseAll(ids);
+                          for (final id in ids) {
+                            unawaited(
+                              WatchtowerNotificationService.instance
+                                  .setMediaDownloadPaused(id, isPaused: true),
+                            );
+                          }
                         },
                       ),
                       const SizedBox(width: 8),
@@ -805,9 +819,21 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         color: Colors.redAccent,
                         onTap: () {
                           Navigator.pop(context);
-                          for (final e in entries) {
-                            if (e.id != null)
-                              ActiveDownloadRegistry.cancel(e.id!);
+                          final ids = entries
+                              .where(_isBulkActionable)
+                              .map((entry) => entry.id!)
+                              .toList();
+                          widget.parentRef
+                              .read(downloadQueueStateProvider.notifier)
+                              .pauseAll(ids);
+                          for (final id in ids) {
+                            widget.parentRef
+                                .read(downloadQueueStateProvider.notifier)
+                                .clearLiveProgress(id);
+                            unawaited(
+                              WatchtowerNotificationService.instance
+                                  .setMediaDownloadPaused(id, isPaused: true),
+                            );
                           }
                         },
                       ),
@@ -3667,13 +3693,13 @@ class _PauseResumeAllFab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeIds = entries
-        .map((e) => e.id ?? -1)
-        .where((id) => id != -1)
-        .toList();
+    final activeEntries = entries.where(_isBulkActionable).toList();
+    final activeIds = activeEntries.map((entry) => entry.id!).toList();
     bool isPaused(int id) =>
         queueState.pausedIds.contains(id) ||
-        entries.any((entry) => entry.id == id && entry.status == 'paused');
+        activeEntries.any(
+          (entry) => entry.id == id && entry.status == 'paused',
+        );
     final allPaused = activeIds.isNotEmpty && activeIds.every(isPaused);
     final anyActive = activeIds.any((id) => !isPaused(id));
 
@@ -3684,6 +3710,15 @@ class _PauseResumeAllFab extends ConsumerWidget {
         tooltip: 'Reprendre tout',
         onPressed: () {
           ref.read(downloadQueueStateProvider.notifier).resumeAll(activeIds);
+          for (final id in activeIds.where(isPaused)) {
+            ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
+            unawaited(
+              WatchtowerNotificationService.instance.setMediaDownloadPaused(
+                id,
+                isPaused: false,
+              ),
+            );
+          }
           ref.read(processDownloadsProvider());
         },
         backgroundColor: Colors.green.shade700,
@@ -3695,6 +3730,15 @@ class _PauseResumeAllFab extends ConsumerWidget {
         tooltip: 'Tout mettre en pause',
         onPressed: () {
           ref.read(downloadQueueStateProvider.notifier).pauseAll(activeIds);
+          for (final id in activeIds) {
+            ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
+            unawaited(
+              WatchtowerNotificationService.instance.setMediaDownloadPaused(
+                id,
+                isPaused: true,
+              ),
+            );
+          }
         },
         backgroundColor: Colors.orange.shade700,
         foregroundColor: Colors.white,
@@ -3713,3 +3757,8 @@ enum _GlobalAction {
   deleteCompleted,
   retryFailed,
 }
+
+bool _isBulkActionable(Download download) =>
+    download.id != null &&
+    download.isDownload != true &&
+    !const {'failed', 'cancelled', 'completed'}.contains(download.status);

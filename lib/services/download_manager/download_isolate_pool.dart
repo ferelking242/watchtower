@@ -1017,14 +1017,31 @@ _ParsedContentRange? _parseContentRange(String? value) {
 }
 
 Future<Map<String, dynamic>> _readPartMetadata(File metadataFile) async {
-  try {
-    if (!await metadataFile.exists()) return <String, dynamic>{};
-    final decoded = jsonDecode(await metadataFile.readAsString());
-    return decoded is Map
-        ? Map<String, dynamic>.from(decoded)
-        : <String, dynamic>{};
-  } catch (_) {
-    return <String, dynamic>{};
+  for (final candidate in <File>[
+    metadataFile,
+    File('${metadataFile.path}.tmp'),
+  ]) {
+    try {
+      if (!await candidate.exists()) continue;
+      final decoded = jsonDecode(await candidate.readAsString());
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      // Try the atomic-write staging file if the primary sidecar was cut off.
+    }
+  }
+  return <String, dynamic>{};
+}
+
+Future<void> _deletePartMetadata(File metadataFile) async {
+  for (final candidate in <File>[
+    metadataFile,
+    File('${metadataFile.path}.tmp'),
+  ]) {
+    try {
+      if (await candidate.exists()) await candidate.delete();
+    } catch (_) {
+      // Cleanup must not hide the transfer result.
+    }
   }
 }
 
@@ -1320,7 +1337,7 @@ Future<void> _downloadResumableImage({
     var offset = await part.exists() ? await part.length() : 0;
     if (offset > 0 && metadata['url'] != pageUrl.url) {
       if (await part.exists()) await part.delete();
-      if (await metadataFile.exists()) await metadataFile.delete();
+      await _deletePartMetadata(metadataFile);
       metadata.clear();
       offset = 0;
     }
@@ -1338,8 +1355,12 @@ Future<void> _downloadResumableImage({
     );
     request.headers['Accept-Encoding'] = 'identity';
 
-    var savedEtag = metadata['etag'] as String?;
-    var savedLastModified = metadata['lastModified'] as String?;
+    var savedEtag = metadata['etag'] is String
+        ? metadata['etag'] as String
+        : null;
+    var savedLastModified = metadata['lastModified'] is String
+        ? metadata['lastModified'] as String
+        : null;
     if (offset > 0) {
       request.headers['Range'] = 'bytes=$offset-';
       if (savedEtag?.isNotEmpty == true) {
@@ -1370,7 +1391,7 @@ Future<void> _downloadResumableImage({
         return offset;
       }
       if (await part.exists()) await part.delete();
-      if (await metadataFile.exists()) await metadataFile.delete();
+      await _deletePartMetadata(metadataFile);
       throw DownloadPoolException(
         'HTTP 416 while resuming ${path.basename(outputPath)}',
       );
@@ -1390,7 +1411,7 @@ Future<void> _downloadResumableImage({
         (offset <= 0 || range == null || range.start != offset)) {
       await response.stream.listen((_) {}).cancel();
       if (await part.exists()) await part.delete();
-      if (await metadataFile.exists()) await metadataFile.delete();
+      await _deletePartMetadata(metadataFile);
       throw DownloadPoolException(
         'Invalid Content-Range while resuming ${path.basename(outputPath)}',
       );
@@ -1409,7 +1430,7 @@ Future<void> _downloadResumableImage({
     if (validatorsChanged) {
       await response.stream.listen((_) {}).cancel();
       if (await part.exists()) await part.delete();
-      if (await metadataFile.exists()) await metadataFile.delete();
+      await _deletePartMetadata(metadataFile);
       throw DownloadPoolException(
         'Image changed while resuming ${path.basename(outputPath)}',
       );
@@ -1428,8 +1449,9 @@ Future<void> _downloadResumableImage({
     final responseTotal =
         trustedDownloadByteCount(range?.total) ??
         (bodyLength == null ? null : bodyLength + (resumed ? offset : 0));
+    final rawKnownTotal = metadata['totalBytes'];
     final knownTotal = trustedDownloadByteCount(
-      (metadata['totalBytes'] as num?)?.toInt(),
+      rawKnownTotal is num ? rawKnownTotal.toInt() : null,
     );
     final progressTotal = responseTotal ?? knownTotal;
     final persistedEtag =
@@ -1438,7 +1460,8 @@ Future<void> _downloadResumableImage({
         responseLastModified?.isNotEmpty == true
         ? responseLastModified
         : savedLastModified;
-    await metadataFile.writeAsString(
+    final temporaryMetadataFile = File('${metadataFile.path}.tmp');
+    await temporaryMetadataFile.writeAsString(
       jsonEncode(<String, dynamic>{
         'url': pageUrl.url,
         if (progressTotal != null) 'totalBytes': progressTotal,
@@ -1448,6 +1471,13 @@ Future<void> _downloadResumableImage({
       }),
       flush: true,
     );
+    try {
+      await temporaryMetadataFile.rename(metadataFile.path);
+    } catch (_) {
+      if (!await metadataFile.exists()) rethrow;
+      await metadataFile.delete();
+      await temporaryMetadataFile.rename(metadataFile.path);
+    }
 
     if (_isCancelled(taskId)) {
       await response.stream.listen((_) {}).cancel();
@@ -1516,7 +1546,7 @@ Future<void> _downloadResumableImage({
           responseError.contains('empty response body');
       if (!retryable) {
         if (await part.exists()) await part.delete();
-        if (await metadataFile.exists()) await metadataFile.delete();
+        await _deletePartMetadata(metadataFile);
       }
       throw DownloadPoolException.policy(
         'Invalid image response for ${path.basename(outputPath)}: '
@@ -1536,7 +1566,7 @@ Future<void> _downloadResumableImage({
 
   if (!await isReusableDownloadedImage(part)) {
     if (await part.exists()) await part.delete();
-    if (await metadataFile.exists()) await metadataFile.delete();
+    await _deletePartMetadata(metadataFile);
     throw DownloadPoolException.notRetryable(
       'Invalid image payload for ${path.basename(outputPath)}',
     );
@@ -1549,11 +1579,7 @@ Future<void> _downloadResumableImage({
   }
 
   await _installStagedImage(part: part, output: output, backup: backup);
-  try {
-    if (await metadataFile.exists()) await metadataFile.delete();
-  } catch (_) {
-    // The image is valid and installed; stale sidecar cleanup is best effort.
-  }
+  await _deletePartMetadata(metadataFile);
   onProgress?.call(stagedBytes, stagedBytes);
 }
 

@@ -747,14 +747,41 @@ class DownloadQueueState extends _$DownloadQueueState {
 
   void pauseAll(List<int> ids) {
     for (final id in ids) {
+      final download = isar.downloads.getSync(id);
+      if (download == null ||
+          download.isDownload == true ||
+          const {'failed', 'cancelled', 'completed'}.contains(
+            download.status,
+          )) {
+        continue;
+      }
       setPaused(id, true);
     }
   }
 
   void resumeAll([Iterable<int>? downloadIds]) {
-    final ids = downloadIds?.toSet() ?? Set<int>.from(state.pausedIds);
+    final storedPausedIds = isar.downloads
+        .where()
+        .findAllSync()
+        .where(
+          (download) =>
+              download.id != null &&
+              download.isDownload != true &&
+              download.status == 'paused',
+        )
+        .map((download) => download.id!)
+        .toSet();
+    final ids =
+        downloadIds?.toSet() ?? {...state.pausedIds, ...storedPausedIds};
     for (final id in ids) {
-      setPaused(id, false);
+      final download = isar.downloads.getSync(id);
+      if (download?.status == 'paused' && download?.isDownload != true) {
+        setPaused(id, false);
+      } else if (state.pausedIds.contains(id)) {
+        final paused = Set<int>.from(state.pausedIds)..remove(id);
+        state = state.copyWith(pausedIds: paused);
+        _persistPausedIds(paused);
+      }
     }
   }
 }
