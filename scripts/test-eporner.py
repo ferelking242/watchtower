@@ -22,7 +22,9 @@ TIMEOUT_SECONDS = 60
 
 def safe_error(stderr: str, returncode: int | None) -> str:
     lines = [line.strip() for line in stderr.splitlines() if line.strip()]
-    message = lines[-1] if lines else f"CLI exited with code {returncode}"
+    message = " | ".join(lines[-4:]) if lines else (
+        f"CLI exited with code {returncode} without stderr"
+    )
     message = re.sub(r"https?://\S+", "<url>", message)
     message = re.sub(r"\s+", " ", message)
     return message[:350]

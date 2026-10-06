@@ -74,7 +74,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --no-install-recommends \
-            p7zip-full xvfb \
+            p7zip-full xvfb xauth \
             libgtk-3-0 libwebkit2gtk-4.0-37 \
             libwpewebkit-1.0-3 libwpebackend-fdo-1.0-1 \
             libsoup-3.0-0 libglib2.0-0 libdbus-1-3 libnotify4 \
@@ -82,7 +82,8 @@ jobs:
             libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 \
             libgstreamer-plugins-bad1.0-0 gstreamer1.0-plugins-good \
             gstreamer1.0-plugins-bad libasound2 libpulse0 \
-            libepoxy0 libmpv1 libgl1 libegl1 libglx0
+            libepoxy0 libmpv1 libgl1 libegl1 libglx0 libgbm1 \
+            libgl1-mesa-dri
 
       - name: Extract the downloaded binary
         run: |
