@@ -1,0 +1,112 @@
+name: Test Eporner Linux CLI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/test-eporner.yml'
+      - 'scripts/test-eporner.py'
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Build Linux Headless CLI']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  test-eporner:
+    name: Eporner source (latest green Linux binary)
+    if: >-
+      (github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success') &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out Watchtower test script
+        uses: actions/checkout@v5
+
+      - name: Check out extension catalog
+        uses: actions/checkout@v5
+        with:
+          repository: ferelking242/watchtower-extensions
+          path: watchtower-extensions
+          lfs: true
+
+      - name: Find successful Linux CLI build
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then
+            run_id="$(jq -r '.workflow_run.id' "$GITHUB_EVENT_PATH")"
+            head_sha="$(jq -r '.workflow_run.head_sha' "$GITHUB_EVENT_PATH")"
+          else
+            run_json="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow build-server.yml \
+              --branch main \
+              --status success \
+              --limit 1 \
+              --json databaseId,headSha)"
+            run_id="$(jq -r '.[0].databaseId // empty' <<<"$run_json")"
+            head_sha="$(jq -r '.[0].headSha // empty' <<<"$run_json")"
+          fi
+          test -n "$run_id"
+          test -n "$head_sha"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "Using successful Linux CLI build $run_id ($head_sha)"
+
+      - name: Download compiled Linux CLI artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: watchtower-linux-x64-headless
+          path: downloaded-artifact
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.build.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Install binary runtime dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            p7zip-full xvfb \
+            libgtk-3-0 libwebkit2gtk-4.0-37 \
+            libwpewebkit-1.0-3 libwpebackend-fdo-1.0-1 \
+            libsoup-3.0-0 libglib2.0-0 libdbus-1-3 libnotify4 \
+            libayatana-appindicator3-1 libsecret-1-0 libjsoncpp25 \
+            libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 \
+            libgstreamer-plugins-bad1.0-0 gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad libasound2 libpulse0 \
+            libepoxy0 libmpv1 libgl1 libegl1 libglx0
+
+      - name: Extract the downloaded binary
+        run: |
+          mkdir -p "$RUNNER_TEMP/watchtower-linux"
+          7z x downloaded-artifact/watchtower-linux-x64-headless.7z \
+            -o"$RUNNER_TEMP/watchtower-linux" -y >/dev/null
+          test -x "$RUNNER_TEMP/watchtower-linux/watchtower"
+
+      - name: Run Eporner operations through Watchtower
+        id: test
+        run: |
+          python3 scripts/test-eporner.py \
+            --binary "$RUNNER_TEMP/watchtower-linux/watchtower" \
+            --repo "$GITHUB_WORKSPACE/watchtower-extensions" \
+            --build-run-id "${{ steps.build.outputs.run_id }}" \
+            --build-sha "${{ steps.build.outputs.head_sha }}" \
+            --extension-sha "$(git -C watchtower-extensions rev-parse HEAD)" \
+            --output "$RUNNER_TEMP/eporner-report"
+
+      - name: Upload sanitized test report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: eporner-cli-report-${{ github.run_id }}
+          path: ${{ runner.temp }}/eporner-report/
+          if-no-files-found: warn
+          retention-days: 14
