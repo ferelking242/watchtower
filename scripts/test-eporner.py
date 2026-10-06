@@ -18,6 +18,7 @@ from typing import Any
 SOURCE_ID = "1900000141"
 SOURCE_NAME = "Eporner"
 TIMEOUT_SECONDS = 60
+ANSI_ESCAPE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 def safe_error(stderr: str, returncode: int | None) -> str:
@@ -28,6 +29,40 @@ def safe_error(stderr: str, returncode: int | None) -> str:
     message = re.sub(r"https?://\S+", "<url>", message)
     message = re.sub(r"\s+", " ", message)
     return message[:350]
+
+
+def matches_operation(value: Any, operation: str) -> bool:
+    if operation in {"popular", "latest", "search"}:
+        return isinstance(value, dict) and isinstance(value.get("list"), list)
+    if operation == "detail":
+        return isinstance(value, dict) and (
+            "name" in value or isinstance(value.get("chapters"), list)
+        )
+    if operation == "videos":
+        return isinstance(value, list)
+    return False
+
+
+def decode_cli_json(stdout: str, operation: str) -> Any | None:
+    clean = ANSI_ESCAPE.sub("", stdout).strip()
+    try:
+        value = json.loads(clean)
+        if matches_operation(value, operation):
+            return value
+    except json.JSONDecodeError:
+        pass
+
+    decoder = json.JSONDecoder()
+    for position, character in enumerate(clean):
+        if character not in "[{":
+            continue
+        try:
+            value, _ = decoder.raw_decode(clean, position)
+        except json.JSONDecodeError:
+            continue
+        if matches_operation(value, operation):
+            return value
+    return None
 
 
 def run_operation(
@@ -78,14 +113,18 @@ def run_operation(
             "error": safe_error(process.stderr, process.returncode),
         }, None
 
-    try:
-        value = json.loads(process.stdout)
-    except json.JSONDecodeError:
+    value = decode_cli_json(process.stdout, operation)
+    if value is None:
+        clean_output = ANSI_ESCAPE.sub("", process.stdout)
+        nonblank = [line for line in clean_output.splitlines() if line.strip()]
         return {
             "operation": operation,
             "status": "FAIL",
             "duration_seconds": elapsed,
-            "error": "CLI returned invalid JSON",
+            "error": (
+                "No JSON payload found "
+                f"({len(process.stdout.encode())} bytes, {len(nonblank)} nonblank lines)"
+            ),
         }, None
 
     return {
