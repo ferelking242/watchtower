@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -17,12 +18,14 @@ import 'package:watchtower/services/download_manager/active_download_registry.da
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
+import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
+import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
@@ -354,6 +357,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         }
       });
     }
+    unawaited(
+      WatchtowerNotificationService.instance.setMediaDownloadPaused(
+        id,
+        isPaused: !wasPaused,
+      ),
+    );
     if (wasPaused) {
       // processDownloads re-queries Isar every ~900 ms, so resumed chapters
       // are picked up automatically without invalidating the provider.
@@ -372,6 +381,14 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       case _GlobalAction.pauseAll:
         final ids = entries.map((e) => e.id ?? -1).toList();
         ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
+        for (final id in ids.where((id) => id >= 0)) {
+          unawaited(
+            WatchtowerNotificationService.instance.setMediaDownloadPaused(
+              id,
+              isPaused: true,
+            ),
+          );
+        }
         isar.writeTxnSync(() {
           for (final id in ids.where((id) => id >= 0)) {
             final stored = isar.downloads.getSync(id);
@@ -383,6 +400,16 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         break;
       case _GlobalAction.resumeAll:
         ref.read(downloadQueueStateProvider.notifier).resumeAll();
+        for (final entry in entries) {
+          final id = entry.id;
+          if (id == null) continue;
+          unawaited(
+            WatchtowerNotificationService.instance.setMediaDownloadPaused(
+              id,
+              isPaused: false,
+            ),
+          );
+        }
         isar.writeTxnSync(() {
           for (final entry in entries) {
             final id = entry.id;
@@ -402,6 +429,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         for (final e in entries) {
           if (e.id != null) {
             ActiveDownloadRegistry.cancel(e.id!);
+            unawaited(
+              WatchtowerNotificationService.instance.setMediaDownloadPaused(
+                e.id!,
+                isPaused: true,
+              ),
+            );
           }
         }
         break;
@@ -413,7 +446,13 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               .where((download) => download.isDownload == true)
               .toList();
           for (final d in completed) {
-            if (d.id != null) isar.downloads.deleteSync(d.id!);
+            if (d.id != null) {
+              isar.downloads.deleteSync(d.id!);
+              unawaited(
+                WatchtowerNotificationService.instance
+                    .cancelMediaDownloadNotification(d.id!),
+              );
+            }
           }
         });
         break;
@@ -439,6 +478,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     DownloadIsolatePool.instance.cancelTask('m3u8_$id');
     // Mark as paused in the UI state so user can resume later
     ref.read(downloadQueueStateProvider.notifier).setPaused(id, true);
+    unawaited(
+      WatchtowerNotificationService.instance.setMediaDownloadPaused(
+        id,
+        isPaused: true,
+      ),
+    );
     final stored = isar.downloads.getSync(id);
     if (stored != null) {
       isar.writeTxnSync(() {
@@ -454,6 +499,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     if (id == null) return;
     // First cancel any running engine
     ActiveDownloadRegistry.cancel(id);
+    unawaited(
+      WatchtowerNotificationService.instance
+          .cancelMediaDownloadNotification(id),
+    );
     DownloadIsolatePool.instance.cancelTask('$id');
     DownloadIsolatePool.instance.cancelTask('m3u8_$id');
     // Then remove from DB
@@ -479,6 +528,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       final id = element.id ?? -1;
       ref.read(downloadQueueStateProvider.notifier).incrementRetry(id);
       ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
+      unawaited(
+        WatchtowerNotificationService.instance.setMediaDownloadPaused(
+          id,
+          isPaused: false,
+        ),
+      );
       ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
       ActiveDownloadRegistry.cancel(id);
       DownloadIsolatePool.instance.cancelTask('$id');
@@ -1361,25 +1416,12 @@ class _GroupedDownloadTabListState
   }
 
   Map<String, List<Download>> _groupBySource() {
-    final allGroups = <String, List<Download>>{};
-    for (final d in widget.entries) {
-      final src = d.chapter.value?.manga.value?.source ?? 'autre';
-      (allGroups[src] ??= []).add(d);
-    }
-
-    // Keep completed chapters beside unfinished siblings, but hide a whole
-    // series once every chapter in it has finished downloading.
-    final visibleGroups = <String, List<Download>>{};
-    for (final entry in allGroups.entries) {
-      final activeSeries = _groupBySeries(entry.value).values.where(
-        (items) => items.any((download) => download.isDownload != true),
-      );
-      final visibleItems = activeSeries.expand((items) => items).toList();
-      if (visibleItems.isNotEmpty) {
-        visibleGroups[entry.key] = visibleItems;
-      }
-    }
-    return visibleGroups;
+    return groupIncompleteDownloads<Download, String>(
+      widget.entries,
+      keyFor: (download) =>
+          download.chapter.value?.manga.value?.source ?? 'autre',
+      isComplete: (download) => download.isDownload == true,
+    );
   }
 
   /// Returns sources in the user's preferred order, with any new sources
@@ -1403,17 +1445,18 @@ class _GroupedDownloadTabListState
   }
 
   Map<String, List<Download>> _groupBySeries(List<Download> items) {
-    final groups = <String, List<Download>>{};
-    for (final download in items) {
-      final chapter = download.chapter.value;
-      final manga = chapter?.manga.value;
-      final mangaId = manga?.id ?? chapter?.mangaId;
-      final itemId = download.id ?? chapter?.id ?? identityHashCode(download);
-      final key =
-          mangaId != null ? 'manga:$mangaId' : 'chapter:$itemId';
-      (groups[key] ??= <Download>[]).add(download);
-    }
-    return groups;
+    return groupIncompleteDownloads<Download, String>(
+      items,
+      keyFor: (download) {
+        final chapter = download.chapter.value;
+        final manga = chapter?.manga.value;
+        final mangaId = manga?.id ?? chapter?.mangaId;
+        final itemId =
+            download.id ?? chapter?.id ?? identityHashCode(download);
+        return mangaId != null ? 'manga:$mangaId' : 'chapter:$itemId';
+      },
+      isComplete: (download) => download.isDownload == true,
+    );
   }
 
   Widget _buildSeriesGroup(String key, List<Download> items) {
@@ -1424,10 +1467,15 @@ class _GroupedDownloadTabListState
         firstDownload.title ??
         firstDownload.chapter.value?.name ??
         'Téléchargement';
-    final completedCount =
-        items.where((download) => download.isDownload == true).length;
-    final seriesProgress =
-        items.isEmpty ? 0.0 : completedCount / items.length;
+    final seriesProgress = items.isEmpty
+        ? 0.0
+        : items.fold<double>(0, (sum, download) {
+              final total = download.total ?? 0;
+              if (total <= 0) return sum;
+              final completed = (download.succeeded ?? 0).clamp(0, total);
+              return sum + (completed / total).clamp(0.0, 1.0);
+            }) /
+            items.length;
     final seriesPercent = (seriesProgress * 100).round();
     final isCollapsed = _collapsedSeries.contains(key);
     final scheme = Theme.of(context).colorScheme;
@@ -1543,8 +1591,8 @@ class _GroupedDownloadTabListState
                                   ),
                                   const SizedBox(height: 5),
                                   Text(
-                                    '$seriesPercent% · $completedCount/'
-                                    '${items.length} chapitres',
+                                    '$seriesPercent% · ${items.length} '
+                                    'chapitres actifs',
                                     style: TextStyle(
                                       color: scheme.onSurfaceVariant,
                                       fontSize: 10,
@@ -1811,6 +1859,12 @@ class _GroupedDownloadTabListState
       itemBuilder: (ctx, idx) {
         final src = sources[idx];
         final items = groups[src]!;
+        if (!shouldShowDownloadGroupHeader(items)) {
+          return KeyedSubtree(
+            key: ValueKey('src_$src'),
+            child: _buildDismissible(items.single),
+          );
+        }
         final seriesGroups = _groupBySeries(items);
         final visibleSeriesGroups = seriesGroups.entries
             .where(

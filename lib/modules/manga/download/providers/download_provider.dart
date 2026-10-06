@@ -24,6 +24,7 @@ import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/download_connectivity.dart';
+import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
@@ -1401,10 +1402,35 @@ Future<void> downloadChapter(
         }
       }
 
-      // ── Android notification: real chapter name + progress bar ───────────
-      // Use the exact byte counters reported by the worker. If a server does
-      // not expose a length, keep the notification indeterminate rather than
-      // inventing a denominator.
+      if (!progress.isCompleted && chapter.id != null) {
+        unawaited(
+          WatchtowerNotificationService.instance.showMediaDownloadProgress(
+            chapterId: chapter.id!,
+            seriesTitle: chapter.manga.value?.name ?? chapter.name ?? '',
+            chapterTitle: chapter.name ?? 'Téléchargement',
+            itemType: progress.itemType.name,
+            completed: progress.completed,
+            total: progress.total,
+            downloadedBytes: reportedDownloadedBytes,
+            totalBytes: reportedTotalBytes ?? persistedTotalBytes,
+          ),
+        );
+      }
+
+      // The native foreground service remains the single persistent summary;
+      // individual named notifications above provide the expandable details.
+      final chapterTitle = chapter.name?.trim().isNotEmpty == true
+          ? chapter.name!.trim()
+          : 'Téléchargement';
+      final seriesTitle = chapter.manga.value?.name?.trim().isNotEmpty == true
+          ? chapter.manga.value!.name!.trim()
+          : chapterTitle;
+      final registeredCount =
+          ActiveDownloadRegistry.activeCountForType(progress.itemType);
+      final activeCount = registeredCount > 0 ? registeredCount : 1;
+      final notificationTitle = activeCount == 1
+          ? seriesTitle
+          : '$activeCount téléchargements en cours';
       if (progress.itemType == ItemType.anime) {
         final downloadedBytes = reportedDownloadedBytes ??
             trustedDownloadBytesFromKilobytes(isarSucceeded) ??
@@ -1432,7 +1458,7 @@ Future<void> downloadChapter(
             : null;
         unawaited(BackgroundKeepAlive.update(
           count: activeCount,
-          title: 'Téléchargement en cours…',
+          title: notificationTitle,
           progress: pct,
           subtitle: notifSub,
           downloadedBytes: downloadedBytes,
@@ -1442,22 +1468,54 @@ Future<void> downloadChapter(
           quality: chapterPreferredQuality[chapter.id] ?? '',
           force: progress.isCompleted,
         ));
+      } else {
+        final pct = progress.total > 0
+            ? ((progress.completed / progress.total) * 100)
+                .round()
+                .clamp(0, 100)
+                .toInt()
+            : -1;
+        unawaited(
+          BackgroundKeepAlive.update(
+            count: activeCount,
+            title: notificationTitle,
+            progress: pct,
+            subtitle: activeCount == 1
+                ? chapterTitle
+                : '$seriesTitle · $chapterTitle',
+            force: progress.isCompleted,
+          ),
+        );
       }
 
       if (progress.isCompleted &&
-          itemType == ItemType.anime &&
-          !mediaCompletionNotified) {
+          !mediaCompletionNotified &&
+          chapter.id != null) {
         mediaCompletionNotified = true;
-        final finalPath = m3u8Downloader?.fileName ??
-            p.join(mangaMainDirectory!.path, '$chapterName.mp4');
-        if (await File(finalPath).exists()) {
+        String? candidatePath;
+        final directory = mangaMainDirectory;
+        if (directory != null) {
+          if (progress.itemType == ItemType.anime) {
+            candidatePath = m3u8Downloader?.fileName ??
+                p.join(directory.path, '$chapterName.mp4');
+          } else if (progress.itemType == ItemType.manga) {
+            candidatePath = p.join(directory.path, '${chapter.name}.cbz');
+          } else if (progress.itemType == ItemType.novel) {
+            candidatePath = p.join(directory.path, '$chapterName.html');
+          }
+        }
+        final completedPath = candidatePath != null &&
+                await File(candidatePath).exists()
+            ? candidatePath
+            : null;
+        if (completedPath != null) {
           try {
             final completedRecord = isar.downloads.getSync(chapter.id!);
             if (completedRecord != null) {
               isar.writeTxnSync(() {
                 isar.downloads.putSync(
                   completedRecord
-                    ..filePath = finalPath
+                    ..filePath = completedPath
                     ..status = 'completed'
                     ..isDownload = true,
                 );
@@ -1467,14 +1525,16 @@ Future<void> downloadChapter(
             // Notification d'achèvement : on ne fait pas planter la fin du
             // téléchargement pour une entrée mal désérialisée.
           }
-          unawaited(
-            WatchtowerNotificationService.instance.showMediaDownloadComplete(
-              title: chapter.name ?? 'Vidéo téléchargée',
-              filePath: finalPath,
-              chapterId: chapter.id,
-            ),
-          );
         }
+        unawaited(
+          WatchtowerNotificationService.instance.showMediaDownloadComplete(
+            title: chapter.name ?? 'Téléchargement terminé',
+            seriesTitle: seriesTitle,
+            itemType: progress.itemType.name,
+            filePath: completedPath,
+            chapterId: chapter.id!,
+          ),
+        );
       }
     }
 
@@ -1850,7 +1910,7 @@ Future<void> downloadChapter(
             final file = File(
               p.join(chapterDirectory.path, "${padIndex(index)}.jpg"),
             );
-            if (!file.existsSync()) {
+            if (!await isReusableDownloadedImage(file)) {
               pages.add(
                 PageUrl(
                   page.url.trim(),
@@ -2187,6 +2247,10 @@ Future<void> downloadChapter(
     // Without this, any uncaught exception leaves the chapter as
     // isDownload=false + isStartDownload=true in Isar → infinite retry loop.
     if (chapter.id != null) {
+      unawaited(
+        WatchtowerNotificationService.instance
+            .markMediaDownloadFailed(chapter.id!),
+      );
       try {
         final dl = isar.downloads.getSync(chapter.id!);
         if (dl != null) {

@@ -40,10 +40,62 @@ void main() {
       expect(
         imageDownloadResponseError(
           statusCode: 200,
-          headers: const {'content-type': 'image/png'},
-          bodyBytes: const [137, 80, 78, 71, 13, 10, 26, 10],
+          headers: const {'content-type': 'image/jpeg'},
+          bodyBytes: const [
+            0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
+            0x49, 0x46, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+          ],
         ),
         isNull,
+      );
+    });
+
+    test('rejects a body shorter than its advertised length', () {
+      expect(
+        imageDownloadResponseError(
+          statusCode: 200,
+          headers: const {
+            'content-type': 'image/jpeg',
+            'content-length': '24',
+          },
+          bodyBytes: const [
+            0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
+            0x49, 0x46, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+          ],
+        ),
+        contains('incomplete response body'),
+      );
+    });
+  });
+
+  group('isReusableImagePayload', () {
+    test('rejects cached HTML and incomplete JPEG files', () {
+      expect(
+        isReusableImagePayload(
+          length: 24,
+          prefix: '<html>Access denied'.codeUnits,
+          tail: 'Access denied</html>'.codeUnits,
+        ),
+        isFalse,
+      );
+      expect(
+        isReusableImagePayload(
+          length: 40,
+          prefix: const [0xff, 0xd8, 0xff, 0xe0],
+          tail: const [0x11, 0x22, 0x33],
+        ),
+        isFalse,
+      );
+    });
+
+    test('accepts a cached JPEG with its end marker intact', () {
+      expect(
+        isReusableImagePayload(
+          length: 40,
+          prefix: const [0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10],
+          tail: const [0x10, 0x20, 0x30, 0xff, 0xd9],
+        ),
+        isTrue,
       );
     });
   });
