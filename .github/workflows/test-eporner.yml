@@ -1,10 +1,17 @@
 name: Test Eporner Linux CLI
 
 on:
+  push:
+    branches: ['agent/eporner-cli-ci-20261006']
+    paths:
+      - '.github/workflows/test-eporner.yml'
+      - 'scripts/test-eporner.py'
+      - 'scripts/test_eporner_validation.py'
   pull_request:
     paths:
       - '.github/workflows/test-eporner.yml'
       - 'scripts/test-eporner.py'
+      - 'scripts/test_eporner_validation.py'
   workflow_dispatch:
   workflow_run:
     workflows: ['Build Linux Headless CLI']
@@ -29,10 +36,14 @@ jobs:
       - name: Check out Watchtower test script
         uses: actions/checkout@v5
 
+      - name: Test Eporner result validation
+        run: python3 -m unittest discover -s scripts -p 'test_eporner_*.py'
+
       - name: Check out extension catalog
         uses: actions/checkout@v5
         with:
           repository: ferelking242/watchtower-extensions
+          ref: agent/eporner-extension-fix-20261006
           path: watchtower-extensions
           lfs: true
 

@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -21,6 +22,7 @@ SOURCE_ID = "1900000141"
 SOURCE_NAME = "Eporner"
 TIMEOUT_SECONDS = 60
 ANSI_ESCAPE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+GENERIC_NAMES = {"", "unknown", "untitled", "no title", "n/a"}
 SITE_HEADERS = {
     "Referer": "https://www.eporner.com/",
     "User-Agent": (
@@ -28,6 +30,25 @@ SITE_HEADERS = {
         "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
     ),
 }
+
+
+def is_valid_title(value: Any) -> bool:
+    return isinstance(value, str) and value.strip().casefold() not in GENERIC_NAMES
+
+
+def is_absolute_http_url(value: Any) -> bool:
+    if not isinstance(value, str) or not value or any(character.isspace() for character in value):
+        return False
+    try:
+        parsed = urlsplit(value)
+        return (
+            parsed.scheme.lower() in {"http", "https"}
+            and bool(parsed.hostname)
+            and bool(parsed.netloc)
+            and parsed.port != 0
+        )
+    except ValueError:
+        return False
 
 
 def safe_error(stderr: str, returncode: int | None) -> str:
@@ -77,7 +98,7 @@ def decode_cli_json(stdout: str, operation: str) -> Any | None:
 def probe_site() -> list[dict[str, Any]]:
     routes = [
         ("popular", "https://www.eporner.com/"),
-        ("latest", "https://www.eporner.com/new/"),
+        ("latest", "https://www.eporner.com/recent/"),
         ("search", "https://www.eporner.com/search/a/"),
     ]
     probes = []
@@ -196,6 +217,22 @@ def list_result(step: dict[str, Any], value: Any) -> list[Any]:
         step["error"] = "No results returned"
         return []
     step["count"] = len(items)
+    invalid_names = 0
+    invalid_links = 0
+    for item in items:
+        if not isinstance(item, dict) or not is_valid_title(item.get("name")):
+            invalid_names += 1
+        if not isinstance(item, dict) or not is_absolute_http_url(item.get("link")):
+            invalid_links += 1
+    if invalid_names or invalid_links:
+        step["status"] = "FAIL"
+        problems = []
+        if invalid_names:
+            problems.append(f"{invalid_names} result(s) had a missing or generic name")
+        if invalid_links:
+            problems.append(f"{invalid_links} result(s) had a non-absolute HTTP(S) link")
+        step["error"] = "; ".join(problems)
+        return []
     return items
 
 
@@ -332,11 +369,20 @@ def main() -> int:
         steps.append(detail)
         chapters = detail_data.get("chapters") if isinstance(detail_data, dict) else None
         media_url = ""
-        if isinstance(chapters, list) and chapters and isinstance(chapters[0], dict):
-            media_url = str(chapters[0].get("url") or "")
-        if detail["status"] == "PASS" and not media_url:
+        detail_name = detail_data.get("name") if isinstance(detail_data, dict) else None
+        if (
+            isinstance(chapters, list)
+            and chapters
+            and isinstance(chapters[0], dict)
+            and is_absolute_http_url(chapters[0].get("url"))
+        ):
+            media_url = chapters[0]["url"]
+        if detail["status"] == "PASS" and not is_valid_title(detail_name):
             detail["status"] = "FAIL"
-            detail["error"] = "Detail had no usable episode URL"
+            detail["error"] = "Detail had a missing or generic title"
+        elif detail["status"] == "PASS" and not media_url:
+            detail["status"] = "FAIL"
+            detail["error"] = "Detail had no absolute HTTP(S) episode URL"
         elif detail["status"] == "PASS":
             detail["count"] = len(chapters)
 
@@ -355,15 +401,20 @@ def main() -> int:
             )
             steps.append(videos)
             if video_data is not None:
-                valid_videos = [
-                    item
-                    for item in video_data
-                    if isinstance(item, dict) and item.get("url")
-                ] if isinstance(video_data, list) else []
+                valid_videos = (
+                    [
+                        item
+                        for item in video_data
+                        if isinstance(item, dict)
+                        and is_absolute_http_url(item.get("url"))
+                    ]
+                    if isinstance(video_data, list)
+                    else []
+                )
                 videos["count"] = len(valid_videos)
-                if not valid_videos:
+                if not valid_videos or len(valid_videos) != len(video_data):
                     videos["status"] = "FAIL"
-                    videos["error"] = "No playable video URLs returned"
+                    videos["error"] = "Video results must contain absolute HTTP(S) URLs"
 
     site_probes = probe_site()
     passed = write_reports(
