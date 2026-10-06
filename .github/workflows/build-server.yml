@@ -200,7 +200,9 @@ jobs:
 
           result = json.loads(Path("watchtower-cli-doctor.json").read_text())
           assert result.get("native") is True, "CLI doctor did not report a native build"
-          assert result.get("quickJs") is True, "CLI doctor did not report QuickJS"
+          quick_js = result.get("quickJs")
+          assert isinstance(quick_js, dict), "CLI doctor did not report QuickJS state"
+          assert quick_js.get("available") is True, "CLI doctor did not load QuickJS"
           PY
           "$BUNDLE/watchtower" --cli help >/dev/null
           catalog_status=0
