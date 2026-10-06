@@ -14,6 +14,16 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+static gboolean my_application_is_cli(MyApplication* self) {
+  for (char** argument = self->dart_entrypoint_arguments;
+       argument != nullptr && *argument != nullptr; argument++) {
+    if (g_strcmp0(*argument, "--cli") == 0) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
@@ -64,7 +74,12 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
-  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  // The CLI runs extension code and does not need the GUI's media, webview,
+  // or other platform plugins. Registering them initializes unrelated
+  // subsystems (including audio) and emits startup diagnostics.
+  if (!my_application_is_cli(self)) {
+    fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  }
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

@@ -6,6 +6,7 @@ on:
     paths:
       - 'lib/cli/**'
       - 'lib/main.dart'
+      - 'linux/**'
       - 'scripts/install-linux-headless.sh'
       - 'pubspec.yaml'
       - 'pubspec.lock'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'lib/cli/**'
       - 'lib/main.dart'
+      - 'linux/**'
       - 'scripts/install-linux-headless.sh'
       - 'pubspec.yaml'
       - 'pubspec.lock'
@@ -163,24 +165,145 @@ jobs:
           test -x "$BUNDLE/mangayomi"
           cp "$BUNDLE/mangayomi" "$BUNDLE/watchtower"
 
-      - name: Smoke test the headless CLI
+      - name: Verify clean machine-readable CLI output
         run: |
+          set -euo pipefail
           BUNDLE="build/linux/x64/release/bundle"
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
-            "$BUNDLE/watchtower" --cli doctor --json
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
-            "$BUNDLE/watchtower" --cli help >/dev/null
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
-            "$BUNDLE/watchtower" --cli extensions list \
+          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp -ac \
+            > "$GITHUB_WORKSPACE/watchtower-xvfb-verify.log" 2>&1 &
+          XVFB_PID=$!
+          cleanup_xvfb() {
+            if kill -0 "$XVFB_PID" 2>/dev/null; then
+              kill "$XVFB_PID"
+            fi
+          }
+          trap cleanup_xvfb EXIT
+          for attempt in $(seq 1 20); do
+            if [ -S /tmp/.X11-unix/X99 ]; then break; fi
+            sleep 0.25
+          done
+          test -S /tmp/.X11-unix/X99
+          export DISPLAY=:99
+          doctor_status=0
+          "$BUNDLE/watchtower" --cli doctor --json \
+            > "$GITHUB_WORKSPACE/watchtower-cli-doctor.json" \
+            2> "$GITHUB_WORKSPACE/watchtower-cli-doctor.stderr.log" \
+            || doctor_status=$?
+          cat "$GITHUB_WORKSPACE/watchtower-cli-doctor.stderr.log" >&2
+          if [ "$doctor_status" -ne 0 ]; then
+            echo "CLI doctor exited with status $doctor_status" >&2
+            exit "$doctor_status"
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path("watchtower-cli-doctor.json").read_text())
+          assert result.get("native") is True, "CLI doctor did not report a native build"
+          assert result.get("quickJs") is True, "CLI doctor did not report QuickJS"
+          PY
+          "$BUNDLE/watchtower" --cli help >/dev/null
+          catalog_status=0
+          "$BUNDLE/watchtower" --cli extensions list \
             --repo "$GITHUB_WORKSPACE/watchtower-extensions" \
-            --json > "$GITHUB_WORKSPACE/watchtower-cli-catalog.json"
+            --json > "$GITHUB_WORKSPACE/watchtower-cli-catalog.json" \
+            2> "$GITHUB_WORKSPACE/watchtower-cli-catalog.stderr.log" \
+            || catalog_status=$?
+          cat "$GITHUB_WORKSPACE/watchtower-cli-catalog.stderr.log" >&2
+          if [ "$catalog_status" -ne 0 ]; then
+            echo "CLI catalogue command exited with status $catalog_status" >&2
+            exit "$catalog_status"
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path("watchtower-cli-catalog.json").read_text())
+          assert isinstance(result.get("sources"), list), "CLI catalogue JSON has no sources list"
+          assert result.get("total") == len(result["sources"]), "CLI catalogue count is inconsistent"
+          assert result.get("failures") == [], "CLI reported catalogue loading failures"
+          print(f"Validated JSON catalogue with {result['total']} sources")
+          PY
+
+      - name: Test five French Watch extensions end to end
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          Xvfb :100 -screen 0 1280x720x24 -nolisten tcp -ac \
+            > "$GITHUB_WORKSPACE/watchtower-xvfb-test.log" 2>&1 &
+          XVFB_PID=$!
+          cleanup_xvfb() {
+            if kill -0 "$XVFB_PID" 2>/dev/null; then
+              kill "$XVFB_PID"
+            fi
+          }
+          trap cleanup_xvfb EXIT
+          for attempt in $(seq 1 20); do
+            if [ -S /tmp/.X11-unix/X100 ]; then break; fi
+            sleep 0.25
+          done
+          test -S /tmp/.X11-unix/X100
+          export DISPLAY=:100
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          entries = json.loads(Path("watchtower-extensions/index/watch.json").read_text())
+          french_watch = [
+              entry for entry in entries
+              if "/src/watch/fr/" in entry.get("sourceCodeUrl", "")
+              and "fr" in [lang.lower() for lang in entry.get("langs", [])]
+          ]
+          french_watch.sort(key=lambda entry: entry.get("name", "").casefold())
+          selected = french_watch[:5]
+          if len(selected) != 5:
+              raise SystemExit(f"Expected five French Watch entries, found {len(selected)}")
+
+          fixture = Path("watchtower-cli-french-watch")
+          (fixture / "index").mkdir(parents=True, exist_ok=True)
+          (fixture / "index" / "watch.json").write_text(
+              json.dumps(selected, ensure_ascii=False, indent=2) + "\n"
+          )
+          print("Testing: " + ", ".join(entry["name"] for entry in selected))
+          PY
+          ln -s "$GITHUB_WORKSPACE/watchtower-extensions/src" \
+            "$GITHUB_WORKSPACE/watchtower-cli-french-watch/src"
+          BUNDLE="build/linux/x64/release/bundle"
+          cli_status=0
+          "$BUNDLE/watchtower" --cli extensions test \
+            --repo "$GITHUB_WORKSPACE/watchtower-cli-french-watch" \
+            --mode deep \
+            --concurrency 4 \
+            --timeout 45 \
+            --report "$GITHUB_WORKSPACE/watchtower-cli-french-watch-report.json" \
+            --json > "$GITHUB_WORKSPACE/watchtower-cli-french-watch-stdout.json" \
+            2> "$GITHUB_WORKSPACE/watchtower-cli-french-watch.stderr.log" \
+            || cli_status=$?
+          cat "$GITHUB_WORKSPACE/watchtower-cli-french-watch.stderr.log" >&2
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("watchtower-cli-french-watch-report.json").read_text())
+          stdout = json.loads(Path("watchtower-cli-french-watch-stdout.json").read_text())
+          assert report == stdout, "CLI JSON stdout differs from its saved report"
+          assert report.get("total") == 5, f"Expected five extensions, got {report.get('total')}"
+          assert report.get("failed") == 0, f"{report.get('failed')} French Watch extension tests failed"
+          print("All five French Watch extensions passed deep mode")
+          PY
+          if [ "$cli_status" -ne 0 ]; then
+            echo "CLI extension test exited with status $cli_status" >&2
+            exit "$cli_status"
+          fi
 
       - name: Add installer to bundle
+        if: always()
         run: |
           cp scripts/install-linux-headless.sh build/linux/x64/release/bundle/
           chmod +x build/linux/x64/release/bundle/install-linux-headless.sh
 
       - name: Package Linux headless archive
+        if: always()
         run: |
           cd build/linux/x64/release/bundle
           7z a -t7z -mx=9 -mmt=2 \
@@ -189,9 +312,28 @@ jobs:
           ls -lh watchtower-linux-x64-headless.7z
 
       - name: Upload Linux headless artifact
+        if: always()
         uses: actions/upload-artifact@v5
         with:
           name: watchtower-linux-x64-headless
           path: watchtower-linux-x64-headless.7z
           compression-level: 0
           retention-days: 30
+
+      - name: Upload CLI validation reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: watchtower-cli-validation-reports
+          path: |
+            watchtower-cli-doctor.json
+            watchtower-cli-doctor.stderr.log
+            watchtower-cli-catalog.json
+            watchtower-cli-catalog.stderr.log
+            watchtower-xvfb-verify.log
+            watchtower-cli-french-watch-report.json
+            watchtower-cli-french-watch-stdout.json
+            watchtower-cli-french-watch.stderr.log
+            watchtower-xvfb-test.log
+          if-no-files-found: ignore
+          retention-days: 14

@@ -83,6 +83,9 @@ class IOSink implements StringSink, StreamConsumer<List<int>> {
   set encoding(Encoding _) {}
 }
 
+// Used only by native CLI diagnostics; web does not expose process stderr.
+final IOSink stderr = IOSink();
+
 // ─── RandomAccessFile stub (dart:io.RandomAccessFile not available on web) ────
 class RandomAccessFile {
   Future<void>             close()                                     async {}

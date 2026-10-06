@@ -121,17 +121,30 @@ Source? _findSourceForCloudflareUrl(String url) {
   return match;
 }
 
+void _writeCliDiagnostic(String? message, {int? wrapWidth}) {
+  if (message != null && message.isNotEmpty) {
+    stderr.writeln(message);
+  }
+}
+
 void main(List<String> args) async {
+  final isCliInvocation =
+      !kIsWeb && args.isNotEmpty && args.first == '--cli';
+
   // Zone-level catch-all for anything that slips through both layers
   runZonedGuarded(
     () async {
-      if (!kIsWeb && args.isNotEmpty && args.first == '--cli') {
+      if (isCliInvocation) {
+        // The Linux runner has already started Flutter before Dart main runs.
+        // Initialize only the Dart bindings needed by platform channels and
+        // extension worker isolates; never start the application's widget tree.
+        // Flutter diagnostics are not part of the CLI's machine-readable
+        // stdout stream.
+        debugPrint = _writeCliDiagnostic;
+        WidgetsFlutterBinding.ensureInitialized();
         final exitCode = await runWatchtowerCli(args.skip(1).toList());
         exitCode == 0 ? exit(0) : exit(exitCode);
       }
-      // Do not initialize the Flutter engine for CLI invocations. Besides
-      // making startup faster, this keeps Linux CLI runs independent of an
-      // X11/Wayland display so the same binary works in CI and SSH sessions.
       final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
       final splashClock = Stopwatch()..start();
       // flutter_native_splash only has a generated native/web splash bridge
@@ -366,6 +379,14 @@ void main(List<String> args) async {
         logLevel: LogLevel.error,
       );
     },
+    // Dart print() bypasses debugPrint and writes directly to stdout otherwise.
+    zoneSpecification: isCliInvocation
+        ? ZoneSpecification(
+            print: (_self, _parent, _zone, line) {
+              stderr.writeln(line);
+            },
+          )
+        : null,
   );
 }
 
