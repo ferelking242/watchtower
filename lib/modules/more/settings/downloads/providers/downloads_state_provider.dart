@@ -3,6 +3,7 @@ import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:watchtower/models/download.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';

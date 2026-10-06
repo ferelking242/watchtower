@@ -11,6 +11,7 @@ import 'package:watchtower/services/settings_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/manga/archive_reader/providers/archive_reader_providers.dart';

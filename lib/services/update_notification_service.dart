@@ -120,7 +120,7 @@ class WatchtowerNotificationService {
       const androidInit = AndroidInitializationSettings(
         '@mipmap/launcher_icon',
       );
-      const iosInit = DarwinInitializationSettings(
+      final iosInit = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
         requestSoundPermission: false,
@@ -187,7 +187,7 @@ class WatchtowerNotificationService {
           ),
         ],
       );
-      const initSettings = InitializationSettings(
+      final initSettings = InitializationSettings(
         android: androidInit,
         iOS: iosInit,
       );
