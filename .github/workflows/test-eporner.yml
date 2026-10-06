@@ -92,6 +92,17 @@ jobs:
             -o"$RUNNER_TEMP/watchtower-linux" -y >/dev/null
           test -x "$RUNNER_TEMP/watchtower-linux/watchtower"
 
+      - name: Verify downloaded CLI runtime
+        run: |
+          binary="$RUNNER_TEMP/watchtower-linux/watchtower"
+          ldd "$binary" | tee "$RUNNER_TEMP/watchtower-ldd.txt"
+          if grep -q 'not found' "$RUNNER_TEMP/watchtower-ldd.txt"; then
+            echo "The downloaded CLI has unresolved shared libraries."
+            exit 1
+          fi
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            "$binary" --cli doctor --json
+
       - name: Run Eporner operations through Watchtower
         id: test
         run: |
