@@ -230,10 +230,8 @@ class WatchInlinePlayer {
     // Kill any ongoing playback immediately so the old audio doesn't bleed
     // into the next episode while the network request is in flight.
     try { await _player.stop(); } catch (_) {}
-    final epName = chapter.name ?? 'ep#${chapter.id}';
-    final epUrl  = chapter.url  ?? '';
     AppLogger.log(
-      '[PLAYER] load START  ep="$epName"  url=$epUrl',
+      '[PLAYER] load START chapterId=${chapter.id}',
       logLevel: LogLevel.info,
       tag: LogTag.watch,
     );
@@ -246,7 +244,7 @@ class WatchInlinePlayer {
       if (videos.isEmpty) {
         loadFailed = true;
         AppLogger.log(
-          '[PLAYER] FAILED — 0 vidéos pour ep="$epName"  url=$epUrl'
+          '[PLAYER] FAILED — 0 vidéos for chapterId=${chapter.id}'
           '  ← getVideoList a retourné 0 URLs',
           logLevel: LogLevel.error,
           tag: LogTag.watch,
@@ -256,9 +254,9 @@ class WatchInlinePlayer {
 
       for (var i = 0; i < videos.length; i++) {
         final v    = videos[i];
-        final vUrl = v.url.length > 120 ? '${v.url.substring(0, 120)}…' : v.url;
         AppLogger.log(
-          '[PLAYER] essai [${i+1}/${videos.length}]  qualité="${v.quality}"  url=$vUrl',
+          '[PLAYER] try [${i + 1}/${videos.length}] quality="${v.quality}" '
+          'host=${Uri.tryParse(v.url)?.host ?? "unknown"}',
           logLevel: LogLevel.info,
           tag: LogTag.watch,
         );
@@ -273,7 +271,7 @@ class WatchInlinePlayer {
           durSub?.cancel();
           errSub?.cancel();
           AppLogger.log(
-            '[PLAYER] WATCHDOG 30s  qualité="${v.quality}"  url=$vUrl'
+            '[PLAYER] WATCHDOG 30s quality="${v.quality}"'
             '  ← Causes: codec, DRM, URL expirée, serveur silencieux',
             logLevel: LogLevel.error,
             tag: LogTag.watch,
@@ -289,7 +287,8 @@ class WatchInlinePlayer {
           hasVideoUrl = true;
           selectedQuality = v.quality;
           AppLogger.log(
-            '[PLAYER] EN LECTURE ✓  qualité="${v.quality}"  durée=${dur.inSeconds}s  ep="$epName"',
+            '[PLAYER] PLAYING quality="${v.quality}" '
+            'duration=${dur.inSeconds}s chapterId=${chapter.id}',
             logLevel: LogLevel.info,
             tag: LogTag.watch,
           );
@@ -324,7 +323,7 @@ class WatchInlinePlayer {
               final _resp = await _req.close();
               AppLogger.log(
                 '[PLAYER] HTTP probe  status=${_resp.statusCode}'
-                '  url=${v.url.substring(0, v.url.length.clamp(0, 80))}…',
+                '  host=${Uri.tryParse(v.url)?.host ?? "unknown"}',
                 logLevel: _resp.statusCode == 200 || _resp.statusCode == 206
                     ? LogLevel.info : LogLevel.error,
                 tag: LogTag.watch,
@@ -389,7 +388,8 @@ class WatchInlinePlayer {
       // All qualities failed
       loadFailed = true;
       AppLogger.log(
-        '[PLAYER] FAILED — toutes les qualités ont échoué (${videos.length} tentatives)  ep="$epName"',
+        '[PLAYER] FAILED — all ${videos.length} quality attempts failed '
+        'chapterId=${chapter.id}',
         logLevel: LogLevel.error,
         tag: LogTag.watch,
       );
@@ -1995,39 +1995,131 @@ class _FullscreenControlsOverlayState
 
   // ── Télécharge la source en cours (qualité sélectionnée) ────────────────────
   Future<void> _startDownload() async {
+    final vids = widget.loadedVideos;
+    wt.Video? video;
+    for (final candidate in vids) {
+      if (candidate.quality == _currentQuality) {
+        video = candidate;
+        break;
+      }
+    }
+    video ??= _currentVideo;
+    if (video == null || video.url.isEmpty) {
+      AppLogger.log(
+        'Watch player download aborted: no playable source',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+      );
+      _playerToast('Aucune source à télécharger');
+      return;
+    }
+    final selectedVideo = video;
+
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 20);
+    File? temporaryFile;
+    IOSink? sink;
     try {
-      final vids = widget.loadedVideos;
-      wt.Video? video;
-      for (final v in vids) {
-        if (v.quality == _currentQuality) { video = v; break; }
+      AppLogger.log(
+        'Watch player download started quality=${selectedVideo.quality}',
+        logLevel: LogLevel.info,
+        tag: LogTag.download,
+      );
+      final request = await client.getUrl(Uri.parse(selectedVideo.url));
+      selectedVideo.headers?.forEach(
+        (key, value) => request.headers.set(key, value),
+      );
+      final response = await request.close();
+      AppLogger.log(
+        'Watch player response status=${response.statusCode} '
+        'contentLength=${response.contentLength} '
+        'contentType=${response.headers.contentType?.mimeType ?? "unknown"}',
+        logLevel: LogLevel.info,
+        tag: LogTag.download,
+      );
+      if (response.statusCode != HttpStatus.ok &&
+          response.statusCode != HttpStatus.partialContent) {
+        await response.drain<void>();
+        throw HttpException('Download returned HTTP ${response.statusCode}');
       }
-      video ??= vids.isNotEmpty ? vids.first : null;
-      if (video == null || video.url.isEmpty) {
-        _playerToast('Aucune source à télécharger');
-        return;
-      }
+
       final base = await getApplicationDocumentsDirectory();
       final dir = Directory('${base.path}/Watchtower/Downloads');
       await dir.create(recursive: true);
       final clean = widget.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final savePath = '${dir.path}/$clean (${video.quality}).mp4';
+      final cleanQuality =
+          selectedVideo.quality.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final destination = File('${dir.path}/$clean ($cleanQuality).mp4');
+      // Keep the temporary file beside its destination for an atomic rename.
+      final temporary = File('${destination.path}.part');
+      temporaryFile = temporary;
+      final output = temporary.openWrite();
+      sink = output;
       _playerToast('Téléchargement démarré…');
-      final req = await HttpClient().getUrl(Uri.parse(video.url));
-      video.headers?.forEach((k, v) => req.headers.set(k, v));
-      final res = await req.close();
-      if (res.statusCode != 200) {
-        _playerToast('Échec du téléchargement (HTTP \${res.statusCode})');
-        return;
+
+      var receivedBytes = 0;
+      var lastLoggedBucket = -1;
+      var nextUnknownSizeLog = 25 * 1024 * 1024;
+      await for (final chunk in response) {
+        output.add(chunk);
+        receivedBytes += chunk.length;
+        final totalBytes = response.contentLength;
+        if (totalBytes > 0) {
+          final percent =
+              (receivedBytes * 100 / totalBytes).clamp(0, 100).toInt();
+          final bucket = (percent ~/ 10) * 10;
+          if (bucket >= 10 && bucket > lastLoggedBucket) {
+            lastLoggedBucket = bucket;
+            AppLogger.log(
+              'Watch player transfer progress=$bucket% '
+              'bytes=$receivedBytes/$totalBytes',
+              logLevel: LogLevel.debug,
+              tag: LogTag.download,
+            );
+          }
+        } else if (receivedBytes >= nextUnknownSizeLog) {
+          AppLogger.log(
+            'Watch player transfer progress bytes=$receivedBytes '
+            '(server did not provide a length)',
+            logLevel: LogLevel.debug,
+            tag: LogTag.download,
+          );
+          nextUnknownSizeLog += 25 * 1024 * 1024;
+        }
       }
-      final tmp = File('\$savePath.part');
-      final sink = tmp.openWrite();
-      await sink.addStream(res);
-      await sink.close();
-      await tmp.rename(savePath);
+      await output.flush();
+      await output.close();
+      sink = null;
+      if (await destination.exists()) {
+        await destination.delete();
+      }
+      await temporary.rename(destination.path);
+      AppLogger.log(
+        'Watch player download completed bytes=$receivedBytes',
+        logLevel: LogLevel.info,
+        tag: LogTag.download,
+      );
       _playerToast('Téléchargement terminé ✔');
-    } catch (e) {
-      AppLogger.log('download failed: $e', logLevel: LogLevel.error, tag: 'PlayerDownload');
+    } catch (error, stackTrace) {
+      try {
+        await sink?.close();
+      } catch (_) {}
+      try {
+        final failedTemp = temporaryFile;
+        if (failedTemp != null && await failedTemp.exists()) {
+          await failedTemp.delete();
+        }
+      } catch (_) {}
+      AppLogger.log(
+        'Watch player download failed',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+        error: error,
+        stackTrace: stackTrace,
+      );
       _playerToast('Échec du téléchargement');
+    } finally {
+      client.close(force: true);
     }
   }
 

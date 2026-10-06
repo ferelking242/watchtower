@@ -245,7 +245,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _getBool(_kNonAsciiKey),
       _getInt(_kBitmapThresholdKey, defaultValue: 4096),
       // Log settings
-      _getInt(kLogMode, defaultValue: 3),
+      _getInt(kLogMode, defaultValue: LogMode.verbose.index),
       _getInt(kLogMinLevel, defaultValue: 0),
       _getBool(kLogSuppressImages, defaultValue: true),
       _getBool(kLogTagExt, defaultValue: true),
@@ -253,10 +253,10 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _getBool(kLogTagNet, defaultValue: true),
       _getBool(kLogTagUi, defaultValue: true),
       _getBool(kLogTagManga, defaultValue: true),
-      _getBool(kLogTagPage, defaultValue: true),
+      _getBool(kLogTagPage, defaultValue: false),
       _getBool(kLogTagHls, defaultValue: true),
       _getBool(kLogTagInstall, defaultValue: true),
-      _getBool(kLogTagReader, defaultValue: true),
+      _getBool(kLogTagReader, defaultValue: false),
       _getBool(kLogTagWatch, defaultValue: true),
       _getBool(kLogTagMaint, defaultValue: true),
     ]);

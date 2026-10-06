@@ -68,7 +68,6 @@ class ChapterPageDownload extends ConsumerWidget {
         error: e,
         stackTrace: stackTrace,
       );
-      debugPrint('[ChapterPageDownload] start failed for $id: $e\n$stackTrace');
       botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');
     }
   }

@@ -37,7 +37,6 @@ import 'package:watchtower/modules/home/widgets/home_header.dart'
     show showAccountSheet;
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
-import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
@@ -163,13 +162,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         // fetch every configured repository at app startup: that made each
         // Browse tab show a loading skeleton and could flood the network
         // before the user had opened the Marketplace.
-        // Auto-show the floating log overlay if logs are enabled by default.
-        final enableLogs = ref.read(logsStateProvider);
-        if (enableLogs) {
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => LogOverlayController.instance.show(),
-          );
-        }
+        // Always show the diagnostic handle at launch. The overlay itself
+        // starts collapsed so it stays out of the way until opened.
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => LogOverlayController.instance.show(),
+        );
       }
     });
   }

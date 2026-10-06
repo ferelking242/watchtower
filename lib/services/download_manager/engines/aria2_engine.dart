@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:flutter/foundation.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
 import 'package:watchtower/services/download_manager/engines/download_engine.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
@@ -52,7 +51,7 @@ class Aria2Engine implements DownloadEngine {
     if (url.contains('.m3u8') || url.contains('.m3u')) {
       AppLogger.log(
         'aria2 cannot handle HLS playlists directly — falling back required '
-        '| chapter=$chapterId | url=$url',
+        '| chapter=$chapterId | host=${Uri.tryParse(url)?.host ?? "unknown"}',
         logLevel: LogLevel.warning,
         tag: LogTag.download,
       );
@@ -111,10 +110,9 @@ class Aria2Engine implements DownloadEngine {
     args.add(url);
 
     AppLogger.log(
-      'aria2 start | chapter=$chapterId | url=$url | dir=$dir',
+      'aria2 start | chapter=$chapterId | host=${Uri.tryParse(url)?.host ?? "unknown"}',
       tag: LogTag.download,
     );
-    if (kDebugMode) debugPrint('[Aria2] Args: ${args.join(' ')}');
 
     onProgress(DownloadProgress(0, 100, itemType));
 

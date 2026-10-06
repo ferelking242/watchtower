@@ -29,6 +29,48 @@ const kLogTagReader = 'log_tag_reader';
 const kLogTagWatch = 'log_tag_watch';
 const kLogTagMaint = 'log_tag_maint';
 const kLogSuppressImages = 'log_suppress_images';
+const _kVerboseDownloadBootstrap = 'verbose_download_diagnostics_v1';
+
+final _sensitiveLogFieldPattern = RegExp(
+  r'\b(authorization|proxy-authorization|cookie|set-cookie|x-api-key|'
+  r'x-auth-token|x-access-token|x-refresh-token|api[_-]?key|'
+  r'access[_-]?token|refresh[_-]?token|token)\b'
+  r'(\s*[:=]\s*)([^\r\n,}\]]+)',
+  caseSensitive: false,
+);
+final _filePathFieldPattern = RegExp(
+  r"""(\b(?:path|file(?:name|path)?)\s*[:=]\s*['"]?)([^'"\r\n,)]+)""",
+  caseSensitive: false,
+);
+final _logUrlPattern = RegExp(
+  r'https?://[^\s<>"\)\]\},]+',
+  caseSensitive: false,
+);
+
+/// Remove credentials and request-specific URL data before logs reach the
+/// overlay, session file, debug console, or remote error notifications.
+String sanitizeLogText(String input) {
+  // URLs are reduced first so signed query strings and fragments disappear
+  // as a unit, rather than leaving part of a redaction marker in the URL.
+  final withoutUrls = input.replaceAllMapped(_logUrlPattern, (match) {
+    final uri = Uri.tryParse(match.group(0)!);
+    if (uri == null || uri.host.isEmpty) return 'https://[redacted-url]';
+    final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
+    final port = uri.hasPort ? ':${uri.port}' : '';
+    final query = uri.hasQuery ? '?[REDACTED]' : '';
+    final fragment = uri.hasFragment ? '#[REDACTED]' : '';
+    return '${uri.scheme}://$host$port/[redacted-path]$query$fragment';
+  });
+  final withoutCredentials = withoutUrls.replaceAllMapped(
+    _sensitiveLogFieldPattern,
+    (match) => '${match.group(1)}${match.group(2)}[REDACTED]',
+  );
+  final withoutFilePaths = withoutCredentials.replaceAllMapped(
+    _filePathFieldPattern,
+    (match) => '${match.group(1)}[redacted-path]',
+  );
+  return withoutFilePaths;
+}
 
 // ─── Log Modes ─────────────────────────────────────────────────────────────────
 enum LogMode {
@@ -112,7 +154,7 @@ class AppLogger {
   static int _minLevel = 0; // default: DEBUG (max verbosity)
   static Set<String> _disabledTags = {};
   static bool _suppressImages = true;
-  static LogMode _currentMode = LogMode.normal;
+  static LogMode _currentMode = LogMode.verbose;
 
   /// Returns true when the active log mode is [LogMode.extreme].
   /// Callers use this to gate high-frequency per-page / per-segment logging
@@ -212,7 +254,12 @@ class AppLogger {
     // One daily file per calendar day, appended across sessions (never reset).
     // Location: <storage>/Watchtower/.dev/YYYY-MM-DD.log
     // The enableLogs setting now only controls the in-app log-viewer filters.
+    await _bootstrapVerboseDownloadDiagnostics();
     await _loadSettings();
+    log(
+      'Diagnostic logging ready: mode=${_currentMode.displayName}',
+      tag: LogTag.download,
+    );
 
     final storage = StorageProvider();
     if (!kIsWeb && Platform.isAndroid) {
@@ -282,15 +329,36 @@ class AppLogger {
   // Call this after changing settings in the UI to update in-memory filters
   static Future<void> reloadSettings() => _loadSettings();
 
+  /// Existing installs may have Normal mode and download tags disabled. Turn
+  /// on Verbose once for this diagnostics rollout, then respect later choices
+  /// made in Advanced settings.
+  static Future<void> _bootstrapVerboseDownloadDiagnostics() async {
+    try {
+      final box = await Hive.openBox(_kLogBox);
+      if (box.get(_kVerboseDownloadBootstrap, defaultValue: 0) == 1) return;
+      await box.put(kLogMode, LogMode.verbose.index);
+      await box.put(kLogMinLevel, LogMode.verbose.minLevel);
+      for (final entry in LogMode.verbose.defaultTags.entries) {
+        await box.put(entry.key, entry.value);
+      }
+      await box.put(_kVerboseDownloadBootstrap, 1);
+    } catch (error) {
+      debugPrint('Could not enable verbose download diagnostics.');
+    }
+  }
+
   static Future<void> _loadSettings() async {
     try {
       final box = await Hive.openBox(_kLogBox);
-      _minLevel = box.get(kLogMinLevel, defaultValue: 0) as int;
-      _suppressImages = box.get(kLogSuppressImages, defaultValue: true) as bool;
-
       // Load the current log mode so isExtremeMode reflects the user's choice.
-      final modeIndex = box.get(kLogMode, defaultValue: 0) as int;
+      final modeIndex =
+          box.get(kLogMode, defaultValue: LogMode.verbose.index) as int;
       _currentMode = LogMode.values[modeIndex.clamp(0, LogMode.values.length - 1)];
+      _minLevel = box.get(
+        kLogMinLevel,
+        defaultValue: _currentMode.minLevel,
+      ) as int;
+      _suppressImages = box.get(kLogSuppressImages, defaultValue: true) as bool;
 
       final disabled = <String>{};
       final tagMap = {
@@ -308,7 +376,10 @@ class AppLogger {
         LogTag.repo: kLogTagExt, // REPO shares the EXT toggle
       };
       for (final entry in tagMap.entries) {
-        final enabled = box.get(entry.value, defaultValue: true) as bool;
+        final defaultEnabled =
+            _currentMode.defaultTags[entry.value] ?? true;
+        final enabled =
+            box.get(entry.value, defaultValue: defaultEnabled) as bool;
         if (!enabled) disabled.add(entry.key);
       }
       _disabledTags = disabled;
@@ -341,17 +412,18 @@ class AppLogger {
     Object? error,
     StackTrace? stackTrace,
   }) {
+    final safeMessage = sanitizeLogText(message);
     final tagPart = tag != null ? '[$tag] ' : '';
     final entry = StringBuffer(
-      '[${_timestamp()}][${logLevel.label}] $tagPart$message',
+      '[${_timestamp()}][${logLevel.label}] $tagPart$safeMessage',
     );
 
     if (error != null) {
-      entry.write('\n  Error: $error');
+      entry.write('\n  Error: ${sanitizeLogText(error.toString())}');
     }
 
     if (stackTrace != null) {
-      final lines = stackTrace.toString().split('\n');
+      final lines = sanitizeLogText(stackTrace.toString()).split('\n');
       final limited = lines.take(12).join('\n  ');
       entry.write('\n  Stack:\n  $limited');
       if (lines.length > 12) {
@@ -384,8 +456,8 @@ class AppLogger {
     if (tag != null && _disabledTags.contains(tag) && logLevel != LogLevel.error) return;
     if (_suppressImages &&
         logLevel == LogLevel.error &&
-        (message.contains('Failed to load') ||
-            message.contains('Bad state'))) {
+        (safeMessage.contains('Failed to load') ||
+            safeMessage.contains('Bad state'))) {
       return;
     }
 

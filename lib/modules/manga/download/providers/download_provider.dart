@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -53,6 +52,20 @@ import 'package:watchtower/services/update_notification_service.dart';
 part 'download_provider.g.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Bridge the old developer.log calls in this file into AppLogger so scheduler
+/// and worker traces are also visible in the floating log panel.
+void log(String message, {Object? error, StackTrace? stackTrace}) {
+  AppLogger.log(
+    message,
+    logLevel: error != null || stackTrace != null
+        ? LogLevel.warning
+        : LogLevel.info,
+    tag: LogTag.download,
+    error: error,
+    stackTrace: stackTrace,
+  );
+}
 
 /// Convert a raw exception into a human-readable French message.
 String friendlyErrorMessage(Object e) {
@@ -229,7 +242,7 @@ Manga resolveChapterManga(Chapter chapter) {
   }
   if (manga == null) {
     throw StateError(
-      'Manga introuvable pour le chapitre "${chapter.name}" '
+      'Manga introuvable pour chapterId=${chapter.id} '
       '(mangaId=${chapter.mangaId}) — téléchargement impossible.',
     );
   }
@@ -268,8 +281,8 @@ void ensureChapterLinksLoaded(Chapter chapter) {
   if (manga == null) {
     final detail = linkError == null ? '' : ': $linkError';
     throw StateError(
-      'Impossible de lire le manga lié au chapitre "${chapter.name}" '
-      '(mangaId=${chapter.mangaId})$detail',
+      'Impossible de lire le manga lié au chapitre '
+      '(chapterId=${chapter.id}, mangaId=${chapter.mangaId})$detail',
     );
   }
 }
@@ -758,61 +771,89 @@ void _putDownloadForChapter(Download download, Chapter chapter) {
 
 @riverpod
 Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
-  // Do not persist a chapter without its Manga relation: Isar can otherwise
-  // clear an unloaded link during put and the scheduler will skip the orphan.
-  ensureChapterLinksLoaded(chapter);
   final id = chapter.id;
-  if (id == null) {
-    throw StateError(
-      'Impossible de mettre en file un chapitre sans identifiant.',
-    );
-  }
-
-  Download? existing;
-  var corruptRecord = false;
+  AppLogger.log(
+    '[ch:${id ?? "?"}] queue request received',
+    logLevel: LogLevel.info,
+    tag: LogTag.download,
+  );
   try {
-    existing = isar.downloads.getSync(id);
-  } on RangeError {
-    // The record cannot be deserialized; replace it transactionally below.
-    corruptRecord = true;
-  }
-
-  if ((existing?.isDownload ?? false) || ActiveDownloadRegistry.isActive(id)) {
-    return;
-  }
-
-  // New items and incomplete legacy/failed/cancelled/paused items share one
-  // persistence path. A failed transaction must escape this provider so the
-  // caller can report it; starting the scheduler without a stored row is a
-  // false success.
-  final download =
-      existing ??
-      Download(
-        id: id,
-        succeeded: 0,
-        failed: 0,
-        total: 1,
-        isDownload: false,
-        isStartDownload: true,
+    // Do not persist a chapter without its Manga relation: Isar can otherwise
+    // clear an unloaded link during put and the scheduler will skip the orphan.
+    ensureChapterLinksLoaded(chapter);
+    if (id == null) {
+      throw StateError(
+        'Impossible de mettre en file un chapitre sans identifiant.',
       );
-  download
-    ..isDownload = false
-    ..isStartDownload = true
-    ..succeeded = 0
-    ..failed = 0
-    ..total = 1
-    ..downloadedBytes = null
-    ..totalBytes = null
-    ..filePath = null
-    ..title = chapter.name
-    ..posterUrl = chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
-    ..quality = chapterPreferredQuality[id]
-    ..status = 'queued';
+    }
 
-  isar.writeTxnSync(() {
-    if (corruptRecord) isar.downloads.deleteSync(id);
-    _putDownloadForChapter(download, chapter);
-  });
+    Download? existing;
+    var corruptRecord = false;
+    try {
+      existing = isar.downloads.getSync(id);
+    } on RangeError {
+      // The record cannot be deserialized; replace it transactionally below.
+      corruptRecord = true;
+    }
+
+    if ((existing?.isDownload ?? false) || ActiveDownloadRegistry.isActive(id)) {
+      AppLogger.log(
+        '[ch:$id] queue request ignored: already completed or active',
+        logLevel: LogLevel.debug,
+        tag: LogTag.download,
+      );
+      return;
+    }
+
+    // New items and incomplete legacy/failed/cancelled/paused items share one
+    // persistence path. A failed transaction must escape this provider so the
+    // caller can report it; starting the scheduler without a stored row is a
+    // false success.
+    final download =
+        existing ??
+        Download(
+          id: id,
+          succeeded: 0,
+          failed: 0,
+          total: 1,
+          isDownload: false,
+          isStartDownload: true,
+        );
+    download
+      ..isDownload = false
+      ..isStartDownload = true
+      ..succeeded = 0
+      ..failed = 0
+      ..total = 1
+      ..downloadedBytes = null
+      ..totalBytes = null
+      ..filePath = null
+      ..title = chapter.name
+      ..posterUrl = chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
+      ..quality = chapterPreferredQuality[id]
+      ..status = 'queued';
+
+    isar.writeTxnSync(() {
+      if (corruptRecord) isar.downloads.deleteSync(id);
+      _putDownloadForChapter(download, chapter);
+    });
+    AppLogger.log(
+      '[ch:$id] queued type=${chapter.manga.value?.itemType.name ?? "unknown"} '
+      'source=${chapter.manga.value?.source ?? "?"} '
+      'replacedCorruptRecord=$corruptRecord',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
+  } catch (error, stackTrace) {
+    AppLogger.log(
+      '[ch:${id ?? "?"}] queue persistence failed',
+      logLevel: LogLevel.warning,
+      tag: LogTag.download,
+      error: error,
+      stackTrace: stackTrace,
+    );
+    rethrow;
+  }
 }
 
 @riverpod
@@ -846,8 +887,7 @@ Future<void> downloadChapter(
   AppLogger.log(
     '[ch:$chapterId] download worker started '
     'type=${mangaForRegistry?.itemType.name ?? "unknown"} '
-    'source=${mangaForRegistry?.source ?? "?"} '
-    'url=${chapter.url ?? "n/a"}',
+    'source=${mangaForRegistry?.source ?? "?"}',
     logLevel: LogLevel.info,
     tag: LogTag.download,
   );
@@ -858,6 +898,7 @@ Future<void> downloadChapter(
       final connectivity = await Connectivity().checkConnectivity();
       if (!hasWifiOrEthernet(connectivity)) {
         _setDownloadStatus(chapterId, 'waiting_wifi');
+        log('[ch:$chapterId] waiting for Wi-Fi before starting');
         final context = navigatorKey.currentContext;
         if (context != null) {
           botToast(context.l10n.downloads_are_limited_to_wifi);
@@ -926,6 +967,12 @@ Future<void> downloadChapter(
         chapterDirectory.path,
       );
     }
+    AppLogger.log(
+      '[ch:$chapterId] storage directories ready '
+      'type=${manga.itemType.name}',
+      logLevel: LogLevel.debug,
+      tag: LogTag.download,
+    );
     Map<String, String> videoHeader = {};
     Map<String, String> htmlHeader = {
       "Priority": "u=0, i",
@@ -981,8 +1028,23 @@ Future<void> downloadChapter(
     var _speedLastMs = 0;
     var _speedEmaMbs = 0.0;
     var mediaCompletionNotified = false;
+    var lastLoggedProgressBucket = -1;
 
     Future<void> setProgress(DownloadProgress progress) async {
+      if (progress.total > 0) {
+        final percent =
+            (progress.completed / progress.total * 100).clamp(0, 100).toInt();
+        final bucket = (percent ~/ 10) * 10;
+        if (bucket >= 10 && bucket > lastLoggedProgressBucket) {
+          lastLoggedProgressBucket = bucket;
+          AppLogger.log(
+            '[ch:${chapter.id}] transfer progress=$bucket% '
+            'units=${progress.completed}/${progress.total}',
+            logLevel: LogLevel.debug,
+            tag: LogTag.download,
+          );
+        }
+      }
       if (progress.total > 0 && AppLogger.isExtremeMode) {
         final pct = (progress.total > 0
             ? (progress.completed / progress.total.clamp(1, double.infinity) * 100)
@@ -1422,7 +1484,7 @@ Future<void> downloadChapter(
       try {
         AppLogger.log(
           '[ch:${chapter.id}] fetching manga page metadata '
-          'source=${manga.source ?? "?"} url=${chapter.url ?? "n/a"}',
+          'source=${manga.source ?? "?"}',
           logLevel: LogLevel.info,
           tag: LogTag.download,
         );
@@ -1451,7 +1513,7 @@ Future<void> downloadChapter(
       try {
         AppLogger.log(
           '[ch:${chapter.id}] fetching episode video metadata '
-          'source=${manga.source ?? "?"} url=${chapter.url ?? "n/a"}',
+          'source=${manga.source ?? "?"}',
           logLevel: LogLevel.info,
           tag: LogTag.download,
         );
@@ -1654,8 +1716,12 @@ Future<void> downloadChapter(
       _setDownloadStatus(chapterId, 'initializing');
     }
 
-    log('[downloadChapter] itemType=$itemType chapterId=${chapter.id} chapterName=$chapterName');
-    log('[downloadChapter] pageUrls=${pageUrls.length} novelPage=$novelPage hasM3U8=$hasM3U8File nonM3U8=$nonM3U8File');
+    AppLogger.log(
+      '[ch:${chapter.id}] metadata resolved type=${itemType.name} '
+      'sources=${pageUrls.length} hasHls=$hasM3U8File directVideo=$nonM3U8File',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
 
     if (pageUrls.isNotEmpty) {
       bool cbzFileExist =
@@ -1849,10 +1915,13 @@ Future<void> downloadChapter(
       }
     } else if (itemType == ItemType.novel) {
       final file = File(p.join(chapterDirectory.path, "$chapterName.html"));
-      log('[downloadChapter][novel] target=${file.path} exists=${file.existsSync()} novelPage=$novelPage');
+      log(
+        '[downloadChapter][novel] target exists=${file.existsSync()} '
+        'hasSource=${novelPage != null}',
+      );
       if (!file.existsSync() && novelPage != null) {
         final source = getSource(manga.lang!, manga.source!, manga.sourceId)!;
-        log('[downloadChapter][novel] calling getHtmlContent url=${chapter.url}');
+        log('[downloadChapter][novel] calling getHtmlContent');
         try {
           final html = await withExtensionService(
             source,
@@ -1864,12 +1933,15 @@ Future<void> downloadChapter(
           log('[downloadChapter][novel] getHtmlContent returned ${html.length} chars');
           if (html.isNotEmpty) {
             await file.writeAsString(html);
-            log('[downloadChapter][novel] HTML saved to ${file.path}');
+            log('[downloadChapter][novel] HTML saved');
             await setProgress(
               DownloadProgress(1, 1, itemType, isCompleted: true),
             );
           } else {
-            log('[downloadChapter][novel] ERROR: getHtmlContent returned empty string for ${chapter.url}');
+            log(
+              '[downloadChapter][novel] ERROR: getHtmlContent returned empty '
+              'string for chapterId=${chapter.id}',
+            );
             // Mark as failed so the user can retry
             try {
               final dl = isar.downloads.getSync(chapter.id!);
@@ -1905,7 +1977,10 @@ Future<void> downloadChapter(
         log('[downloadChapter][novel] file already exists, marking complete');
         await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
       } else {
-        log('[downloadChapter][novel] novelPage is null — nothing to download for ${chapter.url}');
+        log(
+          '[downloadChapter][novel] no source available for '
+          'chapterId=${chapter.id}',
+        );
         try {
           final dl = isar.downloads.getSync(chapter.id!);
           if (dl != null) {
@@ -2093,6 +2168,9 @@ Future<void> downloadChapter(
 Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   // Keep this provider alive so it can run for the full duration of the queue.
   final keepAlive = ref.keepAlive();
+  final loggedConcurrencyBlocks = <int>{};
+  String? lastQueueWaitState;
+  log('[processDownloads] scheduler started');
   // Acquire wakelock + start Android foreground service so the OS does not
   // kill the process while downloads are running in the background.
   unawaited(BackgroundKeepAlive.start());
@@ -2190,6 +2268,23 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         if (chId == null) return false; // orphaned record — skip
         return !pausedIds.contains(chId) && !ActiveDownloadRegistry.isActive(chId);
       }).toList();
+      if (ongoingRaw.isNotEmpty && toStart.isEmpty) {
+        final pausedCount = ongoingRaw
+            .where((d) => pausedIds.contains(d.chapter.value?.id))
+            .length;
+        final activeCount = ongoingRaw
+            .where((d) =>
+                ActiveDownloadRegistry.isActive(d.chapter.value?.id ?? -1))
+            .length;
+        final waitState =
+            'pending=${ongoingRaw.length} paused=$pausedCount active=$activeCount';
+        if (waitState != lastQueueWaitState) {
+          log('[processDownloads] no eligible item: $waitState');
+          lastQueueWaitState = waitState;
+        }
+      } else {
+        lastQueueWaitState = null;
+      }
 
       // ── Speed Master: high-priority downloads start first ────────────────
       // Stable sort: within the same priority the original (FIFO-ish) Isar
@@ -2288,7 +2383,22 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         final tLimit = typeMax[type] ?? 2;
         final sLimit = typePerSrcMax[type] ?? 2;
 
-        if (curType >= tLimit || curSrc >= sLimit) continue outer;
+        if (curType >= tLimit || curSrc >= sLimit) {
+          final chapterId = chapter.id;
+          if (chapterId != null && loggedConcurrencyBlocks.add(chapterId)) {
+            AppLogger.log(
+              '[ch:$chapterId] waiting for concurrency slot '
+              'type=${type.name} active=$curType/$tLimit '
+              'source=$curSrc/$sLimit',
+              logLevel: LogLevel.debug,
+              tag: LogTag.download,
+            );
+          }
+          continue outer;
+        }
+        if (chapter.id != null) {
+          loggedConcurrencyBlocks.remove(chapter.id!);
+        }
 
         queue.removeAt(0);
         if (d.status == 'waiting_wifi' || d.status == 'queued') {
@@ -2296,12 +2406,11 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         }
 
         AppLogger.log(
-          'Queue → [ch:${chapter.id}] "${(chapter.name ?? '').length > 35 ? (chapter.name ?? '').substring(0, 35) + '…' : (chapter.name ?? '')}" '
-          'type=${type.name} src=$chSrc curType=$curType/$tLimit curSrc=$curSrc/$sLimit',
+          'Queue dispatch [ch:${chapter.id}] type=${type.name} '
+          'source=$chSrc active=$curType/$tLimit sourceActive=$curSrc/$sLimit',
           logLevel: LogLevel.info,
           tag: LogTag.download,
         );
-        log('[processDownloads] starting chapterId=${chapter.id} "${chapter.name}" type=${type.name} src=$chSrc');
 
         // Small stagger to avoid thundering herd on the remote server.
         await Future.delayed(const Duration(milliseconds: 150));

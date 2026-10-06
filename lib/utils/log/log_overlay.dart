@@ -63,7 +63,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
   // Position is stored in absolute screen coordinates (top-left of the box).
   Offset _pos = const Offset(8, 80);
   Size _size = const Size(340, 240);
-  bool _collapsed = false;
+  bool _collapsed = true;
   bool _autoScroll = true;
   bool _onlyErrors = false;
   bool _showDate = true;

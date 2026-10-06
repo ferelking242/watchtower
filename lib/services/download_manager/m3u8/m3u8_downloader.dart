@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:async';
@@ -57,10 +56,11 @@ class M3u8Downloader {
   });
 
   void _log(String message) {
-    if (kDebugMode) {
-      log('[M3u8Downloader] $message');
-    }
-    AppLogger.log(message);
+    AppLogger.log(
+      '[M3u8Downloader] $message',
+      logLevel: LogLevel.debug,
+      tag: LogTag.hls,
+    );
   }
 
   void close() {

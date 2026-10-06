@@ -1,7 +1,5 @@
-import 'dart:developer';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/video.dart';
@@ -39,9 +37,11 @@ class MDownloader {
   });
 
   void _log(String message) {
-    if (kDebugMode) {
-      log('[MDownloader] $message');
-    }
+    AppLogger.log(
+      '[MDownloader] $message',
+      logLevel: LogLevel.debug,
+      tag: LogTag.download,
+    );
   }
 
   /// Initialize the Isolate pool (call once at app startup)
