@@ -4308,6 +4308,139 @@ class _PlayCircle extends StatelessWidget {
   }
 }
 
+_ComponentSpec _extensionLayoutComponent({
+  required String title,
+  required String component,
+  required String usage,
+  required IconData icon,
+  required _PreviewKind kind,
+}) => _ComponentSpec(
+  section: 'EXTENSIONS WATCH',
+  title: title,
+  className: 'ExtensionLayoutPreview',
+  path: 'lib/modules/watch/home/watch_extension_home_screen.dart',
+  usage: usage,
+  icon: icon,
+  kind: kind,
+  layoutComponent: component,
+  result: (_) => ExtensionLayoutPreview(
+    title: title,
+    component: component,
+    source: _gallerySource,
+    items: _extensionItems,
+    onOpen: (_) {},
+    onSeeAll: () {},
+  ),
+);
+
+List<_ComponentSpec> _additionalExtensionLayoutComponents() => [
+  _extensionLayoutComponent(
+    title: 'Hero bannière',
+    component: 'hero',
+    usage: 'Alias compatible du layout banner',
+    icon: Icons.auto_awesome_outlined,
+    kind: _PreviewKind.banner,
+  ),
+  _extensionLayoutComponent(
+    title: 'Classement',
+    component: 'ranked',
+    usage: 'Rail de classement manga',
+    icon: Icons.format_list_numbered_rounded,
+    kind: _PreviewKind.rankedWide,
+  ),
+  _extensionLayoutComponent(
+    title: 'Nouveautés tendance',
+    component: 'newHot',
+    usage: 'Rail classement nouveautés',
+    icon: Icons.fiber_new,
+    kind: _PreviewKind.rankedWide,
+  ),
+  _extensionLayoutComponent(
+    title: 'Paysage empilé',
+    component: 'landscapeStacked',
+    usage: 'Rail paysage empilé',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.showcase,
+  ),
+  _extensionLayoutComponent(
+    title: 'Fond large',
+    component: 'backdropWide',
+    usage: 'Rail paysage avec fond large',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.showcase,
+  ),
+  _extensionLayoutComponent(
+    title: 'Exploration univers',
+    component: 'universeExplorer',
+    usage: 'Rail de découverte d’univers',
+    icon: Icons.auto_awesome_outlined,
+    kind: _PreviewKind.showcase,
+  ),
+  _extensionLayoutComponent(
+    title: 'Chronologie collection',
+    component: 'collectionTimeline',
+    usage: 'Rail chronologique',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.showcase,
+  ),
+  _extensionLayoutComponent(
+    title: 'Catalogue',
+    component: 'catalogue',
+    usage: 'Grille de catalogue manga',
+    icon: Icons.grid_4x4_rounded,
+    kind: _PreviewKind.extensionGrid,
+  ),
+  _extensionLayoutComponent(
+    title: 'Grille découverte',
+    component: 'discoverGrid',
+    usage: 'Grille de découverte manga',
+    icon: Icons.auto_awesome_outlined,
+    kind: _PreviewKind.extensionGrid,
+  ),
+  _extensionLayoutComponent(
+    title: 'Pastilles de catégories',
+    component: 'categoryPills',
+    usage: 'Style de section catégorie',
+    icon: Icons.category_outlined,
+    kind: _PreviewKind.extensionGrid,
+  ),
+  _extensionLayoutComponent(
+    title: 'Double vedette',
+    component: 'doubleFeature',
+    usage: 'Grille double mise en avant',
+    icon: Icons.grid_4x4_rounded,
+    kind: _PreviewKind.extensionGrid,
+  ),
+  _extensionLayoutComponent(
+    title: 'Éditorial',
+    component: 'editorialSplit',
+    usage: 'Grille éditoriale',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.extensionGrid,
+  ),
+  _extensionLayoutComponent(
+    title: 'Mosaïque',
+    component: 'masonry',
+    usage: 'Grille mosaïque manga',
+    icon: Icons.grid_4x4_rounded,
+    kind: _PreviewKind.extensionGrid,
+  ),
+  _extensionLayoutComponent(
+    title: 'Flux',
+    component: 'feed',
+    usage: 'Présentation en flux',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.extensionGrid,
+  ),
+  _extensionLayoutComponent(
+    title: 'Carrousel playlist',
+    component: 'playlistCarousel',
+    usage: 'Rail de collections et playlists',
+    icon: Icons.collections_bookmark_outlined,
+    kind: _PreviewKind.collection,
+  ),
+];
+
 List<_ComponentSpec> _buildComponents() => [
   // ── CARTES RICHES (MoviesBox) ──
   _ComponentSpec(
@@ -9786,6 +9919,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Layout studioExplorer',
     icon: Icons.business_outlined,
     kind: _PreviewKind.studio,
+    layoutComponent: 'studioExplorer',
     result: (_) => ExtensionLayoutPreview(
       title: 'Studios',
       component: 'studioExplorer',
@@ -9831,6 +9965,7 @@ List<_ComponentSpec> _buildComponents() => [
       onSeeAll: () {},
     ),
   ),
+  ..._additionalExtensionLayoutComponents(),
   _ComponentSpec(
     section: 'MANGA & LECTURE',
     title: 'Carte manga',
