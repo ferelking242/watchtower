@@ -95,6 +95,8 @@ jobs:
       - name: Verify downloaded CLI runtime
         run: |
           binary="$RUNNER_TEMP/watchtower-linux/watchtower"
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/watchtower-linux/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
           ldd "$binary" | tee "$RUNNER_TEMP/watchtower-ldd.txt"
           if grep -q 'not found' "$RUNNER_TEMP/watchtower-ldd.txt"; then
             echo "The downloaded CLI has unresolved shared libraries."
