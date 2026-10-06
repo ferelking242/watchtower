@@ -17,14 +17,18 @@ void main() {
       );
 
       expect(groups.keys, ['black-clover']);
-      expect(groups['black-clover']!.map((download) => download.name),
-          ['Chapter 2']);
+      expect(groups['black-clover']!.map((download) => download.name), [
+        'Chapter 2',
+      ]);
       expect(shouldShowDownloadGroupHeader(groups['black-clover']!), isFalse);
     });
 
     test('a group disappears when its last active download completes', () {
       final groups = groupIncompleteDownloads(
-        downloads.map((download) => (series: download.series, complete: true, name: download.name)),
+        downloads.map(
+          (download) =>
+              (series: download.series, complete: true, name: download.name),
+        ),
         keyFor: (download) => download.series,
         isComplete: (download) => download.complete,
       );

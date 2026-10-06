@@ -1,4 +1,4 @@
-name: Watchtower CLI contract tests
+name: Watchtower CLI and download contract tests
 
 on:
   push:
@@ -8,6 +8,13 @@ on:
       - 'test/watchtower_cli_catalog_test.dart'
       - 'test/watchtower_cli_plugins_test.dart'
       - 'test/watchtower_cli_safety_test.dart'
+      - 'lib/modules/browse/plugins_section.dart'
+      - 'lib/modules/manga/download/providers/download_provider.dart'
+      - 'lib/modules/more/download_queue/**'
+      - 'lib/services/download_manager/download_isolate_pool.dart'
+      - 'lib/services/update_notification_service.dart'
+      - 'test/download_queue_grouping_test.dart'
+      - 'test/image_download_response_test.dart'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/test-cli-contract.yml'
@@ -19,6 +26,13 @@ on:
       - 'test/watchtower_cli_catalog_test.dart'
       - 'test/watchtower_cli_plugins_test.dart'
       - 'test/watchtower_cli_safety_test.dart'
+      - 'lib/modules/browse/plugins_section.dart'
+      - 'lib/modules/manga/download/providers/download_provider.dart'
+      - 'lib/modules/more/download_queue/**'
+      - 'lib/services/download_manager/download_isolate_pool.dart'
+      - 'lib/services/update_notification_service.dart'
+      - 'test/download_queue_grouping_test.dart'
+      - 'test/image_download_response_test.dart'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/test-cli-contract.yml'
@@ -29,7 +43,7 @@ permissions:
 
 jobs:
   cli-contract:
-    name: CLI contract (${{ matrix.os }})
+    name: Contract tests (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -53,8 +67,11 @@ jobs:
       - name: Test CLI argument contract
         run: flutter test test/watchtower_cli_options_test.dart test/watchtower_cli_catalog_test.dart test/watchtower_cli_plugins_test.dart test/watchtower_cli_safety_test.dart
 
+      - name: Test download queue and image response contracts
+        run: flutter test test/download_queue_grouping_test.dart test/image_download_response_test.dart
+
       - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed lib/cli/watchtower_cli.dart lib/cli/watchtower_cli_options.dart lib/cli/watchtower_cli_catalog.dart lib/cli/watchtower_cli_plugins.dart lib/cli/watchtower_cli_safety.dart test/watchtower_cli_options_test.dart test/watchtower_cli_catalog_test.dart test/watchtower_cli_plugins_test.dart test/watchtower_cli_safety_test.dart
+        run: dart format --output=none --set-exit-if-changed lib/cli/watchtower_cli.dart lib/cli/watchtower_cli_options.dart lib/cli/watchtower_cli_catalog.dart lib/cli/watchtower_cli_plugins.dart lib/cli/watchtower_cli_safety.dart lib/modules/more/download_queue/download_queue_grouping.dart test/watchtower_cli_options_test.dart test/watchtower_cli_catalog_test.dart test/watchtower_cli_plugins_test.dart test/watchtower_cli_safety_test.dart test/download_queue_grouping_test.dart test/image_download_response_test.dart
 
       - name: Analyze CLI code and tests
-        run: flutter analyze --no-pub lib/cli/watchtower_cli.dart lib/cli/watchtower_cli_options.dart lib/cli/watchtower_cli_catalog.dart lib/cli/watchtower_cli_plugins.dart lib/cli/watchtower_cli_safety.dart test/watchtower_cli_options_test.dart test/watchtower_cli_catalog_test.dart test/watchtower_cli_plugins_test.dart test/watchtower_cli_safety_test.dart
+        run: flutter analyze --no-pub lib/cli/watchtower_cli.dart lib/cli/watchtower_cli_options.dart lib/cli/watchtower_cli_catalog.dart lib/cli/watchtower_cli_plugins.dart lib/cli/watchtower_cli_safety.dart lib/modules/more/download_queue/download_queue_grouping.dart test/watchtower_cli_options_test.dart test/watchtower_cli_catalog_test.dart test/watchtower_cli_plugins_test.dart test/watchtower_cli_safety_test.dart test/download_queue_grouping_test.dart test/image_download_response_test.dart
