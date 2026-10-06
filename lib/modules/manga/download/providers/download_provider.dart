@@ -1117,6 +1117,15 @@ Future<void> downloadChapter(
           download = null;
         }
       }
+      if (progress.itemType == ItemType.manga &&
+          (storedSucceeded < 0 ||
+              storedTotal < 0 ||
+              (storedTotal > 0 && storedSucceeded > storedTotal) ||
+              (storedTotal <= 0 && storedSucceeded > 0))) {
+        // Old/corrupt rows can contain byte counts or stale page counters.
+        // Never treat an impossible value as a valid resume offset.
+        storedSucceeded = 0;
+      }
 
       final reportedDownloadedBytes = progress.itemType == ItemType.anime
           ? trustedDownloadByteCount(
@@ -1237,7 +1246,7 @@ Future<void> downloadChapter(
       // If the stored record already has bytes, this is a resume — capture the
       // offset so every subsequent tick adds it back in.
       if (_resumeSucceededKbOffset < 0) {
-        final stored = download?.succeeded ?? 0;
+        final stored = storedSucceeded;
         // Threshold is type-aware:
         //   • anime  → succeeded is in KB; anything >500 KB is a real progress value.
         //   • manga  → succeeded is page count; anything >1 means real progress.
@@ -1307,11 +1316,17 @@ Future<void> downloadChapter(
       final exactTotalBytes = progress.itemType == ItemType.anime
           ? reportedTotalBytes ?? persistedTotalBytes
           : null;
-      final progressStatus = progress.isCompleted
-          ? 'completed'
-          : (exactDownloadedBytes != null && exactDownloadedBytes > 0
-              ? 'downloading'
-              : 'initializing');
+      final transferStarted =
+          (progress.itemType == ItemType.manga && progress.total > 0) ||
+          (exactDownloadedBytes != null && exactDownloadedBytes > 0);
+      final String progressStatus;
+      if (progress.isCompleted) {
+        progressStatus = 'completed';
+      } else if (transferStarted) {
+        progressStatus = 'downloading';
+      } else {
+        progressStatus = 'initializing';
+      }
 
       if (chapter.id == null) {
         // Pas d'ID → on ne peut rien écrire en base. On met juste à jour le
@@ -1910,6 +1925,9 @@ Future<void> downloadChapter(
         }
         log('[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}');
         try {
+          if (itemType == ItemType.manga) {
+            _setDownloadStatus(chapterId, 'downloading');
+          }
           await MDownloader(
             chapter: chapter,
             pageUrls: pages,
@@ -2264,7 +2282,8 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         // remains recoverable if the app is closed again.
         if (dl.isStartDownload != true &&
             _pendingDownloadStatuses.contains(dl.status) &&
-            dl.id != null) {
+            dl.id != null &&
+            !ActiveDownloadRegistry.isActive(dl.id!)) {
           isar.writeTxnSync(() {
             final stored = isar.downloads.getSync(dl.id!);
             if (stored != null && stored.isDownload != true) {

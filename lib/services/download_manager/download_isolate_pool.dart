@@ -836,6 +836,8 @@ Future<void> _processFileDownload(
 ) async {
   int completed = 0;
   final total = params.pageUrls.length;
+  final attemptToken =
+      '${DateTime.now().microsecondsSinceEpoch}-${Isolate.current.hashCode}';
 
   if (total == 0) {
     replyPort.send(
@@ -849,9 +851,11 @@ Future<void> _processFileDownload(
     return;
   }
 
+  final int concurrency = params.concurrentDownloads.clamp(1, 32);
+  final slots = List<Future<void>>.filled(concurrency, Future<void>.value());
+
   try {
     final throttle = _Throttle(params.speedLimitKBs.toDouble());
-    final int concurrency = params.concurrentDownloads.clamp(1, 32);
     replyPort.send(
       _DownloadPoolLog(
         taskId,
@@ -861,9 +865,11 @@ Future<void> _processFileDownload(
     );
     // Circular slot buffer: slot i is awaited before launching item i,
     // guaranteeing at most `concurrency` downloads in flight at once.
-    final slots = List<Future<void>>.filled(concurrency, Future.value());
+    Object? firstError;
+    StackTrace? firstStackTrace;
 
     for (int i = 0; i < params.pageUrls.length; i++) {
+      if (firstError != null) break;
       if (_isCancelled(taskId)) {
         await Future.wait(slots, eagerError: false).catchError((_) => <void>[]);
         replyPort.send(
@@ -876,6 +882,7 @@ Future<void> _processFileDownload(
 
       final slotIdx = i % concurrency;
       await slots[slotIdx];
+      if (firstError != null || _isCancelled(taskId)) break;
 
       final pageUrl = params.pageUrls[i];
       slots[slotIdx] =
@@ -887,6 +894,7 @@ Future<void> _processFileDownload(
                 replyPort,
                 writeMode: params.writeMode,
                 throttle: throttle,
+                stagingSuffix: '$attemptToken-$i',
               )
               .then((_) {
                 if (params.itemType != ItemType.anime) {
@@ -901,21 +909,22 @@ Future<void> _processFileDownload(
                   );
                 }
               })
-              .catchError((error) {
-                replyPort.send(
-                  _toSendable(
-                    DownloadPoolException(
-                      'Error downloading ${pageUrl.fileName}',
-                      error,
-                    ),
-                  ),
+              .catchError((Object error, StackTrace stackTrace) {
+                firstError ??= DownloadPoolException(
+                  'Error downloading ${pageUrl.fileName}',
+                  error,
                 );
-                throw error;
+                firstStackTrace ??= stackTrace;
               });
     }
 
-    // Drain all remaining in-flight slots.
-    await Future.wait(slots, eagerError: true);
+    // Always drain every in-flight page before returning the worker or
+    // reporting failure. Otherwise a retry can race with writes from this
+    // failed attempt and both can rename the same temporary file.
+    await Future.wait(slots, eagerError: false);
+    if (firstError != null) {
+      Error.throwWithStackTrace(firstError!, firstStackTrace!);
+    }
 
     if (_isCancelled(taskId)) {
       replyPort.send(
@@ -931,6 +940,10 @@ Future<void> _processFileDownload(
     );
     replyPort.send(DownloadComplete());
   } catch (e) {
+    // A slot awaited while scheduling can fail before the final wait. Drain
+    // every other slot before sending the terminal event so no page can keep
+    // writing after the scheduler releases this chapter.
+    await Future.wait(slots, eagerError: false).catchError((_) => <void>[]);
     replyPort.send(_toSendable(DownloadPoolException('Download failed', e)));
   }
 }
@@ -1065,6 +1078,7 @@ Future<void> _downloadFile(
   SendPort replyPort, {
   int writeMode = 0,
   _Throttle? throttle,
+  required String stagingSuffix,
 }) async {
   final fileLabel = path.basename(pageUrl.fileName ?? 'download');
   final host = Uri.tryParse(pageUrl.url)?.host ?? 'unknown';
@@ -1097,12 +1111,29 @@ Future<void> _downloadFile(
       }
       final bytes = response.bodyBytes;
       final finalPath = pageUrl.fileName!;
+      if (_isCancelled(taskId)) {
+        throw DownloadPoolException('Task $taskId paused/cancelled', null);
+      }
       if (writeMode == 0 && bytes.isNotEmpty) {
-        final part = File('$finalPath.part');
-        await part.writeAsBytes(bytes, flush: true);
-        final out = File(finalPath);
-        if (await out.exists()) await out.delete();
-        await part.rename(finalPath);
+        // Manga pages do not need Range resume. Give every attempt its own
+        // staging file so overlapping retries cannot delete or rename each
+        // other's `.part` file.
+        final part = File('$finalPath.part.$stagingSuffix');
+        try {
+          await part.writeAsBytes(bytes, flush: true);
+          if (_isCancelled(taskId)) {
+            throw DownloadPoolException('Task $taskId paused/cancelled', null);
+          }
+          final out = File(finalPath);
+          if (await out.exists()) await out.delete();
+          await part.rename(finalPath);
+        } finally {
+          try {
+            if (await part.exists()) await part.delete();
+          } catch (_) {
+            // Cleanup must not replace the original download error.
+          }
+        }
       } else {
         await File(finalPath).writeAsBytes(bytes, flush: true);
       }

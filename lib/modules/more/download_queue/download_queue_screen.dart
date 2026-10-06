@@ -2028,8 +2028,17 @@ class _DownloadCard extends ConsumerWidget {
             storedTotal < 0 ||
             storedSucceeded > maxTrustedDownloadBytes ~/ 1024 ||
             storedTotal > maxTrustedDownloadBytes ~/ 1024);
-    final succeeded = invalidVideoCounters ? 0 : storedSucceeded;
-    final total = invalidVideoCounters ? 1 : storedTotal;
+    final invalidMangaCounters =
+        itemType == ItemType.manga &&
+        (storedSucceeded < 0 ||
+            storedTotal < 0 ||
+            (storedTotal > 0 && storedSucceeded > storedTotal) ||
+            (storedTotal <= 0 && storedSucceeded > 0));
+    final invalidCounters = invalidVideoCounters || invalidMangaCounters;
+    final succeeded = invalidCounters ? 0 : storedSucceeded;
+    final total = invalidCounters
+        ? (storedTotal > 0 ? storedTotal : 1)
+        : storedTotal;
 
     final live = liveProgress;
     final liveDownloadedBytes =
@@ -2064,10 +2073,12 @@ class _DownloadCard extends ConsumerWidget {
         ? (exactDownloadedBytes ?? 0) / exactTotalBytes
         : live != null
             ? !live.isIndeterminate && live.totalUnits > 0
-                ? live.completedUnits / live.totalUnits
+                ? (live.completedUnits / live.totalUnits)
+                    .clamp(0.0, 1.0)
+                    .toDouble()
                 : 0.0
         : total > 0
-            ? succeeded / total
+            ? (succeeded / total).clamp(0.0, 1.0).toDouble()
             : 0.0;
 
     final scheme = Theme.of(context).colorScheme;
@@ -2085,8 +2096,18 @@ class _DownloadCard extends ConsumerWidget {
         !hasObservedBytes &&
         !isRetrievingMetadata &&
         download.status == 'initializing';
+    final isMangaTransferIndeterminate =
+        itemType == ItemType.manga &&
+        !isComplete &&
+        !hasFailed &&
+        !isPaused &&
+        download.status == 'downloading' &&
+        (live?.completedUnits ?? succeeded) == 0;
     final isProgressIndeterminate =
-        isRetrievingMetadata || isPreparingDownload || isIndeterminateTransfer;
+        isRetrievingMetadata ||
+        isPreparingDownload ||
+        isMangaTransferIndeterminate ||
+        isIndeterminateTransfer;
 
     // During an active download show only the measured speed on the right.
     // The byte counter/progress belongs on the left; repeating "En cours…"
@@ -2094,23 +2115,26 @@ class _DownloadCard extends ConsumerWidget {
     final speedLabel = !isComplete && !hasFailed && !isPaused && speedMbs >= 0.05
         ? '${speedMbs >= 10 ? speedMbs.toStringAsFixed(0) : speedMbs.toStringAsFixed(1)} MB/s'
         : '';
-    final String statusText = isComplete
-        ? 'Terminé'
-        : hasFailed
-            ? 'Échec'
-            : isPaused
-                ? 'En pause'
-                : isRetrievingMetadata
-                    ? 'Récupération des métadonnées…'
-                    : isPreparingDownload
-                        ? 'Préparation du téléchargement…'
-                        : isIndeterminateTransfer
-                            ? (speedLabel.isNotEmpty
-                                ? speedLabel
-                                : 'Téléchargement en cours…')
-                            : progress > 0
-                                ? speedLabel
-                                : 'En attente';
+    final String statusText;
+    if (isComplete) {
+      statusText = 'Terminé';
+    } else if (hasFailed) {
+      statusText = 'Échec';
+    } else if (isPaused) {
+      statusText = 'En pause';
+    } else if (isRetrievingMetadata) {
+      statusText = 'Récupération des métadonnées…';
+    } else if (isPreparingDownload) {
+      statusText = 'Préparation du téléchargement…';
+    } else if (isMangaTransferIndeterminate) {
+      statusText = 'Téléchargement des pages…';
+    } else if (isIndeterminateTransfer) {
+      statusText = speedLabel.isNotEmpty
+          ? speedLabel
+          : 'Téléchargement en cours…';
+    } else {
+      statusText = progress > 0 ? speedLabel : 'En attente';
+    }
     final Color statusColor = isComplete
         ? scheme.primary
         : hasFailed
