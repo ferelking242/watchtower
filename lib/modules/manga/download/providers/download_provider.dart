@@ -769,6 +769,29 @@ void _putDownloadForChapter(Download download, Chapter chapter) {
   isar.downloads.putSync(download);
 }
 
+const _pendingDownloadStatuses = {
+  'queued',
+  'waiting_wifi',
+  'fetching_metadata',
+  'initializing',
+};
+
+const _terminalDownloadStatuses = {
+  'paused',
+  'failed',
+  'cancelled',
+  'completed',
+};
+
+bool _isPendingDownload(Download download) {
+  if (download.isDownload == true ||
+      _terminalDownloadStatuses.contains(download.status)) {
+    return false;
+  }
+  return download.isStartDownload == true ||
+      _pendingDownloadStatuses.contains(download.status);
+}
+
 @riverpod
 Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
   final id = chapter.id;
@@ -833,9 +856,18 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
       ..quality = chapterPreferredQuality[id]
       ..status = 'queued';
 
+    final storedChapter = isar.chapters.getSync(id);
+    final linkedChapter = storedChapter ?? chapter;
     isar.writeTxnSync(() {
+      // A Download link only stores a relation to an Isar object. Some
+      // extension-provided chapters reach this path before their Chapter row
+      // has been persisted, which otherwise leaves the scheduler with an
+      // unresolvable Download.chapter link.
+      if (storedChapter == null) {
+        isar.chapters.putSync(chapter);
+      }
       if (corruptRecord) isar.downloads.deleteSync(id);
-      _putDownloadForChapter(download, chapter);
+      _putDownloadForChapter(download, linkedChapter);
     });
     AppLogger.log(
       '[ch:$id] queued type=${chapter.manga.value?.itemType.name ?? "unknown"} '
@@ -2223,21 +2255,86 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
       final ongoingRaw = isar.downloads
           .where()
           .findAllSync()
-          .where((download) =>
-              download.isDownload == false &&
-              download.isStartDownload == true)
+          .where(_isPendingDownload)
           .toList();
 
       for (final dl in ongoingRaw) {
+        // Older pause/resume paths could leave a durable "queued" status with
+        // isStartDownload=false. Repair the flags before dispatch so the queue
+        // remains recoverable if the app is closed again.
+        if (dl.isStartDownload != true &&
+            _pendingDownloadStatuses.contains(dl.status) &&
+            dl.id != null) {
+          isar.writeTxnSync(() {
+            final stored = isar.downloads.getSync(dl.id!);
+            if (stored != null && stored.isDownload != true) {
+              stored
+                ..isDownload = false
+                ..isStartDownload = true;
+              isar.downloads.putSync(stored);
+            }
+          });
+          dl
+            ..isDownload = false
+            ..isStartDownload = true;
+          AppLogger.log(
+            '[ch:${dl.id}] restored pending state from status=${dl.status}',
+            logLevel: LogLevel.warning,
+            tag: LogTag.download,
+          );
+        }
+
         try {
           if (!dl.chapter.isLoaded) dl.chapter.loadSync();
         } catch (_) {
-          // Entrée Download dont la cible du lien est illisible : on saute
-          // cette entrée plutôt que de bloquer tout le scheduler.
+          // If the IsarLink is unreadable, try its stable chapter ID below.
+        }
+        var ch = dl.chapter.value;
+        if (ch == null && dl.id != null) {
+          try {
+            ch = isar.chapters.getSync(dl.id!);
+          } catch (_) {
+            // Fall through to a visible failed state below.
+          }
+          if (ch != null) {
+            final recoveredChapter = ch;
+            dl.chapter.value = recoveredChapter;
+            isar.writeTxnSync(() {
+              final stored = isar.downloads.getSync(dl.id!);
+              if (stored != null) {
+                stored.chapter.value = recoveredChapter;
+                isar.downloads.putSync(stored);
+              }
+            });
+            AppLogger.log(
+              '[ch:${dl.id}] repaired missing Download.chapter link',
+              logLevel: LogLevel.warning,
+              tag: LogTag.download,
+            );
+          }
+        }
+        if (ch == null) {
+          final missingId = dl.id;
+          AppLogger.log(
+            '[ch:${missingId ?? "?"}] queued row has no chapter record; '
+            'marking it failed',
+            logLevel: LogLevel.warning,
+            tag: LogTag.download,
+          );
+          if (missingId != null) {
+            isar.writeTxnSync(() {
+              final stored = isar.downloads.getSync(missingId);
+              if (stored != null && stored.isDownload != true) {
+                stored
+                  ..failed = (stored.failed ?? 0) + 1
+                  ..isStartDownload = false
+                  ..status = 'failed';
+                isar.downloads.putSync(stored);
+              }
+            });
+          }
           continue;
         }
-        final ch = dl.chapter.value;
-        if (ch == null) continue;
         // Relation chapitre → manga : on la charge, et si le lien est vide
         // (effacé par un ancien `put` sur un lien non chargé) on la
         // reconstruit depuis mangaId pour ne jamais perdre l'entrée.

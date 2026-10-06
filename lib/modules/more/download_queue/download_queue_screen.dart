@@ -337,9 +337,14 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     final stored = isar.downloads.getSync(id);
     if (stored != null) {
       isar.writeTxnSync(() {
-        isar.downloads.putSync(
-          stored..status = wasPaused ? 'queued' : 'paused',
-        );
+        if (wasPaused) {
+          isar.downloads.putSync(stored
+            ..isDownload = false
+            ..isStartDownload = true
+            ..status = 'queued');
+        } else {
+          isar.downloads.putSync(stored..status = 'paused');
+        }
       });
     }
     if (wasPaused) {
@@ -377,7 +382,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             if (id == null) continue;
             final stored = isar.downloads.getSync(id);
             if (stored != null && !(stored.isDownload ?? false)) {
-              isar.downloads.putSync(stored..status = 'queued');
+              isar.downloads.putSync(stored
+                ..isDownload = false
+                ..isStartDownload = true
+                ..status = 'queued');
             }
           }
         });

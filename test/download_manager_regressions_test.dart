@@ -137,6 +137,7 @@ void main() {
 
       final queued = testIsar.downloads.getSync(chapter.id!);
       expect(queued, isNotNull);
+      expect(testIsar.chapters.getSync(chapter.id!), same(chapter));
       expect(queued!.isDownload, isFalse);
       expect(queued.isStartDownload, isTrue);
       expect(queued.status, 'queued');
@@ -293,6 +294,44 @@ void main() {
         'failed',
       );
       expect(testIsar.downloads.getSync(nextChapter.id!)!.isDownload, isTrue);
+    });
+
+    test('scheduler recovers queued rows with stale start flags', () async {
+      final chapter = _testChapter(930032);
+      var workerStarted = false;
+      final worker = downloadChapterProvider(
+        chapter: chapter,
+        useWifi: false,
+      ).overrideWith((ref) async {
+        workerStarted = true;
+        final queued = testIsar.downloads.getSync(chapter.id!)!;
+        testIsar.writeTxnSync(() {
+          testIsar.downloads.putSync(
+            queued
+              ..isDownload = true
+              ..isStartDownload = false
+              ..status = 'completed',
+          );
+        });
+      });
+      container.dispose();
+      container = ProviderContainer(overrides: [worker]);
+
+      final staleQueueRow = Download(
+        id: chapter.id,
+        succeeded: 0,
+        failed: 0,
+        total: 1,
+        isDownload: false,
+        isStartDownload: false,
+        status: 'queued',
+      )..chapter.value = chapter;
+      testIsar.seed<Download>(chapter.id!, staleQueueRow);
+
+      await container.read(processDownloadsProvider(useWifi: false).future);
+
+      expect(workerStarted, isTrue);
+      expect(testIsar.downloads.getSync(chapter.id!)!.isDownload, isTrue);
     });
   });
 
