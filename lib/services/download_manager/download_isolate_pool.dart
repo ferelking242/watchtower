@@ -1068,15 +1068,27 @@ String? imageDownloadResponseError({
   required int statusCode,
   required Map<String, String> headers,
   required List<int> bodyBytes,
+  int? receivedBytes,
+  int? expectedBytes,
+  List<int>? tailBytes,
 }) {
   if (statusCode != 200) return 'HTTP $statusCode';
-  if (bodyBytes.isEmpty) return 'empty response body';
+  final actualLength = receivedBytes ?? bodyBytes.length;
+  if (actualLength <= 0 || bodyBytes.isEmpty) return 'empty response body';
 
   String? header(String name) {
     for (final entry in headers.entries) {
       if (entry.key.toLowerCase() == name) return entry.value;
     }
     return null;
+  }
+
+  final declaredLength =
+      expectedBytes ?? int.tryParse(header('content-length') ?? '');
+  if (declaredLength != null &&
+      declaredLength > 0 &&
+      declaredLength != actualLength) {
+    return 'incomplete response body ($actualLength/$declaredLength bytes)';
   }
 
   final contentType = header('content-type')
@@ -1101,7 +1113,125 @@ String? imageDownloadResponseError({
       prefix.startsWith('<head')) {
     return 'server returned an HTML page instead of an image';
   }
+  if (!isReusableImagePayload(
+    length: actualLength,
+    prefix: bodyBytes,
+    tail: tailBytes ?? bodyBytes.skip(bodyBytes.length > 32 ? bodyBytes.length - 32 : 0).toList(),
+  )) {
+    return 'image payload is incomplete or invalid';
+  }
   return null;
+}
+
+/// Lightweight image integrity check used before reusing cached page files.
+///
+/// It checks common image signatures and their terminal markers without
+/// decoding the whole image. Unknown image formats remain reusable when they
+/// have a plausible size and do not look like an error page.
+@visibleForTesting
+bool isReusableImagePayload({
+  required int length,
+  required List<int> prefix,
+  required List<int> tail,
+}) {
+  if (length < 16 || prefix.isEmpty) return false;
+
+  final text = utf8
+      .decode(prefix.take(512).toList(), allowMalformed: true)
+      .trimLeft()
+      .toLowerCase();
+  if (text.startsWith('<!doctype html') ||
+      text.startsWith('<html') ||
+      text.startsWith('<head') ||
+      text.startsWith('{"error"') ||
+      text.startsWith('{"message"') ||
+      text.startsWith('access denied') ||
+      text.startsWith('not found')) {
+    return false;
+  }
+
+  bool startsWith(List<int> signature) {
+    if (prefix.length < signature.length) return false;
+    for (var index = 0; index < signature.length; index++) {
+      if (prefix[index] != signature[index]) return false;
+    }
+    return true;
+  }
+
+  bool endsWith(List<int> signature) {
+    if (tail.length < signature.length) return false;
+    final offset = tail.length - signature.length;
+    for (var index = 0; index < signature.length; index++) {
+      if (tail[offset + index] != signature[index]) return false;
+    }
+    return true;
+  }
+
+  const jpegSignature = [0xff, 0xd8, 0xff];
+  if (startsWith(jpegSignature)) {
+    return length >= 4 && endsWith(const [0xff, 0xd9]);
+  }
+
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (startsWith(pngSignature)) {
+    return length >= 45 &&
+        endsWith(const [
+          0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+          0xae, 0x42, 0x60, 0x82,
+        ]);
+  }
+
+  if (startsWith(const [0x47, 0x49, 0x46, 0x38])) {
+    return length >= 14 && endsWith(const [0x3b]);
+  }
+
+  if (startsWith(const [0x52, 0x49, 0x46, 0x46]) &&
+      prefix.length >= 12 &&
+      prefix[8] == 0x57 &&
+      prefix[9] == 0x45 &&
+      prefix[10] == 0x42 &&
+      prefix[11] == 0x50) {
+    final declaredLength =
+        prefix[4] | (prefix[5] << 8) | (prefix[6] << 16) | (prefix[7] << 24);
+    return length >= 16 && declaredLength + 8 <= length;
+  }
+
+  if (startsWith(const [0x42, 0x4d]) && prefix.length >= 6) {
+    final declaredLength =
+        prefix[2] | (prefix[3] << 8) | (prefix[4] << 16) | (prefix[5] << 24);
+    return length >= 16 && (declaredLength == 0 || declaredLength <= length);
+  }
+
+  if (text.startsWith('<?xml') || text.startsWith('<svg')) {
+    final tailText =
+        utf8.decode(tail, allowMalformed: true).toLowerCase();
+    return tailText.contains('</svg>');
+  }
+
+  return true;
+}
+
+/// Reads only the beginning and end of a cached image, not the entire file.
+Future<bool> isReusableDownloadedImage(File file) async {
+  try {
+    final length = await file.length();
+    if (length < 16) return false;
+    final handle = await file.open();
+    try {
+      final prefix = await handle.read(512);
+      await handle.setPosition(length > 32 ? length - 32 : 0);
+      final tail = await handle.read(32);
+      return isReusableImagePayload(
+        length: length,
+        prefix: prefix,
+        tail: tail,
+      );
+    } finally {
+      await handle.close();
+    }
+  } catch (_) {
+    return false;
+  }
 }
 
 /// Download an individual file with durable HTTP Range resume support.
@@ -1139,47 +1269,93 @@ Future<void> _downloadFile(
   try {
     if (itemType != ItemType.anime) {
       const imageTimeout = Duration(seconds: 30);
-      final bytes = await _withRetry(
-        () async {
-          final response = await client
-              .get(Uri.parse(pageUrl.url), headers: pageUrl.headers)
-              .timeout(
-                imageTimeout,
-                onTimeout: () => throw DownloadPoolException(
-                  'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
-                ),
-              );
-          final responseError = imageDownloadResponseError(
-            statusCode: response.statusCode,
-            headers: response.headers,
-            bodyBytes: response.bodyBytes,
-          );
-          if (responseError != null) {
-            throw DownloadPoolException(
-              'Invalid image response for $fileLabel: $responseError',
-            );
-          }
-          return response.bodyBytes;
-        },
-        3,
-      );
-      if (_isCancelled(taskId)) {
-        throw DownloadPoolException('Task $taskId paused/cancelled', null);
-      }
-      // Manga pages are small, non-resumable files. Always stage and verify
-      // them before replacing an existing page, regardless of video write mode.
       final part = File('$outputPath.part.$stagingSuffix');
       final backup = File('$outputPath.backup.$stagingSuffix');
       final out = File(outputPath);
       var movedExistingFile = false;
       var installedNewFile = false;
       try {
-        await part.writeAsBytes(bytes, flush: true);
-        final stagedBytes = await part.length();
-        if (stagedBytes != bytes.length) {
-          throw DownloadPoolException(
-            'Incomplete staged image: $stagedBytes/${bytes.length} bytes',
+        final receivedBytes = await _withRetry<int>(
+        () async {
+          if (await part.exists()) await part.delete();
+          final request = Request('GET', Uri.parse(pageUrl.url));
+          request.headers.addAll(pageUrl.headers ?? const {});
+          if (!request.headers.keys
+              .any((key) => key.toLowerCase() == 'accept-encoding')) {
+            request.headers['Accept-Encoding'] = 'identity';
+          }
+          final response = await client.send(request).timeout(
+            imageTimeout,
+            onTimeout: () => throw DownloadPoolException(
+              'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
+            ),
           );
+          if (response.statusCode != 200) {
+            await response.stream.listen((_) {}).cancel();
+            throw DownloadPoolException(
+              'Invalid image response for $fileLabel: HTTP ${response.statusCode}',
+            );
+          }
+
+          final prefix = <int>[];
+          final tail = <int>[];
+          var received = 0;
+          final sink = part.openWrite();
+          try {
+            await for (final chunk
+                in response.stream.timeout(imageTimeout)) {
+              if (_isCancelled(taskId)) {
+                throw DownloadPoolException(
+                  'Task $taskId paused/cancelled',
+                  null,
+                );
+              }
+              sink.add(chunk);
+              received += chunk.length;
+              if (prefix.length < 512) {
+                prefix.addAll(chunk.take(512 - prefix.length));
+              }
+              if (chunk.length >= 32) {
+                tail
+                  ..clear()
+                  ..addAll(chunk.skip(chunk.length - 32));
+              } else {
+                tail.addAll(chunk);
+                if (tail.length > 32) {
+                  tail.removeRange(0, tail.length - 32);
+                }
+              }
+            }
+            await sink.flush();
+          } finally {
+            await sink.close();
+          }
+
+          final responseError = imageDownloadResponseError(
+            statusCode: response.statusCode,
+            headers: response.headers,
+            bodyBytes: prefix,
+            receivedBytes: received,
+            expectedBytes: response.contentLength,
+            tailBytes: tail,
+          );
+          if (responseError != null) {
+            throw DownloadPoolException(
+              'Invalid image response for $fileLabel: $responseError',
+            );
+          }
+          return received;
+        },
+        3,
+      );
+        final stagedBytes = await part.length();
+        if (stagedBytes != receivedBytes) {
+          throw DownloadPoolException(
+            'Incomplete staged image: $stagedBytes/$receivedBytes bytes',
+          );
+        }
+        if (_isCancelled(taskId)) {
+          throw DownloadPoolException('Task $taskId paused/cancelled', null);
         }
         if (_isCancelled(taskId)) {
           throw DownloadPoolException('Task $taskId paused/cancelled', null);

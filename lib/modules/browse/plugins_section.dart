@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/download_manager/m3u8/ffmpeg_binary_manager.dart';
@@ -165,7 +166,38 @@ class _PluginsSectionState extends State<PluginsSection> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
-              'Plugins',
+              'Plugins intégrés',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          _card(
+            icon: Icons.folder_open_rounded,
+            title: 'NFile — gestionnaire de fichiers',
+            description:
+                'Explorateur de fichiers intégré avec lecteurs et outils de gestion.',
+            trailing: OutlinedButton(
+              onPressed: () => context.push('/nfileHome'),
+              child: const Text('Ouvrir'),
+            ),
+            color: Colors.orange,
+          ),
+          _card(
+            icon: Icons.video_library_rounded,
+            title: 'Smart Library',
+            description:
+                'Analyse et organise les vidéos et mangas déjà présents sur l’appareil.',
+            trailing: OutlinedButton(
+              onPressed: () => context.push('/smartLibrary'),
+              child: const Text('Ouvrir'),
+            ),
+            color: Colors.indigo,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
+            child: Text(
+              'Composants et moteurs',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
