@@ -218,7 +218,6 @@ Future<int> _doctor(WatchtowerCliOptions options) async {
     )..sourceCodeLanguage = SourceCodeLanguage.javascript;
     await withExtensionService<bool>(
       probe,
-      '',
       (service) async => service.supportsLatest,
     ).timeout(Duration(seconds: options.timeoutSeconds));
     quickJsAvailable = true;
