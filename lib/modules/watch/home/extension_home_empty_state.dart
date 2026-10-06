@@ -179,7 +179,7 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                               height: animationSize,
                                               fit: BoxFit.contain,
                                               repeat: true,
-                                            ),
+                                            )
                                           : Container(
                                               width: animationSize,
                                               height: animationSize,
