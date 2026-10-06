@@ -347,11 +347,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   void _togglePause(Download element, WidgetRef ref) {
     final id = element.id ?? -1;
     if (id == -1) return;
-    final wasPaused = ref
-        .read(downloadQueueStateProvider)
-        .pausedIds
-        .contains(id);
-    ref.read(downloadQueueStateProvider.notifier).togglePause(id);
+    final wasPaused =
+        ref.read(downloadQueueStateProvider).pausedIds.contains(id) ||
+        element.status == 'paused';
+    ref.read(downloadQueueStateProvider.notifier).setPaused(id, !wasPaused);
     ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
     final stored = isar.downloads.getSync(id);
     if (stored != null) {
@@ -411,7 +410,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         });
         break;
       case _GlobalAction.resumeAll:
-        ref.read(downloadQueueStateProvider.notifier).resumeAll();
+        ref.read(downloadQueueStateProvider.notifier).resumeAll(
+          entries.map((entry) => entry.id).whereType<int>(),
+        );
         for (final entry in entries) {
           final id = entry.id;
           if (id == null) continue;
@@ -495,10 +496,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     final id = element.id;
     if (id == null) return;
     // Cancel the engine but don't delete from DB — entry stays in queue as paused
-    ActiveDownloadRegistry.cancel(id);
-    DownloadIsolatePool.instance.cancelTask('$id');
-    DownloadIsolatePool.instance.cancelTask('m3u8_$id');
-    // Mark as paused in the UI state so user can resume later
     ref.read(downloadQueueStateProvider.notifier).setPaused(id, true);
     unawaited(
       WatchtowerNotificationService.instance.setMediaDownloadPaused(
@@ -782,7 +779,9 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                           Navigator.pop(context);
                           widget.parentRef
                               .read(downloadQueueStateProvider.notifier)
-                              .resumeAll();
+                              .resumeAll(
+                                entries.map((entry) => entry.id).whereType<int>(),
+                              );
                           widget.parentRef.read(processDownloadsProvider());
                         },
                       ),
@@ -1788,7 +1787,9 @@ class _GroupedDownloadTabListState
   }
 
   Widget _buildDismissible(Download element, {bool isSeriesChild = false}) {
-    final isPaused = widget.queueState.pausedIds.contains(element.id ?? -1);
+    final isPaused =
+        widget.queueState.pausedIds.contains(element.id ?? -1) ||
+        element.status == 'paused';
     final itemType = element.chapter.value?.manga.value?.itemType;
     final defaultBadge = itemType == ItemType.manga
         ? 'ATLAS'
@@ -3670,10 +3671,11 @@ class _PauseResumeAllFab extends ConsumerWidget {
         .map((e) => e.id ?? -1)
         .where((id) => id != -1)
         .toList();
-    final allPaused =
-        activeIds.isNotEmpty &&
-        activeIds.every((id) => queueState.pausedIds.contains(id));
-    final anyActive = activeIds.any((id) => !queueState.pausedIds.contains(id));
+    bool isPaused(int id) =>
+        queueState.pausedIds.contains(id) ||
+        entries.any((entry) => entry.id == id && entry.status == 'paused');
+    final allPaused = activeIds.isNotEmpty && activeIds.every(isPaused);
+    final anyActive = activeIds.any((id) => !isPaused(id));
 
     if (entries.isEmpty) return const SizedBox.shrink();
 
@@ -3681,7 +3683,7 @@ class _PauseResumeAllFab extends ConsumerWidget {
       return FloatingActionButton(
         tooltip: 'Reprendre tout',
         onPressed: () {
-          ref.read(downloadQueueStateProvider.notifier).resumeAll();
+          ref.read(downloadQueueStateProvider.notifier).resumeAll(activeIds);
           ref.read(processDownloadsProvider());
         },
         backgroundColor: Colors.green.shade700,

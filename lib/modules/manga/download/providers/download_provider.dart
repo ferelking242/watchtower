@@ -171,7 +171,7 @@ Future<void> handleMediaDownloadNotificationAction(
   switch (action) {
     case MediaDownloadNotificationAction.pause:
       if (isPaused) return;
-      notifier.togglePause(chapterId);
+      notifier.setPaused(chapterId, true);
       notifier.clearLiveProgress(chapterId);
       isar.writeTxnSync(() {
         final stored = isar.downloads.getSync(chapterId);
@@ -183,7 +183,7 @@ Future<void> handleMediaDownloadNotificationAction(
       break;
     case MediaDownloadNotificationAction.resume:
       if (!isPaused) return;
-      notifier.togglePause(chapterId);
+      notifier.setPaused(chapterId, false);
       notifier.clearLiveProgress(chapterId);
       isar.writeTxnSync(() {
         final stored = isar.downloads.getSync(chapterId);

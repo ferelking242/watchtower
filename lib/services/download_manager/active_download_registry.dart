@@ -141,10 +141,10 @@ class ActiveDownloadRegistry {
   /// Pause the download.
   ///
   /// * External engine (e.g. Aria2): engine.pause() is called.
-  /// * Internal (HLS/manga pool): cancel the current isolate task AND
-  ///   unregister the chapter so [processDownloads] can re-pick it on
-  ///   resume. Without unregistering, the chapter would still appear
-  ///   "active" to the scheduler and resume would silently do nothing.
+  /// * Internal (HLS/manga pool): cancel the current isolate task, but keep
+  ///   it registered until its worker exits. This prevents a fast resume from
+  ///   starting a second worker against the same files while cancellation is
+  ///   still draining. The worker's `finally` block unregisters it.
   static Future<void> pause(int downloadId) async {
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.pause();
@@ -155,12 +155,9 @@ class ActiveDownloadRegistry {
       // 'm3u8_' prefixes.  The caller always stores the actual pool task ID.
       final taskId = _internalTaskIds[downloadId]!;
       DownloadIsolatePool.instance.cancelTask(taskId);
-      // Drop the entry so the scheduler considers this chapter idle on
-      // resume and re-enqueues it via processDownloads. Already-downloaded
-      // segments stay on disk and are skipped on the next attempt.
-      _internalTaskIds.remove(downloadId);
-      _internalItemType.remove(downloadId);
-      _internalSource.remove(downloadId);
+      // Keep the registry entry until the worker's completion callback has
+      // drained. The scheduler will pick this chapter up after that callback
+      // unregisters it, provided the persisted status is no longer paused.
     }
   }
 

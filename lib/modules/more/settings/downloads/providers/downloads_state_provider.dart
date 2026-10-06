@@ -9,6 +9,7 @@ import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/settings_store.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path/path.dart' as path;
 part 'downloads_state_provider.g.dart';
@@ -603,18 +604,46 @@ class DownloadQueueState extends _$DownloadQueueState {
   }
 
   Future<void> _restorePausedIds() async {
+    final savedIds = <int>{};
     try {
       final prefs = await SharedPreferences.getInstance();
-      final ids = (prefs.getStringList(_pausedIdsKey) ?? const <String>[])
+      savedIds.addAll(
+        (prefs.getStringList(_pausedIdsKey) ?? const <String>[])
           .map(int.tryParse)
           .whereType<int>()
-          .toSet();
-      if (ids.isNotEmpty) {
-        state = state.copyWith(pausedIds: ids);
-      }
+          .toSet(),
+      );
     } catch (_) {
-      // Queue persistence is best-effort; Isar remains the source of truth
-      // for the download records and byte offsets.
+      // Isar remains the durable source of truth for paused queue items.
+    }
+
+    try {
+      final pausedIds = isar.downloads
+          .where()
+          .findAllSync()
+          .where(
+            (download) =>
+                download.id != null &&
+                download.isDownload != true &&
+                download.status == 'paused',
+          )
+          .map((download) => download.id!)
+          .toSet();
+      state = state.copyWith(pausedIds: pausedIds);
+      _persistPausedIds(pausedIds);
+    } catch (error, stackTrace) {
+      // If Isar is temporarily unavailable during startup, use the last saved
+      // UI snapshot. The database status will reconcile it on the next launch.
+      if (savedIds.isNotEmpty) {
+        state = state.copyWith(pausedIds: savedIds);
+      }
+      AppLogger.log(
+        'Could not restore paused downloads from Isar',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -633,25 +662,41 @@ class DownloadQueueState extends _$DownloadQueueState {
     final set = Set<int>.from(state.pausedIds);
     if (paused) {
       set.add(downloadId);
+      unawaited(ActiveDownloadRegistry.pause(downloadId));
     } else {
       set.remove(downloadId);
+      unawaited(ActiveDownloadRegistry.resume(downloadId));
     }
     state = state.copyWith(pausedIds: set);
     _persistPausedIds(set);
+
+    try {
+      isar.writeTxnSync(() {
+        final download = isar.downloads.getSync(downloadId);
+        if (download == null || download.isDownload == true) return;
+        isar.downloads.putSync(
+          download
+            ..isDownload = false
+            ..isStartDownload = true
+            ..status = paused ? 'paused' : 'queued',
+        );
+      });
+    } catch (error, stackTrace) {
+      AppLogger.log(
+        'Could not persist paused state for download $downloadId',
+        logLevel: LogLevel.error,
+        tag: LogTag.download,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   void togglePause(int downloadId) {
-    final set = Set<int>.from(state.pausedIds);
-    final wasPaused = set.contains(downloadId);
-    if (wasPaused) {
-      set.remove(downloadId);
-      ActiveDownloadRegistry.resume(downloadId);
-    } else {
-      set.add(downloadId);
-      ActiveDownloadRegistry.pause(downloadId);
-    }
-    state = state.copyWith(pausedIds: set);
-    _persistPausedIds(set);
+    final stored = isar.downloads.getSync(downloadId);
+    final wasPaused =
+        state.pausedIds.contains(downloadId) || stored?.status == 'paused';
+    setPaused(downloadId, !wasPaused);
   }
 
   void setEngine(int downloadId, String engine) {
@@ -701,23 +746,16 @@ class DownloadQueueState extends _$DownloadQueueState {
   }
 
   void pauseAll(List<int> ids) {
-    final set = Set<int>.from(state.pausedIds);
     for (final id in ids) {
-      if (!set.contains(id)) {
-        set.add(id);
-        ActiveDownloadRegistry.pause(id);
-      }
+      setPaused(id, true);
     }
-    state = state.copyWith(pausedIds: set);
-    _persistPausedIds(set);
   }
 
-  void resumeAll() {
-    for (final id in state.pausedIds) {
-      ActiveDownloadRegistry.resume(id);
+  void resumeAll([Iterable<int>? downloadIds]) {
+    final ids = downloadIds?.toSet() ?? Set<int>.from(state.pausedIds);
+    for (final id in ids) {
+      setPaused(id, false);
     }
-    state = state.copyWith(pausedIds: {});
-    _persistPausedIds({});
   }
 }
 

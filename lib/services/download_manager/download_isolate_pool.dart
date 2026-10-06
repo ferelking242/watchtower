@@ -204,8 +204,10 @@ class DownloadIsolatePool {
 
       // Terminal message — always process so the completer is resolved.
       final wasCancelled = downloadTaskCancellation[taskId] == true;
-      downloadTaskCancellation.remove(taskId);
-      if (_listenerVersion[taskId] == myVersion) {
+      if (isCurrent) {
+        downloadTaskCancellation.remove(taskId);
+      }
+      if (isCurrent && _listenerVersion[taskId] == myVersion) {
         _listenerVersion.remove(taskId);
       }
       receivePort.close();
@@ -302,8 +304,10 @@ class DownloadIsolatePool {
       }
 
       final wasCancelled = downloadTaskCancellation[taskId] == true;
-      downloadTaskCancellation.remove(taskId);
-      if (_listenerVersion[taskId] == myVersion) {
+      if (isCurrent) {
+        downloadTaskCancellation.remove(taskId);
+      }
+      if (isCurrent && _listenerVersion[taskId] == myVersion) {
         _listenerVersion.remove(taskId);
       }
       receivePort.close();
@@ -1083,7 +1087,7 @@ String? imageDownloadResponseError({
   int? expectedBytes,
   List<int>? tailBytes,
 }) {
-  if (statusCode != 200) return 'HTTP $statusCode';
+  if (statusCode != 200 && statusCode != 206) return 'HTTP $statusCode';
   final actualLength = receivedBytes ?? bodyBytes.length;
   if (actualLength <= 0 || bodyBytes.isEmpty) return 'empty response body';
 
@@ -1257,13 +1261,307 @@ Future<bool> isReusableDownloadedImage(File file) async {
   }
 }
 
+Future<(List<int>, List<int>)> _readImageEdges(File file) async {
+  final handle = await file.open();
+  try {
+    final length = await handle.length();
+    final prefix = await handle.read(512);
+    await handle.setPosition(length > 32 ? length - 32 : 0);
+    return (prefix, await handle.read(32));
+  } finally {
+    await handle.close();
+  }
+}
+
+Future<void> _installStagedImage({
+  required File part,
+  required File output,
+  required File backup,
+}) async {
+  try {
+    await part.rename(output.path);
+    return;
+  } catch (_) {
+    if (!await output.exists()) rethrow;
+  }
+
+  if (await backup.exists()) await backup.delete();
+  await output.rename(backup.path);
+  try {
+    await part.rename(output.path);
+  } catch (_) {
+    if (await backup.exists()) await backup.rename(output.path);
+    rethrow;
+  }
+  try {
+    if (await backup.exists()) await backup.delete();
+  } catch (_) {
+    // Keep the verified new image even if removing the old backup fails.
+  }
+}
+
+Future<void> _downloadResumableImage({
+  required String taskId,
+  required String outputPath,
+  required PageUrl pageUrl,
+  required Client client,
+  required String backupSuffix,
+  _Throttle? throttle,
+  void Function(int downloadedBytes, int? totalBytes)? onProgress,
+}) async {
+  const imageTimeout = Duration(seconds: 30);
+  final part = File('$outputPath.part');
+  final metadataFile = File('$outputPath.part.meta');
+  final output = File(outputPath);
+  final backup = File('$outputPath.backup.$backupSuffix');
+
+  final receivedBytes = await _withRetry<int>(() async {
+    final metadata = await _readPartMetadata(metadataFile);
+    var offset = await part.exists() ? await part.length() : 0;
+    if (offset > 0 && metadata['url'] != pageUrl.url) {
+      if (await part.exists()) await part.delete();
+      if (await metadataFile.exists()) await metadataFile.delete();
+      metadata.clear();
+      offset = 0;
+    }
+    if (offset == 0 && await part.exists() && await part.length() == 0) {
+      await part.delete();
+    }
+
+    final request = Request('GET', Uri.parse(pageUrl.url));
+    request.headers.addAll(pageUrl.headers ?? const {});
+    request.headers.removeWhere(
+      (key, _) =>
+          key.toLowerCase() == 'accept-encoding' ||
+          key.toLowerCase() == 'range' ||
+          key.toLowerCase() == 'if-range',
+    );
+    request.headers['Accept-Encoding'] = 'identity';
+
+    var savedEtag = metadata['etag'] as String?;
+    var savedLastModified = metadata['lastModified'] as String?;
+    if (offset > 0) {
+      request.headers['Range'] = 'bytes=$offset-';
+      if (savedEtag?.isNotEmpty == true) {
+        request.headers['If-Range'] = savedEtag!;
+      } else if (savedLastModified?.isNotEmpty == true) {
+        request.headers['If-Range'] = savedLastModified!;
+      }
+    }
+
+    final response = await client
+        .send(request)
+        .timeout(
+          imageTimeout,
+          onTimeout: () => throw DownloadPoolException(
+            'Image timeout after ${imageTimeout.inSeconds}s',
+          ),
+        );
+    final range = _parseContentRange(
+      _responseHeader(response, 'content-range'),
+    );
+    if (response.statusCode == 416) {
+      await response.stream.listen((_) {}).cancel();
+      final remoteTotal = trustedDownloadByteCount(range?.total);
+      if (offset > 0 &&
+          remoteTotal == offset &&
+          await isReusableDownloadedImage(part)) {
+        onProgress?.call(offset, remoteTotal);
+        return offset;
+      }
+      if (await part.exists()) await part.delete();
+      if (await metadataFile.exists()) await metadataFile.delete();
+      throw DownloadPoolException(
+        'HTTP 416 while resuming ${path.basename(outputPath)}',
+      );
+    }
+
+    if (response.statusCode != 200 && response.statusCode != 206) {
+      await response.stream.listen((_) {}).cancel();
+      throw DownloadPoolException.policy(
+        'Invalid image response for ${path.basename(outputPath)}: '
+        'HTTP ${response.statusCode}',
+        retryable: isRetryableImageHttpStatus(response.statusCode),
+      );
+    }
+
+    final resumed = response.statusCode == 206;
+    if (resumed &&
+        (offset <= 0 || range == null || range.start != offset)) {
+      await response.stream.listen((_) {}).cancel();
+      if (await part.exists()) await part.delete();
+      if (await metadataFile.exists()) await metadataFile.delete();
+      throw DownloadPoolException(
+        'Invalid Content-Range while resuming ${path.basename(outputPath)}',
+      );
+    }
+
+    final responseEtag = _responseHeader(response, 'etag');
+    final responseLastModified = _responseHeader(response, 'last-modified');
+    final validatorsChanged =
+        resumed &&
+        ((savedEtag != null &&
+                responseEtag != null &&
+                savedEtag != responseEtag) ||
+            (savedLastModified != null &&
+                responseLastModified != null &&
+                savedLastModified != responseLastModified));
+    if (validatorsChanged) {
+      await response.stream.listen((_) {}).cancel();
+      if (await part.exists()) await part.delete();
+      if (await metadataFile.exists()) await metadataFile.delete();
+      throw DownloadPoolException(
+        'Image changed while resuming ${path.basename(outputPath)}',
+      );
+    }
+
+    if (!resumed && offset > 0) {
+      // The server ignored Range or If-Range no longer matched; start cleanly
+      // from the complete 200 response rather than appending duplicate bytes.
+      offset = 0;
+      metadata.clear();
+      savedEtag = null;
+      savedLastModified = null;
+    }
+
+    final bodyLength = trustedDownloadByteCount(response.contentLength);
+    final responseTotal =
+        trustedDownloadByteCount(range?.total) ??
+        (bodyLength == null ? null : bodyLength + (resumed ? offset : 0));
+    final knownTotal = trustedDownloadByteCount(
+      (metadata['totalBytes'] as num?)?.toInt(),
+    );
+    final progressTotal = responseTotal ?? knownTotal;
+    final persistedEtag =
+        responseEtag?.isNotEmpty == true ? responseEtag : savedEtag;
+    final persistedLastModified =
+        responseLastModified?.isNotEmpty == true
+        ? responseLastModified
+        : savedLastModified;
+    await metadataFile.writeAsString(
+      jsonEncode(<String, dynamic>{
+        'url': pageUrl.url,
+        if (progressTotal != null) 'totalBytes': progressTotal,
+        if (persistedEtag?.isNotEmpty == true) 'etag': persistedEtag,
+        if (persistedLastModified?.isNotEmpty == true)
+          'lastModified': persistedLastModified,
+      }),
+      flush: true,
+    );
+
+    if (_isCancelled(taskId)) {
+      await response.stream.listen((_) {}).cancel();
+      throw DownloadPoolException.notRetryable(
+        'Task $taskId paused/cancelled',
+      );
+    }
+
+    var received = offset;
+    final sink = part.openWrite(
+      mode: offset > 0 ? FileMode.append : FileMode.write,
+    );
+    var cancelled = false;
+    var lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
+    try {
+      await for (final chunk in response.stream.timeout(imageTimeout)) {
+        if (_isCancelled(taskId)) {
+          cancelled = true;
+          break;
+        }
+        if (throttle != null) await throttle.acquire(chunk.length);
+        if (_isCancelled(taskId)) {
+          cancelled = true;
+          break;
+        }
+        sink.add(chunk);
+        received += chunk.length;
+        final now = DateTime.now();
+        if (now.difference(lastProgressAt) >=
+            const Duration(milliseconds: 150)) {
+          lastProgressAt = now;
+          onProgress?.call(received, progressTotal);
+        }
+      }
+    } finally {
+      await sink.flush();
+      await sink.close();
+    }
+
+    if (cancelled || _isCancelled(taskId)) {
+      throw DownloadPoolException.notRetryable(
+        'Task $taskId paused/cancelled',
+      );
+    }
+
+    final written = await part.length();
+    if (responseTotal != null && written != responseTotal) {
+      throw DownloadPoolException(
+        'Incomplete image: $written/$responseTotal bytes '
+        '(${path.basename(outputPath)})',
+      );
+    }
+
+    final (prefix, tail) = await _readImageEdges(part);
+    final responseError = imageDownloadResponseError(
+      statusCode: response.statusCode,
+      headers: response.headers,
+      bodyBytes: prefix,
+      receivedBytes: written,
+      expectedBytes: responseTotal,
+      tailBytes: tail,
+    );
+    if (responseError != null) {
+      final retryable =
+          responseError.contains('incomplete response body') ||
+          responseError.contains('empty response body');
+      if (!retryable) {
+        if (await part.exists()) await part.delete();
+        if (await metadataFile.exists()) await metadataFile.delete();
+      }
+      throw DownloadPoolException.policy(
+        'Invalid image response for ${path.basename(outputPath)}: '
+        '$responseError',
+        retryable: retryable,
+      );
+    }
+
+    return written;
+  }, 3);
+
+  if (_isCancelled(taskId)) {
+    throw DownloadPoolException.notRetryable(
+      'Task $taskId paused/cancelled',
+    );
+  }
+
+  if (!await isReusableDownloadedImage(part)) {
+    if (await part.exists()) await part.delete();
+    if (await metadataFile.exists()) await metadataFile.delete();
+    throw DownloadPoolException.notRetryable(
+      'Invalid image payload for ${path.basename(outputPath)}',
+    );
+  }
+  final stagedBytes = await part.length();
+  if (stagedBytes != receivedBytes) {
+    throw DownloadPoolException(
+      'Incomplete staged image: $stagedBytes/$receivedBytes bytes',
+    );
+  }
+
+  await _installStagedImage(part: part, output: output, backup: backup);
+  try {
+    if (await metadataFile.exists()) await metadataFile.delete();
+  } catch (_) {
+    // The image is valid and installed; stale sidecar cleanup is best effort.
+  }
+  onProgress?.call(stagedBytes, stagedBytes);
+}
+
 /// Download an individual file with durable HTTP Range resume support.
 ///
-/// A video is always written to `<target>.part` and renamed only after the
-/// stream reaches the expected length. A sidecar stores the URL, validators,
-/// and discovered total size. On restart/pause, the client sends Range plus
-/// If-Range, validates Content-Range, and never appends bytes from a different
-/// representation.
+/// Images and video are written to `<target>.part` and renamed only after the
+/// response is complete. Sidecars allow safe HTTP Range resume across pauses
+/// and process restarts.
 Future<void> _downloadFile(
   String taskId,
   PageUrl pageUrl,
@@ -1292,152 +1590,15 @@ Future<void> _downloadFile(
 
   try {
     if (itemType != ItemType.anime) {
-      const imageTimeout = Duration(seconds: 30);
-      final part = File('$outputPath.part.$stagingSuffix');
-      final backup = File('$outputPath.backup.$stagingSuffix');
-      final out = File(outputPath);
-      var movedExistingFile = false;
-      var installedNewFile = false;
-      try {
-        final receivedBytes = await _withRetry<int>(() async {
-          if (await part.exists()) await part.delete();
-          final request = Request('GET', Uri.parse(pageUrl.url));
-          request.headers.addAll(pageUrl.headers ?? const {});
-          if (!request.headers.keys.any(
-            (key) => key.toLowerCase() == 'accept-encoding',
-          )) {
-            request.headers['Accept-Encoding'] = 'identity';
-          }
-          final response = await client
-              .send(request)
-              .timeout(
-                imageTimeout,
-                onTimeout: () => throw DownloadPoolException(
-                  'Image timeout after ${imageTimeout.inSeconds}s: ${pageUrl.url}',
-                ),
-              );
-          if (response.statusCode != 200) {
-            await response.stream.listen((_) {}).cancel();
-            throw DownloadPoolException.policy(
-              'Invalid image response for $fileLabel: HTTP ${response.statusCode}',
-              retryable: isRetryableImageHttpStatus(response.statusCode),
-            );
-          }
-
-          final prefix = <int>[];
-          final tail = <int>[];
-          var received = 0;
-          final advertisedLength = response.contentLength;
-          final imageLength = advertisedLength != null && advertisedLength > 0
-              ? advertisedLength
-              : null;
-          var lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
-          final sink = part.openWrite();
-          try {
-            await for (final chunk in response.stream.timeout(imageTimeout)) {
-              if (_isCancelled(taskId)) {
-                throw DownloadPoolException.notRetryable(
-                  'Task $taskId paused/cancelled',
-                );
-              }
-              sink.add(chunk);
-              received += chunk.length;
-              final now = DateTime.now();
-              if (now.difference(lastProgressAt) >=
-                  const Duration(milliseconds: 150)) {
-                lastProgressAt = now;
-                onImageProgress?.call(received, imageLength);
-              }
-              if (prefix.length < 512) {
-                prefix.addAll(chunk.take(512 - prefix.length));
-              }
-              if (chunk.length >= 32) {
-                tail
-                  ..clear()
-                  ..addAll(chunk.skip(chunk.length - 32));
-              } else {
-                tail.addAll(chunk);
-                if (tail.length > 32) {
-                  tail.removeRange(0, tail.length - 32);
-                }
-              }
-            }
-            await sink.flush();
-            onImageProgress?.call(received, imageLength);
-          } finally {
-            await sink.close();
-          }
-
-          final responseError = imageDownloadResponseError(
-            statusCode: response.statusCode,
-            headers: response.headers,
-            bodyBytes: prefix,
-            receivedBytes: received,
-            expectedBytes: response.contentLength,
-            tailBytes: tail,
-          );
-          if (responseError != null) {
-            throw DownloadPoolException.policy(
-              'Invalid image response for $fileLabel: $responseError',
-              retryable:
-                  responseError.contains('incomplete response body') ||
-                  responseError.contains('empty response body'),
-            );
-          }
-          return received;
-        }, 3);
-        final stagedBytes = await part.length();
-        if (stagedBytes != receivedBytes) {
-          throw DownloadPoolException(
-            'Incomplete staged image: $stagedBytes/$receivedBytes bytes',
-          );
-        }
-        if (_isCancelled(taskId)) {
-          throw DownloadPoolException.notRetryable(
-            'Task $taskId paused/cancelled',
-          );
-        }
-
-        // POSIX filesystems atomically replace an existing path here. If the
-        // platform refuses to do so, preserve the old file as a backup while
-        // installing the verified replacement.
-        try {
-          await part.rename(outputPath);
-          installedNewFile = true;
-        } catch (_) {
-          if (!await out.exists()) rethrow;
-          await out.rename(backup.path);
-          movedExistingFile = true;
-          try {
-            await part.rename(outputPath);
-            installedNewFile = true;
-          } catch (_) {
-            await backup.rename(outputPath);
-            movedExistingFile = false;
-            rethrow;
-          }
-        }
-
-        if (movedExistingFile) {
-          try {
-            if (await backup.exists()) await backup.delete();
-          } catch (_) {
-            // Keep the newly verified image if backup cleanup fails.
-          }
-        }
-      } catch (_) {
-        if (installedNewFile && await out.exists()) await out.delete();
-        if (movedExistingFile && await backup.exists()) {
-          await backup.rename(outputPath);
-        }
-        rethrow;
-      } finally {
-        try {
-          if (await part.exists()) await part.delete();
-        } catch (_) {
-          // Cleanup must not replace the original download error.
-        }
-      }
+      await _downloadResumableImage(
+        taskId: taskId,
+        outputPath: outputPath,
+        pageUrl: pageUrl,
+        client: client,
+        backupSuffix: stagingSuffix,
+        throttle: throttle,
+        onProgress: onImageProgress,
+      );
     } else {
       await _withRetry(() async {
         final finalPath = outputPath;
