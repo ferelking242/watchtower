@@ -5,6 +5,9 @@ import 'package:watchtower/eval/model/m_source.dart';
 import 'package:watchtower/services/http/m_client.dart';
 
 class HttpBridge {
+  HttpBridge({this.sourceId});
+  final int? sourceId;
+
   final clientBridgedClass = BridgedClass(
     nativeType: InterceptedClient,
     name: 'Client',
@@ -23,6 +26,7 @@ class HttpBridge {
           }
         }
         return MClient.init(
+          extensionSourceId: sourceId,
           source: positionalArgs.isNotEmpty
               ? positionalArgs[0] as MSource
               : null,

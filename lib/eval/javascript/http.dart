@@ -13,7 +13,8 @@ const _kWebProxyUrl = 'https://watchtower-proxy.aivos-dev.workers.dev/proxy';
 
 class JsHttpClient {
   late JavascriptRuntime runtime;
-  JsHttpClient(this.runtime);
+  final int? sourceId;
+  JsHttpClient(this.runtime, {this.sourceId});
 
   void init() {
     final clients = <String, InterceptedClient>{};
@@ -31,7 +32,10 @@ class JsHttpClient {
       final cacheKey = jsonEncode(options);
       return clients.putIfAbsent(
         cacheKey,
-        () => MClient.init(reqcopyWith: options),
+        () => MClient.init(
+          reqcopyWith: options,
+          extensionSourceId: sourceId,
+        ),
       );
     }
 

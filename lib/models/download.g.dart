@@ -57,11 +57,6 @@ const DownloadSchema = CollectionSchema(
       type: IsarType.string,
     ),
     r'status': PropertySchema(id: 11, name: r'status', type: IsarType.string),
-    r'pageManifestJson': PropertySchema(
-      id: 12,
-      name: r'pageManifestJson',
-      type: IsarType.string,
-    ),
   },
 
   estimateSize: _downloadEstimateSize,
@@ -122,12 +117,6 @@ int _downloadEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
-  {
-    final value = object.pageManifestJson;
-    if (value != null) {
-      bytesCount += 3 + value.length * 3;
-    }
-  }
   return bytesCount;
 }
 
@@ -149,7 +138,6 @@ void _downloadSerialize(
   writer.writeString(offsets[9], object.posterUrl);
   writer.writeString(offsets[10], object.filePath);
   writer.writeString(offsets[11], object.status);
-  writer.writeString(offsets[12], object.pageManifestJson);
 }
 
 Download _downloadDeserialize(
@@ -172,7 +160,6 @@ Download _downloadDeserialize(
     posterUrl: reader.readStringOrNull(offsets[9]),
     filePath: reader.readStringOrNull(offsets[10]),
     status: reader.readStringOrNull(offsets[11]),
-    pageManifestJson: reader.readStringOrNull(offsets[12]),
   );
   return object;
 }
@@ -207,8 +194,6 @@ P _downloadDeserializeProp<P>(
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readStringOrNull(offset)) as P;
-    case 12:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');

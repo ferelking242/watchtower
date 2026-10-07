@@ -8,6 +8,7 @@ import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/utils/log/logger.dart' as wl;
 
 import '../interface.dart';
@@ -59,7 +60,7 @@ class DartExtensionService implements ExtensionService {
   DartExtensionService(this.source) {
     _dLog(wl.LogLevel.info, '$_id · init START (Dart extension)');
     _interpreter = D4rt();
-    RegistrerBridge.registerBridge(_interpreter!);
+    RegistrerBridge.registerBridge(_interpreter!, sourceId: source.id);
 
     final code = _normalizeExtensionCode(source.sourceCode!);
     _interpreter!.execute(
@@ -263,7 +264,10 @@ class DartExtensionService implements ExtensionService {
 
   @override
   Future<MManga> getDetail(String url) async {
-    _dLog(wl.LogLevel.info, '$_id · getDetail url=${_dt(url)}');
+    _dLog(
+      wl.LogLevel.info,
+      '$_id · getDetail origin=${safeUrlOriginForLog(url)}',
+    );
     final sw = Stopwatch()..start();
     try {
       final result = await _interpreter!.invoke('getDetail', [url]) as MManga;
@@ -281,7 +285,10 @@ class DartExtensionService implements ExtensionService {
 
   @override
   Future<List<PageUrl>> getPageList(String url) async {
-    _dLog(wl.LogLevel.info, '$_id · getPageList url=${_dt(url)}');
+    _dLog(
+      wl.LogLevel.info,
+      '$_id · getPageList origin=${safeUrlOriginForLog(url)}',
+    );
     final sw = Stopwatch()..start();
     try {
       final result = await _interpreter!.invoke('getPageList', [url]) as List;
@@ -308,7 +315,10 @@ class DartExtensionService implements ExtensionService {
 
   @override
   Future<List<Video>> getVideoList(String url) async {
-    _dLog(wl.LogLevel.info, '$_id · getVideoList url=${_dt(url)}');
+    _dLog(
+      wl.LogLevel.info,
+      '$_id · getVideoList origin=${safeUrlOriginForLog(url)}',
+    );
     final sw = Stopwatch()..start();
     try {
       final result =
@@ -324,7 +334,7 @@ class DartExtensionService implements ExtensionService {
         for (var i = 0; i < result.length && i < 5; i++) {
           _dLog(wl.LogLevel.debug,
             '$_id · getVideoList  [${i + 1}] quality="${result[i].quality}"  '
-            'url=${_dt(result[i].originalUrl, 90)}');
+            'origin=${safeUrlOriginForLog(result[i].originalUrl)}');
         }
       }
       return result;
@@ -337,7 +347,10 @@ class DartExtensionService implements ExtensionService {
 
   @override
   Future<String> getHtmlContent(String url, String? referer) async {
-    _dLog(wl.LogLevel.debug, '$_id · getHtmlContent url=${_dt(url)}');
+    _dLog(
+      wl.LogLevel.debug,
+      '$_id · getHtmlContent origin=${safeUrlOriginForLog(url)}',
+    );
     return await _interpreter!.invoke('getHtmlContent', [url, referer]) as String;
   }
 

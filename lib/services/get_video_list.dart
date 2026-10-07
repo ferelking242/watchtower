@@ -9,6 +9,7 @@ import 'package:watchtower/modules/browse/extension/providers/extension_preferen
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/get_source_preference.dart';
 import 'package:watchtower/services/youtube_watch_resolver.dart';
 import 'package:watchtower/services/torrent_server.dart';
@@ -35,7 +36,9 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
   final epLabel = 'ep:${episode.id}';
 
   AppLogger.log(
-    '[$epLabel] getVideoList START  source=$srcLabel  url=${episode.url ?? "n/a"}  name="${episode.name}"',
+    '[$epLabel] getVideoList START  source=$srcLabel  '
+    'origin=${episode.url == null ? "n/a" : safeUrlOriginForLog(episode.url!)}  '
+    'name="${episode.name}"',
     logLevel: LogLevel.info,
     tag: LogTag.watch,
   );
@@ -102,7 +105,8 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
     if (localSource?.isLocal == true) {
       final videoUrl = episode.url ?? '';
       AppLogger.log(
-        '[$epLabel] getVideoList LOCAL_SOURCE  url=$videoUrl',
+        '[$epLabel] getVideoList LOCAL_SOURCE  '
+        'origin=${safeUrlOriginForLog(videoUrl)}',
         logLevel: LogLevel.info,
         tag: LogTag.watch,
       );
@@ -176,7 +180,8 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
     if (epManga.source == 'webview_intercept') {
       final videoUrl = episode.url ?? '';
       AppLogger.log(
-        '[$epLabel] getVideoList WEBVIEW_INTERCEPT  url=$videoUrl',
+        '[$epLabel] getVideoList WEBVIEW_INTERCEPT  '
+        'origin=${safeUrlOriginForLog(videoUrl)}',
         logLevel: LogLevel.info,
         tag: LogTag.watch,
       );
@@ -263,7 +268,8 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
 
     // ── Extension call ────────────────────────────────────────────────────
     AppLogger.log(
-      '[$epLabel] getVideoList calling extension  source=$srcLabel  url=${episode.url}',
+      '[$epLabel] getVideoList calling extension  source=$srcLabel  '
+      'origin=${safeUrlOriginForLog(episode.url ?? "")}',
       logLevel: LogLevel.info,
       tag: LogTag.watch,
     );
@@ -316,7 +322,7 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       for (var i = 0; i < videos.length && i < 5; i++) {
         AppLogger.log(
           '[$epLabel] getVideoList  [${i + 1}] quality="${videos[i].quality}"  '
-          'url=${videos[i].originalUrl.length > 90 ? videos[i].originalUrl.substring(0, 90) : videos[i].originalUrl}',
+          'origin=${safeUrlOriginForLog(videos[i].originalUrl)}',
           logLevel: LogLevel.debug,
           tag: LogTag.watch,
         );

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:watchtower/models/page.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 
 enum MangaPageState { pending, downloading, failed, completed }
 
@@ -29,8 +30,8 @@ class MangaDownloadPage {
 
   Map<String, Object?> toJson() => {
     'index': index,
-    'url': url,
-    'headers': headers,
+    'url': sanitizePersistedUrl(url),
+    'headers': sanitizePersistedHeaders(headers),
     'filePath': filePath,
     'state': state.name,
   };
@@ -71,7 +72,9 @@ class MangaDownloadManifest {
 
   String encode() => jsonEncode({
     'version': version,
-    'chapterUrl': chapterUrl,
+    'chapterUrl': chapterUrl == null
+        ? null
+        : sanitizePersistedUrl(chapterUrl!),
     'pages': pages.map((page) => page.toJson()).toList(),
   });
 

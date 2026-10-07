@@ -6,7 +6,12 @@ import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 /// Pops with `true` as soon as the challenge is resolved.
 class BypassWebViewSheet extends StatefulWidget {
   final String url;
-  const BypassWebViewSheet({super.key, required this.url});
+  final int? sourceId;
+  const BypassWebViewSheet({
+    super.key,
+    required this.url,
+    this.sourceId,
+  });
 
   @override
   State<BypassWebViewSheet> createState() => _BypassWebViewSheetState();
@@ -41,6 +46,7 @@ class _BypassWebViewSheetState extends State<BypassWebViewSheet> {
         Expanded(
           child: CloudflareBypassPanel(
             url: widget.url,
+            sourceId: widget.sourceId,
             compact: false,
             onResolved: _resolved,
             onClose: () => Navigator.of(context).pop(false),

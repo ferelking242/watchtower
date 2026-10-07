@@ -175,26 +175,16 @@ class DownloadModeState extends _$DownloadModeState {
 class MangaArchiveFormatState extends _$MangaArchiveFormatState {
   @override
   MangaArchiveFormat build() {
-    DownloadSettingsService.instance.load();
-    final service = DownloadSettingsService.instance;
-    if (!service.hasExplicitMangaArchiveFormat &&
-        (safeReadSettings().saveAsCBZArchive ?? false)) {
-      return MangaArchiveFormat.cbz;
-    }
-    return service.mangaArchiveFormat;
+    final settings = DownloadSettingsService.instance;
+    settings.load().then((_) {
+      if (ref.mounted) state = settings.mangaArchiveFormat;
+    });
+    return settings.mangaArchiveFormat;
   }
 
   Future<void> set(MangaArchiveFormat format) async {
     state = format;
     await DownloadSettingsService.instance.setMangaArchiveFormat(format);
-    final settings = safeReadSettings();
-    isar.writeTxnSync(
-      () => isar.settings.putSync(
-        settings
-          ..saveAsCBZArchive = format == MangaArchiveFormat.cbz
-          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-      ),
-    );
   }
 }
 

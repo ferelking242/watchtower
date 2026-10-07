@@ -24,6 +24,7 @@ bool cloudflareWebviewSupported() =>
 ///    never reports a “resolved challenge”.
 class CloudflareBypassPanel extends StatefulWidget {
   final String url;
+  final int? sourceId;
 
   /// Called once a challenge has actually been observed, solved, and the
   /// `cf_clearance` cookie persisted for the HTTP client.
@@ -44,6 +45,7 @@ class CloudflareBypassPanel extends StatefulWidget {
   const CloudflareBypassPanel({
     super.key,
     required this.url,
+    this.sourceId,
     this.onResolved,
     this.onRetry,
     this.onClose,
@@ -104,7 +106,10 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     // stores. Seed the browser store before its first navigation so an
     // existing cf_clearance cookie is reused.
     try {
-      await MClient.restoreCookiesToWebView(widget.url);
+      await MClient.restoreCookiesToWebView(
+        widget.url,
+        sourceId: widget.sourceId,
+      );
     } catch (e) {
       AppLogger.log(
         'CloudflareBypassPanel cookie restore failed: $e',
@@ -225,10 +230,18 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             ) ??
             '';
         if (ua.isNotEmpty) {
-          await MClient.setCookie(widget.url, ua, controller);
+          await MClient.setCookie(
+            widget.url,
+            ua,
+            controller,
+            sourceId: widget.sourceId,
+          );
         }
         // Verify the cookie really reached the HTTP client store (Isar).
-        final stored = MClient.getCookiesPref(widget.url).values.join('; ');
+        final stored = MClient.getCookiesPref(
+          widget.url,
+          sourceId: widget.sourceId,
+        ).values.join('; ');
         persisted = stored
             .split(';')
             .any((cookie) => cookie.trim().startsWith('cf_clearance='));
@@ -240,7 +253,10 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         );
       }
       if (!persisted) {
-        persisted = await MClient.hasCfClearanceCookie(widget.url);
+        persisted = await MClient.hasCfClearanceCookie(
+          widget.url,
+          sourceId: widget.sourceId,
+        );
       }
     }
 
@@ -558,7 +574,11 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             thirdPartyCookiesEnabled: true,
             useShouldOverrideUrlLoading: false,
             // Same UA as the HTTP client so cf_clearance stays valid for both.
-            userAgent: MClient.userAgentForRequests(),
+            userAgent: widget.sourceId == null
+                ? MClient.userAgentForRequests()
+                : MClient.extensionUserAgentForRequests(
+                    sourceId: widget.sourceId,
+                  ),
           ),
           onWebViewCreated: (controller) => _webView = controller,
           onLoadStart: (ctrl, url) {

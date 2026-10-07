@@ -14,11 +14,11 @@ import 'package:watchtower/eval/dart/bridge/m_video.dart';
 import 'package:watchtower/eval/dart/bridge/source_preference.dart';
 
 class RegistrerBridge {
-  static void registerBridge(D4rt interpreter) {
+  static void registerBridge(D4rt interpreter, {int? sourceId}) {
     MDocumentBridge().registerBridgedClasses(interpreter);
     MElementBridge().registerBridgedClasses(interpreter);
     FilterBridge().registerBridgedClasses(interpreter);
-    HttpBridge().registerBridgedClasses(interpreter);
+    HttpBridge(sourceId: sourceId).registerBridgedClasses(interpreter);
     MMangaBridge().registerBridgedClasses(interpreter);
     MChapterBridge().registerBridgedClasses(interpreter);
     MPagesBridge().registerBridgedClasses(interpreter);

@@ -10,6 +10,7 @@ import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/extension_worker_count.dart';
 import 'package:watchtower/utils/log/log.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -276,7 +277,10 @@ class GetIsolateService {
 
               // ── Timing + entry log ──
               final sw = Stopwatch()..start();
-              print('[EXT][INFO] ▶ $serviceType [$srcId] url=${url ?? page?.toString() ?? query ?? "n/a"}');
+              print(
+                '[EXT][INFO] ▶ $serviceType [$srcId] '
+                'origin=${safeUrlOriginForLog(url?.toString() ?? "")}',
+              );
 
               try {
                 final result = await withExtensionService(
@@ -486,7 +490,8 @@ class GetIsolateService {
 
     final srcLabel = '${source?.name ?? "?"}[${source?.lang ?? "?"}]';
     AppLogger.log(
-      '→ $serviceType [$srcLabel] url=${url ?? page?.toString() ?? query ?? "n/a"}',
+      '→ $serviceType [$srcLabel] '
+      'origin=${safeUrlOriginForLog(url?.toString() ?? "")}',
       logLevel: LogLevel.debug,
       tag: LogTag.extension_,
     );
@@ -555,7 +560,9 @@ class GetIsolateService {
       'serviceType': ?serviceType,
       'source': ?source,
       'responsePort': responsePort.sendPort,
-      'httpSettings': MClient.exportWorkerSettingsSnapshot(),
+      'httpSettings': await MClient.exportWorkerSettingsSnapshot(
+        sourceId: source?.id,
+      ),
       'useLogger': ?useLogger,
     });
 

@@ -6,11 +6,13 @@ class CloudflareChallengeScreen extends StatefulWidget {
   const CloudflareChallengeScreen({
     required this.url,
     this.sourceName,
+    this.sourceId,
     super.key,
   });
 
   final String url;
   final String? sourceName;
+  final int? sourceId;
 
   @override
   State<CloudflareChallengeScreen> createState() =>
@@ -46,6 +48,7 @@ class _CloudflareChallengeScreenState extends State<CloudflareChallengeScreen> {
       body: SafeArea(
         child: CloudflareBypassPanel(
           url: widget.url,
+          sourceId: widget.sourceId,
           fullScreen: true,
           onResolved: () => _close(resolved: true),
           onClose: () => _close(),

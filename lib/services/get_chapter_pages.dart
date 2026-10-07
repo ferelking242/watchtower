@@ -8,7 +8,7 @@ import 'package:watchtower/modules/more/settings/browse/providers/browse_state_p
 import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/page_url_cache.dart';
-import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/main.dart';
@@ -25,37 +25,6 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
 part 'get_chapter_pages.g.dart';
-
-/// Bypass the stored page-URL cache and ask the source extension for fresh
-/// signed image URLs after an expired-link or transient network failure.
-Future<List<PageUrl>> fetchFreshChapterPageUrls({
-  required Chapter chapter,
-  required String lang,
-  required String sourceName,
-  required int? sourceId,
-}) async {
-  final chapterUrl = chapter.url;
-  if (chapterUrl == null || chapterUrl.isEmpty) {
-    throw StateError(
-      'Impossible de renouveler les pages sans URL de chapitre.',
-    );
-  }
-  final source = getSource(lang, sourceName, sourceId);
-  if (source == null) {
-    throw StateError('Source manga introuvable pour renouveler les pages.');
-  }
-  final pages = await getIsolateService.get<List<PageUrl>>(
-    url: chapterUrl,
-    source: source,
-    serviceType: 'getPageList',
-  );
-  if (pages.isEmpty) {
-    throw StateError(
-      'La source n’a retourné aucune page après actualisation.',
-    );
-  }
-  return pages;
-}
 
 class GetChapterPagesModel {
   Directory? path;
@@ -85,7 +54,8 @@ Future<GetChapterPagesModel> getChapterPages(
   final chLabel = 'ch:${chapter.id}';
 
   AppLogger.log(
-    '[$chLabel] getChapterPages START  source=$srcLabel  url=${chapter.url ?? "n/a"}',
+    '[$chLabel] getChapterPages START  source=$srcLabel  '
+    'origin=${chapter.url == null ? "n/a" : safeUrlOriginForLog(chapter.url!)}',
     logLevel: LogLevel.info,
     tag: LogTag.page,
   );
@@ -143,11 +113,20 @@ Future<GetChapterPagesModel> getChapterPages(
     // faire échouer le démarrage d'un téléchargement / l'ouverture d'un
     // chapitre. readSettingsSafely répare le record au passage.
     final settings = readSettingsSafely(isar: isar);
-    List<ChapterPageurls>? chapterPageUrlsList =
+    List<ChapterPageurls> chapterPageUrlsList =
         settings.chapterPageUrlsList ?? [];
     final isarPageUrls = chapterPageUrlsList
         .where((element) => element.chapterId == chapter.id)
         .firstOrNull;
+    final hasUnsafeCachedMetadata =
+        hasUnsafePersistedPageMetadata(isarPageUrls);
+    if (chapterPageUrlsList.any(hasUnsafePersistedPageMetadata)) {
+      chapterPageUrlsList = chapterPageUrlsList
+          .where((entry) => !hasUnsafePersistedPageMetadata(entry))
+          .toList();
+      settings.chapterPageUrlsList = chapterPageUrlsList;
+      isar.writeTxnSync(() => isar.settings.putSync(settings));
+    }
     final incognitoMode = ref.read(incognitoModeStateProvider);
     final storageProvider = StorageProvider();
     final mangaDirectory = await storageProvider.getMangaMainDirectory(chapter);
@@ -168,6 +147,7 @@ Future<GetChapterPagesModel> getChapterPages(
 
       // ── Cache hit? ──────────────────────────────────────────────────────
       if ((isarPageUrls?.urls?.isNotEmpty ?? false) &&
+          !hasUnsafeCachedMetadata &&
           (isarPageUrls?.chapterUrl ?? chapter.url) == chapter.url) {
         AppLogger.log(
           '[$chLabel] getChapterPages CACHE HIT  '
@@ -180,7 +160,8 @@ Future<GetChapterPagesModel> getChapterPages(
         // ── Cache miss → call extension ─────────────────────────────────
         AppLogger.log(
           '[$chLabel] getChapterPages CACHE MISS  '
-          'calling extension getPageList  source=$srcLabel  url=${chapter.url}',
+          'calling extension getPageList  source=$srcLabel  '
+          'origin=${safeUrlOriginForLog(chapter.url!)}',
           logLevel: LogLevel.info,
           tag: LogTag.page,
         );
@@ -203,7 +184,7 @@ Future<GetChapterPagesModel> getChapterPages(
           AppLogger.log(
             '[$chLabel] getChapterPages extension returned ${pageUrls.length} pages '
             'in ${sw.elapsedMilliseconds}ms  '
-            'url[0]=${pageUrls.first.url.length > 90 ? pageUrls.first.url.substring(0, 90) : pageUrls.first.url}',
+            'origin[0]=${safeUrlOriginForLog(pageUrls.first.url)}',
             logLevel: LogLevel.info,
             tag: LogTag.page,
           );
@@ -265,13 +246,19 @@ Future<GetChapterPagesModel> getChapterPages(
     }
 
     if (pageUrls.isNotEmpty || isLocalArchive) {
-      if (await File(
-            p.join(mangaDirectory!.path, "${chapter.name}.cbz"),
-          ).exists() ||
-          isLocalArchive) {
+      String? downloadedArchivePath;
+      for (final extension in ['.cbz', '.zip']) {
+        final candidate =
+            p.join(mangaDirectory!.path, "${chapter.name}$extension");
+        if (await File(candidate).exists()) {
+          downloadedArchivePath = candidate;
+          break;
+        }
+      }
+      if (downloadedArchivePath != null || isLocalArchive) {
         final path = isLocalArchive
             ? chapter.archivePath
-            : p.join(mangaDirectory.path, "${chapter.name}.cbz");
+            : downloadedArchivePath;
         AppLogger.log(
           '[$chLabel] getChapterPages reading archive: $path',
           logLevel: LogLevel.debug,
@@ -289,9 +276,7 @@ Future<GetChapterPagesModel> getChapterPages(
         int remoteCount = 0;
         for (var i = 0; i < pageUrls.length; i++) {
           archiveImages.add(null);
-          if (await isReusableDownloadedImage(
-            File(p.join(path!.path, '${padIndex(i)}.jpg')),
-          )) {
+          if (await File(p.join(path!.path, '${padIndex(i)}.jpg')).exists()) {
             isLocaleList.add(true);
             localCount++;
           } else {

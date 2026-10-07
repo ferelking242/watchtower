@@ -66,10 +66,16 @@ extension ChapterExtension on Chapter {
     );
 
     try {
-      final cbzPath = p.join(mangaDir!.path, "$name.cbz");
-      for (final candidate in [cbzPath, '$cbzPath.part']) {
-        final file = File(candidate);
-        if (file.existsSync()) file.deleteSync();
+      final archivePaths = [
+        for (final extension in ['.cbz', '.zip', '.cbr', '.cb7'])
+          p.join(mangaDir!.path, '$name$extension'),
+      ];
+      for (final archivePath in archivePaths) {
+        final candidatePaths = [archivePath, '$archivePath.part'];
+        for (final candidate in candidatePaths) {
+          final file = File(candidate);
+          if (file.existsSync()) file.deleteSync();
+        }
       }
     } catch (_) {}
     try {

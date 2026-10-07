@@ -6,12 +6,14 @@ import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
 class ErrorText extends StatelessWidget {
   final dynamic errorText;
   final String? sourceUrl;
+  final int? sourceId;
   final VoidCallback? onRetry;
 
   const ErrorText(
     this.errorText, {
     super.key,
     this.sourceUrl,
+    this.sourceId,
     this.onRetry,
   });
 
@@ -25,6 +27,7 @@ class ErrorText extends StatelessWidget {
       return CloudflareErrorWidget(
         errorText: text,
         url: sourceUrl,
+        sourceId: sourceId,
         onRetry: onRetry,
       );
     }

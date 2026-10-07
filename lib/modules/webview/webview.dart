@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:typed_data';
@@ -21,6 +22,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:watchtower/services/mini_webview_state.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/http/extension_session_manager.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1280,11 +1282,13 @@ bool _isSecure(String rawUrl) {
 class MangaWebView extends ConsumerStatefulWidget {
   final String url;
   final String title;
+  final int? sourceId;
   final double initialFraction;
   const MangaWebView({
     super.key,
     required this.url,
     required this.title,
+    this.sourceId,
     this.initialFraction = 1.0,
   });
 
@@ -1377,7 +1381,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   Future<void> _initializeWebView() async {
     try {
-      await MClient.restoreCookiesToWebView(widget.url);
+      await MClient.restoreCookiesToWebView(
+        widget.url,
+        sourceId: widget.sourceId,
+      );
     } catch (_) {
       // The page can still open if restoring an old cookie fails.
     }
@@ -1425,7 +1432,36 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               await _desktopWebview!.evaluateJavaScript("navigator.userAgent") ??
               "";
           final cookie = cookies.map((e) => '${e.name}=${e.value}').join(';');
-          await MClient.setCookie(_url, ua2, null, cookie: cookie);
+          await MClient.setCookie(
+            _url,
+            ua2,
+            null,
+            cookie: cookie,
+            sourceId: widget.sourceId,
+            webViewCookies: cookies,
+          );
+          if (widget.sourceId != null) {
+            try {
+              final rawStorage = await _desktopWebview!.evaluateJavaScript(
+                'JSON.stringify(Object.fromEntries(Array.from('
+                '{length: localStorage.length}, (_, i) => '
+                '[localStorage.key(i), localStorage.getItem(localStorage.key(i))])))',
+              );
+              final decoded = rawStorage is String
+                  ? jsonDecode(rawStorage)
+                  : rawStorage;
+              if (decoded is Map) {
+                await ExtensionSessionManager.saveBrowserLocalStorage(
+                  extensionId: widget.sourceId!,
+                  url: _url,
+                  values: <String, String>{
+                    for (final entry in decoded.entries)
+                      entry.key.toString(): entry.value?.toString() ?? '',
+                  },
+                );
+              }
+            } catch (_) {}
+          }
         } catch (_) {}
       });
       _desktopWebview!
@@ -1440,6 +1476,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     } else {
       browser = MyInAppBrowser(
         context: context,
+        sourceId: widget.sourceId,
+        initialStorageScript: ExtensionSessionManager
+            .localStorageRestoreScript(widget.sourceId, widget.url),
         controller: (c) => _webViewController = c,
         onProgress: (progress) async {
           final back = await _webViewController?.canGoBack();
@@ -1561,7 +1600,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       _animCtrl.removeStatusListener(_onMinimizeAnimDone);
       final label = _title.isNotEmpty ? _title : _displayHost(_url);
       ref.read(miniWebViewProvider.notifier).push(
-            MiniWebViewEntry(url: _url, title: label),
+            MiniWebViewEntry(
+              url: _url,
+              title: label,
+              sourceId: widget.sourceId,
+            ),
           );
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       _popRouteIfPossible();
@@ -2414,6 +2457,20 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             ? InAppWebView(
                             webViewEnvironment: webViewEnvironment,
                             initialUrlRequest: URLRequest(url: WebUri(widget.url)),
+                            initialUserScripts: widget.sourceId == null
+                                ? null
+                                : UnmodifiableListView<UserScript>([
+                                    UserScript(
+                                      source: ExtensionSessionManager
+                                          .localStorageRestoreScript(
+                                        widget.sourceId,
+                                        widget.url,
+                                      ),
+                                      injectionTime:
+                                          UserScriptInjectionTime.AT_DOCUMENT_START,
+                                      forMainFrameOnly: true,
+                                    ),
+                                  ]),
                             initialSettings: InAppWebViewSettings(
                               isInspectable: kDebugMode,
                               useShouldOverrideUrlLoading: true,
@@ -2502,7 +2559,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                       source: 'navigator.userAgent',
                                     ) ??
                                     '';
-                                await MClient.setCookie(url.toString(), ua, c);
+                                await MClient.captureExtensionWebViewSession(
+                                  url: url.toString(),
+                                  userAgent: ua,
+                                  sourceId: widget.sourceId,
+                                  controller: c,
+                                );
                               }
                               await _injectJs();
                               try {
@@ -2519,7 +2581,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                     source: 'navigator.userAgent',
                                   ) ??
                                   '';
-                              await MClient.setCookie(url.toString(), ua, c);
+                              await MClient.captureExtensionWebViewSession(
+                                url: url.toString(),
+                                userAgent: ua,
+                                sourceId: widget.sourceId,
+                                controller: c,
+                              );
                               final back = await c.canGoBack();
                               final fwd = await c.canGoForward();
                               final title = await c.getTitle();
@@ -4024,17 +4091,34 @@ class _AdBlockStatCard extends StatelessWidget {
 
 class MyInAppBrowser extends InAppBrowser {
   BuildContext context;
+  final int? sourceId;
+  final String? initialStorageScript;
   void Function(InAppWebViewController) controller;
   void Function(int) onProgress;
 
   MyInAppBrowser({
     required this.context,
+    this.sourceId,
+    this.initialStorageScript,
     required this.controller,
     required this.onProgress,
   }) : super(webViewEnvironment: webViewEnvironment);
 
   @override
-  Future onBrowserCreated() async => controller.call(webViewController!);
+  Future onBrowserCreated() async {
+    final webView = webViewController!;
+    final script = initialStorageScript;
+    if (script != null && script.isNotEmpty) {
+      await webView.addUserScript(
+        userScript: UserScript(
+          source: script,
+          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+          forMainFrameOnly: true,
+        ),
+      );
+    }
+    controller.call(webView);
+  }
 
   @override
   void onProgressChanged(progress) => onProgress.call(progress);
@@ -4054,7 +4138,12 @@ class MyInAppBrowser extends InAppBrowser {
       final ua =
           await webViewController!.evaluateJavascript(source: 'navigator.userAgent') ??
           '';
-      await MClient.setCookie(url.toString(), ua, webViewController);
+      await MClient.captureExtensionWebViewSession(
+        url: url.toString(),
+        userAgent: ua,
+        sourceId: sourceId,
+        controller: webViewController,
+      );
     }
   }
 

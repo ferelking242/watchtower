@@ -884,6 +884,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
           child: CloudflareErrorWidget(
             errorText: error.toString(),
             url: ref.read(sourceBaseUrlProvider(source: source)),
+            sourceId: source.id,
             onRetry: retry,
           )),
       );

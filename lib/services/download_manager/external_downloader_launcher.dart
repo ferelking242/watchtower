@@ -1,6 +1,7 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 
 /// Launches an external Android download manager (ADM, 1DM, FDM, IDM, etc.)
 /// with the given URL. Uses Android's `intent://` scheme so we don't need

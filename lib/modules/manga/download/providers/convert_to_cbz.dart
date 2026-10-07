@@ -4,7 +4,6 @@ import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path/path.dart' as path;
-import 'package:watchtower/services/download_manager/image_payload_validator.dart';
 part 'convert_to_cbz.g.dart';
 
 /// Metadata for ComicInfo.xml generation (serializable for isolate).
@@ -43,12 +42,38 @@ Future<List<String>> convertToCBZ(
   List<String> pageList, {
   ComicInfoData? comicInfo,
 }) async {
-  return compute(_convertToCBZ, (
+  return convertToMangaArchive(
+    chapterDir: chapterDir,
+    mangaDir: mangaDir,
+    chapterName: chapterName,
+    pageList: pageList,
+    formatExtension: '.cbz',
+    comicInfo: comicInfo,
+  );
+}
+
+Future<List<String>> convertToMangaArchive({
+  required String chapterDir,
+  required String mangaDir,
+  required String chapterName,
+  required List<String> pageList,
+  required String formatExtension,
+  ComicInfoData? comicInfo,
+}) {
+  if (formatExtension != '.cbz' && formatExtension != '.zip') {
+    throw ArgumentError.value(
+      formatExtension,
+      'formatExtension',
+      'Only real ZIP-based manga archives are supported.',
+    );
+  }
+  return compute(_convertToMangaArchive, (
     chapterDir,
     mangaDir,
     chapterName,
     pageList,
     comicInfo,
+    formatExtension,
   ));
 }
 
@@ -93,44 +118,34 @@ String _xmlEscape(String value) {
       .replaceAll("'", '&apos;');
 }
 
-List<String> _convertToCBZ(
-  (String, String, String, List<String>, ComicInfoData?) datas,
+List<String> _convertToMangaArchive(
+  (String, String, String, List<String>, ComicInfoData?, String) datas,
 ) {
-  final (chapterDir, mangaDir, chapterName, pageList, comicInfo) = datas;
+  final (
+    chapterDir,
+    mangaDir,
+    chapterName,
+    pageList,
+    comicInfo,
+    formatExtension,
+  ) = datas;
   final imagesPaths = pageList.where((path) => path.endsWith('.jpg')).toList()
-    ..sort((a, b) {
-      final aIndex = int.tryParse(path.basenameWithoutExtension(a));
-      final bIndex = int.tryParse(path.basenameWithoutExtension(b));
-      if (aIndex != null && bIndex != null) return aIndex.compareTo(bIndex);
-      return a.compareTo(b);
-    });
+    ..sort();
 
-  if (imagesPaths.isEmpty) {
-    throw StateError('Aucune page manga à ajouter au CBZ.');
-  }
+  if (imagesPaths.isEmpty) return imagesPaths;
 
   final archive = Archive();
-  final cbzPath = path.join(mangaDir, "$chapterName.cbz");
+  final archivePath = path.join(mangaDir, "$chapterName$formatExtension");
+  final List<String> missingFiles = [];
   final List<String> includedFiles = [];
 
   for (var imagePath in imagesPaths) {
     final file = File(imagePath);
     if (!file.existsSync()) {
-      throw FileSystemException('Page manga manquante', imagePath);
+      missingFiles.add(imagePath);
+      continue;
     }
     final bytes = file.readAsBytesSync();
-    final prefix = bytes.sublist(0, bytes.length < 512 ? bytes.length : 512);
-    final tail = bytes.sublist(bytes.length > 32 ? bytes.length - 32 : 0);
-    if (!isReusableImagePayload(
-      length: bytes.length,
-      prefix: prefix,
-      tail: tail,
-    )) {
-      throw FileSystemException(
-        'La page manga est vide ou invalide',
-        imagePath,
-      );
-    }
     final fileName = path.basename(imagePath);
     archive.add(ArchiveFile.bytes(fileName, bytes));
     includedFiles.add(imagePath);
@@ -142,36 +157,32 @@ List<String> _convertToCBZ(
     archive.add(ArchiveFile.bytes('ComicInfo.xml', utf8.encode(xml)));
   }
 
-  final temporaryFile = File('$cbzPath.part');
-  final backupFile = File('$cbzPath.previous');
-  try {
-    final cbzData = ZipEncoder().encode(archive);
-    if (temporaryFile.existsSync()) temporaryFile.deleteSync();
-    temporaryFile.writeAsBytesSync(cbzData, flush: true);
-
-    var hadPreviousArchive = false;
-    if (File(cbzPath).existsSync()) {
-      if (backupFile.existsSync()) backupFile.deleteSync();
-      File(cbzPath).renameSync(backupFile.path);
-      hadPreviousArchive = true;
-    }
-    try {
-      temporaryFile.renameSync(cbzPath);
-    } catch (_) {
-      if (hadPreviousArchive && backupFile.existsSync()) {
-        backupFile.renameSync(cbzPath);
-      }
-      rethrow;
-    }
-    if (backupFile.existsSync()) backupFile.deleteSync();
-  } catch (e) {
-    throw FileSystemException("Failed to create/write CBZ file: $e", cbzPath);
+  if (missingFiles.isNotEmpty) {
+    final missingListStr = missingFiles.join(", ");
+    throw Exception(
+      "Archive was not created because pages are missing: $missingListStr",
+    );
   }
 
+  final temporaryPath = '$archivePath.part';
+  try {
+    final encoded = ZipEncoder().encode(archive);
+    File(temporaryPath).writeAsBytesSync(encoded, flush: true);
+    final target = File(archivePath);
+    if (target.existsSync()) target.deleteSync();
+    File(temporaryPath).renameSync(archivePath);
+  } catch (e) {
+    final partial = File(temporaryPath);
+    if (partial.existsSync()) partial.deleteSync();
+    throw FileSystemException(
+      "Failed to create/write ZIP-based manga archive: $e",
+      archivePath,
+    );
+  }
   try {
     Directory(chapterDir).deleteSync(recursive: true);
   } catch (e) {
-    debugPrint('CBZ created; source image cleanup failed: $e');
+    throw FileSystemException("Failed to delete chapter directory", chapterDir);
   }
 
   return includedFiles;

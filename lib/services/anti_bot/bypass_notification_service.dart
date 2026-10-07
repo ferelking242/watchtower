@@ -184,6 +184,7 @@ class BypassNotificationService {
               builder: (_) => CloudflareChallengeScreen(
                 url: challengeUrl,
                 sourceName: resolvedSource?.name,
+                sourceId: resolvedSource?.id,
               ),
             ),
           )

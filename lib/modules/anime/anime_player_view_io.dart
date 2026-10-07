@@ -11,6 +11,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riv;
@@ -1084,7 +1085,11 @@ mp.register_script_message('call_button_${button.id}_long', button${button.id}lo
       tag: LogTag.watch,
       logLevel: LogLevel.info,
     );
-    AppLogger.log('WATCH url=$url', tag: LogTag.watch, logLevel: LogLevel.debug);
+    AppLogger.log(
+      'WATCH origin=${safeUrlOriginForLog(url)}',
+      tag: LogTag.watch,
+      logLevel: LogLevel.debug,
+    );
     _armBufferingWatchdog();
     return _player.open(
       Media(

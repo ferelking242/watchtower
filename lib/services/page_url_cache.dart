@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/settings.dart' show ChapterPageurls;
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 
 /// Nombre cible d'entrées (chapitres) conservées dans le cache de pages.
 ///
@@ -28,7 +29,7 @@ List<PageUrl> decodeCachedPageUrls({
   return List.generate(
     urls.length,
     (index) => PageUrl(
-      urls[index],
+      sanitizePersistedUrl(urls[index]),
       headers: _decodeCachedHeaders(headers, index),
     ),
   );
@@ -40,8 +41,10 @@ Map<String, String>? _decodeCachedHeaders(List<String>? headers, int index) {
   try {
     final decoded = jsonDecode(headers[index]);
     if (decoded is! Map) return null;
-    return decoded.map(
-      (key, value) => MapEntry(key.toString(), value.toString()),
+    return sanitizePersistedHeaders(
+      decoded.map(
+        (key, value) => MapEntry(key.toString(), value.toString()),
+      ),
     );
   } catch (_) {
     // A malformed optional header must not make otherwise valid page URLs
@@ -60,8 +63,31 @@ List<String>? encodeCachedPageHeaders(List<PageUrl> pageUrls) {
   }
 
   return pageUrls
-      .map((page) => jsonEncode(page.headers ?? const <String, String>{}))
+      .map((page) => jsonEncode(sanitizePersistedHeaders(page.headers)))
       .toList();
+}
+
+/// True when a legacy cache entry still contains authentication material.
+/// The caller can discard it and ask the extension for fresh request metadata.
+bool hasUnsafePersistedPageMetadata(ChapterPageurls? entry) {
+  if (entry == null) return false;
+  if ((entry.urls ?? []).any((url) => sanitizePersistedUrl(url) != url)) {
+    return true;
+  }
+  for (final raw in entry.headers ?? const <String>[]) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map &&
+          decoded.keys.any(
+            (key) => isSensitiveRequestField(key.toString()),
+          )) {
+        return true;
+      }
+    } catch (_) {
+      // Malformed headers are already ignored by the normal decoder.
+    }
+  }
+  return false;
 }
 
 // ── API « entrée de cache » ──────────────────────────────────────────────────
@@ -93,8 +119,8 @@ ChapterPageurls buildChapterPageurls({
 }) {
   return ChapterPageurls()
     ..chapterId = chapterId
-    ..chapterUrl = chapterUrl
-    ..urls = pageUrls.map((e) => e.url).toList()
+    ..chapterUrl = chapterUrl == null ? null : sanitizePersistedUrl(chapterUrl)
+    ..urls = pageUrls.map((e) => sanitizePersistedUrl(e.url)).toList()
     ..headers = encodeCachedPageHeaders(pageUrls);
 }
 
@@ -106,7 +132,10 @@ ChapterPageurls buildChapterPageurls({
 /// occasions d'écriture interrompue pour un bénéfice nul.
 bool cachedPagesUnchanged(ChapterPageurls? existing, List<PageUrl> pageUrls) {
   if (existing == null) return false;
-  if (!_listEquals(existing.urls, pageUrls.map((e) => e.url).toList())) {
+  if (!_listEquals(
+    existing.urls,
+    pageUrls.map((e) => sanitizePersistedUrl(e.url)).toList(),
+  )) {
     return false;
   }
   if (!_listEquals(existing.headers, encodeCachedPageHeaders(pageUrls))) {

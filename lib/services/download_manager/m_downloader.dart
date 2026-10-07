@@ -20,9 +20,6 @@ class MDownloader {
   final Chapter chapter;
   final List<Track>? subtitles;
   final String? subDownloadDir;
-  final int completedBeforeStart;
-  final int? totalPageCount;
-  final bool deferCompletionCallback;
 
   static var httpClient = MClient.httpClient(
     settings: const ClientSettings(
@@ -37,9 +34,6 @@ class MDownloader {
     required this.subtitles,
     required this.subDownloadDir,
     this.concurrentDownloads = 1,
-    this.completedBeforeStart = 0,
-    this.totalPageCount,
-    this.deferCompletionCallback = false,
   });
 
   void _log(String message) {
@@ -166,38 +160,17 @@ class MDownloader {
       writeMode: DownloadSettingsService.instance.downloadWriteMode,
       speedLimitKBs: DownloadSettingsService.instance.speedLimitKBs,
       onProgress: (progress) {
-        if (deferCompletionCallback && progress.isCompleted) return;
-        final logicalTotal =
-            totalPageCount ?? (completedBeforeStart + pageUrls.length);
-        onProgress(
-          DownloadProgress(
-            progress.isCompleted
-                ? logicalTotal
-                : progress.completed + completedBeforeStart,
-            logicalTotal,
-            progress.itemType,
-            segment: progress.segment,
-            pageUrl: progress.pageUrl,
-            isCompleted: progress.isCompleted,
-            isIndeterminate: progress.isIndeterminate,
-            downloadedBytes: progress.downloadedBytes,
-            totalBytes: progress.totalBytes,
-          ),
-        );
+        onProgress(progress);
       },
       onComplete: () {
-        final logicalTotal =
-            totalPageCount ?? (completedBeforeStart + pageUrls.length);
-        if (!deferCompletionCallback) {
-          onProgress(
-            DownloadProgress(
-              logicalTotal,
-              logicalTotal,
-              chapter.manga.value!.itemType,
-              isCompleted: true,
-            ),
-          );
-        }
+        onProgress(
+          DownloadProgress(
+            1,
+            1,
+            chapter.manga.value!.itemType,
+            isCompleted: true,
+          ),
+        );
         if (!completer.isCompleted) {
           completer.complete();
         }

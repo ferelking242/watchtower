@@ -3,7 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class MiniWebViewEntry {
   final String url;
   final String title;
-  const MiniWebViewEntry({required this.url, required this.title});
+  final int? sourceId;
+  const MiniWebViewEntry({
+    required this.url,
+    required this.title,
+    this.sourceId,
+  });
 }
 
 class MiniWebViewNotifier extends Notifier<List<MiniWebViewEntry>> {

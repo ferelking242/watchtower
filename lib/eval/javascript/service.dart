@@ -14,6 +14,7 @@ import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/eval/javascript/preferences.dart';
 import 'package:watchtower/eval/javascript/runtime_config.dart';
 import 'package:watchtower/eval/javascript/utils.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
@@ -115,9 +116,9 @@ class JsExtensionService implements ExtensionService {
       memoryLimit: JsRuntimeConfig.memoryLimitBytes,
       gcThreshold: JsRuntimeConfig.gcThresholdBytes,
     );
-    JsHttpClient(runtime).init();
+    JsHttpClient(runtime, sourceId: source.id).init();
     _jsDomSelector = JsDomSelector(runtime)..init();
-    JsUtils(runtime).init();
+    JsUtils(runtime, sourceId: source.id).init();
     JsVideosExtractors(runtime).init();
     JsPreferences(runtime, source).init();
     final sourceJson = jsonEncode(source.toMSource().toJson());
@@ -458,7 +459,7 @@ function extLog(level, msg) {
 
   @override
   Future<MManga> getDetail(String url) async {
-    _extInfo('$_id · getDetail url=${_t(url)}');
+    _extInfo('$_id · getDetail origin=${safeUrlOriginForLog(url)}');
     final result = MManga.fromJson(
       await _extensionCallAsync('getDetail(${jsonEncode(url)})'),
     );
@@ -473,7 +474,7 @@ function extLog(level, msg) {
 
   @override
   Future<List<PageUrl>> getPageList(String url) async {
-    _extInfo('$_id · getPageList url=${_t(url)}');
+    _extInfo('$_id · getPageList origin=${safeUrlOriginForLog(url)}');
     final pages = LinkedHashSet<PageUrl>(
       equals: (a, b) => a.url == b.url,
       hashCode: (p) => p.url.hashCode,
@@ -497,9 +498,15 @@ function extLog(level, msg) {
         'check JS getPageList() or the chapter URL passed to it',
       );
     } else {
-      _extInfo('$_id · getPageList → ${result.length} pages  url[0]=${_t(result.first.url, 90)}');
+      _extInfo(
+        '$_id · getPageList → ${result.length} pages  '
+        'origin[0]=${safeUrlOriginForLog(result.first.url)}',
+      );
       if (result.length > 1) {
-        _extDebug('$_id · getPageList  url[last]=${_t(result.last.url, 90)}');
+        _extDebug(
+          '$_id · getPageList  origin[last]='
+          '${safeUrlOriginForLog(result.last.url)}',
+        );
       }
     }
     return result;
@@ -507,7 +514,7 @@ function extLog(level, msg) {
 
   @override
   Future<List<Video>> getVideoList(String url) async {
-    _extInfo('$_id · getVideoList url=${_t(url)}');
+    _extInfo('$_id · getVideoList origin=${safeUrlOriginForLog(url)}');
     final videos = LinkedHashSet<Video>(
       equals: (a, b) => a.url == b.url && a.originalUrl == b.originalUrl,
       hashCode: (v) => Object.hash(v.url, v.originalUrl),
@@ -545,7 +552,7 @@ function extLog(level, msg) {
       for (var i = 0; i < result.length; i++) {
         _extDebug(
           '$_id · getVideoList  [${i + 1}] quality="${result[i].quality}"  '
-          'url=${_t(result[i].originalUrl, 90)}',
+          'origin=${safeUrlOriginForLog(result[i].originalUrl)}',
         );
       }
     }
@@ -556,7 +563,9 @@ function extLog(level, msg) {
 
   @override
   Future<String> getHtmlContent(String name, String url) async {
-    _extDebug('$_id · getHtmlContent name="$name" url=${_t(url)}');
+    _extDebug(
+      '$_id · getHtmlContent name="$name" origin=${safeUrlOriginForLog(url)}',
+    );
     _init();
     final res = (await runtime.handlePromise(
       await runtime.evaluateAsync(
@@ -618,7 +627,9 @@ function extLog(level, msg) {
   }
   @override
   Future<List<Map<String, dynamic>>> getRecommendations(String url) async {
-    _extInfo('\$_id \u00b7 getRecommendations url=${_t(url)}');
+    _extInfo(
+      '\$_id \u00b7 getRecommendations origin=${safeUrlOriginForLog(url)}',
+    );
     try {
       final raw = await _extensionCallAsync<List>('getRecommendations(' + jsonEncode(url) + ')');
       return raw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
@@ -630,7 +641,7 @@ function extLog(level, msg) {
 
   @override
   Future<List<Map<String, dynamic>>> getComments(String url) async {
-    _extInfo('\$_id \u00b7 getComments url=${_t(url)}');
+    _extInfo('\$_id \u00b7 getComments origin=${safeUrlOriginForLog(url)}');
     try {
       final raw = await _extensionCallAsync<List>('getComments(' + jsonEncode(url) + ')');
       return raw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();

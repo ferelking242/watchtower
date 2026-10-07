@@ -374,6 +374,7 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) => MangaWebView(
         url: data["url"]!,
         title: data['title']!,
+        sourceId: int.tryParse(data['sourceId']?.toString() ?? ''),
         initialFraction: (data['initialFraction'] as double?) ?? 1.0,
       ),
     ),

@@ -112,6 +112,7 @@ class ExtensionDetail extends StatelessWidget {
           const SizedBox(height: 12),
           CloudflareBypassPanel(
             url: src.baseUrl!,
+            sourceId: src.id,
             compact: true,
             onResolved: onResolveCloudflare,
             onRetry: onRetry,

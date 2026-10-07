@@ -20,12 +20,14 @@ bool isCloudflareError(String? error) {
 class CloudflareErrorWidget extends StatefulWidget {
   final String? errorText;
   final String? url;
+  final int? sourceId;
   final VoidCallback? onRetry;
 
   const CloudflareErrorWidget({
     super.key,
     this.errorText,
     this.url,
+    this.sourceId,
     this.onRetry,
   });
 
@@ -79,7 +81,10 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: SizedBox(
             height: MediaQuery.of(context).size.height * 0.92,
-            child: BypassWebViewSheet(url: widget.url!),
+            child: BypassWebViewSheet(
+              url: widget.url!,
+              sourceId: widget.sourceId,
+            ),
           ),
         ),
       );

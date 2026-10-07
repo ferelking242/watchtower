@@ -440,9 +440,8 @@ class Source {
   bool get providesHome => uiLayout != null && uiLayout!.isNotEmpty;
 
   /// Older installed sources predate the catalogue flag. A usable site URL
-  /// keeps login available for those installs as well.
-  bool get loginAvailable =>
-      supportsLogin ?? (baseUrl?.trim().isNotEmpty ?? false);
+  /// is not proof that they support an account flow. Absence is opt-out.
+  bool get loginAvailable => supportsLogin == true;
 
   MSource toMSource() {
     return MSource(

@@ -20,6 +20,7 @@ import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.d
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_source_preference.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/http/extension_session_manager.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
@@ -113,6 +114,16 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     if (mounted) await _refreshSiteSessionStatus();
   }
 
+  Future<void> _signOutFromSite() async {
+    final id = source.id;
+    final baseUrl = source.baseUrl ?? '';
+    if (id == null || baseUrl.isEmpty) return;
+    await MClient.logoutExtension(id, baseUrl);
+    if (!mounted) return;
+    setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
+    botToast('Session effacée pour cette extension.');
+  }
+
   bool _isMangaDexHost(String host) {
     final normalized = host.toLowerCase();
     return normalized == 'mangadex.org' || normalized.endsWith('.mangadex.org');
@@ -124,6 +135,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       setState(() => _siteSessionStatus = _SiteSessionStatus.checking);
     }
     try {
+      await ExtensionSessionManager.load(source.id);
       final host = Uri.tryParse(source.baseUrl ?? '')?.host;
       if (host == null || host.isEmpty) {
         if (mounted) {
@@ -134,7 +146,13 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
 
       if (_isMangaDexHost(host)) {
         final apiUrl = Uri.https('api.mangadex.org', '/auth/check');
-        final cookieHeaders = MClient.getCookiesPref(apiUrl.toString());
+        final cookieHeader = ExtensionSessionManager.cookieHeaderForUrl(
+          source.id,
+          apiUrl.toString(),
+        );
+        final cookieHeaders = cookieHeader == null
+            ? <String, String>{}
+            : {'Cookie': cookieHeader};
         if (cookieHeaders.isEmpty) {
           if (mounted) {
             setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
@@ -167,10 +185,13 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         return;
       }
 
-      final cookies = MClient.getCookiesPref(source.baseUrl ?? '');
+      final hasSessionData = ExtensionSessionManager.hasSessionDataForUrl(
+        source.id,
+        source.baseUrl ?? '',
+      );
       if (mounted) {
         setState(
-          () => _siteSessionStatus = cookies.isNotEmpty
+          () => _siteSessionStatus = hasSessionData
               ? _SiteSessionStatus.sessionSaved
               : _SiteSessionStatus.notConnected,
         );
@@ -1162,7 +1183,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                         children: [
                           Text(
                             'La page de connexion s’ouvre dans le navigateur intégré. '
-                            'Les cookies du site sont conservés pour cette extension.',
+                            'Les cookies et le stockage du site sont conservés séparément '
+                            'pour cette extension.',
                             style: TextStyle(
                               fontSize: 12,
                               color: cs.onSurfaceVariant,
@@ -1179,6 +1201,17 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                                 onPressed: _signInToSite,
                                 icon: const Icon(Icons.login_rounded, size: 18),
                                 label: const Text('Se connecter'),
+                              ),
+                              OutlinedButton.tonalIcon(
+                                onPressed: _siteSessionStatus ==
+                                        _SiteSessionStatus.notConnected
+                                    ? null
+                                    : _signOutFromSite,
+                                icon: const Icon(
+                                  Icons.logout_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('Effacer la session'),
                               ),
                             ],
                           ),

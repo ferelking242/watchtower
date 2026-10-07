@@ -3394,6 +3394,7 @@ class _ExtensionEmpty extends StatelessWidget {
     onRefresh: onRefresh,
     error: error,
     challengeUrl: source.baseUrl,
+    sourceId: source.id,
     header: _ExtensionFeedTopHeader(
       source: source,
       onSearch: () {},

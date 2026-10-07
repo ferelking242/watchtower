@@ -13,18 +13,58 @@ import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/http/extension_session_manager.dart';
 import 'package:watchtower/utils/cryptoaes/js_unpacker.dart';
 import 'package:watchtower/utils/log/log.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 class JsUtils {
   late JavascriptRuntime runtime;
-  JsUtils(this.runtime);
+  final int? sourceId;
+  JsUtils(this.runtime, {this.sourceId});
 
   void init() {
     InterceptedClient client() {
-      return MClient.init();
+      return MClient.init(extensionSourceId: sourceId);
     }
+
+    runtime.onMessage('getLocalStorage', (dynamic args) async {
+      if (sourceId == null || args.length < 2) return null;
+      return ExtensionSessionManager.getLocalStorage(
+        sourceId!,
+        args[0].toString(),
+        args[1].toString(),
+      );
+    });
+    runtime.onMessage('setLocalStorage', (dynamic args) async {
+      if (sourceId == null || args.length < 3) return false;
+      await ExtensionSessionManager.setLocalStorage(
+        sourceId!,
+        args[0].toString(),
+        args[1].toString(),
+        args[2].toString(),
+      );
+      return true;
+    });
+    runtime.onMessage('removeLocalStorage', (dynamic args) async {
+      if (sourceId == null || args.length < 2) return false;
+      await ExtensionSessionManager.removeLocalStorage(
+        sourceId!,
+        args[0].toString(),
+        args[1].toString(),
+      );
+      return true;
+    });
+    runtime.onMessage('addCookie', (dynamic args) async {
+      if (sourceId == null || args.length < 3) return false;
+      await ExtensionSessionManager.mergeCookie(
+        sourceId!,
+        args[0].toString(),
+        args[1].toString(),
+        args[2].toString(),
+      );
+      return true;
+    });
 
     // ── console.log / console.warn / console.error from extension JS ──────────
     // Routed into AppLogger so they appear in the in-app overlay and session
@@ -210,6 +250,18 @@ async function parseEpubChapter(bookName, url, headers, chapterTitle) {
         "parseEpubChapter",
         JSON.stringify([bookName, url, headers, chapterTitle])
     );
+}
+async function getLocalStorage(origin, key) {
+    return await sendMessage("getLocalStorage", JSON.stringify([origin, key]));
+}
+async function setLocalStorage(origin, key, value) {
+    return await sendMessage("setLocalStorage", JSON.stringify([origin, key, value]));
+}
+async function removeLocalStorage(origin, key) {
+    return await sendMessage("removeLocalStorage", JSON.stringify([origin, key]));
+}
+async function addCookie(origin, name, value) {
+    return await sendMessage("addCookie", JSON.stringify([origin, name, value]));
 }
 ''');
   }

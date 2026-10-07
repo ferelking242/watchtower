@@ -103,6 +103,7 @@ class ExtensionHomeEmptyState extends StatefulWidget {
     required this.onRetry,
     required this.onRefresh,
     required this.header,
+    this.sourceId,
     this.error,
     this.challengeUrl,
     super.key,
@@ -111,6 +112,7 @@ class ExtensionHomeEmptyState extends StatefulWidget {
   final Future<void> Function() onRetry;
   final Future<void> Function() onRefresh;
   final Widget header;
+  final int? sourceId;
   final Object? error;
   final String? challengeUrl;
 
@@ -334,6 +336,7 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                     const SizedBox(height: 14),
                                     CloudflareBypassPanel(
                                       url: challengeUrl!,
+                                      sourceId: widget.sourceId,
                                       compact: true,
                                       onResolved: _retrySource,
                                       onRetry: _retrySource,
