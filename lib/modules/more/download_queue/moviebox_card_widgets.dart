@@ -42,8 +42,8 @@ class MbThumb extends StatelessWidget {
         itemType == ItemType.anime
             ? Icons.play_circle_outline
             : itemType == ItemType.novel
-                ? Icons.auto_stories_outlined
-                : Icons.menu_book_outlined,
+            ? Icons.auto_stories_outlined
+            : Icons.menu_book_outlined,
         color: scheme.onSurfaceVariant.withValues(alpha: 0.35),
         size: 24,
       ),
@@ -83,7 +83,10 @@ class MbThumb extends StatelessWidget {
               Align(
                 alignment: Alignment.bottomLeft,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.bottomLeft,
@@ -114,8 +117,11 @@ class MbThumb extends StatelessWidget {
                     color: Color(0x66000000),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.play_arrow_rounded,
-                      color: Colors.white, size: 18),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
           ],
@@ -125,7 +131,7 @@ class MbThumb extends StatelessWidget {
   }
 }
 
-class MbGradientProgressBar extends StatelessWidget {
+class MbGradientProgressBar extends StatefulWidget {
   final double? value;
   final double height;
   final bool paused;
@@ -140,26 +146,100 @@ class MbGradientProgressBar extends StatelessWidget {
   });
 
   @override
+  State<MbGradientProgressBar> createState() => _MbGradientProgressBarState();
+}
+
+class _MbGradientProgressBarState extends State<MbGradientProgressBar>
+    with TickerProviderStateMixin {
+  // "Snake" sweep that runs across the filled part while a transfer is active.
+  late final AnimationController _sweep;
+
+  // Progress is eased towards the latest value instead of snapping, so noisy
+  // byte/page counters do not make the bar jitter on every rebuild.
+  late final AnimationController _valueAnim;
+  static const _valueDuration = Duration(milliseconds: 320);
+  static const _curve = Curves.easeOutCubic;
+  // Ignore sub-pixel target moves; they are pure counter noise.
+  static const _deadband = 0.004;
+
+  double _from = 0;
+  double _to = 0;
+
+  double? get _target {
+    final value = widget.value;
+    if (value == null) return null;
+    return value.clamp(0.0, 1.0).toDouble();
+  }
+
+  double get _displayed =>
+      _from + (_to - _from) * _curve.transform(_valueAnim.value);
+
+  @override
+  void initState() {
+    super.initState();
+    _sweep = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    final start = _target ?? 0;
+    _from = start;
+    _to = start;
+    _valueAnim = AnimationController(
+      vsync: this,
+      duration: _valueDuration,
+      value: 1,
+    );
+    if (_sweepEnabled) _sweep.repeat();
+  }
+
+  bool get _sweepEnabled => _target != null && !widget.paused && !widget.failed;
+
+  @override
+  void didUpdateWidget(covariant MbGradientProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final target = _target;
+    if (target != null && (target - _to).abs() > _deadband) {
+      _from = _displayed;
+      _to = target;
+      _valueAnim.forward(from: 0);
+    }
+    if (_sweepEnabled) {
+      if (!_sweep.isAnimating) _sweep.repeat();
+    } else if (_sweep.isAnimating) {
+      _sweep.stop();
+      _sweep.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _sweep.dispose();
+    _valueAnim.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final progressValue = value;
     final scheme = Theme.of(context).colorScheme;
+    final paused = widget.paused;
+    final failed = widget.failed;
     final background = paused
         ? mbAmber.withValues(alpha: 0.18)
         : failed
-            ? mbRed.withValues(alpha: 0.18)
-            : scheme.onSurface.withValues(alpha: 0.10);
+        ? mbRed.withValues(alpha: 0.18)
+        : scheme.onSurface.withValues(alpha: 0.10);
     final gradient = failed
         ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
         : paused
-            ? const LinearGradient(colors: [mbAmber, Color(0xFFFF8F00)])
-            : const LinearGradient(colors: [mbGreen, mbTeal]);
+        ? const LinearGradient(colors: [mbAmber, Color(0xFFFF8F00)])
+        : const LinearGradient(colors: [mbGreen, mbTeal]);
 
-    if (progressValue == null) {
+    if (_target == null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(height / 2),
+        borderRadius: BorderRadius.circular(widget.height / 2),
         child: LinearProgressIndicator(
           value: null,
-          minHeight: height,
+          minHeight: widget.height,
           backgroundColor: background,
           valueColor: AlwaysStoppedAnimation<Color>(gradient.colors.first),
         ),
@@ -167,25 +247,76 @@ class MbGradientProgressBar extends StatelessWidget {
     }
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(height / 2),
+      borderRadius: BorderRadius.circular(widget.height / 2),
       child: SizedBox(
-        height: height,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(color: background),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: progressValue.clamp(0.0, 1.0).toDouble(),
-                  child: DecoratedBox(decoration: BoxDecoration(gradient: gradient)),
+        height: widget.height,
+        child: AnimatedBuilder(
+          animation: _valueAnim,
+          builder: (context, _) => LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(color: background),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: _displayed,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(gradient: gradient),
+                        ),
+                        if (_sweepEnabled) _buildSnake(),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  // A soft highlight band travelling left to right across the filled region.
+  Widget _buildSnake() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final bandWidth = width * 0.42;
+        return ClipRect(
+          child: AnimatedBuilder(
+            animation: _sweep,
+            builder: (context, _) {
+              final travel = -bandWidth + (width + bandWidth) * _sweep.value;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned(
+                    left: travel,
+                    top: 0,
+                    bottom: 0,
+                    width: bandWidth,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: 0.0),
+                            Colors.white.withValues(alpha: 0.45),
+                            Colors.white.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -221,20 +352,20 @@ class MbRowActions extends StatelessWidget {
     final gradient = hasFailed
         ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
         : isComplete
-            ? const LinearGradient(colors: [mbTeal, mbGreen])
-            : const LinearGradient(colors: [mbGreen, mbTeal]);
+        ? const LinearGradient(colors: [mbTeal, mbGreen])
+        : const LinearGradient(colors: [mbGreen, mbTeal]);
     final icon = isComplete
         ? Icons.folder_open_rounded
         : hasFailed
-            ? Icons.refresh_rounded
-            : isPaused
-                ? Icons.play_arrow_rounded
-                : Icons.pause_rounded;
+        ? Icons.refresh_rounded
+        : isPaused
+        ? Icons.play_arrow_rounded
+        : Icons.pause_rounded;
     final onTap = hasFailed
         ? onRetry
         : isComplete
-            ? onOpen
-            : onPauseResume;
+        ? onOpen
+        : onPauseResume;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -280,8 +411,10 @@ class MbRowActions extends StatelessWidget {
                       color: mbAmber,
                     ),
                     const SizedBox(width: 10),
-                    Text(isPaused ? 'Reprendre' : 'Pause',
-                        style: const TextStyle(fontSize: 13)),
+                    Text(
+                      isPaused ? 'Reprendre' : 'Pause',
+                      style: const TextStyle(fontSize: 13),
+                    ),
                   ],
                 ),
               ),
@@ -303,8 +436,11 @@ class MbRowActions extends StatelessWidget {
                 height: 40,
                 child: Row(
                   children: [
-                    const Icon(Icons.folder_open_rounded,
-                        size: 17, color: mbTeal),
+                    const Icon(
+                      Icons.folder_open_rounded,
+                      size: 17,
+                      color: mbTeal,
+                    ),
                     const SizedBox(width: 10),
                     const Text('Ouvrir', style: TextStyle(fontSize: 13)),
                   ],
@@ -315,8 +451,11 @@ class MbRowActions extends StatelessWidget {
               height: 40,
               child: Row(
                 children: [
-                  Icon(Icons.close_rounded, size: 17,
-                      color: scheme.onSurfaceVariant),
+                  Icon(
+                    Icons.close_rounded,
+                    size: 17,
+                    color: scheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 10),
                   const Text('Annuler', style: TextStyle(fontSize: 13)),
                 ],
@@ -327,11 +466,16 @@ class MbRowActions extends StatelessWidget {
               height: 40,
               child: Row(
                 children: [
-                  const Icon(Icons.delete_outline_rounded,
-                      size: 17, color: Colors.redAccent),
+                  const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 17,
+                    color: Colors.redAccent,
+                  ),
                   const SizedBox(width: 10),
-                  const Text('Supprimer',
-                      style: TextStyle(fontSize: 13, color: Colors.redAccent)),
+                  const Text(
+                    'Supprimer',
+                    style: TextStyle(fontSize: 13, color: Colors.redAccent),
+                  ),
                 ],
               ),
             ),

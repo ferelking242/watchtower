@@ -67,18 +67,41 @@ jobs:
           key: rust-android-arm64-release-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
           restore-keys: rust-android-arm64-release-${{ runner.os }}-
 
-      - name: Cache Android SDK extras (NDK 27, CMake)
+      - name: Cache Android SDK extras (NDK 27, NDK 28.2, CMake)
         uses: actions/cache@v5
         with:
           path: |
             /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/ndk/28.2.13676358
             /usr/local/lib/android/sdk/cmake/3.22.1
-          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+          key: android-sdk-extras-ndk27-ndk28-cmake-${{ runner.os }}
 
       - name: Install Rust Android target
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
+
+      - name: Pre-install Android NDK 28.2 (retry on flaky download)
+        run: |
+          SDKMANAGER=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+          NDK_DIR=$ANDROID_HOME/ndk/28.2.13676358
+          for attempt in 1 2 3; do
+            if [ -d "$NDK_DIR" ] && [ -f "$NDK_DIR/source.properties" ]; then
+              echo "NDK 28.2 already present"
+              exit 0
+            fi
+            echo "NDK 28.2 install attempt $attempt"
+            rm -rf "$NDK_DIR"
+            if yes | "$SDKMANAGER" --install "ndk;28.2.13676358" --sdk_root="$ANDROID_HOME"; then
+              if [ -f "$NDK_DIR/source.properties" ]; then
+                echo "NDK 28.2 installed"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "::error::Failed to install Android NDK 28.2 after 3 attempts"
+          exit 1
 
       - name: Compute and bump version
         id: ver
