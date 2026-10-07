@@ -579,7 +579,6 @@ class ExtensionSessionManager {
     if (userAgent?.trim().isNotEmpty == true) {
       session['userAgent'] = userAgent!.trim();
     }
-    final now = DateTime.now().millisecondsSinceEpoch;
     session['webViewState'] = {
       'lastUrl': uri.toString(),
       'lastSynchronizedAt': now,
