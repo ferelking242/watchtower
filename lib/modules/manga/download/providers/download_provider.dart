@@ -38,6 +38,7 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/download_manager/m3u8/m3u8_downloader.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/services/manga_download_manifest.dart';
 import 'package:watchtower/services/download_manager/engine_selector.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
@@ -1131,6 +1132,10 @@ Future<void> downloadChapter(
     List<PageUrl> pageUrlsForCache = [];
     PageUrl? novelPage;
     List<PageUrl> pages = [];
+    final mangaPageTasks = <PageUrl>[];
+    final mangaPagePaths = <String>[];
+    final mangaPageCompleted = <bool>[];
+    MangaDownloadManifest? activeMangaManifest;
     final StorageProvider storageProvider = StorageProvider();
     // Résolution robuste du manga EN PREMIER : `getMangaMainDirectory()` fait
     // `chapter.manga.value!` et levait donc un "Null check operator used on a
@@ -1202,9 +1207,22 @@ Future<void> downloadChapter(
     bool hasM3U8File = false;
     bool nonM3U8File = false;
     M3u8Downloader? m3u8Downloader;
+    await DownloadSettingsService.instance.load();
+    ref.invalidate(mangaArchiveFormatStateProvider);
+    final saveMangaAsCbz =
+        itemType == ItemType.manga &&
+        ref.read(mangaArchiveFormatStateProvider) == MangaArchiveFormat.cbz;
 
     Future<void> processConvert() async {
-      if (!ref.read(saveAsCBZArchiveStateProvider)) return;
+      if (!saveMangaAsCbz) return;
+      final cbzFile = File(
+        p.join(mangaMainDirectory!.path, '${chapter.name}.cbz'),
+      );
+      if (cbzFile.existsSync() && cbzFile.lengthSync() > 0) return;
+      if (mangaPageTasks.isEmpty ||
+          mangaPageTasks.any((page) => page.fileName == null)) {
+        throw StateError('La liste complète des pages manga est indisponible.');
+      }
       try {
         final chapterNumber = ChapterRecognition().parseChapterNumber(
           chapter.manga.value!.name!,
@@ -1226,7 +1244,7 @@ Future<void> downloadChapter(
             chapterDirectory.path,
             mangaMainDirectory!.path,
             chapter.name!,
-            pages.map((e) => e.fileName!).toList(),
+            mangaPageTasks.map((page) => page.fileName!).toList(),
             comicInfo: comicInfo,
           ).future,
         );
@@ -1234,7 +1252,91 @@ Future<void> downloadChapter(
         botToast(
           'Erreur lors de la création du CBZ : ${friendlyErrorMessage(error)}',
         );
+        rethrow;
       }
+    }
+
+    void persistMangaManifest(MangaDownloadManifest manifest) {
+      final id = chapter.id;
+      if (id == null) {
+        throw StateError(
+          'Impossible de sauvegarder le manifeste sans identifiant de chapitre.',
+        );
+      }
+      Download? record;
+      try {
+        record = isar.downloads.getSync(id);
+      } catch (_) {
+        record = null;
+      }
+      final download =
+          record ??
+          Download(
+            id: id,
+            succeeded: 0,
+            failed: 0,
+            total: manifest.pages.length,
+            isDownload: false,
+            isStartDownload: true,
+            title: chapter.name,
+            status: 'initializing',
+          );
+      download.pageManifestJson = manifest.encode();
+      isar.writeTxnSync(() => _putDownloadForChapter(download, chapter));
+    }
+
+    void updateMangaPageState(String? filePath, MangaPageState newState) {
+      final manifest = activeMangaManifest;
+      if (manifest == null || filePath == null) return;
+      final index = manifest.pages.indexWhere(
+        (page) => page.filePath == filePath,
+      );
+      if (index < 0 || manifest.pages[index].state == newState) return;
+      final updatedPages = [...manifest.pages];
+      updatedPages[index] = updatedPages[index].copyWith(state: newState);
+      activeMangaManifest = MangaDownloadManifest(
+        chapterUrl: manifest.chapterUrl,
+        pages: updatedPages,
+      );
+      persistMangaManifest(activeMangaManifest!);
+    }
+
+    void markMangaFailure(Object error) {
+      final manifest = activeMangaManifest;
+      if (manifest == null) return;
+      final errorText = error.toString();
+      int? failedIndex;
+      for (var index = 0; index < manifest.pages.length; index++) {
+        final page = manifest.pages[index];
+        if (page.state == MangaPageState.completed) continue;
+        if (errorText.contains(page.filePath) ||
+            errorText.contains(p.basename(page.filePath))) {
+          failedIndex = index;
+          break;
+        }
+      }
+      if (failedIndex == null) {
+        final incomplete = [
+          for (var index = 0; index < manifest.pages.length; index++)
+            if (manifest.pages[index].state != MangaPageState.completed) index,
+        ];
+        if (incomplete.length == 1) failedIndex = incomplete.single;
+      }
+      final updatedPages = [
+        for (var index = 0; index < manifest.pages.length; index++)
+          manifest.pages[index].copyWith(
+            state: index == failedIndex
+                ? MangaPageState.failed
+                : manifest.pages[index].state == MangaPageState.downloading
+                ? MangaPageState.pending
+                : manifest.pages[index].state,
+          ),
+      ];
+      activeMangaManifest = MangaDownloadManifest(
+        chapterUrl: manifest.chapterUrl,
+        pages: updatedPages,
+      );
+      persistMangaManifest(activeMangaManifest!);
     }
 
     // Tracks the KB already stored in Isar from a previous (paused) download
@@ -1300,9 +1402,6 @@ Future<void> downloadChapter(
           logLevel: LogLevel.debug,
           tag: LogTag.page,
         );
-      }
-      if (progress.isCompleted && itemType == ItemType.manga) {
-        await processConvert();
       }
       if (chapterId != null) {
         final latestDownload = isar.downloads.getSync(chapterId);
@@ -1481,15 +1580,12 @@ Future<void> downloadChapter(
         }
       }
 
-      // ── First-tick: capture resume offset from Isar ──────────────────────
-      // setProgress(0, 0, …) is called once before any real progress arrives.
-      // If the stored record already has bytes, this is a resume — capture the
-      // offset so every subsequent tick adds it back in.
-      if (_resumeSucceededKbOffset < 0) {
+      // Manga progress now includes every valid page already on disk, so it
+      // must not add a second offset from the older queue record.
+      if (progress.itemType == ItemType.manga && progress.total > 0) {
+        _resumeSucceededKbOffset = 0;
+      } else if (_resumeSucceededKbOffset < 0) {
         final stored = storedSucceeded;
-        // Threshold is type-aware:
-        //   • anime  → succeeded is in KB; anything >500 KB is a real progress value.
-        //   • manga  → succeeded is page count; anything >1 means real progress.
         final threshold = progress.itemType == ItemType.anime ? 500 : 1;
         _resumeSucceededKbOffset =
             stored > threshold &&
@@ -1499,20 +1595,9 @@ Future<void> downloadChapter(
             : 0;
       }
 
-      // ── Resume-safe corrections (manga and known-size files) ──────────────
-      // On pause → resume, the fresh downloader only sees remaining items:
-      //   • isarTotal  may be re-estimated from remaining items → differs from original.
-      //   • isarSucceeded restarts from 0                       → appears to go backwards.
-      // Corrections:
-      //   1. Once a meaningful total is established, freeze it completely
-      //      — never allow it to grow OR shrink from a new estimate.
-      //      Only the final completion signal (progress.isCompleted) may
-      //      update isarTotal with the real on-disk size / page count.
-      //   2. Add the already-downloaded offset to every succeeded value.
-      //
-      // Thresholds:
-      //   • anime  → total is in KB, use >500 KB as "meaningful".
-      //   • manga  → total is page count, use >1 as "meaningful" (>sentinel).
+      // ── Resume-safe corrections for byte-counted media ───────────────────
+      // Manga reports the complete page list and valid files on disk above,
+      // so its total and completed count are authoritative on every resume.
       if (download != null) {
         final storedTotal = download.total ?? 0;
         final freezeThreshold = progress.itemType == ItemType.anime ? 500 : 1;
@@ -1520,7 +1605,8 @@ Future<void> downloadChapter(
             progress.itemType != ItemType.anime ||
             reportedTotalBytes != null ||
             persistedTotalBytes != null;
-        if (storedTotal > freezeThreshold &&
+        if (progress.itemType != ItemType.manga &&
+            storedTotal > freezeThreshold &&
             (progress.itemType != ItemType.anime ||
                 storedTotal <= maxTrustedDownloadBytes ~/ 1024) &&
             !progress.isCompleted &&
@@ -1765,15 +1851,18 @@ Future<void> downloadChapter(
                 m3u8Downloader?.fileName ??
                 p.join(directory.path, '$chapterName.mp4');
           } else if (progress.itemType == ItemType.manga) {
-            candidatePath = p.join(directory.path, '${chapter.name}.cbz');
+            candidatePath = saveMangaAsCbz
+                ? p.join(directory.path, '${chapter.name}.cbz')
+                : chapterDirectory.path;
           } else if (progress.itemType == ItemType.novel) {
             candidatePath = p.join(directory.path, '$chapterName.html');
           }
         }
-        final completedPath =
-            candidatePath != null && await File(candidatePath).exists()
-            ? candidatePath
-            : null;
+        final completedPathExists = candidatePath != null &&
+            (progress.itemType == ItemType.manga && !saveMangaAsCbz
+                ? await Directory(candidatePath).exists()
+                : await File(candidatePath).exists());
+        final completedPath = completedPathExists ? candidatePath : null;
         if (completedPath != null) {
           try {
             final completedRecord = isar.downloads.getSync(chapter.id!);
@@ -2170,12 +2259,75 @@ Future<void> downloadChapter(
       tag: LogTag.download,
     );
 
+    Future<void> buildMangaPagePlan() async {
+      mangaPageTasks.clear();
+      mangaPagePaths.clear();
+      mangaPageCompleted.clear();
+      pages.clear();
+      final baseHeaders = Map<String, String>.from(
+        ref.read(
+          headersProvider(
+            source: manga.source!,
+            lang: manga.lang!,
+            sourceId: manga.sourceId,
+          ),
+        ),
+      );
+      for (var index = 0; index < pageUrls.length; index++) {
+        final page = pageUrls[index];
+        final cookie = MClient.getCookiesPref(page.url);
+        final pageHeaders = Map<String, String>.from(baseHeaders);
+        if (cookie.isNotEmpty) {
+          try {
+            final userAgent = readSettingsSafely(isar: isar).userAgent;
+            pageHeaders.addAll(cookie);
+            if (userAgent != null) {
+              pageHeaders[HttpHeaders.userAgentHeader] = userAgent;
+            }
+          } catch (_) {
+            pageHeaders.addAll(cookie);
+          }
+        }
+        pageHeaders.addAll(page.headers ?? const {});
+        final filePath = p.join(
+          chapterDirectory.path,
+          '${padIndex(index)}.jpg',
+        );
+        final task = PageUrl(
+          page.url.trim(),
+          headers: pageHeaders,
+          fileName: filePath,
+        );
+        final completed = await isReusableDownloadedImage(File(filePath));
+        mangaPageTasks.add(task);
+        mangaPagePaths.add(filePath);
+        mangaPageCompleted.add(completed);
+        if (!completed) pages.add(task);
+      }
+
+      final previous = chapter.id == null
+          ? null
+          : MangaDownloadManifest.decode(
+              isar.downloads.getSync(chapter.id!)?.pageManifestJson,
+            );
+      activeMangaManifest = reconcileMangaDownloadManifest(
+        chapterUrl: chapter.url,
+        pages: mangaPageTasks,
+        filePaths: mangaPagePaths,
+        completed: mangaPageCompleted,
+        previous: previous,
+      );
+      persistMangaManifest(activeMangaManifest!);
+    }
+
     if (pageUrls.isNotEmpty) {
+      final cbzFile = File(
+        p.join(mangaMainDirectory!.path, '${chapter.name}.cbz'),
+      );
       bool cbzFileExist =
-          await File(
-            p.join(mangaMainDirectory!.path, "${chapter.name}.cbz"),
-          ).exists() &&
-          ref.read(saveAsCBZArchiveStateProvider);
+          saveMangaAsCbz &&
+          await cbzFile.exists() &&
+          (await cbzFile.length()) > 0;
       bool mp4FileExist = await File(
         p.join(mangaMainDirectory.path, "$chapterName.mp4"),
       ).exists();
@@ -2188,9 +2340,9 @@ Future<void> downloadChapter(
         logLevel: LogLevel.debug,
         tag: LogTag.download,
       );
-      if (!cbzFileExist && itemType == ItemType.manga ||
-          !mp4FileExist && itemType == ItemType.anime ||
-          !htmlFileExist && itemType == ItemType.novel) {
+      if ((!cbzFileExist && itemType == ItemType.manga) ||
+          (!mp4FileExist && itemType == ItemType.anime) ||
+          (!htmlFileExist && itemType == ItemType.novel)) {
         final mainDirectoryRaw = await storageProvider.getDirectory();
         if (mainDirectoryRaw == null) {
           AppLogger.log(
@@ -2209,77 +2361,65 @@ Future<void> downloadChapter(
           tag: LogTag.download,
         );
         storageProvider.createDirectorySafely(mainDirectory.path);
-        for (var index = 0; index < pageUrls.length; index++) {
-          if (!kIsWeb && Platform.isAndroid) {
-            if (!(await File(
-              p.join(mainDirectory.path, ".nomedia"),
-            ).exists())) {
-              await File(p.join(mainDirectory.path, ".nomedia")).create();
-            }
-          }
-          final page = pageUrls[index];
-          final cookie = MClient.getCookiesPref(page.url);
-          final headers = itemType == ItemType.manga
-              ? ref.read(
-                  headersProvider(
-                    source: manga.source!,
-                    lang: manga.lang!,
-                    sourceId: manga.sourceId,
-                  ),
-                )
-              : itemType == ItemType.anime
-              ? videoHeader
-              : htmlHeader;
-          if (cookie.isNotEmpty) {
-            try {
-              final settings = readSettingsSafely(isar: isar);
-              final userAgent = settings.userAgent;
-              if (userAgent != null) {
-                headers.addAll(cookie);
-                headers[HttpHeaders.userAgentHeader] = userAgent;
+        if (!kIsWeb && Platform.isAndroid) {
+          final noMediaFile = File(p.join(mainDirectory.path, '.nomedia'));
+          if (!await noMediaFile.exists()) await noMediaFile.create();
+        }
+        if (itemType == ItemType.manga) {
+          await buildMangaPagePlan();
+        } else {
+          for (var index = 0; index < pageUrls.length; index++) {
+            final page = pageUrls[index];
+            final cookie = MClient.getCookiesPref(page.url);
+            final headers = itemType == ItemType.anime
+                ? videoHeader
+                : htmlHeader;
+            if (cookie.isNotEmpty) {
+              try {
+                final settings = readSettingsSafely(isar: isar);
+                final userAgent = settings.userAgent;
+                if (userAgent != null) {
+                  headers.addAll(cookie);
+                  headers[HttpHeaders.userAgentHeader] = userAgent;
+                }
+              } catch (_) {
+                // Settings corrompues : on continue sans user-agent.
               }
-            } catch (_) {
-              // Settings corrompues : on continue sans user-agent.
             }
-          }
-          // Copy headers so each page gets its own map (avoids mutating
-          // the shared `headers` reference across loop iterations).
-          final Map<String, String> pageHeaders = Map<String, String>.from(
-            headers,
-          );
-          pageHeaders.addAll(page.headers ?? {});
-
-          if (itemType == ItemType.manga) {
-            final file = File(
-              p.join(chapterDirectory.path, "${padIndex(index)}.jpg"),
-            );
-            if (!await isReusableDownloadedImage(file)) {
-              pages.add(
-                PageUrl(
-                  page.url.trim(),
-                  headers: pageHeaders,
-                  fileName: p.join(
-                    chapterDirectory.path,
-                    "${padIndex(index)}.jpg",
+            final pageHeaders = Map<String, String>.from(headers)
+              ..addAll(page.headers ?? {});
+            if (itemType == ItemType.anime) {
+              final file = File(
+                p.join(mangaMainDirectory.path, '$chapterName.mp4'),
+              );
+              if (!file.existsSync()) {
+                pages.add(
+                  PageUrl(
+                    page.url.trim(),
+                    headers: pageHeaders,
+                    fileName: p.join(
+                      mangaMainDirectory.path,
+                      '$chapterName.mp4',
+                    ),
                   ),
-                ),
-              );
-            }
-          } else if (itemType == ItemType.anime) {
-            final file = File(
-              p.join(mangaMainDirectory.path, "$chapterName.mp4"),
-            );
-            if (!file.existsSync()) {
-              pages.add(
-                PageUrl(
-                  page.url.trim(),
-                  headers: pageHeaders,
-                  fileName: p.join(mangaMainDirectory.path, "$chapterName.mp4"),
-                ),
-              );
+                );
+              }
             }
           }
         }
+      }
+
+      if (activeMangaManifest != null) {
+        final alreadyCompleted = activeMangaManifest!.pages
+            .where((page) => page.state == MangaPageState.completed)
+            .length;
+        await setProgress(
+          DownloadProgress(
+            alreadyCompleted,
+            activeMangaManifest!.pages.length,
+            ItemType.manga,
+          ),
+        );
       }
 
       AppLogger.log(
@@ -2295,7 +2435,10 @@ Future<void> downloadChapter(
           tag: LogTag.download,
         );
         await processConvert();
-        await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
+        final total = activeMangaManifest?.pages.length ?? 1;
+        await setProgress(
+          DownloadProgress(total, total, itemType, isCompleted: true),
+        );
       } else {
         // Register internal task for pause/cancel support
         final taskId = '${chapter.id}';
@@ -2337,31 +2480,112 @@ Future<void> downloadChapter(
           if (itemType == ItemType.manga) {
             _setDownloadStatus(chapterId, 'downloading');
           }
-          await MDownloader(
-            chapter: chapter,
-            pageUrls: pages,
-            subtitles: subtitles,
-            subDownloadDir: chapterDirectory.path,
-            concurrentDownloads: mangaConnections,
-          ).download((progress) {
-            setProgress(progress);
-          });
+
+          Future<void> downloadCurrentPageList() async {
+            final manifest = activeMangaManifest;
+            final completedBeforeStart =
+                manifest?.pages
+                    .where((page) => page.state == MangaPageState.completed)
+                    .length ??
+                0;
+            await MDownloader(
+              chapter: chapter,
+              pageUrls: pages,
+              subtitles: subtitles,
+              subDownloadDir: chapterDirectory.path,
+              concurrentDownloads: mangaConnections,
+              completedBeforeStart: itemType == ItemType.manga
+                  ? completedBeforeStart
+                  : 0,
+              totalPageCount: itemType == ItemType.manga
+                  ? manifest?.pages.length
+                  : null,
+              deferCompletionCallback: itemType == ItemType.manga,
+            ).download((progress) {
+              if (itemType == ItemType.manga && progress.pageUrl != null) {
+                updateMangaPageState(
+                  progress.pageUrl!.fileName,
+                  progress.downloadedBytes == null
+                      ? MangaPageState.completed
+                      : MangaPageState.downloading,
+                );
+              }
+              unawaited(setProgress(progress));
+            });
+          }
+
+          if (itemType == ItemType.manga) {
+            var refreshedUrls = false;
+            while (true) {
+              try {
+                await downloadCurrentPageList();
+                break;
+              } catch (error, stackTrace) {
+                markMangaFailure(error);
+                final interrupted =
+                    chapter.id != null &&
+                    ActiveDownloadRegistry.wasInterrupted(chapter.id!);
+                if (refreshedUrls || interrupted) {
+                  Error.throwWithStackTrace(error, stackTrace);
+                }
+
+                refreshedUrls = true;
+                try {
+                  pageUrls = await fetchFreshChapterPageUrls(
+                    chapter: chapter,
+                    lang: manga.lang!,
+                    sourceName: manga.source!,
+                    sourceId: manga.sourceId,
+                  ).timeout(const Duration(seconds: 90));
+                  pageUrlsForCache = pageUrls;
+                  await savePageUrls();
+                  await buildMangaPagePlan();
+                  final refreshedManifest = activeMangaManifest!;
+                  final completed = refreshedManifest.pages
+                      .where((page) => page.state == MangaPageState.completed)
+                      .length;
+                  await setProgress(
+                    DownloadProgress(
+                      completed,
+                      refreshedManifest.pages.length,
+                      ItemType.manga,
+                    ),
+                  );
+                  if (chapter.id != null &&
+                      ActiveDownloadRegistry.wasInterrupted(chapter.id!)) {
+                    Error.throwWithStackTrace(error, stackTrace);
+                  }
+                  if (pages.isEmpty) break;
+                } catch (refreshError, refreshStack) {
+                  log(
+                    '[downloadChapter][manga] URL refresh failed '
+                    'chapterId=${chapter.id} error=$refreshError',
+                    error: refreshError,
+                    stackTrace: refreshStack,
+                  );
+                  Error.throwWithStackTrace(error, stackTrace);
+                }
+              }
+            }
+          } else {
+            await downloadCurrentPageList();
+          }
+
           final interruptedByQueueAction =
               chapter.id != null &&
               ActiveDownloadRegistry.wasInterrupted(chapter.id!);
-          // CRITICAL: MDownloader's onComplete fires onProgress(isCompleted=true)
-          // inside a void callback that is NOT awaited.  setProgress is async
-          // (it calls processConvert / CBZ conversion before the Isar write),
-          // so isDownload=true may NOT be in Isar by the time download() returns.
+          // MDownloader completion callbacks are void and are not awaited.
+          // Manga defers that signal until archive conversion is done, then
+          // this awaited update commits the final queue state before returning.
           // The next processDownloads tick (900 ms) then finds the chapter still
           // with isDownload=false → re-queues it → second dispatch causes a
           // "nested transaction" crash on the extension timeout.
-          // Fix: explicitly await a final setProgress here, guaranteed to finish
-          // before callback?.call() unblocks processDownloads.  The double-call
-          // is idempotent (processConvert skips if the archive already exists).
+          // An awaited final update prevents that race.
           if (!interruptedByQueueAction) {
+            await processConvert();
+            final total = activeMangaManifest?.pages.length ?? 1;
             await setProgress(
-              DownloadProgress(1, 1, itemType, isCompleted: true),
+              DownloadProgress(total, total, itemType, isCompleted: true),
             );
             AppLogger.log(
               '[ch:' + (chapter.id?.toString() ?? '?') + '] COMPLETE ✓',

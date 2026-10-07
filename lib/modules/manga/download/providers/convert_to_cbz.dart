@@ -4,6 +4,7 @@ import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path/path.dart' as path;
+import 'package:watchtower/services/download_manager/image_payload_validator.dart';
 part 'convert_to_cbz.g.dart';
 
 /// Metadata for ComicInfo.xml generation (serializable for isolate).
@@ -97,22 +98,39 @@ List<String> _convertToCBZ(
 ) {
   final (chapterDir, mangaDir, chapterName, pageList, comicInfo) = datas;
   final imagesPaths = pageList.where((path) => path.endsWith('.jpg')).toList()
-    ..sort();
+    ..sort((a, b) {
+      final aIndex = int.tryParse(path.basenameWithoutExtension(a));
+      final bIndex = int.tryParse(path.basenameWithoutExtension(b));
+      if (aIndex != null && bIndex != null) return aIndex.compareTo(bIndex);
+      return a.compareTo(b);
+    });
 
-  if (imagesPaths.isEmpty) return imagesPaths;
+  if (imagesPaths.isEmpty) {
+    throw StateError('Aucune page manga à ajouter au CBZ.');
+  }
 
   final archive = Archive();
   final cbzPath = path.join(mangaDir, "$chapterName.cbz");
-  final List<String> missingFiles = [];
   final List<String> includedFiles = [];
 
   for (var imagePath in imagesPaths) {
     final file = File(imagePath);
     if (!file.existsSync()) {
-      missingFiles.add(imagePath);
-      continue;
+      throw FileSystemException('Page manga manquante', imagePath);
     }
     final bytes = file.readAsBytesSync();
+    final prefix = bytes.sublist(0, bytes.length < 512 ? bytes.length : 512);
+    final tail = bytes.sublist(bytes.length > 32 ? bytes.length - 32 : 0);
+    if (!isReusableImagePayload(
+      length: bytes.length,
+      prefix: prefix,
+      tail: tail,
+    )) {
+      throw FileSystemException(
+        'La page manga est vide ou invalide',
+        imagePath,
+      );
+    }
     final fileName = path.basename(imagePath);
     archive.add(ArchiveFile.bytes(fileName, bytes));
     includedFiles.add(imagePath);
@@ -124,23 +142,36 @@ List<String> _convertToCBZ(
     archive.add(ArchiveFile.bytes('ComicInfo.xml', utf8.encode(xml)));
   }
 
+  final temporaryFile = File('$cbzPath.part');
+  final backupFile = File('$cbzPath.previous');
   try {
     final cbzData = ZipEncoder().encode(archive);
-    File(cbzPath).writeAsBytesSync(cbzData);
+    if (temporaryFile.existsSync()) temporaryFile.deleteSync();
+    temporaryFile.writeAsBytesSync(cbzData, flush: true);
+
+    var hadPreviousArchive = false;
+    if (File(cbzPath).existsSync()) {
+      if (backupFile.existsSync()) backupFile.deleteSync();
+      File(cbzPath).renameSync(backupFile.path);
+      hadPreviousArchive = true;
+    }
+    try {
+      temporaryFile.renameSync(cbzPath);
+    } catch (_) {
+      if (hadPreviousArchive && backupFile.existsSync()) {
+        backupFile.renameSync(cbzPath);
+      }
+      rethrow;
+    }
+    if (backupFile.existsSync()) backupFile.deleteSync();
   } catch (e) {
-    if (File(cbzPath).existsSync()) File(cbzPath).deleteSync();
     throw FileSystemException("Failed to create/write CBZ file: $e", cbzPath);
   }
+
   try {
     Directory(chapterDir).deleteSync(recursive: true);
   } catch (e) {
-    throw FileSystemException("Failed to delete chapter directory", chapterDir);
-  }
-  if (missingFiles.isNotEmpty) {
-    final missingListStr = missingFiles.join(", ");
-    throw Exception(
-      "CBZ created, but the following pages were missing and not included: $missingListStr",
-    );
+    debugPrint('CBZ created; source image cleanup failed: $e');
   }
 
   return includedFiles;

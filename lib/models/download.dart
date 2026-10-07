@@ -29,6 +29,7 @@ class Download {
   String? posterUrl;
   String? filePath;
   String? status;
+  String? pageManifestJson;
 
   final chapter = IsarLink<Chapter>();
 
@@ -46,6 +47,7 @@ class Download {
     this.posterUrl,
     this.filePath,
     this.status,
+    this.pageManifestJson,
   });
   Download.fromJson(Map<String, dynamic> json) {
     failed = json['failed'];
@@ -61,6 +63,7 @@ class Download {
     posterUrl = json['posterUrl'];
     filePath = json['filePath'];
     status = json['status'];
+    pageManifestJson = json['pageManifestJson'];
   }
 
   Map<String, dynamic> toJson() => {
@@ -77,5 +80,6 @@ class Download {
     'posterUrl': posterUrl,
     'filePath': filePath,
     'status': status,
+    'pageManifestJson': pageManifestJson,
   };
 }

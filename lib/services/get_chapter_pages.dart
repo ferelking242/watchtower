@@ -8,6 +8,7 @@ import 'package:watchtower/modules/more/settings/browse/providers/browse_state_p
 import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/page_url_cache.dart';
+import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/main.dart';
@@ -24,6 +25,37 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
 part 'get_chapter_pages.g.dart';
+
+/// Bypass the stored page-URL cache and ask the source extension for fresh
+/// signed image URLs after an expired-link or transient network failure.
+Future<List<PageUrl>> fetchFreshChapterPageUrls({
+  required Chapter chapter,
+  required String lang,
+  required String sourceName,
+  required String? sourceId,
+}) async {
+  final chapterUrl = chapter.url;
+  if (chapterUrl == null || chapterUrl.isEmpty) {
+    throw StateError(
+      'Impossible de renouveler les pages sans URL de chapitre.',
+    );
+  }
+  final source = getSource(lang, sourceName, sourceId);
+  if (source == null) {
+    throw StateError('Source manga introuvable pour renouveler les pages.');
+  }
+  final pages = await getIsolateService.get<List<PageUrl>>(
+    url: chapterUrl,
+    source: source,
+    serviceType: 'getPageList',
+  );
+  if (pages.isEmpty) {
+    throw StateError(
+      'La source n’a retourné aucune page après actualisation.',
+    );
+  }
+  return pages;
+}
 
 class GetChapterPagesModel {
   Directory? path;
@@ -257,7 +289,9 @@ Future<GetChapterPagesModel> getChapterPages(
         int remoteCount = 0;
         for (var i = 0; i < pageUrls.length; i++) {
           archiveImages.add(null);
-          if (await File(p.join(path!.path, '${padIndex(i)}.jpg')).exists()) {
+          if (await isReusableDownloadedImage(
+            File(p.join(path!.path, '${padIndex(i)}.jpg')),
+          )) {
             isLocaleList.add(true);
             localCount++;
           } else {

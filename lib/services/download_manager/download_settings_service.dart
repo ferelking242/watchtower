@@ -39,11 +39,8 @@ extension DownloadModeExt on DownloadMode {
 
 /// Archive format for manga downloads.
 enum MangaArchiveFormat {
-  folder,  // 0 — images in folder (no archive)
-  cbz,     // 1 — CBZ (ZIP with images)
-  cbr,     // 2 — CBR (RAR-like, stored as zip)
-  cb7,     // 3 — CB7 (7z-like, stored as zip)
-  zip,     // 4 — ZIP plain
+  folder,
+  cbz,
 }
 
 extension MangaArchiveFormatExt on MangaArchiveFormat {
@@ -53,12 +50,6 @@ extension MangaArchiveFormatExt on MangaArchiveFormat {
         return 'Dossier (images)';
       case MangaArchiveFormat.cbz:
         return 'CBZ';
-      case MangaArchiveFormat.cbr:
-        return 'CBR';
-      case MangaArchiveFormat.cb7:
-        return 'CB7';
-      case MangaArchiveFormat.zip:
-        return 'ZIP';
     }
   }
 
@@ -68,12 +59,6 @@ extension MangaArchiveFormatExt on MangaArchiveFormat {
         return '';
       case MangaArchiveFormat.cbz:
         return '.cbz';
-      case MangaArchiveFormat.cbr:
-        return '.cbr';
-      case MangaArchiveFormat.cb7:
-        return '.cb7';
-      case MangaArchiveFormat.zip:
-        return '.zip';
     }
   }
 }
@@ -187,9 +172,17 @@ class DownloadSettingsService {
       final oldCbz = _data['saveAsCBZ'] as bool? ?? false;
       return oldCbz ? MangaArchiveFormat.cbz : MangaArchiveFormat.folder;
     }
-    return MangaArchiveFormat.values[
-        idx.clamp(0, MangaArchiveFormat.values.length - 1)];
+    // Older versions exposed CBR/CB7/ZIP choices but wrote ZIP bytes under
+    // misleading extensions. Preserve folder/CBZ indices and safely map the
+    // unsupported legacy choices to folder mode.
+    return idx == MangaArchiveFormat.cbz.index
+        ? MangaArchiveFormat.cbz
+        : MangaArchiveFormat.folder;
   }
+
+  bool get hasExplicitMangaArchiveFormat =>
+      _data.containsKey('mangaArchiveFormat') ||
+      _data.containsKey('saveAsCBZ');
 
   Future<void> setMangaArchiveFormat(MangaArchiveFormat format) async {
     _data['mangaArchiveFormat'] = format.index;

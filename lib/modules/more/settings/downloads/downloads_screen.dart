@@ -1,6 +1,4 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:numberpicker/numberpicker.dart';
@@ -12,6 +10,7 @@ import 'package:watchtower/modules/more/settings/downloads/sub_pages/watch_downl
 import 'package:watchtower/modules/more/settings/downloads/sub_pages/manga_download_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/sub_pages/novel_download_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/sub_pages/download_cards_screen.dart';
+import 'package:watchtower/modules/more/settings/settings_subpage_route.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/watchtower_folder_service.dart';
@@ -32,7 +31,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   @override
   void initState() {
     super.initState();
-    DownloadSettingsService.instance.load();
+    DownloadSettingsService.instance.load().then((_) {
+      if (mounted) ref.invalidate(mangaArchiveFormatStateProvider);
+    });
   }
 
   @override
@@ -283,24 +284,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   // ── Navigation ────────────────────────────────────────────────────────────
 
   void _push(BuildContext context, Widget page) {
-    Navigator.of(context).push(
-      !kIsWeb && (Platform.isIOS || Platform.isMacOS)
-          ? _cupertinoRoute(page)
-          : MaterialPageRoute(builder: (_) => page),
-    );
-  }
-
-  Route _cupertinoRoute(Widget page) {
-    return PageRouteBuilder(
-      pageBuilder: (c, a1, a2) => page,
-      transitionsBuilder: (c, a1, a2, child) {
-        const begin = Offset(1.0, 0.0);
-        const end = Offset.zero;
-        final tween = Tween(begin: begin, end: end)
-            .chain(CurveTween(curve: Curves.easeInOut));
-        return SlideTransition(position: a1.drive(tween), child: child);
-      },
-    );
+    Navigator.of(context).push(settingsSubpageRoute(page));
   }
 
   // ── Dialogs ───────────────────────────────────────────────────────────────
