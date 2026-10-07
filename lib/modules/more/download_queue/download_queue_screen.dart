@@ -15,6 +15,7 @@ import 'package:watchtower/modules/more/settings/downloads/providers/downloads_s
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
+import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/global_style.dart';
