@@ -175,6 +175,16 @@ void main() {
     expect(backdropLayout.showRecommendations, isTrue);
   });
 
+  test('does not expose reader cards without a real reader adapter', () {
+    expect(
+      LayoutComponentRegistry.forContext(
+        LayoutComponentContext.reader,
+        selectableOnly: true,
+      ),
+      isEmpty,
+    );
+  });
+
   test('parses episode numbers from episode labels without inventing one', () {
     expect(
       ExtensionEpisodeCardAdapter.parseEpisodeNumber('S2E05 - The Arrival'),

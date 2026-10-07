@@ -9,6 +9,9 @@ enum LayoutComponentContext {
   // Intentionally empty until a detail-page adapter can render registered
   // components from the persisted Manga/Chapter models and current layout data.
   detail,
+  // Separate from the video player context; the manga reader still renders
+  // pages through its own gesture-, archive-, and mode-aware pipeline.
+  reader,
   player,
 }
 
