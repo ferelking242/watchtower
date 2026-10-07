@@ -16,11 +16,15 @@ et la bibliothèque lorsque les services existants le permettent.
 - `lib/main.dart` détecte `--cli` avant `runApp`, ce qui évite de démarrer
   l’interface Flutter. Le CLI est donc une porte d’entrée vers les fonctions
   métier, pas une application parallèle.
-- `lib/cli/watchtower_cli.dart` fournit `help`, `version`, `doctor`,
-  `extensions list`, `extensions test`, `plugins list/show/validate` et
-  `source`. Le catalogue des sources reste un dépôt local avec `index/*.json`;
-  les entrées sans `sourceCodeUrl` et `index/plugins.json` sont traitées
-  séparément.
+- Le CLI est un client headless complet : `lib/cli/watchtower_cli.dart`
+  (dispatch), `lib/cli/commands/` (une commande par domaine),
+  `lib/cli/output/` (sérialisation JSON/humaine) et `lib/cli/runtime/`
+  (parsing des arguments et démarrage du runtime réel — Isar, Hive, isolate
+  d’images, pool de téléchargement — sans arbre de widgets).
+- `CliRuntime` réutilise `openWatchtowerDatabase` (`lib/services/watchtower_core.dart`),
+  partagé avec l’application, donc le CLI lit exactement la même base.
+- Commandes disponibles : `extensions`, `sources`, `library`, `downloads`,
+  `trackers`, `plugins`, `doctor`, `settings`, `version`, `help`.
 - Le chargement des sources respecte `sourceCodeLanguage` pour les moteurs
   JavaScript et Dart pris en charge.
 - `source` expose maintenant les opérations de `ExtensionService` : popular,
@@ -35,16 +39,14 @@ et la bibliothèque lorsque les services existants le permettent.
 - Les commandes plugin valident la structure et les types des métadonnées dans
   `index/plugins.json`. Elles n’exécutent pas le runtime du plugin, ne valident
   pas le schéma complet des manifests/UI et ne lisent pas les archives binaires.
-- Des tests dédiés couvrent maintenant le parseur d’options, la validation de
-  l’index plugin et le masquage de secrets. La CI Linux/Windows a été étendue à
-  ces tests et à l’analyse des fichiers CLI; l’exécution distante doit encore
-  être vérifiée après push.
-- Les tests du chemin d’application et les commandes de bibliothèque, historique,
-  progression, téléchargements et trackers restent indisponibles : le démarrage
-  headless n’initialise pas Isar/Hive.
-- Le chemin CLI retourne avant l’initialisation normale de Watchtower : Isar,
-  Hive, bibliothèque, historique, progression, téléchargement, trackers,
-  musique et services de fichiers ne sont pas accessibles comme commandes.
+- Des tests dédiés couvrent maintenant le parseur d’arguments, la validation de
+  l’index plugin et le masquage de secrets
+  (`test/watchtower_cli_arguments_test.dart`). La CI Linux/Windows les exécute
+  avec le reste des contrats de téléchargement.
+- Le chemin CLI démarre désormais le runtime réel (`CliRuntime.boot`) : Isar,
+  Hive, isolate d’images et pool de téléchargement sont initialisés avant
+  l’exécution d’une commande, donc `library`, `downloads` et `trackers`
+  opèrent sur la même base que l’application.
 - Le workflow Linux headless actif construit une archive, mais ses smoke tests
   se limitent à `doctor`, `help` et l’inventaire. Il utilise aussi Xvfb.
 - Le workflow `build-all-platforms` exécute le test CLI Linux en mode `load`
@@ -53,6 +55,28 @@ et la bibliothèque lorsque les services existants le permettent.
 - GitHub Actions est activé au niveau du dépôt. Le workflow d’analyse Flutter
   et le workflow Linux dédié sont actifs. Le workspace local n’a pas Flutter
   installé; les builds Dart/Flutter devront être validés sur ces runners.
+
+## Référence des commandes
+
+Invocation : `watchtower --cli <commande> [sous-commande] [options]`.
+Les options globales `--json`, `--ndjson`, `--quiet`, `--help`, `--verbose`
+et `--data-dir DIR` peuvent apparaître n’importe où. Les commandes en lecture
+seule n’écrivent rien; les commandes destructives (`library remove`,
+`downloads cancel|delete`, `extensions uninstall`, `library history-clear`)
+modifient la base.
+
+- `extensions list|install|update|uninstall|test`
+- `sources <source|id> popular|latest|search|detail|videos|pages|filters|…`
+- `library list|show|add|remove|categories|history|history-clear|updates|statistics`
+- `downloads list|enqueue|pause|resume|cancel|delete|process|watch`
+- `trackers list|login|logout|find|update|search`
+- `plugins list|show|validate --repo DIR`
+- `doctor` — vérifie la plateforme, la base et les workers d’extension.
+- `settings` — affiche la configuration avec masquage des valeurs secrètes.
+- `version`, `help [commande]`.
+
+Codes de sortie : `0` succès, `1` échec d’exécution, `2` initialisation du
+runtime impossible, `64` argument ou commande invalide.
 
 ## Phases et critères de sortie
 

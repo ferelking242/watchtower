@@ -194,8 +194,22 @@ void _setDownloadStatus(int? id, String status) {
   }
 }
 
-Future<void> deleteMediaDownload(WidgetRef ref, int chapterId) async {
-  final notifier = ref.read(downloadQueueStateProvider.notifier);
+/// Tear-off of `read` shared by [WidgetRef] and [ProviderContainer], so the
+/// download helpers can run with or without a widget tree.
+typedef ProviderRead = T Function<T>(ProviderListenable<T> provider);
+
+Future<void> deleteMediaDownload(WidgetRef ref, int chapterId) =>
+    _deleteMediaDownload(ref.read, chapterId);
+
+/// Headless variant of [deleteMediaDownload] for the CLI, where there is no
+/// widget tree and therefore no [WidgetRef].
+Future<void> deleteMediaDownloadFromContainer(
+  ProviderContainer ref,
+  int chapterId,
+) => _deleteMediaDownload(ref.read, chapterId);
+
+Future<void> _deleteMediaDownload(ProviderRead ref, int chapterId) async {
+  final notifier = ref(downloadQueueStateProvider.notifier);
   final download = isar.downloads.getSync(chapterId);
   if (download == null) return;
 
@@ -248,8 +262,21 @@ Future<void> handleMediaDownloadNotificationAction(
   WidgetRef ref,
   int chapterId,
   MediaDownloadNotificationAction action,
+) => _handleMediaDownloadNotificationAction(ref.read, chapterId, action);
+
+/// Headless variant of [handleMediaDownloadNotificationAction] for the CLI.
+Future<void> handleMediaDownloadNotificationActionFromContainer(
+  ProviderContainer ref,
+  int chapterId,
+  MediaDownloadNotificationAction action,
+) => _handleMediaDownloadNotificationAction(ref.read, chapterId, action);
+
+Future<void> _handleMediaDownloadNotificationAction(
+  ProviderRead ref,
+  int chapterId,
+  MediaDownloadNotificationAction action,
 ) async {
-  final notifier = ref.read(downloadQueueStateProvider.notifier);
+  final notifier = ref(downloadQueueStateProvider.notifier);
   final notifications = WatchtowerNotificationService.instance;
   final download = isar.downloads.getSync(chapterId);
   if (download == null) {
@@ -257,7 +284,7 @@ Future<void> handleMediaDownloadNotificationAction(
     return;
   }
   final isPaused =
-      ref.read(downloadQueueStateProvider).pausedIds.contains(chapterId) ||
+      ref(downloadQueueStateProvider).pausedIds.contains(chapterId) ||
       download.status == 'paused';
 
   switch (action) {
@@ -289,7 +316,7 @@ Future<void> handleMediaDownloadNotificationAction(
       });
       await ActiveDownloadRegistry.resume(chapterId);
       await notifications.setMediaDownloadPaused(chapterId, isPaused: false);
-      ref.read(processDownloadsProvider());
+      ref(processDownloadsProvider());
       break;
     case MediaDownloadNotificationAction.cancel:
       if (download.isDownload == true) return;
@@ -348,7 +375,7 @@ Future<void> handleMediaDownloadNotificationAction(
         }
       });
       await notifications.cancelMediaDownloadNotification(chapterId);
-      ref.read(processDownloadsProvider());
+      ref(processDownloadsProvider());
       break;
   }
 }

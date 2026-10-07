@@ -64,6 +64,13 @@ class GetIsolateService {
   final Map<String, _ExtensionWorker> _sourceWorkers = {};
   int _nextWorker = 0;
 
+  /// Whether the extension worker pool is currently running. Exposed so the
+  /// headless CLI can report health via `doctor`.
+  bool get isRunning => _isRunning;
+
+  /// Number of spawned extension workers.
+  int get workerCount => _workers.length;
+
   Future<void> start() async {
     if (!_isRunning) {
       try {
