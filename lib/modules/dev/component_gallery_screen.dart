@@ -342,12 +342,14 @@ class ComponentGalleryScreen extends StatefulWidget {
     super.key,
     this.embedded = false,
     this.selectionMode = false,
+    this.selectionContext = LayoutComponentContext.home,
     this.onSelectLayoutComponent,
     this.onClose,
   });
 
   final bool embedded;
   final bool selectionMode;
+  final LayoutComponentContext selectionContext;
   final ValueChanged<String>? onSelectLayoutComponent;
   final VoidCallback? onClose;
 
@@ -392,12 +394,11 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   /// des milliers d'objets : le reconstruire à chaque frame (et deux fois par
   /// `build`, via `_sectionsFor` puis `_visibleComponents`) gelait la page.
   late final List<_ComponentSpec> _catalog = _buildGalleryComponents();
-  late final List<_ComponentSpec> _layoutPickerCatalog =
-      _buildLayoutPickerComponents();
-
   List<_ComponentSpec> get _components => _catalog;
   List<_ComponentSpec> get _activeComponents =>
-      widget.selectionMode ? _layoutPickerCatalog : _components;
+      widget.selectionMode
+          ? _buildLayoutPickerComponents(widget.selectionContext)
+          : _components;
 
   List<_ComponentSpec> _buildGalleryComponents() {
     final allComponents = _buildComponents();
@@ -440,12 +441,21 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
         });
 
     return [
-      ...allComponents.where((component) => component.layoutComponent == null),
+      ...allComponents.where((component) {
+        final id = component.layoutComponent;
+        return id == null ||
+            !LayoutComponentRegistry.supports(
+              id,
+              LayoutComponentContext.home,
+            );
+      }),
       ...layoutComponents,
     ];
   }
 
-  List<_ComponentSpec> _buildLayoutPickerComponents() {
+  List<_ComponentSpec> _buildLayoutPickerComponents(
+    LayoutComponentContext context,
+  ) {
     final galleryPreviews = <String, _ComponentSpec>{};
     for (final component in _catalog) {
       final id = component.layoutComponent;
@@ -453,7 +463,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     }
 
     return LayoutComponentRegistry.forContext(
-      LayoutComponentContext.home,
+      context,
       selectableOnly: true,
     ).map((definition) {
       final preview = galleryPreviews[definition.id];
@@ -495,6 +505,8 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
         LayoutComponentRenderer.grid => _PreviewKind.extensionGrid,
         LayoutComponentRenderer.collections => _PreviewKind.collection,
         LayoutComponentRenderer.posterRail => _PreviewKind.carousel,
+        LayoutComponentRenderer.mangaFeaturedCard => _PreviewKind.mangaHome,
+        LayoutComponentRenderer.mangaChapterCard => _PreviewKind.mangaHome,
       };
 
   IconData _layoutIconFor(LayoutComponentRenderer renderer) =>
@@ -507,6 +519,9 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
         LayoutComponentRenderer.collections =>
           Icons.collections_bookmark_outlined,
         LayoutComponentRenderer.posterRail => Icons.view_carousel_outlined,
+        LayoutComponentRenderer.mangaFeaturedCard =>
+          Icons.local_fire_department_rounded,
+        LayoutComponentRenderer.mangaChapterCard => Icons.book_outlined,
       };
 
   /// Sections présentes pour l'onglet courant, dans l'ordre du catalogue.
@@ -541,7 +556,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               (component.layoutComponent != null &&
                   LayoutComponentRegistry.supports(
                     component.layoutComponent!,
-                    LayoutComponentContext.home,
+                    widget.selectionContext,
                   ));
           final matchesTab =
               widget.selectionMode ||
@@ -10194,6 +10209,7 @@ List<_ComponentSpec> _buildComponents() => [
     usage: 'Rail "À la une" du home manga',
     icon: Icons.local_fire_department_rounded,
     kind: _PreviewKind.mangaHome,
+    layoutComponent: 'mangaFeaturedCard',
     result: (_) => SizedBox(
       width: 168,
       child: manga_home.MangaFeaturedCard(
@@ -10204,17 +10220,17 @@ List<_ComponentSpec> _buildComponents() => [
   ),
   _ComponentSpec(
     section: 'MANGA & LECTURE',
-    title: 'Carte chapitre manga',
+    title: 'Carte manga avec sous-titre',
     className: 'MangaChapterCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
-    usage: 'Rails "Nouveaux chapitres"',
+    usage: 'Grille Manga · couverture, titre et sous-titre',
     icon: Icons.book_outlined,
     kind: _PreviewKind.mangaHome,
+    layoutComponent: 'mangaChapterCard',
     result: (_) => SizedBox(
       width: 112,
       child: manga_home.MangaChapterCard(
         item: ContentItem.fromManga(_extensionItems[1]),
-        badge: '144',
         onTap: () {},
       ),
     ),

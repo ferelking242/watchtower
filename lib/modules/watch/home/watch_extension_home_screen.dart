@@ -16,6 +16,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/media_content_sections.dart';
+import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -87,6 +88,7 @@ class _WatchExtensionHomeScreenState
   _LayoutEditorDestination _editorDestination = _LayoutEditorDestination.home;
   bool _editorDockExpanded = false;
   String? _pendingReplacementSectionId;
+  String? _pendingMangaCardSectionId;
   int _layoutEditorRevision = 0;
   final Set<String> _loggedRequestErrors = {};
 
@@ -268,6 +270,16 @@ class _WatchExtensionHomeScreenState
   void _startSectionReplacement(String sectionId) {
     setState(() {
       _pendingReplacementSectionId = sectionId;
+      _pendingMangaCardSectionId = null;
+      _editorDestination = _LayoutEditorDestination.gallery;
+      _editorDockExpanded = false;
+    });
+  }
+
+  void _startMangaCardSelection(String sectionId) {
+    setState(() {
+      _pendingReplacementSectionId = null;
+      _pendingMangaCardSectionId = sectionId;
       _editorDestination = _LayoutEditorDestination.gallery;
       _editorDockExpanded = false;
     });
@@ -290,9 +302,53 @@ class _WatchExtensionHomeScreenState
       return;
     }
     sections[index]['component'] = component;
+    if (LayoutComponentRegistry.resolve(component)?.renderer !=
+        LayoutComponentRenderer.grid) {
+      sections[index].remove('cardComponent');
+    }
     if (await _saveLayoutSections(sections) && mounted) {
       setState(() {
         _pendingReplacementSectionId = null;
+        _editorDestination = _LayoutEditorDestination.home;
+      });
+    }
+  }
+
+  Future<void> _applyMangaCardComponent(String component) async {
+    final sectionId = _pendingMangaCardSectionId;
+    if (sectionId == null) return;
+    if (source.itemType != ItemType.manga ||
+        !LayoutComponentRegistry.supports(
+          component,
+          LayoutComponentContext.homeMangaCard,
+        )) {
+      _showEditorMessage(
+        'Cette carte Manga n’est pas compatible avec cette sélection.',
+      );
+      return;
+    }
+
+    final sections = _copyLayoutSections();
+    final index = sections.indexWhere(
+      (section) => section['id']?.toString() == sectionId,
+    );
+    if (index < 0) {
+      _showEditorMessage('Cette section n’existe plus dans le layout.');
+      return;
+    }
+    final sectionComponent = sections[index]['component']?.toString() ?? 'grid';
+    if (LayoutComponentRegistry.resolve(sectionComponent)?.renderer !=
+        LayoutComponentRenderer.grid) {
+      _showEditorMessage(
+        'Les cartes Manga personnalisées sont disponibles sur les sections en grille.',
+      );
+      return;
+    }
+
+    sections[index]['cardComponent'] = component;
+    if (await _saveLayoutSections(sections) && mounted) {
+      setState(() {
+        _pendingMangaCardSectionId = null;
         _editorDestination = _LayoutEditorDestination.home;
       });
     }
@@ -578,6 +634,7 @@ class _WatchExtensionHomeScreenState
         if (destination == _LayoutEditorDestination.home &&
             _editorDestination == _LayoutEditorDestination.gallery) {
           _pendingReplacementSectionId = null;
+          _pendingMangaCardSectionId = null;
         }
         _editorDestination = destination;
         _editorDockExpanded = false;
@@ -587,13 +644,23 @@ class _WatchExtensionHomeScreenState
       onMoveSection: _moveEditorSection,
       onDeleteSection: _deleteEditorSection,
       onReplaceSection: _startSectionReplacement,
-      isSelectingComponent: _pendingReplacementSectionId != null,
+      onCustomizeMangaCards: _startMangaCardSelection,
+      isSelectingComponent:
+          _pendingReplacementSectionId != null ||
+          _pendingMangaCardSectionId != null,
+      selectionContext: _pendingMangaCardSectionId != null
+          ? LayoutComponentContext.homeMangaCard
+          : LayoutComponentContext.home,
       layoutEditorInitialContent: _layoutJson == null
           ? null
           : const JsonEncoder.withIndent('  ').convert(_layoutJson),
       layoutEditorRevision: _layoutEditorRevision,
       onSelectLayoutComponent: (component) =>
-          unawaited(_applyLayoutComponent(component)),
+          unawaited(
+            _pendingMangaCardSectionId != null
+                ? _applyMangaCardComponent(component)
+                : _applyLayoutComponent(component),
+          ),
       onLayoutJsonSaved: _reloadLayoutAfterJsonSave,
     );
   }
@@ -617,7 +684,9 @@ class _ExtensionFeed extends StatelessWidget {
   final void Function(int index, int offset) onMoveSection;
   final ValueChanged<int> onDeleteSection;
   final ValueChanged<String> onReplaceSection;
+  final ValueChanged<String> onCustomizeMangaCards;
   final bool isSelectingComponent;
+  final LayoutComponentContext selectionContext;
   final ValueChanged<String> onSelectLayoutComponent;
   final Future<void> Function() onLayoutJsonSaved;
   final String? layoutEditorInitialContent;
@@ -641,7 +710,9 @@ class _ExtensionFeed extends StatelessWidget {
     required this.onMoveSection,
     required this.onDeleteSection,
     required this.onReplaceSection,
+    required this.onCustomizeMangaCards,
     required this.isSelectingComponent,
+    required this.selectionContext,
     required this.onSelectLayoutComponent,
     required this.onLayoutJsonSaved,
     required this.layoutEditorInitialContent,
@@ -667,6 +738,19 @@ class _ExtensionFeed extends StatelessWidget {
     final title = section.title?.trim().isNotEmpty == true
         ? section.title!.trim()
         : section.id;
+    final sectionDefinition = LayoutComponentRegistry.resolve(
+      section.component,
+    );
+    final canCustomizeMangaCards =
+        source.itemType == ItemType.manga &&
+        sectionDefinition?.supportedContexts.contains(
+              LayoutComponentContext.home,
+            ) ==
+            true &&
+        sectionDefinition?.renderer == LayoutComponentRenderer.grid;
+    final selectedCardLabel =
+        LayoutComponentRegistry.resolve(section.cardComponent ?? '')?.label ??
+        'Affiche standard';
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -705,6 +789,16 @@ class _ExtensionFeed extends StatelessWidget {
                 onReplaceSection(section.id);
               },
             ),
+            if (canCustomizeMangaCards)
+              ListTile(
+                leading: const Icon(Icons.style_outlined),
+                title: const Text('Style des cartes manga'),
+                subtitle: Text('Actuel : $selectedCardLabel'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  onCustomizeMangaCards(section.id);
+                },
+              ),
             ListTile(
               leading: Icon(
                 Icons.delete_outline_rounded,
@@ -921,6 +1015,7 @@ class _ExtensionFeed extends StatelessWidget {
         ComponentGalleryScreen(
           embedded: true,
           selectionMode: isSelectingComponent,
+          selectionContext: selectionContext,
           onSelectLayoutComponent: isSelectingComponent
               ? onSelectLayoutComponent
               : null,
@@ -1359,6 +1454,7 @@ class _ExtensionLayoutSectionState
       columns: widget.section.columns,
       rows: widget.section.rows,
       cardStyle: widget.section.cardStyle,
+      cardComponent: widget.section.cardComponent,
       gridOrder: widget.section.gridOrder,
       scrollDirection: widget.section.scrollDirection,
     );
@@ -1383,6 +1479,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
     this.columns,
     this.rows,
     this.cardStyle,
+    this.cardComponent,
     this.gridOrder,
     this.scrollDirection,
     super.key,
@@ -1397,6 +1494,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
   final int? columns;
   final int? rows;
   final String? cardStyle;
+  final String? cardComponent;
   final String? gridOrder;
   final String? scrollDirection;
 
@@ -1419,6 +1517,22 @@ class ExtensionLayoutPreview extends StatelessWidget {
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
+      );
+    }
+
+    final selectedCardComponent = cardComponent;
+    final mangaCardComponent =
+        selectedCardComponent != null &&
+            LayoutComponentRegistry.supports(
+              selectedCardComponent,
+              LayoutComponentContext.homeMangaCard,
+            )
+        ? selectedCardComponent
+        : null;
+    if (cardComponent != null && mangaCardComponent == null) {
+      debugPrint(
+        '[ExtensionLayoutPreview] Unsupported Manga card "$cardComponent"; '
+        'using the default grid card.',
       );
     }
 
@@ -1453,6 +1567,16 @@ class ExtensionLayoutPreview extends StatelessWidget {
         rows: rows,
         scrollDirection: scrollDirection,
         onSeeAll: onSeeAll,
+        itemCardBuilder: mangaCardComponent == null
+            ? null
+            : (context, item, width, onTap) =>
+                  MangaHomeCardAdapter.build(
+                    component: mangaCardComponent,
+                    item: item,
+                    width: width,
+                    onTap: onTap,
+                  ) ??
+                  PosterCard(item: item, width: width, onTap: onTap),
       ),
       LayoutComponentRenderer.collections => _ExtensionCollectionCardRail(
         title: title,
@@ -1461,6 +1585,18 @@ class ExtensionLayoutPreview extends StatelessWidget {
         onSeeAll: onSeeAll,
       ),
       LayoutComponentRenderer.posterRail => MediaPosterRail(
+        title: title,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
+        onSeeAll: onSeeAll,
+      ),
+      LayoutComponentRenderer.mangaFeaturedCard => MediaPosterRail(
+        title: title,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
+        onSeeAll: onSeeAll,
+      ),
+      LayoutComponentRenderer.mangaChapterCard => MediaPosterRail(
         title: title,
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),

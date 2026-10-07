@@ -164,6 +164,7 @@ class UiSection {
   final int? columns;
   final int? rows;
   final String? cardStyle;
+  final String? cardComponent;
   final String? gridOrder;
   final String? scrollDirection;
   final UiMonthSelector? monthSelector;
@@ -181,6 +182,7 @@ class UiSection {
     this.columns,
     this.rows,
     this.cardStyle,
+    this.cardComponent,
     this.gridOrder,
     this.scrollDirection,
     this.monthSelector,
@@ -198,6 +200,7 @@ class UiSection {
     columns: (json['columns'] as num?)?.toInt(),
     rows: (json['rows'] as num?)?.toInt(),
     cardStyle: json['cardStyle'] as String?,
+    cardComponent: json['cardComponent'] as String?,
     gridOrder: json['gridOrder'] as String?,
     scrollDirection: json['scrollDirection'] as String?,
     monthSelector: json['monthSelector'] is Map
@@ -223,6 +226,7 @@ class UiSection {
     if (columns != null) 'columns': columns,
     if (rows != null) 'rows': rows,
     if (cardStyle != null) 'cardStyle': cardStyle,
+    if (cardComponent != null) 'cardComponent': cardComponent,
     if (gridOrder != null) 'gridOrder': gridOrder,
     if (scrollDirection != null) 'scrollDirection': scrollDirection,
     if (monthSelector != null) 'monthSelector': monthSelector!.toJson(),

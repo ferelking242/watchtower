@@ -466,6 +466,7 @@ class MediaGridSection extends StatelessWidget {
     this.columns,
     this.rows,
     this.scrollDirection,
+    this.itemCardBuilder,
     super.key,
   });
 
@@ -476,6 +477,12 @@ class MediaGridSection extends StatelessWidget {
   final int? columns;
   final int? rows;
   final String? scrollDirection;
+  final Widget Function(
+    BuildContext context,
+    ContentItem item,
+    double width,
+    VoidCallback onTap,
+  )? itemCardBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -497,29 +504,51 @@ class MediaGridSection extends StatelessWidget {
         ),
         SizedBox(
           height: horizontal ? rowCount * 166 : rowCount * 215,
-          child: GridView.builder(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppUI.pagePadding(context),
-            ),
-            scrollDirection: horizontal ? Axis.horizontal : Axis.vertical,
-            physics: horizontal
-                ? const BouncingScrollPhysics()
-                : const NeverScrollableScrollPhysics(),
-            itemCount: visible.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: horizontal ? rowCount : columnCount,
-              mainAxisExtent: horizontal ? 132 : null,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 12,
-              // Cellules un peu plus hautes : à .55, l'affiche et son titre
-              // dépassaient de la cellule sur les grilles serrées.
-              childAspectRatio: .5,
-            ),
-            itemBuilder: (_, index) => PosterCard(
-              item: visible[index],
-              width: double.infinity,
-              onTap: () => onOpen(index),
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding = AppUI.pagePadding(context);
+              final cellWidth = horizontal
+                  ? 132.0
+                  : ((constraints.maxWidth -
+                                horizontalPadding * 2 -
+                                12 * (columnCount - 1)) /
+                            columnCount)
+                        .clamp(1.0, double.infinity)
+                        .toDouble();
+
+              return GridView.builder(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                scrollDirection: horizontal ? Axis.horizontal : Axis.vertical,
+                physics: horizontal
+                    ? const BouncingScrollPhysics()
+                    : const NeverScrollableScrollPhysics(),
+                itemCount: visible.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: horizontal ? rowCount : columnCount,
+                  mainAxisExtent: horizontal ? 132 : null,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 12,
+                  // Cellules un peu plus hautes : à .55, l'affiche et son titre
+                  // dépassaient de la cellule sur les grilles serrées.
+                  childAspectRatio: itemCardBuilder == null ? .5 : .52,
+                ),
+                itemBuilder: (context, index) {
+                  final item = visible[index];
+                  final onTap = () => onOpen(index);
+                  return itemCardBuilder?.call(
+                        context,
+                        item,
+                        cellWidth,
+                        onTap,
+                      ) ??
+                      PosterCard(
+                        item: item,
+                        width: double.infinity,
+                        onTap: onTap,
+                      );
+                },
+              );
+            },
           ),
         ),
       ],

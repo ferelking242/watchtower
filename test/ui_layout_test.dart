@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/ui_layout.dart';
 
 void main() {
@@ -49,5 +50,37 @@ void main() {
     expect(legacy['name'], 'Pour vous');
     expect(legacy['color'], 'primary');
     expect(legacy['seeAll'], 'for_you');
+  });
+
+  test('keeps Manga card components separate from Home section components', () {
+    final section = UiSection.fromJson({
+      'id': 'popular',
+      'component': 'grid',
+      'cardComponent': 'mangaFeaturedCard',
+    });
+
+    expect(section.cardComponent, 'mangaFeaturedCard');
+    expect(section.toLegacyMap()['cardComponent'], 'mangaFeaturedCard');
+    expect(
+      LayoutComponentRegistry.supports(
+        'mangaFeaturedCard',
+        LayoutComponentContext.homeMangaCard,
+      ),
+      isTrue,
+    );
+    expect(
+      LayoutComponentRegistry.supports(
+        'mangaFeaturedCard',
+        LayoutComponentContext.home,
+      ),
+      isFalse,
+    );
+    expect(
+      LayoutComponentRegistry.forContext(
+        LayoutComponentContext.homeMangaCard,
+        selectableOnly: true,
+      ).map((definition) => definition.id),
+      ['mangaFeaturedCard', 'mangaChapterCard'],
+    );
   });
 }

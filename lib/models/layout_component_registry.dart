@@ -1,5 +1,12 @@
 /// Contexts in which a layout component can be rendered.
-enum LayoutComponentContext { home, browse, search, detail, player }
+enum LayoutComponentContext {
+  home,
+  homeMangaCard,
+  browse,
+  search,
+  detail,
+  player,
+}
 
 /// Renderer families implemented by the extension home screen.
 enum LayoutComponentRenderer {
@@ -10,6 +17,8 @@ enum LayoutComponentRenderer {
   grid,
   collections,
   posterRail,
+  mangaFeaturedCard,
+  mangaChapterCard,
 }
 
 /// Loading placeholders used by the extension home renderer.
@@ -282,6 +291,28 @@ class LayoutComponentRegistry {
       renderer: LayoutComponentRenderer.grid,
       loadingPreview: LayoutComponentLoadingPreview.grid,
       legacyLayout: 'spotlight',
+    ),
+    LayoutComponentDefinition(
+      id: 'mangaFeaturedCard',
+      label: 'Vedette manga',
+      category: 'MANGA & LECTURE',
+      description:
+          'Affiche manga avec titre et badge, compatible avec les items Home.',
+      renderer: LayoutComponentRenderer.mangaFeaturedCard,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      legacyLayout: 'catalogue',
+      supportedContexts: {LayoutComponentContext.homeMangaCard},
+    ),
+    LayoutComponentDefinition(
+      id: 'mangaChapterCard',
+      label: 'Carte manga avec sous-titre',
+      category: 'MANGA & LECTURE',
+      description:
+          'Affiche portrait avec titre et description disponibles sur les items Home.',
+      renderer: LayoutComponentRenderer.mangaChapterCard,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      legacyLayout: 'catalogue',
+      supportedContexts: {LayoutComponentContext.homeMangaCard},
     ),
     LayoutComponentDefinition(
       id: 'collectionCards',
