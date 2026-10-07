@@ -42,12 +42,37 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
   Timer? _timer;
   int _page = 0;
   bool _hovering = false;
+  bool _warmed = false;
 
   @override
   void initState() {
     super.initState();
     _ctrl = PageController(viewportFraction: 1.0);
     _startTimer();
+    _warmImages();
+  }
+
+  @override
+  void didUpdateWidget(covariant HeroCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.items, widget.items)) _warmImages();
+  }
+
+  /// Decode every poster/banner up front so a card never shows a bare colour
+  /// block while its artwork downloads. Runs after the first frame so the
+  /// carousel itself paints instantly, then the images snap in from cache.
+  void _warmImages() {
+    if (_warmed) return;
+    _warmed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final m in widget.items) {
+        final url = m.bannerImage ?? m.bestCover;
+        if (url == null || url.isEmpty) continue;
+        precacheImage(ExtendedNetworkImageProvider(url, cache: true), context)
+            .catchError((_) {});
+      }
+    });
   }
 
   void _startTimer() {
@@ -97,6 +122,9 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
           child: PageView.builder(
             controller: _ctrl,
             itemCount: widget.items.length,
+            // Build the neighbouring pages too, so their artwork starts
+            // loading before the user ever swipes to them.
+            allowImplicitScrolling: true,
             onPageChanged: (i) {
               setState(() => _page = i);
             },
@@ -111,43 +139,14 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                         fit: StackFit.expand,
                         children: [
                           // ── Poster / Banner image ───────────────────────
+                          // `_HeroImage` shows the artwork immediately from the
+                          // memory cache when warm, and otherwise a neutral
+                          // backdrop (never a bare flat colour) while it fades
+                          // in — no more "colours only" cards.
                           if (image != null)
-                            ExtendedImage.network(
-                              image,
-                              fit: BoxFit.cover,
-                              alignment: const Alignment(0, -0.3),
-                              cache: true,
-                              loadStateChanged: (state) {
-                                if (state.extendedImageLoadState ==
-                                    LoadState.completed) return null;
-                                // Shimmer-style placeholder while loading or on error
-                                return Container(
-                                  color: Theme.of(ctx)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.movie_creation_outlined,
-                                      size: 48,
-                                      color: Colors.white24,
-                                    ),
-                                  ),
-                                );
-                              },
-                            )
+                            _HeroImage(url: image)
                           else
-                            Container(
-                              color: Theme.of(ctx)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
-                              child: const Center(
-                                child: Icon(
-                                  Icons.movie_creation_outlined,
-                                  size: 48,
-                                  color: Colors.white24,
-                                ),
-                              ),
-                            ),
+                            const _HeroPlaceholder(),
 
                           // ── Top edge scrim (blur→image seamless) ─────────
                           Positioned(
@@ -253,6 +252,113 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hero artwork — instant when cached, neutral fade-in otherwise.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _HeroImage extends StatefulWidget {
+  final String url;
+  const _HeroImage({required this.url});
+
+  @override
+  State<_HeroImage> createState() => _HeroImageState();
+}
+
+class _HeroImageState extends State<_HeroImage> {
+  bool _loaded = false;
+  bool _failed = false;
+
+  @override
+  void didUpdateWidget(_HeroImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _loaded = false;
+      _failed = false;
+    }
+  }
+
+  /// `loadStateChanged` runs during build, so a state change has to be
+  /// deferred to the end of the frame.
+  void _settle({bool loaded = false, bool failed = false}) {
+    if ((loaded && _loaded) || (failed && _failed)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        if (loaded) _loaded = true;
+        if (failed) _failed = true;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Neutral backdrop shown until the first frame of the artwork is
+        // ready. Prevents a bright flat colour flashing before the poster.
+        _HeroPlaceholder(failed: _failed),
+        AnimatedOpacity(
+          opacity: _loaded ? 1 : 0,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOut,
+          // Fade the artwork over the neutral backdrop so the transition is
+          // smooth whether it came from cache or the network.
+          child: ExtendedImage.network(
+            widget.url,
+            fit: BoxFit.cover,
+            alignment: const Alignment(0, -0.3),
+            cache: true,
+            clearMemoryCacheIfFailed: false,
+            clearMemoryCacheWhenDispose: false,
+            loadStateChanged: (state) {
+              switch (state.extendedImageLoadState) {
+                case LoadState.completed:
+                  _settle(loaded: true);
+                  return null;
+                case LoadState.failed:
+                  _settle(failed: true);
+                  return null;
+                case LoadState.loading:
+                  return null;
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroPlaceholder extends StatelessWidget {
+  final bool failed;
+  const _HeroPlaceholder({this.failed = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.surfaceContainerHighest,
+            cs.surfaceContainerHigh,
+          ],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          failed ? Icons.broken_image_outlined : Icons.image_outlined,
+          size: 44,
+          color: Colors.white.withValues(alpha: 0.18),
+        ),
+      ),
     );
   }
 }

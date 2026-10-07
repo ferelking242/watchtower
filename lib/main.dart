@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
+import 'package:watchtower/modules/home/services/home_prewarm.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:hive_flutter/adapters.dart';
@@ -358,6 +359,11 @@ void main(List<String> args) async {
         // 12+ owns the system splash; flutter_native_splash keeps it until
         // Flutter has rendered its first frame.
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          // Fetch + decode the hero artwork while the splash is still up so
+          // the home carousel shows posters on its first frame instead of
+          // colour blocks. Fire-and-forget: it must never delay the splash
+          // removal or block the first frame.
+          unawaited(prewarmHomeHeroImages().catchError((_) {}));
           final remaining =
               const Duration(milliseconds: 600) - splashClock.elapsed;
           Future<void>.delayed(
