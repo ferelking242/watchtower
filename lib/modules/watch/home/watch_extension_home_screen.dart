@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
@@ -1370,6 +1371,8 @@ class _ExtensionLayoutSectionState
 /// The component gallery can therefore document the real extension layouts
 /// without maintaining a second visual implementation.
 class ExtensionLayoutPreview extends StatelessWidget {
+  static final Set<String> _warnedUnsupportedComponentIds = <String>{};
+
   const ExtensionLayoutPreview({
     required this.title,
     required this.component,
@@ -1402,44 +1405,47 @@ class ExtensionLayoutPreview extends StatelessWidget {
     final contentItems = items
         .map(ContentItem.fromManga)
         .toList(growable: false);
-    return switch (component) {
-      'spotlight' => MediaHeroCarousel(
+    final definition = LayoutComponentRegistry.resolve(component);
+    if (definition == null ||
+        !definition.supportedContexts.contains(LayoutComponentContext.home)) {
+      if (_warnedUnsupportedComponentIds.add(component)) {
+        debugPrint(
+          '[ExtensionLayoutPreview] Unsupported component "$component"; '
+          'using poster rail fallback.',
+        );
+      }
+      return MediaPosterRail(
+        title: title,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
+        onSeeAll: onSeeAll,
+      );
+    }
+
+    return switch (definition.renderer) {
+      LayoutComponentRenderer.spotlight => MediaHeroCarousel(
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
       ),
-      'banner' || 'hero' => MediaBannerRail(
+      LayoutComponentRenderer.banner => MediaBannerRail(
         title: title,
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
       ),
-      'ranked' || 'newHot' || 'rankedWide' => MediaRankedRail(
+      LayoutComponentRenderer.ranked => MediaRankedRail(
         title: title,
         items: contentItems.take(20).toList(growable: false),
         onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
       ),
-      'showcase' ||
-      'creatorRow' ||
-      'landscapeStacked' ||
-      'backdropWide' ||
-      'studioExplorer' ||
-      'universeExplorer' ||
-      'collectionTimeline' => MediaLandscapeRail(
+      LayoutComponentRenderer.landscape => MediaLandscapeRail(
         title: title,
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
       ),
-      'grid' ||
-      'catalogue' ||
-      'discoverGrid' ||
-      'category' ||
-      'categoryPills' ||
-      'doubleFeature' ||
-      'editorialSplit' ||
-      'masonry' ||
-      'feed' => MediaGridSection(
+      LayoutComponentRenderer.grid => MediaGridSection(
         title: title,
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
@@ -1448,13 +1454,13 @@ class ExtensionLayoutPreview extends StatelessWidget {
         scrollDirection: scrollDirection,
         onSeeAll: onSeeAll,
       ),
-      'collectionCards' || 'playlistCarousel' => _ExtensionCollectionCardRail(
+      LayoutComponentRenderer.collections => _ExtensionCollectionCardRail(
         title: title,
         items: items,
         onOpen: onOpen,
         onSeeAll: onSeeAll,
       ),
-      _ => MediaPosterRail(
+      LayoutComponentRenderer.posterRail => MediaPosterRail(
         title: title,
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
@@ -1475,13 +1481,35 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (component == 'spotlight') {
-      return AppHeroShimmer(
+    final preview =
+        LayoutComponentRegistry.resolve(component)?.loadingPreview ??
+        LayoutComponentLoadingPreview.row;
+    final titleWidth = title.length.clamp(86, 180).toDouble();
+
+    return switch (preview) {
+      LayoutComponentLoadingPreview.hero => AppHeroShimmer(
         height: (MediaQuery.sizeOf(context).height * .56).clamp(480.0, 590.0),
-      );
-    }
-    if (component == 'categoryPills') {
-      return Column(
+      ),
+      LayoutComponentLoadingPreview.ranked => _ExtensionSkeletonSection(
+        titleWidth: titleWidth,
+        child: const _ExtensionRankedWideShimmer(),
+      ),
+      LayoutComponentLoadingPreview.landscape => _ExtensionSkeletonSection(
+        titleWidth: titleWidth,
+        child: const _ExtensionShowcaseShimmer(),
+      ),
+      LayoutComponentLoadingPreview.collections => _ExtensionSkeletonSection(
+        titleWidth: titleWidth,
+        child: const ExtensionCollectionCardShimmer(),
+      ),
+      LayoutComponentLoadingPreview.grid => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSectionHeader(title: title),
+          const SizedBox(height: 250, child: AppMediaGridShimmer()),
+        ],
+      ),
+      LayoutComponentLoadingPreview.categoryPills => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppSectionHeader(title: title),
@@ -1502,48 +1530,15 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
             ),
           ),
         ],
-      );
-    }
-    if (component == 'rankedWide') {
-      return _ExtensionSkeletonSection(
-        titleWidth: title.length.clamp(86, 180).toDouble(),
-        child: const _ExtensionRankedWideShimmer(),
-      );
-    }
-    if (component == 'showcase') {
-      return _ExtensionSkeletonSection(
-        titleWidth: title.length.clamp(86, 180).toDouble(),
-        child: const _ExtensionShowcaseShimmer(),
-      );
-    }
-    if (component == 'collectionCards' || component == 'playlistCarousel') {
-      return _ExtensionSkeletonSection(
-        titleWidth: title.length.clamp(86, 180).toDouble(),
-        child: const ExtensionCollectionCardShimmer(),
-      );
-    }
-    if (component == 'grid' ||
-        component == 'catalogue' ||
-        component == 'discoverGrid' ||
-        component == 'masonry' ||
-        component == 'doubleFeature' ||
-        component == 'editorialSplit' ||
-        component == 'feed') {
-      return Column(
+      ),
+      LayoutComponentLoadingPreview.row => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppSectionHeader(title: title),
-          const SizedBox(height: 250, child: AppMediaGridShimmer()),
+          const SizedBox(height: 220, child: AppMediaRowShimmer()),
         ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppSectionHeader(title: title),
-        const SizedBox(height: 220, child: AppMediaRowShimmer()),
-      ],
-    );
+      ),
+    };
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/watchtower_home_screen.dart';
@@ -260,6 +261,13 @@ enum _PreviewKind {
 
 /// Ordre d'affichage des sections dans la galerie.
 const _orderedGallerySections = <String>[
+  'HÉROS',
+  'RAILS',
+  'CLASSEMENTS',
+  'GRILLES',
+  'COLLECTIONS',
+  'DÉCOUVERTE',
+  'CATÉGORIES',
   'CATALOGUE & DISCOVERY',
   'CARTES RICHES',
   'STREAMING & PROGRESSION',
@@ -319,7 +327,14 @@ class _ComponentSpec {
   /// Clean identifier copied to the clipboard (main class only).
   String get copyName => className.split(' →').first.trim();
 
-  String get searchableText => '$title $className $path $usage'.toLowerCase();
+  String get searchableText {
+    final aliases = layoutComponent == null
+        ? ''
+        : LayoutComponentRegistry.resolve(layoutComponent!)?.aliases.join(' ') ??
+              '';
+    return '$title $className $path $usage ${layoutComponent ?? ''} $aliases'
+        .toLowerCase();
+  }
 }
 
 class ComponentGalleryScreen extends StatefulWidget {
@@ -377,15 +392,85 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   /// des milliers d'objets : le reconstruire à chaque frame (et deux fois par
   /// `build`, via `_sectionsFor` puis `_visibleComponents`) gelait la page.
   late final List<_ComponentSpec> _catalog = _buildComponents();
+  late final List<_ComponentSpec> _layoutPickerCatalog =
+      _buildLayoutPickerComponents();
 
   List<_ComponentSpec> get _components => _catalog;
+  List<_ComponentSpec> get _activeComponents =>
+      widget.selectionMode ? _layoutPickerCatalog : _components;
+
+  List<_ComponentSpec> _buildLayoutPickerComponents() {
+    final galleryPreviews = <String, _ComponentSpec>{};
+    for (final component in _catalog) {
+      final id = component.layoutComponent;
+      if (id != null) galleryPreviews.putIfAbsent(id, () => component);
+    }
+
+    return LayoutComponentRegistry.forContext(
+      LayoutComponentContext.home,
+      selectableOnly: true,
+    ).map((definition) {
+      final preview = galleryPreviews[definition.id];
+      final kind =
+          preview?.kind ?? _previewKindFor(definition.renderer);
+      final result =
+          preview?.result ??
+          ((_) => ExtensionLayoutPreview(
+            title: definition.label,
+            component: definition.id,
+            source: _gallerySource,
+            items: _extensionItems,
+            onOpen: (_) {},
+            onSeeAll: () {},
+          ));
+
+      return _ComponentSpec(
+        title: definition.label,
+        className: definition.id,
+        path:
+            preview?.path ??
+            'lib/modules/watch/home/watch_extension_home_screen.dart',
+        usage: definition.description,
+        section: definition.category,
+        icon: preview?.icon ?? _layoutIconFor(definition.renderer),
+        kind: kind,
+        layoutComponent: definition.id,
+        result: result,
+      );
+    }).toList(growable: false);
+  }
+
+  _PreviewKind _previewKindFor(LayoutComponentRenderer renderer) =>
+      switch (renderer) {
+        LayoutComponentRenderer.spotlight => _PreviewKind.extensionHero,
+        LayoutComponentRenderer.banner => _PreviewKind.banner,
+        LayoutComponentRenderer.ranked => _PreviewKind.rankedWide,
+        LayoutComponentRenderer.landscape => _PreviewKind.showcase,
+        LayoutComponentRenderer.grid => _PreviewKind.extensionGrid,
+        LayoutComponentRenderer.collections => _PreviewKind.collection,
+        LayoutComponentRenderer.posterRail => _PreviewKind.carousel,
+      };
+
+  IconData _layoutIconFor(LayoutComponentRenderer renderer) =>
+      switch (renderer) {
+        LayoutComponentRenderer.spotlight => Icons.auto_awesome_outlined,
+        LayoutComponentRenderer.banner => Icons.view_carousel_outlined,
+        LayoutComponentRenderer.ranked => Icons.format_list_numbered_rounded,
+        LayoutComponentRenderer.landscape => Icons.view_carousel_outlined,
+        LayoutComponentRenderer.grid => Icons.grid_4x4_rounded,
+        LayoutComponentRenderer.collections =>
+          Icons.collections_bookmark_outlined,
+        LayoutComponentRenderer.posterRail => Icons.view_carousel_outlined,
+      };
 
   /// Sections présentes pour l'onglet courant, dans l'ordre du catalogue.
   List<String> _sectionsFor(_GalleryTab tab) {
     final isSectionsTab = tab == _GalleryTab.sections;
     final seen = <String>{};
-    for (final component in _components) {
-      if (component.isSection == isSectionsTab) seen.add(component.section);
+    for (final component in _activeComponents) {
+      if (widget.selectionMode || component.isSection == isSectionsTab) {
+        seen.add(component.section);
+      }
     }
     final ordered = _orderedGallerySections.where(seen.contains).toList();
     ordered.addAll(
@@ -399,14 +484,19 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
 
   List<_ComponentSpec> get _visibleComponents {
     final query = _query.trim().toLowerCase();
-    return _components
+    return _activeComponents
         .where((component) {
           final textMatches =
               query.isEmpty || component.searchableText.contains(query);
           final sectionMatches =
               _sectionFilter == null || component.section == _sectionFilter;
           final compatibleWithLayout =
-              !widget.selectionMode || component.layoutComponent != null;
+              !widget.selectionMode ||
+              (component.layoutComponent != null &&
+                  LayoutComponentRegistry.supports(
+                    component.layoutComponent!,
+                    LayoutComponentContext.home,
+                  ));
           final matchesTab =
               widget.selectionMode ||
               component.isSection == (_tab == _GalleryTab.sections);
@@ -535,6 +625,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                   resultCount: visible.length,
                   sections: sections,
                   sectionFilter: _sectionFilter,
+                  selectionMode: widget.selectionMode,
                   onQueryChanged: (query) => setState(() => _query = query),
                   onSectionChanged: (section) =>
                       setState(() => _sectionFilter = section),
@@ -679,6 +770,7 @@ class _GalleryHeader extends StatelessWidget {
   final int resultCount;
   final List<String> sections;
   final String? sectionFilter;
+  final bool selectionMode;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<String?> onSectionChanged;
 
@@ -688,6 +780,7 @@ class _GalleryHeader extends StatelessWidget {
     required this.resultCount,
     required this.sections,
     required this.sectionFilter,
+    required this.selectionMode,
     required this.onQueryChanged,
     required this.onSectionChanged,
   });
@@ -699,7 +792,9 @@ class _GalleryHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Une référence claire pour chaque carte.',
+          selectionMode
+              ? 'Choisissez un composant de layout'
+              : 'Une référence claire pour chaque carte.',
           style: theme.textTheme.headlineSmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w800,
@@ -711,9 +806,12 @@ class _GalleryHeader extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
           child: Text(
-            'Retrouvez toutes les cartes réellement utilisées dans l’application. '
-            'Chaque aperçu conserve sa taille réelle, '
-            'son nom et son usage, en résultat ou en chargement.',
+            selectionMode
+                ? 'Ces options ont un renderer actif et un identifiant JSON reconnu. '
+                      'Les anciens alias restent acceptés.'
+                : 'Retrouvez toutes les cartes réellement utilisées dans l’application. '
+                      'Chaque aperçu conserve sa taille réelle, '
+                      'son nom et son usage, en résultat ou en chargement.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white60,
               height: 1.4,
@@ -730,7 +828,9 @@ class _GalleryHeader extends StatelessWidget {
                 style: const TextStyle(color: Colors.white),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Rechercher une carte, un usage ou un fichier…',
+                  hintText: selectionMode
+                      ? 'Rechercher un composant ou un ID JSON…'
+                      : 'Rechercher une carte, un usage ou un fichier…',
                   hintStyle: const TextStyle(color: Colors.white38),
                   prefixIcon: const Icon(
                     Icons.search_rounded,
@@ -1342,6 +1442,16 @@ class _ComponentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     final compact = component.isCompactPreview;
+    final selectingLayoutComponent = onSelectLayoutComponent != null;
+    final copyName = selectingLayoutComponent
+        ? component.layoutComponent ?? component.copyName
+        : component.copyName;
+    final aliases = selectingLayoutComponent
+        ? (LayoutComponentRegistry.resolve(
+                    component.layoutComponent ?? '',
+                  )?.aliases ??
+                  const <String>[])
+        : const <String>[];
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 11 : 16),
@@ -1361,14 +1471,14 @@ class _ComponentTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Tooltip(
-            message: 'Cliquer pour copier ${component.copyName}',
+            message: 'Cliquer pour copier $copyName',
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () async {
                 var copied = false;
                 try {
                   await Clipboard.setData(
-                    ClipboardData(text: component.copyName),
+                    ClipboardData(text: copyName),
                   );
                   copied = true;
                 } catch (error) {
@@ -1386,7 +1496,7 @@ class _ComponentTile extends StatelessWidget {
                     SnackBar(
                       content: Text(
                         copied
-                            ? '${component.copyName} copié'
+                            ? '$copyName copié'
                             : 'Impossible de copier ce nom dans le presse-papiers.',
                       ),
                       duration: const Duration(milliseconds: 1200),
@@ -1416,7 +1526,9 @@ class _ComponentTile extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            component.className,
+                            selectingLayoutComponent
+                                ? component.title
+                                : component.className,
                             softWrap: true,
                             style: const TextStyle(
                               color: Colors.white,
@@ -1427,7 +1539,9 @@ class _ComponentTile extends StatelessWidget {
                           ),
                           const SizedBox(height: 5),
                           Text(
-                            '${component.title} · ${component.usage}',
+                            selectingLayoutComponent
+                                ? 'component: ${component.layoutComponent}'
+                                : '${component.title} · ${component.usage}',
                             softWrap: true,
                             style: const TextStyle(
                               color: Colors.white60,
@@ -1435,6 +1549,29 @@ class _ComponentTile extends StatelessWidget {
                               height: 1.3,
                             ),
                           ),
+                          if (selectingLayoutComponent) ...[
+                            if (aliases.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Alias : ${aliases.join(', ')}',
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 4),
+                            Text(
+                              component.usage,
+                              softWrap: true,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

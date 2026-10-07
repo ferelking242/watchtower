@@ -9,6 +9,7 @@ import 'dart:io'
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -102,6 +103,18 @@ class LayoutRegistry {
               'each home section needs a component name',
             );
           }
+          final component = section['component'] as String;
+          if (!LayoutComponentRegistry.supports(
+            component,
+            LayoutComponentContext.home,
+          )) {
+            throw FormatException(
+              LayoutComponentRegistry.unknownComponentMessage(
+                component,
+                LayoutComponentContext.home,
+              ),
+            );
+          }
         }
       }
       final sourceId = source.id!;
@@ -120,6 +133,16 @@ class LayoutRegistry {
         tag: LogTag.extension_,
       );
       return true;
+    } on FormatException catch (e) {
+      if (e.message.toString().startsWith('Composant inconnu :')) {
+        rethrow;
+      }
+      AppLogger.log(
+        '[LayoutRegistry] Save failed for ${source.name}: $e',
+        logLevel: LogLevel.error,
+        tag: LogTag.extension_,
+      );
+      return false;
     } catch (e) {
       AppLogger.log(
         '[LayoutRegistry] Save failed for ${source.name}: $e',

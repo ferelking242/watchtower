@@ -2,6 +2,8 @@
 // Declarative UI layout model. Replaces getCustomLists() return values.
 // Extensions ship a JSON file; this model parses it. Flutter renders it.
 
+import 'package:watchtower/models/layout_component_registry.dart';
+
 /// Root layout for an extension. Loaded once from disk; cached in LayoutRegistry.
 class UiLayout {
   final int schemaVersion;
@@ -209,8 +211,8 @@ class UiSection {
   );
 
   // ── Legacy bridge ─────────────────────────────────────────────────────────
-  // Source home renderers still use Map<String,dynamic> internally. This
-  // bridge keeps the declarative layout model compatible with them.
+  // Source home renderers still use Map<String,dynamic> internally. Component
+  // aliases and their legacy layouts are kept in LayoutComponentRegistry.
   Map<String, dynamic> toLegacyMap() => {
     'id': id,
     'component': component,
@@ -227,39 +229,8 @@ class UiSection {
     if (seeAll) 'seeAll': id,
   };
 
-  static String _toLegacyLayout(String c) => switch (c) {
-    'banner' => 'banner',
-    'hero' => 'banner',
-    'carousel' => 'spotlight',
-    'spotlight' => 'spotlight',
-    'ranked' => 'ranked',
-    'compactRow' => 'compact',
-    'compact' => 'compact',
-    'grid' => 'catalogue',
-    'catalogue' => 'catalogue',
-    'categoryPills' => 'category',
-    'category' => 'category',
-    'newHot' => 'new_hot',
-    'new_hot' => 'new_hot',
-    'feed' => 'spotlight',
-    'masonry' => 'masonry',
-    'creatorRow' => 'ranked',
-    'doubleFeature' => 'doubleFeature',
-    'editorialSplit' => 'editorialSplit',
-    'landscapeStacked' => 'landscapeStacked',
-    'showcase' => 'landscapeStacked',
-    'backdropWide' => 'backdropWide',
-    'rankedWide' => 'rankedWide',
-    'collectionCards' => 'collectionCards',
-    'playlistCarousel' => 'collectionCards',
-    'metadataPoster' => 'metadataPoster',
-    'statusPoster' => 'statusPoster',
-    'discoverGrid' => 'discoverGrid',
-    'studioExplorer' => 'studioExplorer',
-    'universeExplorer' => 'universeExplorer',
-    'collectionTimeline' => 'collectionTimeline',
-    _ => 'spotlight',
-  };
+  static String _toLegacyLayout(String component) =>
+      LayoutComponentRegistry.legacyLayoutFor(component) ?? 'spotlight';
 }
 
 /// Optional month picker configuration for a section whose custom-list ID
