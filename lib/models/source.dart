@@ -232,6 +232,29 @@ class Source {
     return value is String && value.trim().isNotEmpty ? value.trim() : null;
   }
 
+  bool get accountAvailable => _metadataValues()['account'] == true;
+
+  void _setBooleanMetadata(String key, bool? value) {
+    final raw = (additionalParams ?? '')
+        .split('\n$_metadataMarker')
+        .first
+        .trimRight();
+    final metadata = _metadataValues();
+    if (value == null) {
+      metadata.remove(key);
+    } else {
+      metadata[key] = value;
+    }
+    if (metadata.isEmpty) {
+      additionalParams = raw;
+      return;
+    }
+    final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
+    additionalParams = raw.isEmpty
+        ? '$_metadataMarker$encoded'
+        : '$raw\n$_metadataMarker$encoded';
+  }
+
   void setLoginUrl(String? value) {
     final normalized = value?.trim();
     final raw = (additionalParams ?? '')
@@ -331,6 +354,8 @@ class Source {
         'pendingUiLayoutVersion': pendingUiLayoutVersion,
       if (touchToPreview) 'touchToPreview': true,
       if (loginUrl != null) 'loginUrl': loginUrl,
+      if (_metadataValues()['account'] is bool)
+        'account': _metadataValues()['account'],
     };
     if (metadata.isEmpty) return raw;
     final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
@@ -378,6 +403,11 @@ class Source {
     if (json.containsKey('loginUrl')) {
       final value = json['loginUrl'];
       setLoginUrl(value is String ? value : null);
+    }
+    for (final key in ['account']) {
+      final value =
+          json[key] ?? json['supports${key[0].toUpperCase()}${key.substring(1)}'];
+      if (value is bool) _setBooleanMetadata(key, value);
     }
     final languages = json['langs'];
     if (languages is List) {
@@ -446,6 +476,7 @@ class Source {
     'versionLast': versionLast,
     'additionalParams': persistedAdditionalParams,
     'loginUrl': loginUrl,
+    'account': accountAvailable,
     if (touchToPreview) 'touchToPreview': true,
     'sourceCodeLanguage': sourceCodeLanguage.index,
     'isObsolete': isObsolete,

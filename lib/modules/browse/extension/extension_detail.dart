@@ -11,6 +11,8 @@ import 'package:watchtower/models/changed.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/eval/lib.dart' show withExtensionService;
+import 'package:watchtower/eval/model/extension_account.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';
 import 'package:watchtower/modules/browse/extension/widgets/source_preference_widget.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
@@ -32,6 +34,7 @@ enum _SiteSessionStatus {
   checking,
   loggingIn,
   sessionSaved,
+  authenticated,
   notConnected,
   unavailable,
 }
@@ -50,6 +53,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   late final ScrollController _scrollController = ScrollController();
   bool _isCollapsed = false;
   _SiteSessionStatus _siteSessionStatus = _SiteSessionStatus.checking;
+  ExtensionAccount? _accountInfo;
 
   @override
   void initState() {
@@ -116,7 +120,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     if (id == null || baseUrl.isEmpty) return;
     await MClient.logoutExtension(id, baseUrl);
     if (!mounted) return;
-    setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
+    setState(() {
+      _accountInfo = null;
+      _siteSessionStatus = _SiteSessionStatus.notConnected;
+    });
     botToast('Session effacée pour cette extension.');
   }
 
@@ -131,16 +138,34 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         source.id,
         source.baseUrl ?? '',
       );
+      ExtensionAccount? account;
+      if (hasSessionData && source.accountAvailable) {
+        try {
+          account = await withExtensionService(
+            source,
+            (service) => service.getAccount(),
+          );
+        } catch (_) {
+          // A profile endpoint can be temporarily unavailable while the
+          // browser session itself remains valid.
+        }
+      }
       if (mounted) {
-        setState(
-          () => _siteSessionStatus = hasSessionData
+        setState(() {
+          _accountInfo = account;
+          _siteSessionStatus = account != null
+              ? _SiteSessionStatus.authenticated
+              : hasSessionData
               ? _SiteSessionStatus.sessionSaved
-              : _SiteSessionStatus.notConnected,
-        );
+              : _SiteSessionStatus.notConnected;
+        });
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _siteSessionStatus = _SiteSessionStatus.unavailable);
+        setState(() {
+          _accountInfo = null;
+          _siteSessionStatus = _SiteSessionStatus.unavailable;
+        });
       }
     }
   }
@@ -163,6 +188,13 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       case _SiteSessionStatus.sessionSaved:
         label = 'Session du site enregistrée';
         icon = Icons.cookie_outlined;
+        color = colors.primary;
+        break;
+      case _SiteSessionStatus.authenticated:
+        final identity =
+            _accountInfo?.displayName ?? _accountInfo?.username ?? 'Compte';
+        label = 'Connecté : $identity';
+        icon = Icons.verified_user_rounded;
         color = colors.primary;
         break;
       case _SiteSessionStatus.notConnected:
@@ -210,6 +242,61 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           icon: const Icon(Icons.refresh_rounded, size: 19),
         ),
       ],
+    );
+  }
+
+  Widget _buildAccountProfile(ColorScheme colors) {
+    final account = _accountInfo;
+    if (account == null) return const SizedBox.shrink();
+    final avatarUri = Uri.tryParse(account.avatarUrl ?? '');
+    final hasAvatar = avatarUri != null &&
+        (avatarUri.scheme == 'https' || avatarUri.scheme == 'http');
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: colors.primaryContainer,
+            child: hasAvatar
+                ? ClipOval(
+                    child: Image.network(
+                      avatarUri.toString(),
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Icon(Icons.person_rounded, color: colors.primary),
+                    ),
+                  )
+                : Icon(Icons.person_rounded, color: colors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  account.displayName ?? account.username ?? 'Compte connecté',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                if (account.email != null)
+                  Text(
+                    account.email!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1113,7 +1200,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                     );
                   }),
 
-                  if (source.loginAvailable) ...[
+                  if (source.loginAvailable || source.accountAvailable) ...[
                     const SizedBox(height: 24),
                     _SectionHeader(
                       label: 'Connexion au site',
@@ -1136,19 +1223,24 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                           ),
                           const SizedBox(height: 12),
                           _buildSiteSessionStatus(cs),
+                          _buildAccountProfile(cs),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 10,
                             runSpacing: 8,
                             children: [
-                              FilledButton.tonalIcon(
-                                onPressed: _siteSessionStatus ==
-                                        _SiteSessionStatus.loggingIn
-                                    ? null
-                                    : _signInToSite,
-                                icon: const Icon(Icons.login_rounded, size: 18),
-                                label: const Text('Se connecter'),
-                              ),
+                              if (source.loginAvailable)
+                                FilledButton.tonalIcon(
+                                  onPressed: _siteSessionStatus ==
+                                          _SiteSessionStatus.loggingIn
+                                      ? null
+                                      : _signInToSite,
+                                  icon: const Icon(
+                                    Icons.login_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Se connecter'),
+                                ),
                               OutlinedButton.icon(
                                 onPressed: _siteSessionStatus ==
                                         _SiteSessionStatus.notConnected

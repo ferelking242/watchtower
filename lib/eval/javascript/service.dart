@@ -16,6 +16,7 @@ import 'package:watchtower/eval/javascript/runtime_config.dart';
 import 'package:watchtower/eval/javascript/utils.dart';
 import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/eval/model/filter.dart';
+import 'package:watchtower/eval/model/extension_account.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
@@ -169,6 +170,7 @@ class MProvider {
     }
     async getRecommendations(url) { return []; }
     async getComments(url) { return []; }
+    async getAccount() { return null; }
     // ── Generic search/filter fallback helpers ──────────────────────────────
     // Available on every extension via `this.fallbackSearch(...)` and
     // `this.safeApplyFilters(...)` so extensions that have no native search
@@ -649,6 +651,16 @@ function extLog(level, msg) {
       _extWarn('\$_id \u00b7 getComments FAILED <- \$e');
       return [];
     }
+  }
+
+  @override
+  Future<ExtensionAccount?> getAccount() async {
+    final raw = await _extensionCallAsync<dynamic>('getAccount()');
+    if (raw == null) return null;
+    if (raw is! Map) {
+      throw FormatException('Extension getAccount() must return an object or null');
+    }
+    return ExtensionAccount.fromJson(Map<String, dynamic>.from(raw));
   }
 
 

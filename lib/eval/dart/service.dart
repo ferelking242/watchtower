@@ -1,6 +1,7 @@
 import 'package:d4rt/d4rt.dart';
 import 'package:watchtower/eval/dart/bridge/registrer.dart';
 import 'package:watchtower/eval/model/filter.dart';
+import 'package:watchtower/eval/model/extension_account.dart';
 import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
@@ -32,6 +33,7 @@ class MProvider {
   Future<List<dynamic>> getVideoList(String url) async => [];
   Future<String> getHtmlContent(String name, String url) async => '';
   Future<String> cleanHtmlContent(String html) async => '';
+  Future<dynamic> getAccount() async => null;
   List<dynamic> getFilterList() => [];
   @override
   Future<List<String>> getSuggestions(String query) async => [];
@@ -438,4 +440,14 @@ class DartExtensionService implements ExtensionService {
 
   @override
   Future<List<Map<String, dynamic>>> getComments(String url) async => [];
+
+  @override
+  Future<ExtensionAccount?> getAccount() async {
+    final result = await _interpreter!.invoke('getAccount', []);
+    if (result == null) return null;
+    if (result is! Map) {
+      throw FormatException('Extension getAccount() must return a map or null');
+    }
+    return ExtensionAccount.fromJson(Map<String, dynamic>.from(result));
+  }
 }

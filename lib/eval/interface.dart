@@ -3,6 +3,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 
 import 'model/filter.dart';
+import 'model/extension_account.dart';
 import 'model/m_manga.dart';
 import 'model/m_pages.dart';
 import 'model/source_preference.dart';
@@ -54,4 +55,8 @@ abstract interface class ExtensionService {
   /// Autocomplete suggestions for a partial search [query].
   /// Default: empty list (extensions that don't implement it return []).
   Future<List<String>> getSuggestions(String query) async => [];
+
+  /// Returns the signed-in site's public account profile, or null when signed
+  /// out or when the extension does not implement account support.
+  Future<ExtensionAccount?> getAccount() async => null;
 }
