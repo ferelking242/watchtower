@@ -14,6 +14,13 @@ class ExtensionSessionManager {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static final Map<int, Map<String, dynamic>> _sessions = {};
   static final Set<int> _loaded = {};
+  static const Set<String> _authenticationStates = {
+    'anonymous',
+    'loggingIn',
+    'authenticated',
+    'loggedOut',
+    'error',
+  };
 
   static String _key(int extensionId) => 'extension_session_$extensionId';
 
@@ -40,6 +47,9 @@ class ExtensionSessionManager {
   static Map<String, dynamic> _emptySession() => {
     'cookies': <Map<String, dynamic>>[],
     'localStorage': <String, Map<String, String>>{},
+    'authenticationState': 'anonymous',
+    'webViewState': <String, dynamic>{},
+    'httpSessionState': <String, dynamic>{},
   };
 
   static Map<String, dynamic> _normalizeSession(Map<String, dynamic> raw) {
@@ -61,9 +71,178 @@ class ExtensionSessionManager {
           ? cookies.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
           : <Map<String, dynamic>>[],
       'localStorage': normalizedStorage,
+      'authenticationState':
+          _authenticationStates.contains(raw['authenticationState'])
+              ? raw['authenticationState']
+              : 'anonymous',
+      'webViewState': raw['webViewState'] is Map
+          ? Map<String, dynamic>.from(raw['webViewState'] as Map)
+          : <String, dynamic>{},
+      'httpSessionState': raw['httpSessionState'] is Map
+          ? Map<String, dynamic>.from(raw['httpSessionState'] as Map)
+          : <String, dynamic>{},
+      if (raw['lastSynchronizedAt'] is int)
+        'lastSynchronizedAt': raw['lastSynchronizedAt'],
       if (raw['userAgent'] is String) 'userAgent': raw['userAgent'],
       if (raw['lastUpdated'] is int) 'lastUpdated': raw['lastUpdated'],
     };
+  }
+
+  /// Returns a copy of the extension's session and its derived domain list.
+  static Future<Map<String, dynamic>> getSession(int extensionId) async {
+    await load(extensionId);
+    final session = _normalizeSession(
+      Map<String, dynamic>.from(_sessions[extensionId] ?? _emptySession()),
+    );
+    return {
+      'extensionId': extensionId,
+      ...session,
+      'domains': _domainsForSession(session),
+    };
+  }
+
+  static List<String> _domainsForSession(Map<String, dynamic> session) {
+    final domains = <String>{};
+    final cookies = session['cookies'];
+    if (cookies is List) {
+      for (final cookie in cookies.whereType<Map>()) {
+        final domain = _normalizeDomain(cookie['domain']?.toString() ?? '');
+        if (domain.isNotEmpty) domains.add(domain);
+      }
+    }
+    final storage = session['localStorage'];
+    if (storage is Map) {
+      for (final origin in storage.keys) {
+        final uri = Uri.tryParse(origin.toString());
+        if (uri != null && uri.host.isNotEmpty) {
+          domains.add(uri.host.toLowerCase());
+        }
+      }
+    }
+    return domains.toList()..sort();
+  }
+
+  static Future<List<Map<String, dynamic>>> getCookies(
+    int extensionId, {
+    String? url,
+  }) async {
+    await load(extensionId);
+    final stored = _sessions[extensionId]?['cookies'];
+    if (url != null) return cookiesForUrl(extensionId, url);
+    if (stored is! List) return const [];
+    return stored
+        .whereType<Map>()
+        .map((cookie) => Map<String, dynamic>.from(cookie))
+        .toList(growable: false);
+  }
+
+  /// Merges cookies by name/domain/path without replacing unrelated cookies.
+  static Future<void> setCookies(
+    int extensionId,
+    Iterable<Map<String, dynamic>> values,
+  ) async {
+    await load(extensionId);
+    final session = _sessions[extensionId]!;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final cookies = (session['cookies'] as List)
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .where((cookie) {
+          final expiresAt = cookie['expiresAt'];
+          return expiresAt is! int || expiresAt > now;
+        })
+        .toList();
+
+    for (final raw in values) {
+      final cookie = Map<String, dynamic>.from(raw);
+      final name = cookie['name']?.toString().trim() ?? '';
+      final domain = _normalizeDomain(cookie['domain']?.toString() ?? '');
+      if (name.isEmpty || domain.isEmpty) continue;
+      cookie['name'] = name;
+      cookie['domain'] = domain;
+      cookie['path'] = cookie['path']?.toString().startsWith('/') == true
+          ? cookie['path'].toString()
+          : '/';
+      cookie['hostOnly'] = cookie['hostOnly'] == true;
+      cookie['secure'] = cookie['secure'] == true;
+      cookie['httpOnly'] = cookie['httpOnly'] == true;
+      final sameIndex = cookies.indexWhere(
+        (existing) => _sameCookie(existing, cookie),
+      );
+      final expiresAt = cookie['expiresAt'];
+      if (expiresAt is int && expiresAt <= now) {
+        if (sameIndex >= 0) cookies.removeAt(sameIndex);
+      } else if (sameIndex >= 0) {
+        cookies[sameIndex] = cookie;
+      } else {
+        cookies.add(cookie);
+      }
+    }
+    session['cookies'] = cookies;
+    await _persist(extensionId);
+  }
+
+  static Future<bool> isAuthenticated(int extensionId) async {
+    await load(extensionId);
+    return _sessions[extensionId]?['authenticationState'] == 'authenticated';
+  }
+
+  static Future<void> setAuthenticationState(
+    int extensionId,
+    String state,
+  ) async {
+    if (!_authenticationStates.contains(state)) {
+      throw ArgumentError.value(state, 'state', 'Unknown authentication state.');
+    }
+    await load(extensionId);
+    _sessions[extensionId]!['authenticationState'] = state;
+    await _persist(extensionId);
+  }
+
+  static Future<void> clearSession(int extensionId) async {
+    _sessions.remove(extensionId);
+    _loaded.remove(extensionId);
+    await _storage.delete(key: _key(extensionId));
+  }
+
+  /// Backwards-compatible alias used by existing session and account flows.
+  static Future<void> clear(int extensionId) => clearSession(extensionId);
+
+  static Future<void> syncFromWebView({
+    required int extensionId,
+    required String url,
+    required Iterable<dynamic> cookies,
+    String? cookieHeader,
+    String? userAgent,
+  }) async {
+    await saveBrowserCookies(
+      extensionId: extensionId,
+      url: url,
+      cookies: cookies,
+      cookieHeader: cookieHeader,
+      userAgent: userAgent,
+    );
+  }
+
+  static Future<void> syncToWebView({
+    required int extensionId,
+    required String url,
+    required Future<void> Function(Map<String, dynamic> cookie) setCookie,
+  }) async {
+    await restoreToWebView(
+      extensionId: extensionId,
+      url: url,
+      setCookie: setCookie,
+    );
+    final session = _sessions[extensionId]!;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    session['webViewState'] = {
+      'lastUrl': url,
+      'lastSynchronizedAt': now,
+      'direction': 'toWebView',
+    };
+    session['lastSynchronizedAt'] = now;
+    await _persist(extensionId);
   }
 
   static Map<String, dynamic> snapshotForWorker(int? extensionId) {
@@ -400,6 +579,14 @@ class ExtensionSessionManager {
     if (userAgent?.trim().isNotEmpty == true) {
       session['userAgent'] = userAgent!.trim();
     }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    session['webViewState'] = {
+      'lastUrl': uri.toString(),
+      'lastSynchronizedAt': now,
+      if (userAgent?.trim().isNotEmpty == true) 'userAgent': userAgent!.trim(),
+      'direction': 'fromWebView',
+    };
+    session['lastSynchronizedAt'] = now;
     await _persist(extensionId);
   }
 
@@ -456,6 +643,12 @@ class ExtensionSessionManager {
     }
     if (changed) {
       session['cookies'] = cookies;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      session['httpSessionState'] = {
+        'lastResponseUrl': uri.toString(),
+        'lastCookieUpdateAt': now,
+      };
+      session['lastSynchronizedAt'] = now;
       await _persist(extensionId);
     }
   }
@@ -475,12 +668,6 @@ class ExtensionSessionManager {
             ))
         .toList();
     await _persist(extensionId);
-  }
-
-  static Future<void> clear(int extensionId) async {
-    _sessions.remove(extensionId);
-    _loaded.remove(extensionId);
-    await _storage.delete(key: _key(extensionId));
   }
 
   static Future<String?> getLocalStorage(
@@ -537,6 +724,14 @@ class ExtensionSessionManager {
     final storage =
         _sessions[extensionId]!['localStorage'] as Map<String, Map<String, String>>;
     storage[_storageOrigin(url)] = Map<String, String>.from(values);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _sessions[extensionId]!['webViewState'] = {
+      'lastUrl': uri.toString(),
+      'lastSynchronizedAt': now,
+      'localStorageCaptured': true,
+      'direction': 'fromWebView',
+    };
+    _sessions[extensionId]!['lastSynchronizedAt'] = now;
     await _persist(extensionId);
   }
 

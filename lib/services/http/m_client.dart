@@ -352,7 +352,7 @@ class MClient {
     }
 
     if (sourceId == null) return;
-    await ExtensionSessionManager.restoreToWebView(
+    await ExtensionSessionManager.syncToWebView(
       extensionId: sourceId,
       url: url,
       setCookie: (cookie) async {
@@ -446,7 +446,7 @@ class MClient {
         }
       }
       if (snapshotAvailable) {
-        await ExtensionSessionManager.saveBrowserCookies(
+        await ExtensionSessionManager.syncFromWebView(
           extensionId: sourceId,
           url: url,
           cookies: webCookies,
@@ -559,7 +559,7 @@ class MClient {
   }
 
   static Future<void> logoutExtension(int extensionId, String url) async {
-    await ExtensionSessionManager.clear(extensionId);
+    await ExtensionSessionManager.clearSession(extensionId);
     await deleteAllCookies(url);
   }
 
