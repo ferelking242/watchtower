@@ -306,22 +306,28 @@ class LayoutComponentRegistry {
       label: 'Vedette manga',
       category: 'MANGA & LECTURE',
       description:
-          'Affiche manga avec titre et badge, compatible avec les items Home.',
+          'Affiche manga avec titre et badge, compatible avec les items Home et Search.',
       renderer: LayoutComponentRenderer.mangaFeaturedCard,
       loadingPreview: LayoutComponentLoadingPreview.row,
       legacyLayout: 'catalogue',
-      supportedContexts: {LayoutComponentContext.homeMangaCard},
+      supportedContexts: {
+        LayoutComponentContext.homeMangaCard,
+        LayoutComponentContext.search,
+      },
     ),
     LayoutComponentDefinition(
       id: 'mangaChapterCard',
       label: 'Carte manga avec sous-titre',
       category: 'MANGA & LECTURE',
       description:
-          'Affiche portrait avec titre et description disponibles sur les items Home.',
+          'Affiche portrait avec titre et description disponibles sur les items Home et Search.',
       renderer: LayoutComponentRenderer.mangaChapterCard,
       loadingPreview: LayoutComponentLoadingPreview.row,
       legacyLayout: 'catalogue',
-      supportedContexts: {LayoutComponentContext.homeMangaCard},
+      supportedContexts: {
+        LayoutComponentContext.homeMangaCard,
+        LayoutComponentContext.search,
+      },
     ),
     LayoutComponentDefinition(
       id: 'homeEpisodeCard',

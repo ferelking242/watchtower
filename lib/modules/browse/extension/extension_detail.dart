@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/changed.dart';
+import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
@@ -15,6 +17,7 @@ import 'package:watchtower/eval/lib.dart' show withExtensionService;
 import 'package:watchtower/eval/model/extension_account.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';
 import 'package:watchtower/modules/browse/extension/widgets/source_preference_widget.dart';
+import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -27,6 +30,7 @@ import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/services/layout_downloader.dart';
+import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/fetch_sources_list.dart'
     show compareVersions;
 
@@ -96,6 +100,61 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     if (url.isEmpty) return;
     Clipboard.setData(ClipboardData(text: url));
     botToast('URL copiée !');
+  }
+
+  Future<void> _editSearchResultCard() async {
+    final component = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => ComponentGalleryScreen(
+          selectionMode: true,
+          selectionContext: LayoutComponentContext.search,
+          onSelectLayoutComponent: (id) => Navigator.of(context).pop(id),
+        ),
+      ),
+    );
+    if (component == null || !mounted) return;
+
+    try {
+      var content = await LayoutRegistry.instance.readJson(source);
+      if (content == null) {
+        await LayoutDownloader.instance.download(source);
+        content = await LayoutRegistry.instance.readJson(source);
+      }
+      if (content == null) {
+        botToast('Aucun layout local disponible pour cette extension.');
+        return;
+      }
+
+      final decoded = jsonDecode(content);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('La racine du layout doit être un objet.');
+      }
+      final layout = Map<String, dynamic>.from(decoded);
+      final browse = _copyLayoutObject(layout['browse'], 'browse');
+      final search = _copyLayoutObject(browse['search'], 'browse.search');
+      final results = _copyLayoutObject(
+        search['results'],
+        'browse.search.results',
+      );
+      results['cardComponent'] = component;
+      search['results'] = results;
+      browse['search'] = search;
+      layout['browse'] = browse;
+
+      final saved = await LayoutRegistry.instance.save(
+        source,
+        const JsonEncoder.withIndent('  ').convert(layout),
+      );
+      if (!mounted) return;
+      if (!saved) {
+        botToast('Impossible d’enregistrer la carte de recherche.');
+        return;
+      }
+      setState(() {});
+      botToast('Carte de recherche enregistrée.');
+    } catch (error) {
+      if (mounted) botToast('Layout de recherche invalide : $error');
+    }
   }
 
   Future<void> _signInToSite() async {
@@ -1469,6 +1528,20 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       ],
                     ),
                   ],
+
+                  if (source.providesHome) ...[
+                    const SizedBox(height: 24),
+                    _SectionHeader(
+                      label: 'Résultats de recherche',
+                      icon: Icons.search_rounded,
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: _editSearchResultCard,
+                      icon: const Icon(Icons.style_outlined),
+                      label: const Text('Choisir une carte de résultat'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1477,6 +1550,12 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       ),
     );
   }
+}
+
+Map<String, dynamic> _copyLayoutObject(Object? value, String path) {
+  if (value == null) return <String, dynamic>{};
+  if (value is Map<String, dynamic>) return Map<String, dynamic>.from(value);
+  throw FormatException('$path doit être un objet JSON.');
 }
 
 PopupMenuItem<String> _popItem(String value, IconData icon, String label) =>

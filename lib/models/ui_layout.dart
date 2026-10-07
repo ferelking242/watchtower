@@ -78,11 +78,13 @@ class BrowseLayout {
 
 class SectionPresentation {
   final String component;
+  final String? cardComponent;
   final int? columns;
   final String? cardStyle;
 
   const SectionPresentation({
     required this.component,
+    this.cardComponent,
     this.columns,
     this.cardStyle,
   });
@@ -90,6 +92,7 @@ class SectionPresentation {
   factory SectionPresentation.fromJson(Map<String, dynamic> json) =>
       SectionPresentation(
         component: json['component'] as String? ?? 'grid',
+        cardComponent: json['cardComponent'] as String?,
         columns: (json['columns'] as num?)?.toInt(),
         cardStyle: json['cardStyle'] as String?,
       );

@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.dart';
 import 'package:watchtower/modules/watch/home/extension_episode_card_adapter.dart';
 
 void main() {
@@ -182,6 +184,79 @@ void main() {
         selectableOnly: true,
       ),
       isEmpty,
+    );
+  });
+
+  test('offers only renderable Manga cards in the Search context', () {
+    expect(
+      LayoutComponentRegistry.forContext(
+        LayoutComponentContext.search,
+        selectableOnly: true,
+      ).map((definition) => definition.id),
+      ['mangaFeaturedCard', 'mangaChapterCard'],
+    );
+    expect(
+      LayoutComponentRegistry.forContext(
+        LayoutComponentContext.browse,
+        selectableOnly: true,
+      ),
+      isEmpty,
+    );
+    expect(
+      LayoutComponentRegistry.forContext(
+        LayoutComponentContext.player,
+        selectableOnly: true,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('adds a Search card without changing legacy grid presentation', () {
+    final layout = UiLayout.fromJson({
+      'schemaVersion': 1,
+      'home': {'sections': []},
+      'browse': {
+        'search': {
+          'results': {
+            'component': 'grid',
+            'columns': 3,
+            'cardComponent': 'mangaFeaturedCard',
+          },
+          'filters': 'chips',
+        },
+      },
+    });
+    final results = layout.browse?.search?.results;
+
+    expect(results?.component, 'grid');
+    expect(results?.columns, 3);
+    expect(results?.cardComponent, 'mangaFeaturedCard');
+    expect(layout.browse?.search?.filters, 'chips');
+  });
+
+  test('Search adapter builds both registered cards from ContentItem data', () {
+    const item = ContentItem(key: 'search-result', title: 'Search result');
+    for (final component in ['mangaFeaturedCard', 'mangaChapterCard']) {
+      expect(
+        MangaHomeCardAdapter.build(
+          component: component,
+          componentContext: LayoutComponentContext.search,
+          item: item,
+          width: 168,
+          onTap: () {},
+        ),
+        isNotNull,
+      );
+    }
+    expect(
+      MangaHomeCardAdapter.build(
+        component: 'mangaFeaturedCard',
+        componentContext: LayoutComponentContext.reader,
+        item: item,
+        width: 168,
+        onTap: () {},
+      ),
+      isNull,
     );
   });
 

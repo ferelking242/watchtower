@@ -1,17 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
+import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 
 /// Extension search — used by watch extensions AND manga/novel home screens.
@@ -70,9 +75,17 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     _query = initial;
     _loadRecent();
     _tabs = TabController(length: 1, vsync: this);
+    if (widget.source.providesHome) {
+      unawaited(_loadLayout());
+    }
     if (initial.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _runSearch(initial));
     }
+  }
+
+  Future<void> _loadLayout() async {
+    await LayoutRegistry.instance.load(widget.source);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -209,6 +222,19 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     return (item.genre ?? const <String>[]).any(
       (g) => g.trim().toLowerCase() == tab.toLowerCase(),
     );
+  }
+
+  String? get _searchCardComponent {
+    final component =
+        LayoutRegistry.instance.get(widget.source).browse?.search?.results
+            ?.cardComponent;
+    return component != null &&
+            LayoutComponentRegistry.supports(
+              component,
+              LayoutComponentContext.search,
+            )
+        ? component
+        : null;
   }
 
   Future<void> _loadMore() async {
@@ -399,6 +425,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                   onLoadMore: _loadMore,
                   loadingMore: _loadingMore,
                   onOpen: widget.onOpen,
+                  cardComponent: _searchCardComponent,
                 ),
             ],
           ),
@@ -413,12 +440,14 @@ class _ExtensionResultsGrid extends StatelessWidget {
   final VoidCallback onLoadMore;
   final bool loadingMore;
   final ValueChanged<MManga> onOpen;
+  final String? cardComponent;
 
   const _ExtensionResultsGrid({
     required this.items,
     required this.onLoadMore,
     required this.loadingMore,
     required this.onOpen,
+    required this.cardComponent,
   });
 
   @override
@@ -447,10 +476,22 @@ class _ExtensionResultsGrid extends StatelessWidget {
             return const AppShimmerBlock(radius: AppUI.cardRadius);
           }
           final item = items[index];
+          final contentItem = ContentItem.fromManga(item);
+          final onTap = () => onOpen(item);
+          final configuredCard = cardComponent == null
+              ? null
+              : MangaHomeCardAdapter.build(
+                  component: cardComponent!,
+                  componentContext: LayoutComponentContext.search,
+                  item: contentItem,
+                  width: double.infinity,
+                  onTap: onTap,
+                );
+          if (configuredCard != null) return configuredCard;
           return PosterCard(
-            item: ContentItem.fromManga(item),
+            item: contentItem,
             width: double.infinity,
-            onTap: () => onOpen(item),
+            onTap: onTap,
           );
         },
       ),

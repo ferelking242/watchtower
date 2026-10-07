@@ -117,6 +117,27 @@ class LayoutRegistry {
           }
         }
       }
+      final browse = json['browse'];
+      if (browse is Map<String, dynamic>) {
+        _validateCardComponent(
+          browse['popular'],
+          LayoutComponentContext.browse,
+          'browse.popular',
+        );
+        _validateCardComponent(
+          browse['latest'],
+          LayoutComponentContext.browse,
+          'browse.latest',
+        );
+        final search = browse['search'];
+        if (search is Map<String, dynamic>) {
+          _validateCardComponent(
+            search['results'],
+            LayoutComponentContext.search,
+            'browse.search.results',
+          );
+        }
+      }
       final sourceId = source.id!;
       final layout = UiLayout.fromJson(json);
       _cache[sourceId] = layout;
@@ -188,6 +209,25 @@ class LayoutRegistry {
     if (source.id == null) return null;
     await load(source);
     return _rawCache[source.id!];
+  }
+
+  void _validateCardComponent(
+    Object? value,
+    LayoutComponentContext context,
+    String path,
+  ) {
+    if (value is! Map<String, dynamic> || value['cardComponent'] == null) {
+      return;
+    }
+    final component = value['cardComponent'];
+    if (component is! String || component.trim().isEmpty) {
+      throw FormatException('$path.cardComponent must be a non-empty string');
+    }
+    if (!LayoutComponentRegistry.supports(component, context)) {
+      throw FormatException(
+        LayoutComponentRegistry.unknownComponentMessage(component, context),
+      );
+    }
   }
 
   static Future<File> _layoutFile(Source source) async {

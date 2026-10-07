@@ -16,12 +16,12 @@ class MangaHomeCardAdapter {
     required ContentItem item,
     required double width,
     required VoidCallback onTap,
+    LayoutComponentContext componentContext =
+        LayoutComponentContext.homeMangaCard,
   }) {
     final definition = LayoutComponentRegistry.resolve(component);
     if (definition == null ||
-        !definition.supportedContexts.contains(
-          LayoutComponentContext.homeMangaCard,
-        )) {
+        !definition.supportedContexts.contains(componentContext)) {
       return null;
     }
 
