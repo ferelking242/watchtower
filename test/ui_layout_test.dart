@@ -130,6 +130,51 @@ void main() {
     );
   });
 
+  test('does not expose components without a real Detail renderer', () {
+    expect(
+      LayoutComponentRegistry.forContext(
+        LayoutComponentContext.detail,
+        selectableOnly: true,
+      ),
+      isEmpty,
+    );
+    for (final component in [
+      'mangaFeaturedCard',
+      'mangaChapterCard',
+      'homeEpisodeCard',
+      'chapterCard',
+    ]) {
+      expect(
+        LayoutComponentRegistry.supports(
+          component,
+          LayoutComponentContext.detail,
+        ),
+        isFalse,
+        reason: '$component has no renderer wired to the Detail model',
+      );
+    }
+  });
+
+  test('preserves existing Detail layout style identifiers', () {
+    final posterLayout = DetailLayout.fromJson({
+      'hero': 'poster',
+      'episodeList': 'compact',
+      'showRecommendations': false,
+    });
+    final backdropLayout = DetailLayout.fromJson({
+      'hero': 'backdrop',
+      'episodeList': 'vertical',
+      'showRecommendations': true,
+    });
+
+    expect(posterLayout.hero, 'poster');
+    expect(posterLayout.episodeList, 'compact');
+    expect(posterLayout.showRecommendations, isFalse);
+    expect(backdropLayout.hero, 'backdrop');
+    expect(backdropLayout.episodeList, 'vertical');
+    expect(backdropLayout.showRecommendations, isTrue);
+  });
+
   test('parses episode numbers from episode labels without inventing one', () {
     expect(
       ExtensionEpisodeCardAdapter.parseEpisodeNumber('S2E05 - The Arrival'),

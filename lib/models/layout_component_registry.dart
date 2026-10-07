@@ -6,6 +6,8 @@ enum LayoutComponentContext {
   chapter,
   browse,
   search,
+  // Intentionally empty until a detail-page adapter can render registered
+  // components from the persisted Manga/Chapter models and current layout data.
   detail,
   player,
 }
