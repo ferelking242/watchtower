@@ -59,12 +59,15 @@ void main() {
       'component': 'grid',
       'cardComponent': 'mangaFeaturedCard',
       'episodeComponent': 'homeEpisodeCard',
+      'chapterComponent': 'chapterCard',
     });
 
     expect(section.cardComponent, 'mangaFeaturedCard');
     expect(section.episodeComponent, 'homeEpisodeCard');
+    expect(section.chapterComponent, 'chapterCard');
     expect(section.toLegacyMap()['cardComponent'], 'mangaFeaturedCard');
     expect(section.toLegacyMap()['episodeComponent'], 'homeEpisodeCard');
+    expect(section.toLegacyMap()['chapterComponent'], 'chapterCard');
     expect(
       LayoutComponentRegistry.supports(
         'mangaFeaturedCard',
@@ -107,6 +110,24 @@ void main() {
       ).map((definition) => definition.id),
       ['homeEpisodeCard'],
     );
+    expect(
+      LayoutComponentRegistry.supports(
+        'chapterCard',
+        LayoutComponentContext.chapter,
+      ),
+      isTrue,
+    );
+    expect(
+      LayoutComponentRegistry.supports('chapterCard', LayoutComponentContext.home),
+      isFalse,
+    );
+    expect(
+      LayoutComponentRegistry.forContext(
+        LayoutComponentContext.chapter,
+        selectableOnly: true,
+      ).map((definition) => definition.id),
+      ['chapterCard'],
+    );
   });
 
   test('parses episode numbers from episode labels without inventing one', () {
@@ -120,6 +141,10 @@ void main() {
     );
     expect(
       ExtensionEpisodeCardAdapter.parseEpisodeNumber('The Arrival'),
+      isNull,
+    );
+    expect(
+      ExtensionEpisodeCardAdapter.parseEpisodeNumber('Arcane 4'),
       isNull,
     );
   });

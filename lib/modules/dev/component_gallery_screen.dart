@@ -508,6 +508,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
         LayoutComponentRenderer.mangaFeaturedCard => _PreviewKind.mangaHome,
         LayoutComponentRenderer.mangaChapterCard => _PreviewKind.mangaHome,
         LayoutComponentRenderer.homeEpisodeCard => _PreviewKind.detailEpisode,
+        LayoutComponentRenderer.chapterCard => _PreviewKind.mgChapter,
       };
 
   IconData _layoutIconFor(LayoutComponentRenderer renderer) =>
@@ -524,6 +525,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           Icons.local_fire_department_rounded,
         LayoutComponentRenderer.mangaChapterCard => Icons.book_outlined,
         LayoutComponentRenderer.homeEpisodeCard => Icons.movie_outlined,
+        LayoutComponentRenderer.chapterCard => Icons.menu_book_outlined,
       };
 
   /// Sections présentes pour l'onglet courant, dans l'ordre du catalogue.
@@ -6935,6 +6937,7 @@ List<_ComponentSpec> _buildComponents() => [
     section: 'MANGA & LECTURE',
     icon: Icons.menu_book_outlined,
     kind: _PreviewKind.mgChapter,
+    layoutComponent: 'chapterCard',
     result: (_) => MangaChapterCard(
       item: _mgChapterItem(
         'Solo Leveling',

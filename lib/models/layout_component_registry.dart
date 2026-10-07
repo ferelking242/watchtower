@@ -3,6 +3,7 @@ enum LayoutComponentContext {
   home,
   homeMangaCard,
   homeEpisodeCard,
+  chapter,
   browse,
   search,
   detail,
@@ -21,6 +22,7 @@ enum LayoutComponentRenderer {
   mangaFeaturedCard,
   mangaChapterCard,
   homeEpisodeCard,
+  chapterCard,
 }
 
 /// Loading placeholders used by the extension home renderer.
@@ -326,6 +328,17 @@ class LayoutComponentRegistry {
       loadingPreview: LayoutComponentLoadingPreview.row,
       legacyLayout: 'catalogue',
       supportedContexts: {LayoutComponentContext.homeEpisodeCard},
+    ),
+    LayoutComponentDefinition(
+      id: 'chapterCard',
+      label: 'Carte de chapitre',
+      category: 'MANGA & LECTURE',
+      description:
+          'Carte de chapitre avec manga, titre de chapitre et vignette disponibles.',
+      renderer: LayoutComponentRenderer.chapterCard,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      legacyLayout: 'catalogue',
+      supportedContexts: {LayoutComponentContext.chapter},
     ),
     LayoutComponentDefinition(
       id: 'collectionCards',

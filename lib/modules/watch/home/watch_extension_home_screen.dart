@@ -19,6 +19,7 @@ import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/media_content_sections.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.dart';
 import 'package:watchtower/modules/watch/home/extension_episode_card_adapter.dart';
+import 'package:watchtower/modules/watch/home/extension_chapter_card_adapter.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -92,6 +93,7 @@ class _WatchExtensionHomeScreenState
   String? _pendingReplacementSectionId;
   String? _pendingMangaCardSectionId;
   String? _pendingEpisodeCardSectionId;
+  String? _pendingChapterCardSectionId;
   int _layoutEditorRevision = 0;
   final Set<String> _loggedRequestErrors = {};
 
@@ -275,6 +277,7 @@ class _WatchExtensionHomeScreenState
       _pendingReplacementSectionId = sectionId;
       _pendingMangaCardSectionId = null;
       _pendingEpisodeCardSectionId = null;
+      _pendingChapterCardSectionId = null;
       _editorDestination = _LayoutEditorDestination.gallery;
       _editorDockExpanded = false;
     });
@@ -285,6 +288,7 @@ class _WatchExtensionHomeScreenState
       _pendingReplacementSectionId = null;
       _pendingMangaCardSectionId = sectionId;
       _pendingEpisodeCardSectionId = null;
+      _pendingChapterCardSectionId = null;
       _editorDestination = _LayoutEditorDestination.gallery;
       _editorDockExpanded = false;
     });
@@ -295,6 +299,18 @@ class _WatchExtensionHomeScreenState
       _pendingReplacementSectionId = null;
       _pendingMangaCardSectionId = null;
       _pendingEpisodeCardSectionId = sectionId;
+      _pendingChapterCardSectionId = null;
+      _editorDestination = _LayoutEditorDestination.gallery;
+      _editorDockExpanded = false;
+    });
+  }
+
+  void _startChapterCardSelection(String sectionId) {
+    setState(() {
+      _pendingReplacementSectionId = null;
+      _pendingMangaCardSectionId = null;
+      _pendingEpisodeCardSectionId = null;
+      _pendingChapterCardSectionId = sectionId;
       _editorDestination = _LayoutEditorDestination.gallery;
       _editorDockExpanded = false;
     });
@@ -321,6 +337,7 @@ class _WatchExtensionHomeScreenState
         LayoutComponentRenderer.grid) {
       sections[index].remove('cardComponent');
       sections[index].remove('episodeComponent');
+      sections[index].remove('chapterComponent');
     }
     if (await _saveLayoutSections(sections) && mounted) {
       setState(() {
@@ -362,10 +379,53 @@ class _WatchExtensionHomeScreenState
     }
 
     sections[index].remove('cardComponent');
+    sections[index].remove('chapterComponent');
     sections[index]['episodeComponent'] = component;
     if (await _saveLayoutSections(sections) && mounted) {
       setState(() {
         _pendingEpisodeCardSectionId = null;
+        _editorDestination = _LayoutEditorDestination.home;
+      });
+    }
+  }
+
+  Future<void> _applyChapterCardComponent(String component) async {
+    final sectionId = _pendingChapterCardSectionId;
+    if (sectionId == null) return;
+    if (source.itemType != ItemType.manga ||
+        !LayoutComponentRegistry.supports(
+          component,
+          LayoutComponentContext.chapter,
+        )) {
+      _showEditorMessage(
+        'Cette carte de chapitre n’est pas compatible avec cette sélection.',
+      );
+      return;
+    }
+
+    final sections = _copyLayoutSections();
+    final index = sections.indexWhere(
+      (section) => section['id']?.toString() == sectionId,
+    );
+    if (index < 0) {
+      _showEditorMessage('Cette section n’existe plus dans le layout.');
+      return;
+    }
+    final sectionComponent = sections[index]['component']?.toString() ?? 'grid';
+    if (LayoutComponentRegistry.resolve(sectionComponent)?.renderer !=
+        LayoutComponentRenderer.grid) {
+      _showEditorMessage(
+        'Les cartes de chapitre personnalisées sont disponibles sur les sections en grille.',
+      );
+      return;
+    }
+
+    sections[index].remove('cardComponent');
+    sections[index].remove('episodeComponent');
+    sections[index]['chapterComponent'] = component;
+    if (await _saveLayoutSections(sections) && mounted) {
+      setState(() {
+        _pendingChapterCardSectionId = null;
         _editorDestination = _LayoutEditorDestination.home;
       });
     }
@@ -404,6 +464,7 @@ class _WatchExtensionHomeScreenState
 
     sections[index]['cardComponent'] = component;
     sections[index].remove('episodeComponent');
+    sections[index].remove('chapterComponent');
     if (await _saveLayoutSections(sections) && mounted) {
       setState(() {
         _pendingMangaCardSectionId = null;
@@ -694,6 +755,7 @@ class _WatchExtensionHomeScreenState
           _pendingReplacementSectionId = null;
           _pendingMangaCardSectionId = null;
           _pendingEpisodeCardSectionId = null;
+          _pendingChapterCardSectionId = null;
         }
         _editorDestination = destination;
         _editorDockExpanded = false;
@@ -705,26 +767,32 @@ class _WatchExtensionHomeScreenState
       onReplaceSection: _startSectionReplacement,
       onCustomizeMangaCards: _startMangaCardSelection,
       onCustomizeEpisodeCards: _startEpisodeCardSelection,
+      onCustomizeChapterCards: _startChapterCardSelection,
       isSelectingComponent:
           _pendingReplacementSectionId != null ||
           _pendingMangaCardSectionId != null ||
-          _pendingEpisodeCardSectionId != null,
-      selectionContext: _pendingEpisodeCardSectionId != null
-          ? LayoutComponentContext.homeEpisodeCard
-          : _pendingMangaCardSectionId != null
-          ? LayoutComponentContext.homeMangaCard
-          : LayoutComponentContext.home,
+          _pendingEpisodeCardSectionId != null ||
+          _pendingChapterCardSectionId != null,
+      selectionContext: _pendingChapterCardSectionId != null
+          ? LayoutComponentContext.chapter
+          : _pendingEpisodeCardSectionId != null
+              ? LayoutComponentContext.homeEpisodeCard
+              : _pendingMangaCardSectionId != null
+                  ? LayoutComponentContext.homeMangaCard
+                  : LayoutComponentContext.home,
       layoutEditorInitialContent: _layoutJson == null
           ? null
           : const JsonEncoder.withIndent('  ').convert(_layoutJson),
       layoutEditorRevision: _layoutEditorRevision,
       onSelectLayoutComponent: (component) =>
           unawaited(
-            _pendingEpisodeCardSectionId != null
-                ? _applyEpisodeCardComponent(component)
-                : _pendingMangaCardSectionId != null
-                ? _applyMangaCardComponent(component)
-                : _applyLayoutComponent(component),
+            _pendingChapterCardSectionId != null
+                ? _applyChapterCardComponent(component)
+                : _pendingEpisodeCardSectionId != null
+                    ? _applyEpisodeCardComponent(component)
+                    : _pendingMangaCardSectionId != null
+                        ? _applyMangaCardComponent(component)
+                        : _applyLayoutComponent(component),
           ),
       onLayoutJsonSaved: _reloadLayoutAfterJsonSave,
     );
@@ -751,6 +819,7 @@ class _ExtensionFeed extends StatelessWidget {
   final ValueChanged<String> onReplaceSection;
   final ValueChanged<String> onCustomizeMangaCards;
   final ValueChanged<String> onCustomizeEpisodeCards;
+  final ValueChanged<String> onCustomizeChapterCards;
   final bool isSelectingComponent;
   final LayoutComponentContext selectionContext;
   final ValueChanged<String> onSelectLayoutComponent;
@@ -778,6 +847,7 @@ class _ExtensionFeed extends StatelessWidget {
     required this.onReplaceSection,
     required this.onCustomizeMangaCards,
     required this.onCustomizeEpisodeCards,
+    required this.onCustomizeChapterCards,
     required this.isSelectingComponent,
     required this.selectionContext,
     required this.onSelectLayoutComponent,
@@ -822,11 +892,21 @@ class _ExtensionFeed extends StatelessWidget {
             ) ==
             true &&
         sectionDefinition?.renderer == LayoutComponentRenderer.grid;
+    final canCustomizeChapterCards =
+        source.itemType == ItemType.manga &&
+        sectionDefinition?.supportedContexts.contains(
+              LayoutComponentContext.home,
+            ) ==
+            true &&
+        sectionDefinition?.renderer == LayoutComponentRenderer.grid;
     final selectedCardLabel =
         LayoutComponentRegistry.resolve(section.cardComponent ?? '')?.label ??
         'Affiche standard';
     final selectedEpisodeCardLabel =
         LayoutComponentRegistry.resolve(section.episodeComponent ?? '')?.label ??
+        'Carte par défaut';
+    final selectedChapterCardLabel =
+        LayoutComponentRegistry.resolve(section.chapterComponent ?? '')?.label ??
         'Carte par défaut';
     showModalBottomSheet<void>(
       context: context,
@@ -884,6 +964,16 @@ class _ExtensionFeed extends StatelessWidget {
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   onCustomizeEpisodeCards(section.id);
+                },
+              ),
+            if (canCustomizeChapterCards)
+              ListTile(
+                leading: const Icon(Icons.menu_book_outlined),
+                title: const Text('Style des cartes de chapitre'),
+                subtitle: Text('Actuel : $selectedChapterCardLabel'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  onCustomizeChapterCards(section.id);
                 },
               ),
             ListTile(
@@ -1543,6 +1633,7 @@ class _ExtensionLayoutSectionState
       cardStyle: widget.section.cardStyle,
       cardComponent: widget.section.cardComponent,
       episodeComponent: widget.section.episodeComponent,
+      chapterComponent: widget.section.chapterComponent,
       gridOrder: widget.section.gridOrder,
       scrollDirection: widget.section.scrollDirection,
     );
@@ -1569,6 +1660,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
     this.cardStyle,
     this.cardComponent,
     this.episodeComponent,
+    this.chapterComponent,
     this.gridOrder,
     this.scrollDirection,
     super.key,
@@ -1585,6 +1677,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
   final String? cardStyle;
   final String? cardComponent;
   final String? episodeComponent;
+  final String? chapterComponent;
   final String? gridOrder;
   final String? scrollDirection;
 
@@ -1644,17 +1737,47 @@ class ExtensionLayoutPreview extends StatelessWidget {
       );
     }
 
+    final selectedChapterComponent = chapterComponent;
+    final chapterCardComponent =
+        source.itemType == ItemType.manga &&
+            selectedChapterComponent != null &&
+            LayoutComponentRegistry.supports(
+              selectedChapterComponent,
+              LayoutComponentContext.chapter,
+            )
+        ? selectedChapterComponent
+        : null;
+    if (chapterComponent != null && chapterCardComponent == null) {
+      debugPrint(
+        '[ExtensionLayoutPreview] Unsupported chapter card '
+        '"$chapterComponent"; using the default grid card.',
+      );
+    }
+
     final episodeCards = episodeCardComponent == null
         ? const <_ExtensionEpisodeCardItem>[]
         : _buildEpisodeCardItems();
     final episodeCardsByKey = {
       for (final episode in episodeCards) episode.contentItem.key: episode,
     };
-    final gridItems = episodeCardComponent == null
-        ? contentItems
-        : episodeCards
-              .map((episode) => episode.contentItem)
-              .toList(growable: false);
+    final chapterCards = chapterCardComponent == null
+        ? const <_ExtensionChapterCardItem>[]
+        : _buildChapterCardItems();
+    final chapterCardsByKey = {
+      for (final chapter in chapterCards) chapter.contentItem.key: chapter,
+    };
+    late final List<ContentItem> gridItems;
+    if (episodeCardComponent != null) {
+      gridItems = episodeCards
+          .map((episode) => episode.contentItem)
+          .toList(growable: false);
+    } else if (chapterCardComponent != null) {
+      gridItems = chapterCards
+          .map((chapter) => chapter.contentItem)
+          .toList(growable: false);
+    } else {
+      gridItems = contentItems;
+    }
 
     if (episodeCardComponent != null &&
         definition.renderer == LayoutComponentRenderer.grid &&
@@ -1669,6 +1792,28 @@ class ExtensionLayoutPreview extends StatelessWidget {
             ),
             child: Text(
               'Aucun épisode numéroté avec une URL valide n’a été fourni par cette source.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (chapterCardComponent != null &&
+        definition.renderer == LayoutComponentRenderer.grid &&
+        chapterCards.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSectionHeader(title: title),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            child: Text(
+              'Aucun chapitre avec un titre et une URL valides n’a été fourni par cette source.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1697,6 +1842,19 @@ class ExtensionLayoutPreview extends StatelessWidget {
           episodeNumber: episode.number,
           width: width,
           onTap: () => onOpen(episode.series),
+        );
+      };
+    } else if (chapterCardComponent != null) {
+      gridCardBuilder = (context, item, width, onTap) {
+        final chapter = chapterCardsByKey[item.key];
+        if (chapter == null) {
+          return PosterCard(item: item, width: width, onTap: onTap);
+        }
+        return ExtensionChapterCardAdapter.build(
+          manga: chapter.manga,
+          chapter: chapter.chapter,
+          width: width,
+          onTap: () => onOpen(chapter.manga),
         );
       };
     } else if (mangaCardComponent != null) {
@@ -1736,13 +1894,21 @@ class ExtensionLayoutPreview extends StatelessWidget {
       LayoutComponentRenderer.grid => MediaGridSection(
         title: title,
         items: gridItems,
-        onOpen: (index) => episodeCardComponent == null
-            ? onOpen(items[index])
-            : onOpen(episodeCards[index].series),
+        onOpen: (index) {
+          if (episodeCardComponent != null) {
+            onOpen(episodeCards[index].series);
+          } else if (chapterCardComponent != null) {
+            onOpen(chapterCards[index].manga);
+          } else {
+            onOpen(items[index]);
+          }
+        },
         columns: columns,
         rows: rows,
         scrollDirection: scrollDirection,
-        onSeeAll: episodeCardComponent == null ? onSeeAll : null,
+        onSeeAll: episodeCardComponent == null && chapterCardComponent == null
+            ? onSeeAll
+            : null,
         itemCardBuilder: gridCardBuilder,
       ),
       LayoutComponentRenderer.collections => _ExtensionCollectionCardRail(
@@ -1770,6 +1936,12 @@ class ExtensionLayoutPreview extends StatelessWidget {
         onSeeAll: onSeeAll,
       ),
       LayoutComponentRenderer.homeEpisodeCard => MediaPosterRail(
+        title: title,
+        items: contentItems,
+        onOpen: (index) => onOpen(items[index]),
+        onSeeAll: onSeeAll,
+      ),
+      LayoutComponentRenderer.chapterCard => MediaPosterRail(
         title: title,
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
@@ -1822,6 +1994,47 @@ class ExtensionLayoutPreview extends StatelessWidget {
     }
     return result;
   }
+
+  List<_ExtensionChapterCardItem> _buildChapterCardItems() {
+    final result = <_ExtensionChapterCardItem>[];
+    for (final manga in items) {
+      final mangaName = manga.name?.trim();
+      final mangaLink = manga.link?.trim();
+      if (mangaName == null ||
+          mangaName.isEmpty ||
+          mangaLink == null ||
+          mangaLink.isEmpty) {
+        continue;
+      }
+
+      for (final chapter in manga.chapters ?? const <MChapter>[]) {
+        final chapterName = chapter.name?.trim();
+        final chapterUrl = chapter.url?.trim();
+        if (chapterName == null ||
+            chapterName.isEmpty ||
+            chapterUrl == null ||
+            chapterUrl.isEmpty) {
+          continue;
+        }
+
+        final contentItem = ContentItem(
+          key: 'extension-chapter-${result.length}',
+          title: chapterName,
+          posterUrl: chapter.thumbnailUrl,
+          backdropUrl: manga.imageUrl,
+          description: chapter.description,
+        );
+        result.add(
+          _ExtensionChapterCardItem(
+            manga: manga,
+            chapter: chapter,
+            contentItem: contentItem,
+          ),
+        );
+      }
+    }
+    return result;
+  }
 }
 
 class _ExtensionEpisodeCardItem {
@@ -1835,6 +2048,18 @@ class _ExtensionEpisodeCardItem {
   final MManga series;
   final MChapter chapter;
   final int number;
+  final ContentItem contentItem;
+}
+
+class _ExtensionChapterCardItem {
+  const _ExtensionChapterCardItem({
+    required this.manga,
+    required this.chapter,
+    required this.contentItem,
+  });
+
+  final MManga manga;
+  final MChapter chapter;
   final ContentItem contentItem;
 }
 
