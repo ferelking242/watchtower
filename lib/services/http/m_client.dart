@@ -221,7 +221,10 @@ class MClient {
 
     return InterceptedClient.build(
       client: httpClient(settings: clientSettings, reqcopyWith: reqcopyWith),
-      retryPolicy: ResolveCloudFlareChallenge(showCloudFlareError),
+      retryPolicy: ResolveCloudFlareChallenge(
+        showCloudFlareError,
+        sourceId: extensionSourceId ?? source?.id,
+      ),
       interceptors: interceptors,
     );
   }
@@ -1150,22 +1153,16 @@ AntiBotAssessment antiBotAssessmentOf(BaseResponse response) {
 
 class ResolveCloudFlareChallenge extends RetryPolicy {
   bool showCloudFlareError;
-  ResolveCloudFlareChallenge(this.showCloudFlareError);
+  final int? sourceId;
+  final Set<String> _challengeAttempts = {};
+
+  ResolveCloudFlareChallenge(
+    this.showCloudFlareError, {
+    this.sourceId,
+  });
 
   @override
   int get maxRetryAttempts => 3;
-
-  /// Opens the manual challenge on the exact failing URL. Network retries can
-  /// also run without a mounted navigator, so the notification service queues
-  /// the request until the first frame exists.
-  void _openChallenge(String url) {
-    try {
-      botToast('🛡 Challenge Cloudflare — résolvez-le sur la page', second: 6);
-    } catch (_) {}
-    try {
-      BypassNotificationService.instance.openChallenge(url);
-    } catch (_) {}
-  }
 
   @override
   Future<bool> shouldAttemptRetryOnResponse(BaseResponse response) async {
@@ -1180,8 +1177,16 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
 
     final url = response.request?.url.toString();
     if (url == null || url.isEmpty) return false;
-    _openChallenge(url);
-    return false;
+    final requestKey = '${response.request?.method ?? 'GET'} $url';
+    if (!_challengeAttempts.add(requestKey)) return false;
+
+    final resolved = await BypassNotificationService.instance
+        .openChallengeAndWait(url);
+    if (!resolved) return false;
+
+    // Only retry if the real WebView stored an observed clearance cookie for
+    // this source. No cookie is forged and no TLS/browser fingerprint is changed.
+    return MClient.hasCfClearanceCookie(url, sourceId: sourceId);
   }
 }
 

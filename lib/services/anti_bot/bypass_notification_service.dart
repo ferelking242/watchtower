@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_challenge_screen.dart';
-import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/services/anti_bot/cloudflare_challenge_url.dart';
 import 'package:watchtower/router/router.dart' show navigatorKey;
 import 'package:watchtower/utils/log/logger.dart';
@@ -27,9 +26,8 @@ class BypassNotificationService {
 
   bool _initialized = false;
   CloudflareSourceResolver? _sourceResolver;
-  String? _pendingChallengeUrl;
-  bool _challengeOpenScheduled = false;
   final Set<String> _openChallengeHosts = {};
+  final Map<String, Future<bool>> _challengeFlows = {};
 
   Future<void> init({CloudflareSourceResolver? sourceResolver}) async {
     _sourceResolver ??= sourceResolver;
@@ -134,30 +132,39 @@ class BypassNotificationService {
     WidgetsBinding.instance.addPostFrameCallback((_) => openChallenge(url));
   }
 
-  /// Opens a visible, full-screen challenge page instead of a bottom sheet.
-  /// Also used after automatic retries fail, so the challenge is never hidden
-  /// in a background/headless webview.
+  /// Opens a visible challenge page for notification-triggered actions.
   void openChallenge(String url) {
-    if (url.trim().isEmpty) return;
-    final host = _hostFrom(url).toLowerCase();
-    if (_openChallengeHosts.contains(host)) return;
+    unawaited(openChallengeAndWait(url));
+  }
 
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) {
-      _pendingChallengeUrl = url;
-      if (!_challengeOpenScheduled) {
-        _challengeOpenScheduled = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _challengeOpenScheduled = false;
-          final pendingUrl = _pendingChallengeUrl;
-          _pendingChallengeUrl = null;
-          if (pendingUrl != null) openChallenge(pendingUrl);
-        });
-      }
-      return;
-    }
+  /// Opens or joins the visible challenge flow and completes only when the
+  /// user resolves or dismisses it. HTTP retry policies await this result.
+  Future<bool> openChallengeAndWait(String url) {
+    if (url.trim().isEmpty) return Future.value(false);
+    final host = _hostFrom(url).toLowerCase();
+    final existing = _challengeFlows[host];
+    if (existing != null) return existing;
+    if (_openChallengeHosts.contains(host)) return Future.value(false);
 
     _openChallengeHosts.add(host);
+    final flow = _showChallenge(url);
+    _challengeFlows[host] = flow;
+    return flow.whenComplete(() {
+      _challengeFlows.remove(host);
+      _openChallengeHosts.remove(host);
+    });
+  }
+
+  Future<bool> _showChallenge(String url) async {
+    NavigatorState? navigator;
+    for (var attempt = 0; attempt < 20 && navigator == null; attempt++) {
+      navigator = navigatorKey.currentState;
+      if (navigator == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+    }
+    if (navigator == null) return false;
+
     Source? source;
     try {
       source = _sourceResolver?.call(url);
@@ -172,42 +179,26 @@ class BypassNotificationService {
     // Open the exact failing URL: the panel reports whether a challenge is
     // really displayed instead of assuming the site root shows one.
     final challengeUrl = resolveCloudflareChallengeUrl(url);
-    if (challengeUrl == null) {
-      _openChallengeHosts.remove(host);
-      return;
+    if (challengeUrl == null) return false;
+    try {
+      final resolved = await navigator.push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => CloudflareChallengeScreen(
+            url: challengeUrl,
+            sourceName: source?.name,
+            sourceId: source?.id,
+              ),
+        ),
+      );
+      return resolved == true;
+    } catch (error) {
+      AppLogger.log(
+        'Cloudflare challenge navigation failed: $error',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+      return false;
     }
-    final resolvedSource = source;
-    unawaited(
-      navigator
-          .push<bool>(
-            MaterialPageRoute<bool>(
-              builder: (_) => CloudflareChallengeScreen(
-                url: challengeUrl,
-                sourceName: resolvedSource?.name,
-                sourceId: resolvedSource?.id,
-              ),
-            ),
-          )
-          .then<void>((resolved) async {
-            if (resolved != true || resolvedSource == null) return;
-            final activeNavigator = navigatorKey.currentState;
-            if (activeNavigator == null) return;
-            await activeNavigator.push<void>(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    WatchExtensionHomeScreen(source: resolvedSource),
-              ),
-            );
-          })
-          .catchError((Object error, StackTrace stackTrace) {
-            AppLogger.log(
-              'Cloudflare challenge navigation failed: $error',
-              logLevel: LogLevel.warning,
-              tag: LogTag.network,
-            );
-          })
-          .whenComplete(() => _openChallengeHosts.remove(host)),
-    );
   }
 
   /// Burst coalescing: several sources can be blocked at once (a refresh
