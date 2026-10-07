@@ -11,6 +11,7 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
+import 'package:watchtower/modules/more/download_queue/download_queue_progress.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
@@ -1562,31 +1563,6 @@ class _GroupedDownloadTabListState
     final unfinishedItems = items
         .where((download) => download.isDownload != true)
         .toList();
-    final allMangaPageTotalsKnown =
-        itemType == ItemType.manga &&
-        items.every(
-          (download) => download.isDownload == true
-              ? (download.total ?? 0) > 0
-              : (download.total ?? 0) > 1,
-        );
-    final knownPageTotal = itemType == ItemType.manga
-        ? items.fold<int>(0, (sum, download) {
-            final total = download.total ?? 0;
-            return total > 1 || download.isDownload == true
-                ? sum + total
-                : sum;
-          })
-        : 0;
-    final knownPagesDone = itemType == ItemType.manga
-        ? items.fold<int>(0, (sum, download) {
-            final total = download.total ?? 0;
-            if (total <= 1 && download.isDownload != true) return sum;
-            final completed = download.isDownload == true
-                ? total
-                : (download.succeeded ?? 0).clamp(0, total);
-            return sum + completed;
-          })
-        : 0;
     final animeHasExactTotals =
         itemType == ItemType.anime &&
         items.every((download) => (download.totalBytes ?? 0) > 0);
@@ -1598,13 +1574,44 @@ class _GroupedDownloadTabListState
       0,
       (sum, download) => sum + (download.totalBytes ?? 0),
     );
-    final double? seriesProgress = itemType == ItemType.manga
-        ? allMangaPageTotalsKnown && knownPageTotal > 0
-              ? (knownPagesDone / knownPageTotal).clamp(0.0, 1.0)
-              : null
-        : animeHasExactTotals && animeTotalBytes > 0
-        ? (animeDownloadedBytes / animeTotalBytes).clamp(0.0, 1.0)
+    final mangaChapterProgresses = itemType == ItemType.manga
+        ? items.map((download) {
+            final live = download.id == null
+                ? null
+                : widget.queueState.liveProgress[download.id!];
+            return mangaChapterProgress(
+              storedCompleted: download.succeeded,
+              storedTotal: download.total,
+              isComplete: download.isDownload == true,
+              liveCompleted: live?.completedUnits,
+              liveTotal: live?.totalUnits,
+            );
+          }).toList(growable: false)
+        : const <MangaChapterProgress>[];
+    final mangaHasProgressData =
+        itemType == ItemType.manga &&
+        items.any((download) {
+          final live = download.id == null
+              ? null
+              : widget.queueState.liveProgress[download.id!];
+          return download.isDownload == true ||
+              (download.total ?? 0) > 1 ||
+              (live?.totalUnits ?? 0) > 1;
+        });
+    final mangaProgress = mangaHasProgressData
+        ? mangaSeriesProgress(mangaChapterProgresses)
         : null;
+    final double? seriesProgress;
+    if (itemType == ItemType.manga) {
+      seriesProgress = mangaProgress;
+    } else if (animeHasExactTotals && animeTotalBytes > 0) {
+      seriesProgress = (animeDownloadedBytes / animeTotalBytes).clamp(
+        0.0,
+        1.0,
+      );
+    } else {
+      seriesProgress = null;
+    }
     final seriesPercent = seriesProgress == null
         ? null
         : (seriesProgress * 100).round();
@@ -1677,7 +1684,7 @@ class _GroupedDownloadTabListState
             return false;
           },
           child: Container(
-            margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+            margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(14),
@@ -1706,8 +1713,8 @@ class _GroupedDownloadTabListState
                         imageUrl: manga?.imageUrl,
                         customBytes: manga?.customCoverImage?.cast<int>(),
                         itemType: itemType,
-                        width: 50,
-                        height: 70,
+                        width: 56,
+                        height: 78,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -2015,35 +2022,6 @@ class _GroupedDownloadTabListState
     );
   }
 
-  Widget _buildConnectedSeriesGroup(
-    String key,
-    List<Download> downloads, {
-    required bool isLast,
-  }) {
-    final connectorColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.72);
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 34,
-            child: CustomPaint(
-              painter: DownloadQueueTreeConnector(
-                color: connectorColor,
-                isLast: isLast,
-                branchY: 42,
-              ),
-              child: const SizedBox.expand(),
-            ),
-          ),
-          Expanded(child: _buildSeriesGroup(key, downloads)),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final groups = _groupBySource();
@@ -2243,13 +2221,8 @@ class _GroupedDownloadTabListState
                 firstChild: const SizedBox.shrink(),
                 secondChild: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: visibleSeriesGroups.asMap().entries.map((entry) {
-                    final group = entry.value;
-                    return _buildConnectedSeriesGroup(
-                      group.key,
-                      group.value,
-                      isLast: entry.key == visibleSeriesGroups.length - 1,
-                    );
+                  children: visibleSeriesGroups.map((group) {
+                    return _buildSeriesGroup(group.key, group.value);
                   }).toList(),
                 ),
               ),
@@ -2338,25 +2311,33 @@ class _DownloadCard extends ConsumerWidget {
     final hasFailed = failed > 0 && !isComplete;
     final isCancelled = download.status == 'cancelled';
     final isPaused = this.isPaused;
+    final live = liveProgress;
     final invalidVideoCounters =
         itemType == ItemType.anime &&
         (storedSucceeded < 0 ||
             storedTotal < 0 ||
             storedSucceeded > maxTrustedDownloadBytes ~/ 1024 ||
             storedTotal > maxTrustedDownloadBytes ~/ 1024);
-    final invalidMangaCounters =
-        itemType == ItemType.manga &&
-        (storedSucceeded < 0 ||
-            storedTotal < 0 ||
-            (storedTotal > 0 && storedSucceeded > storedTotal) ||
-            (storedTotal <= 0 && storedSucceeded > 0));
-    final invalidCounters = invalidVideoCounters || invalidMangaCounters;
-    final succeeded = invalidCounters ? 0 : storedSucceeded;
-    final total = invalidCounters
+    final mangaProgress = itemType == ItemType.manga
+        ? mangaChapterProgress(
+            storedCompleted: storedSucceeded,
+            storedTotal: storedTotal,
+            isComplete: isComplete,
+            liveCompleted: live?.completedUnits,
+            liveTotal: live?.totalUnits,
+          )
+        : null;
+    final succeeded = itemType == ItemType.manga
+        ? mangaProgress!.completedPages
+        : invalidVideoCounters
+        ? 0
+        : storedSucceeded;
+    final total = itemType == ItemType.manga
+        ? mangaProgress!.totalPages
+        : invalidVideoCounters
         ? (storedTotal > 0 ? storedTotal : 1)
         : storedTotal;
 
-    final live = liveProgress;
     final liveDownloadedBytes = live != null
         ? live.downloadedBytes
         : download.downloadedBytes;
@@ -2385,8 +2366,8 @@ class _DownloadCard extends ConsumerWidget {
         ? ((exactDownloadedBytes ?? 0) / exactTotalBytes)
               .clamp(0.0, 1.0)
               .toDouble()
-        : itemType == ItemType.manga && total > 1
-        ? (succeeded / total).clamp(0.0, 1.0).toDouble()
+        : itemType == ItemType.manga
+        ? mangaProgress!.value
         : 0.0;
 
     final scheme = Theme.of(context).colorScheme;
@@ -2412,7 +2393,7 @@ class _DownloadCard extends ConsumerWidget {
         !hasFailed &&
         !isPaused &&
         download.status == 'downloading' &&
-        total <= 1;
+        mangaProgress?.isDeterminate != true;
     final isProgressIndeterminate =
         isRetrievingMetadata ||
         isPreparingDownload ||

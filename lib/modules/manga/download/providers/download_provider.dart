@@ -1305,6 +1305,7 @@ Future<void> downloadChapter(
     var mediaCompletionNotified = false;
     var transferStatusMarked = false;
     var lastMangaBytesUpdateAt = DateTime.fromMillisecondsSinceEpoch(0);
+    var lastMangaBytesCompletedUnits = -1;
     var lastLoggedProgressBucket = -1;
 
     Future<void> setProgress(DownloadProgress progress) async {
@@ -1315,14 +1316,28 @@ Future<void> downloadChapter(
           currentDownload?.status == 'cancelled') {
         return;
       }
-      if (progress.itemType == ItemType.manga &&
-          progress.downloadedBytes != null) {
+      final previousLiveProgress = chapterId == null
+          ? null
+          : ref.read(downloadQueueStateProvider).liveProgress[chapterId!];
+      final isMangaByteProgress =
+          progress.itemType == ItemType.manga &&
+          progress.downloadedBytes != null;
+      var skipFrequentMangaByteEffects = false;
+      if (isMangaByteProgress) {
         final now = DateTime.now();
-        if (now.difference(lastMangaBytesUpdateAt) <
-            const Duration(milliseconds: 180)) {
-          return;
+        final pageCountAdvanced =
+            progress.completed != lastMangaBytesCompletedUnits;
+        skipFrequentMangaByteEffects =
+            !progress.isCompleted &&
+            !pageCountAdvanced &&
+            now.difference(lastMangaBytesUpdateAt) <
+                const Duration(milliseconds: 180);
+        if (!skipFrequentMangaByteEffects) {
+          lastMangaBytesUpdateAt = now;
+          lastMangaBytesCompletedUnits = progress.completed;
         }
-        lastMangaBytesUpdateAt = now;
+      } else if (progress.itemType == ItemType.manga) {
+        lastMangaBytesCompletedUnits = progress.completed;
       }
       if (progress.total > 0) {
         final percent = (progress.completed / progress.total * 100)
@@ -1414,9 +1429,7 @@ Future<void> downloadChapter(
       final liveTotalBytes = progress.itemType == ItemType.anime
           ? reportedTotalBytes ?? persistedTotalBytes
           : trustedDownloadByteCount(progress.totalBytes);
-      final isPerFileByteProgress =
-          progress.itemType != ItemType.anime &&
-          progress.downloadedBytes != null;
+      final isPerFileByteProgress = isMangaByteProgress;
       if (isPerFileByteProgress &&
           !transferStatusMarked &&
           chapter.id != null) {
@@ -1463,9 +1476,30 @@ Future<void> downloadChapter(
           isarTotal = progress.total > 0 ? progress.total : 1;
         }
       } else {
-        // Manga / novel: store real page counts.
-        isarSucceeded = progress.completed;
-        isarTotal = progress.total > 0 ? progress.total : 1;
+        // The queue also emits a generic terminal 1/1 callback after all manga
+        // pages have been saved. Preserve the real page total from the last
+        // live update or Isar instead of replacing it with that sentinel.
+        final isGenericMangaCompletion =
+            progress.itemType == ItemType.manga &&
+            progress.isCompleted &&
+            progress.completed == 1 &&
+            progress.total == 1 &&
+            progress.downloadedBytes == null &&
+            progress.totalBytes == null;
+        final liveTotal = previousLiveProgress?.totalUnits ?? 0;
+        final completionPageTotal = liveTotal > 1
+            ? liveTotal
+            : storedTotal > 1
+            ? storedTotal
+            : 0;
+        if (isGenericMangaCompletion && completionPageTotal > 1) {
+          isarSucceeded = completionPageTotal;
+          isarTotal = completionPageTotal;
+        } else {
+          // Manga / novel: store real page counts.
+          isarSucceeded = progress.completed;
+          isarTotal = progress.total > 0 ? progress.total : 1;
+        }
       }
 
       // Anti-overflow : ne jamais laisser succeeded dépasser total ni être
@@ -1476,26 +1510,6 @@ Future<void> downloadChapter(
         isarSucceeded = isarTotal;
       }
       if (isarTotal <= 0) isarTotal = 1;
-
-      if (chapter.id != null) {
-        final progressNotifier = ref.read(downloadQueueStateProvider.notifier);
-        if (progress.isCompleted) {
-          progressNotifier.clearLiveProgress(chapter.id!);
-        } else if (!(progress.downloadedBytes == null &&
-            progress.totalBytes == null &&
-            progress.total == 0)) {
-          progressNotifier.setLiveProgress(
-            chapter.id!,
-            DownloadLiveProgress(
-              downloadedBytes: liveDownloadedBytes,
-              totalBytes: liveTotalBytes,
-              completedUnits: progress.completed,
-              totalUnits: progress.total,
-              isIndeterminate: progress.isIndeterminate,
-            ),
-          );
-        }
-      }
 
       // ── Speed Master: update the live speed shown in the download queue ──
       {
@@ -1625,15 +1639,46 @@ Future<void> downloadChapter(
       } else {
         progressStatus = 'initializing';
       }
+      final shouldPersistProgress =
+          !isPerFileByteProgress ||
+          download == null ||
+          download.succeeded != writtenSucceeded ||
+          download.total != isarTotal ||
+          download.isDownload != progress.isCompleted ||
+          download.status != progressStatus;
+
+      if (chapter.id != null) {
+        final progressNotifier = ref.read(downloadQueueStateProvider.notifier);
+        if (progress.isCompleted) {
+          progressNotifier.clearLiveProgress(chapter.id!);
+        } else if (!skipFrequentMangaByteEffects &&
+            !(progress.downloadedBytes == null &&
+                progress.totalBytes == null &&
+                progress.total == 0)) {
+          progressNotifier.setLiveProgress(
+            chapter.id!,
+            DownloadLiveProgress(
+              downloadedBytes: liveDownloadedBytes,
+              totalBytes: liveTotalBytes,
+              completedUnits: progress.itemType == ItemType.manga
+                  ? writtenSucceeded
+                  : progress.completed,
+              totalUnits: progress.itemType == ItemType.manga
+                  ? isarTotal
+                  : progress.total,
+              isIndeterminate: progress.isIndeterminate,
+            ),
+          );
+        }
+      }
 
       if (chapter.id == null) {
         // Pas d'ID → on ne peut rien écrire en base. On met juste à jour le
         // state Riverpod live (déjà fait plus haut) et on quitte.
       } else if (download == null) {
-        if (isPerFileByteProgress) {
-          // Byte ticks for a page are volatile UI progress; do not create or
-          // rewrite Isar rows until a full page has passed image validation.
-        } else {
+        if (!isPerFileByteProgress ||
+            progress.total > 0 ||
+            progress.isCompleted) {
           try {
             final newDl = Download(
               id: chapter.id,
@@ -1660,7 +1705,7 @@ Future<void> downloadChapter(
         }
       } else {
         final downloadNonNull = download;
-        if (!isPerFileByteProgress &&
+        if (shouldPersistProgress &&
             (progress.total != 0 || progress.downloadedBytes != null)) {
           try {
             isar.writeTxnSync(() {
@@ -1706,15 +1751,21 @@ Future<void> downloadChapter(
         }
       }
 
-      if (!progress.isCompleted && chapter.id != null) {
+      if (!progress.isCompleted &&
+          chapter.id != null &&
+          !skipFrequentMangaByteEffects) {
         unawaited(
           WatchtowerNotificationService.instance.showMediaDownloadProgress(
             chapterId: chapter.id!,
             seriesTitle: chapter.manga.value?.name ?? chapter.name ?? '',
             chapterTitle: chapter.name ?? 'Téléchargement',
             itemType: progress.itemType.name,
-            completed: progress.completed,
-            total: progress.total,
+            completed: progress.itemType == ItemType.manga
+                ? writtenSucceeded
+                : progress.completed,
+            total: progress.itemType == ItemType.manga
+                ? isarTotal
+                : progress.total,
             downloadedBytes: liveDownloadedBytes,
             totalBytes: liveTotalBytes,
           ),
@@ -1736,7 +1787,8 @@ Future<void> downloadChapter(
       final notificationTitle = activeCount == 1
           ? seriesTitle
           : '$activeCount téléchargements en cours';
-      if (progress.itemType == ItemType.anime) {
+      if (!skipFrequentMangaByteEffects &&
+          progress.itemType == ItemType.anime) {
         final downloadedBytes =
             reportedDownloadedBytes ??
             trustedDownloadBytesFromKilobytes(isarSucceeded) ??
@@ -1786,9 +1838,15 @@ Future<void> downloadChapter(
             force: progress.isCompleted,
           ),
         );
-      } else {
-        final pct = progress.total > 0
-            ? ((progress.completed / progress.total) * 100)
+      } else if (!skipFrequentMangaByteEffects) {
+        final completedUnits = progress.itemType == ItemType.manga
+            ? writtenSucceeded
+            : progress.completed;
+        final totalUnits = progress.itemType == ItemType.manga
+            ? isarTotal
+            : progress.total;
+        final pct = totalUnits > 0
+            ? ((completedUnits / totalUnits) * 100)
                   .round()
                   .clamp(0, 100)
                   .toInt()
