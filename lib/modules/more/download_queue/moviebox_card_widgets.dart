@@ -155,6 +155,8 @@ class MbGradientProgressBar extends StatelessWidget {
             : const LinearGradient(colors: [mbGreen, mbTeal]);
 
     if (progressValue == null) {
+      // Indeterminate: animated sweep so the user sees the transfer is alive
+      // even when the server never reports a total size.
       return ClipRRect(
         borderRadius: BorderRadius.circular(height / 2),
         child: LinearProgressIndicator(
@@ -166,20 +168,29 @@ class MbGradientProgressBar extends StatelessWidget {
       );
     }
 
+    final target = progressValue.clamp(0.0, 1.0).toDouble();
     return ClipRRect(
       borderRadius: BorderRadius.circular(height / 2),
       child: SizedBox(
         height: height,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Stack(
+        child: TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOutCubic,
+          tween: Tween<double>(begin: 0, end: target),
+          builder: (context, animated, _) => Stack(
             fit: StackFit.expand,
             children: [
               ColoredBox(color: background),
               Align(
                 alignment: Alignment.centerLeft,
+                // heightFactor must be set: without it the empty child gives
+                // the fill an intrinsic height of 0 and the bar stays invisible.
                 child: FractionallySizedBox(
-                  widthFactor: progressValue.clamp(0.0, 1.0).toDouble(),
-                  child: DecoratedBox(decoration: BoxDecoration(gradient: gradient)),
+                  widthFactor: animated,
+                  heightFactor: 1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(gradient: gradient),
+                  ),
                 ),
               ),
             ],

@@ -22,7 +22,6 @@ import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
-import 'package:watchtower/modules/more/download_queue/download_queue_tree_connector.dart';
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
@@ -1562,16 +1561,36 @@ class _GroupedDownloadTabListState
     final unfinishedItems = items
         .where((download) => download.isDownload != true)
         .toList();
+    // Manga page counts are only persisted once a full page passes validation,
+    // so the stored row keeps its 0/1 sentinel while images stream in. Merge
+    // the volatile session counters to keep the header bar in step with the
+    // per-card bars.
+    int effectiveTotalOf(Download download) {
+      final live = widget.queueState.liveProgress[download.id];
+      final stored = download.total ?? 0;
+      return live != null && live.totalUnits > stored
+          ? live.totalUnits
+          : stored;
+    }
+
+    int effectiveDoneOf(Download download) {
+      final live = widget.queueState.liveProgress[download.id];
+      final stored = download.succeeded ?? 0;
+      return live != null && live.completedUnits > stored
+          ? live.completedUnits
+          : stored;
+    }
+
     final allMangaPageTotalsKnown =
         itemType == ItemType.manga &&
         items.every(
           (download) => download.isDownload == true
-              ? (download.total ?? 0) > 0
-              : (download.total ?? 0) > 1,
+              ? effectiveTotalOf(download) > 0
+              : effectiveTotalOf(download) > 1,
         );
     final knownPageTotal = itemType == ItemType.manga
         ? items.fold<int>(0, (sum, download) {
-            final total = download.total ?? 0;
+            final total = effectiveTotalOf(download);
             return total > 1 || download.isDownload == true
                 ? sum + total
                 : sum;
@@ -1579,11 +1598,11 @@ class _GroupedDownloadTabListState
         : 0;
     final knownPagesDone = itemType == ItemType.manga
         ? items.fold<int>(0, (sum, download) {
-            final total = download.total ?? 0;
+            final total = effectiveTotalOf(download);
             if (total <= 1 && download.isDownload != true) return sum;
             final completed = download.isDownload == true
                 ? total
-                : (download.succeeded ?? 0).clamp(0, total);
+                : effectiveDoneOf(download).clamp(0, total);
             return sum + completed;
           })
         : 0;
@@ -1679,7 +1698,9 @@ class _GroupedDownloadTabListState
           child: Container(
             margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
             decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
+              // Translucent surface so the card reads lighter in dark mode
+              // instead of the near-black opaque container.
+              color: scheme.surfaceContainerLow.withValues(alpha: 0.55),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: scheme.outlineVariant.withValues(alpha: 0.45),
@@ -1989,29 +2010,12 @@ class _GroupedDownloadTabListState
     Download download, {
     required bool isLast,
   }) {
-    final connectorColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.72);
+    // No connector rail: the tree line added a wide left gutter that pushed
+    // every card inward. Cards now span the full width, keeping only the
+    // small side margin shared with the series header.
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: 20,
-              child: CustomPaint(
-                painter: DownloadQueueTreeConnector(
-                  color: connectorColor,
-                  isLast: isLast,
-                ),
-                child: const SizedBox.expand(),
-              ),
-            ),
-            Expanded(child: _buildDismissible(download, isSeriesChild: true)),
-          ],
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: _buildDismissible(download, isSeriesChild: true),
     );
   }
 
@@ -2020,28 +2024,7 @@ class _GroupedDownloadTabListState
     List<Download> downloads, {
     required bool isLast,
   }) {
-    final connectorColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.72);
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 34,
-            child: CustomPaint(
-              painter: DownloadQueueTreeConnector(
-                color: connectorColor,
-                isLast: isLast,
-                branchY: 42,
-              ),
-              child: const SizedBox.expand(),
-            ),
-          ),
-          Expanded(child: _buildSeriesGroup(key, downloads)),
-        ],
-      ),
-    );
+    return _buildSeriesGroup(key, downloads);
   }
 
   @override
@@ -2372,6 +2355,19 @@ class _DownloadCard extends ConsumerWidget {
               ? null
               : trustedDownloadByteCount(liveTotalBytes)
         : null;
+    // Page/episode unit progress lives only in the volatile session state for
+    // manga and novels: per-image byte ticks are deliberately not persisted to
+    // Isar, so the stored row keeps its initial 0/1 sentinel while the transfer
+    // runs. Prefer the live unit counters so the bar actually fills.
+    final liveUnits = live != null && live.totalUnits > 1 ? live : null;
+    final effectiveSucceeded = liveUnits != null
+        ? (liveUnits.completedUnits > succeeded
+              ? liveUnits.completedUnits
+              : succeeded)
+        : succeeded;
+    final effectiveTotal = liveUnits != null
+        ? (liveUnits.totalUnits > total ? liveUnits.totalUnits : total)
+        : total;
     final hasObservedBytes = (exactDownloadedBytes ?? 0) > 0;
     final isIndeterminateTransfer =
         !isComplete &&
@@ -2385,8 +2381,8 @@ class _DownloadCard extends ConsumerWidget {
         ? ((exactDownloadedBytes ?? 0) / exactTotalBytes)
               .clamp(0.0, 1.0)
               .toDouble()
-        : itemType == ItemType.manga && total > 1
-        ? (succeeded / total).clamp(0.0, 1.0).toDouble()
+        : itemType != ItemType.anime && effectiveTotal > 1
+        ? (effectiveSucceeded / effectiveTotal).clamp(0.0, 1.0).toDouble()
         : 0.0;
 
     final scheme = Theme.of(context).colorScheme;
@@ -2412,7 +2408,7 @@ class _DownloadCard extends ConsumerWidget {
         !hasFailed &&
         !isPaused &&
         download.status == 'downloading' &&
-        total <= 1;
+        effectiveTotal <= 1;
     final isProgressIndeterminate =
         isRetrievingMetadata ||
         isPreparingDownload ||
@@ -2464,7 +2460,7 @@ class _DownloadCard extends ConsumerWidget {
     final progressBar = !isComplete &&
             (progress > 0 ||
                 isProgressIndeterminate ||
-                (itemType == ItemType.manga && total > 1))
+                (itemType != ItemType.anime && effectiveTotal > 1))
         ? MbGradientProgressBar(
             value: isProgressIndeterminate ? null : progress,
             height: layout == DownloadCardLayout.minimal
@@ -2521,10 +2517,10 @@ class _DownloadCard extends ConsumerWidget {
           ? 'Annulé'
           : isPaused
           ? 'En pause'
-          : itemType == ItemType.manga && total > 1
-          ? '$succeeded/$total pages'
-          : itemType == ItemType.manga && succeeded > 0
-          ? '$succeeded pages'
+          : itemType != ItemType.anime && effectiveTotal > 1
+          ? '$effectiveSucceeded/$effectiveTotal pages'
+          : itemType != ItemType.anime && effectiveSucceeded > 0
+          ? '$effectiveSucceeded pages'
           : itemType == ItemType.anime &&
                 exactDownloadedBytes != null &&
                 exactTotalBytes != null
@@ -2639,7 +2635,12 @@ class _DownloadCard extends ConsumerWidget {
                 const SizedBox(width: 6),
                 if ((progress > 0 || isIndeterminateTransfer) && !isComplete)
                   Text(
-                    _buildProgressLabel(itemType, succeeded, total, failed),
+                    _buildProgressLabel(
+                      itemType,
+                      effectiveSucceeded,
+                      effectiveTotal,
+                      failed,
+                    ),
                     style: TextStyle(
                       color: scheme.onSurfaceVariant,
                       fontSize: 10,
@@ -2775,7 +2776,7 @@ class _DownloadCard extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Container(
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
+            color: scheme.surfaceContainerLow.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: scheme.outlineVariant.withValues(alpha: 0.5),
@@ -2860,8 +2861,8 @@ class _DownloadCard extends ConsumerWidget {
                             Text(
                               _buildProgressLabel(
                                 itemType,
-                                succeeded,
-                                total,
+                                effectiveSucceeded,
+                                effectiveTotal,
                                 failed,
                               ),
                               style: TextStyle(
@@ -2982,8 +2983,8 @@ class _DownloadCard extends ConsumerWidget {
                         ? 'Téléchargement terminé'
                         : _buildProgressLabel(
                             itemType,
-                            succeeded,
-                            total,
+                            effectiveSucceeded,
+                            effectiveTotal,
                             failed,
                           ),
                     style: TextStyle(
@@ -3081,8 +3082,8 @@ class _DownloadCard extends ConsumerWidget {
                             ? 'Terminé'
                             : _buildProgressLabel(
                                 itemType,
-                                succeeded,
-                                total,
+                                effectiveSucceeded,
+                                effectiveTotal,
                                 failed,
                               ),
                         style: TextStyle(
