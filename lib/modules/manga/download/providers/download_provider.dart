@@ -2233,15 +2233,15 @@ Future<void> downloadChapter(
         }
       }
       bool mp4FileExist = await File(
-        p.join(mangaMainDirectory.path, "$chapterName.mp4"),
+        p.join(mangaMainDirectory!.path, "$chapterName.mp4"),
       ).exists();
       bool htmlFileExist = await File(
-        p.join(mangaMainDirectory.path, "$chapterName.html"),
+        p.join(mangaMainDirectory!.path, "$chapterName.html"),
       ).exists();
       AppLogger.log(
         '[ch:${chapter.id}] archiveExists=$archiveFileExist '
         'mp4Exists=$mp4FileExist '
-        'htmlExists=$htmlFileExist dir=${mangaMainDirectory.path}',
+        'htmlExists=$htmlFileExist dir=${mangaMainDirectory!.path}',
         logLevel: LogLevel.debug,
         tag: LogTag.download,
       );
@@ -2351,7 +2351,7 @@ Future<void> downloadChapter(
             }
           } else if (itemType == ItemType.anime) {
             final file = File(
-              p.join(mangaMainDirectory.path, '$chapterName.mp4'),
+              p.join(mangaMainDirectory!.path, '$chapterName.mp4'),
             );
             if (!file.existsSync()) {
               pages.add(
@@ -2359,7 +2359,7 @@ Future<void> downloadChapter(
                   page.url.trim(),
                   headers: pageHeaders,
                   fileName: p.join(
-                    mangaMainDirectory.path,
+                    mangaMainDirectory!.path,
                     '$chapterName.mp4',
                   ),
                 ),

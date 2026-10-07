@@ -43,7 +43,7 @@ enum MangaArchiveFormat {
   cbz,     // 1 — CBZ (ZIP with images)
   cbr,     // 2 — legacy setting; RAR writing is not supported
   cb7,     // 3 — legacy setting; 7z writing is not supported
-  zip,     // 4 — ZIP plain
+  zip;     // 4 — ZIP plain
 
   static const supportedFormats = [
     MangaArchiveFormat.folder,

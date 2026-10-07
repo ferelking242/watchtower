@@ -364,7 +364,7 @@ class MClient {
         flutter_inappwebview.HTTPCookieSameSitePolicy? sameSite;
         for (final policy
             in flutter_inappwebview.HTTPCookieSameSitePolicy.values) {
-          if (policy.name.toLowerCase() == sameSiteName ||
+          if (policy.name().toLowerCase() == sameSiteName ||
               policy.toString().split('.').last.toLowerCase() == sameSiteName) {
             sameSite = policy;
             break;
@@ -639,7 +639,7 @@ class MCookieManager extends InterceptorContract {
   Map<String, dynamic>? reqcopyWith;
   final int? sourceId;
 
-  int? get _activeSourceId => sourceId ?? _workerExtensionSessionId;
+  int? get _activeSourceId => sourceId ?? MClient._workerExtensionSessionId;
 
   @override
   Future<BaseRequest> interceptRequest({required BaseRequest request}) async {

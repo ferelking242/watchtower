@@ -1149,7 +1149,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                                 icon: const Icon(Icons.login_rounded, size: 18),
                                 label: const Text('Se connecter'),
                               ),
-                              OutlinedButton.tonalIcon(
+                              OutlinedButton.icon(
                                 onPressed: _siteSessionStatus ==
                                         _SiteSessionStatus.notConnected
                                     ? null

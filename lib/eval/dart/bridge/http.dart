@@ -8,7 +8,7 @@ class HttpBridge {
   HttpBridge({this.sourceId});
   final int? sourceId;
 
-  final clientBridgedClass = BridgedClass(
+  late final clientBridgedClass = BridgedClass(
     nativeType: InterceptedClient,
     name: 'Client',
     constructors: {
