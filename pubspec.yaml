@@ -323,6 +323,11 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   remove_alpha_ios: true
+  # The master logo (assets/app_icons/icon.png) is the white eye on a
+  # transparent background. iOS forbids alpha, so flutter_launcher_icons
+  # blends it onto background_color_ios — without this it defaults to white
+  # and the icon would become a blank white square.
+  background_color_ios: "#0E1117"
   image_path: "assets/app_icons/icon.png"
   min_sdk_android: 21
   windows:
