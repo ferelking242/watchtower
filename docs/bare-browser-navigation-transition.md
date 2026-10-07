@@ -1,30 +1,39 @@
 # Bare Browser navigation transition
 
-## Status
+## Finding
 
-Not implemented: the available repositories do not include enough source
-material to reproduce the Bare Browser transition faithfully.
+Bare Browser's patch 0109 was inspected at upstream commit
+`a0adb50385edae2041ffa509c3e48fdb92c6e9cb`. It is a Chromium Android browser
+embedder change, not an app-route animation:
 
-## What was checked
+- `patches/0109-Leave-the-navigation-blur-transition-off.patch` makes
+  `ChromeWebContentsViewDelegateAndroid::ShouldShowBlurTransitionAnimation`
+  return `false` before Chromium starts its navigation blur animation.
+- The patch explains that the animation blurs the outgoing page, fades to a
+  solid color if the new page has not painted after 350 ms, then fades to the
+  new page. Without a page `theme-color`, the solid color is white.
+- `docs/build-constraints.md` explains why the animation was active in Bare:
+  the unbranded build compiles a field-trial testing configuration that enables
+  the experiment. Bare addresses this in its Chromium build and embedder.
 
-- The Watchtower repository and the `watchtower-extensions` repository.
-- `docs/build-constraints.md`, `docs/patches.md`, and `patches/` in both
-  repositories.
-- References to Bare Browser, patch 0109, and “Leave the navigation blur
-  transition off”.
+## Applicability to Watchtower
 
-None of the referenced Bare Browser documentation or patch files are present.
-The available remotes are Watchtower and Watchtower Extensions; neither is the
-Bare Browser source repository. The only `0109` matches are unrelated extension
-catalogue IDs.
+Watchtower's `mangawebview` route displays `MangaWebView`, which creates an
+`InAppWebView` from `flutter_inappwebview`. Flutter route transitions in
+`lib/router/router.dart` apply when entering or leaving the Flutter screen;
+they do not control cross-site navigations inside Chromium's
+`ChromeWebContentsViewDelegateAndroid`.
 
-## Information still needed
+Watchtower does not build or embed Bare Browser's Chrome Android browser
+embedder. Adding a Flutter `FadeTransition`, `SlideTransition`, or changing
+the `mangawebview` route would therefore not implement patch 0109 and could
+alter unrelated screen navigation. No runtime transition was changed.
 
-To implement this safely, provide the Bare Browser repository or the exact
-upstream commit, including patch 0109 and the Chromium/navigation source it
-refers to. The affected Watchtower screen or route must also be identified if
-it is not clear from that source.
+## Boundary for a real fix
 
-Until then, no FadeTransition, SlideTransition, or navigation-blur behavior has
-been added. Choosing one without the source would not verify the requested
-behavior and could reintroduce the reported white flash.
+If the same white flash is reproduced inside Watchtower's Android
+`InAppWebView`, it must be traced to the Android WebView provider or the
+plugin's native integration first. Patch 0109 itself cannot be applied to
+Watchtower's Flutter route. A fix should only be added after confirming that
+the embedded WebView exposes an equivalent Chromium hook or configuration;
+otherwise the exact Bare Browser behavior is outside this app's control.
