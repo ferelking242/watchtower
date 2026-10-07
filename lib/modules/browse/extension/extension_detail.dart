@@ -54,6 +54,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   bool _isCollapsed = false;
   _SiteSessionStatus _siteSessionStatus = _SiteSessionStatus.checking;
   ExtensionAccount? _accountInfo;
+  List<Map<String, dynamic>> _extensionFavorites = [];
+  Map<String, dynamic>? _extensionSubscription;
+  bool? _extensionPremiumStatus;
 
   @override
   void initState() {
@@ -122,6 +125,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     if (!mounted) return;
     setState(() {
       _accountInfo = null;
+      _extensionFavorites = [];
+      _extensionSubscription = null;
+      _extensionPremiumStatus = null;
       _siteSessionStatus = _SiteSessionStatus.notConnected;
     });
     botToast('Session effacée pour cette extension.');
@@ -150,9 +156,40 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           // browser session itself remains valid.
         }
       }
+      var favorites = <Map<String, dynamic>>[];
+      Map<String, dynamic>? subscription;
+      bool? premiumStatus;
+      if (source.favoritesAvailable ||
+          source.subscriptionAvailable ||
+          source.premiumAvailable) {
+        try {
+          await withExtensionService(source, (service) async {
+            if (source.favoritesAvailable) {
+              try {
+                favorites = await service.getFavorites();
+              } catch (_) {}
+            }
+            if (source.subscriptionAvailable) {
+              try {
+                subscription = await service.getSubscription();
+              } catch (_) {}
+            }
+            if (source.premiumAvailable) {
+              try {
+                premiumStatus = await service.getPremiumStatus();
+              } catch (_) {}
+            }
+          });
+        } catch (_) {
+          // One unavailable capability must not hide the other account data.
+        }
+      }
       if (mounted) {
         setState(() {
           _accountInfo = account;
+          _extensionFavorites = favorites;
+          _extensionSubscription = subscription;
+          _extensionPremiumStatus = premiumStatus;
           _siteSessionStatus = account != null
               ? _SiteSessionStatus.authenticated
               : hasSessionData
@@ -164,6 +201,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       if (mounted) {
         setState(() {
           _accountInfo = null;
+          _extensionFavorites = [];
+          _extensionSubscription = null;
+          _extensionPremiumStatus = null;
           _siteSessionStatus = _SiteSessionStatus.unavailable;
         });
       }
@@ -297,6 +337,126 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAccountCapabilities(ColorScheme colors) {
+    final sections = <Widget>[];
+    if (source.favoritesAvailable) {
+      sections.add(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            const _SectionHeader(
+              label: 'Favoris',
+              icon: Icons.favorite_outline_rounded,
+            ),
+            if (_extensionFavorites.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, left: 4),
+                child: Text(
+                  'Aucun favori disponible.',
+                  style: TextStyle(color: colors.onSurfaceVariant),
+                ),
+              )
+            else
+              ..._extensionFavorites.take(5).map((favorite) {
+                final title = favorite['name']?.toString() ??
+                    favorite['title']?.toString() ??
+                    'Sans titre';
+                final imageUrl = favorite['imageUrl']?.toString() ??
+                    favorite['coverUrl']?.toString();
+                final imageUri = Uri.tryParse(imageUrl ?? '');
+                final validImage = imageUri != null &&
+                    (imageUri.scheme == 'https' || imageUri.scheme == 'http');
+                return ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  leading: validImage
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(5),
+                          child: Image.network(
+                            imageUri.toString(),
+                            width: 36,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.book_outlined,
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.book_outlined,
+                          color: colors.onSurfaceVariant,
+                        ),
+                  title: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }),
+            if (_extensionFavorites.length > 5)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 4),
+                child: Text(
+                  '+${_extensionFavorites.length - 5} autres favoris',
+                  style: TextStyle(color: colors.onSurfaceVariant),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    if (source.subscriptionAvailable) {
+      final subscription = _extensionSubscription;
+      final plan = subscription?['plan']?.toString() ??
+          subscription?['name']?.toString() ??
+          'Abonnement';
+      final status = subscription?['status']?.toString();
+      final expiresAt = subscription?['expiresAt']?.toString() ??
+          subscription?['expires_at']?.toString();
+      sections.add(
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          leading: Icon(Icons.card_membership_rounded, color: colors.primary),
+          title: Text(plan),
+          subtitle: Text(
+            [
+              if (status != null && status.isNotEmpty) status,
+              if (expiresAt != null && expiresAt.isNotEmpty)
+                'Expire le $expiresAt',
+              if (subscription == null) 'Détails indisponibles',
+            ].join(' · '),
+          ),
+        ),
+      );
+    }
+    if (source.premiumAvailable) {
+      final status = _extensionPremiumStatus;
+      sections.add(
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          leading: Icon(
+            status == true ? Icons.workspace_premium : Icons.stars_outlined,
+            color: status == true ? colors.tertiary : colors.onSurfaceVariant,
+          ),
+          title: const Text('Statut Premium'),
+          subtitle: Text(
+            status == null
+                ? 'Statut indisponible'
+                : status
+                ? 'Actif'
+                : 'Inactif',
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sections,
     );
   }
 
@@ -1200,11 +1360,15 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                     );
                   }),
 
-                  if (source.loginAvailable || source.accountAvailable) ...[
+                  if (source.loginAvailable ||
+                      source.accountAvailable ||
+                      source.favoritesAvailable ||
+                      source.subscriptionAvailable ||
+                      source.premiumAvailable) ...[
                     const SizedBox(height: 24),
                     _SectionHeader(
-                      label: 'Connexion au site',
-                      icon: Icons.lock_open_rounded,
+                      label: 'Compte et fonctionnalités',
+                      icon: Icons.manage_accounts_outlined,
                     ),
                     const SizedBox(height: 4),
                     Padding(
@@ -1213,17 +1377,20 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'La page de connexion s’ouvre dans le navigateur intégré. '
-                            'Les cookies et le stockage du site sont conservés séparément '
-                            'pour cette extension.',
+                            source.loginAvailable
+                                ? 'La connexion et les informations affichées sont propres à cette extension. '
+                                    'Les cookies et le stockage du site restent isolés.'
+                                : 'Les informations affichées sont fournies par les méthodes déclarées par cette extension.',
                             style: TextStyle(
                               fontSize: 12,
                               color: cs.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 12),
-                          _buildSiteSessionStatus(cs),
+                          if (source.loginAvailable || source.accountAvailable)
+                            _buildSiteSessionStatus(cs),
                           _buildAccountProfile(cs),
+                          _buildAccountCapabilities(cs),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 10,
@@ -1241,17 +1408,19 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                                   ),
                                   label: const Text('Se connecter'),
                                 ),
-                              OutlinedButton.icon(
-                                onPressed: _siteSessionStatus ==
-                                        _SiteSessionStatus.notConnected
-                                    ? null
-                                    : _signOutFromSite,
-                                icon: const Icon(
-                                  Icons.logout_rounded,
-                                  size: 18,
+                              if (source.loginAvailable ||
+                                  source.accountAvailable)
+                                OutlinedButton.icon(
+                                  onPressed: _siteSessionStatus ==
+                                          _SiteSessionStatus.notConnected
+                                      ? null
+                                      : _signOutFromSite,
+                                  icon: const Icon(
+                                    Icons.logout_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Effacer la session'),
                                 ),
-                                label: const Text('Effacer la session'),
-                              ),
                             ],
                           ),
                         ],

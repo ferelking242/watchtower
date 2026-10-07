@@ -34,6 +34,9 @@ class MProvider {
   Future<String> getHtmlContent(String name, String url) async => '';
   Future<String> cleanHtmlContent(String html) async => '';
   Future<dynamic> getAccount() async => null;
+  Future<List<dynamic>> getFavorites() async => [];
+  Future<dynamic> getSubscription() async => null;
+  Future<bool?> getPremiumStatus() async => null;
   List<dynamic> getFilterList() => [];
   @override
   Future<List<String>> getSuggestions(String query) async => [];
@@ -449,5 +452,42 @@ class DartExtensionService implements ExtensionService {
       throw FormatException('Extension getAccount() must return a map or null');
     }
     return ExtensionAccount.fromJson(Map<String, dynamic>.from(result));
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getFavorites() async {
+    final result = await _interpreter!.invoke('getFavorites', []);
+    if (result == null) return [];
+    if (result is! List) {
+      throw FormatException('Extension getFavorites() must return a list');
+    }
+    return result
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getSubscription() async {
+    final result = await _interpreter!.invoke('getSubscription', []);
+    if (result == null) return null;
+    if (result is! Map) {
+      throw FormatException(
+        'Extension getSubscription() must return a map or null',
+      );
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  @override
+  Future<bool?> getPremiumStatus() async {
+    final result = await _interpreter!.invoke('getPremiumStatus', []);
+    if (result == null) return null;
+    if (result is! bool) {
+      throw FormatException(
+        'Extension getPremiumStatus() must return a boolean or null',
+      );
+    }
+    return result;
   }
 }

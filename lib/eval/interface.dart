@@ -59,4 +59,14 @@ abstract interface class ExtensionService {
   /// Returns the signed-in site's public account profile, or null when signed
   /// out or when the extension does not implement account support.
   Future<ExtensionAccount?> getAccount() async => null;
+
+  /// Returns display-ready favorites with `name`, `url`, and optional
+  /// `imageUrl` keys. Unsupported extensions return an empty list.
+  Future<List<Map<String, dynamic>>> getFavorites() async => [];
+
+  /// Returns display-ready subscription details, or null when unavailable.
+  Future<Map<String, dynamic>?> getSubscription() async => null;
+
+  /// Returns true/false when known, or null when the status is unavailable.
+  Future<bool?> getPremiumStatus() async => null;
 }

@@ -233,6 +233,9 @@ class Source {
   }
 
   bool get accountAvailable => _metadataValues()['account'] == true;
+  bool get favoritesAvailable => _metadataValues()['favorites'] == true;
+  bool get subscriptionAvailable => _metadataValues()['subscription'] == true;
+  bool get premiumAvailable => _metadataValues()['premium'] == true;
 
   void _setBooleanMetadata(String key, bool? value) {
     final raw = (additionalParams ?? '')
@@ -356,6 +359,12 @@ class Source {
       if (loginUrl != null) 'loginUrl': loginUrl,
       if (_metadataValues()['account'] is bool)
         'account': _metadataValues()['account'],
+      if (_metadataValues()['favorites'] is bool)
+        'favorites': _metadataValues()['favorites'],
+      if (_metadataValues()['subscription'] is bool)
+        'subscription': _metadataValues()['subscription'],
+      if (_metadataValues()['premium'] is bool)
+        'premium': _metadataValues()['premium'],
     };
     if (metadata.isEmpty) return raw;
     final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
@@ -404,7 +413,7 @@ class Source {
       final value = json['loginUrl'];
       setLoginUrl(value is String ? value : null);
     }
-    for (final key in ['account']) {
+    for (final key in ['account', 'favorites', 'subscription', 'premium']) {
       final value =
           json[key] ?? json['supports${key[0].toUpperCase()}${key.substring(1)}'];
       if (value is bool) _setBooleanMetadata(key, value);
@@ -477,6 +486,9 @@ class Source {
     'additionalParams': persistedAdditionalParams,
     'loginUrl': loginUrl,
     'account': accountAvailable,
+    'favorites': favoritesAvailable,
+    'subscription': subscriptionAvailable,
+    'premium': premiumAvailable,
     if (touchToPreview) 'touchToPreview': true,
     'sourceCodeLanguage': sourceCodeLanguage.index,
     'isObsolete': isObsolete,

@@ -171,6 +171,9 @@ class MProvider {
     async getRecommendations(url) { return []; }
     async getComments(url) { return []; }
     async getAccount() { return null; }
+    async getFavorites() { return []; }
+    async getSubscription() { return null; }
+    async getPremiumStatus() { return null; }
     // ── Generic search/filter fallback helpers ──────────────────────────────
     // Available on every extension via `this.fallbackSearch(...)` and
     // `this.safeApplyFilters(...)` so extensions that have no native search
@@ -661,6 +664,39 @@ function extLog(level, msg) {
       throw FormatException('Extension getAccount() must return an object or null');
     }
     return ExtensionAccount.fromJson(Map<String, dynamic>.from(raw));
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getFavorites() async {
+    final raw = await _extensionCallAsync<List>('getFavorites()');
+    return raw
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getSubscription() async {
+    final raw = await _extensionCallAsync<dynamic>('getSubscription()');
+    if (raw == null) return null;
+    if (raw is! Map) {
+      throw FormatException(
+        'Extension getSubscription() must return an object or null',
+      );
+    }
+    return Map<String, dynamic>.from(raw);
+  }
+
+  @override
+  Future<bool?> getPremiumStatus() async {
+    final raw = await _extensionCallAsync<dynamic>('getPremiumStatus()');
+    if (raw == null) return null;
+    if (raw is! bool) {
+      throw FormatException(
+        'Extension getPremiumStatus() must return a boolean or null',
+      );
+    }
+    return raw;
   }
 
 
