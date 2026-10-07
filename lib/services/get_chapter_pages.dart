@@ -32,7 +32,7 @@ Future<List<PageUrl>> fetchFreshChapterPageUrls({
   required Chapter chapter,
   required String lang,
   required String sourceName,
-  required String? sourceId,
+  required int? sourceId,
 }) async {
   final chapterUrl = chapter.url;
   if (chapterUrl == null || chapterUrl.isEmpty) {

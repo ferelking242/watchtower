@@ -2538,7 +2538,7 @@ Future<void> downloadChapter(
                     sourceId: manga.sourceId,
                   ).timeout(const Duration(seconds: 90));
                   pageUrlsForCache = pageUrls;
-                  await savePageUrls();
+                  savePageUrls();
                   await buildMangaPagePlan();
                   final refreshedManifest = activeMangaManifest!;
                   final completed = refreshedManifest.pages
