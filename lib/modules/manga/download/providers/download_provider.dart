@@ -104,6 +104,13 @@ Future<void> _writeMangaDownloadManifest(
 bool _isRefreshablePageUrlError(Object error) =>
     RegExp(r'\b(?:401|403)\b').hasMatch(error.toString());
 
+String _safeManifestFailure(Object error) {
+  final status = RegExp(r'\b(?:401|403|404|408|429|5\d\d)\b')
+      .firstMatch(error.toString())
+      ?.group(0);
+  return status == null ? error.runtimeType.toString() : 'HTTP $status';
+}
+
 /// Convert a raw exception into a human-readable French message.
 String friendlyErrorMessage(Object e) {
   final msg = e.toString().toLowerCase();
@@ -2372,6 +2379,7 @@ Future<void> downloadChapter(
       Future<void> reconcileAndPersistMangaManifest({
         bool markDownloading = false,
         bool markFailed = false,
+        Object? failure,
       }) async {
         if (mangaManifestFile == null || manifestPages.isEmpty) return;
         activeManifest = reconcileMangaDownloadManifest(
@@ -2379,26 +2387,59 @@ Future<void> downloadChapter(
           pages: manifestPages,
           filePaths: manifestFilePaths,
           completed: manifestCompleted,
+          chapterId: chapter.id,
+          mangaId: chapter.mangaId,
+          extensionId: manga.sourceId?.toString(),
+          sourceId: manga.sourceId,
+          chapterMetadata: {
+            'chapterName': chapter.name,
+            'chapterDate': chapter.dateUpload,
+            'scanlator': chapter.scanlator,
+            'seriesName': manga.name,
+            'sourceName': manga.source,
+            'language': manga.lang,
+          },
           previous: activeManifest,
         );
         final current = activeManifest!;
         final updatedPages = <MangaDownloadPage>[];
+        final now = DateTime.now().millisecondsSinceEpoch;
         for (final page in current.pages) {
           final complete = await isReusableDownloadedImage(
             File(page.filePath),
           );
+          final pending = pendingMangaPaths.contains(page.filePath);
+          final failed = markFailed && pending && !complete;
+          final starting = markDownloading && pending && !complete;
           final state = complete
               ? MangaPageState.completed
-              : markFailed && pendingMangaPaths.contains(page.filePath)
+              : failed
               ? MangaPageState.failed
-              : markDownloading && pendingMangaPaths.contains(page.filePath)
+              : starting
               ? MangaPageState.downloading
               : MangaPageState.pending;
-          updatedPages.add(page.copyWith(state: state));
+          updatedPages.add(
+            page.copyWith(
+              state: state,
+              attempts: page.attempts + (starting ? 1 : 0),
+              lastError: failed && failure != null
+                  ? _safeManifestFailure(failure)
+                  : null,
+              clearLastError: complete || starting,
+              updatedAt: now,
+            ),
+          );
         }
         activeManifest = MangaDownloadManifest(
+          chapterId: current.chapterId,
+          mangaId: current.mangaId,
+          extensionId: current.extensionId,
+          sourceId: current.sourceId,
+          chapterMetadata: current.chapterMetadata,
           chapterUrl: current.chapterUrl,
           pages: updatedPages,
+          createdAt: current.createdAt,
+          updatedAt: now,
         );
         await _writeMangaDownloadManifest(mangaManifestFile, activeManifest!);
       }
@@ -2549,7 +2590,10 @@ Future<void> downloadChapter(
           }
         } catch (e) {
           if (itemType == ItemType.manga) {
-            await reconcileAndPersistMangaManifest(markFailed: true);
+            await reconcileAndPersistMangaManifest(
+              markFailed: true,
+              failure: e,
+            );
           }
           log(
             '[downloadChapter][manga] FAILED chapterId=${chapter.id} '
