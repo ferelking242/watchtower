@@ -198,24 +198,7 @@ class DownloadForegroundService : Service() {
             this, 0, launchIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        // Body line: show subtitle if provided, otherwise fall back to count string.
-        val sizeText = if (totalBytes != null && totalBytes > 0) {
-            "${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)}"
-        } else if (downloadedBytes > 0) {
-            "${formatBytes(downloadedBytes)} / N/A"
-        } else {
-            "N/A"
-        }
-        val speedText = if (speedMbs >= 0.05) {
-            "${if (speedMbs >= 10) "%.0f".format(speedMbs) else "%.1f".format(speedMbs)} MB/s"
-        } else {
-            ""
-        }
-        val etaText = etaSeconds?.let { "reste ${formatDuration(it)}" } ?: ""
-        val metrics = listOf(sizeText, speedText, etaText)
-            .filter { it.isNotEmpty() }
-            .joinToString(" • ")
-        val body = listOf(subtitle, quality, metrics)
+        val body = listOf("Téléchargement", title, subtitle)
             .filter { it.isNotEmpty() }
             .joinToString(" • ")
             .ifEmpty {
@@ -226,7 +209,7 @@ class DownloadForegroundService : Service() {
             }
         }
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
+            .setContentTitle("Watchtower")
             .setContentText(body)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true)
@@ -246,12 +229,11 @@ class DownloadForegroundService : Service() {
                 progress < 0   // indeterminate when progress == -1
             )
 
-        // BigText style: show full chapter name even when it's long.
-        if (title.isNotEmpty() && title != "Téléchargement en cours…") {
+        if (body.isNotEmpty()) {
             builder.setStyle(
                 NotificationCompat.BigTextStyle()
                     .bigText(body)
-                    .setBigContentTitle(title)
+                    .setBigContentTitle("Watchtower")
             )
         }
 

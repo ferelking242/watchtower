@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,18 +13,15 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
-import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
-import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
-import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
+import 'package:watchtower/modules/more/download_queue/download_queue_tree_connector.dart';
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
@@ -42,7 +38,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     // Kick off any pending downloads that were left in queue
     // when the app was closed or the screen was dismissed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -176,6 +172,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         final novelEntries = entries
             .where((d) => typeOf(d) == ItemType.novel)
             .toList();
+        final musicEntries = entries
+            .where((d) => typeOf(d) == ItemType.music)
+            .toList();
+        final gameEntries = entries
+            .where((d) => typeOf(d) == ItemType.game)
+            .toList();
 
         final unfinishedDownloadCount = entries
             .where((download) => download.isDownload != true)
@@ -282,6 +284,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                         novelCount: novelEntries
                             .where((download) => download.isDownload != true)
                             .length,
+                        musicCount: musicEntries
+                            .where((download) => download.isDownload != true)
+                            .length,
+                        gameCount: gameEntries
+                            .where((download) => download.isDownload != true)
+                            .length,
                       ),
                     ),
                   ],
@@ -302,7 +310,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
                       onCancel: (e) => _cancelDownload(e, ref),
-                      onDelete: (e) => _deleteDownload(e),
+                      onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
                     ),
@@ -316,7 +324,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
                       onCancel: (e) => _cancelDownload(e, ref),
-                      onDelete: (e) => _deleteDownload(e),
+                      onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
                     ),
@@ -330,7 +338,35 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
                       onCancel: (e) => _cancelDownload(e, ref),
-                      onDelete: (e) => _deleteDownload(e),
+                      onDelete: (e) => _deleteDownload(e, ref),
+                      onRetry: (e) => _retryDownload(e, ref, context),
+                      onOpen: (e) => _openDownload(e, context),
+                    ),
+                    _GroupedDownloadTabList(
+                      entries: musicEntries,
+                      allEntries: entries,
+                      emptyIcon: Icons.music_note_outlined,
+                      emptyLabel: 'Aucun téléchargement Musique',
+                      queueState: queueState,
+                      swipeLeft: swipeLeft,
+                      swipeRight: swipeRight,
+                      onPauseResume: (e) => _togglePause(e, ref),
+                      onCancel: (e) => _cancelDownload(e, ref),
+                      onDelete: (e) => _deleteDownload(e, ref),
+                      onRetry: (e) => _retryDownload(e, ref, context),
+                      onOpen: (e) => _openDownload(e, context),
+                    ),
+                    _GroupedDownloadTabList(
+                      entries: gameEntries,
+                      allEntries: entries,
+                      emptyIcon: Icons.sports_esports_outlined,
+                      emptyLabel: 'Aucun téléchargement Jeu',
+                      queueState: queueState,
+                      swipeLeft: swipeLeft,
+                      swipeRight: swipeRight,
+                      onPauseResume: (e) => _togglePause(e, ref),
+                      onCancel: (e) => _cancelDownload(e, ref),
+                      onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
                     ),
@@ -347,38 +383,28 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   void _togglePause(Download element, WidgetRef ref) {
     final id = element.id ?? -1;
     if (id == -1) return;
+    if (element.status == 'cancelled') {
+      unawaited(
+        handleMediaDownloadNotificationAction(
+          ref,
+          id,
+          MediaDownloadNotificationAction.retry,
+        ),
+      );
+      return;
+    }
     final wasPaused =
         ref.read(downloadQueueStateProvider).pausedIds.contains(id) ||
         element.status == 'paused';
-    ref.read(downloadQueueStateProvider.notifier).setPaused(id, !wasPaused);
-    ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
-    final stored = isar.downloads.getSync(id);
-    if (stored != null) {
-      isar.writeTxnSync(() {
-        if (wasPaused) {
-          isar.downloads.putSync(
-            stored
-              ..isDownload = false
-              ..isStartDownload = true
-              ..status = 'queued',
-          );
-        } else {
-          isar.downloads.putSync(stored..status = 'paused');
-        }
-      });
-    }
     unawaited(
-      WatchtowerNotificationService.instance.setMediaDownloadPaused(
+      handleMediaDownloadNotificationAction(
+        ref,
         id,
-        isPaused: !wasPaused,
+        wasPaused
+            ? MediaDownloadNotificationAction.resume
+            : MediaDownloadNotificationAction.pause,
       ),
     );
-    if (wasPaused) {
-      // processDownloads re-queries Isar every ~900 ms, so resumed chapters
-      // are picked up automatically without invalidating the provider.
-      // Just ensure the scheduler loop is running (no-op if it already is).
-      ref.read(processDownloadsProvider());
-    }
   }
 
   void _handleGlobalAction(
@@ -393,13 +419,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             .where(_isBulkActionable)
             .map((entry) => entry.id!)
             .toList();
-        ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
         for (final id in ids.where((id) => id >= 0)) {
-          ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
           unawaited(
-            WatchtowerNotificationService.instance.setMediaDownloadPaused(
+            handleMediaDownloadNotificationAction(
+              ref,
               id,
-              isPaused: true,
+              MediaDownloadNotificationAction.pause,
             ),
           );
         }
@@ -415,64 +440,51 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             )
             .map((entry) => entry.id!)
             .toList();
-        ref.read(downloadQueueStateProvider.notifier).resumeAll(ids);
         for (final id in ids) {
-          ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
           unawaited(
-            WatchtowerNotificationService.instance.setMediaDownloadPaused(
+            handleMediaDownloadNotificationAction(
+              ref,
               id,
-              isPaused: false,
+              MediaDownloadNotificationAction.resume,
             ),
           );
         }
-        ref.read(processDownloadsProvider());
         break;
       case _GlobalAction.stopAll:
         final ids = entries
             .where(_isBulkActionable)
             .map((entry) => entry.id!)
             .toList();
-        ref.read(downloadQueueStateProvider.notifier).pauseAll(ids);
         for (final id in ids) {
-          ref
-              .read(downloadQueueStateProvider.notifier)
-              .clearLiveProgress(id);
           unawaited(
-            WatchtowerNotificationService.instance.setMediaDownloadPaused(
+            handleMediaDownloadNotificationAction(
+              ref,
               id,
-              isPaused: true,
+              MediaDownloadNotificationAction.cancel,
             ),
           );
         }
         break;
       case _GlobalAction.deleteCompleted:
-        isar.writeTxnSync(() {
-          final completed = isar.downloads
-              .where()
-              .findAllSync()
-              .where((download) => download.isDownload == true)
-              .toList();
-          for (final d in completed) {
-            if (d.id != null) {
-              isar.downloads.deleteSync(d.id!);
-              unawaited(
-                WatchtowerNotificationService.instance
-                    .cancelMediaDownloadNotification(d.id!),
-              );
-            }
-          }
-        });
+        for (final download in entries.where(
+          (download) => download.isDownload == true,
+        )) {
+          _deleteDownload(download, ref);
+        }
         break;
       case _GlobalAction.retryFailed:
         for (final e in entries) {
           if ((e.failed ?? 0) > 0 && e.chapter.value != null) {
-            ref
-                .read(downloadQueueStateProvider.notifier)
-                .incrementRetry(e.id ?? -1);
-            ref
-                .read(downloadQueueStateProvider.notifier)
-                .clearLiveProgress(e.id ?? -1);
-            ref.read(downloadChapterProvider(chapter: e.chapter.value!));
+            final id = e.id;
+            if (id != null) {
+              unawaited(
+                handleMediaDownloadNotificationAction(
+                  ref,
+                  id,
+                  MediaDownloadNotificationAction.retry,
+                ),
+              );
+            }
           }
         }
         break;
@@ -483,41 +495,21 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   void _cancelDownload(Download element, WidgetRef ref) {
     final id = element.id;
     if (id == null) return;
-    // Cancel the engine but don't delete from DB — entry stays in queue as paused
-    ref.read(downloadQueueStateProvider.notifier).setPaused(id, true);
     unawaited(
-      WatchtowerNotificationService.instance.setMediaDownloadPaused(
+      handleMediaDownloadNotificationAction(
+        ref,
         id,
-        isPaused: true,
+        MediaDownloadNotificationAction.cancel,
       ),
     );
-    final stored = isar.downloads.getSync(id);
-    if (stored != null) {
-      isar.writeTxnSync(() {
-        isar.downloads.putSync(stored..status = 'paused');
-      });
-    }
-    botToast('Téléchargement annulé. Appuyez sur ▶ pour reprendre.');
+    botToast('Téléchargement annulé.');
   }
 
   /// Delete: fully remove from Isar (no recovery)
-  void _deleteDownload(Download element) {
+  void _deleteDownload(Download element, WidgetRef ref) {
     final id = element.id;
     if (id == null) return;
-    // First cancel any running engine
-    ActiveDownloadRegistry.cancel(id);
-    unawaited(
-      WatchtowerNotificationService.instance.cancelMediaDownloadNotification(
-        id,
-      ),
-    );
-    DownloadIsolatePool.instance.cancelTask('$id');
-    DownloadIsolatePool.instance.cancelTask('m3u8_$id');
-    // Then remove from DB
-    isar.writeTxnSync(() {
-      isar.downloads.deleteSync(id);
-    });
-    ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
+    unawaited(deleteMediaDownload(ref, id));
   }
 
   /// Open: directly launch the reader/player for the downloaded chapter
@@ -527,46 +519,24 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     chapter.pushToReaderView(context, ignoreIsRead: true);
   }
 
-  void _retryDownload(Download element, WidgetRef ref, BuildContext context) {
-    if (element.chapter.value != null) {
-      final id = element.id ?? -1;
-      ref.read(downloadQueueStateProvider.notifier).incrementRetry(id);
-      ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
-      unawaited(
-        WatchtowerNotificationService.instance.setMediaDownloadPaused(
-          id,
-          isPaused: false,
-        ),
-      );
-      ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
-      ActiveDownloadRegistry.cancel(id);
-      DownloadIsolatePool.instance.cancelTask('$id');
-      DownloadIsolatePool.instance.cancelTask('m3u8_$id');
-      isar.writeTxnSync(() {
-        final dl = isar.downloads.getSync(id);
-        if (dl != null) {
-          isar.downloads.putSync(
-            dl
-              ..succeeded = 0
-              ..failed = 0
-              ..total = 1
-              ..isDownload = false
-              ..isStartDownload = true
-              ..downloadedBytes = null
-              ..totalBytes = null
-              ..filePath = null
-              ..status = 'fetching_metadata',
-          );
-        }
-      });
-      ref.read(processDownloadsProvider());
-    }
+  void _retryDownload(Download element, WidgetRef ref, BuildContext _) {
+    final id = element.id;
+    if (id == null) return;
+    unawaited(
+      handleMediaDownloadNotificationAction(
+        ref,
+        id,
+        MediaDownloadNotificationAction.retry,
+      ),
+    );
   }
 
   Widget _buildChipTabBar({
     required int watchCount,
     required int mangaCount,
     required int novelCount,
+    required int musicCount,
+    required int gameCount,
   }) {
     return AnimatedBuilder(
       animation: _tabController,
@@ -580,6 +550,10 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               _chipTab(1, Icons.menu_book_outlined, 'Manga', mangaCount),
               const SizedBox(width: 8),
               _chipTab(2, Icons.auto_stories_outlined, 'Novel', novelCount),
+              const SizedBox(width: 8),
+              _chipTab(3, Icons.music_note_outlined, 'Music', musicCount),
+              const SizedBox(width: 8),
+              _chipTab(4, Icons.sports_esports_outlined, 'Game', gameCount),
             ],
           ),
         );
@@ -596,7 +570,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             : _tabController.index == index;
         final scheme = Theme.of(context).colorScheme;
         return GestureDetector(
-          onTap: () => setState(() => _tabController.animateTo(index)),
+          onTap: () => setState(
+            () => _tabController.animateTo(index, duration: Duration.zero),
+          ),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
@@ -778,16 +754,15 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                               )
                               .map((entry) => entry.id!)
                               .toList();
-                          widget.parentRef
-                              .read(downloadQueueStateProvider.notifier)
-                              .resumeAll(ids);
                           for (final id in ids) {
                             unawaited(
-                              WatchtowerNotificationService.instance
-                                  .setMediaDownloadPaused(id, isPaused: false),
+                              handleMediaDownloadNotificationAction(
+                                widget.parentRef,
+                                id,
+                                MediaDownloadNotificationAction.resume,
+                              ),
                             );
                           }
-                          widget.parentRef.read(processDownloadsProvider());
                         },
                       ),
                       const SizedBox(width: 8),
@@ -801,13 +776,13 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                               .where(_isBulkActionable)
                               .map((entry) => entry.id!)
                               .toList();
-                          widget.parentRef
-                              .read(downloadQueueStateProvider.notifier)
-                              .pauseAll(ids);
                           for (final id in ids) {
                             unawaited(
-                              WatchtowerNotificationService.instance
-                                  .setMediaDownloadPaused(id, isPaused: true),
+                              handleMediaDownloadNotificationAction(
+                                widget.parentRef,
+                                id,
+                                MediaDownloadNotificationAction.pause,
+                              ),
                             );
                           }
                         },
@@ -823,16 +798,13 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                               .where(_isBulkActionable)
                               .map((entry) => entry.id!)
                               .toList();
-                          widget.parentRef
-                              .read(downloadQueueStateProvider.notifier)
-                              .pauseAll(ids);
                           for (final id in ids) {
-                            widget.parentRef
-                                .read(downloadQueueStateProvider.notifier)
-                                .clearLiveProgress(id);
                             unawaited(
-                              WatchtowerNotificationService.instance
-                                  .setMediaDownloadPaused(id, isPaused: true),
+                              handleMediaDownloadNotificationAction(
+                                widget.parentRef,
+                                id,
+                                MediaDownloadNotificationAction.cancel,
+                              ),
                             );
                           }
                         },
@@ -846,13 +818,12 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                           Navigator.pop(context);
                           for (final e in entries) {
                             if ((e.failed ?? 0) > 0 &&
-                                e.chapter.value != null) {
-                              widget.parentRef
-                                  .read(downloadQueueStateProvider.notifier)
-                                  .incrementRetry(e.id ?? -1);
-                              widget.parentRef.read(
-                                downloadChapterProvider(
-                                  chapter: e.chapter.value!,
+                                e.id != null) {
+                              unawaited(
+                                handleMediaDownloadNotificationAction(
+                                  widget.parentRef,
+                                  e.id!,
+                                  MediaDownloadNotificationAction.retry,
                                 ),
                               );
                             }
@@ -1532,12 +1503,16 @@ class _GroupedDownloadTabListState
   }
 
   Map<String, List<Download>> _groupBySource() {
-    return groupIncompleteDownloads<Download, String>(
-      widget.entries,
-      keyFor: (download) =>
-          download.chapter.value?.manga.value?.source ?? 'autre',
-      isComplete: (download) => download.isDownload == true,
+    final groups = <String, List<Download>>{};
+    for (final download in widget.entries) {
+      final source = download.chapter.value?.manga.value?.source ?? 'autre';
+      groups.putIfAbsent(source, () => []).add(download);
+    }
+    groups.removeWhere(
+      (_, downloads) =>
+          downloads.every((download) => download.isDownload == true),
     );
+    return groups;
   }
 
   /// Returns sources in the user's preferred order, with any new sources
@@ -1561,17 +1536,16 @@ class _GroupedDownloadTabListState
   }
 
   Map<String, List<Download>> _groupBySeries(List<Download> items) {
-    return groupIncompleteDownloads<Download, String>(
-      items,
-      keyFor: (download) {
-        final chapter = download.chapter.value;
-        final manga = chapter?.manga.value;
-        final mangaId = manga?.id ?? chapter?.mangaId;
-        final itemId = download.id ?? chapter?.id ?? identityHashCode(download);
-        return mangaId != null ? 'manga:$mangaId' : 'chapter:$itemId';
-      },
-      isComplete: (download) => download.isDownload == true,
-    );
+    final groups = <String, List<Download>>{};
+    for (final download in items) {
+      final chapter = download.chapter.value;
+      final manga = chapter?.manga.value;
+      final mangaId = manga?.id ?? chapter?.mangaId;
+      final itemId = download.id ?? chapter?.id ?? identityHashCode(download);
+      final key = mangaId != null ? 'manga:$mangaId' : 'chapter:$itemId';
+      groups.putIfAbsent(key, () => []).add(download);
+    }
+    return groups;
   }
 
   Widget _buildSeriesGroup(String key, List<Download> items) {
@@ -1583,24 +1557,74 @@ class _GroupedDownloadTabListState
         firstDownload.title ??
         firstDownload.chapter.value?.name ??
         'Téléchargement';
-    final seriesProgress = items.isEmpty
-        ? 0.0
-        : items.fold<double>(0, (sum, download) {
-                final total = download.total ?? 0;
-                if (total <= 0) return sum;
-                final completed = (download.succeeded ?? 0).clamp(0, total);
-                return sum + (completed / total).clamp(0.0, 1.0);
-              }) /
-              items.length;
-    final seriesPercent = (seriesProgress * 100).round();
-    final isCollapsed = _collapsedSeries.contains(key);
-    final scheme = Theme.of(context).colorScheme;
+    final itemUnit = itemType == ItemType.anime ? 'épisodes' : 'chapitres';
     final unfinishedItems = items
         .where((download) => download.isDownload != true)
         .toList();
+    final allMangaPageTotalsKnown =
+        itemType == ItemType.manga &&
+        items.every(
+          (download) => download.isDownload == true
+              ? (download.total ?? 0) > 0
+              : (download.total ?? 0) > 1,
+        );
+    final knownPageTotal = itemType == ItemType.manga
+        ? items.fold<int>(0, (sum, download) {
+            final total = download.total ?? 0;
+            return total > 1 || download.isDownload == true
+                ? sum + total
+                : sum;
+          })
+        : 0;
+    final knownPagesDone = itemType == ItemType.manga
+        ? items.fold<int>(0, (sum, download) {
+            final total = download.total ?? 0;
+            if (total <= 1 && download.isDownload != true) return sum;
+            final completed = download.isDownload == true
+                ? total
+                : (download.succeeded ?? 0).clamp(0, total);
+            return sum + completed;
+          })
+        : 0;
+    final animeHasExactTotals =
+        itemType == ItemType.anime &&
+        items.every((download) => (download.totalBytes ?? 0) > 0);
+    final animeDownloadedBytes = items.fold<int>(
+      0,
+      (sum, download) => sum + (download.downloadedBytes ?? 0),
+    );
+    final animeTotalBytes = items.fold<int>(
+      0,
+      (sum, download) => sum + (download.totalBytes ?? 0),
+    );
+    final double? seriesProgress = itemType == ItemType.manga
+        ? allMangaPageTotalsKnown && knownPageTotal > 0
+              ? (knownPagesDone / knownPageTotal).clamp(0.0, 1.0)
+              : null
+        : animeHasExactTotals && animeTotalBytes > 0
+        ? (animeDownloadedBytes / animeTotalBytes).clamp(0.0, 1.0)
+        : null;
+    final seriesPercent = seriesProgress == null
+        ? null
+        : (seriesProgress * 100).round();
+    final showSeriesProgress =
+        seriesProgress != null ||
+        unfinishedItems.any(
+          (download) =>
+              download.status == 'downloading' ||
+              download.status == 'initializing',
+        );
+    final isCollapsed = _collapsedSeries.contains(key);
+    final scheme = Theme.of(context).colorScheme;
+    final controllableItems = unfinishedItems
+        .where(
+          (download) =>
+              download.status != 'cancelled' && (download.failed ?? 0) == 0,
+        )
+        .toList();
     final allUnfinishedPaused =
-        unfinishedItems.isNotEmpty &&
-        unfinishedItems.every((download) {
+        controllableItems.isNotEmpty &&
+        controllableItems.every((download) {
           final id = download.id ?? -1;
           return widget.queueState.pausedIds.contains(id) ||
               download.status == 'paused';
@@ -1633,7 +1657,7 @@ class _GroupedDownloadTabListState
           confirmDismiss: (direction) async {
             if (direction == DismissDirection.endToStart) {
               final shouldResume = allUnfinishedPaused;
-              for (final download in unfinishedItems) {
+              for (final download in controllableItems) {
                 final id = download.id ?? -1;
                 final isPaused =
                     widget.queueState.pausedIds.contains(id) ||
@@ -1686,7 +1710,8 @@ class _GroupedDownloadTabListState
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: itemType == ItemType.manga
+                        child: itemType == ItemType.manga ||
+                                itemType == ItemType.anime
                             ? Column(
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1702,15 +1727,21 @@ class _GroupedDownloadTabListState
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 8),
-                                  MbGradientProgressBar(
-                                    value: seriesProgress,
-                                    height: 4,
-                                  ),
-                                  const SizedBox(height: 5),
+                                  if (showSeriesProgress) ...[
+                                    const SizedBox(height: 8),
+                                    MbGradientProgressBar(
+                                      value: seriesProgress,
+                                      height: 4,
+                                    ),
+                                    const SizedBox(height: 5),
+                                  ],
                                   Text(
-                                    '$seriesPercent% · ${items.length} '
-                                    'chapitres non terminés',
+                                    seriesPercent == null
+                                        ? '${controllableItems.length} '
+                                              '$itemUnit actifs'
+                                        : '$seriesPercent% · '
+                                              '${controllableItems.length} '
+                                              '$itemUnit actifs',
                                     style: TextStyle(
                                       color: scheme.onSurfaceVariant,
                                       fontSize: 10,
@@ -1731,6 +1762,32 @@ class _GroupedDownloadTabListState
                               ),
                       ),
                       const SizedBox(width: 8),
+                      if (controllableItems.isNotEmpty)
+                        IconButton(
+                          tooltip: allUnfinishedPaused
+                              ? 'Reprendre la série'
+                              : 'Mettre la série en pause',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            for (final download in controllableItems) {
+                              final id = download.id ?? -1;
+                              final isPaused =
+                                  widget.queueState.pausedIds.contains(id) ||
+                                  download.status == 'paused';
+                              if (allUnfinishedPaused || !isPaused) {
+                                widget.onPauseResume(download);
+                              }
+                            }
+                          },
+                          icon: Icon(
+                            allUnfinishedPaused
+                                ? Icons.play_arrow_rounded
+                                : Icons.pause_rounded,
+                            color: allUnfinishedPaused
+                                ? scheme.primary
+                                : Colors.orange,
+                          ),
+                        ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -1770,10 +1827,12 @@ class _GroupedDownloadTabListState
           secondChild: Column(
             mainAxisSize: MainAxisSize.min,
             children: items
+                .asMap()
+                .entries
                 .map(
-                  (download) => _buildDismissible(
-                    download,
-                    isSeriesChild: itemType == ItemType.manga,
+                  (entry) => _buildConnectedSeriesChild(
+                    entry.value,
+                    isLast: entry.key == items.length - 1,
                   ),
                 )
                 .toList(),
@@ -1815,7 +1874,9 @@ class _GroupedDownloadTabListState
   Widget _buildDismissible(Download element, {bool isSeriesChild = false}) {
     final isPaused =
         widget.queueState.pausedIds.contains(element.id ?? -1) ||
-        element.status == 'paused';
+        element.status == 'paused' ||
+        element.status == 'cancelled';
+    final isCancelled = element.status == 'cancelled';
     final itemType = element.chapter.value?.manga.value?.itemType;
     final defaultBadge = itemType == ItemType.manga
         ? 'ATLAS'
@@ -1825,12 +1886,7 @@ class _GroupedDownloadTabListState
     final engine =
         widget.queueState.engineMap[element.id ?? -1] ?? defaultBadge;
     final retryCount = widget.queueState.retryCounts[element.id ?? -1] ?? 0;
-    // ── Speed Master ──
     final priority = widget.queueState.priorities[element.id ?? -1] ?? 0;
-    final speedMbs = (widget.queueState.speeds[element.id ?? -1] ?? 0.0).clamp(
-      0.0,
-      9999.0,
-    );
     final liveProgress = widget.queueState.liveProgress[element.id ?? -1];
 
     return Dismissible(
@@ -1886,7 +1942,11 @@ class _GroupedDownloadTabListState
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
-          widget.onPauseResume(element);
+          if (isCancelled) {
+            widget.onRetry(element);
+          } else {
+            widget.onPauseResume(element);
+          }
           return false;
         }
         widget.onDelete(element);
@@ -1908,17 +1968,77 @@ class _GroupedDownloadTabListState
           engine: engine,
           retryCount: retryCount,
           priority: priority,
-          speedMbs: speedMbs,
           liveProgress: liveProgress,
           swipeLeftAction: widget.swipeLeft,
           swipeRightAction: widget.swipeRight,
-          onPauseResume: () => widget.onPauseResume(element),
+          onPauseResume: () => isCancelled
+              ? widget.onRetry(element)
+              : widget.onPauseResume(element),
           onCancel: () => widget.onCancel(element),
           onDelete: () => widget.onDelete(element),
           onRetry: () => widget.onRetry(element),
           onOpen: () => widget.onOpen(element),
           entries: widget.allEntries,
         ),
+      ),
+    );
+  }
+
+  Widget _buildConnectedSeriesChild(
+    Download download, {
+    required bool isLast,
+  }) {
+    final connectorColor = Theme.of(
+      context,
+    ).colorScheme.outlineVariant.withValues(alpha: 0.72);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 20,
+              child: CustomPaint(
+                painter: DownloadQueueTreeConnector(
+                  color: connectorColor,
+                  isLast: isLast,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            Expanded(child: _buildDismissible(download, isSeriesChild: true)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConnectedSeriesGroup(
+    String key,
+    List<Download> downloads, {
+    required bool isLast,
+  }) {
+    final connectorColor = Theme.of(
+      context,
+    ).colorScheme.outlineVariant.withValues(alpha: 0.72);
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 34,
+            child: CustomPaint(
+              painter: DownloadQueueTreeConnector(
+                color: connectorColor,
+                isLast: isLast,
+                branchY: 42,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Expanded(child: _buildSeriesGroup(key, downloads)),
+        ],
       ),
     );
   }
@@ -1976,12 +2096,6 @@ class _GroupedDownloadTabListState
       itemBuilder: (ctx, idx) {
         final src = sources[idx];
         final items = groups[src]!;
-        if (!shouldShowDownloadGroupHeader(items)) {
-          return KeyedSubtree(
-            key: ValueKey('src_$src'),
-            child: _buildDismissible(items.single),
-          );
-        }
         final seriesGroups = _groupBySeries(items);
         final visibleSeriesGroups = seriesGroups.entries
             .where(
@@ -2094,7 +2208,7 @@ class _GroupedDownloadTabListState
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              '${items.length}',
+                              '${items.where((item) => item.isDownload != true).length}',
                               style: TextStyle(
                                 color: scheme.primary,
                                 fontSize: 11,
@@ -2128,11 +2242,13 @@ class _GroupedDownloadTabListState
                 firstChild: const SizedBox.shrink(),
                 secondChild: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: visibleSeriesGroups.map((entry) {
-                    if (entry.value.length == 1) {
-                      return _buildDismissible(entry.value.single);
-                    }
-                    return _buildSeriesGroup(entry.key, entry.value);
+                  children: visibleSeriesGroups.asMap().entries.map((entry) {
+                    final group = entry.value;
+                    return _buildConnectedSeriesGroup(
+                      group.key,
+                      group.value,
+                      isLast: entry.key == visibleSeriesGroups.length - 1,
+                    );
                   }).toList(),
                 ),
               ),
@@ -2158,8 +2274,6 @@ class _DownloadCard extends ConsumerWidget {
   /// Speed Master: queue priority (0 = normale, 1 = haute).
   final int priority;
 
-  /// Speed Master: live download speed in MB/s (0 = unknown/idle).
-  final double speedMbs;
   final DownloadLiveProgress? liveProgress;
   final SwipeAction swipeLeftAction;
   final SwipeAction swipeRightAction;
@@ -2177,7 +2291,6 @@ class _DownloadCard extends ConsumerWidget {
     required this.engine,
     required this.retryCount,
     this.priority = 0,
-    this.speedMbs = 0.0,
     this.liveProgress,
     required this.swipeLeftAction,
     required this.swipeRightAction,
@@ -2218,10 +2331,11 @@ class _DownloadCard extends ConsumerWidget {
 
     // Progress calculation
     final storedSucceeded = download.succeeded ?? 0;
-    final storedTotal = download.total ?? 100;
+    final storedTotal = download.total ?? 0;
     final failed = download.failed ?? 0;
     final isComplete = download.isDownload ?? false;
     final hasFailed = failed > 0 && !isComplete;
+    final isCancelled = download.status == 'cancelled';
     final isPaused = this.isPaused;
     final invalidVideoCounters =
         itemType == ItemType.anime &&
@@ -2250,10 +2364,7 @@ class _DownloadCard extends ConsumerWidget {
     // Isar rows could otherwise show the same impossible multi-petabyte size
     // on manga pages and episodes.
     final exactDownloadedBytes = itemType == ItemType.anime
-        ? trustedDownloadByteCount(liveDownloadedBytes, allowZero: true) ??
-              (live == null && succeeded > 500
-                  ? trustedDownloadBytesFromKilobytes(succeeded)
-                  : null)
+        ? trustedDownloadByteCount(liveDownloadedBytes, allowZero: true)
         : null;
     final exactTotalBytes = itemType == ItemType.anime
         ? live?.isIndeterminate == true
@@ -2265,21 +2376,15 @@ class _DownloadCard extends ConsumerWidget {
         !isComplete &&
         !hasFailed &&
         !isPaused &&
-        ((live?.isIndeterminate ?? false) ||
-            (live == null &&
-                itemType == ItemType.anime &&
-                hasObservedBytes &&
-                exactTotalBytes == null &&
-                total <= 1));
+        itemType == ItemType.anime &&
+        exactTotalBytes == null &&
+        (download.status == 'downloading' ||
+            download.status == 'initializing');
     final progress = exactTotalBytes != null && exactTotalBytes > 0
-        ? (exactDownloadedBytes ?? 0) / exactTotalBytes
-        : live != null
-        ? !live.isIndeterminate && live.totalUnits > 0
-              ? (live.completedUnits / live.totalUnits)
-                    .clamp(0.0, 1.0)
-                    .toDouble()
-              : 0.0
-        : total > 0
+        ? ((exactDownloadedBytes ?? 0) / exactTotalBytes)
+              .clamp(0.0, 1.0)
+              .toDouble()
+        : itemType == ItemType.manga && total > 1
         ? (succeeded / total).clamp(0.0, 1.0).toDouble()
         : 0.0;
 
@@ -2306,43 +2411,32 @@ class _DownloadCard extends ConsumerWidget {
         !hasFailed &&
         !isPaused &&
         download.status == 'downloading' &&
-        (live?.completedUnits ?? succeeded) == 0;
+        total <= 1;
     final isProgressIndeterminate =
         isRetrievingMetadata ||
         isPreparingDownload ||
         isMangaTransferIndeterminate ||
         isIndeterminateTransfer;
 
-    // During an active download show only the measured speed on the right.
-    // The byte counter/progress belongs on the left; repeating "En cours…"
-    // wastes the narrow space and was the source of the cramped screenshot.
-    final speedLabel =
-        !isComplete && !hasFailed && !isPaused && speedMbs >= 0.05
-        ? '${speedMbs >= 10 ? speedMbs.toStringAsFixed(0) : speedMbs.toStringAsFixed(1)} MB/s'
-        : '';
     final String statusText;
     if (isComplete) {
       statusText = 'Terminé';
     } else if (hasFailed) {
       statusText = 'Échec';
+    } else if (isCancelled) {
+      statusText = 'Annulé';
     } else if (isPaused) {
       statusText = 'En pause';
     } else if (isRetrievingMetadata) {
-      statusText = 'Récupération des métadonnées…';
+      statusText = 'En attente';
     } else if (isPreparingDownload) {
-      statusText = 'Préparation du téléchargement…';
+      statusText = 'En attente';
     } else if (isMangaTransferIndeterminate) {
-      statusText = 'Téléchargement des pages…';
+      statusText = 'Téléchargement';
     } else if (isIndeterminateTransfer) {
-      statusText = speedLabel.isNotEmpty
-          ? speedLabel
-          : 'Téléchargement en cours…';
+      statusText = 'Téléchargement';
     } else {
-      statusText = progress > 0
-          ? speedLabel.isNotEmpty
-                ? speedLabel
-                : 'Téléchargement en cours…'
-          : 'En attente';
+      statusText = progress > 0 ? 'Téléchargement' : 'En attente';
     }
     final Color statusColor = isComplete
         ? scheme.primary
@@ -2354,12 +2448,6 @@ class _DownloadCard extends ConsumerWidget {
 
     final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
-    final byteDetails =
-        itemType == ItemType.anime &&
-            (hasObservedBytes || exactTotalBytes != null)
-        ? '${_formatBytes(exactDownloadedBytes ?? 0)} / '
-              '${exactTotalBytes == null ? 'N/A' : _formatBytes(exactTotalBytes)}'
-        : '';
     final epMatch = RegExp(
       r'S\s?\d{1,3}\s?[ExXÉ]\s?\d{1,3}',
       caseSensitive: false,
@@ -2372,48 +2460,24 @@ class _DownloadCard extends ConsumerWidget {
 
     // Progress bar — no TweenAnimationBuilder so progress never "resets to 0"
     // on each Isar stream rebuild (the regression bug). Direct value is correct.
-    final imageTransferBytes = itemType == ItemType.manga
-        ? live?.downloadedBytes
-        : null;
-    final imageTransferTotal = itemType == ItemType.manga
-        ? live?.totalBytes
-        : null;
-    final progressBar = !isComplete && (progress > 0 || isProgressIndeterminate)
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              MbGradientProgressBar(
-                value: isProgressIndeterminate ? null : progress,
-                height: layout == DownloadCardLayout.minimal
-                    ? 2
-                    : layout == DownloadCardLayout.compact
-                    ? 4
-                    : 6,
-                paused: isPaused,
-                failed: hasFailed,
-              ),
-              if (imageTransferBytes != null && !isPaused && !hasFailed) ...[
-                const SizedBox(height: 3),
-                SizedBox(
-                  height: 2,
-                  child: LinearProgressIndicator(
-                    value: imageTransferTotal != null && imageTransferTotal > 0
-                        ? (imageTransferBytes / imageTransferTotal)
-                              .clamp(0.0, 1.0)
-                              .toDouble()
-                        : null,
-                    backgroundColor: scheme.surfaceContainerHighest,
-                    valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
-                  ),
-                ),
-              ],
-            ],
+    final progressBar = !isComplete &&
+            (progress > 0 ||
+                isProgressIndeterminate ||
+                (itemType == ItemType.manga && total > 1))
+        ? MbGradientProgressBar(
+            value: isProgressIndeterminate ? null : progress,
+            height: layout == DownloadCardLayout.minimal
+                ? 2
+                : layout == DownloadCardLayout.compact
+                ? 4
+                : 6,
+            paused: isPaused,
+            failed: hasFailed,
           )
         : null;
 
     final actionBtn = GestureDetector(
-      onTap: hasFailed
+      onTap: hasFailed || isCancelled
           ? onRetry
           : isPaused
           ? onPauseResume
@@ -2434,7 +2498,7 @@ class _DownloadCard extends ConsumerWidget {
         child: Icon(
           isComplete
               ? Icons.folder_open_outlined
-              : hasFailed
+              : hasFailed || isCancelled
               ? Icons.replay
               : isPaused
               ? Icons.play_arrow_rounded
@@ -2450,18 +2514,25 @@ class _DownloadCard extends ConsumerWidget {
       final childTitle = chapterLabel == null || chapterLabel.isEmpty
           ? 'Chapitre'
           : chapterLabel;
-      final imageBytesText = imageTransferBytes == null
-          ? ''
-          : imageTransferTotal != null && imageTransferTotal > 0
-          ? ' · image en cours ${_formatBytes(imageTransferBytes)} / '
-                '${_formatBytes(imageTransferTotal)}'
-          : ' · image en cours ${_formatBytes(imageTransferBytes)}';
-      final childDetails = itemType == ItemType.manga && total > 1
-          ? '$succeeded/$total pages · $statusText$imageBytesText'
-          : '$statusText$imageBytesText';
+      final childDetails = hasFailed
+          ? 'Échec'
+          : isCancelled
+          ? 'Annulé'
+          : isPaused
+          ? 'En pause'
+          : itemType == ItemType.manga && total > 1
+          ? '$succeeded/$total pages'
+          : itemType == ItemType.manga && succeeded > 0
+          ? '$succeeded pages'
+          : itemType == ItemType.anime &&
+                exactDownloadedBytes != null &&
+                exactTotalBytes != null
+          ? '${_formatBytes(exactDownloadedBytes)} / '
+                '${_formatBytes(exactTotalBytes)}'
+          : '';
 
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+        margin: const EdgeInsets.symmetric(vertical: 3),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerLow.withValues(alpha: 0.78),
           borderRadius: BorderRadius.circular(12),
@@ -2500,26 +2571,21 @@ class _DownloadCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      manga?.name ?? 'Série inconnue',
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 10,
+                    if (childDetails.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        childDetails,
+                        style: TextStyle(
+                          color: hasFailed || isCancelled
+                              ? Colors.redAccent
+                              : statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      childDetails,
-                      style: TextStyle(
-                        color: hasFailed ? Colors.redAccent : statusColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
                     if (progressBar != null) ...[
                       const SizedBox(height: 4),
                       progressBar,
@@ -3004,12 +3070,14 @@ class _DownloadCard extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        byteDetails.isNotEmpty
-                            ? byteDetails
+                        hasFailed
+                            ? 'Échec'
+                            : isCancelled
+                            ? 'Annulé'
+                            : isPaused
+                            ? 'En pause'
                             : isComplete
                             ? 'Terminé'
-                            : isRetrievingMetadata || isPreparingDownload
-                            ? ''
                             : _buildProgressLabel(
                                 itemType,
                                 succeeded,
@@ -3017,37 +3085,17 @@ class _DownloadCard extends ConsumerWidget {
                                 failed,
                               ),
                         style: TextStyle(
-                          color: scheme.onSurfaceVariant,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        hasFailed
-                            ? 'Échec'
-                            : isPaused
-                            ? 'En pause'
-                            : isRetrievingMetadata
-                            ? 'Récupération des métadonnées…'
-                            : isPreparingDownload
-                            ? 'Préparation du téléchargement…'
-                            : statusText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
                           color: hasFailed
+                              ? mbRed
+                              : isCancelled
                               ? mbRed
                               : isPaused
                               ? mbAmber
-                              : itemType == ItemType.anime &&
-                                    speedLabel.isNotEmpty
-                              ? mbAmber
                               : scheme.onSurfaceVariant,
                           fontSize: 11,
-                          fontWeight: FontWeight.w500,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -3079,87 +3127,27 @@ class _DownloadCard extends ConsumerWidget {
   ) {
     switch (itemType) {
       case ItemType.manga:
-        if (liveProgress?.downloadedBytes != null) {
-          final downloaded = liveProgress!.downloadedBytes!;
-          final knownTotal = liveProgress!.totalBytes;
-          final bytesText = knownTotal != null && knownTotal > 0
-              ? '${_formatBytes(downloaded)} / ${_formatBytes(knownTotal)}'
-              : _formatBytes(downloaded);
-          final pageText = total > 1 ? '$succeeded / $total images · ' : '';
-          return '${pageText}image en cours · $bytesText';
-        }
-        // Always show "X / Y images" — total is now the real page count,
-        // never the synthetic 100 from the old code.
-        if (total > 1) {
-          return '$succeeded / $total images';
-        }
-        // total==1 && succeeded==0 is the sentinel state (addDownloadToQueue
-        // writes succeeded=0, total=1 while URLs are being fetched).
-        // statusText already names metadata retrieval — suppress the label here
-        // so we don't also show a confusing "0 / 1 image".
-        if (succeeded == 0) return '';
-        return '';
+        if (total > 1) return '$succeeded/$total pages';
+        return succeeded > 0 ? '$succeeded pages' : '';
       case ItemType.anime:
-        if (liveProgress != null) {
-          final downloaded = liveProgress!.downloadedBytes;
-          final knownTotal = liveProgress!.totalBytes;
-          if (downloaded != null && knownTotal != null && knownTotal > 0) {
-            return '${_formatBytes(downloaded)} / ${_formatBytes(knownTotal)}';
-          }
-          if (downloaded != null && downloaded > 0) {
-            // Never display a fake "taille finale" denominator. The real
-            // total is shown as soon as the engine provides it.
-            return _formatBytes(downloaded);
-          }
-          if (liveProgress!.totalUnits > 1 &&
-              liveProgress!.completedUnits > 0) {
-            final percent =
-                (liveProgress!.completedUnits / liveProgress!.totalUnits * 100)
-                    .round()
-                    .clamp(0, 100);
-            return '$percent%';
-          }
-          return 'Préparation du flux…';
+        final downloaded = trustedDownloadByteCount(
+          liveProgress?.downloadedBytes ?? download.downloadedBytes,
+        );
+        final totalBytes = trustedDownloadByteCount(
+          liveProgress?.totalBytes ?? download.totalBytes,
+        );
+        if (downloaded != null && totalBytes != null) {
+          return '${_formatBytes(downloaded)} / ${_formatBytes(totalBytes)}';
         }
-        // Two sub-cases depending on what's stored in Isar:
-        //
-        // A) HLS/direct with real byte data → succeeded & total are in KB
-        //    (always > 1024 for a real video file). Show "14 MB / 58 MB".
-        //
-        // B) Aria2 → store raw percent (0-100). Show "50%".
-        //    These engines don't produce byte info; total stays ≤ 100.
-        //
-        // Threshold: KB values for real videos are almost always > 500 KB
-        // (smallest real episode ≈ a few MB = thousands of KB). Using 500
-        // as the cutoff correctly separates byte-mode (>500) from %-mode
-        // (0-100) without any false positives.
-        if (total > 500) {
-          if (succeeded >= total) {
-            return _formatSize(total);
-          }
-          return '${_formatSize(succeeded)} / ${_formatSize(total)}';
-        }
-        // Aria2 percentage mode or early tick before bytes arrive.
-        if (total > 1) {
-          return '${succeeded.clamp(0, total)}%';
-        }
-        return 'En attente…';
+        return downloaded != null && downloaded > 0
+            ? _formatBytes(downloaded)
+            : '';
       case ItemType.novel:
       case ItemType.music:
       case ItemType.game:
       case ItemType.plugin:
-        return '${(succeeded.toDouble() / math.max(total, 1) * 100).toStringAsFixed(0)}%';
+        return '';
     }
-  }
-
-  /// Format a KB value into a human-readable string (KB → MB → GB).
-  String _formatSize(int kb) {
-    if (kb >= 1024 * 1024) {
-      return '${(kb / (1024 * 1024)).toStringAsFixed(1)} GB';
-    } else if (kb >= 1024) {
-      return '${(kb / 1024).toStringAsFixed(1)} MB';
-    }
-    return '$kb KB';
   }
 
   String _formatBytes(int bytes) {
@@ -3709,17 +3697,15 @@ class _PauseResumeAllFab extends ConsumerWidget {
       return FloatingActionButton(
         tooltip: 'Reprendre tout',
         onPressed: () {
-          ref.read(downloadQueueStateProvider.notifier).resumeAll(activeIds);
           for (final id in activeIds.where(isPaused)) {
-            ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
             unawaited(
-              WatchtowerNotificationService.instance.setMediaDownloadPaused(
+              handleMediaDownloadNotificationAction(
+                ref,
                 id,
-                isPaused: false,
+                MediaDownloadNotificationAction.resume,
               ),
             );
           }
-          ref.read(processDownloadsProvider());
         },
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
@@ -3729,13 +3715,12 @@ class _PauseResumeAllFab extends ConsumerWidget {
       return FloatingActionButton(
         tooltip: 'Tout mettre en pause',
         onPressed: () {
-          ref.read(downloadQueueStateProvider.notifier).pauseAll(activeIds);
           for (final id in activeIds) {
-            ref.read(downloadQueueStateProvider.notifier).clearLiveProgress(id);
             unawaited(
-              WatchtowerNotificationService.instance.setMediaDownloadPaused(
+              handleMediaDownloadNotificationAction(
+                ref,
                 id,
-                isPaused: true,
+                MediaDownloadNotificationAction.pause,
               ),
             );
           }

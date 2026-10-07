@@ -898,11 +898,18 @@ class WatchtowerNotificationService {
       }
       notice.lastShownAt = now;
 
-      final displayTitle = notice.seriesTitle.isNotEmpty
+      final displayTitle = 'Watchtower';
+      final progressPercent = _mediaProgressPercent(notice);
+      final title = notice.seriesTitle.isNotEmpty
           ? notice.seriesTitle
           : notice.chapterTitle;
-      final progressPercent = _mediaProgressPercent(notice);
-      final body = '${notice.chapterTitle} · ${_mediaProgressLabel(notice)}';
+      final chapterLabel = title == notice.chapterTitle
+          ? title
+          : '$title · ${notice.chapterTitle}';
+      final progressLabel = _mediaProgressLabel(notice);
+      final body = notice.isCompleted || notice.isPaused || notice.isFailed
+          ? '$chapterLabel · $progressLabel'
+          : 'Téléchargement · $chapterLabel · $progressLabel';
       final androidDetails = AndroidNotificationDetails(
         _kDownloadChannelId,
         _kDownloadChannelName,
@@ -1111,7 +1118,7 @@ class WatchtowerNotificationService {
           .clamp(0, 100)
           .toInt();
     }
-    if (notice.total > 0) {
+    if (notice.itemType == 'manga' && notice.total > 1) {
       return ((notice.completed / notice.total) * 100)
           .round()
           .clamp(0, 100)
@@ -1124,26 +1131,19 @@ class WatchtowerNotificationService {
     if (notice.isFailed) return 'Échec du téléchargement';
     if (notice.isPaused) return 'En pause';
     if (notice.isCompleted) return 'Téléchargement terminé';
-    if (notice.itemType == 'manga' && notice.downloadedBytes != null) {
-      final imageProgress = notice.totalBytes != null && notice.totalBytes! > 0
-          ? '${_formatNotificationBytes(notice.downloadedBytes!)} / '
-                '${_formatNotificationBytes(notice.totalBytes!)}'
-          : _formatNotificationBytes(notice.downloadedBytes!);
-      final pageProgress = notice.total > 0
-          ? '${notice.completed}/${notice.total} pages · '
-          : '';
-      return '${pageProgress}image en cours · $imageProgress';
+    if (notice.itemType == 'manga') {
+      if (notice.total > 1) {
+        return '${notice.completed}/${notice.total} pages';
+      }
+      return notice.completed > 0 ? '${notice.completed} pages' : 'Téléchargement';
     }
-    if (notice.downloadedBytes != null && notice.totalBytes != null) {
-      return '${_mediaProgressPercent(notice) ?? 0} % · '
-          '${_formatNotificationBytes(notice.downloadedBytes!)} / '
+    if (notice.downloadedBytes != null &&
+        notice.totalBytes != null &&
+        notice.totalBytes! > 0) {
+      return '${_formatNotificationBytes(notice.downloadedBytes!)} / '
           '${_formatNotificationBytes(notice.totalBytes!)}';
     }
-    if (notice.total > 0) {
-      final unit = notice.itemType == 'manga' ? 'pages' : 'étapes';
-      return '${notice.completed}/${notice.total} $unit';
-    }
-    return 'Préparation du téléchargement…';
+    return 'Téléchargement';
   }
 
   String _formatNotificationBytes(int bytes) {

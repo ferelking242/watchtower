@@ -552,6 +552,19 @@ class RouterNotifier extends ChangeNotifier {
     // returns SizedBox.shrink() and the tab renders as a black/empty page.
     bool allowNullExtra = false,
   }) {
+    const instantNavigationRoutes = {
+      'Library',
+      'MangaLibrary',
+      'AnimeLibrary',
+      'MoviesLibrary',
+      'SeriesLibrary',
+      'NovelLibrary',
+      'MusicLibrary',
+      'MusicSearch',
+      'MusicLibraryPage',
+      'GameLibrary',
+      'WatchtowerHome',
+    };
     // Crash-safe builder: state.extra can be null if a route is opened via
     // context.go('/routeName') without passing extra. The unchecked cast
     // `state.extra as T` throws TypeError for non-nullable T (int, Source, …).
@@ -575,7 +588,16 @@ class RouterNotifier extends ChangeNotifier {
       path: path ?? (name != null ? "/$name" : "/"),
       name: name,
       builder: _safeBuild,
-      pageBuilder: (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
+      pageBuilder: instantNavigationRoutes.contains(name)
+          ? (context, state) => CustomTransitionPage<void>(
+              key: state.pageKey,
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+              child: _safeBuild(context, state),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+                  child,
+            )
+          : (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
           ? (context, state) {
               final pageChild = _safeBuild(context, state);
               return transitionPage(key: state.pageKey, child: pageChild);

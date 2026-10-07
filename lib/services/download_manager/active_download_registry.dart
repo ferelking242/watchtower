@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/engines/download_engine.dart';
@@ -27,6 +29,8 @@ class ActiveDownloadRegistry {
   // Per-download metadata for counting
   static final _internalItemType = <int, ItemType>{};
   static final _internalSource = <int, String>{};
+  static final _workerStopped = <int, Completer<void>>{};
+  static final _interruptedIds = <int>{};
 
   // ── Registration ──────────────────────────────────────────────────────────
 
@@ -41,6 +45,7 @@ class ActiveDownloadRegistry {
     ItemType itemType = ItemType.anime,
     String source = '_unknown',
   }) {
+    _interruptedIds.remove(downloadId);
     _engines[downloadId] = engine;
     _engineItemType[downloadId] = itemType;
     _engineSource[downloadId] = source;
@@ -56,6 +61,7 @@ class ActiveDownloadRegistry {
     ItemType? itemType,
     String? source,
   }) {
+    _interruptedIds.remove(downloadId);
     _internalTaskIds[downloadId] = taskId;
     _internalItemType[downloadId] = itemType ?? ItemType.manga;
     _internalSource[downloadId] = source ?? '_unknown';
@@ -93,6 +99,9 @@ class ActiveDownloadRegistry {
     _internalTaskIds.remove(downloadId);
     _internalItemType.remove(downloadId);
     _internalSource.remove(downloadId);
+    _interruptedIds.remove(downloadId);
+    final stopped = _workerStopped.remove(downloadId);
+    if (stopped != null && !stopped.isCompleted) stopped.complete();
   }
 
   // ── Counting ──────────────────────────────────────────────────────────────
@@ -146,6 +155,7 @@ class ActiveDownloadRegistry {
   ///   starting a second worker against the same files while cancellation is
   ///   still draining. The worker's `finally` block unregisters it.
   static Future<void> pause(int downloadId) async {
+    _interruptedIds.add(downloadId);
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.pause();
       return;
@@ -176,12 +186,26 @@ class ActiveDownloadRegistry {
 
   /// Cancel and remove the download from the registry.
   static Future<void> cancel(int downloadId) async {
+    _interruptedIds.add(downloadId);
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.cancel();
-    } else if (_internalTaskIds.containsKey(downloadId)) {
+      unregister(downloadId);
+      return;
+    }
+    if (_internalTaskIds.containsKey(downloadId)) {
       // Cancel exactly the registered task ID — no hardcoded prefix guessing.
       final taskId = _internalTaskIds[downloadId]!;
+      final stopped = _workerStopped.putIfAbsent(
+        downloadId,
+        Completer<void>.new,
+      );
       DownloadIsolatePool.instance.cancelTask(taskId);
+      // Do not remove records or partial files until the worker has stopped
+      // writing them. The worker's finally path completes this waiter.
+      await stopped.future;
+      // The worker owns its unregister. Do not unregister again here: the
+      // scheduler may already have claimed a new attempt after it stopped.
+      return;
     }
     unregister(downloadId);
   }
@@ -190,4 +214,10 @@ class ActiveDownloadRegistry {
   static bool isActive(int downloadId) =>
       _engines.containsKey(downloadId) ||
       _internalTaskIds.containsKey(downloadId);
+
+  /// True after a user pause/cancel interrupted the current attempt. Kept
+  /// until a fresh internal worker registers, so a fast resume cannot let the
+  /// cancelled worker mark itself complete.
+  static bool wasInterrupted(int downloadId) =>
+      _interruptedIds.contains(downloadId);
 }

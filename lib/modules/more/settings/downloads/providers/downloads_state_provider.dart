@@ -660,14 +660,18 @@ class DownloadQueueState extends _$DownloadQueueState {
     );
   }
 
-  void setPaused(int downloadId, bool paused) {
+  void setPaused(
+    int downloadId,
+    bool paused, {
+    bool updateEngine = true,
+  }) {
     final set = Set<int>.from(state.pausedIds);
     if (paused) {
       set.add(downloadId);
-      unawaited(ActiveDownloadRegistry.pause(downloadId));
+      if (updateEngine) unawaited(ActiveDownloadRegistry.pause(downloadId));
     } else {
       set.remove(downloadId);
-      unawaited(ActiveDownloadRegistry.resume(downloadId));
+      if (updateEngine) unawaited(ActiveDownloadRegistry.resume(downloadId));
     }
     state = state.copyWith(pausedIds: set);
     _persistPausedIds(set);

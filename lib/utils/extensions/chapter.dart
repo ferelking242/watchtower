@@ -7,6 +7,7 @@ import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
+import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:path/path.dart' as p;
@@ -53,6 +54,10 @@ extension ChapterExtension on Chapter {
     final download = isar.downloads.getSync(id!);
     if (download == null) return;
 
+    await ActiveDownloadRegistry.cancel(download.id ?? id!);
+    DownloadIsolatePool.instance.cancelTask('$id');
+    DownloadIsolatePool.instance.cancelTask('m3u8_$id');
+
     final storageProvider = StorageProvider();
     final mangaDir = await storageProvider.getMangaMainDirectory(this);
     final chapterDir = await storageProvider.getMangaChapterDirectory(
@@ -61,19 +66,39 @@ extension ChapterExtension on Chapter {
     );
 
     try {
-      final cbzFile = File(p.join(mangaDir!.path, "$name.cbz"));
-      if (cbzFile.existsSync()) cbzFile.deleteSync();
+      final cbzPath = p.join(mangaDir!.path, "$name.cbz");
+      for (final candidate in [cbzPath, '$cbzPath.part']) {
+        final file = File(candidate);
+        if (file.existsSync()) file.deleteSync();
+      }
     } catch (_) {}
     try {
-      final mp4File = File(
-        p.join(mangaDir!.path, "${name!.replaceForbiddenCharacters(' ')}.mp4"),
+      final mp4Path = p.join(
+        mangaDir!.path,
+        "${name!.replaceForbiddenCharacters(' ')}.mp4",
       );
-      if (mp4File.existsSync()) mp4File.deleteSync();
+      for (final candidate in [
+        mp4Path,
+        '$mp4Path.part',
+        '$mp4Path.part.meta',
+      ]) {
+        final file = File(candidate);
+        if (file.existsSync()) file.deleteSync();
+      }
     } catch (_) {}
     try {
       final htmlFile = File(p.join(mangaDir!.path, "$name.html"));
       if (htmlFile.existsSync()) htmlFile.deleteSync();
     } catch (_) {}
+    final savedPath = download.filePath;
+    if (savedPath != null && savedPath.isNotEmpty) {
+      for (final path in [savedPath, '$savedPath.part', '$savedPath.part.meta']) {
+        try {
+          final file = File(path);
+          if (file.existsSync()) file.deleteSync();
+        } catch (_) {}
+      }
+    }
     try {
       chapterDir?.deleteSync(recursive: true);
     } catch (_) {}

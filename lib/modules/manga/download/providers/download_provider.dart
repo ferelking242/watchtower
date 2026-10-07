@@ -153,6 +153,56 @@ void _setDownloadStatus(int? id, String status) {
   }
 }
 
+Future<void> deleteMediaDownload(WidgetRef ref, int chapterId) async {
+  final notifier = ref.read(downloadQueueStateProvider.notifier);
+  final download = isar.downloads.getSync(chapterId);
+  if (download == null) return;
+
+  isar.writeTxnSync(() {
+    final stored = isar.downloads.getSync(chapterId);
+    if (stored != null && stored.isDownload != true) {
+      isar.downloads.putSync(
+        stored
+          ..isStartDownload = false
+          ..status = 'cancelled',
+      );
+    }
+  });
+  await ActiveDownloadRegistry.cancel(chapterId);
+  DownloadIsolatePool.instance.cancelTask('$chapterId');
+  DownloadIsolatePool.instance.cancelTask('m3u8_$chapterId');
+  if (!download.chapter.isLoaded) {
+    try {
+      download.chapter.loadSync();
+    } catch (_) {}
+  }
+  final chapter = download.chapter.value;
+  if (chapter != null) {
+    await chapter.deleteDownloadedFiles();
+  } else {
+    final savedPath = download.filePath;
+    if (savedPath != null) {
+      for (final candidate in [
+        savedPath,
+        '$savedPath.part',
+        '$savedPath.part.meta',
+      ]) {
+        try {
+          final file = File(candidate);
+          if (file.existsSync()) file.deleteSync();
+        } catch (_) {}
+      }
+    }
+    isar.writeTxnSync(() => isar.downloads.deleteSync(chapterId));
+  }
+
+  notifier.setPaused(chapterId, false, updateEngine: false);
+  notifier.clearLiveProgress(chapterId);
+  await WatchtowerNotificationService.instance.cancelMediaDownloadNotification(
+    chapterId,
+  );
+}
+
 Future<void> handleMediaDownloadNotificationAction(
   WidgetRef ref,
   int chapterId,
@@ -171,21 +221,20 @@ Future<void> handleMediaDownloadNotificationAction(
 
   switch (action) {
     case MediaDownloadNotificationAction.pause:
-      if (isPaused) return;
-      notifier.setPaused(chapterId, true);
-      notifier.clearLiveProgress(chapterId);
+      if (isPaused || download.isDownload == true) return;
+      notifier.setPaused(chapterId, true, updateEngine: false);
       isar.writeTxnSync(() {
         final stored = isar.downloads.getSync(chapterId);
         if (stored != null) {
           isar.downloads.putSync(stored..status = 'paused');
         }
       });
+      await ActiveDownloadRegistry.pause(chapterId);
       await notifications.setMediaDownloadPaused(chapterId, isPaused: true);
       break;
     case MediaDownloadNotificationAction.resume:
-      if (!isPaused) return;
-      notifier.setPaused(chapterId, false);
-      notifier.clearLiveProgress(chapterId);
+      if (!isPaused || download.status == 'cancelled') return;
+      notifier.setPaused(chapterId, false, updateEngine: false);
       isar.writeTxnSync(() {
         final stored = isar.downloads.getSync(chapterId);
         if (stored != null && stored.isDownload != true) {
@@ -197,15 +246,27 @@ Future<void> handleMediaDownloadNotificationAction(
           );
         }
       });
+      await ActiveDownloadRegistry.resume(chapterId);
       await notifications.setMediaDownloadPaused(chapterId, isPaused: false);
       ref.read(processDownloadsProvider());
       break;
     case MediaDownloadNotificationAction.cancel:
+      if (download.isDownload == true) return;
+      notifier.setPaused(chapterId, false, updateEngine: false);
+      isar.writeTxnSync(() {
+        final stored = isar.downloads.getSync(chapterId);
+        if (stored != null) {
+          isar.downloads.putSync(
+            stored
+              ..isDownload = false
+              ..isStartDownload = false
+              ..status = 'cancelled',
+          );
+        }
+      });
       await ActiveDownloadRegistry.cancel(chapterId);
       DownloadIsolatePool.instance.cancelTask('$chapterId');
       DownloadIsolatePool.instance.cancelTask('m3u8_$chapterId');
-      notifier.setPaused(chapterId, false);
-      isar.writeTxnSync(() => isar.downloads.deleteSync(chapterId));
       await notifications.cancelMediaDownloadNotification(chapterId);
       break;
     case MediaDownloadNotificationAction.retry:
@@ -224,7 +285,7 @@ Future<void> handleMediaDownloadNotificationAction(
       ensureChapterLinksLoaded(chapter);
       notifier.incrementRetry(chapterId);
       notifier.clearLiveProgress(chapterId);
-      notifier.setPaused(chapterId, false);
+      notifier.setPaused(chapterId, false, updateEngine: false);
       await ActiveDownloadRegistry.cancel(chapterId);
       DownloadIsolatePool.instance.cancelTask('$chapterId');
       DownloadIsolatePool.instance.cancelTask('m3u8_$chapterId');
@@ -1194,6 +1255,13 @@ Future<void> downloadChapter(
     var lastLoggedProgressBucket = -1;
 
     Future<void> setProgress(DownloadProgress progress) async {
+      final currentDownload = chapterId == null
+          ? null
+          : isar.downloads.getSync(chapterId);
+      if (currentDownload?.status == 'paused' ||
+          currentDownload?.status == 'cancelled') {
+        return;
+      }
       if (progress.itemType == ItemType.manga &&
           progress.downloadedBytes != null) {
         final now = DateTime.now();
@@ -1235,6 +1303,13 @@ Future<void> downloadChapter(
       }
       if (progress.isCompleted && itemType == ItemType.manga) {
         await processConvert();
+      }
+      if (chapterId != null) {
+        final latestDownload = isar.downloads.getSync(chapterId);
+        if (latestDownload?.status == 'paused' ||
+            latestDownload?.status == 'cancelled') {
+          return;
+        }
       }
 
       // ── Compute the values to store in Isar ─────────────────────────────
@@ -2068,7 +2143,11 @@ Future<void> downloadChapter(
     // registerInternal at line 662 would absorb the cancelTask() call (no
     // running pool task yet → no-op), and the download would start anyway.
     if (chapter.id != null &&
-        ref.read(downloadQueueStateProvider).pausedIds.contains(chapter.id!)) {
+        (ref
+                .read(downloadQueueStateProvider)
+                .pausedIds
+                .contains(chapter.id!) ||
+            isar.downloads.getSync(chapter.id!)?.status == 'cancelled')) {
       // Unregister so processDownloads sees this chapter as idle and can
       // re-pick it the moment the user taps resume.
       ActiveDownloadRegistry.unregister(chapter.id!);
@@ -2267,6 +2346,9 @@ Future<void> downloadChapter(
           ).download((progress) {
             setProgress(progress);
           });
+          final interruptedByQueueAction =
+              chapter.id != null &&
+              ActiveDownloadRegistry.wasInterrupted(chapter.id!);
           // CRITICAL: MDownloader's onComplete fires onProgress(isCompleted=true)
           // inside a void callback that is NOT awaited.  setProgress is async
           // (it calls processConvert / CBZ conversion before the Isar write),
@@ -2277,15 +2359,17 @@ Future<void> downloadChapter(
           // Fix: explicitly await a final setProgress here, guaranteed to finish
           // before callback?.call() unblocks processDownloads.  The double-call
           // is idempotent (processConvert skips if the archive already exists).
-          await setProgress(
-            DownloadProgress(1, 1, itemType, isCompleted: true),
-          );
-          AppLogger.log(
-            '[ch:' + (chapter.id?.toString() ?? '?') + '] COMPLETE ✓',
-            logLevel: LogLevel.info,
-            tag: LogTag.download,
-          );
-          log('[downloadChapter][manga] completed chapterId=${chapter.id}');
+          if (!interruptedByQueueAction) {
+            await setProgress(
+              DownloadProgress(1, 1, itemType, isCompleted: true),
+            );
+            AppLogger.log(
+              '[ch:' + (chapter.id?.toString() ?? '?') + '] COMPLETE ✓',
+              logLevel: LogLevel.info,
+              tag: LogTag.download,
+            );
+            log('[downloadChapter][manga] completed chapterId=${chapter.id}');
+          }
         } catch (e) {
           log(
             '[downloadChapter][manga] FAILED chapterId=${chapter.id} error=$e',
