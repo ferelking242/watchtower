@@ -507,6 +507,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
         LayoutComponentRenderer.posterRail => _PreviewKind.carousel,
         LayoutComponentRenderer.mangaFeaturedCard => _PreviewKind.mangaHome,
         LayoutComponentRenderer.mangaChapterCard => _PreviewKind.mangaHome,
+        LayoutComponentRenderer.homeEpisodeCard => _PreviewKind.detailEpisode,
       };
 
   IconData _layoutIconFor(LayoutComponentRenderer renderer) =>
@@ -522,6 +523,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
         LayoutComponentRenderer.mangaFeaturedCard =>
           Icons.local_fire_department_rounded,
         LayoutComponentRenderer.mangaChapterCard => Icons.book_outlined,
+        LayoutComponentRenderer.homeEpisodeCard => Icons.movie_outlined,
       };
 
   /// Sections présentes pour l'onglet courant, dans l'ordre du catalogue.
@@ -9947,9 +9949,10 @@ List<_ComponentSpec> _buildComponents() => [
     title: 'Épisode sans progression',
     className: 'EpisodeCard',
     path: 'lib/modules/home/widgets/episode_card.dart',
-    usage: 'Liste des épisodes',
+    usage: 'Épisode numéroté ; ouvre la série liée',
     icon: Icons.movie_outlined,
     kind: _PreviewKind.detailEpisode,
+    layoutComponent: 'homeEpisodeCard',
     result: (_) => home_episode.EpisodeCard(
       width: 220,
       data: home_episode.EpisodeCardData(

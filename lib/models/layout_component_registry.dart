@@ -2,6 +2,7 @@
 enum LayoutComponentContext {
   home,
   homeMangaCard,
+  homeEpisodeCard,
   browse,
   search,
   detail,
@@ -19,6 +20,7 @@ enum LayoutComponentRenderer {
   posterRail,
   mangaFeaturedCard,
   mangaChapterCard,
+  homeEpisodeCard,
 }
 
 /// Loading placeholders used by the extension home renderer.
@@ -313,6 +315,17 @@ class LayoutComponentRegistry {
       loadingPreview: LayoutComponentLoadingPreview.row,
       legacyLayout: 'catalogue',
       supportedContexts: {LayoutComponentContext.homeMangaCard},
+    ),
+    LayoutComponentDefinition(
+      id: 'homeEpisodeCard',
+      label: 'Carte épisode sans progression',
+      category: 'ÉPISODES & SAISONS',
+      description:
+          'Carte d’épisode sans progression, depuis le titre, le numéro et le visuel fournis.',
+      renderer: LayoutComponentRenderer.homeEpisodeCard,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      legacyLayout: 'catalogue',
+      supportedContexts: {LayoutComponentContext.homeEpisodeCard},
     ),
     LayoutComponentDefinition(
       id: 'collectionCards',

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/modules/watch/home/extension_episode_card_adapter.dart';
 
 void main() {
   test('keeps the extension section order and presentation metadata', () {
@@ -57,10 +58,13 @@ void main() {
       'id': 'popular',
       'component': 'grid',
       'cardComponent': 'mangaFeaturedCard',
+      'episodeComponent': 'homeEpisodeCard',
     });
 
     expect(section.cardComponent, 'mangaFeaturedCard');
+    expect(section.episodeComponent, 'homeEpisodeCard');
     expect(section.toLegacyMap()['cardComponent'], 'mangaFeaturedCard');
+    expect(section.toLegacyMap()['episodeComponent'], 'homeEpisodeCard');
     expect(
       LayoutComponentRegistry.supports(
         'mangaFeaturedCard',
@@ -81,6 +85,42 @@ void main() {
         selectableOnly: true,
       ).map((definition) => definition.id),
       ['mangaFeaturedCard', 'mangaChapterCard'],
+    );
+    expect(
+      LayoutComponentRegistry.supports(
+        'homeEpisodeCard',
+        LayoutComponentContext.homeEpisodeCard,
+      ),
+      isTrue,
+    );
+    expect(
+      LayoutComponentRegistry.supports(
+        'homeEpisodeCard',
+        LayoutComponentContext.home,
+      ),
+      isFalse,
+    );
+    expect(
+      LayoutComponentRegistry.forContext(
+        LayoutComponentContext.homeEpisodeCard,
+        selectableOnly: true,
+      ).map((definition) => definition.id),
+      ['homeEpisodeCard'],
+    );
+  });
+
+  test('parses episode numbers from episode labels without inventing one', () {
+    expect(
+      ExtensionEpisodeCardAdapter.parseEpisodeNumber('S2E05 - The Arrival'),
+      5,
+    );
+    expect(
+      ExtensionEpisodeCardAdapter.parseEpisodeNumber('Episode 12'),
+      12,
+    );
+    expect(
+      ExtensionEpisodeCardAdapter.parseEpisodeNumber('The Arrival'),
+      isNull,
     );
   });
 }
