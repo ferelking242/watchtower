@@ -376,6 +376,15 @@ class RouterNotifier extends ChangeNotifier {
         title: data['title']!,
         sourceId: int.tryParse(data['sourceId']?.toString() ?? ''),
         initialFraction: (data['initialFraction'] as double?) ?? 1.0,
+        initialHeaders: data['initialHeaders'] is Map
+            ? (data['initialHeaders'] as Map).map(
+                (key, value) => MapEntry(key.toString(), value.toString()),
+              )
+            : const {},
+        userAgent: data['userAgent']?.toString(),
+        runWebViewMode: data['runWebViewMode'] == true,
+        waitForNavigation: data['waitForNavigation'] != false,
+        captureSession: data['captureSession'] != false,
       ),
     ),
     _genericRoute<(bool, int)>(

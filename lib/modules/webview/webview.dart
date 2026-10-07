@@ -1284,12 +1284,22 @@ class MangaWebView extends ConsumerStatefulWidget {
   final String title;
   final int? sourceId;
   final double initialFraction;
+  final Map<String, String> initialHeaders;
+  final String? userAgent;
+  final bool runWebViewMode;
+  final bool waitForNavigation;
+  final bool captureSession;
   const MangaWebView({
     super.key,
     required this.url,
     required this.title,
     this.sourceId,
     this.initialFraction = 1.0,
+    this.initialHeaders = const {},
+    this.userAgent,
+    this.runWebViewMode = false,
+    this.waitForNavigation = true,
+    this.captureSession = true,
   });
 
   @override
@@ -1303,6 +1313,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   Webview? _desktopWebview;
   bool isNotWebviewWindow = false;
   bool _initialized = false;
+  bool _runWebViewCompleting = false;
 
   // WebView state
   InAppWebViewController? _webViewController;
@@ -1420,28 +1431,37 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   // ── Desktop ───────────────────────────────────────────────────────────────
 
   Future<void> _runWebViewDesktop() async {
-    String? ua = ref.read(userAgentStateProvider);
+    String? ua = widget.userAgent ?? ref.read(userAgentStateProvider);
     if (ua == defaultUserAgent) ua = null;
 
     if (!kIsWeb && Platform.isLinux) {
       _desktopWebview = await WebviewWindow.create();
       final timer = Timer.periodic(const Duration(seconds: 1), (t) async {
         try {
+          final currentUrl = await _desktopWebview!.evaluateJavaScript(
+                'window.location.href',
+              ) ??
+              _url;
+          if (currentUrl is String && currentUrl.isNotEmpty) {
+            _url = currentUrl;
+          }
           final cookies = await _desktopWebview!.getAllCookies();
           final ua2 =
               await _desktopWebview!.evaluateJavaScript("navigator.userAgent") ??
               "";
-          final cookie = cookies.map((e) => '${e.name}=${e.value}').join(';');
-          await MClient.setCookie(
-            _url,
-            ua2,
-            null,
-            cookie: cookie,
-            sourceId: widget.sourceId,
-            webViewCookies: cookies,
-          );
-          if (widget.sourceId != null) {
-            try {
+          if (widget.captureSession) {
+            final cookie =
+                cookies.map((e) => '${e.name}=${e.value}').join(';');
+            await MClient.setCookie(
+              currentUrl is String && currentUrl.isNotEmpty ? currentUrl : _url,
+              ua2,
+              null,
+              cookie: cookie,
+              sourceId: widget.sourceId,
+              webViewCookies: cookies,
+            );
+            if (widget.sourceId != null) {
+              try {
               final rawStorage = await _desktopWebview!.evaluateJavaScript(
                 'JSON.stringify(Object.fromEntries(Array.from('
                 '{length: localStorage.length}, (_, i) => '
@@ -1453,14 +1473,30 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               if (decoded is Map) {
                 await ExtensionSessionManager.saveBrowserLocalStorage(
                   extensionId: widget.sourceId!,
-                  url: _url,
+                  url: currentUrl is String && currentUrl.isNotEmpty
+                      ? currentUrl
+                      : _url,
                   values: <String, String>{
                     for (final entry in decoded.entries)
                       entry.key.toString(): entry.value?.toString() ?? '',
                   },
                 );
               }
-            } catch (_) {}
+              } catch (_) {}
+            }
+          }
+          if (widget.runWebViewMode && mounted) {
+            setState(() {
+              if (currentUrl is String && currentUrl.isNotEmpty) {
+                _url = currentUrl;
+              }
+            });
+          }
+          if (widget.runWebViewMode && !widget.waitForNavigation) {
+            final readyState = await _desktopWebview!.evaluateJavaScript(
+              'document.readyState',
+            );
+            if (readyState == 'complete') await _finishRunWebView();
           }
         } catch (_) {}
       });
@@ -1469,16 +1505,22 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         ..launch(widget.url)
         ..onClose.whenComplete(() {
           timer.cancel();
-          if (mounted && Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
+          _popRouteIfPossible();
         });
     } else {
       browser = MyInAppBrowser(
         context: context,
         sourceId: widget.sourceId,
+        captureSession: widget.captureSession,
         initialStorageScript: ExtensionSessionManager
             .localStorageRestoreScript(widget.sourceId, widget.url),
+        onExitCallback: _popRouteIfPossible,
+        onNavigationFinished: (url) async {
+          if (mounted) setState(() => _url = url);
+          if (widget.runWebViewMode && !widget.waitForNavigation) {
+            await _finishRunWebView();
+          }
+        },
         controller: (c) => _webViewController = c,
         onProgress: (progress) async {
           final back = await _webViewController?.canGoBack();
@@ -1497,7 +1539,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         },
       );
       await browser!.openUrlRequest(
-        urlRequest: URLRequest(url: WebUri(widget.url)),
+        urlRequest: URLRequest(
+          url: WebUri(widget.url),
+          headers: widget.initialHeaders.isEmpty ? null : widget.initialHeaders,
+        ),
         settings: InAppBrowserClassSettings(
           browserSettings: InAppBrowserSettings(
             presentationStyle: ModalPresentationStyle.POPOVER,
@@ -1505,7 +1550,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           webViewSettings: InAppWebViewSettings(
             isInspectable: kDebugMode,
             useShouldOverrideUrlLoading: true,
-            userAgent: ua,
+            userAgent: widget.userAgent?.trim().isNotEmpty == true
+                ? widget.userAgent
+                : ua,
           ),
         ),
       );
@@ -1567,12 +1614,71 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   void _popRouteIfPossible() {
     if (!mounted) return;
+    if (widget.runWebViewMode) {
+      unawaited(_finishRunWebView());
+      return;
+    }
     try {
       final router = GoRouter.of(context);
       if (!router.canPop()) return;
       router.pop();
     } catch (_) {
       // The route may already have been removed by a platform callback.
+    }
+  }
+
+  Future<void> _finishRunWebView() async {
+    if (!mounted || _runWebViewCompleting) return;
+    _runWebViewCompleting = true;
+    final finalUrl = _url.trim().isNotEmpty ? _url : widget.url;
+    try {
+      if (widget.captureSession && widget.sourceId != null) {
+        var userAgent = widget.userAgent ?? '';
+        try {
+          final currentUserAgent = await _webViewController
+              ?.evaluateJavascript(source: 'navigator.userAgent');
+          if (currentUserAgent is String && currentUserAgent.isNotEmpty) {
+            userAgent = currentUserAgent;
+          }
+        } catch (_) {}
+        await MClient.captureExtensionWebViewSession(
+          url: finalUrl,
+          userAgent: userAgent,
+          sourceId: widget.sourceId,
+          controller: _webViewController,
+        );
+      }
+      final cookies = widget.captureSession && widget.sourceId != null
+          ? await ExtensionSessionManager.getCookies(
+              widget.sourceId!,
+              url: finalUrl,
+            )
+          : const <Map<String, dynamic>>[];
+      final storage = widget.captureSession && widget.sourceId != null
+          ? ExtensionSessionManager.localStorageForUrl(
+              widget.sourceId,
+              finalUrl,
+            )
+          : const <String, String>{};
+      if (mounted && GoRouter.of(context).canPop()) {
+        GoRouter.of(context).pop<Map<String, dynamic>>({
+          'url': finalUrl,
+          'title': _title,
+          'cookies': cookies,
+          'localStorage': storage,
+        });
+      }
+    } catch (_) {
+      if (mounted && GoRouter.of(context).canPop()) {
+        GoRouter.of(context).pop<Map<String, dynamic>>({
+          'url': finalUrl,
+          'title': _title,
+          'cookies': const <Map<String, dynamic>>[],
+          'localStorage': const <String, String>{},
+        });
+      }
+    } finally {
+      _runWebViewCompleting = false;
     }
   }
 
@@ -2456,7 +2562,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         body: !kIsWeb && !Platform.isWindows
             ? InAppWebView(
                             webViewEnvironment: webViewEnvironment,
-                            initialUrlRequest: URLRequest(url: WebUri(widget.url)),
+                            initialUrlRequest: URLRequest(
+                              url: WebUri(widget.url),
+                              headers: widget.initialHeaders.isEmpty
+                                  ? null
+                                  : widget.initialHeaders,
+                            ),
                             initialUserScripts: widget.sourceId == null
                                 ? null
                                 : UnmodifiableListView<UserScript>([
@@ -2482,7 +2593,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               // launch alongside our floating player.
                               allowsInlineMediaPlayback: true,
                               userAgent:
-                                  ref.read(userAgentStateProvider) ==
+                                  widget.userAgent?.trim().isNotEmpty == true
+                                      ? widget.userAgent
+                                      : ref.read(userAgentStateProvider) ==
                                           defaultUserAgent
                                       ? null
                                       : ref.read(userAgentStateProvider),
@@ -2553,8 +2666,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               });
                             },
                             onLoadStop: (c, url) async {
-                              if (mounted) setState(() => _url = url.toString());
-                              if (url != null) {
+                              final loadedUrl = url?.toString() ?? widget.url;
+                              if (mounted) setState(() => _url = loadedUrl);
+                              if (widget.captureSession && url != null) {
                                 final ua = await c.evaluateJavascript(
                                       source: 'navigator.userAgent',
                                     ) ??
@@ -2570,6 +2684,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               try {
                                 await c.evaluateJavascript(source: _kVideoInterceptJs);
                               } catch (_) {}
+                              if (widget.runWebViewMode &&
+                                  !widget.waitForNavigation) {
+                                await _finishRunWebView();
+                              }
                             },
                             onProgressChanged: (c, progress) {
                               if (mounted) {
@@ -2577,16 +2695,18 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               }
                             },
                             onUpdateVisitedHistory: (c, url, _) async {
-                              final ua = await c.evaluateJavascript(
-                                    source: 'navigator.userAgent',
-                                  ) ??
-                                  '';
-                              await MClient.captureExtensionWebViewSession(
-                                url: url.toString(),
-                                userAgent: ua,
-                                sourceId: widget.sourceId,
-                                controller: c,
-                              );
+                              if (widget.captureSession) {
+                                final ua = await c.evaluateJavascript(
+                                      source: 'navigator.userAgent',
+                                    ) ??
+                                    '';
+                                await MClient.captureExtensionWebViewSession(
+                                  url: url.toString(),
+                                  userAgent: ua,
+                                  sourceId: widget.sourceId,
+                                  controller: c,
+                                );
+                              }
                               final back = await c.canGoBack();
                               final fwd = await c.canGoForward();
                               final title = await c.getTitle();
@@ -4093,6 +4213,9 @@ class MyInAppBrowser extends InAppBrowser {
   BuildContext context;
   final int? sourceId;
   final String? initialStorageScript;
+  final bool captureSession;
+  final VoidCallback? onExitCallback;
+  final Future<void> Function(String url)? onNavigationFinished;
   void Function(InAppWebViewController) controller;
   void Function(int) onProgress;
 
@@ -4100,6 +4223,9 @@ class MyInAppBrowser extends InAppBrowser {
     required this.context,
     this.sourceId,
     this.initialStorageScript,
+    this.captureSession = true,
+    this.onExitCallback,
+    this.onNavigationFinished,
     required this.controller,
     required this.onProgress,
   }) : super(webViewEnvironment: webViewEnvironment);
@@ -4125,6 +4251,11 @@ class MyInAppBrowser extends InAppBrowser {
 
   @override
   void onExit() {
+    final callback = onExitCallback;
+    if (callback != null) {
+      callback();
+      return;
+    }
     try {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
@@ -4138,12 +4269,15 @@ class MyInAppBrowser extends InAppBrowser {
       final ua =
           await webViewController!.evaluateJavascript(source: 'navigator.userAgent') ??
           '';
-      await MClient.captureExtensionWebViewSession(
-        url: url.toString(),
-        userAgent: ua,
-        sourceId: sourceId,
-        controller: webViewController,
-      );
+      if (captureSession) {
+        await MClient.captureExtensionWebViewSession(
+          url: url.toString(),
+          userAgent: ua,
+          sourceId: sourceId,
+          controller: webViewController,
+        );
+      }
+      await onNavigationFinished?.call(url.toString());
     }
   }
 

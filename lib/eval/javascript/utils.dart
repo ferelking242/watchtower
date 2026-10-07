@@ -111,6 +111,27 @@ class JsUtils {
         (args[2]! as List).map((e) => e.toString()).toList(),
       );
     });
+    runtime.onMessage('runWebView', (dynamic args) async {
+      if (sourceId == null || args.length < 1) return null;
+      final options = args.length > 1 && args[1] is Map
+          ? args[1] as Map
+          : const <Object?, Object?>{};
+      final rawHeaders = options['headers'];
+      final headers = rawHeaders is Map
+          ? rawHeaders.map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            )
+          : const <String, String>{};
+      final result = await MBridge.runWebView(
+        extensionId: sourceId!,
+        url: args[0].toString(),
+        initialHeaders: headers,
+        userAgent: options['userAgent']?.toString(),
+        waitForNavigation: options['waitForNavigation'] != false,
+        captureSession: options['captureSession'] != false,
+      );
+      return result == null ? null : jsonEncode(result);
+    });
     runtime.onMessage('parseEpub', (dynamic args) async {
       final bytes = await _toBytesResponse(client(), "GET", args);
       final book = await parseEpubFromBytes(epubBytes: bytes, fullData: true);
@@ -238,6 +259,13 @@ async function evaluateJavascriptViaWebview(url, headers, scripts) {
         "evaluateJavascriptViaWebview",
         JSON.stringify([url, headers, scripts])
     );
+}
+async function runWebView(url, options = {}) {
+    const result = await sendMessage(
+        "runWebView",
+        JSON.stringify([url, options])
+    );
+    return result == null ? null : JSON.parse(result);
 }
 async function parseEpub(bookName, url, headers) {
     return JSON.parse(await sendMessage(

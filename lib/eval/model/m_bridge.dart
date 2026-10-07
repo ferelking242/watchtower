@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:munchtoast/munchtoast.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:html/dom.dart' hide Text;
+import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:js_packer/js_packer.dart';
@@ -637,6 +638,57 @@ class MBridge {
       } catch (_) {}
     }
     return response;
+  }
+
+  /// Opens the shared interactive browser and resolves with its final URL and
+  /// captured session. With [waitForNavigation] enabled, the caller awaits
+  /// until the user closes the browser; otherwise it resolves after the first
+  /// completed page load.
+  static Future<Map<String, dynamic>?> runWebView({
+    required int extensionId,
+    required String url,
+    Map<String, String> initialHeaders = const {},
+    String? userAgent,
+    bool waitForNavigation = true,
+    bool captureSession = true,
+  }) async {
+    if (extensionId <= 0) {
+      throw ArgumentError.value(extensionId, 'extensionId');
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        (uri.scheme != 'https' && uri.scheme != 'http')) {
+      throw ArgumentError.value(url, 'url', 'Only HTTP and HTTPS URLs are allowed.');
+    }
+    if (kIsWeb) {
+      throw UnsupportedError('The interactive WebView is not available on web.');
+    }
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.linux &&
+        (initialHeaders.isNotEmpty ||
+            (userAgent?.trim().isNotEmpty ?? false))) {
+      throw UnsupportedError(
+        'Custom headers and user agents are not available in the Linux desktop WebView.',
+      );
+    }
+    final context = navigatorKey.currentState?.context;
+    if (context == null) {
+      throw StateError('A visible application context is required to open a WebView.');
+    }
+    return GoRouter.of(context).push<Map<String, dynamic>>(
+      '/mangawebview',
+      extra: {
+        'url': uri.toString(),
+        'title': 'Extension — navigateur',
+        'sourceId': extensionId,
+        'runWebViewMode': true,
+        'initialHeaders': initialHeaders,
+        'userAgent': userAgent,
+        'waitForNavigation': waitForNavigation,
+        'captureSession': captureSession,
+      },
+    );
   }
 }
 

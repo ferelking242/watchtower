@@ -292,6 +292,27 @@ class MProviderBridged {
             time: namedArgs.get<int?>('time') ?? 30,
           ),
     );
+    interpreter.registertopLevelFunction(
+      'runWebView',
+      (visitor, positionalArgs, namedArgs, _) {
+        final options = positionalArgs.length > 2 && positionalArgs[2] is Map
+            ? (positionalArgs[2] as Map).cast<String, dynamic>()
+            : const <String, dynamic>{};
+        final rawHeaders = options['headers'];
+        return MBridge.runWebView(
+          extensionId: positionalArgs[0] as int,
+          url: positionalArgs[1] as String,
+          initialHeaders: rawHeaders is Map
+              ? rawHeaders.map(
+                  (key, value) => MapEntry(key.toString(), value.toString()),
+                )
+              : const <String, String>{},
+          userAgent: options['userAgent']?.toString(),
+          waitForNavigation: options['waitForNavigation'] != false,
+          captureSession: options['captureSession'] != false,
+        );
+      },
+    );
     interpreter.registertopLevelFunction('print', (
       visitor,
       positionalArgs,
