@@ -223,6 +223,37 @@ class Source {
         : '$raw\n$_metadataMarker$encoded';
   }
 
+  /// Optional website login page supplied by the extension catalogue.
+  ///
+  /// This stays in the existing metadata envelope to avoid changing the Isar
+  /// schema for a catalogue-only field.
+  String? get loginUrl {
+    final value = _metadataValues()['loginUrl'];
+    return value is String && value.trim().isNotEmpty ? value.trim() : null;
+  }
+
+  void setLoginUrl(String? value) {
+    final normalized = value?.trim();
+    final raw = (additionalParams ?? '')
+        .split('\n$_metadataMarker')
+        .first
+        .trimRight();
+    final metadata = _metadataValues();
+    if (normalized == null || normalized.isEmpty) {
+      metadata.remove('loginUrl');
+    } else {
+      metadata['loginUrl'] = normalized;
+    }
+    if (metadata.isEmpty) {
+      additionalParams = raw;
+      return;
+    }
+    final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
+    additionalParams = raw.isEmpty
+        ? '$_metadataMarker$encoded'
+        : '$raw\n$_metadataMarker$encoded';
+  }
+
   void setSupportedLanguages(Iterable<String>? values) {
     final normalized = (values ?? const <String>[])
         .map((value) => value.trim().toLowerCase())
@@ -299,6 +330,7 @@ class Source {
       if (pendingUiLayoutVersion != null)
         'pendingUiLayoutVersion': pendingUiLayoutVersion,
       if (touchToPreview) 'touchToPreview': true,
+      if (loginUrl != null) 'loginUrl': loginUrl,
     };
     if (metadata.isEmpty) return raw;
     final encoded = base64Url.encode(utf8.encode(jsonEncode(metadata)));
@@ -343,6 +375,10 @@ class Source {
     version = json['version'];
     versionLast = json['versionLast'];
     additionalParams = json['additionalParams'] ?? "";
+    if (json.containsKey('loginUrl')) {
+      final value = json['loginUrl'];
+      setLoginUrl(value is String ? value : null);
+    }
     final languages = json['langs'];
     if (languages is List) {
       setSupportedLanguages(languages.whereType<String>());
@@ -409,6 +445,7 @@ class Source {
     'version': version,
     'versionLast': versionLast,
     'additionalParams': persistedAdditionalParams,
+    'loginUrl': loginUrl,
     if (touchToPreview) 'touchToPreview': true,
     'sourceCodeLanguage': sourceCodeLanguage.index,
     'isObsolete': isObsolete,

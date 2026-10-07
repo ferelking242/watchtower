@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
@@ -32,7 +30,7 @@ import 'package:watchtower/services/fetch_sources_list.dart'
 
 enum _SiteSessionStatus {
   checking,
-  connected,
+  loggingIn,
   sessionSaved,
   notConnected,
   unavailable,
@@ -94,24 +92,22 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   }
 
   Future<void> _signInToSite() async {
-    final url = Uri.tryParse(source.baseUrl ?? '');
+    final url = Uri.tryParse(source.loginUrl ?? source.baseUrl ?? '');
     if (url == null || !url.hasAuthority ||
         (url.scheme != 'https' && url.scheme != 'http')) {
       botToast('URL du site invalide.');
       return;
     }
-    final isMangaDex = _isMangaDexHost(url.host);
-    final loginUrl = isMangaDex
-        ? Uri.https('mangadex.org', '/auth/login', {
-            'afterAuthentication': '/',
-          })
-        : url;
-    await context.push('/mangawebview', extra: {
-      'url': loginUrl.toString(),
-      'sourceId': source.id.toString(),
-      'title': '${source.name ?? 'Extension'} — connexion',
-    });
-    if (mounted) await _refreshSiteSessionStatus();
+    setState(() => _siteSessionStatus = _SiteSessionStatus.loggingIn);
+    try {
+      await context.push('/mangawebview', extra: {
+        'url': url.toString(),
+        'sourceId': source.id.toString(),
+        'title': '${source.name ?? 'Extension'} — connexion',
+      });
+    } finally {
+      if (mounted) await _refreshSiteSessionStatus();
+    }
   }
 
   Future<void> _signOutFromSite() async {
@@ -124,11 +120,6 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     botToast('Session effacée pour cette extension.');
   }
 
-  bool _isMangaDexHost(String host) {
-    final normalized = host.toLowerCase();
-    return normalized == 'mangadex.org' || normalized.endsWith('.mangadex.org');
-  }
-
   Future<void> _refreshSiteSessionStatus() async {
     if (!mounted) return;
     if (_siteSessionStatus != _SiteSessionStatus.checking) {
@@ -136,55 +127,6 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     }
     try {
       await ExtensionSessionManager.load(source.id);
-      final host = Uri.tryParse(source.baseUrl ?? '')?.host;
-      if (host == null || host.isEmpty) {
-        if (mounted) {
-          setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
-        }
-        return;
-      }
-
-      if (_isMangaDexHost(host)) {
-        final apiUrl = Uri.https('api.mangadex.org', '/auth/check');
-        final cookieHeader = ExtensionSessionManager.cookieHeaderForUrl(
-          source.id,
-          apiUrl.toString(),
-        );
-        final cookieHeaders = cookieHeader == null
-            ? <String, String>{}
-            : {'Cookie': cookieHeader};
-        if (cookieHeaders.isEmpty) {
-          if (mounted) {
-            setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
-          }
-          return;
-        }
-        final response = await http
-            .get(apiUrl, headers: cookieHeaders)
-            .timeout(const Duration(seconds: 10));
-        if (response.statusCode == 401) {
-          if (mounted) {
-            setState(() => _siteSessionStatus = _SiteSessionStatus.notConnected);
-          }
-          return;
-        }
-        if (response.statusCode != 200) {
-          throw StateError('HTTP ${response.statusCode}');
-        }
-        final result = jsonDecode(response.body);
-        if (result is! Map<String, dynamic>) {
-          throw const FormatException('Réponse de connexion invalide.');
-        }
-        if (mounted) {
-          setState(
-            () => _siteSessionStatus = result['isAuthenticated'] == true
-                ? _SiteSessionStatus.connected
-                : _SiteSessionStatus.notConnected,
-          );
-        }
-        return;
-      }
-
       final hasSessionData = ExtensionSessionManager.hasSessionDataForUrl(
         source.id,
         source.baseUrl ?? '',
@@ -213,10 +155,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         icon = null;
         color = colors.onSurfaceVariant;
         break;
-      case _SiteSessionStatus.connected:
-        label = 'Connecté à MangaDex';
+      case _SiteSessionStatus.loggingIn:
+        label = 'Connexion en cours…';
         icon = Icons.check_circle_rounded;
-        color = colors.primary;
+        color = colors.onSurfaceVariant;
         break;
       case _SiteSessionStatus.sessionSaved:
         label = 'Session du site enregistrée';
@@ -236,7 +178,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     }
     return Row(
       children: [
-        if (_siteSessionStatus == _SiteSessionStatus.checking)
+        if (_siteSessionStatus == _SiteSessionStatus.checking ||
+            _siteSessionStatus == _SiteSessionStatus.loggingIn)
           SizedBox(
             width: 16,
             height: 16,
@@ -260,7 +203,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         IconButton(
           tooltip: 'Vérifier la connexion',
           visualDensity: VisualDensity.compact,
-          onPressed: _siteSessionStatus == _SiteSessionStatus.checking
+          onPressed: _siteSessionStatus == _SiteSessionStatus.checking ||
+                  _siteSessionStatus == _SiteSessionStatus.loggingIn
               ? null
               : _refreshSiteSessionStatus,
           icon: const Icon(Icons.refresh_rounded, size: 19),
@@ -1198,7 +1142,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                             runSpacing: 8,
                             children: [
                               FilledButton.tonalIcon(
-                                onPressed: _signInToSite,
+                                onPressed: _siteSessionStatus ==
+                                        _SiteSessionStatus.loggingIn
+                                    ? null
+                                    : _signInToSite,
                                 icon: const Icon(Icons.login_rounded, size: 18),
                                 label: const Text('Se connecter'),
                               ),
