@@ -95,7 +95,6 @@ class LayoutComponentRegistry {
     ),
     LayoutComponentDefinition(
       id: 'banner',
-      aliases: ['hero'],
       label: 'Bannière',
       category: 'HÉROS',
       description: 'Rail de bannières éditoriales.',

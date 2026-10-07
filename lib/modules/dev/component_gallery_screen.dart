@@ -391,13 +391,59 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   /// Le catalogue est construit une seule fois. `_buildComponents()` aligne
   /// des milliers d'objets : le reconstruire à chaque frame (et deux fois par
   /// `build`, via `_sectionsFor` puis `_visibleComponents`) gelait la page.
-  late final List<_ComponentSpec> _catalog = _buildComponents();
+  late final List<_ComponentSpec> _catalog = _buildGalleryComponents();
   late final List<_ComponentSpec> _layoutPickerCatalog =
       _buildLayoutPickerComponents();
 
   List<_ComponentSpec> get _components => _catalog;
   List<_ComponentSpec> get _activeComponents =>
       widget.selectionMode ? _layoutPickerCatalog : _components;
+
+  List<_ComponentSpec> _buildGalleryComponents() {
+    final allComponents = _buildComponents();
+    final existingLayoutPreviews = <String, _ComponentSpec>{};
+    for (final component in allComponents) {
+      final id = component.layoutComponent;
+      if (id != null) {
+        existingLayoutPreviews.putIfAbsent(id, () => component);
+      }
+    }
+
+    final layoutComponents =
+        LayoutComponentRegistry.forContext(
+          LayoutComponentContext.home,
+          selectableOnly: true,
+        ).map((definition) {
+          final preview = existingLayoutPreviews[definition.id];
+          return _ComponentSpec(
+            title: preview?.title ?? definition.label,
+            className: preview?.className ?? definition.id,
+            path:
+                preview?.path ??
+                'lib/modules/watch/home/watch_extension_home_screen.dart',
+            usage: preview?.usage ?? definition.description,
+            section: preview?.section ?? 'EXTENSIONS WATCH',
+            icon: preview?.icon ?? _layoutIconFor(definition.renderer),
+            kind: preview?.kind ?? _previewKindFor(definition.renderer),
+            layoutComponent: definition.id,
+            result:
+                preview?.result ??
+                ((_) => ExtensionLayoutPreview(
+                  title: definition.label,
+                  component: definition.id,
+                  source: _gallerySource,
+                  items: _extensionItems,
+                  onOpen: (_) {},
+                  onSeeAll: () {},
+                )),
+          );
+        });
+
+    return [
+      ...allComponents.where((component) => component.layoutComponent == null),
+      ...layoutComponents,
+    ];
+  }
 
   List<_ComponentSpec> _buildLayoutPickerComponents() {
     final galleryPreviews = <String, _ComponentSpec>{};
