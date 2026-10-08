@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
+import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart'
+    show extensionFailedUrl;
 
 class ErrorText extends StatelessWidget {
   final dynamic errorText;
@@ -26,7 +28,9 @@ class ErrorText extends StatelessWidget {
     if (isCloudflareError(text)) {
       return CloudflareErrorWidget(
         errorText: text,
-        url: sourceUrl,
+        // Prefer the exact failing URL over the site root: the root loads with
+        // no challenge, so the bypass WebView would look already solved.
+        url: sourceUrl ?? extensionFailedUrl(errorText),
         sourceId: sourceId,
         onRetry: onRetry,
       );
