@@ -85,3 +85,16 @@ that expression directly in `run:`: a commit subject containing an apostrophe
 `unexpected EOF while looking for matching '` (exit 2) after an otherwise
 successful, signed build. Only the notification step fails in that case — check
 the failing step name before treating a red `Build Release APK` as a code bug.
+
+## Branding invariants (do not regress)
+- The only real logo is the geometric **eye** (`assets/app_icons/icon.png`,
+  transparent background). The old **tower** artwork was removed in `03b2750c`;
+  no tower silhouette may be reintroduced.
+- Launcher icons on every platform are regenerated from that single file, so the
+  correct place to change the logo is `assets/app_icons/icon.png` only.
+- Splash logos (`assets/app_icons/splash_logo.png` and
+  `android/app/src/main/res/drawable-nodpi/splash_logo.png`) must keep a
+  **transparent** background: the native launch surface supplies the colour.
+- The Windows NSIS installer banner/header in
+  `.github/workflows/build-windows-x64.yml` must draw the eye, not a hand-coded
+  tower. It renders `assets/app_icons/icon.png` directly.
