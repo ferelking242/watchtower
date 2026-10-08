@@ -270,6 +270,8 @@ void main() {
 
       expect(find.text('Accès API bloqué'), findsOneWidget);
       expect(find.textContaining('Cloudflare bloque l’API'), findsOneWidget);
+      expect(find.text('Réessayer la source'), findsOneWidget);
+      expect(find.text('Vérifier la page'), findsNothing);
       // The panel opens on the exact challenged request, not the site root.
       final panel = tester.widget<CloudflareBypassPanel>(
         find.byType(CloudflareBypassPanel),
@@ -280,24 +282,29 @@ void main() {
     },
   );
 
-  testWidgets('shows the real HTTP code in the title for a failing source', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ExtensionHomeEmptyState(
-          onRetry: () async {},
-          onRefresh: () async {},
-          header: const SizedBox.shrink(),
-          error: Exception('HTTP 500 Internal Server Error'),
+  testWidgets('shows concise HTTP 403, 404 and 500 errors', (tester) async {
+    for (final code in [403, 404, 500]) {
+      const verboseDetail = 'verbose upstream diagnostic trace';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ExtensionHomeEmptyState(
+            onRetry: () async {},
+            onRefresh: () async {},
+            header: const SizedBox.shrink(),
+            error: Exception(
+              'HttpException: HTTP $code response — $verboseDetail',
+            ),
+          ),
         ),
-      ),
-    );
+      );
+      await tester.pump();
 
-    expect(find.text('Erreur HTTP 500'), findsOneWidget);
-    expect(find.textContaining('erreur serveur (HTTP 500)'), findsOneWidget);
-    // The generic fallback must never be shown when the real code is known.
-    expect(find.text('Impossible de charger le contenu'), findsNothing);
+      expect(find.text('Erreur HTTP $code'), findsOneWidget);
+      expect(find.textContaining('HTTP $code'), findsWidgets);
+      expect(find.textContaining(verboseDetail), findsNothing);
+      // The generic fallback must never replace a known response code.
+      expect(find.text('Impossible de charger le contenu'), findsNothing);
+    }
   });
 
   testWidgets('does not auto-open the panel for unrelated errors', (

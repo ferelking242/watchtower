@@ -82,10 +82,11 @@ enum _CfPhase {
 
 class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   _CfPhase _phase = _CfPhase.checking;
-  double _progress = 0;
-  bool _busy = false;
+  final ValueNotifier<double> _progress = ValueNotifier<double>(0);
   bool _cookieStoreReady = false;
   bool _resolvedCallbackSent = false;
+  bool _inspectionInProgress = false;
+  bool _retryLocked = false;
   String _host = '';
   String? _statusNote;
 
@@ -93,6 +94,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   /// never reports “challenge resolved” without this flag.
   bool _challengeSeen = false;
   Timer? _pollTimer;
+  Timer? _retryCooldown;
   InAppWebViewController? _webView;
   AntiBotPageType? _lastLoggedPage;
 
@@ -106,6 +108,8 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _retryCooldown?.cancel();
+    _progress.dispose();
     super.dispose();
   }
 
@@ -174,55 +178,76 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
 
   Future<void> _onPageLoaded() async {
     if (!mounted) return;
-    setState(() => _progress = 1);
+    _progress.value = 1;
     await _inspectPage();
   }
 
   Future<void> _inspectPage() async {
-    if (!_cookieStoreReady) return;
-    final assessment = await _probe();
-    if (!mounted) return;
-
-    if (assessment.pageType != _lastLoggedPage) {
-      _lastLoggedPage = assessment.pageType;
-      AppLogger.log(
-        '[CloudflareWebView] url=${redactUrl(widget.url)} '
-        'pageType=${assessment.pageType.name} '
-        'challengeDetected=${assessment.challenge} '
-        'blocked=${assessment.blocked}',
-        logLevel: LogLevel.debug,
-        tag: kLogTagNet,
-      );
+    if (!_cookieStoreReady ||
+        _inspectionInProgress ||
+        _phase == _CfPhase.solved ||
+        _phase == _CfPhase.blocked) {
+      return;
     }
+    _inspectionInProgress = true;
+    try {
+      final assessment = await _probe();
+      if (!mounted) return;
 
-    switch (assessment.pageType) {
-      case AntiBotPageType.challenge:
-        _challengeSeen = true;
-        setState(() {
-          _phase = _CfPhase.challenge;
-          _statusNote = null;
-        });
-        // Challenges can clear on their own (Turnstile) without a new load.
-        _startPolling();
-        return;
-      case AntiBotPageType.blocked:
-        _stopPolling();
-        setState(() {
-          _phase = _CfPhase.blocked;
-          _statusNote = null;
-        });
-        return;
-      case AntiBotPageType.normal:
-        // Always try to persist the browser session, even when no challenge was
-        // observed: a managed challenge can auto-solve between two probes, and
-        // without this the cookie never reaches the HTTP client.
-        await _finishResolution();
-        return;
-      case AntiBotPageType.unknown:
-        // Page mid-load or probe unavailable: keep the current phase, the
-        // polling loop / next onLoadStop will retry.
-        return;
+      if (assessment.pageType != _lastLoggedPage) {
+        _lastLoggedPage = assessment.pageType;
+        AppLogger.log(
+          '[CloudflareWebView] url=${redactUrl(widget.url)} '
+          'pageType=${assessment.pageType.name} '
+          'challengeDetected=${assessment.challenge} '
+          'blocked=${assessment.blocked}',
+          logLevel: LogLevel.debug,
+          tag: kLogTagNet,
+        );
+      }
+
+      switch (assessment.pageType) {
+        case AntiBotPageType.challenge:
+          _challengeSeen = true;
+          _setPhase(_CfPhase.challenge);
+          // Challenges can clear on their own (Turnstile) without a new load.
+          _startPolling();
+          return;
+        case AntiBotPageType.blocked:
+          _stopPolling();
+          _setPhase(_CfPhase.blocked);
+          return;
+        case AntiBotPageType.normal:
+          // Always try to persist the browser session, even when no challenge
+          // was observed: a managed challenge can auto-solve between probes.
+          await _finishResolution();
+          return;
+        case AntiBotPageType.unknown:
+          // Page mid-load or probe unavailable: keep the current phase; the
+          // polling loop / next onLoadStop will retry.
+          return;
+      }
+    } finally {
+      _inspectionInProgress = false;
     }
+  }
+
+  void _setPhase(_CfPhase phase, {String? statusNote}) {
+    if (!mounted || (_phase == phase && _statusNote == statusNote)) return;
+    setState(() {
+      _phase = phase;
+      _statusNote = statusNote;
+    });
+  }
+
+  void _triggerRetry() {
+    if (_retryLocked || widget.onRetry == null) return;
+    _retryLocked = true;
+    _retryCooldown?.cancel();
+    _retryCooldown = Timer(const Duration(milliseconds: 900), () {
+      _retryLocked = false;
+    });
+    widget.onRetry?.call();
   }
 
   /// Called when the page no longer shows a challenge after one was seen.
@@ -275,64 +300,22 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     if (!mounted) return;
 
     if (resolved) {
-      setState(() {
-        _phase = _CfPhase.solved;
-        _statusNote = null;
-      });
+      _setPhase(_CfPhase.solved);
       if (!_resolvedCallbackSent) {
         _resolvedCallbackSent = true;
         await Future<void>.delayed(const Duration(milliseconds: 250));
         if (mounted) widget.onResolved?.call();
       }
     } else {
-      setState(() {
-        _phase = _CfPhase.clearedWithoutCookie;
-        _statusNote = _challengeSeen
+      _setPhase(
+        _CfPhase.clearedWithoutCookie,
+        statusNote: _challengeSeen
             ? 'Le challenge a disparu mais le cookie cf_clearance n’a pas été '
-                  'enregistré pour les requêtes HTTP.'
+                'enregistré pour les requêtes HTTP.'
             : 'La page se charge, mais aucun cookie cf_clearance n’a été '
-                  'déposé : le site ne demande pas de vérification à ce '
-                  'navigateur. Réessaye la source.';
-      });
-    }
-  }
-
-  /// User pressed “Vérifier la page”.
-  Future<void> _verifyNow() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _statusNote = null;
-    });
-
-    final assessment = await _probe();
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    switch (assessment.pageType) {
-      case AntiBotPageType.challenge:
-        _challengeSeen = true;
-        setState(() {
-          _phase = _CfPhase.challenge;
-          _statusNote =
-              'Le challenge est encore présent — terminez-le puis vérifiez à nouveau.';
-        });
-        return;
-      case AntiBotPageType.blocked:
-        _stopPolling();
-        setState(() {
-          _phase = _CfPhase.blocked;
-          _statusNote = null;
-        });
-        return;
-      case AntiBotPageType.normal:
-        await _finishResolution();
-        return;
-      case AntiBotPageType.unknown:
-        setState(() {
-          _statusNote = 'Vérification impossible pour le moment — réessayez.';
-        });
-        return;
+                'déposé : le site ne demande pas de vérification à ce '
+                'navigateur. Réessaye la source.',
+      );
     }
   }
 
@@ -341,105 +324,124 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     final cs = Theme.of(context).colorScheme;
     final supported = cloudflareWebviewSupported();
 
-    return Container(
-      decoration: widget.fullScreen
-          ? null
-          : BoxDecoration(
-              color: cs.surfaceContainerHigh.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(widget.compact ? 12 : 16),
-              border: Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.7)),
-            ),
-      clipBehavior: widget.fullScreen ? Clip.none : Clip.antiAlias,
-      child: Column(
-        mainAxisSize: widget.fullScreen ? MainAxisSize.max : MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Header ────────────────────────────────────────────────────
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-                widget.compact ? 10 : 14,
-                widget.compact ? 8 : 10,
-                widget.compact ? 6 : 8,
-                widget.compact ? 8 : 10),
-            child: Row(children: [
-              _ShieldStatus(phase: _phase, cs: cs),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _phaseTitle(_phase),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: widget.compact ? 12.5 : 13.5,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      _host,
-                      style: TextStyle(
-                        fontSize: widget.compact ? 10.5 : 11,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              if (widget.onClose != null)
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                  onPressed: widget.onClose,
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'Fermer',
-                ),
-            ]),
-          ),
-
-          // ── Thin progress ─────────────────────────────────────────────
-          if (_phase == _CfPhase.loading ||
-              _phase == _CfPhase.checking ||
-              _phase == _CfPhase.challenge ||
-              _phase == _CfPhase.solved)
-            SizedBox(
-              height: 2,
-              child: _phase == _CfPhase.solved
+    return Column(
+      mainAxisSize: widget.fullScreen ? MainAxisSize.max : MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!widget.fullScreen) _buildHeader(cs, showFullscreen: supported),
+        if (_phase == _CfPhase.loading ||
+            _phase == _CfPhase.checking ||
+            _phase == _CfPhase.challenge ||
+            _phase == _CfPhase.solved)
+          SizedBox(
+            height: 2,
+            child: ValueListenableBuilder<double>(
+              valueListenable: _progress,
+              builder: (context, progress, _) => _phase == _CfPhase.solved
                   ? LinearProgressIndicator(
                       value: 1,
                       backgroundColor: Colors.transparent,
                       color: Colors.green.shade500,
                     )
                   : LinearProgressIndicator(
-                      value: _phase == _CfPhase.challenge ? null : _progress,
+                      value: _phase == _CfPhase.challenge ? null : progress,
                       backgroundColor: cs.surfaceContainerHighest,
                       color: cs.primary,
                     ),
             ),
-
-          // ── Body ──────────────────────────────────────────────────────
-          if (supported)
-            widget.fullScreen
-                ? Expanded(child: _buildWebview(cs))
-                : _buildWebview(cs)
-          else
-            widget.fullScreen
-                ? Expanded(child: _buildUnsupported(cs))
-                : _buildUnsupported(cs),
-
-          if (_statusNote != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-              child: Text(
-                _statusNote!,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: cs.onSurfaceVariant,
-                  height: 1.35,
+          ),
+        if (supported)
+          widget.fullScreen
+              ? Expanded(child: _buildWebview(cs))
+              : _buildWebview(cs)
+        else
+          widget.fullScreen
+              ? Expanded(child: _buildUnsupported(cs))
+              : _buildUnsupported(cs),
+        if (_statusNote != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: Text(
+              _statusNote!,
+              style: TextStyle(
+                fontSize: 11,
+                color: cs.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ),
+        if (widget.onRetry != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _triggerRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 17),
+                label: const Text('Réessayer la source'),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildHeader(ColorScheme cs, {required bool showFullscreen}) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        widget.compact ? 2 : 4,
+        widget.compact ? 4 : 6,
+        0,
+        widget.compact ? 6 : 8,
+      ),
+      child: Row(
+        children: [
+          _ShieldStatus(phase: _phase, cs: cs),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _phaseTitle(_phase),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: widget.compact ? 12.5 : 13.5,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  _host,
+                  style: TextStyle(
+                    fontSize: widget.compact ? 10.5 : 11,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (showFullscreen)
+            IconButton(
+              icon: const Icon(Icons.open_in_full_rounded, size: 18),
+              onPressed: _openFullScreen,
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Ouvrir en plein écran',
+            ),
+          if (widget.onClose != null)
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18),
+              onPressed: widget.onClose,
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Fermer',
             ),
         ],
       ),
@@ -452,7 +454,9 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         _CfPhase.challenge => 'Challenge Cloudflare',
         _CfPhase.solved => 'Challenge résolu',
         _CfPhase.blocked => 'Blocage anti-bot (sans challenge)',
-        _CfPhase.clearedWithoutCookie => 'Challenge franchi — cookie manquant',
+        _CfPhase.clearedWithoutCookie => _challengeSeen
+            ? 'Challenge franchi — cookie manquant'
+            : 'Aucun challenge détecté',
         _CfPhase.unsupported => 'WebView indisponible',
       };
 
@@ -514,49 +518,6 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             ),
           ),
 
-        // ── Footer actions ──────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-          child: Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: _busy ? null : _verifyNow,
-                icon: const Icon(Icons.verified_rounded, size: 15),
-                label: const Text('Vérifier la page'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  textStyle: const TextStyle(
-                      fontSize: 11.5, fontWeight: FontWeight.w600),
-                ),
-              ),
-              if (widget.onRetry != null)
-                OutlinedButton.icon(
-                  onPressed: widget.onRetry,
-                  icon: const Icon(Icons.refresh_rounded, size: 15),
-                  label: const Text('Réessayer la source'),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: const TextStyle(
-                        fontSize: 11.5, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              if (!widget.fullScreen)
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _openFullScreen,
-                  icon: const Icon(Icons.fullscreen_rounded, size: 16),
-                  label: const Text('Plein écran'),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: const TextStyle(
-                        fontSize: 11.5, fontWeight: FontWeight.w600),
-                  ),
-                ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -581,7 +542,12 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
               sourceId: widget.sourceId,
               fullScreen: true,
               onResolved: () => Navigator.of(routeContext).pop(true),
-              onRetry: widget.onRetry,
+              onRetry: widget.onRetry == null
+                  ? null
+                  : () {
+                      Navigator.of(routeContext).pop(false);
+                      _triggerRetry();
+                    },
               onClose: () => Navigator.of(routeContext).pop(false),
             ),
           ),
@@ -591,13 +557,11 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     if (!mounted) return;
     if (resolved == true) {
       widget.onResolved?.call();
-      await _verifyNow();
     }
   }
 
   Widget _buildBrowser() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(widget.fullScreen ? 0 : 10),
+    return ClipRect(
       child: ColoredBox(
         color: Colors.white,
         child: InAppWebView(
@@ -635,15 +599,13 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           onWebViewCreated: (controller) => _webView = controller,
           onLoadStart: (ctrl, url) {
             if (mounted) {
-              setState(() {
-                _webView = ctrl;
-                _progress = 0;
-                _phase = _CfPhase.loading;
-              });
+              _webView = ctrl;
+              _progress.value = 0;
+              _setPhase(_CfPhase.loading);
             }
           },
           onProgressChanged: (ctrl, progress) {
-            if (mounted) setState(() => _progress = progress / 100.0);
+            if (mounted) _progress.value = progress / 100.0;
           },
           onLoadStop: (ctrl, url) => _onPageLoaded(),
         ),
@@ -664,37 +626,11 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
               child: Text(
                 'Le challenge ne peut pas être affiché sur cette plateforme. '
                 'Ouvrez la source dans votre navigateur, résolvez le challenge, '
-                'puis revenez vérifier.',
+                'puis réessayez la source ici.',
                 style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant, height: 1.35),
               ),
             ),
           ]),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: _busy ? null : _verifyNow,
-                icon: const Icon(Icons.verified_rounded, size: 15),
-                label: const Text('Vérifier à nouveau'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  textStyle: const TextStyle(fontSize: 11.5),
-                ),
-              ),
-              if (widget.onRetry != null)
-                TextButton.icon(
-                  onPressed: widget.onRetry,
-                  icon: const Icon(Icons.refresh_rounded, size: 15),
-                  label: const Text('Réessayer le diagnostic'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: const TextStyle(fontSize: 11.5),
-                  ),
-                ),
-            ],
-          ),
         ],
       ),
     );
