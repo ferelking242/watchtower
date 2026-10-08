@@ -75,17 +75,13 @@ class CliExtensionTester {
     required this.mode,
     required this.concurrency,
     required this.timeoutSeconds,
-    this.type,
-    this.language,
-    this.includeUnindexed = false,
+    this.filter = const CliExtensionFilter(),
   });
 
   final String mode;
   final int concurrency;
   final int timeoutSeconds;
-  final String? type;
-  final String? language;
-  final bool includeUnindexed;
+  final CliExtensionFilter filter;
 
   Future<Map<String, dynamic>> run(CliExtensionCatalog catalog) async {
     await getIsolateService.start();
@@ -110,11 +106,7 @@ class CliExtensionTester {
         'generatedAt': DateTime.now().toUtc().toIso8601String(),
         'version': cliVersion,
         'mode': mode,
-        'filters': {
-          if (type != null) 'type': type,
-          if (language != null) 'language': language,
-          'includeUnindexed': includeUnindexed,
-        },
+        'filters': filter.toJson(),
         'repository': catalog.root,
         'repositoryRevision': ?catalog.revision,
         'total': results.length,

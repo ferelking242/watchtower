@@ -14,6 +14,15 @@ the database-free commands. CI (`.github/workflows/build-server.yml`,
   `watchtower-extensions` checkout directly.
 - `--cli extensions test --repo DIR --mode deep|load … --report FILE --json`
   → saved report must equal stdout; report has `total`/`failed`.
+- Both commands share the app's diagnostic filters. `CliExtensionFilter`
+  (`lib/cli/runtime/cli_extension_catalog.dart`) mirrors the app's
+  `BrowseSourceFilters`: `--lang fr,en` (comma-separated and/or repeated),
+  `--nsfw`/`--sfw`, `--engine javascript|dart`, `--tag cloudflare|account|drm|
+  aggregator|comments|torrent|update|javascript|dart`, `--query`, `--only IDS`,
+  `--type`. Unknown tag/engine values exit 64. Filters are applied on the
+  resolved `Source`, so a CLI selection is exactly the subset the app tests.
+  The workflow `Verify extension filters select the expected subset` asserts
+  this against the real catalogue (deterministic, no network).
 - `--cli source <id|name> <operation> [--repo DIR] [--url …] [--query …]`
   → legacy repo-backed operation runner used by `scripts/test-eporner.py`.
   Not a registry command; handled before the registry lookup.

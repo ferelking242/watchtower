@@ -11,12 +11,18 @@ class CliInvocation {
     required this.quiet,
     required this.help,
     required this.interactive,
+    this.multiOptions = const {},
   });
 
   final List<String> rawArgs;
   final List<String> positional;
   final Map<String, String> options;
   final Set<String> flags;
+
+  /// Every value seen for a repeated option, in order. `options` keeps the
+  /// last value for single-valued options; list filters read this map so
+  /// `--lang fr --lang en` and `--lang fr,en` both select both languages.
+  final Map<String, List<String>> multiOptions;
   final CliOutputFormat format;
   final bool quiet;
   final bool help;
@@ -50,6 +56,34 @@ class CliInvocation {
         normalized == 'yes' ||
         normalized == 'on';
   }
+
+  /// Collects a comma-separated value that may be repeated across aliases.
+  ///
+  /// `--lang fr --lang en` and `--lang fr,en` both yield `{fr, en}`, so a
+  /// caller can filter on several languages at once.
+  Set<String> listOption(Iterable<String> names) {
+    final values = <String>{};
+    for (final name in names) {
+      final raws =
+          multiOptions[name] ?? [if (options[name] != null) options[name]!];
+      for (final raw in raws) {
+        for (final part in raw.split(',')) {
+          final value = part.trim().toLowerCase();
+          if (value.isNotEmpty) values.add(value);
+        }
+      }
+    }
+    return values;
+  }
+
+  /// A single option resolved from several aliases (first match wins).
+  String? firstOption(Iterable<String> names) {
+    for (final name in names) {
+      final value = options[name];
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
 }
 
 const _globalFlags = {
@@ -66,7 +100,13 @@ const _globalFlags = {
 CliInvocation parseCliInvocation(List<String> args) {
   final positional = <String>[];
   final options = <String, String>{};
+  final multiOptions = <String, List<String>>{};
   final flags = <String>{};
+
+  void recordOption(String name, String value) {
+    options[name] = value;
+    (multiOptions[name] ??= []).add(value);
+  }
 
   var format = CliOutputFormat.human;
   var quiet = false;
@@ -103,10 +143,10 @@ CliInvocation parseCliInvocation(List<String> args) {
         flags.add(name);
       } else {
         if (value != null) {
-          options[name] = value;
+          recordOption(name, value);
         } else if (index + 1 < args.length &&
             !args[index + 1].startsWith('--')) {
-          options[name] = args[++index];
+          recordOption(name, args[++index]);
         } else {
           flags.add(name);
         }
@@ -143,5 +183,6 @@ CliInvocation parseCliInvocation(List<String> args) {
     quiet: quiet,
     help: help,
     interactive: interactive,
+    multiOptions: multiOptions,
   );
 }

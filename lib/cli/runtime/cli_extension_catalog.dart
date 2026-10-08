@@ -58,18 +58,123 @@ class CliExtensionCatalog {
   final List<Map<String, dynamic>> failures;
 }
 
+/// NSFW visibility, mirroring the app's `BrowseNsfwFilter`.
+enum CliNsfwFilter { all, sfw, nsfw }
+
+/// Source tags, mirroring the app's `BrowseSourceTag`. Applied through the same
+/// `Source` predicates the browse screen uses, so a CLI selection is the exact
+/// set the app would test.
+const cliExtensionSourceTags = {
+  'cloudflare',
+  'account',
+  'drm',
+  'aggregator',
+  'comments',
+  'torrent',
+  'update',
+  'javascript',
+  'dart',
+};
+
+/// Selects which extensions a command operates on. This is the CLI twin of the
+/// app's diagnostic-screen filters (language, NSFW, engine, tags, search).
 class CliExtensionFilter {
   const CliExtensionFilter({
     this.type,
-    this.language,
-    this.includeNsfw = true,
+    this.languages = const {},
+    this.nsfw = CliNsfwFilter.all,
+    this.engine,
+    this.tags = const {},
+    this.query,
+    this.ids = const {},
     this.includeUnindexed = false,
   });
 
   final String? type;
-  final String? language;
-  final bool includeNsfw;
+  final Set<String> languages;
+  final CliNsfwFilter nsfw;
+  final String? engine;
+  final Set<String> tags;
+  final String? query;
+  final Set<String> ids;
   final bool includeUnindexed;
+
+  Map<String, Object?> toJson() => {
+    if (type != null) 'type': type,
+    if (languages.isNotEmpty) 'languages': languages.toList()..sort(),
+    'nsfw': nsfw.name,
+    if (engine != null) 'engine': engine,
+    if (tags.isNotEmpty) 'tags': tags.toList()..sort(),
+    if (query != null && query!.isNotEmpty) 'query': query,
+    if (ids.isNotEmpty) 'ids': ids.toList()..sort(),
+    'includeUnindexed': includeUnindexed,
+  };
+}
+
+/// Applies [filter] to a resolved [Source] using the same rules as
+/// `BrowseSourceFilters.matches`.
+bool matchesCliExtensionFilter(Source source, CliExtensionFilter filter) {
+  if (filter.ids.isNotEmpty && !filter.ids.contains('${source.id}')) {
+    return false;
+  }
+  if (filter.languages.isNotEmpty) {
+    final language = source.lang?.toLowerCase();
+    if (language == null || !filter.languages.contains(language)) return false;
+  }
+  if (filter.nsfw == CliNsfwFilter.sfw && source.isNsfw == true) return false;
+  if (filter.nsfw == CliNsfwFilter.nsfw && source.isNsfw != true) return false;
+  if (filter.engine != null &&
+      source.sourceCodeLanguage.name != filter.engine) {
+    return false;
+  }
+  final query = filter.query?.trim().toLowerCase();
+  if (query != null && query.isNotEmpty) {
+    final haystack = [
+      source.name,
+      source.lang,
+      source.baseUrl,
+      source.apiUrl,
+      source.notes,
+      source.typeSource,
+      source.sourceCodeUrl,
+      ...?source.subCategories,
+      ...?source.contentSubtype,
+    ].whereType<String>().join(' ').toLowerCase();
+    if (!haystack.contains(query)) return false;
+  }
+  return filter.tags.every((tag) => cliExtensionHasTag(source, tag));
+}
+
+bool cliExtensionHasTag(Source source, String tag) => switch (tag) {
+  'cloudflare' => source.hasCloudflare == true,
+  'account' => source.requiresAccount == true,
+  'drm' => source.hasDRM == true,
+  'aggregator' => source.isAggregator == true,
+  'comments' => source.supportsComments == true,
+  'torrent' => source.isTorrent,
+  'update' =>
+    _compareVersions(source.version ?? '', source.versionLast ?? '') < 0,
+  'javascript' => source.sourceCodeLanguage == SourceCodeLanguage.javascript,
+  'dart' => source.sourceCodeLanguage == SourceCodeLanguage.dart,
+  _ => false,
+};
+
+int _compareVersions(String a, String b) {
+  List<int> parse(String value) => value
+      .split(RegExp(r'[^0-9]+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => int.tryParse(part) ?? 0)
+      .take(4)
+      .toList();
+
+  final left = parse(a);
+  final right = parse(b);
+  for (var i = 0; i < 4; i++) {
+    final l = i < left.length ? left[i] : 0;
+    final r = i < right.length ? right[i] : 0;
+    if (l != r) return l.compareTo(r);
+  }
+  return 0;
 }
 
 /// Loads the extension catalogue at [root]. Throws [ArgumentError] when the
@@ -114,18 +219,10 @@ Future<CliExtensionCatalog> loadCliExtensionCatalog({
         }
         final sourcePath = cliExtensionSourcePath(root, metadata);
         indexedSourcePaths.add(p.normalize(File(sourcePath).absolute.path));
-        final isNsfw =
-            metadata['isNsfw'] == true ||
-            (metadata['sourceCodeUrl']?.toString().contains('/nsfw/') ?? false);
-        if (isNsfw && !filter.includeNsfw) continue;
         final pathType = cliExtensionSourceTypeFromPath(sourcePath);
         if (filter.type != null &&
             pathType != null &&
             !_matchesRequestedType(pathType, filter.type!)) {
-          continue;
-        }
-        final sourceLanguage = cliExtensionSourceLanguage(metadata, sourcePath);
-        if (filter.language != null && sourceLanguage != filter.language) {
           continue;
         }
         final codeFile = File(sourcePath);
@@ -155,6 +252,9 @@ Future<CliExtensionCatalog> loadCliExtensionCatalog({
         if (filter.type != null && !_matchesType(source, filter.type!)) {
           continue;
         }
+        // Language, NSFW, engine, tag and search filters are applied on the
+        // resolved Source so they use exactly the app's predicates.
+        if (!matchesCliExtensionFilter(source, filter)) continue;
         items.add(
           CliExtension(metadata: metadata, source: source, file: sourcePath),
         );
@@ -214,8 +314,7 @@ Future<void> _loadUnindexedSources(
         .replaceAll(r'\', '/');
     final type = cliExtensionSourceTypeFromPath(relativePath);
     if (type == null ||
-        (filter.type != null && !_matchesRequestedType(type, filter.type!)) ||
-        (!filter.includeNsfw && relativePath.startsWith('src/nsfw/'))) {
+        (filter.type != null && !_matchesRequestedType(type, filter.type!))) {
       continue;
     }
 
@@ -228,15 +327,14 @@ Future<void> _loadUnindexedSources(
             sourceCode: sourceCode,
           ) ??
           'all';
-      if (filter.language != null && language != filter.language) continue;
       final metadata = cliExtensionMetadataForUnindexedSource(
         relativePath: relativePath,
         sourceCode: sourceCode,
         type: type,
         language: language,
       );
-      if (!filter.includeNsfw && metadata['isNsfw'] == true) continue;
       final source = Source.fromJson({...metadata, 'sourceCode': sourceCode});
+      if (!matchesCliExtensionFilter(source, filter)) continue;
       items.add(
         CliExtension(metadata: metadata, source: source, file: absolutePath),
       );

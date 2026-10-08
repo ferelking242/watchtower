@@ -227,6 +227,65 @@ jobs:
           print(f"Validated JSON catalogue with {result['total']} sources")
           PY
 
+      - name: Verify extension filters select the expected subset
+        run: |
+          set -euo pipefail
+          BUNDLE="build/linux/x64/release/bundle"
+          REPO="$GITHUB_WORKSPACE/watchtower-extensions"
+          run_filter() {
+            local name="$1"; shift
+            "$BUNDLE/watchtower" --cli extensions list --repo "$REPO" --json "$@" \
+              > "$GITHUB_WORKSPACE/watchtower-filter-$name.json" \
+              2> "$GITHUB_WORKSPACE/watchtower-filter-$name.stderr.log"
+          }
+          run_filter all
+          run_filter fr --lang fr
+          run_filter fr-en --lang fr,en
+          run_filter fr-sfw --lang fr --sfw
+          run_filter fr-nsfw --lang fr --nsfw
+          run_filter watch --type watch
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          def load(name):
+              return json.loads(Path(f"watchtower-filter-{name}.json").read_text())
+
+          def langs(result):
+              return {source.get("lang") for source in result["sources"]}
+
+          all_result = load("all")
+          total = all_result["total"]
+          assert total > 0, "The extension catalogue is empty"
+
+          fr = load("fr")
+          assert fr["total"] > 0, "No French extension was selected"
+          assert langs(fr) == {"fr"}, f"Non-French sources leaked: {langs(fr)}"
+          assert fr["filters"]["languages"] == ["fr"], fr["filters"]
+
+          fr_en = load("fr-en")
+          assert langs(fr_en) <= {"fr", "en"}, f"Unexpected languages: {langs(fr_en)}"
+          assert fr_en["total"] >= fr["total"], "Adding a language reduced the selection"
+
+          fr_sfw = load("fr-sfw")
+          fr_nsfw = load("fr-nsfw")
+          assert all(not s.get("isNsfw") for s in fr_sfw["sources"]), "SFW selection kept NSFW sources"
+          assert all(s.get("isNsfw") for s in fr_nsfw["sources"]), "NSFW selection kept SFW sources"
+          assert fr_sfw["total"] + fr_nsfw["total"] == fr["total"], (
+              "SFW + NSFW counts do not match the unfiltered French count"
+          )
+
+          watch = load("watch")
+          assert watch["total"] > 0, "No watch extension was selected"
+          assert {s.get("type") for s in watch["sources"]} == {"watch"}, "Type filter leaked other kinds"
+
+          print(
+              f"Filters OK — all={total} fr={fr['total']} "
+              f"fr+en={fr_en['total']} fr/sfw={fr_sfw['total']} "
+              f"fr/nsfw={fr_nsfw['total']} watch={watch['total']}"
+          )
+          PY
+
       - name: Test five French Watch extensions end to end
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -246,20 +305,25 @@ jobs:
           done
           test -S /tmp/.X11-unix/X100
           export DISPLAY=:100
+          BUNDLE="build/linux/x64/release/bundle"
+          REPO="$GITHUB_WORKSPACE/watchtower-extensions"
+          # The CLI's own filters pick the subset, exactly like the app's
+          # diagnostic screen; no ad-hoc index parsing here.
+          "$BUNDLE/watchtower" --cli extensions list --repo "$REPO" \
+            --type watch --lang fr --sfw --json \
+            > "$GITHUB_WORKSPACE/watchtower-cli-fr-watch-selection.json"
           python3 - <<'PY'
           import json
           from pathlib import Path
 
-          entries = json.loads(Path("watchtower-extensions/index/watch.json").read_text())
-          french_watch = [
-              entry for entry in entries
-              if "/src/watch/fr/" in entry.get("sourceCodeUrl", "")
-              and "fr" in [lang.lower() for lang in entry.get("langs", [])]
-          ]
-          french_watch.sort(key=lambda entry: entry.get("name", "").casefold())
-          selected = french_watch[:5]
+          result = json.loads(Path("watchtower-cli-fr-watch-selection.json").read_text())
+          sources = result["sources"]
+          assert result["total"] == len(sources), "Selection count is inconsistent"
+          assert all(s.get("type") == "watch" for s in sources), "Type filter leaked other kinds"
+          assert all(s.get("lang") == "fr" for s in sources), "Language filter leaked other languages"
+          selected = sorted(sources, key=lambda s: s["name"].casefold())[:5]
           if len(selected) != 5:
-              raise SystemExit(f"Expected five French Watch entries, found {len(selected)}")
+              raise SystemExit(f"Expected at least five French Watch entries, found {len(selected)}")
 
           fixture = Path("watchtower-cli-french-watch")
           (fixture / "index").mkdir(parents=True, exist_ok=True)
@@ -270,7 +334,6 @@ jobs:
           PY
           ln -s "$GITHUB_WORKSPACE/watchtower-extensions/src" \
             "$GITHUB_WORKSPACE/watchtower-cli-french-watch/src"
-          BUNDLE="build/linux/x64/release/bundle"
           cli_status=0
           "$BUNDLE/watchtower" --cli extensions test \
             --repo "$GITHUB_WORKSPACE/watchtower-cli-french-watch" \
@@ -332,7 +395,9 @@ jobs:
             watchtower-cli-doctor.stderr.log
             watchtower-cli-catalog.json
             watchtower-cli-catalog.stderr.log
+            watchtower-filter-*.json
             watchtower-xvfb-verify.log
+            watchtower-cli-fr-watch-selection.json
             watchtower-cli-french-watch-report.json
             watchtower-cli-french-watch-stdout.json
             watchtower-cli-french-watch.stderr.log

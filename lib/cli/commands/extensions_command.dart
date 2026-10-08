@@ -21,7 +21,11 @@ class ExtensionsCommand extends CliCommand {
 
   @override
   List<String> get usage => const [
-    'extensions list [--type TYPE] [--lang CODE] [--all] [--json]',
+    'extensions list [--repo DIR] [--type TYPE] [--lang fr,en] [--nsfw|--sfw]'
+        ' [--engine javascript] [--tag TAG] [--query TEXT] [--json]',
+    'extensions test [--repo DIR] [--type TYPE] [--lang fr,en] [--nsfw|--sfw]'
+        ' [--engine javascript] [--tag TAG] [--only IDS] [--mode load|smoke|deep]'
+        ' [--concurrency N] [--timeout S] [--report FILE] [--json]',
     'extensions refresh [--type TYPE] [--repo URL]',
     'extensions install <source|id> [--type TYPE]',
     'extensions update <source|id>|--all [--type TYPE]',

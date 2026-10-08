@@ -5,7 +5,10 @@ import 'package:watchtower/cli/commands/cli_command.dart';
 import 'package:watchtower/cli/commands/plugins_command.dart';
 import 'package:watchtower/cli/output/cli_output.dart';
 import 'package:watchtower/cli/runtime/cli_arguments.dart';
+import 'package:watchtower/cli/runtime/cli_extension_catalog.dart';
 import 'package:watchtower/cli/watchtower_cli_safety.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
 
 void main() {
   group('parseCliInvocation', () {
@@ -82,6 +85,191 @@ void main() {
     test('intOption returns the fallback for non-numeric values', () {
       final invocation = parseCliInvocation(['downloads', 'watch', '--page=x']);
       expect(invocation.intOption('page', fallback: 5), 5);
+    });
+  });
+
+  group('CliInvocation list options', () {
+    test('splits comma-separated and repeated values into a set', () {
+      final invocation = parseCliInvocation([
+        'extensions',
+        'test',
+        '--lang',
+        'fr,en',
+        '--lang',
+        'fr',
+        '--tag=cloudflare',
+        '--tag',
+        'drm,torrent',
+      ]);
+      expect(invocation.listOption(['lang', 'language']), {'fr', 'en'});
+      expect(invocation.listOption(['tag', 'tags']), {
+        'cloudflare',
+        'drm',
+        'torrent',
+      });
+    });
+
+    test('firstOption resolves aliases in order', () {
+      final invocation = parseCliInvocation([
+        'extensions',
+        'list',
+        '--search=one',
+      ]);
+      expect(invocation.firstOption(['query', 'search']), 'one');
+      expect(invocation.firstOption(['engine', 'code']), isNull);
+    });
+  });
+
+  group('cli extension filtering', () {
+    Source source({
+      required int id,
+      required String name,
+      required String lang,
+      bool nsfw = false,
+      SourceCodeLanguage engine = SourceCodeLanguage.javascript,
+      String? typeSource,
+      bool? hasCloudflare,
+      bool? requiresAccount,
+      String? version,
+      String? versionLast,
+      String? baseUrl,
+    }) {
+      return Source(
+        id: id,
+        name: name,
+        lang: lang,
+        baseUrl: baseUrl ?? 'https://$name.example',
+        isNsfw: nsfw,
+        itemType: ItemType.manga,
+        typeSource: typeSource,
+        hasCloudflare: hasCloudflare,
+        requiresAccount: requiresAccount,
+        version: version,
+        versionLast: versionLast,
+      )..sourceCodeLanguage = engine;
+    }
+
+    test('filters on several languages at once', () {
+      final fr = source(id: 1, name: 'a', lang: 'fr');
+      final en = source(id: 2, name: 'b', lang: 'en');
+      final de = source(id: 3, name: 'c', lang: 'de');
+      const filter = CliExtensionFilter(languages: {'fr', 'en'});
+
+      expect(matchesCliExtensionFilter(fr, filter), isTrue);
+      expect(matchesCliExtensionFilter(en, filter), isTrue);
+      expect(matchesCliExtensionFilter(de, filter), isFalse);
+    });
+
+    test('separates sfw from nsfw sources', () {
+      final sfw = source(id: 1, name: 'a', lang: 'fr');
+      final nsfw = source(id: 2, name: 'b', lang: 'fr', nsfw: true);
+
+      expect(
+        matchesCliExtensionFilter(
+          sfw,
+          const CliExtensionFilter(nsfw: CliNsfwFilter.nsfw),
+        ),
+        isFalse,
+      );
+      expect(
+        matchesCliExtensionFilter(
+          nsfw,
+          const CliExtensionFilter(nsfw: CliNsfwFilter.nsfw),
+        ),
+        isTrue,
+      );
+      expect(
+        matchesCliExtensionFilter(
+          nsfw,
+          const CliExtensionFilter(nsfw: CliNsfwFilter.sfw),
+        ),
+        isFalse,
+      );
+      expect(
+        matchesCliExtensionFilter(nsfw, const CliExtensionFilter()),
+        isTrue,
+      );
+    });
+
+    test('filters on engine and on app tags', () {
+      final js = source(id: 1, name: 'a', lang: 'fr');
+      final dart = source(
+        id: 2,
+        name: 'b',
+        lang: 'fr',
+        engine: SourceCodeLanguage.dart,
+      );
+      final cloudflare = source(
+        id: 3,
+        name: 'c',
+        lang: 'fr',
+        hasCloudflare: true,
+      );
+      final outdated = source(
+        id: 4,
+        name: 'd',
+        lang: 'fr',
+        version: '1.0.0',
+        versionLast: '2.0.0',
+      );
+
+      expect(
+        matchesCliExtensionFilter(
+          js,
+          const CliExtensionFilter(engine: 'javascript'),
+        ),
+        isTrue,
+      );
+      expect(
+        matchesCliExtensionFilter(
+          dart,
+          const CliExtensionFilter(engine: 'javascript'),
+        ),
+        isFalse,
+      );
+      expect(
+        matchesCliExtensionFilter(
+          cloudflare,
+          const CliExtensionFilter(tags: {'cloudflare'}),
+        ),
+        isTrue,
+      );
+      expect(
+        matchesCliExtensionFilter(
+          js,
+          const CliExtensionFilter(tags: {'cloudflare'}),
+        ),
+        isFalse,
+      );
+      expect(
+        matchesCliExtensionFilter(
+          outdated,
+          const CliExtensionFilter(tags: {'update'}),
+        ),
+        isTrue,
+      );
+    });
+
+    test('restricts to explicit ids and matches the search query', () {
+      final a = source(id: 11, name: 'Alpha', lang: 'fr');
+      final b = source(id: 22, name: 'Beta', lang: 'en');
+
+      expect(
+        matchesCliExtensionFilter(a, const CliExtensionFilter(ids: {'11'})),
+        isTrue,
+      );
+      expect(
+        matchesCliExtensionFilter(b, const CliExtensionFilter(ids: {'11'})),
+        isFalse,
+      );
+      expect(
+        matchesCliExtensionFilter(a, const CliExtensionFilter(query: 'alph')),
+        isTrue,
+      );
+      expect(
+        matchesCliExtensionFilter(b, const CliExtensionFilter(query: 'alph')),
+        isFalse,
+      );
     });
   });
 

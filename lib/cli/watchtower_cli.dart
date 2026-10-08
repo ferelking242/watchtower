@@ -164,14 +164,14 @@ Future<int> _runLocalExtensions(
       invocation.option('extensions') ??
       Platform.environment['WATCHTOWER_EXTENSIONS_DIR'] ??
       'watchtower-extensions';
-  final filter = CliExtensionFilter(
-    type: invocation.option('type'),
-    language: invocation.option('lang') ?? invocation.option('language'),
-    includeNsfw: !invocation.hasFlag('exclude-nsfw'),
-    includeUnindexed:
-        invocation.hasFlag('include-unindexed') ||
-        invocation.hasFlag('scan-unindexed'),
-  );
+
+  final CliExtensionFilter filter;
+  try {
+    filter = _extensionFilter(invocation);
+  } on CliUsageException catch (error) {
+    output.error(error.message);
+    return 64;
+  }
 
   CliExtensionCatalog catalog;
   try {
@@ -190,15 +190,14 @@ Future<int> _runLocalExtensions(
     final report = <String, Object?>{
       'root': catalog.root,
       'repositoryRevision': ?catalog.revision,
-      'filters': {
-        if (filter.type != null) 'type': filter.type,
-        if (filter.language != null) 'language': filter.language,
-        'includeUnindexed': filter.includeUnindexed,
-      },
+      'filters': filter.toJson(),
       'total': catalog.items.length,
       'failures': catalog.failures,
       'sources': catalog.items.map(_extensionJson).toList(),
     };
+    if (!invocation.quiet && !output.isJson) {
+      output.info('Selected ${catalog.items.length} extension(s).');
+    }
     output.result(redactCliOutput(report));
     return catalog.failures.isEmpty ? 0 : 1;
   }
@@ -214,12 +213,25 @@ Future<int> _runLocalExtensions(
     mode: mode,
     concurrency: invocation.intOption('concurrency', fallback: 4).clamp(1, 16),
     timeoutSeconds: invocation.intOption('timeout', fallback: 45).clamp(1, 300),
-    type: filter.type,
-    language: filter.language,
-    includeUnindexed: filter.includeUnindexed,
+    filter: filter,
   );
   final report = await tester.run(catalog);
   await writeCliExtensionReport(report, invocation.option('report'));
+  if (!invocation.quiet && !output.isJson) {
+    final results = (report['results'] as List?) ?? const [];
+    final failedNames = results
+        .whereType<Map>()
+        .where((result) => result['ok'] != true)
+        .map((result) => result['name']?.toString() ?? '?')
+        .toList();
+    output.info(
+      'Tested ${report['total']} extension(s) in $mode mode: '
+      '${report['passed']} passed, ${report['failed']} failed.',
+    );
+    if (failedNames.isNotEmpty) {
+      output.info('Failed: ${failedNames.join(', ')}');
+    }
+  }
   output.result(redactCliOutput(report));
   final failed = (report['failed'] as int?) ?? 0;
   return failed == 0 && catalog.failures.isEmpty ? 0 : 1;
@@ -234,6 +246,46 @@ Map<String, dynamic> _extensionJson(CliExtension item) => {
   'type': cliExtensionSourceType(item.source),
   'engine': item.source.sourceCodeLanguage.name,
 };
+
+/// Builds the extension selection filter from CLI options. Mirrors the app's
+/// diagnostic-screen filters so the same subset can be tested headlessly.
+CliExtensionFilter _extensionFilter(CliInvocation invocation) {
+  final nsfw = switch (true) {
+    _ when invocation.hasFlag('nsfw') => CliNsfwFilter.nsfw,
+    _ when invocation.hasFlag('sfw') || invocation.hasFlag('exclude-nsfw') =>
+      CliNsfwFilter.sfw,
+    _ => CliNsfwFilter.all,
+  };
+  final engine = invocation.firstOption(['engine', 'code', 'source-code']);
+  if (engine != null &&
+      !const {'javascript', 'dart'}.contains(engine.toLowerCase())) {
+    throw CliUsageException(
+      'Unknown --engine "$engine". Supported engines: javascript, dart.',
+    );
+  }
+  final tags = invocation.listOption(['tag', 'tags']);
+  final unknownTags = tags.where(
+    (tag) => !cliExtensionSourceTags.contains(tag),
+  );
+  if (unknownTags.isNotEmpty) {
+    throw CliUsageException(
+      'Unknown --tag "${unknownTags.first}". Supported tags: '
+      '${cliExtensionSourceTags.toList()..sort()}.',
+    );
+  }
+  return CliExtensionFilter(
+    type: invocation.firstOption(['type', 'item-type']),
+    languages: invocation.listOption(['lang', 'language', 'languages']),
+    nsfw: nsfw,
+    engine: engine?.toLowerCase(),
+    tags: tags,
+    query: invocation.firstOption(['query', 'search']),
+    ids: invocation.listOption(['only', 'id', 'source']),
+    includeUnindexed:
+        invocation.hasFlag('include-unindexed') ||
+        invocation.hasFlag('scan-unindexed'),
+  );
+}
 
 /// Runs a single real extension operation resolved from the local repository.
 /// Contract: `source <id|name> <operation> [list-id] [--repo DIR] [--url …]`.
@@ -282,8 +334,14 @@ Future<int> _runLocalSource(CliInvocation invocation, CliOutput output) async {
       'watchtower-extensions';
   CliExtensionCatalog catalog;
   try {
-    catalog = await loadCliExtensionCatalog(root: root);
+    catalog = await loadCliExtensionCatalog(
+      root: root,
+      filter: _extensionFilter(invocation),
+    );
   } on ArgumentError catch (error) {
+    output.error(error.message);
+    return 64;
+  } on CliUsageException catch (error) {
     output.error(error.message);
     return 64;
   }
