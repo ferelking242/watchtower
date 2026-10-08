@@ -233,6 +233,25 @@ jobs:
           compression-level: 0
           retention-days: 30
 
+      # Rolling release: refresh the android-latest tag + release on every green
+      # main build so the downloadable APK always carries the current branding
+      # (the eye logo). Mirrors the ios-latest pattern in build-all-platforms.yml.
+      - name: Publish android-latest rolling release
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
+          gh release delete android-latest --yes --cleanup-tag 2>/dev/null || true
+          git tag -d android-latest 2>/dev/null || true
+          git push origin :refs/tags/android-latest 2>/dev/null || true
+          git tag -a android-latest -m "Android rolling release"
+          git push origin android-latest
+          gh release create android-latest "$APK" \
+            --title "Watchtower Android (latest)" \
+            --notes "APK Android arm64 auto depuis main (logo oeil, sans tour)." \
+            --prerelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload Dart symbol files
         if: always()
         uses: actions/upload-artifact@v5
