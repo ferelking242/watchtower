@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
+import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 
 void main() {
@@ -304,6 +305,31 @@ void main() {
       expect(find.textContaining(verboseDetail), findsNothing);
       // The generic fallback must never replace a known response code.
       expect(find.text('Impossible de charger le contenu'), findsNothing);
+    }
+  });
+
+  testWidgets('ErrorText summarizes HTTP codes and hides long details', (
+    tester,
+  ) async {
+    for (final code in [403, 404, 500]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ErrorText(
+              Exception(
+                'HttpException: HTTP $code response\n'
+                'stack trace with verbose upstream diagnostic details',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Erreur HTTP $code'), findsOneWidget);
+      expect(find.textContaining('HTTP $code'), findsWidgets);
+      expect(find.textContaining('stack trace'), findsNothing);
+      expect(find.byTooltip('Copier le détail de l’erreur'), findsOneWidget);
     }
   });
 

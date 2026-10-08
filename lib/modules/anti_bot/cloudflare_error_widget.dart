@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/anti_bot/bypass_webview_sheet.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
+import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart'
+    show extensionHttpStatusCode;
 import 'package:watchtower/models/settings.dart';
 
 /// True only when the error text carries actual anti-bot evidence.
@@ -114,6 +116,7 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final statusCode = extensionHttpStatusCode(widget.errorText);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -131,7 +134,7 @@ class _CloudflareErrorWidgetState extends State<CloudflareErrorWidget>
               ),
               const SizedBox(height: 28),
               Text(
-                'Source bloquée',
+                statusCode == null ? 'Source bloquée' : 'Erreur HTTP $statusCode',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
