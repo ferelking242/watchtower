@@ -75,3 +75,13 @@ part of its filter.
 `gh workflow run` returns HTTP 403 with the integration token (workflow-dispatch
 needs a scope it lacks). To re-trigger a workflow, push a commit that touches a
 path in its filter.
+
+## Build notifications
+
+Every build workflow posts to ntfy with `$COMMIT_MESSAGE`, injected from
+`github.event.head_commit.message` through a step-level `env:` block. Do not put
+that expression directly in `run:`: a commit subject containing an apostrophe
+(e.g. `Détails de l'erreur`) closes the shell quoting and the step fails with
+`unexpected EOF while looking for matching '` (exit 2) after an otherwise
+successful, signed build. Only the notification step fails in that case — check
+the failing step name before treating a red `Build Release APK` as a code bug.
