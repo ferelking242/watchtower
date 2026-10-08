@@ -243,7 +243,8 @@ jobs:
           gh release delete android-latest --yes --cleanup-tag 2>/dev/null || true
           git tag -d android-latest 2>/dev/null || true
           git push origin :refs/tags/android-latest 2>/dev/null || true
-          git tag -a android-latest -m "Android rolling release"
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+            tag -a android-latest -m "Android rolling release"
           git push origin android-latest
           gh release create android-latest "$APK" \
             --title "Watchtower Android (latest)" \
