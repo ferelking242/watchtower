@@ -79,6 +79,23 @@ void main() {
     },
   );
 
+  test('an unrecognised failure shows the real detail, not a catch-all', () {
+    final error = Exception(
+      '[AllManga] Popular response did not contain recommendations',
+    );
+    // The extension's own message must survive instead of the generic
+    // “La source est momentanément indisponible”.
+    expect(
+      extensionRequestFailureMessage(error),
+      'Popular response did not contain recommendations',
+    );
+    expect(
+      extensionErrorDetail(Exception('Exception: plain failure')),
+      'plain failure',
+    );
+    expect(extensionErrorDetail(Exception('   ')), isNull);
+  });
+
   testWidgets('shows the source header and retries from the empty state', (
     tester,
   ) async {

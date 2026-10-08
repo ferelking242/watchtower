@@ -71,6 +71,24 @@ String _trimTrailingPunctuation(String url) {
 
 int _count(String value, String char) => value.split(char).length - 1;
 
+/// Raw, human-readable detail of an extension failure.
+///
+/// Strips the redundant `[Extension]` / `Exception:` wrappers and collapses
+/// whitespace so an unrecognised failure still shows what actually happened
+/// instead of falling back to a catch-all sentence.
+String? extensionErrorDetail(Object? error) {
+  if (error == null) return null;
+  // Drop any leading `Exception:` / `[ExtensionName]` wrappers, possibly
+  // stacked, then collapse whitespace.
+  var detail = error
+      .toString()
+      .replaceFirst(RegExp(r'^(?:Exception:\s*|\[[^\]]{1,40}\]\s*)+'), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (detail.isEmpty || detail == 'null') return null;
+  return detail;
+}
+
 String? extensionRequestFailureMessage(Object? error) {
   if (error == null) return null;
   final detail = error.toString().toLowerCase();
@@ -111,7 +129,10 @@ String? extensionRequestFailureMessage(Object? error) {
   if (detail.contains('http 401') || detail.contains('http 403')) {
     return 'La source a refusé la requête. Elle peut être temporairement inaccessible ou demander une vérification.';
   }
-  return 'La source est momentanément indisponible. Réessaie dans quelques instants.';
+  // Never hide an unrecognised failure behind a catch-all sentence: show the
+  // extension's own message so the real cause stays visible.
+  return extensionErrorDetail(error) ??
+      'La source est momentanément indisponible. Réessaie dans quelques instants.';
 }
 
 bool extensionErrorIsCloudflareApiBlock(Object? error) {
