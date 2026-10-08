@@ -176,10 +176,14 @@ jobs:
               $descFont, $descColor,
               (New-Object System.Drawing.RectangleF(14, 170, 136, 90)), $sfDesc)
 
-          $towerBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(50, 90, 150, 255))
-          $g.FillRectangle($towerBrush, 74, 268, 16, 24)
-          $g.FillRectangle($towerBrush, 68, 262, 28,  8)
-          $g.FillRectangle($towerBrush, 62, 256, 40,  8)
+          # Real brand logo (the geometric eye) as a single source of truth.
+          # The old tower silhouette no longer belongs on the installer.
+          $markPath = "$wsDir\assets\app_icons\icon.png"
+          if (Test-Path $markPath) {
+            $mark = [System.Drawing.Image]::FromFile($markPath)
+            $g.DrawImage($mark, 62, 254, 40, 40)
+            $mark.Dispose()
+          }
 
           $verFont  = New-Object System.Drawing.Font("Segoe UI", 6.5, [System.Drawing.FontStyle]::Italic)
           $verColor = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(90, 120, 180))
@@ -207,14 +211,12 @@ jobs:
           $hAccent = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(90, 150, 255))
           $hg.FillRectangle($hAccent, 0, 54, 150, 3)
 
-          $hEyePen  = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(90, 150, 255), 1.5)
-          $hEyeFill = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(40, 90, 150, 255))
-          $hg.FillEllipse($hEyeFill, 8, 18, 26, 18)
-          $hg.DrawEllipse($hEyePen,  8, 18, 26, 18)
-          $hIris  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(70, 140, 255))
-          $hPupil = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(10, 14, 40))
-          $hg.FillEllipse($hIris,  17, 23, 8, 8)
-          $hg.FillEllipse($hPupil, 19, 25, 4, 4)
+          $hLogoPath = "$wsDir\assets\app_icons\icon.png"
+          if (Test-Path $hLogoPath) {
+            $hLogo = [System.Drawing.Image]::FromFile($hLogoPath)
+            $hg.DrawImage($hLogo, 8, 16, 26, 26)
+            $hLogo.Dispose()
+          }
 
           $hTitle = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
           $hWhite = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
