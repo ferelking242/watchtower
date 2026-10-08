@@ -60,3 +60,18 @@ flutter test test/download_queue_grouping_test.dart test/image_download_response
 Note: in `flutter test`, `flutter_tester` has no bundled Rust/QuickJS symbols,
 so `doctor --json` reports `quickJs.available: false` and exits 1 locally. That
 is expected; the release Linux bundle links the real engine and passes in CI.
+
+## CI triggers
+
+`Build Release APK` (`build-release.yml`) and
+`Watchtower CLI and download contract tests` (`test-cli-contract.yml`) both run
+on every push to `main`. Their `paths` filters must list every source a job
+actually exercises, otherwise a fix can land without the job that covers it
+re-running — the failing check then stays red on the fixed commit. The contract
+suite runs `extension_home_empty_state_test.dart`, which drives the Cloudflare
+bypass panel, so `lib/modules/anti_bot/**` and `lib/services/anti_bot/**` are
+part of its filter.
+
+`gh workflow run` returns HTTP 403 with the integration token (workflow-dispatch
+needs a scope it lacks). To re-trigger a workflow, push a commit that touches a
+path in its filter.
