@@ -8,8 +8,21 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Whether this platform can host an inline challenge webview.
-bool cloudflareWebviewSupported() =>
-    !kIsWeb && !Platform.isLinux && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS || Platform.isWindows);
+///
+/// The OS check alone is not enough: in a widget test (or any embedder without
+/// the plugin registered) `InAppWebViewPlatform.instance` is null and building
+/// an [InAppWebView] throws. Treating that as unsupported keeps the panel — and
+/// the test suite — from crashing.
+bool cloudflareWebviewSupported() {
+  final osSupported = !kIsWeb &&
+      !Platform.isLinux &&
+      (Platform.isAndroid ||
+          Platform.isIOS ||
+          Platform.isMacOS ||
+          Platform.isWindows);
+  if (!osSupported) return false;
+  return InAppWebViewPlatform.instance != null;
+}
 
 /// Reusable inline anti-bot resolver.
 ///
