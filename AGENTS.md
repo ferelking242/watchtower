@@ -31,6 +31,21 @@ the database-free commands. CI (`.github/workflows/build-server.yml`,
 Commands that need the database still boot `CliRuntime.boot()` and open Isar.
 `WATCHTOWER_EXTENSIONS_DIR` overrides the default `watchtower-extensions` path.
 
+## Cloudflare bypass contract
+
+The bypass WebView must open the exact URL that failed, never the site root:
+the root usually loads with no challenge, so the panel would look already
+solved while the extension stays broken. Extensions therefore embed the
+failing URL in the error message (`https?://\S+` as the last token).
+`extensionFailedUrl()` / `extensionErrorTitle()` /
+`extensionRequestFailureMessage()` in
+`lib/modules/watch/home/extension_home_empty_state.dart` extract it and pick a
+specific heading (HTTP code, Cloudflare block, connection error). The old
+catch-all "Impossible de charger le contenu" must not come back.
+
+Covered by `test/extension_home_empty_state_test.dart`,
+`test/cloudflare_detection_test.dart`, `test/cloudflare_challenge_url_test.dart`.
+
 ## Local verification (mirrors CI)
 
 Flutter 3.47.2. Useful commands:

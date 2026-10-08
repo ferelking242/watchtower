@@ -194,10 +194,13 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         children: [
           const Icon(Icons.cloud_off_rounded, color: Colors.white54, size: 44),
           const SizedBox(height: 14),
-          const Text(
-            'Impossible de charger cette section',
+          Text(
+            extensionErrorTitle(error),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
