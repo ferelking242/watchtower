@@ -164,19 +164,46 @@ void main() {
       expect(resolveBypassUrl('ftp://site.com/x'), isNull);
     });
 
-    test('Test 9: a normal page never counts as a resolved challenge', () {
+    test('Test 9: a healthy page without clearance is never “resolved”', () {
       final page = parsePageProbe(
         '{"ok":true,"title":"Home","text":"Welcome to the site"}',
       );
       expect(page.pageType, AntiBotPageType.normal);
+      // No cf_clearance cookie → nothing was bypassed, so no “resolved” claim.
       expect(
         canMarkChallengeResolved(
           challengeSeen: false,
-          cfClearancePresent: true,
+          cfClearancePresent: false,
           currentPage: page.pageType,
         ),
         isFalse,
       );
+    });
+
+    test('Test 9b: an auto-solved managed challenge still resolves', () {
+      // Cloudflare can serve a managed challenge that clears between two
+      // probes: the page is already normal while cf_clearance exists. That
+      // must resolve, otherwise the source stays stuck on the empty state.
+      expect(
+        canMarkChallengeResolved(
+          challengeSeen: false,
+          cfClearancePresent: true,
+          currentPage: AntiBotPageType.normal,
+        ),
+        isTrue,
+      );
+    });
+
+    test('Test 9c: a French Cloudflare interstitial is a challenge', () {
+      // Cloudflare localises the page; the app must not report “no challenge”
+      // just because the markers are not English.
+      final page = parsePageProbe(
+        '{"ok":true,"title":"Un instant…","text":'
+        '"Vérification de sécurité en cours. Ce site utilise un service de '
+        'sécurité pour se protéger."}',
+      );
+      expect(page.pageType, AntiBotPageType.challenge);
+      expect(page.cloudflareInvolved, isTrue);
     });
 
     test('Test 10: a real challenge page is detected in the WebView probe', () {

@@ -75,6 +75,19 @@ const List<String> kChallengeMarkers = [
   'turnstile',
   'enable javascript and cookies to continue',
   'challenge required',
+  // Cloudflare localises the interstitial, so the same challenge can be shown
+  // in French, Spanish, Portuguese, German or Italian. Without these the page
+  // is classified `normal` and the panel wrongly reports “no challenge”.
+  'vérification de sécurité',
+  'verification de securite',
+  'sécurité en cours',
+  'securite en cours',
+  'un instant',
+  'verificando que no eres un robot',
+  'verificação de segurança',
+  'verificacao de seguranca',
+  'sicherheitsüberprüfung',
+  'sicherheitsuberprufung',
 ];
 
 /// Block-page markers (no interactive challenge).
@@ -283,19 +296,20 @@ String? resolveBypassUrl(String? url) {
 
 /// Whether the UI is allowed to declare the challenge solved.
 ///
-/// Requires all of:
-///  * a challenge was actually observed (`challengeSeen`), and
-///  * the page no longer shows a challenge, and
-///  * the `cf_clearance` cookie is available for the HTTP retry.
+/// Requires the page to no longer show a challenge and the `cf_clearance`
+/// cookie to be available for the HTTP retry. `challengeSeen` is intentionally
+/// NOT required: a Cloudflare *managed* challenge often auto-solves before the
+/// probe can observe it, so the page is already [AntiBotPageType.normal] while
+/// the cookie that unblocks the retry is present. Requiring an observation left
+/// those sources permanently stuck on the empty state.
 ///
-/// A normal page with a pre-existing cookie is [AntiBotPageType.normal] and
-/// must NOT be reported as “challenge resolved”.
+/// A normal page that carries no clearance cookie is still never reported as
+/// resolved, so a genuinely healthy source cannot be mislabelled.
 bool canMarkChallengeResolved({
   required bool challengeSeen,
   required bool cfClearancePresent,
   AntiBotPageType currentPage = AntiBotPageType.normal,
 }) {
-  if (!challengeSeen) return false;
   if (currentPage == AntiBotPageType.challenge) return false;
   return cfClearancePresent;
 }

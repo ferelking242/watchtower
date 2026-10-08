@@ -62,7 +62,6 @@ enum _CfPhase {
   loading,
   challenge,
   solved,
-  noChallenge,
   blocked,
   clearedWithoutCookie,
   unsupported,
@@ -201,15 +200,10 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         });
         return;
       case AntiBotPageType.normal:
-        if (_challengeSeen) {
-          await _finishResolution();
-        } else {
-          _stopPolling();
-          setState(() {
-            _phase = _CfPhase.noChallenge;
-            _statusNote = null;
-          });
-        }
+        // Always try to persist the browser session, even when no challenge was
+        // observed: a managed challenge can auto-solve between two probes, and
+        // without this the cookie never reaches the HTTP client.
+        await _finishResolution();
         return;
       case AntiBotPageType.unknown:
         // Page mid-load or probe unavailable: keep the current phase, the
@@ -280,9 +274,12 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     } else {
       setState(() {
         _phase = _CfPhase.clearedWithoutCookie;
-        _statusNote =
-            'Le challenge a disparu mais le cookie cf_clearance n’a pas été '
-            'enregistré pour les requêtes HTTP.';
+        _statusNote = _challengeSeen
+            ? 'Le challenge a disparu mais le cookie cf_clearance n’a pas été '
+                  'enregistré pour les requêtes HTTP.'
+            : 'La page se charge, mais aucun cookie cf_clearance n’a été '
+                  'déposé : le site ne demande pas de vérification à ce '
+                  'navigateur. Réessaye la source.';
       });
     }
   }
@@ -293,7 +290,6 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     setState(() {
       _busy = true;
       _statusNote = null;
-      if (_phase == _CfPhase.noChallenge) _phase = _CfPhase.loading;
     });
 
     final assessment = await _probe();
@@ -317,15 +313,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         });
         return;
       case AntiBotPageType.normal:
-        if (_challengeSeen) {
-          await _finishResolution();
-        } else {
-          _stopPolling();
-          setState(() {
-            _phase = _CfPhase.noChallenge;
-            _statusNote = null;
-          });
-        }
+        await _finishResolution();
         return;
       case AntiBotPageType.unknown:
         setState(() {
@@ -450,7 +438,6 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         _CfPhase.loading => 'Chargement de la page…',
         _CfPhase.challenge => 'Challenge Cloudflare',
         _CfPhase.solved => 'Challenge résolu',
-        _CfPhase.noChallenge => 'Aucun challenge détecté',
         _CfPhase.blocked => 'Blocage anti-bot (sans challenge)',
         _CfPhase.clearedWithoutCookie => 'Challenge franchi — cookie manquant',
         _CfPhase.unsupported => 'WebView indisponible',
@@ -513,17 +500,6 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
               child: _buildBrowser(),
             ),
           ),
-        if (_phase == _CfPhase.noChallenge)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Text(
-              'Cette page se charge normalement : aucun challenge Cloudflare '
-              'n’est affiché. L’erreur vient probablement d’ailleurs (403/API, '
-              'en-têtes, autre anti-bot) — elle ne se résout pas ici.',
-              style: TextStyle(
-                  fontSize: 11, color: cs.onSurfaceVariant, height: 1.35),
-            ),
-          ),
 
         // ── Footer actions ──────────────────────────────────────────────
         Padding(
@@ -573,6 +549,19 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             domStorageEnabled: true,
             thirdPartyCookiesEnabled: true,
             useShouldOverrideUrlLoading: false,
+            // Scroll, pinch-zoom and text selection must stay enabled: the
+            // Turnstile widget and the “Verify you are human” button sit below
+            // the fold, so the user has to be able to reach them.
+            disableVerticalScroll: false,
+            disableHorizontalScroll: false,
+            verticalScrollBarEnabled: true,
+            horizontalScrollBarEnabled: true,
+            overScrollMode: OverScrollMode.ALWAYS,
+            supportZoom: true,
+            builtInZoomControls: true,
+            displayZoomControls: false,
+            useWideViewPort: true,
+            loadWithOverviewMode: true,
             // Same UA as the HTTP client so cf_clearance stays valid for both.
             userAgent: widget.sourceId == null
                 ? MClient.userAgentForRequests()
@@ -664,11 +653,6 @@ class _ShieldStatus extends StatelessWidget {
           true,
         ),
       _CfPhase.solved => (Icons.shield_rounded, Colors.green.shade600, false),
-      _CfPhase.noChallenge => (
-          Icons.verified_user_outlined,
-          Colors.green.shade600,
-          false,
-        ),
       _CfPhase.blocked || _CfPhase.clearedWithoutCookie => (
           Icons.gpp_maybe_outlined,
           cs.error,
