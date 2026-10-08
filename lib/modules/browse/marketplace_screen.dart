@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
@@ -140,7 +141,17 @@ class _ExtEntry {
   final double rating;
   final int reviewCount;
 
-  const _ExtEntry({
+  /// Lower-cased blob used for substring search (name, language, type,
+  /// sub-categories and description). Built once to avoid re-lowercasing the
+  /// whole catalogue on every keystroke.
+  late final String searchText = [
+    name,
+    lang,
+    description,
+    ...subCategories,
+  ].join(' ').toLowerCase();
+
+  _ExtEntry({
     required this.id,
     required this.name,
     this.iconUrl,
@@ -9137,7 +9148,6 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
 class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
-  final _watchPager = PageController();
   int _tab = 0;
   int _bottomTab = 1;
   bool _searching = false;
@@ -9164,10 +9174,14 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   static const _surfaceHigh = Color(0xFF252527);
   static const _muted = Color(0xFFB9B8BE);
 
+  static const _recentSearchKey = 'marketplace_recent_searches';
+  static const _maxRecentSearches = 8;
+
   @override
   void initState() {
     super.initState();
     _searchFocus.addListener(_handleSearchFocus);
+    _loadRecentSearches();
     if (widget.initialSearch) {
       _searching = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -9176,12 +9190,33 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     }
   }
 
+  Future<void> _loadRecentSearches() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_recentSearchKey);
+      if (saved == null || saved.isEmpty || !mounted) return;
+      setState(() {
+        _recentSearches
+          ..clear()
+          ..addAll(saved.take(_maxRecentSearches));
+      });
+    } catch (_) {
+      // Search history is a convenience; never block the marketplace on it.
+    }
+  }
+
+  Future<void> _persistRecentSearches() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_recentSearchKey, _recentSearches);
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _searchFocus.removeListener(_handleSearchFocus);
     _searchController.dispose();
     _searchFocus.dispose();
-    _watchPager.dispose();
     super.dispose();
   }
 
@@ -9195,9 +9230,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     var list = widget.entries.where((entry) {
       if (!widget.showNsfw && entry.isNsfw) return false;
       if (query.isEmpty) return true;
-      return entry.name.toLowerCase().contains(query) ||
-          entry.lang.toLowerCase().contains(query) ||
-          _playDescription(entry).toLowerCase().contains(query);
+      return entry.searchText.contains(query);
     }).toList();
 
     switch (_tab) {
@@ -9336,11 +9369,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 entry.contentType == ItemType.novel),
       );
 
-  List<_ExtEntry> get _watchCatalogue => _rankedWhere(
-        (entry) => entry.contentType == ItemType.anime,
-        limit: 200,
-      );
-
   List<String> get _catalogueLanguages => widget.entries
       .where((entry) => widget.showNsfw || !entry.isNsfw)
       .map((entry) => entry.lang.toLowerCase())
@@ -9349,15 +9377,37 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       .toList()
     ..sort();
 
-  List<String> get _searchSuggestions {
+  /// Name suggestions for the current query, best matches first.
+  ///
+  /// Returns nothing while the field is empty so the discovery view can show
+  /// history and popular categories instead of an arbitrary name dump.
+  List<_ExtEntry> get _suggestionEntries {
     final query = _searchController.text.trim().toLowerCase();
-    final names = widget.entries
-        .where((entry) => query.isEmpty || entry.name.toLowerCase().contains(query))
-        .map((entry) => entry.name)
-        .toSet()
-        .toList()
-      ..sort();
-    return names.take(6).toList();
+    if (query.isEmpty) return const [];
+    final scored = <({_ExtEntry entry, int score})>[];
+    for (final entry in widget.entries) {
+      if (!widget.showNsfw && entry.isNsfw) continue;
+      final name = entry.name.toLowerCase();
+      final int score;
+      if (name == query) {
+        score = 0;
+      } else if (name.startsWith(query)) {
+        score = 1;
+      } else if (name.contains(query)) {
+        score = 2;
+      } else if (entry.searchText.contains(query)) {
+        score = 3;
+      } else {
+        continue;
+      }
+      scored.add((entry: entry, score: score));
+    }
+    scored.sort((a, b) {
+      final byScore = a.score.compareTo(b.score);
+      if (byScore != 0) return byScore;
+      return a.entry.name.toLowerCase().compareTo(b.entry.name.toLowerCase());
+    });
+    return scored.take(6).map((item) => item.entry).toList();
   }
 
   List<String> get _popularSearches {
@@ -9380,14 +9430,24 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     setState(() {});
   }
 
-  void _recordSearch() {
-    final value = _searchController.text.trim();
+  void _recordSearch([String? term]) {
+    final value = (term ?? _searchController.text).trim();
     if (value.isEmpty) return;
     setState(() {
-      _recentSearches.remove(value);
+      _recentSearches.removeWhere(
+        (item) => item.toLowerCase() == value.toLowerCase(),
+      );
       _recentSearches.insert(0, value);
-      if (_recentSearches.length > 6) _recentSearches.removeLast();
+      if (_recentSearches.length > _maxRecentSearches) {
+        _recentSearches.removeRange(_maxRecentSearches, _recentSearches.length);
+      }
     });
+    _persistRecentSearches();
+  }
+
+  void _clearRecentSearches() {
+    setState(_recentSearches.clear);
+    _persistRecentSearches();
   }
 
   void _openSearch() {
@@ -9446,36 +9506,30 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               SliverToBoxAdapter(child: _buildNsfwGate())
             else if (_tab == 0)
               ..._buildForYou()
-            else if (_tab == 1)
-              ..._buildWatch()
             else ...[
               SliverToBoxAdapter(child: _buildHero()),
-              SliverToBoxAdapter(child: _buildSectionTitle(_tabLabels[_tab])),
-              _buildShelf(_featured),
+              SliverToBoxAdapter(
+                child: _buildSectionTitle('Sélection ${_tabLabels[_tab]}'),
+              ),
+              _buildShelf(_visible.take(12).toList()),
               SliverToBoxAdapter(
                 child: _buildSectionTitle(
-                  _tab == 2 ? 'Manga et webcomics' : 'Sources sélectionnées',
+                  'Toutes les extensions ${_tabLabels[_tab]}',
                 ),
               ),
-              _buildShelf(_visible.take(10).toList()),
-              SliverToBoxAdapter(
-                child: _buildSectionTitle('Toutes les extensions'),
-              ),
-              _buildRows(_visible.take(60).toList()),
+              _buildRows(_visible),
             ],
           ] else ...[
             SliverToBoxAdapter(child: _buildSearchBar()),
-            SliverToBoxAdapter(
-              child: _buildSectionTitle(
-                _searchController.text.isEmpty
-                    ? 'Rechercher dans le catalogue'
-                    : 'Résultats de recherche',
-              ),
-            ),
             if (_searchController.text.isEmpty)
               SliverToBoxAdapter(child: _buildSearchDiscovery())
-            else
-              _buildRows(_visible.take(60).toList()),
+            else ...[
+              ..._buildSearchSuggestions(),
+              SliverToBoxAdapter(
+                child: _buildSectionTitle('Résultats de recherche'),
+              ),
+              _buildRows(_visible),
+            ],
           ],
           const SliverToBoxAdapter(child: SizedBox(height: 28)),
         ],
@@ -9603,10 +9657,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     );
   }
 
-  Widget _buildSubcategoryRail() {
-    return const SizedBox.shrink();
-  }
-
   Widget _buildHero() {
     return _buildHeroFor(_featured);
   }
@@ -9711,242 +9761,29 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         _buildShelf(updates),
       ],
       SliverToBoxAdapter(child: _buildHero()),
-      SliverToBoxAdapter(child: _buildSectionTitle('Popular to Watch')),
+      SliverToBoxAdapter(child: _buildSectionTitle('Populaire à regarder')),
       _buildShelf(watch),
     ];
 
-    if (watch.isNotEmpty) {
-      widgets.add(_buildEditorialBreaker(
-        entry: watch.first,
-        eyebrow: 'Watchtower sélectionne',
-        title: 'Une meilleure façon de regarder',
-        accent: const Color(0xFF65C58A),
-      ));
-    }
-
     widgets
-      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Popular to Read')))
+      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Populaire à lire')))
       ..add(_buildShelf(read));
-
-    if (read.isNotEmpty) {
-      widgets.add(_buildEditorialBreaker(
-        entry: read.first,
-        eyebrow: 'À lire maintenant',
-        title: 'Des sources pour tes prochaines histoires',
-        accent: const Color(0xFFEF6C92),
-      ));
-    }
 
     if (widget.showNsfw &&
         (midnightWorld.isNotEmpty || midnightLibrary.isNotEmpty)) {
       widgets
         ..add(SliverToBoxAdapter(child: _buildSectionTitle('Midnight World')))
-        ..add(_buildShelf(midnightWorld));
-      if (midnightWorld.isNotEmpty) {
-        widgets.add(_buildEditorialBreaker(
-          entry: midnightWorld.first,
-          eyebrow: 'Sélection Midnight',
-          title: 'Le meilleur du contenu adulte',
-          accent: const Color(0xFFE58AA0),
-        ));
-      }
-      widgets
+        ..add(_buildShelf(midnightWorld))
         ..add(SliverToBoxAdapter(child: _buildSectionTitle('Midnight Library')))
         ..add(_buildShelf(midnightLibrary));
     }
 
     widgets
-      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Explore by Language')))
+      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Explorer par langue')))
       ..add(SliverToBoxAdapter(child: _buildLanguageExplorer()))
-      ..add(SliverToBoxAdapter(child: _buildSectionTitle('More from Marketplace')))
-      ..add(_buildRows(_visible.take(36).toList()));
+      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Tout le catalogue')))
+      ..add(_buildRows(_visible));
     return widgets;
-  }
-
-  List<Widget> _buildWatch() {
-    final entries = _watchCatalogue;
-    final spotlight = entries.take(6).toList();
-    return [
-      SliverToBoxAdapter(child: _buildHeroFor(spotlight)),
-      SliverToBoxAdapter(child: _buildSectionTitle('Watch spotlight')),
-      _buildShelf(spotlight),
-      if (spotlight.isNotEmpty)
-        _buildEditorialBreaker(
-          entry: spotlight.first,
-          eyebrow: 'Watch originals',
-          title: 'Trouve ta prochaine source vidéo',
-          accent: const Color(0xFF65C58A),
-        ),
-      SliverToBoxAdapter(child: _buildSectionTitle('All Watch extensions')),
-      _buildWatchPager(entries),
-    ];
-  }
-
-  Widget _buildWatchPager(List<_ExtEntry> entries) {
-    if (entries.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(18, 12, 18, 30),
-          child: Text(
-            'Aucune extension Watch ne correspond à cette sélection.',
-            style: TextStyle(color: _muted, fontSize: 13),
-          ),
-        ),
-      );
-    }
-    final pageCount = (entries.length + 8) ~/ 9;
-    return SliverToBoxAdapter(
-      child: Column(
-        children: [
-          SizedBox(
-            height: 342,
-            child: PageView.builder(
-              controller: _watchPager,
-              itemCount: pageCount,
-              itemBuilder: (_, page) {
-                final pageEntries = entries.skip(page * 9).take(9).toList();
-                final ordered = <_ExtEntry>[];
-                for (var column = 0; column < 3; column++) {
-                  for (var row = 0; row < 3; row++) {
-                    final index = column * 3 + row;
-                    if (index < pageEntries.length) {
-                      ordered.add(pageEntries[index]);
-                    }
-                  }
-                }
-                return GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: ordered.length,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 9,
-                    mainAxisSpacing: 9,
-                    childAspectRatio: 0.72,
-                  ),
-                  itemBuilder: (_, index) {
-                    final entry = ordered[index];
-                    return _WatchGridCard(
-                      entry: entry,
-                      installed: widget.installed.contains(entry.id),
-                      hasUpdate: _hasUpdate(entry),
-                      busy: widget.busy[entry.id] == true,
-                      onTap: () => _showDetails(entry),
-                      onInstall: () => widget.onInstall(entry),
-                      onSettings: widget.installed.contains(entry.id)
-                          ? () => widget.onSettings(entry.id)
-                          : null,
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          if (pageCount > 1)
-            AnimatedBuilder(
-              animation: _watchPager,
-              builder: (_, __) {
-                final page = _watchPager.hasClients
-                    ? (_watchPager.page ?? 0).round()
-                    : 0;
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    pageCount,
-                    (index) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: index == page ? 18 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: index == page ? _green : const Color(0xFF4C4C50),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          const SizedBox(height: 14),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditorialBreaker({
-    required _ExtEntry entry,
-    required String eyebrow,
-    required String title,
-    required Color accent,
-  }) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-        child: InkWell(
-          onTap: () => _showDetails(entry),
-          borderRadius: BorderRadius.circular(18),
-          child: Ink(
-            height: 128,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  accent.withValues(alpha: 0.36),
-                  const Color(0xFF202023),
-                ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: accent.withValues(alpha: 0.34)),
-            ),
-            child: Row(
-              children: [
-                _PlayStoreIcon(entry: entry, size: 78),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        eyebrow.toUpperCase(),
-                        style: TextStyle(
-                          color: accent,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        '${entry.name} · ${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: _muted, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.arrow_forward_rounded, color: _muted),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildLanguageExplorer() {
@@ -10019,7 +9856,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   void _applySearch(String value) {
     _searchController.text = value;
     _searchController.selection = TextSelection.collapsed(offset: value.length);
-    _recordSearch();
+    _recordSearch(value);
     setState(() {
       _searching = true;
       _bottomTab = 2;
@@ -10030,7 +9867,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildSearchDiscovery() {
-    final suggestions = _searchSuggestions;
     final popular = _popularSearches;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
@@ -10038,7 +9874,23 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_recentSearches.isNotEmpty) ...[
-            _searchDiscoveryTitle('Recent Searches'),
+            Row(
+              children: [
+                Expanded(child: _searchDiscoveryTitle('Recherches récentes')),
+                TextButton(
+                  onPressed: _clearRecentSearches,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _muted,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 30),
+                  ),
+                  child: const Text(
+                    'Effacer',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
             ..._recentSearches.map(
               (term) => _SearchDiscoveryRow(
                 icon: Icons.history_rounded,
@@ -10046,35 +9898,59 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 onTap: () => _applySearch(term),
               ),
             ),
-            const SizedBox(height: 16),
-          ],
-          if (suggestions.isNotEmpty) ...[
-            _searchDiscoveryTitle('Search Suggestions'),
-            ...suggestions.map(
-              (term) => _SearchDiscoveryRow(
-                icon: Icons.search_rounded,
-                label: term,
-                onTap: () => _applySearch(term),
-              ),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
           ],
           if (popular.isNotEmpty) ...[
-            _searchDiscoveryTitle('Popular Searches'),
-            ...popular.map(
-              (term) => _SearchDiscoveryRow(
-                icon: Broken.category,
-                label: term,
-                onTap: () => _applySearch(term),
-              ),
+            _searchDiscoveryTitle('Recherches populaires'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: popular
+                  .map(
+                    (term) => _SearchChip(
+                      label: term,
+                      onTap: () => _applySearch(term),
+                    ),
+                  )
+                  .toList(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
           ],
-          _searchDiscoveryTitle('Browse / Explore'),
+          _searchDiscoveryTitle('Parcourir par catégorie'),
           _buildCategories(compact: true),
         ],
       ),
     );
+  }
+
+  /// Inline name suggestions shown above the results while typing.
+  List<Widget> _buildSearchSuggestions() {
+    final suggestions = _suggestionEntries;
+    if (suggestions.isEmpty) return const [];
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _searchDiscoveryTitle('Suggestions'),
+              const SizedBox(height: 2),
+              ...suggestions.map(
+                (entry) => _SearchDiscoveryRow(
+                  icon: Icons.north_west_rounded,
+                  label: entry.name,
+                  trailing:
+                      '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
+                  onTap: () => _applySearch(entry.name),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _searchDiscoveryTitle(String title) {
@@ -10131,11 +10007,12 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     }
     return SliverToBoxAdapter(
       child: SizedBox(
-        height: 222,
+        height: 224,
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           scrollDirection: Axis.horizontal,
           itemCount: entries.length,
+          addAutomaticKeepAlives: false,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (_, index) {
             final entry = entries[index];
@@ -10940,121 +10817,17 @@ class _PlayStoreShelfCard extends StatelessWidget {
   }
 }
 
-class _WatchGridCard extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool hasUpdate;
-  final bool busy;
-  final VoidCallback onTap;
-  final VoidCallback onInstall;
-  final VoidCallback? onSettings;
-
-  const _WatchGridCard({
-    required this.entry,
-    required this.installed,
-    required this.hasUpdate,
-    required this.busy,
-    required this.onTap,
-    required this.onInstall,
-    this.onSettings,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Ink(
-        padding: const EdgeInsets.fromLTRB(9, 9, 9, 7),
-        decoration: BoxDecoration(
-          color: const Color(0xFF202023),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF303035)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: _PlayStoreIcon(entry: entry, size: 52)),
-            const SizedBox(height: 7),
-            Text(
-              entry.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                height: 1.12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              '${entry.lang.toUpperCase()} · ${_playRatingLabel(entry)} ★',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _PlayStoreMarketplaceViewState._muted,
-                fontSize: 9.5,
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 25,
-              child: busy
-                  ? const Center(
-                      child: SizedBox(
-                        width: 13,
-                        height: 13,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      ),
-                    )
-                  : OutlinedButton(
-                      onPressed: hasUpdate
-                          ? onInstall
-                          : installed
-                          ? onSettings
-                          : onInstall,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _PlayStoreMarketplaceViewState._green,
-                        side: BorderSide(
-                          color: hasUpdate || !installed
-                              ? _PlayStoreMarketplaceViewState._green
-                                  .withValues(alpha: 0.55)
-                              : const Color(0xFF4C4C50),
-                        ),
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        textStyle: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: Text(
-                        hasUpdate
-                            ? 'Mettre à jour'
-                            : installed
-                            ? 'Ouvrir'
-                            : 'Installer',
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SearchDiscoveryRow extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String? trailing;
   final VoidCallback onTap;
 
   const _SearchDiscoveryRow({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.trailing,
   });
 
   @override
@@ -11070,15 +10843,55 @@ class _SearchDiscoveryRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
               ),
             ),
+            if (trailing != null) ...[
+              const SizedBox(width: 10),
+              Text(
+                trailing!,
+                style: const TextStyle(
+                  color: _PlayStoreMarketplaceViewState._muted,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+            const SizedBox(width: 8),
             const Icon(
               Icons.arrow_outward_rounded,
               color: _PlayStoreMarketplaceViewState._muted,
               size: 16,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _SearchChip({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: _PlayStoreMarketplaceViewState._surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF353539)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 12.5),
         ),
       ),
     );
