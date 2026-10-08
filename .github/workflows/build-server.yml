@@ -232,9 +232,12 @@ jobs:
           set -euo pipefail
           BUNDLE="build/linux/x64/release/bundle"
           REPO="$GITHUB_WORKSPACE/watchtower-extensions"
+          # The Flutter Linux embedder still initialises GTK, so the CLI needs
+          # an X display even for headless commands.
           run_filter() {
             local name="$1"; shift
-            "$BUNDLE/watchtower" --cli extensions list --repo "$REPO" --json "$@" \
+            xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+              "$BUNDLE/watchtower" --cli extensions list --repo "$REPO" --json "$@" \
               > "$GITHUB_WORKSPACE/watchtower-filter-$name.json" \
               2> "$GITHUB_WORKSPACE/watchtower-filter-$name.stderr.log"
           }
