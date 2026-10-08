@@ -96,6 +96,75 @@ void main() {
     expect(extensionErrorDetail(Exception('   ')), isNull);
   });
 
+  test('HTTP 0 is reported as an anti-bot cut, never as “HTTP 0”', () {
+    // The HTTP bridge returns statusCode 0 when the request itself threw (the
+    // anti-bot closed the connection). It must not leak as a status code.
+    final dropped = Exception(
+      'Error: [AllManga] Cloudflare blocked the API request — connection '
+      'closed before any response (HTTP 0) (https://api.allanime.day/api?q=1)',
+    );
+    // The parser only accepts a real 1xx-5xx status line, so “HTTP 0” is never
+    // surfaced as a code — the dedicated helper names the cause instead.
+    expect(extensionHttpStatusCode(dropped), isNull);
+    expect(extensionErrorIsConnectionDropped(dropped), isTrue);
+    expect(extensionErrorIsCloudflareApiBlock(dropped), isTrue);
+    expect(extensionErrorTitle(dropped), 'Accès API bloqué');
+    expect(
+      extensionRequestFailureMessage(dropped),
+      contains('coupé la requête API'),
+    );
+    expect(extensionRequestFailureMessage(dropped), isNot(contains('HTTP 0')));
+    expect(extensionFailedUrl(dropped), 'https://api.allanime.day/api?q=1');
+
+    // A cut connection with no API wording is still labelled as an anti-bot cut.
+    final generic = Exception(
+      '[IMHentai] Cloudflare: connection closed before full header was received',
+    );
+    expect(extensionErrorIsConnectionDropped(generic), isTrue);
+    expect(extensionErrorTitle(generic), 'Blocage anti-bot — connexion coupée');
+    expect(
+      extensionRequestFailureMessage(generic),
+      contains('coupé la connexion'),
+    );
+  });
+
+  test('a plain connection drop without anti-bot context is not mislabelled', () {
+    final plain = Exception('ClientException: Connection closed before full '
+        'header was received');
+    expect(extensionErrorIsConnectionDropped(plain), isFalse);
+  });
+
+  testWidgets('reveals the raw error behind a “Détails” disclosure', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {},
+          onRefresh: () async {},
+          header: const SizedBox.shrink(),
+          error: Exception(
+            'Error: [IMHentai] page contained no gallery card (HTTP 200, '
+            '91234 bytes) — likely a Cloudflare interstitial',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Collapsed by default: the raw text is not shown yet.
+    expect(find.text('Détails de l’erreur'), findsOneWidget);
+    expect(find.textContaining('91234 bytes'), findsNothing);
+
+    await tester.tap(find.text('Détails de l’erreur'));
+    // The Lottie empty-state animation never settles, so pump fixed frames.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.textContaining('91234 bytes'), findsOneWidget);
+    expect(find.textContaining('Cloudflare interstitial'), findsOneWidget);
+  });
+
   testWidgets('shows the source header and retries from the empty state', (
     tester,
   ) async {

@@ -98,6 +98,10 @@ String? extensionRequestFailureMessage(Object? error) {
       return 'Cloudflare bloque la requête API de l’extension '
           '(HTTP $statusCode).';
     }
+    if (extensionErrorIsConnectionDropped(error)) {
+      return 'Cloudflare a coupé la requête API de l’extension avant toute '
+          'réponse. Vérifie l’accès à la source ci-dessous.';
+    }
     return 'Cloudflare bloque l’API de l’extension, mais l’erreur ne fournit '
         'aucun code HTTP. Vérifie l’accès à la source ci-dessous.';
   }
@@ -117,6 +121,10 @@ String? extensionRequestFailureMessage(Object? error) {
         'La source rencontre une erreur serveur (HTTP $statusCode). Réessaie dans quelques instants.',
       _ => 'La source a renvoyé une erreur HTTP $statusCode.',
     };
+  }
+  if (extensionErrorIsConnectionDropped(error)) {
+    return 'La source a coupé la connexion (anti-bot). '
+        'Termine la vérification ci-dessous, puis réessaie.';
   }
   if (detail.contains('socketexception') ||
       detail.contains('failed host lookup') ||
@@ -163,6 +171,29 @@ bool extensionErrorIsCloudflareChallenge(Object? error) {
               detail.contains('browser verification')));
 }
 
+/// A Cloudflare-fronted host can close the TCP connection instead of answering
+/// with the challenge page. The HTTP bridge then surfaces a thrown request as
+/// `statusCode: 0` / “connection closed before full header was received”, which
+/// the empty state must describe as an anti-bot cut, not as “HTTP 0”.
+bool extensionErrorIsConnectionDropped(Object? error) {
+  if (error == null) return false;
+  final detail = error.toString().toLowerCase();
+  final dropped = detail.contains('connection closed') ||
+      detail.contains('connection reset') ||
+      detail.contains('connection terminated') ||
+      detail.contains('connection aborted') ||
+      detail.contains('clientexception') ||
+      detail.contains('connection attempt failed') ||
+      detail.contains('connection refused');
+  if (!dropped) return false;
+  return detail.contains('cloudflare') ||
+      detail.contains('allanime') ||
+      detail.contains('anti-bot') ||
+      detail.contains('cf-chl') ||
+      detail.contains('http 0') ||
+      RegExp(r'statuscode["\s:=]+0\b').hasMatch(detail);
+}
+
 /// Short, specific heading for a failed extension request. Replaces the former
 /// catch-all “Impossible de charger le contenu” so the real failure (HTTP code,
 /// Cloudflare block, connection error) is visible at a glance.
@@ -172,6 +203,9 @@ String extensionErrorTitle(Object? error) {
     return 'Vérification Cloudflare requise';
   }
   if (extensionErrorIsCloudflareApiBlock(error)) return 'Accès API bloqué';
+  if (extensionErrorIsConnectionDropped(error)) {
+    return 'Blocage anti-bot — connexion coupée';
+  }
   final statusCode = extensionHttpStatusCode(error);
   if (statusCode != null) return 'Erreur HTTP $statusCode';
   final detail = error.toString().toLowerCase();
@@ -218,6 +252,7 @@ class ExtensionHomeEmptyState extends StatefulWidget {
 
 class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
   late bool _showChallenge = extensionErrorNeedsBypass(widget.error);
+  bool _showDetails = false;
 
   @override
   void didUpdateWidget(covariant ExtensionHomeEmptyState oldWidget) {
@@ -231,6 +266,17 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
 
   void _retrySource() {
     unawaited(widget.onRetry());
+  }
+
+  /// Full, unsummarised error text for the “Détails” disclosure. Null when the
+  /// empty state is the plain “no content” one, or when the summary already
+  /// carries the whole message.
+  String? get _errorDetail {
+    final detail = extensionErrorDetail(widget.error);
+    if (detail == null) return null;
+    final summary = extensionRequestFailureMessage(widget.error);
+    if (summary != null && summary.trim() == detail.trim()) return null;
+    return detail;
   }
 
   @override
@@ -359,7 +405,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
+                                  // `0` is the bridge's “request threw” sentinel,
+                                  // not a status line: never show it as “HTTP 0”.
                                   if (httpStatusCode != null &&
+                                      httpStatusCode > 0 &&
                                       !titleShowsHttpCode) ...[
                                     const SizedBox(height: 8),
                                     Center(
@@ -430,6 +479,16 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                         color: Colors.white70,
                                         fontSize: 13,
                                         height: 1.45,
+                                      ),
+                                    ),
+                                  ],
+                                  if (_errorDetail != null) ...[
+                                    const SizedBox(height: 10),
+                                    _ErrorDetailsDisclosure(
+                                      detail: _errorDetail!,
+                                      expanded: _showDetails,
+                                      onToggle: () => setState(
+                                        () => _showDetails = !_showDetails,
                                       ),
                                     ),
                                   ],
@@ -519,6 +578,102 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Collapsible “Détails” block that reveals the raw extension error (HTTP code,
+/// Cloudflare marker, Dart stack) so the real cause is never hidden behind the
+/// short summary above it.
+class _ErrorDetailsDisclosure extends StatelessWidget {
+  const _ErrorDetailsDisclosure({
+    required this.detail,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final String detail;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: .10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.terminal_rounded,
+                    size: 15,
+                    color: cs.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Détails de l’erreur',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: expanded ? .5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 20,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Built only when expanded: an always-present offstage copy would keep
+          // the raw text (and its selection handlers) alive for nothing.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: .35),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SelectableText(
+                        detail,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          height: 1.4,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
           ),
         ],
       ),

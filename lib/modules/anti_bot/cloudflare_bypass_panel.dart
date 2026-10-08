@@ -543,11 +543,56 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
                         fontSize: 11.5, fontWeight: FontWeight.w600),
                   ),
                 ),
+              if (!widget.fullScreen)
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _openFullScreen,
+                  icon: const Icon(Icons.fullscreen_rounded, size: 16),
+                  label: const Text('Plein écran'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    textStyle: const TextStyle(
+                        fontSize: 11.5, fontWeight: FontWeight.w600),
+                  ),
+                ),
             ],
           ),
         ),
       ],
     );
+  }
+
+  /// The inline WebView is only ~230-320 px tall, which is too short for the
+  /// Turnstile widget. Opening the same panel full screen gives the challenge
+  /// room to be solved, and the inline panel refreshes on return.
+  Future<void> _openFullScreen() async {
+    final resolved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (routeContext) => Scaffold(
+          appBar: AppBar(
+            title: Text(
+              _host.isEmpty ? 'Vérification' : _host,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          body: SafeArea(
+            child: CloudflareBypassPanel(
+              url: widget.url,
+              sourceId: widget.sourceId,
+              fullScreen: true,
+              onResolved: () => Navigator.of(routeContext).pop(true),
+              onRetry: widget.onRetry,
+              onClose: () => Navigator.of(routeContext).pop(false),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (resolved == true) {
+      widget.onResolved?.call();
+      await _verifyNow();
+    }
   }
 
   Widget _buildBrowser() {
@@ -575,6 +620,11 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             displayZoomControls: false,
             useWideViewPort: true,
             loadWithOverviewMode: true,
+            // Without hybrid composition the Android surface view swallows
+            // touch drags, so the embedded page cannot be scrolled and the
+            // “Verify you are human” button below the fold is unreachable.
+            useHybridComposition: true,
+            isTextInteractionEnabled: true,
             // Same UA as the HTTP client so cf_clearance stays valid for both.
             userAgent: widget.sourceId == null
                 ? MClient.userAgentForRequests()
