@@ -1,11 +1,10 @@
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
-import 'package:isar_community/isar.dart';
 import 'package:watchtower/cli/commands/cli_command.dart';
 import 'package:watchtower/cli/output/cli_serialize.dart';
-import 'package:watchtower/models/download.dart';
-import 'package:watchtower/models/history.dart';
-import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/cli/watchtower_cli_safety.dart';
+import 'package:watchtower/eval/lib.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/isolate_service.dart';
 
@@ -62,44 +61,50 @@ class DoctorCommand extends CliCommand {
 
   @override
   Future<CliResult> run(CliContext context) async {
-    final runtime = context.runtime;
-    final checks = <String, Object?>{
+    // Doctor probes the extension engine without touching the database, so it
+    // works even on a machine where Isar is unavailable. It reports the same
+    // `native`/`quickJs` contract the Linux headless workflow asserts.
+    var isolatePoolAvailable = false;
+    var quickJsAvailable = false;
+    String? runtimeError;
+    try {
+      await getIsolateService.start();
+      isolatePoolAvailable = true;
+      final probe = Source(
+        id: -1,
+        name: 'Watchtower runtime probe',
+        sourceCode: 'class DefaultExtension {}',
+      )..sourceCodeLanguage = SourceCodeLanguage.javascript;
+      await withExtensionService<bool>(
+        probe,
+        (service) async => service.supportsLatest,
+      ).timeout(const Duration(seconds: 45));
+      quickJsAvailable = true;
+    } catch (error) {
+      runtimeError = _shortError(error);
+    } finally {
+      ExtensionServiceRegistry.disposeAll();
+      if (isolatePoolAvailable) {
+        try {
+          await getIsolateService.stop();
+        } catch (_) {}
+      }
+    }
+    context.output.result({
       'version': cliVersion,
       'platform': Platform.operatingSystem,
-      'dartVersion': Platform.version,
-      'dataDirectory': runtime.dataDirectory.path,
-      'dataDirectoryWritable': _isWritable(runtime.dataDirectory),
-      'sources': runtime.isar.sources.where().countSync(),
-      'installedSources': runtime.installedSources().length,
-      'libraryItems': runtime.isar.mangas.where().countSync(),
-      'downloads': runtime.isar.downloads.where().countSync(),
-      'history': runtime.isar.historys.where().countSync(),
-      'settingsId': runtime.readSettings().id,
-      'isolateServiceRunning': getIsolateService.isRunning,
-      'distinctRepos': runtime
-          .installedSources()
-          .map((s) => s.repo?.jsonUrl)
-          .whereType<String>()
-          .toSet()
-          .length,
-    };
-    final ok =
-        checks['dataDirectoryWritable'] == true &&
-        checks['isolateServiceRunning'] == true;
-    context.output.result({'ok': ok, 'checks': checks});
-    return CliResult(ok ? 0 : 1);
+      'architecture': Abi.current().toString(),
+      'dart': Platform.version,
+      'native': true,
+      'isolatePool': {'available': isolatePoolAvailable},
+      'quickJs': {'available': quickJsAvailable, 'error': ?runtimeError},
+    });
+    return CliResult(isolatePoolAvailable && quickJsAvailable ? 0 : 1);
   }
 
-  static bool _isWritable(Directory directory) {
-    try {
-      if (!directory.existsSync()) directory.createSync(recursive: true);
-      final probe = File('${directory.path}/.watchtower_write_probe');
-      probe.writeAsStringSync('ok');
-      probe.deleteSync();
-      return true;
-    } catch (_) {
-      return false;
-    }
+  static String _shortError(Object error) {
+    final value = sanitizeCliText(error.toString()).replaceAll('\n', ' ');
+    return value.length > 500 ? '${value.substring(0, 497)}...' : value;
   }
 }
 
@@ -150,10 +155,17 @@ String buildCliHelp(CliCommandRegistry registry, {String? commandName}) {
   }
   buffer
     ..writeln()
+    ..writeln('Local repository commands (no database required):')
+    ..writeln(
+      '  source <id|name> <operation>  Run one extension operation '
+      '(popular, search, detail, pages, videos…)',
+    )
+    ..writeln()
     ..writeln('Global options:')
     ..writeln('  --json           Machine-readable JSON output')
     ..writeln('  --ndjson         Newline-delimited JSON output')
     ..writeln('  --quiet          Suppress human-readable output')
+    ..writeln('  --repo DIR       Path to a watchtower-extensions checkout')
     ..writeln('  --data-dir DIR   Override the Watchtower data directory')
     ..writeln('  --help           Show this help');
   return buffer.toString().trimRight();

@@ -31,6 +31,12 @@ import 'package:watchtower/utils/mock_isar.dart';
 class CliRuntime {
   CliRuntime._(this.container, this.isar, this.dataDirectory);
 
+  /// A runtime stand-in for commands that never touch the database (for
+  /// example `doctor`). It exposes a working container and an in-memory Isar
+  /// so the command can run even when the native core is unavailable.
+  factory CliRuntime.lazy() =>
+      CliRuntime._(ProviderContainer(), MockIsar() as Isar, Directory.current);
+
   final ProviderContainer container;
   final Isar isar;
   final Directory dataDirectory;
