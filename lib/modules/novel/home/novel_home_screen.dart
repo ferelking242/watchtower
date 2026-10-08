@@ -27,6 +27,8 @@ import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
+import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart'
+    show extensionFailedUrl;
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/ui/widgets/see_all_button.dart';
@@ -883,7 +885,9 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
         child: Padding(padding: const EdgeInsets.all(16),
           child: CloudflareErrorWidget(
             errorText: error.toString(),
-            url: ref.read(sourceBaseUrlProvider(source: source)),
+            // Prefer the exact failing URL so the WebView shows the challenge.
+            url: extensionFailedUrl(error) ??
+                ref.read(sourceBaseUrlProvider(source: source)),
             sourceId: source.id,
             onRetry: retry,
           )),

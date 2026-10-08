@@ -1,8 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 
 void main() {
+  test('extracts the exact failing URL from an extension error', () {
+    expect(
+      extensionFailedUrl(
+        Exception(
+          '[AllManga] Cloudflare challenge blocked the API request '
+          '(https://api.allanime.day/api?variables=%7B%7D&query=x)',
+        ),
+      ),
+      'https://api.allanime.day/api?variables=%7B%7D&query=x',
+    );
+    expect(
+      extensionFailedUrl(
+        Exception(
+          'Cloudflare challenge detected (cf-chl-) for '
+          'https://imhentai.xxx/search/?key=&pp=1&page=1 — HTTP 403',
+        ),
+      ),
+      'https://imhentai.xxx/search/?key=&pp=1&page=1',
+    );
+    expect(extensionFailedUrl(Exception('SocketException: timed out')), isNull);
+  });
+
+  test('keeps parentheses inside the query, drops sentence punctuation', () {
+    expect(
+      extensionFailedUrl(
+        Exception(
+          '[AllManga] Cloudflare challenge blocked the API request '
+          '(https://api.allanime.day/api?query=query(%24x)&v=1)',
+        ),
+      ),
+      'https://api.allanime.day/api?query=query(%24x)&v=1',
+    );
+    expect(
+      extensionFailedUrl(
+        Exception('Cloudflare detected for https://site.test/a?b=1.'),
+      ),
+      'https://site.test/a?b=1',
+    );
+  });
+
   test('extracts real HTTP status codes from response errors', () {
     expect(
       extensionHttpStatusCode(Exception('HttpException: HTTP 404 Not Found')),
@@ -123,7 +164,7 @@ void main() {
   });
 
   testWidgets(
-    'does not open a challenge panel for an API-only Cloudflare block',
+    'opens the bypass panel on the failing URL for a Cloudflare API block',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -133,40 +174,44 @@ void main() {
             header: const SizedBox.shrink(),
             challengeUrl: 'https://allmanga.to/',
             error: Exception(
-              'Error: [AllManga] Cloudflare challenge blocked the API request',
+              'Error: [AllManga] Cloudflare challenge blocked the API request '
+              '(https://api.allanime.day/api?query=x)',
             ),
           ),
         ),
       );
+      await tester.pump();
 
       expect(find.text('Accès API bloqué'), findsOneWidget);
-      expect(
-        find.textContaining('Cloudflare bloque l’API'),
-        findsOneWidget,
+      expect(find.textContaining('Cloudflare bloque l’API'), findsOneWidget);
+      // The panel opens on the exact challenged request, not the site root.
+      final panel = tester.widget<CloudflareBypassPanel>(
+        find.byType(CloudflareBypassPanel),
       );
-      expect(find.textContaining('aucun code HTTP'), findsOneWidget);
-      expect(find.text('HTTP 403'), findsNothing);
+      expect(panel.url, 'https://api.allanime.day/api?query=x');
       expect(find.text('Vérification Cloudflare requise'), findsNothing);
-      expect(find.text('Aucun challenge détecté'), findsNothing);
-      expect(find.text('Vérifier l’accès à la source'), findsNothing);
       expect(find.byIcon(Icons.cloud_off_rounded), findsNothing);
     },
   );
 
-  testWidgets('shows the HTTP code for a missing source page', (tester) async {
+  testWidgets('shows the real HTTP code in the title for a failing source', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ExtensionHomeEmptyState(
           onRetry: () async {},
           onRefresh: () async {},
           header: const SizedBox.shrink(),
-          error: Exception('HTTP 404 Not Found'),
+          error: Exception('HTTP 500 Internal Server Error'),
         ),
       ),
     );
 
-    expect(find.text('HTTP 404'), findsOneWidget);
-    expect(find.textContaining('page introuvable'), findsOneWidget);
+    expect(find.text('Erreur HTTP 500'), findsOneWidget);
+    expect(find.textContaining('erreur serveur (HTTP 500)'), findsOneWidget);
+    // The generic fallback must never be shown when the real code is known.
+    expect(find.text('Impossible de charger le contenu'), findsNothing);
   });
 
   testWidgets('does not auto-open the panel for unrelated errors', (
@@ -184,7 +229,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Impossible de charger le contenu'), findsOneWidget);
+    expect(find.text('Connexion impossible'), findsOneWidget);
+    expect(find.text('Impossible de charger le contenu'), findsNothing);
     expect(find.text('Challenge Cloudflare'), findsNothing);
     expect(find.text('Vérifier l’accès à la source'), findsOneWidget);
   });

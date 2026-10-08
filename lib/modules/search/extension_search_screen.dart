@@ -385,10 +385,13 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   Widget _resultsArea() {
     if (_loading) return const SharedSearchShimmerList();
     if (_error != null) {
+      final statusCode = extensionHttpStatusCode(_error);
       return _ExtensionSearchMessage(
-        title: 'Recherche indisponible',
+        title: statusCode == null
+            ? 'Recherche indisponible'
+            : 'Erreur HTTP $statusCode',
         message: extensionRequestFailureMessage(_error) ??
-            'La source n’a pas pu répondre correctement.',
+            'La source est momentanément indisponible. Réessaie dans quelques instants.',
         onRetry: _retrySearch,
       );
     }

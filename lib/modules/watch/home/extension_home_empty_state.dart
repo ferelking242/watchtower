@@ -26,6 +26,51 @@ int? extensionHttpStatusCode(Object? error) {
   return null;
 }
 
+/// Extracts the exact failing URL embedded in an extension error so the bypass
+/// WebView opens the request that was actually challenged. Opening the site
+/// root instead shows a normal page with no challenge, which cannot be beaten.
+String? extensionFailedUrl(Object? error) {
+  if (error == null) return null;
+  // Extensions put the URL as the last whitespace-delimited token, so a greedy
+  // match to the next space keeps query strings (which contain (), %, &) intact.
+  final match = RegExp(
+    r'https?://\S+',
+    caseSensitive: false,
+  ).firstMatch(error.toString());
+  var url = match?.group(0);
+  if (url == null) return null;
+  url = _trimTrailingPunctuation(url);
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.host.isEmpty) return null;
+  return url;
+}
+
+/// Drops sentence punctuation a URL may have picked up as its last token
+/// (e.g. a closing bracket from `(https://…)`), without touching balanced
+/// brackets that are genuinely part of the query.
+String _trimTrailingPunctuation(String url) {
+  const closers = {')': '(', ']': '[', '}': '{'};
+  var result = url;
+  var changed = true;
+  while (changed && result.isNotEmpty) {
+    changed = false;
+    final last = result[result.length - 1];
+    final opener = closers[last];
+    if (opener != null) {
+      if (_count(result, last) > _count(result, opener)) {
+        result = result.substring(0, result.length - 1);
+        changed = true;
+      }
+    } else if ('.,;:\'"'.contains(last)) {
+      result = result.substring(0, result.length - 1);
+      changed = true;
+    }
+  }
+  return result;
+}
+
+int _count(String value, String char) => value.split(char).length - 1;
+
 String? extensionRequestFailureMessage(Object? error) {
   if (error == null) return null;
   final detail = error.toString().toLowerCase();
@@ -36,8 +81,7 @@ String? extensionRequestFailureMessage(Object? error) {
           '(HTTP $statusCode).';
     }
     return 'Cloudflare bloque l’API de l’extension, mais l’erreur ne fournit '
-        'aucun code HTTP. La page du site peut rester accessible sans que '
-        'l’API fonctionne.';
+        'aucun code HTTP. Vérifie l’accès à la source ci-dessous.';
   }
   if (extensionErrorIsCloudflareChallenge(error)) {
     final statusSuffix = statusCode == null ? '' : ' (HTTP $statusCode)';
@@ -67,7 +111,7 @@ String? extensionRequestFailureMessage(Object? error) {
   if (detail.contains('http 401') || detail.contains('http 403')) {
     return 'La source a refusé la requête. Elle peut être temporairement inaccessible ou demander une vérification.';
   }
-  return 'La source n’a pas pu répondre correctement. Réessaie; si le problème persiste, consulte les journaux.';
+  return 'La source est momentanément indisponible. Réessaie dans quelques instants.';
 }
 
 bool extensionErrorIsCloudflareApiBlock(Object? error) {
@@ -98,6 +142,36 @@ bool extensionErrorIsCloudflareChallenge(Object? error) {
               detail.contains('browser verification')));
 }
 
+/// Short, specific heading for a failed extension request. Replaces the former
+/// catch-all “Impossible de charger le contenu” so the real failure (HTTP code,
+/// Cloudflare block, connection error) is visible at a glance.
+String extensionErrorTitle(Object? error) {
+  if (error == null) return 'Aucun contenu disponible';
+  if (extensionErrorIsCloudflareChallenge(error)) {
+    return 'Vérification Cloudflare requise';
+  }
+  if (extensionErrorIsCloudflareApiBlock(error)) return 'Accès API bloqué';
+  final statusCode = extensionHttpStatusCode(error);
+  if (statusCode != null) return 'Erreur HTTP $statusCode';
+  final detail = error.toString().toLowerCase();
+  if (detail.contains('socketexception') ||
+      detail.contains('failed host lookup') ||
+      detail.contains('timed out') ||
+      detail.contains('timeout') ||
+      detail.contains('network') ||
+      detail.contains('connection')) {
+    return 'Connexion impossible';
+  }
+  return 'Source indisponible';
+}
+
+/// True when the inline bypass WebView is worth showing: either a real
+/// Cloudflare challenge or a Cloudflare block of the extension API. The panel
+/// then opens the exact failing URL and reports what it actually displays.
+bool extensionErrorNeedsBypass(Object? error) =>
+    extensionErrorIsCloudflareChallenge(error) ||
+    extensionErrorIsCloudflareApiBlock(error);
+
 class ExtensionHomeEmptyState extends StatefulWidget {
   const ExtensionHomeEmptyState({
     required this.onRetry,
@@ -122,14 +196,13 @@ class ExtensionHomeEmptyState extends StatefulWidget {
 }
 
 class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
-  late bool _showChallenge =
-      extensionErrorIsCloudflareChallenge(widget.error);
+  late bool _showChallenge = extensionErrorNeedsBypass(widget.error);
 
   @override
   void didUpdateWidget(covariant ExtensionHomeEmptyState oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final wasChallenge = extensionErrorIsCloudflareChallenge(oldWidget.error);
-    final isChallenge = extensionErrorIsCloudflareChallenge(widget.error);
+    final wasChallenge = extensionErrorNeedsBypass(oldWidget.error);
+    final isChallenge = extensionErrorNeedsBypass(widget.error);
     if (wasChallenge != isChallenge) {
       _showChallenge = isChallenge;
     }
@@ -143,7 +216,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
   Widget build(BuildContext context) {
     final failureMessage = extensionRequestFailureMessage(widget.error);
     final httpStatusCode = extensionHttpStatusCode(widget.error);
-    final challengeUrl = widget.challengeUrl?.trim();
+    // Prefer the exact URL that failed: the bypass WebView must open the
+    // challenged request, not the site root (which loads without a challenge).
+    final failedUrl = extensionFailedUrl(widget.error);
+    final challengeUrl = (failedUrl ?? widget.challengeUrl)?.trim();
     final hasChallengeUrl = challengeUrl?.isNotEmpty == true;
     final cloudflareApiBlocked = extensionErrorIsCloudflareApiBlock(
       widget.error,
@@ -152,6 +228,14 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
       widget.error,
     );
     final isPlainEmpty = widget.error == null && !challengeDetected;
+    // A generic HTTP failure shows its real code in the title, so the separate
+    // chip would only duplicate it. Challenge / API-block states keep the chip
+    // because their title is a category, not a code.
+    final titleShowsHttpCode =
+        widget.error != null &&
+        !challengeDetected &&
+        !cloudflareApiBlocked &&
+        httpStatusCode != null;
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: Column(
@@ -243,13 +327,8 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                   ),
                                   SizedBox(height: challengeDetected ? 10 : 14),
                                   Text(
-                                    challengeDetected
-                                        ? 'Vérification Cloudflare requise'
-                                        : cloudflareApiBlocked
-                                            ? 'Accès API bloqué'
-                                            : widget.error == null
-                                                ? 'Aucun contenu disponible'
-                                                : 'Impossible de charger le contenu',
+                                    extensionErrorTitle(widget.error),
+                                    key: const ValueKey('extension-empty-title'),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -259,7 +338,8 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  if (httpStatusCode != null) ...[
+                                  if (httpStatusCode != null &&
+                                      !titleShowsHttpCode) ...[
                                     const SizedBox(height: 8),
                                     Center(
                                       child: Container(
@@ -380,8 +460,7 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       ),
                                     ],
                                   if (hasChallengeUrl &&
-                                      !_showChallenge &&
-                                      !cloudflareApiBlocked) ...[
+                                      !_showChallenge) ...[
                                     const SizedBox(height: 8),
                                     TextButton.icon(
                                       onPressed: () => setState(

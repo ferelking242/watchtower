@@ -2210,7 +2210,7 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Impossible de charger $title',
+                    '${extensionErrorTitle(error)} · $title',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -4093,10 +4093,10 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                         size: 44,
                       ),
                       const SizedBox(height: 14),
-                      const Text(
-                        'Recherche impossible',
+                      Text(
+                        extensionErrorTitle(error),
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
                         ),

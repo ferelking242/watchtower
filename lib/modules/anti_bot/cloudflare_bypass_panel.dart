@@ -618,29 +618,31 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             ),
           ]),
           const SizedBox(height: 10),
-          Row(children: [
-            FilledButton.tonalIcon(
-              onPressed: _busy ? null : _verifyNow,
-              icon: const Icon(Icons.verified_rounded, size: 15),
-              label: const Text('Vérifier à nouveau'),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                textStyle: const TextStyle(fontSize: 11.5),
-              ),
-            ),
-            if (widget.onRetry != null) ...[
-              const SizedBox(width: 6),
-              TextButton.icon(
-                onPressed: widget.onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 15),
-                label: const Text('Réessayer le diagnostic'),
-                style: TextButton.styleFrom(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _busy ? null : _verifyNow,
+                icon: const Icon(Icons.verified_rounded, size: 15),
+                label: const Text('Vérifier à nouveau'),
+                style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   textStyle: const TextStyle(fontSize: 11.5),
                 ),
               ),
+              if (widget.onRetry != null)
+                TextButton.icon(
+                  onPressed: widget.onRetry,
+                  icon: const Icon(Icons.refresh_rounded, size: 15),
+                  label: const Text('Réessayer le diagnostic'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    textStyle: const TextStyle(fontSize: 11.5),
+                  ),
+                ),
             ],
-          ]),
+          ),
         ],
       ),
     );
