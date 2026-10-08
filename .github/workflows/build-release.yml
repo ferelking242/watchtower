@@ -245,18 +245,22 @@ jobs:
 
       - name: Notify ntfy (build OK)
         if: success()
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build Android Release OK" \
             -H "Priority: default" \
             -H "Tags: white_check_mark" \
-            -d "APK release arm64 — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "APK release arm64 — sha ${{ github.sha }} — $COMMIT_MESSAGE" || true
 
       - name: Notify ntfy (build FAILED)
         if: failure()
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build Android Release FAIL" \
             -H "Priority: urgent" \
             -H "Tags: rotating_light" \
-            -d "Android release build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "Android release build FAILED — sha ${{ github.sha }} — $COMMIT_MESSAGE" || true

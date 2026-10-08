@@ -180,20 +180,24 @@ jobs:
 
       - name: Notify ntfy (Android build OK)
         if: success()
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build Android OK (${{ matrix.label }})" \
             -H "Priority: default" \
-            -d "APK built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "APK built — sha ${{ github.sha }} — $COMMIT_MESSAGE" || true
 
       - name: Notify ntfy (Android build FAILED)
         if: failure()
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build Android FAIL (${{ matrix.label }})" \
             -H "Priority: urgent" \
             -H "Tags: rotating_light" \
-            -d "Android build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "Android build FAILED — sha ${{ github.sha }} — $COMMIT_MESSAGE" || true
 
   # ────────────────────────────────────────────────────────────
   # Android Universal (all supported ABIs in one APK)
@@ -312,20 +316,24 @@ jobs:
 
       - name: Notify ntfy (Android Universal OK)
         if: success()
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build Android Universal OK" \
             -H "Priority: default" \
-            -d "Universal APK built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "Universal APK built — sha ${{ github.sha }} — $COMMIT_MESSAGE" || true
 
       - name: Notify ntfy (Android Universal FAILED)
         if: failure()
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build Android Universal FAIL" \
             -H "Priority: urgent" \
             -H "Tags: rotating_light" \
-            -d "Android Universal build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "Android Universal build FAILED — sha ${{ github.sha }} — $COMMIT_MESSAGE" || true
 
   # ────────────────────────────────────────────────────────────
   # Linux x64
@@ -980,20 +988,24 @@ jobs:
 
       - name: Notify ntfy (build OK)
         if: success()
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build iOS OK" \
             -H "Priority: default" \
-            -d "IPA profile built — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "IPA profile built — sha ${{ github.sha }} — $COMMIT_MESSAGE" || true
 
       - name: Notify ntfy (build FAILED)
         if: failure()
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           curl -s -X POST https://ntfy.sh/watchtower \
             -H "Title: Build iOS FAIL" \
             -H "Priority: urgent" \
             -H "Tags: rotating_light" \
-            -d "iOS build FAILED — sha ${{ github.sha }} — ${{ github.event.head_commit.message }}" || true
+            -d "iOS build FAILED — sha ${{ github.sha }} — $COMMIT_MESSAGE" || true
 
   # ────────────────────────────────────────────────────────────
   # iOS Simulator — uploadable to Appetize and other simulator services
