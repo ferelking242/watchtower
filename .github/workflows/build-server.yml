@@ -232,12 +232,27 @@ jobs:
           set -euo pipefail
           BUNDLE="build/linux/x64/release/bundle"
           REPO="$GITHUB_WORKSPACE/watchtower-extensions"
-          # The Flutter Linux embedder still initialises GTK, so the CLI needs
-          # an X display even for headless commands.
+          # The Flutter Linux embedder initialises GTK and prints AT-SPI
+          # warnings, so give it a dedicated X display. Using Xvfb directly
+          # (not xvfb-run) keeps stderr out of the JSON stdout.
+          Xvfb :101 -screen 0 1280x720x24 -nolisten tcp -ac \
+            > "$GITHUB_WORKSPACE/watchtower-xvfb-filter.log" 2>&1 &
+          XVFB_PID=$!
+          cleanup_xvfb() {
+            if kill -0 "$XVFB_PID" 2>/dev/null; then
+              kill "$XVFB_PID"
+            fi
+          }
+          trap cleanup_xvfb EXIT
+          for attempt in $(seq 1 20); do
+            if [ -S /tmp/.X11-unix/X101 ]; then break; fi
+            sleep 0.25
+          done
+          test -S /tmp/.X11-unix/X101
+          export DISPLAY=:101
           run_filter() {
             local name="$1"; shift
-            xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
-              "$BUNDLE/watchtower" --cli extensions list --repo "$REPO" --json "$@" \
+            "$BUNDLE/watchtower" --cli extensions list --repo "$REPO" --json "$@" \
               > "$GITHUB_WORKSPACE/watchtower-filter-$name.json" \
               2> "$GITHUB_WORKSPACE/watchtower-filter-$name.stderr.log"
           }
@@ -399,7 +414,9 @@ jobs:
             watchtower-cli-catalog.json
             watchtower-cli-catalog.stderr.log
             watchtower-filter-*.json
+            watchtower-filter-*.stderr.log
             watchtower-xvfb-verify.log
+            watchtower-xvfb-filter.log
             watchtower-cli-fr-watch-selection.json
             watchtower-cli-french-watch-report.json
             watchtower-cli-french-watch-stdout.json
