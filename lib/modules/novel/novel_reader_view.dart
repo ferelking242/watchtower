@@ -20,6 +20,7 @@ import 'package:watchtower/modules/novel/novel_reader_controller_provider.dart';
 import 'package:watchtower/modules/novel/tts/novel_tts_service.dart';
 import 'package:watchtower/modules/novel/tts/tts_player_bar.dart';
 import 'package:watchtower/modules/novel/tts/tts_settings_tab.dart';
+import 'package:watchtower/modules/widgets/offline_content_state.dart';
 import 'package:watchtower/modules/novel/widgets/novel_reader_settings_sheet.dart';
 import 'package:watchtower/modules/widgets/custom_draggable_tabbar.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -795,8 +796,12 @@ class _NovelWebViewState extends ConsumerState<NovelWebView>
                 context,
                 Center(child: CircularProgressIndicator()),
               ),
-              error: (err, stack) =>
-                  scaffoldWith(context, Center(child: Text(err.toString()))),
+              error: (err, stack) => scaffoldWith(
+                context,
+                isOfflineContentError(err)
+                    ? const OfflineContentState()
+                    : Center(child: Text(err.toString())),
+              ),
             ),
           ),
         ),

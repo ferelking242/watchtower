@@ -15,6 +15,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late Directory cacheRoot;
+  late Directory supportRoot;
   late HttpServer imageServer;
   late int networkRequests;
 
@@ -22,10 +23,16 @@ void main() {
     cacheRoot = await Directory.systemTemp.createTemp(
       'watchtower-image-cache-test-',
     );
+    supportRoot = await Directory.systemTemp.createTemp(
+      'watchtower-image-support-test-',
+    );
     networkRequests = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_pathProviderChannel, (call) async {
           if (call.method == 'getApplicationCachePath') return cacheRoot.path;
+          if (call.method == 'getApplicationSupportPath') {
+            return supportRoot.path;
+          }
           throw MissingPluginException(
             'Unexpected path_provider call: ${call.method}',
           );
@@ -44,7 +51,8 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_pathProviderChannel, null);
     await imageServer.close(force: true);
-    await cacheRoot.delete(recursive: true);
+    if (await cacheRoot.exists()) await cacheRoot.delete(recursive: true);
+    if (await supportRoot.exists()) await supportRoot.delete(recursive: true);
   });
 
   CustomExtendedNetworkImageProvider _newProvider({String? url}) {
@@ -62,7 +70,7 @@ void main() {
     CustomExtendedNetworkImageProvider provider,
     Uint8List bytes,
   ) async {
-    final directory = Directory(p.join(cacheRoot.path, 'cacheimagecover'));
+    final directory = Directory(p.join(supportRoot.path, 'cacheimagecover'));
     await directory.create(recursive: true);
     final file = File(p.join(directory.path, provider.cacheKeyForTesting));
     await file.writeAsBytes(bytes);
@@ -99,6 +107,53 @@ void main() {
     expect(networkRequests, 0);
 
     await cacheFile.delete();
+  });
+
+  test('legacy cover entries are copied out of the OS cache', () async {
+    final provider = _newProvider();
+    final imageBytes = Uint8List.fromList([3, 4, 5, 6]);
+    final legacyDirectory = Directory(
+      p.join(cacheRoot.path, 'cacheimagecover'),
+    );
+    await legacyDirectory.create(recursive: true);
+    await File(
+      p.join(legacyDirectory.path, provider.cacheKeyForTesting),
+    ).writeAsBytes(imageBytes);
+
+    expect(await provider.getNetworkImageData(), imageBytes);
+    expect(networkRequests, 0);
+    expect(
+      await File(
+        p.join(
+          supportRoot.path,
+          'cacheimagecover',
+          provider.cacheKeyForTesting,
+        ),
+      ).exists(),
+      isTrue,
+    );
+  });
+
+  test('an empty cache entry is refetched instead of rendered', () async {
+    final provider = _newProvider();
+    await _writeDiskCache(provider, Uint8List(0));
+
+    expect(
+      await provider.getNetworkImageData(),
+      Uint8List.fromList([9, 8, 7]),
+    );
+    expect(networkRequests, 1);
+  });
+
+  test('persistent covers remain available after the OS cache is removed', () async {
+    final provider = _newProvider();
+    final imageBytes = Uint8List.fromList([4, 5, 6, 7]);
+    await _writeDiskCache(provider, imageBytes);
+    await cacheRoot.delete(recursive: true);
+
+    final recreated = _newProvider(url: provider.url);
+    expect(await recreated.getNetworkImageData(), imageBytes);
+    expect(networkRequests, 0);
   });
 
   test('a recreated provider gets the memory hit without another request', () async {

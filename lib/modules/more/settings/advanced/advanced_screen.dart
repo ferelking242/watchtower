@@ -559,9 +559,13 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
   Future<void> _loadCacheSizes() async {
     final storage = StorageProvider();
-    final iconDir = await storage.getCacheDirectory('cacheimagecover');
+    final iconDir = await storage.getPersistentCacheDirectory(
+      'cacheimagecover',
+    );
+    final legacyIconDir = await storage.getCacheDirectory('cacheimagecover');
     final libDir = await storage.getCacheDirectory('cacheimagemanga');
-    final iconSize = await _dirSize(iconDir);
+    final iconSize =
+        await _dirSize(iconDir) + await _dirSize(legacyIconDir);
     final libSize = await _dirSize(libDir);
     if (!mounted) return;
     setState(() {
@@ -573,10 +577,15 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   Future<void> _clearIconCache() async {
     try {
       final storage = StorageProvider();
-      final iconDir = await storage.getCacheDirectory('cacheimagecover');
-      if (iconDir.existsSync()) {
-        await iconDir.delete(recursive: true);
-        await iconDir.create(recursive: true);
+      final iconDirs = [
+        await storage.getPersistentCacheDirectory('cacheimagecover'),
+        await storage.getCacheDirectory('cacheimagecover'),
+      ];
+      for (final iconDir in iconDirs) {
+        if (iconDir.existsSync()) {
+          await iconDir.delete(recursive: true);
+          await iconDir.create(recursive: true);
+        }
       }
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();

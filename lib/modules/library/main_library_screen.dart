@@ -281,6 +281,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               ),
             ),
           );
+        },
       ),
     );
   }

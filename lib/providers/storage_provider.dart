@@ -242,8 +242,26 @@ class StorageProvider {
     return Directory(cacheImagesDirectory);
   }
 
+  Future<Directory> getPersistentCacheDirectory(
+    String? imageCacheFolderName,
+  ) async {
+    final cacheImagesDirectory = path.join(
+      (await getApplicationSupportDirectory()).path,
+      imageCacheFolderName ?? 'cacheimagecover',
+    );
+    return Directory(cacheImagesDirectory);
+  }
+
   Future<Directory> createCacheDirectory(String? imageCacheFolderName) async {
     final cachePath = await getCacheDirectory(imageCacheFolderName);
+    await createDirectorySafely(cachePath.path);
+    return cachePath;
+  }
+
+  Future<Directory> createPersistentCacheDirectory(
+    String? imageCacheFolderName,
+  ) async {
+    final cachePath = await getPersistentCacheDirectory(imageCacheFolderName);
     await createDirectorySafely(cachePath.path);
     return cachePath;
   }

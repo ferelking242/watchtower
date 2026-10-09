@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/src/rust/api/epub.dart';
 import 'package:path/path.dart' as p;
@@ -6,6 +7,7 @@ import 'package:watchtower/eval/lib.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'get_html_content.g.dart';
@@ -61,29 +63,32 @@ Future<(String, EpubNovel?)> getHtmlContent(
         mangaMainDirectory: mangaMainDirectory,
       ))!;
 
-      final htmlPath = p.join(chapterDirectory.path, "${chapter.name}.html");
+      final chapterName = chapter.name!.replaceForbiddenCharacters(' ');
+      final htmlPath = p.join(chapterDirectory.path, '$chapterName.html');
 
       final htmlFile = File(htmlPath);
       String? htmlContent;
       if (await htmlFile.exists()) {
         htmlContent = await htmlFile.readAsString();
       }
-      final source = getSource(
-        chapter.manga.value!.lang!,
-        chapter.manga.value!.source!,
-        chapter.manga.value!.sourceId,
-      );
-      final html = await withExtensionService(source!, (service) async {
-        if (htmlContent != null) {
-          return await service.cleanHtmlContent(htmlContent);
-        } else {
+      if (htmlContent != null) {
+        // Downloaded novel HTML is already local. Do not invoke an extension
+        // (which may be unavailable or attempt another request) to open it.
+        result = (_buildHtml(_unwrapHtmlEnvelope(htmlContent)), null);
+      } else {
+        final source = getSource(
+          chapter.manga.value!.lang!,
+          chapter.manga.value!.source!,
+          chapter.manga.value!.sourceId,
+        )!;
+        final html = await withExtensionService(source, (service) async {
           return await service.getHtmlContent(
             chapter.manga.value!.name!,
             chapter.url!,
           );
-        }
-      });
-      result = (_buildHtml(html.substring(1, html.length - 1)), null);
+        });
+        result = (_buildHtml(_unwrapHtmlEnvelope(html)), null);
+      }
     }
 
     keepAlive.close();
@@ -92,6 +97,19 @@ Future<(String, EpubNovel?)> getHtmlContent(
     keepAlive.close();
     rethrow;
   }
+}
+
+String _unwrapHtmlEnvelope(String html) {
+  final trimmed = html.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is String) return decoded;
+    } catch (_) {
+      // Keep non-JSON HTML as-is.
+    }
+  }
+  return html;
 }
 
 String _buildHtml(String input) {

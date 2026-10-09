@@ -360,14 +360,44 @@ class CustomExtendedNetworkImageProvider
       return cachedData;
     }
 
-    final io.Directory cacheImagesDirectory = await StorageProvider()
-        .createCacheDirectory(imageCacheFolderName);
+    final isPersistentCoverCache =
+        !kIsWeb &&
+        (imageCacheFolderName == null ||
+            imageCacheFolderName == 'cacheimagecover');
+    final storage = StorageProvider();
+    final io.Directory cacheImagesDirectory = isPersistentCoverCache
+        ? await storage.createPersistentCacheDirectory('cacheimagecover')
+        : await storage.createCacheDirectory(imageCacheFolderName);
     Uint8List? data;
     final dynamic cacheFile = io.File(join(cacheImagesDirectory.path, md5Key));
 
+    // Older releases stored covers in the OS-purgeable cache directory.
+    // Copy legacy entries forward once, but leave the originals untouched.
+    if (isPersistentCoverCache &&
+        !((cacheFile as dynamic).existsSync() as bool)) {
+      try {
+        final legacyDirectory = await storage.getCacheDirectory(
+          'cacheimagecover',
+        );
+        final legacyFile = io.File(join(legacyDirectory.path, md5Key));
+        if ((legacyFile as dynamic).existsSync() as bool) {
+          data = await (legacyFile as dynamic).readAsBytes() as Uint8List;
+          try {
+            await (cacheFile as dynamic).writeAsBytes(data);
+          } catch (error) {
+            debugPrint('[IMG] could not persist migrated cover: $error');
+          }
+        }
+      } catch (error) {
+        debugPrint('[IMG] could not migrate legacy cover cache: $error');
+      }
+    }
+
     // exist, try to find cache image file
-    if (!kIsWeb && (cacheFile as dynamic).existsSync() as bool) {
-      if (key.cacheMaxAge != null) {
+    if (!kIsWeb &&
+        data == null &&
+        (cacheFile as dynamic).existsSync() as bool) {
+      if (!isPersistentCoverCache && key.cacheMaxAge != null) {
         final DateTime now = DateTime.now();
         final DateTime lastModified = (cacheFile as dynamic).lastModifiedSync() as DateTime;
         if (now.difference(lastModified) > key.cacheMaxAge!) {
@@ -376,7 +406,6 @@ class CustomExtendedNetworkImageProvider
         } else {
           final t0 = DateTime.now();
           data = await (cacheFile as dynamic).readAsBytes() as Uint8List;
-          _memoryCache.put(md5Key, data!);
           if (kDebugMode) {
             final ms = DateTime.now().difference(t0).inMilliseconds;
             debugPrint('[IMG] DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
@@ -385,13 +414,19 @@ class CustomExtendedNetworkImageProvider
       } else {
         final t0 = DateTime.now();
         data = await (cacheFile as dynamic).readAsBytes() as Uint8List;
-        _memoryCache.put(md5Key, data!);
         if (kDebugMode) {
           final ms = DateTime.now().difference(t0).inMilliseconds;
           debugPrint('[IMG] DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
         }
       }
     }
+    if (data != null && data.isEmpty) {
+      data = null;
+      try {
+        (cacheFile as dynamic).deleteSync();
+      } catch (_) {}
+    }
+    if (data != null) _memoryCache.put(md5Key, data);
 
     // load from network
     if (data == null) {
@@ -399,11 +434,18 @@ class CustomExtendedNetworkImageProvider
       data = await _loadNetwork(key, chunkEvents);
       if (data != null) {
         if (!kIsWeb) {
-          // Evict old cache if needed before writing
-          await _CacheManager.evictOldestIfNeeded(cacheImagesDirectory);
-
-          // cache image file
-          await (io.File(join(cacheImagesDirectory.path, md5Key)) as dynamic).writeAsBytes(data);
+          if (!isPersistentCoverCache) {
+            await _CacheManager.evictOldestIfNeeded(cacheImagesDirectory);
+          }
+          try {
+            await (io.File(
+              join(cacheImagesDirectory.path, md5Key),
+            ) as dynamic).writeAsBytes(data);
+          } catch (error) {
+            // A full/read-only disk should not make a successfully loaded
+            // cover render as a failed image.
+            debugPrint('[IMG] could not write image cache entry: $error');
+          }
         }
 
         // Store in memory cache

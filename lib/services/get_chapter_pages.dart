@@ -7,6 +7,7 @@ import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/local_manga_page_files.dart';
 import 'package:watchtower/services/page_url_cache.dart';
 import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/settings_store.dart';
@@ -137,14 +138,36 @@ Future<GetChapterPagesModel> getChapterPages(
 
     List<Uint8List?> archiveImages = [];
     final isLocalArchive = (chapter.archivePath ?? '').isNotEmpty;
+    final isLocalSource = (chManga?.isLocalArchive ?? false) || isLocalArchive;
+    final downloadRecord = chapter.id == null
+        ? null
+        : isar.downloads.getSync(chapter.id!);
+    final isDownloaded = downloadRecord?.isDownload == true;
+    String? downloadedArchivePath;
+    if (isDownloaded) {
+      final savedPath = downloadRecord?.filePath;
+      if (savedPath != null && await File(savedPath).exists()) {
+        downloadedArchivePath = savedPath;
+      } else if (mangaDirectory != null) {
+        for (final extension in ['.cbz', '.zip']) {
+          final candidate =
+              p.join(mangaDirectory.path, '${chapter.name}$extension');
+          if (await File(candidate).exists()) {
+            downloadedArchivePath = candidate;
+            break;
+          }
+        }
+      }
+    }
+    final localDownloadedPageUrls =
+        isDownloaded && !isLocalSource && downloadedArchivePath == null
+        ? await getDownloadedLocalMangaPages(path)
+        : <PageUrl>[];
+    final useLocalDownloadedPages = localDownloadedPageUrls.isNotEmpty;
 
-    if (!(chManga?.isLocalArchive ?? false)) {
-      final source = getSource(
-        chManga?.lang ?? '',
-        chManga?.source ?? '',
-        chManga?.sourceId,
-      )!;
-
+    if (!isLocalSource &&
+        downloadedArchivePath == null &&
+        !useLocalDownloadedPages) {
       // ── Cache hit? ──────────────────────────────────────────────────────
       if ((isarPageUrls?.urls?.isNotEmpty ?? false) &&
           !hasUnsafeCachedMetadata &&
@@ -158,6 +181,11 @@ Future<GetChapterPagesModel> getChapterPages(
         pageUrls = decodeChapterPageurls(isarPageUrls);
       } else {
         // ── Cache miss → call extension ─────────────────────────────────
+        final source = getSource(
+          chManga?.lang ?? '',
+          chManga?.source ?? '',
+          chManga?.sourceId,
+        )!;
         AppLogger.log(
           '[$chLabel] getChapterPages CACHE MISS  '
           'calling extension getPageList  source=$srcLabel  '
@@ -192,16 +220,19 @@ Future<GetChapterPagesModel> getChapterPages(
       }
     } else {
       AppLogger.log(
-        '[$chLabel] getChapterPages local archive — skipping extension call',
+        '[$chLabel] getChapterPages local content — skipping extension call',
         logLevel: LogLevel.debug,
         tag: LogTag.page,
       );
+      if (useLocalDownloadedPages) {
+        pageUrls = localDownloadedPageUrls;
+      }
     }
 
     // Persist the source response immediately. The directory scan and reader
     // preload below can take time; a forced app stop during either operation
     // should not discard the page URLs and request headers needed on resume.
-    if (!incognitoMode && pageUrls.isNotEmpty) {
+    if (!incognitoMode && !useLocalDownloadedPages && pageUrls.isNotEmpty) {
       try {
         final latestSettings = readSettingsSafely(isar: isar);
         final existingEntry = (latestSettings.chapterPageUrlsList ?? [])
@@ -245,14 +276,20 @@ Future<GetChapterPagesModel> getChapterPages(
       }
     }
 
-    if (pageUrls.isNotEmpty || isLocalArchive) {
-      String? downloadedArchivePath;
-      for (final extension in ['.cbz', '.zip']) {
-        final candidate =
-            p.join(mangaDirectory!.path, "${chapter.name}$extension");
-        if (await File(candidate).exists()) {
-          downloadedArchivePath = candidate;
-          break;
+    if (pageUrls.isNotEmpty ||
+        isLocalSource ||
+        downloadedArchivePath != null) {
+      if (downloadedArchivePath == null &&
+          !isLocalArchive &&
+          isDownloaded &&
+          mangaDirectory != null) {
+        for (final extension in ['.cbz', '.zip']) {
+          final candidate =
+              p.join(mangaDirectory.path, '${chapter.name}$extension');
+          if (await File(candidate).exists()) {
+            downloadedArchivePath = candidate;
+            break;
+          }
         }
       }
       if (downloadedArchivePath != null || isLocalArchive) {
@@ -291,7 +328,8 @@ Future<GetChapterPagesModel> getChapterPages(
           tag: LogTag.page,
         );
       }
-      if (isLocalArchive) {
+      if ((isLocalArchive || downloadedArchivePath != null) &&
+          pageUrls.isEmpty) {
         for (var i = 0; i < archiveImages.length; i++) {
           pageUrls.add(PageUrl(""));
         }

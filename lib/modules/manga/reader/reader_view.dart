@@ -39,6 +39,7 @@ import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
 import 'package:watchtower/modules/manga/reader/providers/manga_reader_provider.dart';
 import 'package:watchtower/modules/manga/reader/image_view_webtoon.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
+import 'package:watchtower/modules/widgets/offline_content_state.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -77,8 +78,13 @@ class _MangaReaderViewState extends ConsumerState<MangaReaderView> {
 
     return chapterData.when(
       loading: () => scaffoldWith(context, const ProgressCenter()),
-      error: (error, _) =>
-          scaffoldWith(context, Center(child: Text(error.toString()))),
+      error: (error, _) => scaffoldWith(
+        context,
+        isOfflineContentError(error)
+            ? const OfflineContentState()
+            : Center(child: Text(error.toString())),
+        restoreUi: isOfflineContentError(error),
+      ),
       data: (data) {
         final chapter = data.chapter;
         final model = data.pages;
@@ -96,7 +102,7 @@ class _MangaReaderViewState extends ConsumerState<MangaReaderView> {
             !(chapter.manga.value?.isLocalArchive ?? false)) {
           return scaffoldWith(
             context,
-            const Center(child: Text('Error: no pages available')),
+            const OfflineContentState(),
             restoreUi: true,
           );
         }
