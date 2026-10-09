@@ -1160,8 +1160,10 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
     this.sourceId,
   });
 
+  // One retry after clearance is enough; another challenge response means the
+  // session was not accepted, and repeating the same request just loops.
   @override
-  int get maxRetryAttempts => 3;
+  int get maxRetryAttempts => 1;
 
   @override
   Future<bool> shouldAttemptRetryOnResponse(BaseResponse response) async {

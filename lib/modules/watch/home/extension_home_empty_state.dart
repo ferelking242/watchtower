@@ -244,6 +244,7 @@ class ExtensionHomeEmptyState extends StatefulWidget {
 class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
   late bool _showChallenge = extensionErrorNeedsBypass(widget.error);
   bool _showDetails = false;
+  bool _retryInProgress = false;
 
   @override
   void didUpdateWidget(covariant ExtensionHomeEmptyState oldWidget) {
@@ -255,8 +256,16 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
     }
   }
 
-  void _retrySource() {
-    unawaited(widget.onRetry());
+  Future<void> _retrySource() async {
+    if (_retryInProgress) return;
+    setState(() => _retryInProgress = true);
+    try {
+      await widget.onRetry();
+    } catch (_) {
+      // The source screen retains the request error for this same surface.
+    } finally {
+      if (mounted) setState(() => _retryInProgress = false);
+    }
   }
 
   /// Full, unsummarised error text for the “Détails” disclosure. Null when the
@@ -478,7 +487,9 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       child: SizedBox(
                                         width: 190,
                                         child: FilledButton.icon(
-                                          onPressed: _retrySource,
+                                          onPressed: _retryInProgress
+                                              ? null
+                                              : () => _retrySource(),
                                           icon: const Icon(
                                             Icons.refresh_rounded,
                                             size: 18,

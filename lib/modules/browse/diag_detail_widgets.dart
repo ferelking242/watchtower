@@ -115,7 +115,11 @@ class ExtensionDetail extends StatelessWidget {
             sourceId: src.id,
             compact: true,
             onResolved: onResolveCloudflare,
-            onRetry: onRetry,
+            onRetry: onRetry == null
+                ? null
+                : () async {
+                    onRetry?.call();
+                  },
           ),
         ],
         const SizedBox(height: 18),

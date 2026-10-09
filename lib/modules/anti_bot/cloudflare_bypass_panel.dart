@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
@@ -50,7 +51,7 @@ class CloudflareBypassPanel extends StatefulWidget {
   final VoidCallback? onResolved;
 
   /// Called when the user wants to retry the failing operation.
-  final VoidCallback? onRetry;
+  final FutureOr<void> Function()? onRetry;
 
   /// Optional close action (panel embedded in a dismissible surface).
   final VoidCallback? onClose;
@@ -80,7 +81,9 @@ enum _CfPhase {
   checking,
   loading,
   challenge,
+  verifying,
   solved,
+  requestFailed,
   blocked,
   clearedWithoutCookie,
   unsupported,
@@ -94,14 +97,15 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   bool _resolvedCallbackSent = false;
   bool _inspectionInProgress = false;
   bool _retryLocked = false;
+  bool _challengeNavigationPending = false;
   bool _expanded = false;
   String? _statusNote;
+  int? _mainFrameHttpStatusCode;
 
   /// True only when a challenge was actually displayed in the WebView. The UI
   /// never reports “challenge resolved” without this flag.
   bool _challengeSeen = false;
   Timer? _pollTimer;
-  Timer? _retryCooldown;
   InAppWebViewController? _webView;
   AntiBotPageType? _lastLoggedPage;
   int _pollTicks = 0;
@@ -119,7 +123,6 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   @override
   void dispose() {
     _pollTimer?.cancel();
-    _retryCooldown?.cancel();
     _progress.dispose();
     super.dispose();
   }
@@ -194,6 +197,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     if (!_cookieStoreReady ||
         _inspectionInProgress ||
         _phase == _CfPhase.solved ||
+        _phase == _CfPhase.requestFailed ||
         _phase == _CfPhase.blocked) {
       return;
     }
@@ -217,6 +221,10 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
       switch (assessment.pageType) {
         case AntiBotPageType.challenge:
           _challengeSeen = true;
+          _challengeNavigationPending = false;
+          // The challenge document itself commonly returns HTTP 403/503.
+          // Do not mistake that status for the page loaded after solving it.
+          _mainFrameHttpStatusCode = null;
           _setPhase(_CfPhase.challenge);
           // Challenges can clear on their own (Turnstile) without a new load.
           _startPolling();
@@ -231,6 +239,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         case AntiBotPageType.normal:
           // Always try to persist the browser session, even when no challenge
           // was observed: a managed challenge can auto-solve between probes.
+          if (_challengeSeen) _setPhase(_CfPhase.verifying);
           await _finishResolution(currentPage: assessment.pageType);
           return;
         case AntiBotPageType.unknown:
@@ -240,11 +249,17 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           // session but the HTTP client never saw it, forcing the user to solve
           // the same challenge over and over. Persist here too — the cookie is
           // only trusted when it is actually present.
+          if (_challengeSeen) _setPhase(_CfPhase.verifying);
           await _finishResolution(currentPage: assessment.pageType);
           return;
       }
     } finally {
       _inspectionInProgress = false;
+      if (mounted &&
+          _challengeNavigationPending &&
+          _phase != _CfPhase.loading) {
+        setState(() => _challengeNavigationPending = false);
+      }
     }
   }
 
@@ -256,14 +271,38 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     });
   }
 
-  void _triggerRetry() {
-    if (_retryLocked || widget.onRetry == null) return;
-    _retryLocked = true;
-    _retryCooldown?.cancel();
-    _retryCooldown = Timer(const Duration(milliseconds: 900), () {
-      _retryLocked = false;
-    });
-    widget.onRetry?.call();
+  Future<void> _triggerRetry() async {
+    final reopenChallenge = _shouldReloadChallenge;
+    if (_retryLocked || (!reopenChallenge && widget.onRetry == null)) return;
+    setState(() => _retryLocked = true);
+    try {
+      if (reopenChallenge) {
+        _mainFrameHttpStatusCode = null;
+        await _webView?.reload();
+      } else {
+        await widget.onRetry!.call();
+      }
+    } catch (error) {
+      AppLogger.log(
+        'CloudflareBypassPanel retry failed: $error',
+        logLevel: LogLevel.warning,
+        tag: kLogTagNet,
+      );
+    } finally {
+      if (mounted) setState(() => _retryLocked = false);
+    }
+  }
+
+  bool get _shouldReloadChallenge {
+    if (!_challengeSeen) return false;
+    if (_phase == _CfPhase.clearedWithoutCookie ||
+        _phase == _CfPhase.blocked ||
+        _phase == _CfPhase.challenge) {
+      return true;
+    }
+    return _phase == _CfPhase.requestFailed &&
+        (_mainFrameHttpStatusCode == 403 ||
+            _mainFrameHttpStatusCode == 503);
   }
 
   /// Called when the page no longer shows a challenge after one was seen.
@@ -311,21 +350,32 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
       }
     }
 
-    final resolved = canMarkChallengeResolved(
-      challengeSeen: _challengeSeen,
-      cfClearancePresent: persisted,
-      currentPage: currentPage,
-    );
+    final statusCode = _mainFrameHttpStatusCode;
+    final resolved =
+        (statusCode == null || statusCode < 400) &&
+        canMarkChallengeResolved(
+          challengeSeen: _challengeSeen,
+          cfClearancePresent: persisted,
+          currentPage: currentPage,
+        );
     if (!mounted) return;
 
     if (resolved) {
+      _challengeNavigationPending = false;
       _setPhase(_CfPhase.solved);
       if (!_resolvedCallbackSent && widget.onResolved != null) {
         _resolvedCallbackSent = true;
         await Future<void>.delayed(const Duration(milliseconds: 250));
         if (mounted) widget.onResolved?.call();
       }
+    } else if (_challengeSeen && statusCode != null && statusCode >= 400) {
+      _challengeNavigationPending = false;
+      _setPhase(
+        _CfPhase.requestFailed,
+        statusNote: 'HTTP $statusCode',
+      );
     } else {
+      _challengeNavigationPending = false;
       // No auto-retry here: the user retries from the panel, so the screen is
       // never torn down and rebuilt while they are looking at it.
       _setPhase(
@@ -400,8 +450,13 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           if (_cookieStoreReady) Positioned.fill(child: _buildBrowser()),
           if (!_pageLoadedOnce)
             Positioned.fill(child: _buildLoadingOverlay(cs)),
-          if (_phase == _CfPhase.solved)
-            Positioned.fill(child: _buildSolvedOverlay(cs)),
+          if (_challengeNavigationPending || _phase == _CfPhase.verifying)
+            Positioned.fill(child: _buildResolutionLoadingOverlay(cs))
+          else if (_phase == _CfPhase.solved ||
+              _phase == _CfPhase.requestFailed ||
+              _phase == _CfPhase.blocked ||
+              (_challengeSeen && _phase == _CfPhase.clearedWithoutCookie))
+            Positioned.fill(child: _buildResolutionOverlay(cs)),
         ],
       ),
     );
@@ -412,6 +467,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         _phase == _CfPhase.loading ||
         _phase == _CfPhase.checking ||
         _phase == _CfPhase.challenge ||
+        _phase == _CfPhase.verifying ||
         _phase == _CfPhase.solved;
     return AnimatedOpacity(
       opacity: active ? 1 : 0,
@@ -440,11 +496,18 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.onRetry != null)
+        if (widget.onRetry != null || _shouldReloadChallenge)
           _BoxIconButton(
             icon: Icons.refresh_rounded,
-            tooltip: 'Réessayer la source',
-            onPressed: _triggerRetry,
+            tooltip: _shouldReloadChallenge
+                ? 'Recharger le défi'
+                : 'Réessayer la source',
+            onPressed:
+                _retryLocked ||
+                    _challengeNavigationPending ||
+                    _phase == _CfPhase.verifying
+                ? null
+                : _triggerRetry,
           ),
         if (allowExpand)
           _BoxIconButton(
@@ -477,26 +540,100 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     );
   }
 
-  Widget _buildSolvedOverlay(ColorScheme cs) {
+  Widget _buildResolutionLoadingOverlay(ColorScheme cs) {
+    return ColoredBox(
+      color: Colors.white,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 25,
+              height: 25,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: cs.primary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Vérification…',
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResolutionOverlay(ColorScheme cs) {
+    final statusCode = _mainFrameHttpStatusCode;
+    final IconData icon;
+    final Color iconColor;
+    final String title;
+    final String message;
+
+    switch (_phase) {
+      case _CfPhase.solved:
+        icon = Icons.check_circle_rounded;
+        iconColor = Colors.green.shade600;
+        title = 'Défi terminé';
+        message = 'Réessaie la source avec l’icône de rafraîchissement.';
+        break;
+      case _CfPhase.requestFailed:
+        icon = Icons.error_outline_rounded;
+        iconColor = cs.error;
+        title = statusCode == null ? 'Erreur HTTP' : 'HTTP $statusCode';
+        message = 'Le défi est terminé, mais la source a refusé la requête.';
+        break;
+      case _CfPhase.blocked:
+        icon = Icons.block_rounded;
+        iconColor = cs.error;
+        title = statusCode == null ? 'Accès refusé' : 'HTTP $statusCode';
+        message = 'Cloudflare bloque cette requête sans défi interactif.';
+        break;
+      case _CfPhase.clearedWithoutCookie:
+        icon = Icons.shield_outlined;
+        iconColor = cs.error;
+        title = statusCode == null ? 'Défi non confirmé' : 'HTTP $statusCode';
+        message = 'Recharge le défi pour réessayer la vérification.';
+        break;
+      default:
+        icon = Icons.info_outline_rounded;
+        iconColor = cs.onSurfaceVariant;
+        title = 'Vérification en attente';
+        message = 'Réessaie la source.';
+        break;
+    }
+
     return ColoredBox(
       color: Colors.white,
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
+          padding: const EdgeInsets.all(18),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.check_circle_rounded,
-                size: 18,
-                color: Colors.green.shade600,
+                icon,
+                size: 24,
+                color: iconColor,
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'Accès rétabli — réessaye la source.',
-                  style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant),
+              const SizedBox(height: 9),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
                 ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
               ),
             ],
           ),
@@ -508,6 +645,9 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   Widget _buildBrowser() {
     return ClipRect(
       child: InAppWebView(
+        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+          Factory<EagerGestureRecognizer>(() => EagerGestureRecognizer()),
+        },
         initialUrlRequest: URLRequest(url: WebUri(widget.url)),
         initialSettings: InAppWebViewSettings(
           javaScriptEnabled: true,
@@ -544,9 +684,19 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           if (!mounted) return;
           _webView = ctrl;
           _progress.value = 0;
-          // Only the first navigation is a real load: a later in-page
-          // navigation must not flip the surface back to its loading state.
-          if (!_pageLoadedOnce) _setPhase(_CfPhase.loading);
+          _mainFrameHttpStatusCode = null;
+          if (_challengeSeen) {
+            setState(() => _challengeNavigationPending = true);
+            _setPhase(_CfPhase.verifying);
+          } else if (!_pageLoadedOnce) {
+            _setPhase(_CfPhase.loading);
+          }
+        },
+        onReceivedHttpError: (ctrl, request, errorResponse) {
+          if (request.isForMainFrame == true &&
+              _phase != _CfPhase.challenge) {
+            _mainFrameHttpStatusCode = errorResponse.statusCode;
+          }
         },
         onProgressChanged: (ctrl, progress) {
           if (mounted) _progress.value = progress / 100.0;
@@ -595,7 +745,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
 class _BoxIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const _BoxIconButton({
     required this.icon,
@@ -617,7 +767,11 @@ class _BoxIconButton extends StatelessWidget {
             onTap: onPressed,
             child: Padding(
               padding: const EdgeInsets.all(6),
-              child: Icon(icon, size: 17, color: Colors.white),
+              child: Icon(
+                icon,
+                size: 17,
+                color: onPressed == null ? Colors.white54 : Colors.white,
+              ),
             ),
           ),
         ),

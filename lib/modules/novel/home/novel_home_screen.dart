@@ -869,14 +869,25 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   // ── error ──────────────────────────────────────────────────────────────────
 
   Widget _buildError(BuildContext ctx, Object error) {
-    void retry() {
+    Future<void> retry() async {
       extensionPageCache.invalidateSource(source);
       if (_selectedIdx == _kLatestIdx) {
-        ref.invalidate(getLatestUpdatesProvider(source: source, page: 1));
+        await ref.refresh(
+          getLatestUpdatesProvider(source: source, page: 1).future,
+        );
       } else if (_isSearching && _query.isNotEmpty) {
-        ref.invalidate(searchProvider(source: source, query: _query, page: 1, filterList: filters));
+        await ref.refresh(
+          searchProvider(
+            source: source,
+            query: _query,
+            page: 1,
+            filterList: filters,
+          ).future,
+        );
       } else {
-        ref.invalidate(getPopularProvider(source: source, page: 1));
+        await ref.refresh(
+          getPopularProvider(source: source, page: 1).future,
+        );
       }
     }
 
