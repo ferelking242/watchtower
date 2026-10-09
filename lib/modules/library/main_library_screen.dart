@@ -1,5 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,9 +90,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
   late final PageController _arcPageCtrl = PageController(
-    // Three compact type items must fit in the left side of the header,
-    // without being pushed underneath the action buttons on the right.
-    viewportFraction: 0.30,
+    // Anchor the active type near the left edge; adjacent types enter from the
+    // right and the viewport clips them before they can run under the actions.
+    viewportFraction: 0.20,
     initialPage: _arcPage,
   );
 
@@ -158,6 +160,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       },
       child: PageView.builder(
         controller: _arcPageCtrl,
+        padEnds: false,
+        clipBehavior: Clip.hardEdge,
         itemCount: _kTypes.length * _kCarouselCopies,
         physics: const BouncingScrollPhysics(),
         onPageChanged: (page) {
@@ -277,7 +281,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               ),
             ),
           );
-        },
       ),
     );
   }
@@ -467,7 +470,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         children: [
           // ── Row 1: arc type selector + action icons ────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            padding: const EdgeInsets.fromLTRB(4, 14, 14, 0),
             child: Row(
               children: [
                 // ── Arc carousel type selector ─────────────────────────
@@ -506,7 +509,13 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
           ),
 
-          // ── Search bar (animated slide-in) ───────────────────────────
+          // ── Category bar ──────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: _buildCategoryBar(context, cats, cs, isDark),
+          ),
+
+          // ── Search bar (animated slide-in below the category row) ──────
           ClipRect(
             child: AnimatedAlign(
               duration: const Duration(milliseconds: 140),
@@ -518,12 +527,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 child: _buildSearchBar(cs, isDark),
               ),
             ),
-          ),
-
-          // ── Category bar ──────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: _buildCategoryBar(context, cats, cs, isDark),
           ),
 
           const SizedBox(height: 8),
@@ -666,43 +669,43 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     ColorScheme cs,
     bool isDark,
   ) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          // Category management is its own control; every category lives
-          // together inside one outlined, horizontally scrollable group.
-          Tooltip(
-            message: 'Gérer les catégories',
-            child: Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () => _showManageCategories(context, cats),
-                child: Container(
-                  height: 36,
-                  width: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isDark
-                          ? cs.onSurface.withValues(alpha: 0.28)
-                          : cs.outline.withValues(alpha: 0.42),
-                      width: 1,
-                    ),
+    return Row(
+      children: [
+        Tooltip(
+          message: 'Gérer les catégories',
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => _showManageCategories(context, cats),
+              child: Container(
+                height: 36,
+                width: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark
+                        ? cs.onSurface.withValues(alpha: 0.28)
+                        : cs.outline.withValues(alpha: 0.42),
+                    width: 1,
                   ),
+                ),
+                child: Transform.rotate(
+                  angle: -math.pi / 4,
                   child: Icon(
-                    Broken.setting_2,
-                    size: 16,
+                    Icons.build_rounded,
+                    size: 17,
                     color: cs.onSurface.withValues(alpha: 0.62),
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             decoration: BoxDecoration(
               color: cs.surfaceContainerHighest.withValues(
@@ -716,29 +719,32 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 width: 1,
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _pill(
-                  label: 'All',
-                  selected: _selectedCatIndex == 0,
-                  onTap: () => setState(() => _selectedCatIndex = 0),
-                  cs: cs,
-                  isDark: isDark,
-                ),
-                for (int i = 0; i < cats.length; i++)
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   _pill(
-                    label: cats[i].name ?? '',
-                    selected: _selectedCatIndex == i + 1,
-                    onTap: () => setState(() => _selectedCatIndex = i + 1),
+                    label: 'All',
+                    selected: _selectedCatIndex == 0,
+                    onTap: () => setState(() => _selectedCatIndex = 0),
                     cs: cs,
                     isDark: isDark,
                   ),
-              ],
+                  for (int i = 0; i < cats.length; i++)
+                    _pill(
+                      label: cats[i].name ?? '',
+                      selected: _selectedCatIndex == i + 1,
+                      onTap: () => setState(() => _selectedCatIndex = i + 1),
+                      cs: cs,
+                      isDark: isDark,
+                    ),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

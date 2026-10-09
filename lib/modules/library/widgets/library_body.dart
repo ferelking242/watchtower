@@ -127,7 +127,7 @@ class LibraryBody extends ConsumerWidget {
                               width: 180,
                               height: 180,
                               child: Lottie.asset(
-                                'assets/animations/empty.json',
+                                'assets/animations/empty_box_partho.json',
                                 repeat: true,
                                 animate: true,
                               ),
