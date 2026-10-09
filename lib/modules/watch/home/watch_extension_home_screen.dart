@@ -33,6 +33,7 @@ import 'package:watchtower/modules/watch/home/extension_person_route.dart';
 import 'package:watchtower/modules/search/extension_search_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 import 'package:watchtower/modules/watch/home/extension_video_preview.dart';
+import 'package:watchtower/modules/watch/home/gallery_component_renderer.dart';
 import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.dart';
 import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
@@ -52,11 +53,17 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
   final String? initialSectionId;
   final bool layoutEditorMode;
 
+  /// Section stack used when the source ships no custom `home.sections`.
+  /// Home screens (e.g. the manga home) inject gallery components here so a
+  /// source without a layout still renders the curated cards.
+  final List<UiSection> defaultSections;
+
   const WatchExtensionHomeScreen({
     required this.source,
     this.initialSearchQuery,
     this.initialSectionId,
     this.layoutEditorMode = false,
+    this.defaultSections = const [],
     super.key,
   }) : isLocalLibrary = false,
        localItemType = null;
@@ -71,7 +78,8 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
       localItemType = itemType,
       initialSearchQuery = null,
       initialSectionId = null,
-      layoutEditorMode = false;
+      layoutEditorMode = false,
+      defaultSections = const [];
 
   @override
   ConsumerState<WatchExtensionHomeScreen> createState() =>
@@ -163,6 +171,16 @@ class _WatchExtensionHomeScreenState
             loadedLayout = UiLayout.fromJson(decodedLayout);
           }
         }
+      }
+      if (loadedLayout.home.sections.isEmpty &&
+          widget.defaultSections.isNotEmpty) {
+        loadedLayout = UiLayout(
+          schemaVersion: loadedLayout.schemaVersion,
+          home: HomeLayout(sections: widget.defaultSections),
+          browse: loadedLayout.browse,
+          detail: loadedLayout.detail,
+          player: loadedLayout.player,
+        );
       }
       if (!mounted) return;
       setState(() {
@@ -685,7 +703,7 @@ class _WatchExtensionHomeScreenState
     // custom home wait for unrelated built-in rails.
     final sectionAsyncValues = [
       for (final section in sections)
-        switch (section.id) {
+        switch (section.params['dataSource'] ?? section.id) {
           'popular' => ref.watch(getPopularProvider(source: source, page: 1)),
           'latest' => ref.watch(
             getLatestUpdatesProvider(source: source, page: 1),
@@ -1618,7 +1636,8 @@ class _ExtensionLayoutSectionState
 
   @override
   Widget build(BuildContext context) {
-    final content = switch (widget.section.id) {
+    final content = switch (widget.section.params['dataSource'] ??
+        widget.section.id) {
       'popular' => ref.watch(
         getPopularProvider(source: widget.source, page: 1),
       ),
@@ -1707,6 +1726,7 @@ class _ExtensionLayoutSectionState
       chapterComponent: widget.section.chapterComponent,
       gridOrder: widget.section.gridOrder,
       scrollDirection: widget.section.scrollDirection,
+      params: widget.section.params,
     );
   }
 }
@@ -1734,6 +1754,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
     this.chapterComponent,
     this.gridOrder,
     this.scrollDirection,
+    this.params = const {},
     super.key,
   });
 
@@ -1751,6 +1772,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
   final String? chapterComponent;
   final String? gridOrder;
   final String? scrollDirection;
+  final Map<String, dynamic> params;
 
   @override
   Widget build(BuildContext context) {
@@ -1937,6 +1959,23 @@ class ExtensionLayoutPreview extends StatelessWidget {
             onTap: onTap,
           ) ??
           PosterCard(item: item, width: width, onTap: onTap);
+    }
+
+    // Gallery components are data-bound through the shared renderer so both
+    // home screens can select any card documented by the developer gallery.
+    if (definition.galleryFamily != null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: GalleryComponentRenderer.rail(
+          GalleryComponentContext(
+            componentId: component,
+            items: contentItems,
+            title: title,
+            onOpen: (index) => onOpen(items[index]),
+            onSeeAll: onSeeAll,
+          ),
+        ),
+      );
     }
 
     return switch (definition.renderer) {

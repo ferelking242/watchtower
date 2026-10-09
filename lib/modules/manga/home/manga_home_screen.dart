@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:watchtower/models/gallery_component_palette.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/home/widgets/enum_manga_home_widget.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
@@ -35,6 +36,9 @@ class MangaHomeScreen extends StatelessWidget {
       initialSearchQuery: initialQuery,
       initialSectionId: isLatest ? 'latest' : null,
       layoutEditorMode: isLayoutEditing,
+      defaultSections: GalleryComponentPalette.buildSections(
+        GalleryComponentPalette.mangaHomeStack,
+      ),
     );
   }
 }

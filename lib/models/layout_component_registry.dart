@@ -1,3 +1,5 @@
+import 'package:watchtower/models/gallery_component_catalog.dart';
+
 /// Contexts in which a layout component can be rendered.
 enum LayoutComponentContext {
   home,
@@ -55,7 +57,13 @@ class LayoutComponentDefinition {
     this.supportedContexts = const {LayoutComponentContext.home},
     this.requiredProperties = const {},
     this.selectable = true,
+    this.galleryFamily,
   });
+
+  /// Set when the definition is a gallery component rendered by
+  /// `GalleryComponentRenderer`. `null` for the hand-written legacy
+  /// definitions, which use the extension rail renderers directly.
+  final GalleryComponentFamily? galleryFamily;
 
   /// Stable identifier written to layout JSON.
   final String id;
@@ -413,8 +421,62 @@ class LayoutComponentRegistry {
     ),
   ];
 
+  /// Hand-written legacy definitions plus one definition per gallery
+  /// component, so every card documented by the gallery can be selected in a
+  /// layout JSON and rendered by the extension home screen.
+  static final List<LayoutComponentDefinition> all = List.unmodifiable([
+    ...definitions,
+    ...GalleryComponentCatalog.descriptors.map(
+      (descriptor) => LayoutComponentDefinition(
+        id: descriptor.id,
+        aliases: descriptor.aliases,
+        label: descriptor.label,
+        category: descriptor.category,
+        description: descriptor.description,
+        renderer: _rendererForGalleryFamily(descriptor.renderer),
+        loadingPreview: descriptor.loadingPreview,
+        legacyLayout: _legacyLayoutForGalleryFamily(descriptor.renderer),
+        selectable: descriptor.selectable,
+        galleryFamily: descriptor.renderer,
+      ),
+    ),
+  ]);
+
+  /// Catalog definitions only, keyed by id (used by the gallery picker).
+  static final Map<String, LayoutComponentDefinition> galleryById = {
+    for (final definition in all)
+      if (definition.galleryFamily != null) ...{
+        definition.id: definition,
+        for (final alias in definition.aliases) alias: definition,
+      },
+  };
+
+  static LayoutComponentRenderer _rendererForGalleryFamily(
+    GalleryComponentFamily family,
+  ) => switch (family) {
+    GalleryComponentFamily.posterRail => LayoutComponentRenderer.posterRail,
+    GalleryComponentFamily.spotlight => LayoutComponentRenderer.spotlight,
+    GalleryComponentFamily.banner => LayoutComponentRenderer.banner,
+    GalleryComponentFamily.ranked => LayoutComponentRenderer.ranked,
+    GalleryComponentFamily.landscape => LayoutComponentRenderer.landscape,
+    GalleryComponentFamily.grid => LayoutComponentRenderer.grid,
+    // Every other family reuses the grid renderer, which delegates to
+    // GalleryComponentRenderer for the real card.
+    _ => LayoutComponentRenderer.grid,
+  };
+
+  static String _legacyLayoutForGalleryFamily(
+    GalleryComponentFamily family,
+  ) => switch (family) {
+    GalleryComponentFamily.spotlight => 'spotlight',
+    GalleryComponentFamily.banner => 'banner',
+    GalleryComponentFamily.ranked => 'ranked',
+    GalleryComponentFamily.landscape => 'landscapeStacked',
+    _ => 'catalogue',
+  };
+
   static final Map<String, LayoutComponentDefinition> _byId = {
-    for (final definition in definitions) ...{
+    for (final definition in all) ...{
       definition.id: definition,
       for (final alias in definition.aliases) alias: definition,
     },
@@ -426,7 +488,7 @@ class LayoutComponentRegistry {
     LayoutComponentContext context, {
     bool selectableOnly = false,
   }) => List.unmodifiable(
-    definitions.where(
+    all.where(
       (definition) =>
           definition.supportedContexts.contains(context) &&
           (!selectableOnly || definition.selectable),

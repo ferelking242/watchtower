@@ -174,6 +174,11 @@ class UiSection {
   final String? scrollDirection;
   final UiMonthSelector? monthSelector;
 
+  /// Free-form parameters for gallery components (see
+  /// `GalleryComponentPalette`). They let a section tune a card without a new
+  /// `component` id: number of items, columns, period, reading direction…
+  final Map<String, dynamic> params;
+
   final bool seeAll;
   final bool paginated;
   final bool requiresAuth;
@@ -193,6 +198,7 @@ class UiSection {
     this.gridOrder,
     this.scrollDirection,
     this.monthSelector,
+    this.params = const {},
     this.seeAll = false,
     this.paginated = false,
     this.requiresAuth = false,
@@ -217,6 +223,9 @@ class UiSection {
             Map<String, dynamic>.from(json['monthSelector'] as Map),
           )
         : null,
+    params: json['params'] is Map
+        ? Map<String, dynamic>.from(json['params'] as Map)
+        : const {},
     seeAll: json['seeAll'] as bool? ?? false,
     paginated: json['paginated'] as bool? ?? false,
     requiresAuth: json['requiresAuth'] as bool? ?? false,
@@ -241,6 +250,7 @@ class UiSection {
     if (gridOrder != null) 'gridOrder': gridOrder,
     if (scrollDirection != null) 'scrollDirection': scrollDirection,
     if (monthSelector != null) 'monthSelector': monthSelector!.toJson(),
+    if (params.isNotEmpty) 'params': params,
     if (seeAll) 'seeAll': id,
   };
 
