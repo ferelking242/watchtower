@@ -136,15 +136,14 @@ void main() {
     );
   });
 
-  test('an empty cache entry is refetched instead of rendered', () async {
+  test('an empty cache entry is discarded instead of rendered', () async {
     final provider = _newProvider();
-    await _writeDiskCache(provider, Uint8List(0));
+    final cacheFile = await _writeDiskCache(provider, Uint8List(0));
 
-    expect(
-      await provider.getNetworkImageData(),
-      Uint8List.fromList([9, 8, 7]),
-    );
-    expect(networkRequests, 1);
+    // TestWidgetsFlutterBinding blocks real HTTP requests. The empty cached
+    // bytes must still be rejected, and the production code then retries.
+    expect(await provider.getNetworkImageData(), isNull);
+    expect(await cacheFile.exists(), isFalse);
   });
 
   test('persistent covers remain available after the OS cache is removed', () async {
