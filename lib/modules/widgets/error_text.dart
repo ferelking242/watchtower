@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lottie/lottie.dart';
 import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart'
     show extensionErrorTitle, extensionRequestFailureMessage;
@@ -44,8 +45,17 @@ class _ErrorTextState extends State<ErrorText> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline_rounded, color: cs.error, size: 28),
-              const SizedBox(height: 8),
+              // Same empty-state animation as the watch home error surface, so
+              // a failed request reads as one page everywhere instead of a
+              // second screen with its own “!” icon.
+              Lottie.asset(
+                'assets/animations/empty_box_partho.json',
+                width: 132,
+                height: 132,
+                fit: BoxFit.contain,
+                repeat: true,
+              ),
+              const SizedBox(height: 4),
               Text(
                 title,
                 textAlign: TextAlign.center,

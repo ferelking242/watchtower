@@ -242,6 +242,40 @@ void main() {
       );
     });
 
+    test('Test 11b: an unclassifiable post-challenge page still resolves', () {
+      // After solving a challenge the WebView often lands on an API JSON body
+      // or a redirect the text probe cannot classify (`unknown`). As long as
+      // cf_clearance is present the bypass is real, so the panel must persist
+      // it and mark the source resolved — otherwise the app kept throwing the
+      // user back onto the same challenge.
+      expect(
+        canMarkChallengeResolved(
+          challengeSeen: true,
+          cfClearancePresent: true,
+          currentPage: AntiBotPageType.unknown,
+        ),
+        isTrue,
+      );
+      // No cookie → still not resolved, whatever the page type.
+      expect(
+        canMarkChallengeResolved(
+          challengeSeen: true,
+          cfClearancePresent: false,
+          currentPage: AntiBotPageType.unknown,
+        ),
+        isFalse,
+      );
+      // A page still showing the challenge never resolves.
+      expect(
+        canMarkChallengeResolved(
+          challengeSeen: true,
+          cfClearancePresent: true,
+          currentPage: AntiBotPageType.challenge,
+        ),
+        isFalse,
+      );
+    });
+
     test('Test 12: extension 403 vs WebView 200 are distinct states', () {
       final api = assessHttpResponse(
         statusCode: 403,

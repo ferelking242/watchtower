@@ -695,7 +695,7 @@ class _WatchExtensionHomeScreenState
     if (hasDeclaredSections &&
         !widget.layoutEditorMode &&
         !hasSectionContent &&
-        !isLoadingSections) {
+        (!isLoadingSections || sectionError != null)) {
       return _ExtensionEmpty(
         source: source,
         onRefresh: _refresh,
@@ -719,7 +719,15 @@ class _WatchExtensionHomeScreenState
         !hasDeclaredSections &&
         (popularAsync?.isLoading == true || latestAsync?.isLoading == true);
 
-    if (isLoading && popular.isEmpty && latest.isEmpty) {
+    final error = popularAsync?.error ?? latestAsync?.error;
+    final hasError =
+        popularAsync?.hasError == true || latestAsync?.hasError == true;
+
+    // Keep the empty state (and the inline bypass WebView it may host) mounted
+    // while a retry is in flight: swapping to the full-screen loading shimmer
+    // on every attempt remounted the whole surface — header, feed and WebView —
+    // which read as the page reloading over and over.
+    if (isLoading && popular.isEmpty && latest.isEmpty && !hasError) {
       return _ExtensionHomeLoading(
         source: source,
         onSearch: () => setState(() => _isSearching = true),
@@ -727,8 +735,7 @@ class _WatchExtensionHomeScreenState
       );
     }
 
-    final error = popularAsync?.error ?? latestAsync?.error;
-    if (error != null && popular.isEmpty && latest.isEmpty) {
+    if (hasError && popular.isEmpty && latest.isEmpty) {
       _logRequestFailure(
         popularAsync?.hasError == true ? 'popular' : 'latest',
         error,

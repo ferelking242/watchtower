@@ -231,11 +231,16 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         case AntiBotPageType.normal:
           // Always try to persist the browser session, even when no challenge
           // was observed: a managed challenge can auto-solve between probes.
-          await _finishResolution();
+          await _finishResolution(currentPage: assessment.pageType);
           return;
         case AntiBotPageType.unknown:
-          // Page mid-load or probe unavailable: keep the current phase; the
-          // polling loop / next onLoadStop will retry.
+          // The post-challenge page is often an API JSON payload or a redirect
+          // the text probe cannot classify, so gating persistence on `normal`
+          // alone dropped the `cf_clearance` cookie: the WebView kept its
+          // session but the HTTP client never saw it, forcing the user to solve
+          // the same challenge over and over. Persist here too — the cookie is
+          // only trusted when it is actually present.
+          await _finishResolution(currentPage: assessment.pageType);
           return;
       }
     } finally {
@@ -262,7 +267,9 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   }
 
   /// Called when the page no longer shows a challenge after one was seen.
-  Future<void> _finishResolution() async {
+  Future<void> _finishResolution({
+    AntiBotPageType currentPage = AntiBotPageType.normal,
+  }) async {
     _stopPolling();
     var persisted = false;
     final controller = _webView;
@@ -307,7 +314,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     final resolved = canMarkChallengeResolved(
       challengeSeen: _challengeSeen,
       cfClearancePresent: persisted,
-      currentPage: AntiBotPageType.normal,
+      currentPage: currentPage,
     );
     if (!mounted) return;
 
