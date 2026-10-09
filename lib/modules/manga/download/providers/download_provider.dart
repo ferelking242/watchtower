@@ -26,6 +26,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
+import 'package:watchtower/services/download_manager/archive_progress_store.dart';
 import 'package:watchtower/services/download_manager/download_connectivity.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
@@ -289,7 +290,13 @@ Future<void> _handleMediaDownloadNotificationAction(
 
   switch (action) {
     case MediaDownloadNotificationAction.pause:
-      if (isPaused || download.isDownload == true) return;
+      // Nothing to pause on a chapter that already completed: drop the stale
+      // notice instead of leaving a Pause button on a finished download.
+      if (download.isDownload == true) {
+        await notifications.cancelMediaDownloadNotification(chapterId);
+        return;
+      }
+      if (isPaused) return;
       notifier.setPaused(chapterId, true, updateEngine: false);
       isar.writeTxnSync(() {
         final stored = isar.downloads.getSync(chapterId);
@@ -301,7 +308,15 @@ Future<void> _handleMediaDownloadNotificationAction(
       await notifications.setMediaDownloadPaused(chapterId, isPaused: true);
       break;
     case MediaDownloadNotificationAction.resume:
+      // A completed chapter must never be resumed: retrying it would wipe the
+      // persisted byte/page counters and re-download from scratch.
+      if (download.isDownload == true) {
+        await notifications.cancelMediaDownloadNotification(chapterId);
+        return;
+      }
       if (!isPaused || download.status == 'cancelled') return;
+      // Resume keeps the existing succeeded/total/downloadedBytes offsets so
+      // the transfer continues where it stopped instead of restarting at 0.
       notifier.setPaused(chapterId, false, updateEngine: false);
       isar.writeTxnSync(() {
         final stored = isar.downloads.getSync(chapterId);
@@ -1276,9 +1291,11 @@ Future<void> downloadChapter(
 
     Future<void> processConvert() async {
       await DownloadSettingsService.instance.load();
-      final archiveFormat =
-          DownloadSettingsService.instance.mangaArchiveFormat;
+      final settings = DownloadSettingsService.instance;
+      final archiveFormat = settings.mangaArchiveFormat;
       if (archiveFormat == MangaArchiveFormat.folder) return;
+      final compressionLevel = settings.mangaArchiveCompression;
+      final chapterIdForProgress = chapter.id;
       try {
         final chapterNumber = ChapterRecognition().parseChapterNumber(
           chapter.manga.value!.name!,
@@ -1295,6 +1312,13 @@ Future<void> downloadChapter(
           translator: chapter.scanlator,
           publishingStatusStr: manga.status.name,
         );
+        if (chapterIdForProgress != null) {
+          ArchiveProgressStore.instance.set(
+            chapterIdForProgress,
+            done: 0,
+            total: pageUrls.length == 0 ? 1 : pageUrls.length,
+          );
+        }
         await convertToMangaArchive(
           chapterDir: chapterDirectory.path,
           mangaDir: mangaMainDirectory!.path,
@@ -1308,12 +1332,26 @@ Future<void> downloadChapter(
           ),
           formatExtension: archiveFormat.extension,
           comicInfo: comicInfo,
+          compressionLevel: compressionLevel,
+          onProgress: chapterIdForProgress == null
+              ? null
+              : (done, total, _) {
+                  ArchiveProgressStore.instance.set(
+                    chapterIdForProgress,
+                    done: done,
+                    total: total,
+                  );
+                },
         );
       } catch (error) {
         botToast(
           'Erreur lors de la création de l’archive manga : '
           '${friendlyErrorMessage(error)}',
         );
+      } finally {
+        if (chapterIdForProgress != null) {
+          ArchiveProgressStore.instance.clear(chapterIdForProgress);
+        }
       }
     }
 
@@ -1799,21 +1837,16 @@ Future<void> downloadChapter(
         );
       }
 
-      // The native foreground service remains the single persistent summary;
-      // individual named notifications above provide the expandable details.
+      // Series name is used as the notification heading; the chapter title is
+      // carried in the body. `activeCount` here is only for the anime
+      // foreground-service subtitle, never a substitute for the series name.
       final chapterTitle = chapter.name?.trim().isNotEmpty == true
           ? chapter.name!.trim()
           : 'Téléchargement';
       final seriesTitle = chapter.manga.value?.name?.trim().isNotEmpty == true
           ? chapter.manga.value!.name!.trim()
           : chapterTitle;
-      final registeredCount = ActiveDownloadRegistry.activeCountForType(
-        progress.itemType,
-      );
-      final activeCount = registeredCount > 0 ? registeredCount : 1;
-      final notificationTitle = activeCount == 1
-          ? seriesTitle
-          : '$activeCount téléchargements en cours';
+      final notificationTitle = seriesTitle;
       if (!skipFrequentMangaByteEffects &&
           progress.itemType == ItemType.anime) {
         final downloadedBytes =
@@ -1878,6 +1911,9 @@ Future<void> downloadChapter(
                   .clamp(0, 100)
                   .toInt()
             : -1;
+        final activeCount = ActiveDownloadRegistry.activeCountForType(
+          progress.itemType,
+        );
         unawaited(
           BackgroundKeepAlive.update(
             count: activeCount,
@@ -1903,7 +1939,12 @@ Future<void> downloadChapter(
                 m3u8Downloader?.fileName ??
                 p.join(directory.path, '$chapterName.mp4');
           } else if (progress.itemType == ItemType.manga) {
-            candidatePath = p.join(directory.path, '${chapter.name}.cbz');
+            final archiveFormat =
+                DownloadSettingsService.instance.mangaArchiveFormat;
+            final extension = archiveFormat.isArchive
+                ? archiveFormat.extension
+                : '.cbz';
+            candidatePath = p.join(directory.path, '${chapter.name}$extension');
           } else if (progress.itemType == ItemType.novel) {
             candidatePath = p.join(directory.path, '$chapterName.html');
           }

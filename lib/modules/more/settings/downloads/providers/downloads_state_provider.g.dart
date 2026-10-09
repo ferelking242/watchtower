@@ -1798,3 +1798,56 @@ abstract class _$DownloadCardLayoutState extends $Notifier<DownloadCardLayout> {
     element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(MangaArchiveCompressionState)
+final mangaArchiveCompressionStateProvider =
+    MangaArchiveCompressionStateProvider._();
+
+final class MangaArchiveCompressionStateProvider
+    extends $NotifierProvider<MangaArchiveCompressionState, int> {
+  MangaArchiveCompressionStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'mangaArchiveCompressionStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$mangaArchiveCompressionStateHash();
+
+  @$internal
+  @override
+  MangaArchiveCompressionState create() => MangaArchiveCompressionState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$mangaArchiveCompressionStateHash() =>
+    r'c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4';
+
+abstract class _$MangaArchiveCompressionState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}

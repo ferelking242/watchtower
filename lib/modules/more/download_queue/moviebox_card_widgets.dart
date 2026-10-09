@@ -137,12 +137,17 @@ class MbGradientProgressBar extends StatefulWidget {
   final bool paused;
   final bool failed;
 
+  /// Golden second pass: the archive is being packed/compressed after the
+  /// transfer finished. Uses a golden gradient instead of the green/teal one.
+  final bool compressing;
+
   const MbGradientProgressBar({
     super.key,
     required this.value,
     this.height = 4,
     this.paused = false,
     this.failed = false,
+    this.compressing = false,
   });
 
   @override
@@ -192,7 +197,11 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
     if (_sweepEnabled) _sweep.repeat();
   }
 
-  bool get _sweepEnabled => _target != null && !widget.paused && !widget.failed;
+  bool get _sweepEnabled =>
+      _target != null &&
+      !widget.paused &&
+      !widget.failed &&
+      !widget.compressing;
 
   @override
   void didUpdateWidget(covariant MbGradientProgressBar oldWidget) {
@@ -232,6 +241,8 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
         ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
         : paused
         ? const LinearGradient(colors: [mbAmber, Color(0xFFFF8F00)])
+        : widget.compressing
+        ? const LinearGradient(colors: [Color(0xFFF5C518), Color(0xFFE0A800)])
         : const LinearGradient(colors: [mbGreen, mbTeal]);
 
     if (_target == null) {

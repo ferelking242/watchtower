@@ -41,18 +41,55 @@ extension DownloadModeExt on DownloadMode {
 enum MangaArchiveFormat {
   folder,  // 0 — images in folder (no archive)
   cbz,     // 1 — CBZ (ZIP with images)
-  cbr,     // 2 — legacy setting; RAR writing is not supported
-  cb7,     // 3 — legacy setting; 7z writing is not supported
+  cbr,     // 2 — CBR container (written as a ZIP stream, .cbr extension)
+  cb7,     // 3 — CB7 container (written as a ZIP stream, .cb7 extension)
   zip;     // 4 — ZIP plain
 
   static const supportedFormats = [
     MangaArchiveFormat.folder,
     MangaArchiveFormat.cbz,
+    MangaArchiveFormat.cbr,
+    MangaArchiveFormat.cb7,
     MangaArchiveFormat.zip,
   ];
 }
 
 extension MangaArchiveFormatExt on MangaArchiveFormat {
+  /// Asset logo shown on the format card.
+  String get logoAsset {
+    switch (this) {
+      case MangaArchiveFormat.folder:
+        return 'assets/icons/format_folder.svg';
+      case MangaArchiveFormat.cbz:
+        return 'assets/icons/format_cbz.svg';
+      case MangaArchiveFormat.cbr:
+        return 'assets/icons/format_cbr.svg';
+      case MangaArchiveFormat.cb7:
+        return 'assets/icons/format_cb7.svg';
+      case MangaArchiveFormat.zip:
+        return 'assets/icons/format_zip.svg';
+    }
+  }
+
+  /// Short uppercase tag rendered under the card title.
+  String get shortLabel {
+    switch (this) {
+      case MangaArchiveFormat.folder:
+        return 'IMAGES';
+      case MangaArchiveFormat.cbz:
+        return 'CBZ';
+      case MangaArchiveFormat.cbr:
+        return 'CBR';
+      case MangaArchiveFormat.cb7:
+        return 'CB7';
+      case MangaArchiveFormat.zip:
+        return 'ZIP';
+    }
+  }
+
+  /// True when the chapter is packaged into one archive file.
+  bool get isArchive => this != MangaArchiveFormat.folder;
+
   String get label {
     switch (this) {
       case MangaArchiveFormat.folder:
@@ -60,9 +97,9 @@ extension MangaArchiveFormatExt on MangaArchiveFormat {
       case MangaArchiveFormat.cbz:
         return 'CBZ';
       case MangaArchiveFormat.cbr:
-        return 'CBR (non pris en charge)';
+        return 'CBR';
       case MangaArchiveFormat.cb7:
-        return 'CB7 (non pris en charge)';
+        return 'CB7';
       case MangaArchiveFormat.zip:
         return 'ZIP';
     }
@@ -86,7 +123,6 @@ extension MangaArchiveFormatExt on MangaArchiveFormat {
 
 /// Enum for swipe left/right actions on download cards
 enum SwipeAction { pauseResume, cancel, delete, retry, none }
-
 extension SwipeActionExt on SwipeAction {
   String get label {
     switch (this) {
@@ -209,6 +245,19 @@ class DownloadSettingsService {
     }
     _data['mangaArchiveFormat'] = format.index;
     _data['saveAsCBZ'] = format != MangaArchiveFormat.folder;
+    await _save();
+  }
+
+  // ── Manga archive compression level ───────────────────────────────────────
+  // 0   = fast (store quality, deflate bestSpeed)
+  // 1-9 = progressively stronger: higher deflate level AND a lower JPEG
+  //       re-encode quality, which is what actually shrinks a comic archive
+  //       (the source pages are already JPEG, so deflating them barely helps).
+  int get mangaArchiveCompression =>
+      (_data['mangaArchiveCompression'] as int? ?? 0).clamp(0, 9);
+
+  Future<void> setMangaArchiveCompression(int v) async {
+    _data['mangaArchiveCompression'] = v.clamp(0, 9);
     await _save();
   }
 

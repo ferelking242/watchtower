@@ -870,6 +870,12 @@ class WatchtowerNotificationService {
       if (!_initialized) await init();
       final id = await _mediaNotificationIdForChapter(chapterId);
       final previous = _mediaDownloadNotices[chapterId];
+      // A chapter already reported as finished must never be dragged back to an
+      // in-progress/paused notice by a late, duplicated or re-queued progress
+      // tick — that is what left 3 of 4 finished chapters stuck at "0/34".
+      if (previous != null && previous.isCompleted && !isCompleted) {
+        return;
+      }
       final now = DateTime.now();
       final notice = _MediaDownloadNotice(
         id: id,
@@ -919,8 +925,11 @@ class WatchtowerNotificationService {
         ticker: displayTitle,
         groupKey: _kMediaDownloadGroupKey,
         onlyAlertOnce: true,
-        ongoing: !isTerminal,
-        autoCancel: isTerminal,
+        // Keep the notice pinned while the chapter is downloading OR paused:
+        // it must not be swipeable until the download truly finishes. Only a
+        // completed/failed notice is user-dismissible.
+        ongoing: !isCompleted && !isFailed,
+        autoCancel: isCompleted || isFailed,
         playSound: false,
         enableVibration: false,
         showProgress: !isTerminal && progressPercent != null,
@@ -1234,8 +1243,10 @@ class WatchtowerNotificationService {
       groupKey: _kMediaDownloadGroupKey,
       setAsGroupSummary: true,
       onlyAlertOnce: true,
-      ongoing: active.isNotEmpty,
-      autoCancel: active.isEmpty,
+      // The group summary stays pinned as long as any chapter is downloading
+      // or paused so it cannot be dismissed before the queue is really done.
+      ongoing: active.isNotEmpty || paused.isNotEmpty,
+      autoCancel: active.isEmpty && paused.isEmpty,
       playSound: false,
       enableVibration: false,
       styleInformation: InboxStyleInformation(

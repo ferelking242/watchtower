@@ -14,6 +14,7 @@ import 'package:watchtower/modules/manga/download/providers/download_provider.da
 import 'package:watchtower/modules/more/download_queue/download_queue_progress.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/download_manager/archive_progress_store.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/update_notification_service.dart';
@@ -2297,6 +2298,10 @@ class _DownloadCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final archiveProgress = download.id == null
+        ? null
+        : ref.watch(archiveProgressProvider).value?[download.id!];
+    final isCompressing = archiveProgress != null;
     final manga = download.chapter.value?.manga.value;
     final chapter = download.chapter.value;
     final itemType = manga?.itemType ?? ItemType.manga;
@@ -2401,7 +2406,9 @@ class _DownloadCard extends ConsumerWidget {
         isIndeterminateTransfer;
 
     final String statusText;
-    if (isComplete) {
+    if (isCompressing) {
+      statusText = 'Compression';
+    } else if (isComplete) {
       statusText = 'Terminé';
     } else if (hasFailed) {
       statusText = 'Échec';
@@ -2420,7 +2427,9 @@ class _DownloadCard extends ConsumerWidget {
     } else {
       statusText = progress > 0 ? 'Téléchargement' : 'En attente';
     }
-    final Color statusColor = isComplete
+    final Color statusColor = isCompressing
+        ? const Color(0xFFE0A800)
+        : isComplete
         ? scheme.primary
         : hasFailed
         ? Colors.redAccent
@@ -2442,10 +2451,22 @@ class _DownloadCard extends ConsumerWidget {
 
     // Progress bar — no TweenAnimationBuilder so progress never "resets to 0"
     // on each Isar stream rebuild (the regression bug). Direct value is correct.
-    final progressBar = !isComplete &&
-            (progress > 0 ||
-                isProgressIndeterminate ||
-                (itemType == ItemType.manga && total > 1))
+    // During the archive-packing pass the bar turns golden and tracks the
+    // persisted compression progress instead of the (now finished) transfer.
+    final progressBar = isCompressing
+        ? MbGradientProgressBar(
+            value: archiveProgress.value,
+            height: layout == DownloadCardLayout.minimal
+                ? 2
+                : layout == DownloadCardLayout.compact
+                ? 4
+                : 6,
+            compressing: true,
+          )
+        : !isComplete &&
+              (progress > 0 ||
+                  isProgressIndeterminate ||
+                  (itemType == ItemType.manga && total > 1))
         ? MbGradientProgressBar(
             value: isProgressIndeterminate ? null : progress,
             height: layout == DownloadCardLayout.minimal

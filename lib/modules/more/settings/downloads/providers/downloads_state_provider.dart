@@ -188,6 +188,25 @@ class MangaArchiveFormatState extends _$MangaArchiveFormatState {
   }
 }
 
+// ── Manga archive compression level ───────────────────────────────────────────
+
+@riverpod
+class MangaArchiveCompressionState extends _$MangaArchiveCompressionState {
+  @override
+  int build() {
+    final settings = DownloadSettingsService.instance;
+    settings.load().then((_) {
+      if (ref.mounted) state = settings.mangaArchiveCompression;
+    });
+    return settings.mangaArchiveCompression;
+  }
+
+  Future<void> set(int value) async {
+    state = value.clamp(0, 9);
+    await DownloadSettingsService.instance.setMangaArchiveCompression(state);
+  }
+}
+
 // ── Per-type connection settings ─────────────────────────────────────────────
 
 @riverpod

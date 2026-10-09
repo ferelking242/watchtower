@@ -63,7 +63,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             _NavTile(
               icon: Icons.menu_book_outlined,
               label: 'Manga',
-              subtitle: 'Connexions, format d\'archive, chapitres',
+              subtitle: 'Format d\'archive, compression, chapitres',
               iconColor: scheme.secondary,
               onTap: () => _push(context, const MangaDownloadScreen()),
             ),

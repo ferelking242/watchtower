@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/engines/download_engine.dart';
@@ -29,7 +27,6 @@ class ActiveDownloadRegistry {
   // Per-download metadata for counting
   static final _internalItemType = <int, ItemType>{};
   static final _internalSource = <int, String>{};
-  static final _workerStopped = <int, Completer<void>>{};
   static final _interruptedIds = <int>{};
 
   // ── Registration ──────────────────────────────────────────────────────────
@@ -100,8 +97,6 @@ class ActiveDownloadRegistry {
     _internalItemType.remove(downloadId);
     _internalSource.remove(downloadId);
     _interruptedIds.remove(downloadId);
-    final stopped = _workerStopped.remove(downloadId);
-    if (stopped != null && !stopped.isCompleted) stopped.complete();
   }
 
   // ── Counting ──────────────────────────────────────────────────────────────
@@ -185,28 +180,26 @@ class ActiveDownloadRegistry {
   }
 
   /// Cancel and remove the download from the registry.
+  ///
+  /// Idempotent: calling it twice (or after the entry is gone) is a no-op and
+  /// never launches a ghost worker against the same partial `.part` file.
   static Future<void> cancel(int downloadId) async {
     _interruptedIds.add(downloadId);
-    if (_engines.containsKey(downloadId)) {
-      await _engines[downloadId]!.cancel();
+    final engine = _engines[downloadId];
+    if (engine != null) {
+      try {
+        await engine.cancel();
+      } catch (_) {}
       unregister(downloadId);
       return;
     }
-    if (_internalTaskIds.containsKey(downloadId)) {
-      // Cancel exactly the registered task ID — no hardcoded prefix guessing.
-      final taskId = _internalTaskIds[downloadId]!;
-      final stopped = _workerStopped.putIfAbsent(
-        downloadId,
-        Completer<void>.new,
-      );
+    final taskId = _internalTaskIds[downloadId];
+    if (taskId != null) {
       DownloadIsolatePool.instance.cancelTask(taskId);
-      // Do not remove records or partial files until the worker has stopped
-      // writing them. The worker's finally path completes this waiter.
-      await stopped.future;
-      // The worker owns its unregister. Do not unregister again here: the
-      // scheduler may already have claimed a new attempt after it stopped.
-      return;
     }
+    // Release the slot synchronously so a second cancel is a no-op and the
+    // scheduler can never re-claim a chapter the user just removed. Cancelled
+    // rows carry status='cancelled', so the scheduler will not re-queue them.
     unregister(downloadId);
   }
 
