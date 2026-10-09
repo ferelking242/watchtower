@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
+import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/main.dart';
@@ -17,7 +18,9 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/layout_registry.dart';
+import 'package:watchtower/services/update_notification_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/browse/plugins_section.dart';
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
@@ -178,6 +181,16 @@ class _ExtEntry {
     this.rating = 0,
     this.reviewCount = 0,
   });
+}
+
+bool _isMusicPluginEntry(_ExtEntry entry) {
+  if (entry.contentType != ItemType.music) return false;
+  return [entry.upstream, entry.repoUrl]
+      .where((url) => url.isNotEmpty)
+      .any(
+        (url) =>
+            Uri.tryParse(url)?.path.toLowerCase().endsWith('.smplug') ?? false,
+      );
 }
 
 // ─── Top-level parse helpers ───────────────────────────────────────────────────
@@ -600,7 +613,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   /// or "FLAC Music" vs a plugin named "FLAC", so we also compare compact
   /// names and the repository URLs stored on both sides.
   PluginConfiguration? _musicPluginFor(_ExtEntry entry) {
-    if (entry.contentType != ItemType.music) return null;
+    if (!_isMusicPluginEntry(entry)) return null;
     final plugins =
         ref.read(metadataPluginsProvider).value?.plugins ?? const [];
     if (plugins.isEmpty) return null;
@@ -615,22 +628,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (repo != null && repo.isNotEmpty && urls.contains(repo)) return p;
       final pn = _normCompact(p.name);
       if (pn == entryName) return p;
-      // Shared compact root ("MusicBrainz" / "Musicbrainz and Listenbrainz",
-      // "FLAC Music" / "Flac Downloader Audio").
-      if (pn.contains(entryName) || entryName.contains(pn)) {
-        if (entryName.length >= 4) return p;
-        continue;
-      }
-      // Shared leading prefix (>= 4 chars) — covers names that only agree on
-      // their first brand word.
-      var i = 0;
-      final maxLen = entryName.length < pn.length
-          ? entryName.length
-          : pn.length;
-      while (i < maxLen && entryName.codeUnitAt(i) == pn.codeUnitAt(i)) {
-        i++;
-      }
-      if (i >= 4) return p;
     }
     return null;
   }
@@ -646,7 +643,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       // drift DB, not in the Isar `sources` table — mark the marketplace
       // entries matching an installed plugin as installed too.
       final musicPlugins = <int, PluginConfiguration>{};
-      for (final entry in _all.where((e) => e.contentType == ItemType.music)) {
+      for (final entry in _all.where(_isMusicPluginEntry)) {
         final plugin = _musicPluginFor(entry);
         if (plugin != null) musicPlugins[entry.id] = plugin;
       }
@@ -740,28 +737,83 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
     try {
       var failures = 0;
-      Future<List<_ExtEntry>> safe(Future<List<_ExtEntry>> request) async {
+      const catalogUrls = [
+        '$_kWtBase/index/manga.json',
+        '$_kWtBase/index/watch.json',
+        '$_kWtBase/index/novel.json',
+        '$_kWtBase/index/music.json',
+        '$_kWtBase/index/game.json',
+      ];
+      final catalogLoaded = List<bool>.filled(catalogUrls.length, false);
+      Future<List<_ExtEntry>> safe(
+        int index,
+        Future<List<_ExtEntry>> request,
+      ) async {
         try {
-          return await request;
+          final entries = await request;
+          catalogLoaded[index] = true;
+          return entries;
         } catch (_) {
           failures++;
           return <_ExtEntry>[];
         }
       }
 
-      final results = await Future.wait<List<_ExtEntry>>([
-        safe(_fetch('$_kWtBase/index/manga.json')),
-        safe(_fetch('$_kWtBase/index/watch.json')),
-        safe(_fetch('$_kWtBase/index/novel.json')),
-        safe(_fetch('$_kWtBase/index/music.json')),
-        safe(_fetch('$_kWtBase/index/game.json')),
-      ]).timeout(
+      final results = await Future.wait<List<_ExtEntry>>(
+        List<Future<List<_ExtEntry>>>.generate(
+          catalogUrls.length,
+          (index) => safe(index, _fetch(catalogUrls[index])),
+        ),
+      ).timeout(
             const Duration(seconds: 20),
             onTimeout: () {
-              failures = 5;
-              return List<List<_ExtEntry>>.generate(5, (_) => <_ExtEntry>[]);
+              failures = catalogUrls.length;
+              return List<List<_ExtEntry>>.generate(
+                catalogUrls.length,
+                (_) => <_ExtEntry>[],
+              );
             },
           );
+
+      if (failures < catalogUrls.length) {
+        final published = <ExtensionPublicationNotice>[];
+        for (var index = 0; index < catalogUrls.length; index++) {
+          if (!catalogLoaded[index]) continue;
+          try {
+            published.addAll(
+              await ExtensionCatalogNotifications.observeCatalog(
+                catalogUrl: catalogUrls[index],
+                entries: results[index].map(
+                  (entry) => ExtensionPublicationNotice(
+                    id: entry.id,
+                    name: entry.name,
+                    itemType: entry.contentType,
+                    version: entry.version,
+                    lang: entry.lang,
+                    iconUrl: entry.iconUrl,
+                  ),
+                ),
+              ),
+            );
+          } catch (error, stackTrace) {
+            AppLogger.log(
+              'Could not record new marketplace extensions',
+              logLevel: LogLevel.warning,
+              tag: LogTag.repo,
+              error: error,
+              stackTrace: stackTrace,
+            );
+          }
+        }
+        if (published.isNotEmpty) {
+          unawaited(
+            WatchtowerNotificationService.instance.showNewExtensions(
+              published,
+            ),
+          );
+        }
+      }
+
       if (mounted)
         setState(() {
           _all = results.expand((l) => l).toList();
@@ -814,29 +866,36 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (_busy[entry.id] == true) return false;
     setState(() => _busy[entry.id] = true);
     try {
-      // Entrées music (ItemType.music) → plugin music (.smplug) via metadata
-      // plugin provider, pas via fetchSourcesList (JS extensions).
-      if (entry.contentType == ItemType.music) {
+      // Only .smplug entries are metadata/audio plugins. Music sources such
+      // as the YouTube Music JavaScript extension still install through Isar.
+      if (_isMusicPluginEntry(entry)) {
         final repoUrl = entry.upstream.isNotEmpty
             ? entry.upstream
             : entry.repoUrl;
         final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
+        final existingPlugin = _musicPluginFor(entry);
         final pluginConfig = await pluginsNotifier.downloadAndCachePlugin(
           repoUrl,
         );
-        await pluginsNotifier.addPlugin(pluginConfig);
+        if (existingPlugin == null) {
+          await pluginsNotifier.addPlugin(pluginConfig);
+        } else {
+          await pluginsNotifier.replacePlugin(existingPlugin, pluginConfig);
+        }
         // addPlugin writes Drift synchronously, but the Riverpod watch stream
         // can publish the new state on the next event-loop turn. Refreshing
         // immediately can therefore report a successful install as missing.
 
-        // Always set the newly installed plugin as default for its ability type.
-        // The SQL update is safe even while the provider is rebuilding.
-        if (pluginConfig.abilities.contains(PluginAbilities.metadata)) {
+        // New plugins become defaults only when installed, not when replacing
+        // an existing plugin that the user may not have selected as default.
+        if (existingPlugin == null &&
+            pluginConfig.abilities.contains(PluginAbilities.metadata)) {
           try {
             await pluginsNotifier.setDefaultMetadataPlugin(pluginConfig);
           } catch (_) {}
         }
-        if (pluginConfig.abilities.contains(PluginAbilities.audioSource)) {
+        if (existingPlugin == null &&
+            pluginConfig.abilities.contains(PluginAbilities.audioSource)) {
           try {
             await pluginsNotifier.setDefaultAudioSourcePlugin(pluginConfig);
           } catch (_) {}
@@ -857,6 +916,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             'Le plugin ${entry.name} n’a pas été enregistré après le téléchargement.',
           );
         }
+        await ExtensionCatalogNotifications.dismissById(
+          id: entry.id,
+          itemType: entry.contentType,
+        );
+        await ExtensionCatalogNotifications.dismissPendingUpdate(
+          id: entry.id,
+          itemType: entry.contentType,
+        );
         if (mounted) {
           _showToast(
             context,
@@ -880,6 +947,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         itemType: entry.contentType,
       );
       await _verifyInstalled(entry);
+      await ExtensionCatalogNotifications.dismissById(
+        id: entry.id,
+        itemType: entry.contentType,
+      );
+      await ExtensionCatalogNotifications.dismissPendingUpdate(
+        id: entry.id,
+        itemType: entry.contentType,
+      );
       await _refreshInstalled();
       if (mounted) {
         _showToast(
@@ -901,11 +976,24 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Silent core: no toasts, no setState ─────────────────────────────────
   Future<void> _installOneCore(_ExtEntry entry) async {
-    if (entry.contentType == ItemType.music) {
+    if (_isMusicPluginEntry(entry)) {
       final repoUrl = entry.upstream.isNotEmpty ? entry.upstream : entry.repoUrl;
       final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
       final pluginConfig = await pluginsNotifier.downloadAndCachePlugin(repoUrl);
-      await pluginsNotifier.addPlugin(pluginConfig);
+      final existingPlugin = _musicPluginFor(entry);
+      if (existingPlugin == null) {
+        await pluginsNotifier.addPlugin(pluginConfig);
+      } else {
+        await pluginsNotifier.replacePlugin(existingPlugin, pluginConfig);
+      }
+      await ExtensionCatalogNotifications.dismissById(
+        id: entry.id,
+        itemType: entry.contentType,
+      );
+      await ExtensionCatalogNotifications.dismissPendingUpdate(
+        id: entry.id,
+        itemType: entry.contentType,
+      );
       return;
     }
     final repo = Repo(
@@ -921,6 +1009,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       itemType: entry.contentType,
     );
     await _verifyInstalled(entry);
+    await ExtensionCatalogNotifications.dismissById(
+      id: entry.id,
+      itemType: entry.contentType,
+    );
+    await ExtensionCatalogNotifications.dismissPendingUpdate(
+      id: entry.id,
+      itemType: entry.contentType,
+    );
   }
 
   Future<void> _verifyInstalled(_ExtEntry entry) async {
@@ -1021,7 +1117,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (confirmed != true || !mounted) return;
     setState(() => _busy[entry.id] = true);
     try {
-      if (entry.contentType == ItemType.music) {
+      if (_isMusicPluginEntry(entry)) {
         final plugin = _musicPluginFor(entry);
         if (plugin == null) {
           throw StateError('Plugin audio introuvable dans le stockage local.');
@@ -1056,6 +1152,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         });
         await LayoutRegistry.instance.remove(source);
       }
+      await ExtensionCatalogNotifications.dismissPendingUpdate(
+        id: entry.id,
+        itemType: entry.contentType,
+      );
       await _refreshInstalled();
       if (mounted) {
         _showToast(context, '${entry.name} désinstallée', icon: Broken.trash);
@@ -2645,7 +2745,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
     // Music extensions live in the drift DB, not Isar sources.
     final entry = _all.where((e) => e.id == id).firstOrNull;
-    if (entry == null || entry.contentType != ItemType.music) return;
+    if (entry == null || !_isMusicPluginEntry(entry)) return;
     final plugin = _musicPluginFor(entry);
     if (plugin == null) return;
     _showMusicPluginConfigSheet(plugin);
@@ -9157,7 +9257,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
   int _tab = 0;
-  int _bottomTab = 1;
   bool _searching = false;
   bool _searchFocused = false;
   bool _accountOpen = false;
@@ -9558,7 +9657,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   void _openSearch() {
     setState(() {
       _searching = true;
-      _bottomTab = 2;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _searchFocus.requestFocus();
@@ -9582,7 +9680,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             Expanded(
               child: _accountOpen ? _buildAccount() : _buildMain(context),
             ),
-            _buildBottomNavigation(),
           ],
         ),
       ),
@@ -9590,9 +9687,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildMain(BuildContext context) {
-    if (widget.error != null && widget.entries.isEmpty) {
-      return _buildError();
-    }
     return RefreshIndicator(
       color: _green,
       backgroundColor: _surfaceHigh,
@@ -9603,30 +9697,47 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         ),
         slivers: [
           SliverToBoxAdapter(child: _buildHeader()),
-          if (!_searching) ...[
-            _buildTabs(),
-            if (widget.loading && widget.entries.isEmpty)
-              const SliverToBoxAdapter(child: _LoadingRows())
-            else if (_tab == 0)
-              ..._buildForYou()
-            else if (_showAll) ...[
+          if (!_searching) _buildTabs(),
+          if (widget.error != null && widget.entries.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _buildError(),
+            )
+          else if (widget.loading && widget.entries.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: _LoadingRows(),
+            )
+          else if (!_searching && _needsNsfwGate) ...[
+            SliverToBoxAdapter(child: _buildHero()),
+            SliverToBoxAdapter(child: _buildNsfwGate()),
+          ] else if (!_searching &&
+              (_showAll ? _groupedVisible.isEmpty : _visible.isEmpty))
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _buildEmptyCatalog(),
+            )
+          else if (!_searching && _tab == 0)
+            ..._buildForYou()
+          else if (!_searching && _showAll) ...[
               SliverToBoxAdapter(child: _buildGroupHeader()),
               _buildRows(_groupedVisible),
-            ] else if (_needsNsfwGate) ...[
-              SliverToBoxAdapter(child: _buildHero()),
-              SliverToBoxAdapter(child: _buildNsfwGate()),
-            ] else ...[
-              SliverToBoxAdapter(child: _buildHero()),
-              SliverToBoxAdapter(
-                child: _buildSectionTitle('Sélection ${_tabLabels[_tab]}'),
-              ),
-              _buildShelf(_visible.take(12).toList()),
-              ..._buildGroupedSections(),
-            ],
+          ] else if (!_searching) ...[
+            SliverToBoxAdapter(child: _buildHero()),
+            SliverToBoxAdapter(
+              child: _buildSectionTitle('Sélection ${_tabLabels[_tab]}'),
+            ),
+            _buildShelf(_visible.take(12).toList()),
+            ..._buildGroupedSections(),
           ] else ...[
             SliverToBoxAdapter(child: _buildSearchBar()),
             if (_searchController.text.isEmpty)
               SliverToBoxAdapter(child: _buildSearchDiscovery())
+            else if (_visible.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _buildEmptyCatalog(),
+              )
             else ...[
               ..._buildSearchSuggestions(),
               SliverToBoxAdapter(
@@ -9637,6 +9748,64 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           ],
           const SliverToBoxAdapter(child: SizedBox(height: 28)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyCatalog() {
+    final searchHasQuery =
+        _searching && _searchController.text.trim().isNotEmpty;
+    final title = searchHasQuery
+        ? 'Aucune extension trouvée'
+        : 'Aucune extension disponible';
+    final subtitle = searchHasQuery
+        ? 'Essaie un autre nom ou actualise le catalogue.'
+        : 'Le catalogue est vide pour le moment. Réessaie plus tard.';
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Semantics(
+              label: 'Catalogue vide',
+              child: Lottie.asset(
+                'assets/animations/empty_box_partho.json',
+                width: 190,
+                height: 190,
+                fit: BoxFit.contain,
+                repeat: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextButton.icon(
+              onPressed: widget.onRefresh,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Actualiser'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -9664,12 +9833,19 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             onTap: () => _showNotifications(context),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => setState(() => _accountOpen = true),
-            child: const CircleAvatar(
-              radius: 18,
-              backgroundColor: Color(0xFF3B4D58),
-              child: Icon(Icons.person_rounded, color: Colors.white, size: 21),
+          Tooltip(
+            message: 'Paramètres du Marketplace',
+            child: GestureDetector(
+              onTap: widget.onOpenSettings,
+              child: const CircleAvatar(
+                radius: 18,
+                backgroundColor: Color(0xFF3B4D58),
+                child: Icon(
+                  Icons.view_in_ar_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
+              ),
             ),
           ),
         ],
@@ -9909,7 +10085,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               _searchController.text = language;
               setState(() {
                 _searching = true;
-                _bottomTab = 2;
               });
               _searchFocus.requestFocus();
             },
@@ -9960,7 +10135,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     _recordSearch(value);
     setState(() {
       _searching = true;
-      _bottomTab = 2;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _searchFocus.requestFocus();
@@ -10482,76 +10656,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildBottomNavigation() {
-    const items = [
-      (Icons.sports_esports_outlined, Icons.sports_esports_rounded, 'Jeux'),
-      (Icons.apps_outlined, Icons.apps_rounded, 'Applications'),
-      (Icons.search_rounded, Icons.search_rounded, 'Rechercher'),
-      (Icons.person_outline_rounded, Icons.person_rounded, 'Vous'),
-    ];
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1B1B1D),
-        border: Border(top: BorderSide(color: Color(0xFF2B2B2E))),
-      ),
-      padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (index) {
-          final selected = _bottomTab == index;
-          return GestureDetector(
-            onTap: () {
-              if (index == 2) {
-                _openSearch();
-              } else if (index == 3) {
-                setState(() {
-                  _bottomTab = index;
-                  _accountOpen = true;
-                });
-              } else {
-                setState(() {
-                  _bottomTab = index;
-                  _accountOpen = false;
-                  _searching = false;
-                  _showAll = false;
-                  _groupFilter = null;
-                  if (index == 0) _tab = 1;
-                  if (index == 1) _tab = 0;
-                });
-              }
-            },
-            child: SizedBox(
-              width: 74,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Icon(
-                      selected ? items[index].$2 : items[index].$1,
-                      color: selected ? const Color(0xFFB7F4F0) : _muted,
-                      size: 21,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    items[index].$3,
-                    style: TextStyle(
-                      color: selected ? Colors.white : _muted,
-                      fontSize: 10,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ),
     );
   }
 

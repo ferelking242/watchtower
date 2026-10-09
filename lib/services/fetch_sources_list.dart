@@ -18,6 +18,7 @@ import 'package:watchtower/modules/more/settings/general/extension_cookie_manage
 import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/extension_page_cache.dart';
+import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 
 // ── Web proxy helper ─────────────────────────────────────────────────────────
@@ -375,6 +376,12 @@ Future<void> fetchSourcesList({
       );
       try {
         await _updateSource(source, repo, itemType);
+        if (source.id != null) {
+          await ExtensionCatalogNotifications.dismissPendingUpdate(
+            id: source.id!,
+            itemType: itemType,
+          );
+        }
         AppLogger.log(
           'Auto-update OK: "${source.name}"',
           tag: LogTag.extension_,
@@ -389,6 +396,39 @@ Future<void> fetchSourcesList({
         );
       }
     }
+  }
+
+  try {
+    final newlyPublished = await ExtensionCatalogNotifications.observeCatalog(
+      catalogUrl: url,
+      entries: sourceList
+          .where((source) => source.id != null)
+          .map(
+            (source) => ExtensionPublicationNotice(
+              id: source.id!,
+              name: source.name ?? 'Extension',
+              itemType: source.itemType,
+              version: source.version ?? '',
+              lang: source.lang ?? '',
+              iconUrl: source.iconUrl,
+            ),
+          ),
+    );
+    if (newlyPublished.isNotEmpty) {
+      unawaited(
+        WatchtowerNotificationService.instance.showNewExtensions(
+          newlyPublished,
+        ),
+      );
+    }
+  } catch (error, stackTrace) {
+    AppLogger.log(
+      'Could not track newly published extensions for ${repo?.name}',
+      logLevel: LogLevel.warning,
+      tag: LogTag.repo,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   checkIfSourceIsObsolete(sourceList, repo!, itemType);

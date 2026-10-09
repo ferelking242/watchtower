@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -21,6 +22,8 @@ const int _kUpdateNotifId = 9910;
 const int _kReminderNotifId = 9911;
 const int _kProgressNotifId = 9912;
 const int _kMediaDownloadSummaryNotifId = 9913;
+const int _kExtensionUpdateNotifId = 9914;
+const int _kNewExtensionNotifId = 9915;
 const String _kMediaDownloadGroupKey = 'watchtower_media_downloads';
 int _nextMediaNotifId =
     1000000000 + (DateTime.now().millisecondsSinceEpoch % 1000000000);
@@ -270,6 +273,8 @@ class WatchtowerNotificationService {
     final actionId = response.actionId;
     final isExtensionUpdate =
         response.payload?.contains('"type":"extension_updates"') == true;
+    final isNewExtensions =
+        response.payload?.contains('"type":"new_extensions"') == true;
     final isDownloadGroup =
         response.payload?.contains('"type":"download_group"') == true;
     // Tapping the notification body (no action id) when install is pending.
@@ -280,7 +285,7 @@ class WatchtowerNotificationService {
       unawaited(_installPending());
     } else if (actionId == _kActionInstallExtensions) {
       unawaited(_installExtensionsFromNotification());
-    } else if (isExtensionUpdate && actionId == null) {
+    } else if ((isExtensionUpdate || isNewExtensions) && actionId == null) {
       unawaited(_openExtensionNotifications());
     } else if (actionId == null || actionId == _kActionPlay) {
       unawaited(_openMediaNotification(response));
@@ -419,6 +424,29 @@ class WatchtowerNotificationService {
     if (updates.isEmpty || !_supported) return;
     try {
       if (!_initialized) await init();
+      try {
+        await ExtensionCatalogNotifications.rememberPendingUpdates(
+          updates.where((source) => source.id != null).map(
+            (source) => ExtensionPublicationNotice(
+              id: source.id!,
+              name: source.name ?? 'Extension',
+              itemType: source.itemType,
+              version: source.versionLast ?? '',
+              lang: source.lang ?? '',
+              iconUrl: source.iconUrl,
+              publishedAt: DateTime.now().millisecondsSinceEpoch,
+            ),
+          ),
+        );
+      } catch (error, stackTrace) {
+        AppLogger.log(
+          'Could not persist extension update notifications',
+          logLevel: LogLevel.warning,
+          tag: LogTag.network,
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
       final names = updates
           .map(
             (source) =>
@@ -453,7 +481,7 @@ class WatchtowerNotificationService {
         presentSound: true,
       );
       await _plugin.show(
-        _kUpdateNotifId + 1,
+        _kExtensionUpdateNotifId,
         'Mise à jour d’extension disponible',
         names,
         NotificationDetails(android: androidDetails, iOS: iosDetails),
@@ -462,6 +490,53 @@ class WatchtowerNotificationService {
     } catch (e) {
       AppLogger.log(
         'showExtensionUpdates failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  /// Posts a native notification for extensions newly discovered in a
+  /// previously checked repository catalogue.
+  Future<void> showNewExtensions(
+    List<ExtensionPublicationNotice> extensions,
+  ) async {
+    if (extensions.isEmpty || !_supported) return;
+    try {
+      if (!_initialized) await init();
+      final names = extensions
+          .take(8)
+          .map((entry) => '${entry.name} v${entry.version}')
+          .join(', ');
+      final androidDetails = AndroidNotificationDetails(
+        _kUpdateChannelId,
+        _kUpdateChannelName,
+        channelDescription: 'Nouvelles extensions publiées',
+        importance: Importance.high,
+        priority: Priority.high,
+        ticker: 'Nouvelle extension publiée',
+        styleInformation: BigTextStyleInformation(
+          names,
+          contentTitle:
+              '${extensions.length} nouvelle${extensions.length == 1 ? '' : 's'} extension${extensions.length == 1 ? '' : 's'} publiée${extensions.length == 1 ? '' : 's'}',
+          summaryText: 'Marketplace',
+        ),
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      await _plugin.show(
+        _kNewExtensionNotifId,
+        'Nouvelle extension publiée',
+        names,
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+        payload: jsonEncode({'type': 'new_extensions'}),
+      );
+    } catch (error) {
+      AppLogger.log(
+        'showNewExtensions failed: $error',
         logLevel: LogLevel.warning,
         tag: LogTag.network,
       );

@@ -566,6 +566,69 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     );
   }
 
+  /// Replaces a plugin's database record without deleting the extracted files.
+  ///
+  /// `downloadAndCachePlugin` has already written the new archive to the
+  /// plugin's extraction directory. Calling `removePlugin` here would delete
+  /// those freshly downloaded files when the old and new plugin share an
+  /// identity, which made successful updates appear broken on the next load.
+  Future<void> replacePlugin(
+    PluginConfiguration oldPlugin,
+    PluginConfiguration updatedPlugin,
+  ) async {
+    _assertPluginApiCompatibility(updatedPlugin);
+    if (oldPlugin.name != updatedPlugin.name ||
+        oldPlugin.author != updatedPlugin.author) {
+      throw MetadataPluginException.invalidPluginConfiguration();
+    }
+
+    final existing = await (database.pluginsTable.select()
+          ..where(
+            (tbl) =>
+                tbl.name.equals(oldPlugin.name) &
+                tbl.author.equals(oldPlugin.author),
+          )
+          ..limit(1))
+        .get();
+    if (existing.isEmpty) {
+      await addPlugin(updatedPlugin);
+      return;
+    }
+
+    final oldRecord = existing.first;
+    await (database.pluginsTable.update()
+          ..where(
+            (tbl) =>
+                tbl.name.equals(oldPlugin.name) &
+                tbl.author.equals(oldPlugin.author),
+          ))
+        .write(
+          PluginsTableCompanion(
+            description: Value(updatedPlugin.description),
+            version: Value(updatedPlugin.version),
+            entryPoint: Value(updatedPlugin.entryPoint),
+            apis: Value(updatedPlugin.apis.map((api) => api.name).toList()),
+            abilities: Value(
+              updatedPlugin.abilities
+                  .map((ability) => ability.name)
+                  .toList(),
+            ),
+            pluginApiVersion: Value(updatedPlugin.pluginApiVersion),
+            repository: Value(updatedPlugin.repository),
+            selectedForMetadata: Value(
+              oldRecord.selectedForMetadata &&
+                  updatedPlugin.abilities.contains(PluginAbilities.metadata),
+            ),
+            selectedForAudioSource: Value(
+              oldRecord.selectedForAudioSource &&
+                  updatedPlugin.abilities.contains(
+                    PluginAbilities.audioSource,
+                  ),
+            ),
+          ),
+        );
+  }
+
   Future<void> removePlugin(PluginConfiguration plugin) async {
     final pluginExtractionDir = await _getPluginExtractionDir(plugin);
 
@@ -637,14 +700,13 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     final pluginUpdatedConfig =
         await downloadAndCachePlugin(update.downloadUrl);
 
-    if (pluginUpdatedConfig.name != plugin.name &&
+    if (pluginUpdatedConfig.name != plugin.name ||
         pluginUpdatedConfig.author != plugin.author) {
       throw MetadataPluginException.invalidPluginConfiguration();
     }
     _assertPluginApiCompatibility(pluginUpdatedConfig);
 
-    await removePlugin(plugin);
-    await addPlugin(pluginUpdatedConfig);
+    await replacePlugin(plugin, pluginUpdatedConfig);
 
     if (isDefaultMetadata) {
       await setDefaultMetadataPlugin(pluginUpdatedConfig);

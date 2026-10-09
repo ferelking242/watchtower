@@ -9,6 +9,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/update.dart';
+import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/fetch_sources_list.dart'
     show
         extensionUpdateLabel,
@@ -49,14 +50,24 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     } catch (error) {
       sourceError = error;
     }
-    final extensionUpdates =
-        sources
-            .where(
-              (source) =>
-                  source.isAdded == true && hasPendingExtensionUpdate(source),
-            )
-            .toList()
-          ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+    final savedExtensionUpdates =
+        await ExtensionCatalogNotifications.pendingUpdates();
+    final savedUpdateKeys = savedExtensionUpdates
+        .map((notice) => notice.key)
+        .toSet();
+    final extensionUpdates = sources
+        .where(
+          (source) =>
+              source.isAdded == true &&
+              source.id != null &&
+              (hasPendingExtensionUpdate(source) ||
+                  savedUpdateKeys.contains(
+                    '${source.itemType.index}:${source.id}',
+                  )),
+        )
+        .toList()
+      ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+    final newExtensions = await ExtensionCatalogNotifications.pending();
     var libraryUpdates = 0;
     Object? libraryError;
     try {
@@ -66,6 +77,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
     return _NotificationData(
       extensionUpdates: extensionUpdates,
+      newExtensions: newExtensions,
       libraryUpdates: libraryUpdates,
       errorMessage: sourceError != null || libraryError != null
           ? 'Certaines notifications sont momentanément indisponibles.'
@@ -179,13 +191,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           final data = snapshot.data!;
           if (data.errorMessage != null &&
               data.extensionUpdates.isEmpty &&
+              data.newExtensions.isEmpty &&
               data.libraryUpdates == 0) {
             return _NotificationError(
               message: data.errorMessage!,
               onRetry: _retry,
             );
           }
-          if (data.extensionUpdates.isEmpty && data.libraryUpdates == 0) {
+          if (data.extensionUpdates.isEmpty &&
+              data.newExtensions.isEmpty &&
+              data.libraryUpdates == 0) {
             if (_refreshingCatalog) {
               return Center(
                 child: Column(
@@ -253,6 +268,48 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         .toList(growable: false),
                   ),
                 ),
+              if (data.newExtensions.isNotEmpty) ...[
+                if (data.extensionUpdates.isNotEmpty)
+                  const SizedBox(height: 12),
+                _NotificationCard(
+                  icon: Icons.new_releases_rounded,
+                  color: cs.tertiary,
+                  title:
+                      '${data.newExtensions.length} nouvelle${data.newExtensions.length == 1 ? '' : 's'} extension${data.newExtensions.length == 1 ? '' : 's'} publiée${data.newExtensions.length == 1 ? '' : 's'}',
+                  subtitle: 'Découvre les dernières extensions du catalogue.',
+                  child: Column(
+                    children: data.newExtensions
+                        .map(
+                          (notice) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: _PublicationIcon(notice: notice),
+                            title: Text(notice.name),
+                            subtitle: Text(
+                              [
+                                _publicationTypeLabel(notice.itemType),
+                                if (notice.lang.isNotEmpty)
+                                  notice.lang.toUpperCase(),
+                                if (notice.version.isNotEmpty)
+                                  'v${notice.version}',
+                              ].join(' · '),
+                            ),
+                            trailing: IconButton(
+                              tooltip: 'Masquer cette notification',
+                              onPressed: () => _dismissPublication(notice),
+                              icon: const Icon(Icons.close_rounded, size: 19),
+                            ),
+                            onTap: () => context.push('/marketplace/search'),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                  action: TextButton.icon(
+                    onPressed: () => context.push('/marketplace'),
+                    icon: const Icon(Broken.arrow_right),
+                    label: const Text('Parcourir le Marketplace'),
+                  ),
+                ),
+              ],
               if (data.libraryUpdates > 0) ...[
                 const SizedBox(height: 12),
                 _NotificationCard(
@@ -292,6 +349,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           !LayoutRegistry.instance.has(installed)) {
         throw StateError('Le layout UI n’a pas été installé.');
       }
+      await ExtensionCatalogNotifications.dismissPendingUpdate(
+        id: id,
+        itemType: installed.itemType,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${source.name ?? 'Extension'} mise à jour')),
@@ -306,19 +367,38 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       if (mounted) setState(() => _installing.remove(id));
     }
   }
+
+  Future<void> _dismissPublication(
+    ExtensionPublicationNotice notice,
+  ) async {
+    await ExtensionCatalogNotifications.dismiss(notice);
+    if (!mounted) return;
+    setState(() => _future = _load());
+  }
 }
 
 class _NotificationData {
   final List<Source> extensionUpdates;
+  final List<ExtensionPublicationNotice> newExtensions;
   final int libraryUpdates;
   final String? errorMessage;
 
   const _NotificationData({
     required this.extensionUpdates,
+    required this.newExtensions,
     required this.libraryUpdates,
     this.errorMessage,
   });
 }
+
+String _publicationTypeLabel(ItemType type) => switch (type) {
+  ItemType.anime => 'Watch',
+  ItemType.manga => 'Manga',
+  ItemType.novel => 'Roman',
+  ItemType.music => 'Musique',
+  ItemType.game => 'Jeu',
+  ItemType.plugin => 'Plugin',
+};
 
 class _NotificationWarning extends StatelessWidget {
   final String message;
@@ -467,6 +547,21 @@ class _SourceIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = source.iconUrl;
+    if (url == null || url.isEmpty) {
+      return const CircleAvatar(child: Icon(Broken.box));
+    }
+    return CircleAvatar(backgroundImage: NetworkImage(url));
+  }
+}
+
+class _PublicationIcon extends StatelessWidget {
+  final ExtensionPublicationNotice notice;
+
+  const _PublicationIcon({required this.notice});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = notice.iconUrl;
     if (url == null || url.isEmpty) {
       return const CircleAvatar(child: Icon(Broken.box));
     }
