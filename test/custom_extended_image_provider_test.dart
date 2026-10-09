@@ -29,8 +29,10 @@ void main() {
     networkRequests = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_pathProviderChannel, (call) async {
-          if (call.method == 'getApplicationCachePath') return cacheRoot.path;
-          if (call.method == 'getApplicationSupportPath') {
+          if (call.method == 'getApplicationCacheDirectory') {
+            return cacheRoot.path;
+          }
+          if (call.method == 'getApplicationSupportDirectory') {
             return supportRoot.path;
           }
           throw MissingPluginException(
