@@ -4,18 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
-import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
-import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
-import 'package:watchtower/services/get_latest_updates.dart';
-import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 
@@ -63,9 +62,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
 
   late TabController _tabs;
   List<String> _tabLabels = const ['Tout'];
-  bool _listening = false;
-  final Map<String, Future<List<SharedSearchHotItem>>> _hotItemFutures = {};
   int _searchRequestVersion = 0;
+
+  List<dynamic> _filterList = [];
+  List<dynamic> _activeFilters = [];
 
   @override
   void initState() {
@@ -74,6 +74,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     _controller = TextEditingController(text: initial);
     _query = initial;
     _loadRecent();
+    _loadFilterList();
     _tabs = TabController(length: 1, vsync: this);
     if (widget.source.providesHome) {
       unawaited(_loadLayout());
@@ -81,6 +82,137 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     if (initial.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _runSearch(initial));
     }
+  }
+
+  void _loadFilterList() {
+    try {
+      _filterList = getFilterList(source: widget.source);
+    } catch (_) {
+      _filterList = [];
+    }
+    _activeFilters = List.from(_filterList);
+  }
+
+  int get _activeFilterCount {
+    var count = 0;
+    for (final f in _activeFilters) {
+      if (f is CheckBoxFilter && f.state) {
+        count++;
+      } else if (f is TriStateFilter && f.state != 0) {
+        count++;
+      } else if (f is SelectFilter && f.state != 0) {
+        count++;
+      } else if (f is GroupFilter) {
+        count += _countGroup(f.state);
+      }
+    }
+    return count;
+  }
+
+  int _countGroup(List<dynamic> filters) {
+    var count = 0;
+    for (final f in filters) {
+      if (f is CheckBoxFilter && f.state) {
+        count++;
+      } else if (f is TriStateFilter && f.state != 0) {
+        count++;
+      } else if (f is SelectFilter && f.state != 0) {
+        count++;
+      } else if (f is GroupFilter) {
+        count += _countGroup(f.state);
+      }
+    }
+    return count;
+  }
+
+  void _showFilterSheet() {
+    if (_filterList.isEmpty) return;
+    List<dynamic> localFilters = List<dynamic>.from(_filterList);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF141419),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (_, setLocal) => DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          maxChildSize: 0.95,
+          minChildSize: 0.4,
+          expand: false,
+          builder: (_, controller) => Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 12, 6),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Filtres',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () =>
+                          setLocal(() => localFilters = List.from(_filterList)),
+                      child: const Text('Réinitialiser'),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: controller,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: FilterWidget(
+                    filterList: localFilters,
+                    onChanged: (updated) =>
+                        setLocal(() => localFilters = updated),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetCtx),
+                        child: const Text('Annuler'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {
+                          Navigator.pop(sheetCtx);
+                          setState(() => _activeFilters = localFilters);
+                          if (_submitted) _runSearch(_query);
+                        },
+                        child: const Text('Appliquer'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadLayout() async {
@@ -165,7 +297,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
           source: widget.source,
           query: query,
           page: 1,
-          filterList: const [],
+          filterList: _activeFilters,
         ).future,
       );
       if (!mounted || requestVersion != _searchRequestVersion) return;
@@ -195,7 +327,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         source: widget.source,
         query: _query,
         page: 1,
-        filterList: const [],
+        filterList: _activeFilters,
       ),
     );
     _runSearch(_query);
@@ -225,9 +357,12 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   }
 
   String? get _searchCardComponent {
-    final component =
-        LayoutRegistry.instance.get(widget.source).browse?.search?.results
-            ?.cardComponent;
+    final component = LayoutRegistry.instance
+        .get(widget.source)
+        .browse
+        ?.search
+        ?.results
+        ?.cardComponent;
     return component != null &&
             LayoutComponentRegistry.supports(
               component,
@@ -248,12 +383,14 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
           source: widget.source,
           query: query,
           page: _page + 1,
-          filterList: const [],
+          filterList: _activeFilters,
         ).future,
       );
       if (!mounted || requestVersion != _searchRequestVersion) return;
       final fresh = (next?.list ?? const <MManga>[])
-          .where((item) => _seen.add(item.link ?? item.name ?? '${item.hashCode}'))
+          .where(
+            (item) => _seen.add(item.link ?? item.name ?? '${item.hashCode}'),
+          )
           .toList(growable: false);
       setState(() {
         _results = [...?_results, ...fresh];
@@ -298,17 +435,14 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
               controller: _controller,
               focusNode: _focus,
               hint: 'Rechercher dans ${widget.source.name ?? 'l’extension'}',
-              listening: _listening,
+              activeFilterCount: _activeFilterCount,
+              onFilter: _filterList.isEmpty ? null : _showFilterSheet,
               onBack: widget.onClose,
               onSubmit: _runSearch,
               onChanged: _onTextChanged,
               onClear: _clearAll,
-              onListeningChanged: (v) => setState(() => _listening = v),
             ),
-            const Divider(height: 1, color: Colors.white10),
-            Expanded(
-              child: _submitted ? _resultsArea() : _emptyArea(),
-            ),
+            Expanded(child: _submitted ? _resultsArea() : _emptyArea()),
           ],
         ),
       ),
@@ -321,7 +455,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     return SharedSearchEmptyState(
       recentSearches: _recent,
       hotSearches: const [],
-      hotTabs: _hotTabs,
+      hotTabs: const [],
       onSearch: _runSearch,
       onClearRecents: () async {
         await clearRecentSearches(_recentKey);
@@ -329,55 +463,6 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       },
       hintText: 'Que veux-tu lire ?',
     );
-  }
-
-  /// One shared future per tab so rebuilds never re-fire extension calls.
-  List<SharedSearchHotTab> get _hotTabs => [
-        SharedSearchHotTab(
-          label: 'Populaires',
-          items: _cachedHotItems(
-            'popular',
-            () => ref.read(
-              getPopularProvider(source: widget.source, page: 1).future,
-            ),
-          ),
-        ),
-        SharedSearchHotTab(
-          label: 'Dernières sorties',
-          items: _cachedHotItems(
-            'latest',
-            () => ref.read(
-              getLatestUpdatesProvider(source: widget.source, page: 1).future,
-            ),
-          ),
-        ),
-      ];
-
-  Future<List<SharedSearchHotItem>> _cachedHotItems(
-    String key,
-    Future<MPages?> Function() fetch,
-  ) {
-    final existing = _hotItemFutures[key];
-    if (existing != null) return existing;
-    final future = fetch()
-        .then((pages) => _hotItems(pages))
-        .catchError((_) => const <SharedSearchHotItem>[]);
-    _hotItemFutures[key] = future;
-    return future;
-  }
-
-  List<SharedSearchHotItem> _hotItems(MPages? pages) {
-    final items = pages?.list ?? const <MManga>[];
-    return items
-        .take(12)
-        .map(
-          (m) => SharedSearchHotItem(
-            title: m.name ?? 'Sans titre',
-            subtitle: (m.genre ?? const <String>[]).take(2).join(' · '),
-            imageUrl: m.imageUrl,
-          ),
-        )
-        .toList(growable: false);
   }
 
   // ── Results ────────────────────────────────────────────────────────────────
@@ -390,13 +475,14 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         title: statusCode == null
             ? 'Recherche indisponible'
             : 'Erreur HTTP $statusCode',
-        message: extensionRequestFailureMessage(_error) ??
+        message:
+            extensionRequestFailureMessage(_error) ??
             'La source est momentanément indisponible. Réessaie dans quelques instants.',
         onRetry: _retrySearch,
       );
     }
     if (_results == null || _results!.isEmpty) {
-      return _ExtensionSearchMessage(
+      return SharedSearchEmptyAnimation(
         title: 'Aucun résultat',
         message: 'Rien ne correspond à « $_query ».',
       );
@@ -421,6 +507,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
           ),
         Expanded(
           child: TabBarView(
+            controller: _tabs,
             children: [
               for (final label in _tabLabels)
                 _ExtensionResultsGrid(

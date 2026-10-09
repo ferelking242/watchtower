@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
-import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
 
@@ -45,36 +44,13 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
     with TickerProviderStateMixin {
   static const _recentKey = 'tmdb_recent_searches_v2';
 
-  static const _hotSearchMovies = [
-    'Dune',
-    'Interstellar',
-    'Oppenheimer',
-    'Deadpool',
-    'Avatar',
-    'Inception',
-    'Saw',
-    'Wicked',
-  ];
-  static const _hotSearchSeries = [
-    'Arcane',
-    'Breaking Bad',
-    'Stranger Things',
-    'Game of Thrones',
-    'The Last of Us',
-    'Peaky Blinders',
-    'Dark',
-    'One Piece',
-  ];
-
   late final FlixSearchContext _context;
   late final TextEditingController _controller;
   final FocusNode _focus = FocusNode();
 
   List<String> _recent = [];
   String _query = '';
-  bool _listening = false;
   bool _submitted = false;
-  final Map<String, Future<List<SharedSearchHotItem>>> _hotItemFutures = {};
 
   List<TmdbMultiResult>? _multiResults;
   bool _multiLoading = false;
@@ -200,10 +176,10 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
   }
 
   String _keyOf(TmdbMultiResult r) => switch (r.kind) {
-        TmdbMultiKind.person => 'p:${r.person?.id}',
-        TmdbMultiKind.tv => 't:${r.media?.id}',
-        TmdbMultiKind.movie => 'm:${r.media?.id}',
-      };
+    TmdbMultiKind.person => 'p:${r.person?.id}',
+    TmdbMultiKind.tv => 't:${r.media?.id}',
+    TmdbMultiKind.movie => 'm:${r.media?.id}',
+  };
 
   void _clearAll() {
     _controller.clear();
@@ -216,101 +192,11 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
     _focus.requestFocus();
   }
 
-  List<TmdbSearchRail> get _rails {
-    final seriesHub = _context == FlixSearchContext.series;
-    final rails = tmdbSearchRails.toList();
-    if (seriesHub) {
-      // TV rails first on the series hub.
-      rails.sort((a, b) {
-        final av = a.isTv ? 0 : 1;
-        final bv = b.isTv ? 0 : 1;
-        return av.compareTo(bv);
-      });
-    }
-    return rails;
-  }
-
-  List<SharedSearchHotTab> get _hotTabs {
-    final seriesFirst = _context == FlixSearchContext.series;
-    final tabDefs = <SharedSearchHotTab>[
-      SharedSearchHotTab(
-        label: 'Films chauds',
-        items: _cachedHotItems(
-          'hot:films',
-          () => fetchTmdbTrending(isTv: false),
-        ),
-      ),
-      SharedSearchHotTab(
-        label: 'Séries chaudes',
-        items: _cachedHotItems(
-          'hot:series',
-          () => fetchTmdbTrending(isTv: true),
-        ),
-      ),
-      // Genre rails adapt to the hub: movie genres on the film hub,
-      // TV genres on the series hub.
-      for (final rail in _rails.take(seriesFirst ? 10 : 6))
-        SharedSearchHotTab(
-          label: rail.label,
-          items: _cachedHotItems(
-            'rail:${rail.label}',
-            () => fetchTmdbSearchRail(rail),
-          ),
-        ),
-    ];
-    // On the series hub put the series tab first.
-    if (seriesFirst && tabDefs.length >= 2) {
-      final films = tabDefs[0];
-      tabDefs[0] = tabDefs[1];
-      tabDefs[1] = films;
-    }
-    return tabDefs;
-  }
-
-  String _mediaSubtitle(TmdbMedia m) {
-    final year = m.releaseDate ?? m.firstAirDate ?? '';
-    final y = year.length >= 4 ? year.substring(0, 4) : '';
-    final genres = m.mediaType == 'tv'
-        ? tmdbTvGenreNames(m.genreIds)
-        : tmdbMovieGenreNames(m.genreIds);
-    final rating = m.voteAverage == null ? '' : m.voteAverage!.toStringAsFixed(1);
-    return [
-      if (rating.isNotEmpty) '★ $rating',
-      if (y.isNotEmpty) y,
-      ...genres.take(1),
-    ].join(' · ');
-  }
-
-  /// One shared future per rail key so rebuilds never re-fire the requests.
-  Future<List<SharedSearchHotItem>> _cachedHotItems(
-    String key,
-    Future<List<TmdbMedia>> Function() fetch,
-  ) {
-    final existing = _hotItemFutures[key];
-    if (existing != null) return existing;
-    final future = fetch()
-        .then(
-          (items) => items
-              .take(12)
-              .map(
-                (m) => SharedSearchHotItem(
-                  title: m.displayTitle,
-                  subtitle: _mediaSubtitle(m),
-                  imageUrl: m.bestCover,
-                ),
-              )
-              .toList(growable: false),
-        )
-        .catchError((_) => const <SharedSearchHotItem>[]);
-    _hotItemFutures[key] = future;
-    return future;
-  }
-
   String get _hint => switch (_context) {
-        FlixSearchContext.movies => 'Rechercher un film…',
-        FlixSearchContext.series => 'Rechercher une série…',
-        FlixSearchContext.generic => 'Film, série ou célébrité…',
-      };
+    FlixSearchContext.movies => 'Rechercher un film…',
+    FlixSearchContext.series => 'Rechercher une série…',
+    FlixSearchContext.generic => 'Film, série ou célébrité…',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -325,17 +211,12 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
               controller: _controller,
               focusNode: _focus,
               hint: _hint,
-              listening: _listening,
               onBack: () => context.pop(),
               onSubmit: _runSearch,
               onChanged: _onTextChanged,
               onClear: _clearAll,
-              onListeningChanged: (v) => setState(() => _listening = v),
             ),
-            const Divider(height: 1, color: Colors.white10),
-            Expanded(
-              child: hasQuery ? _resultsArea() : _emptyArea(),
-            ),
+            Expanded(child: hasQuery ? _resultsArea() : _emptyArea()),
           ],
         ),
       ),
@@ -345,15 +226,10 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
   // ── Empty state ────────────────────────────────────────────────────────────
 
   Widget _emptyArea() {
-    final hot = _context == FlixSearchContext.series
-        ? _hotSearchSeries
-        : _context == FlixSearchContext.movies
-            ? _hotSearchMovies
-            : [..._hotSearchMovies.take(4), ..._hotSearchSeries.take(4)];
     return SharedSearchEmptyState(
       recentSearches: _recent,
-      hotSearches: hot,
-      hotTabs: _hotTabs,
+      hotSearches: const [],
+      hotTabs: const [],
       onSearch: _runSearch,
       onClearRecents: () async {
         await clearRecentSearches(_recentKey);
@@ -378,8 +254,7 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
       );
     }
     if (_multiResults == null || _multiResults!.isEmpty) {
-      return _SearchMessage(
-        icon: Broken.search_status,
+      return SharedSearchEmptyAnimation(
         title: 'Aucun résultat',
         message: 'Rien ne correspond à « $_query ».',
       );
@@ -404,24 +279,19 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
               fontWeight: FontWeight.w800,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            tabs: [
-              for (final label in _tabLabels) Tab(text: label),
-            ],
+            tabs: [for (final label in _tabLabels) Tab(text: label)],
           ),
           Expanded(
             child: TabBarView(
+              controller: _tabs,
               children: [
                 _AllResultsList(
                   results: _multiResults!,
                   onLoadMore: _loadMore,
                   loadingMore: _loadingMore,
                 ),
-                _MediaResultsList(
-                  media: _mediaOf(TmdbMultiKind.movie),
-                ),
-                _MediaResultsList(
-                  media: _mediaOf(TmdbMultiKind.tv),
-                ),
+                _MediaResultsList(media: _mediaOf(TmdbMultiKind.movie)),
+                _MediaResultsList(media: _mediaOf(TmdbMultiKind.tv)),
                 _PeopleResultsList(people: _peopleOf()),
                 _CollectionsResultsList(query: _query),
               ],
@@ -433,14 +303,14 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
   }
 
   List<TmdbMedia> _mediaOf(TmdbMultiKind kind) => [
-        for (final r in _multiResults!)
-          if (r.kind == kind && r.media != null) r.media!,
-      ];
+    for (final r in _multiResults!)
+      if (r.kind == kind && r.media != null) r.media!,
+  ];
 
   List<TmdbPersonRef> _peopleOf() => [
-        for (final r in _multiResults!)
-          if (r.kind == TmdbMultiKind.person && r.person != null) r.person!,
-      ];
+    for (final r in _multiResults!)
+      if (r.kind == TmdbMultiKind.person && r.person != null) r.person!,
+  ];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -476,10 +346,10 @@ class _AllResultsList extends StatelessWidget {
         return switch (r.kind) {
           TmdbMultiKind.person => _PersonRow(person: r.person!),
           _ => _MediaRow(
-              media: r.media!,
-              badge: r.kind == TmdbMultiKind.tv ? 'Série' : 'Film',
-              accent: accent,
-            ),
+            media: r.media!,
+            badge: r.kind == TmdbMultiKind.tv ? 'Série' : 'Film',
+            accent: accent,
+          ),
         };
       },
     );
@@ -525,10 +395,7 @@ class _MediaRow extends StatelessWidget {
                         width: 58,
                         height: 84,
                         color: Colors.white10,
-                        child: const Icon(
-                          Broken.image,
-                          color: Colors.white24,
-                        ),
+                        child: const Icon(Broken.image, color: Colors.white24),
                       )
                     : Image.network(
                         'https://image.tmdb.org/t/p/w185${media.posterPath}',
@@ -896,82 +763,82 @@ class _CollectionsResultsListState extends State<_CollectionsResultsList> {
         expand: false,
         initialChildSize: .75,
         maxChildSize: .95,
-        builder: (sheetContext, scrollController) => FutureBuilder<
-            List<TmdbMedia>>(
-          future: fetchTmdbCollectionItems(c.id),
-          builder: (sheetContext, snapshot) {
-            final items = snapshot.data;
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.collections_bookmark_outlined,
-                        color: accent,
-                        size: 19,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          c.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
+        builder: (sheetContext, scrollController) =>
+            FutureBuilder<List<TmdbMedia>>(
+              future: fetchTmdbCollectionItems(c.id),
+              builder: (sheetContext, snapshot) {
+                final items = snapshot.data;
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.collections_bookmark_outlined,
+                            color: accent,
+                            size: 19,
                           ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(
-                          Broken.close_circle,
-                          color: Colors.white38,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: Colors.white10),
-                Expanded(
-                  child: snapshot.connectionState == ConnectionState.waiting
-                      ? const SharedSearchShimmerList()
-                      : GridView.builder(
-                          controller: scrollController,
-                          padding: const EdgeInsets.all(16),
-                          gridDelegate:
-                              const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 140,
-                            childAspectRatio: .62,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 14,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              c.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
-                          itemCount: items?.length ?? 0,
-                          itemBuilder: (gridContext, index) {
-                            final m = items![index];
-                            return PosterCard(
-                              item: ContentItem.fromTmdb(m),
-                              width: double.infinity,
-                              heroTag: 'collection-${c.id}-$index',
-                              onTap: () {
-                                Navigator.pop(sheetContext);
-                                pushTmdbMediaDetail(
-                                  gridContext,
-                                  m,
-                                  source: 'collection-${c.id}-$index',
+                          IconButton(
+                            onPressed: () => Navigator.pop(sheetContext),
+                            icon: const Icon(
+                              Broken.close_circle,
+                              color: Colors.white38,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: Colors.white10),
+                    Expanded(
+                      child: snapshot.connectionState == ConnectionState.waiting
+                          ? const SharedSearchShimmerList()
+                          : GridView.builder(
+                              controller: scrollController,
+                              padding: const EdgeInsets.all(16),
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 140,
+                                    childAspectRatio: .62,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 14,
+                                  ),
+                              itemCount: items?.length ?? 0,
+                              itemBuilder: (gridContext, index) {
+                                final m = items![index];
+                                return PosterCard(
+                                  item: ContentItem.fromTmdb(m),
+                                  width: double.infinity,
+                                  heroTag: 'collection-${c.id}-$index',
+                                  onTap: () {
+                                    Navigator.pop(sheetContext);
+                                    pushTmdbMediaDetail(
+                                      gridContext,
+                                      m,
+                                      source: 'collection-${c.id}-$index',
+                                    );
+                                  },
                                 );
                               },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            );
-          },
-        ),
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
       ),
     );
   }

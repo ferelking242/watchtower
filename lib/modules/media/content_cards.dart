@@ -104,6 +104,7 @@ class PosterCard extends StatelessWidget {
       fontWeight: FontWeight.w700,
       height: 1.2,
     );
+    final rating = item.rating;
 
     return TvPressable(
       onTap: onTap,
@@ -124,11 +125,11 @@ class PosterCard extends StatelessWidget {
                       tag: heroTag ?? 'content-${item.key}',
                       child: ContentImage(url: item.posterUrl, radius: radius),
                     ),
-                    if (item.rating != null && item.rating! > 0)
+                    if (rating != null && rating > 0)
                       Positioned(
                         top: 7,
                         right: 7,
-                        child: _RatingPill(rating: item.rating!),
+                        child: _RatingPill(rating: rating),
                       ),
                   ],
                 ),
@@ -476,10 +477,7 @@ class _ContentImagePlaceholder extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  colors.surfaceContainerHighest,
-                  colors.surface,
-                ],
+                colors: [colors.surfaceContainerHighest, colors.surface],
               ),
             ),
           ),
