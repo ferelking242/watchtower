@@ -1,7 +1,6 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -669,15 +668,11 @@ class DiscoverMovies extends StatelessWidget {
                           alignment: Alignment.topCenter,
                           child: Row(
                             children: [
-                              SvgPicture.asset(
-                                'assets/images/fq_svg.svg',
+                              Image.asset(
+                                'assets/app_icons/icon.png',
                                 width: 28,
                                 height: 28,
-                                placeholderBuilder: (_) => const Icon(
-                                  Broken.video,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
+                                fit: BoxFit.contain,
                               ),
                               const Spacer(),
                               _HeroIconButton(

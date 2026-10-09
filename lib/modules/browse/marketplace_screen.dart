@@ -26,6 +26,7 @@ import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -1298,6 +1299,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
             showNsfw: _showNsfw,
             onEnableNsfw: () =>
                 ref.read(showNSFWStateProvider.notifier).set(true),
+            onOpenSettings: _showMarketplaceSettings,
             onInstall: _install,
             onSettings: _openSettings,
             onRefresh: () => _loadAll(bypassCache: true),
@@ -1411,7 +1413,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.asset(
-                    'assets/icons/playstore_icon.png',
+                    'assets/app_icons/icon.png',
                     width: 42,
                     height: 42,
                     fit: BoxFit.cover,
@@ -1447,7 +1449,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '18+',
+                    'Adulte',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -4446,7 +4448,11 @@ class _PlayStoreCard extends StatelessWidget {
                 _TagChip(label: langCode, cs: cs),
                 _TagChip(label: compatLabel, cs: cs),
                 if (entry.isNsfw)
-                  _TagChip(label: '18+', cs: cs, color: Colors.red.shade400),
+                  _TagChip(
+                    label: 'Adulte',
+                    cs: cs,
+                    color: Colors.red.shade400,
+                  ),
                 if (hasUpdate)
                   _TagChip(
                     label: '↑ v${entry.version}',
@@ -9120,6 +9126,7 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
   final bool initialSearch;
   final bool showNsfw;
   final VoidCallback onEnableNsfw;
+  final VoidCallback onOpenSettings;
   final Future<void> Function(_ExtEntry entry) onInstall;
   final ValueChanged<int> onSettings;
   final Future<void> Function() onRefresh;
@@ -9135,6 +9142,7 @@ class _PlayStoreMarketplaceView extends StatefulWidget {
     required this.initialSearch,
     required this.showNsfw,
     required this.onEnableNsfw,
+    required this.onOpenSettings,
     required this.onInstall,
     required this.onSettings,
     required this.onRefresh,
@@ -9153,6 +9161,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   bool _searching = false;
   bool _searchFocused = false;
   bool _accountOpen = false;
+  bool _showAll = false;
+  String? _groupFilter;
   final List<String> _recentSearches = [];
 
   bool _hasUpdate(_ExtEntry entry) {
@@ -9235,32 +9245,11 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
 
     switch (_tab) {
       case 1:
-        list = list
-            .where((entry) => entry.contentType == ItemType.anime)
-            .toList();
-        break;
       case 2:
-        list = list
-            .where((entry) => entry.contentType == ItemType.manga)
-            .toList();
-        break;
       case 3:
-        list = list.where((entry) => entry.isNsfw).toList();
-        break;
       case 4:
-        list = list
-            .where((entry) => entry.contentType == ItemType.music)
-            .toList();
-        break;
       case 5:
-        list = list
-            .where((entry) => entry.contentType == ItemType.game)
-            .toList();
-        break;
-      case 6:
-        list = list
-            .where((entry) => entry.contentType == ItemType.novel)
-            .toList();
+        list = list.where(_tabMatches).toList();
         break;
     }
     list.sort((a, b) {
@@ -9272,6 +9261,36 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
     return list;
+  }
+
+  /// True when the current tab would only surface adult entries and the user
+  /// has not opted in yet. The gate offers the one-tap opt-in instead of an
+  /// empty list.
+  bool get _needsNsfwGate {
+    if (widget.showNsfw || _visible.isNotEmpty) return false;
+    final query = _searchController.text.trim().toLowerCase();
+    return widget.entries.any(
+      (entry) =>
+          entry.isNsfw &&
+          _tabMatches(entry) &&
+          (query.isEmpty || entry.searchText.contains(query)),
+    );
+  }
+
+  bool _tabMatches(_ExtEntry entry) {
+    switch (_tab) {
+      case 1:
+        return entry.contentType == ItemType.anime;
+      case 2:
+        return entry.contentType == ItemType.manga;
+      case 3:
+        return entry.contentType == ItemType.music;
+      case 4:
+        return entry.contentType == ItemType.game;
+      case 5:
+        return entry.contentType == ItemType.novel;
+    }
+    return true;
   }
 
   List<_ExtEntry> get _availableUpdates {
@@ -9293,7 +9312,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     'Pour vous',
     'Watch',
     'Manga',
-    '+18',
     'Musique',
     'Jeux',
     'Romans',
@@ -9303,7 +9321,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     Broken.category,
     Broken.video,
     Broken.bookmark,
-    Broken.moon,
     Broken.musicnote,
     Broken.game,
     Broken.book_1,
@@ -9312,7 +9329,95 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   void _selectTab(int tab) {
     setState(() {
       _tab = tab;
+      _showAll = false;
+      _groupFilter = null;
     });
+  }
+
+  void _openGroup(int tab, String? group) {
+    setState(() {
+      _tab = tab;
+      _showAll = true;
+      _groupFilter = group;
+      _searching = false;
+    });
+  }
+
+  // ── Store-like categorisation ─────────────────────────────────────────────
+  //
+  // Every catalogue tab is presented as several named shelves instead of one
+  // flat list, the way a real store groups its apps. Groups are derived from
+  // the source name/metadata so they stay useful even when an index entry
+  // carries no explicit category.
+
+  static const _kGroupOrder = [
+    'Webtoon',
+    'Manhwa',
+    'Manhua',
+    'Scans',
+    'Comics',
+    'Manga',
+    'Light Novel',
+    'Web Novel',
+    'Anime',
+    'Drama',
+    'Séries',
+    'Films',
+  ];
+
+  static String? _entryGroup(_ExtEntry entry) {
+    final blob = [
+      entry.name,
+      entry.description,
+      ...entry.subCategories,
+      ...entry.contentSubtype,
+    ].join(' ').toLowerCase();
+
+    bool has(List<String> needles) => needles.any(blob.contains);
+
+    if (has(const ['webtoon', 'web-toon'])) return 'Webtoon';
+    if (has(const ['manhwa'])) return 'Manhwa';
+    if (has(const ['manhua'])) return 'Manhua';
+    if (has(const ['comic'])) return 'Comics';
+    if (has(const ['scantrad', 'scanlation', ' scans', 'scan '])) return 'Scans';
+    if (has(const ['light novel', 'lightnovel'])) return 'Light Novel';
+    if (has(const ['web novel', 'webnovel', 'wuxia', 'xianxia', 'xuanhuan'])) {
+      return 'Web Novel';
+    }
+    if (has(const ['drama'])) return 'Drama';
+    if (has(const ['film', 'movie'])) return 'Films';
+    if (has(const ['anime'])) return 'Anime';
+    if (has(const ['manga'])) return 'Manga';
+    if (has(const ['novel', 'roman'])) return 'Web Novel';
+    return null;
+  }
+
+  /// Groups the given entries into an ordered `label -> entries` map. Entries
+  /// that expose no recognizable category fall into [fallback].
+  Map<String, List<_ExtEntry>> _groupEntries(
+    List<_ExtEntry> entries, {
+    String fallback = 'Autres',
+  }) {
+    final groups = <String, List<_ExtEntry>>{};
+    for (final entry in entries) {
+      final label = _entryGroup(entry) ?? fallback;
+      groups.putIfAbsent(label, () => []).add(entry);
+    }
+    final orderedKeys = <String>[
+      ..._kGroupOrder.where(groups.containsKey),
+      ...groups.keys.where((key) => !_kGroupOrder.contains(key)),
+    ];
+    return {for (final key in orderedKeys) key: groups[key]!};
+  }
+
+  /// Filters [_visible] down to a single group (used when the user taps a
+  /// "see all" arrow on a shelf).
+  List<_ExtEntry> get _groupedVisible {
+    if (_groupFilter == null) return _visible;
+    final group = _groupFilter!;
+    return _visible
+        .where((entry) => (_entryGroup(entry) ?? 'Autres') == group)
+        .toList();
   }
 
   List<_ExtEntry> get _featured {
@@ -9502,22 +9607,21 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             _buildTabs(),
             if (widget.loading && widget.entries.isEmpty)
               const SliverToBoxAdapter(child: _LoadingRows())
-            else if (_tab == 3 && !widget.showNsfw)
-              SliverToBoxAdapter(child: _buildNsfwGate())
             else if (_tab == 0)
               ..._buildForYou()
-            else ...[
+            else if (_showAll) ...[
+              SliverToBoxAdapter(child: _buildGroupHeader()),
+              _buildRows(_groupedVisible),
+            ] else if (_needsNsfwGate) ...[
+              SliverToBoxAdapter(child: _buildHero()),
+              SliverToBoxAdapter(child: _buildNsfwGate()),
+            ] else ...[
               SliverToBoxAdapter(child: _buildHero()),
               SliverToBoxAdapter(
                 child: _buildSectionTitle('Sélection ${_tabLabels[_tab]}'),
               ),
               _buildShelf(_visible.take(12).toList()),
-              SliverToBoxAdapter(
-                child: _buildSectionTitle(
-                  'Toutes les extensions ${_tabLabels[_tab]}',
-                ),
-              ),
-              _buildRows(_visible),
+              ..._buildGroupedSections(),
             ],
           ] else ...[
             SliverToBoxAdapter(child: _buildSearchBar()),
@@ -9542,10 +9646,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       padding: const EdgeInsets.fromLTRB(18, 12, 14, 8),
       child: Row(
         children: [
-          CustomPaint(
-            size: const Size(26, 28),
-            painter: _PlayTrianglePainter(),
-          ),
+          const _EyeLogo(size: 28),
           const SizedBox(width: 10),
           const Expanded(
             child: Text(
@@ -9993,6 +10094,130 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     );
   }
 
+  /// One titled shelf per store category (Webtoon, Manhwa, Scans, ...).
+  /// Each shelf offers a "see all" arrow that drills into the full group.
+  List<Widget> _buildGroupedSections() {
+    final groups = _groupEntries(_visible);
+    if (groups.isEmpty) {
+      return [
+        SliverToBoxAdapter(
+          child: _buildSectionTitle(
+            'Toutes les extensions ${_tabLabels[_tab]}',
+          ),
+        ),
+        _buildRows(_visible),
+      ];
+    }
+
+    final slivers = <Widget>[];
+    var index = 0;
+    for (final group in groups.entries) {
+      final usePosterRow = index.isOdd && group.value.length >= 3;
+      slivers.add(
+        SliverToBoxAdapter(
+          child: _buildGroupTitle(
+            group.key,
+            group.value.length,
+            () => _openGroup(_tab, group.key),
+          ),
+        ),
+      );
+      slivers.add(
+        usePosterRow
+            ? _buildPosterRow(group.value.take(12).toList())
+            : _buildShelf(group.value.take(12).toList()),
+      );
+      index++;
+    }
+    return slivers;
+  }
+
+  Widget _buildGroupTitle(String label, int count, VoidCallback onSeeAll) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            '$count',
+            style: const TextStyle(color: _muted, fontSize: 12),
+          ),
+          IconButton(
+            onPressed: onSeeAll,
+            tooltip: 'Tout afficher',
+            icon: const Icon(Icons.arrow_forward_rounded, color: _muted),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupHeader() {
+    final label = _groupFilter ?? 'Toutes les extensions';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 8, 16, 4),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => setState(() {
+              _showAll = false;
+              _groupFilter = null;
+            }),
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            tooltip: 'Retour',
+          ),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Compact poster-style row (vertical artwork + label) used to vary the
+  /// layout between shelves, mirroring a real store's mixed card shapes.
+  Widget _buildPosterRow(List<_ExtEntry> entries) {
+    if (entries.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 172,
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          scrollDirection: Axis.horizontal,
+          itemCount: entries.length,
+          addAutomaticKeepAlives: false,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (_, index) => _StorePosterCard(
+            entry: entries[index],
+            installed: widget.installed.contains(entries[index].id),
+            hasUpdate: _hasUpdate(entries[index]),
+            busy: widget.busy[entries[index].id] == true,
+            onTap: () => _showDetails(entries[index]),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildShelf(List<_ExtEntry> entries) {
     if (entries.isEmpty) {
       return const SliverToBoxAdapter(
@@ -10034,9 +10259,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildRows(List<_ExtEntry> entries) {
-    if (_tab == 3 && !widget.showNsfw) {
-      return SliverToBoxAdapter(child: _buildNsfwGate());
-    }
     if (entries.isEmpty) {
       return const SliverToBoxAdapter(
         child: Padding(
@@ -10069,22 +10291,22 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 34),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2022),
+          color: const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFF6A3A40)),
+          border: Border.all(color: const Color(0xFF3A3A3E)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
               const Icon(
-                Icons.lock_rounded,
-                color: Color(0xFFFFB4AB),
+                Icons.visibility_off_rounded,
+                color: Color(0xFFB7F4F0),
                 size: 32,
               ),
               const SizedBox(height: 10),
               const Text(
-                'Contenu +18 masqué',
+                'Contenu adulte masqué',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -10096,7 +10318,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 'Active le contenu adulte dans les préférences pour afficher ces extensions.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFFD8C7C8),
+                  color: Color(0xFFB9B8BE),
                   fontSize: 12,
                   height: 1.35,
                 ),
@@ -10105,10 +10327,10 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               FilledButton.tonal(
                 onPressed: widget.onEnableNsfw,
                 style: FilledButton.styleFrom(
-                  foregroundColor: const Color(0xFFFFDAD6),
-                  backgroundColor: const Color(0xFF6A3A40),
+                  foregroundColor: const Color(0xFF123437),
+                  backgroundColor: const Color(0xFFB7F4F0),
                 ),
-                child: const Text('Afficher le contenu +18'),
+                child: const Text('Afficher le contenu adulte'),
               ),
             ],
           ),
@@ -10121,10 +10343,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     final categories = [
       (Icons.live_tv_rounded, 'Watch', const Color(0xFF65C58A), 1),
       (Icons.auto_stories_rounded, 'Manga', const Color(0xFFEF6C92), 2),
-      (Icons.lock_rounded, '+18', const Color(0xFFE57A7A), 3),
-      (Icons.menu_book_rounded, 'Romans', const Color(0xFF63B8DA), 6),
-      (Icons.music_note_rounded, 'Musique', const Color(0xFFE6B65C), 4),
-      (Icons.sports_esports_rounded, 'Jeux', const Color(0xFFC388EF), 5),
+      (Icons.music_note_rounded, 'Musique', const Color(0xFFE6B65C), 3),
+      (Icons.sports_esports_rounded, 'Jeux', const Color(0xFFC388EF), 4),
+      (Icons.menu_book_rounded, 'Romans', const Color(0xFF63B8DA), 5),
     ];
     return Padding(
       padding: EdgeInsets.fromLTRB(16, compact ? 4 : 14, 16, 8),
@@ -10245,10 +10466,11 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                     _tab = 1;
                   }),
                 ),
+                const _NtfyToggleTile(),
                 _AccountOption(
                   icon: Broken.setting_2,
                   label: 'Préférences du Marketplace',
-                  onTap: () => _showComingSoon('Préférences'),
+                  onTap: widget.onOpenSettings,
                 ),
                 _AccountOption(
                   icon: Icons.help_outline_rounded,
@@ -10294,6 +10516,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                   _bottomTab = index;
                   _accountOpen = false;
                   _searching = false;
+                  _showAll = false;
+                  _groupFilter = null;
                   if (index == 0) _tab = 1;
                   if (index == 1) _tab = 0;
                 });
@@ -10996,6 +11220,88 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
       oldDelegate.onSelected != onSelected;
 }
 
+/// Vertical poster card used by [_PlayStoreMarketplaceViewState._buildPosterRow]
+/// to give some store shelves a distinct, more visual rhythm than the wide
+/// landscape cards.
+class _StorePosterCard extends StatelessWidget {
+  final _ExtEntry entry;
+  final bool installed;
+  final bool hasUpdate;
+  final bool busy;
+  final VoidCallback onTap;
+
+  const _StorePosterCard({
+    required this.entry,
+    required this.installed,
+    required this.hasUpdate,
+    required this.busy,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 116,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                _PlayStoreIcon(entry: entry, size: 100),
+                if (hasUpdate)
+                  const Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Icon(
+                      Icons.arrow_circle_up_rounded,
+                      color: Color(0xFF65C58A),
+                      size: 18,
+                    ),
+                  )
+                else if (installed)
+                  const Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFFB7F4F0),
+                      size: 18,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              entry.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _PlayStoreMarketplaceViewState._muted,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PlayStoreDetails extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
@@ -11321,6 +11627,47 @@ class _AccountOption extends StatelessWidget {
   }
 }
 
+/// Account-screen switch for the ntfy crash signal. Kept next to the account
+/// options so the toggle lives with the other settings entry points.
+class _NtfyToggleTile extends StatefulWidget {
+  const _NtfyToggleTile();
+
+  @override
+  State<_NtfyToggleTile> createState() => _NtfyToggleTileState();
+}
+
+class _NtfyToggleTileState extends State<_NtfyToggleTile> {
+  bool _enabled = AppLogger.ntfyEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile.adaptive(
+      secondary: Icon(
+        Icons.notifications_active_rounded,
+        color: _PlayStoreMarketplaceViewState._muted,
+      ),
+      title: const Text(
+        'Signaux ntfy',
+        style: TextStyle(color: Colors.white, fontSize: 14),
+      ),
+      subtitle: const Text(
+        'Pousser une alerte en cas d\'erreur',
+        style: TextStyle(
+          color: _PlayStoreMarketplaceViewState._muted,
+          fontSize: 12,
+        ),
+      ),
+      value: _enabled,
+      onChanged: (value) {
+        setState(() => _enabled = value);
+        AppLogger.setNtfyEnabled(value);
+      },
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      dense: true,
+    );
+  }
+}
+
 class _HeaderIcon extends StatelessWidget {
   final IconData icon;
   final String? badge;
@@ -11518,37 +11865,19 @@ class _LoadingRows extends StatelessWidget {
   }
 }
 
-class _PlayTrianglePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(2, 1)
-      ..lineTo(size.width - 2, size.height / 2)
-      ..lineTo(2, size.height - 1)
-      ..close();
-    canvas.drawPath(path, Paint()..color = const Color(0xFF35A853));
-    final bluePath = Path()
-      ..moveTo(2, 1)
-      ..lineTo(size.width * 0.48, size.height / 2)
-      ..lineTo(size.width * 0.22, size.height / 2)
-      ..close();
-    canvas.drawPath(bluePath, Paint()..color = const Color(0xFF4285F4));
-    final redPath = Path()
-      ..moveTo(2, size.height - 1)
-      ..lineTo(size.width * 0.48, size.height / 2)
-      ..lineTo(size.width * 0.22, size.height / 2)
-      ..close();
-    canvas.drawPath(redPath, Paint()..color = const Color(0xFFEA4335));
-    final yellowPath = Path()
-      ..moveTo(size.width * 0.22, size.height / 2)
-      ..lineTo(size.width - 2, size.height / 2)
-      ..lineTo(size.width * 0.48, size.height / 2)
-      ..close();
-    canvas.drawPath(yellowPath, Paint()..color = const Color(0xFFFBBC04));
-  }
+class _EyeLogo extends StatelessWidget {
+  final double size;
+  const _EyeLogo({required this.size});
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/app_icons/icon.png',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+    );
+  }
 }
 
 String _typeLabel(ItemType type) => switch (type) {

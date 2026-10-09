@@ -7,11 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:watchtower/main.dart';
-import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:watchtower/utils/constant.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 // ─── Log Settings Keys (Hive box: advanced_settings) ──────────────────────────
@@ -30,6 +27,7 @@ const kLogTagReader = 'log_tag_reader';
 const kLogTagWatch = 'log_tag_watch';
 const kLogTagMaint = 'log_tag_maint';
 const kLogSuppressImages = 'log_suppress_images';
+const kLogNtfyEnabled = 'log_ntfy_enabled';
 const _kVerboseDownloadBootstrap = 'verbose_download_diagnostics_v1';
 
 final _sensitiveLogFieldPattern = RegExp(
@@ -183,6 +181,7 @@ class AppLogger {
   static int _minLevel = 0; // default: DEBUG (max verbosity)
   static Set<String> _disabledTags = {};
   static bool _suppressImages = true;
+  static bool _ntfyEnabled = true;
   static LogMode _currentMode = LogMode.verbose;
 
   /// Returns true when the active log mode is [LogMode.extreme].
@@ -193,6 +192,9 @@ class AppLogger {
 
   /// Public getter so interceptors can read the image-suppression flag.
   static bool get suppressImages => _suppressImages;
+
+  /// Whether error logs push a generic signal to the public ntfy topic.
+  static bool get ntfyEnabled => _ntfyEnabled;
 
   // ── Live broadcast + ring buffer for the in-app overlay viewer ───────────
   // The broadcast stream re-emits every formatted log line so any UI (the
@@ -235,6 +237,7 @@ class AppLogger {
   /// Fire-and-forget generic signal only. The topic is public, so log messages,
   /// URLs, paths, and stack traces must remain in the local log viewer.
   static void _pushToNtfy() {
+    if (!_ntfyEnabled) return;
     final now = DateTime.now();
     if (_lastNtfyPush != null &&
         now.difference(_lastNtfyPush!) < _ntfyThrottle) {
@@ -354,6 +357,17 @@ class AppLogger {
   // Call this after changing settings in the UI to update in-memory filters
   static Future<void> reloadSettings() => _loadSettings();
 
+  /// Persists the ntfy crash-signal toggle and applies it immediately.
+  static Future<void> setNtfyEnabled(bool enabled) async {
+    _ntfyEnabled = enabled;
+    try {
+      final box = await Hive.openBox(_kLogBox);
+      await box.put(kLogNtfyEnabled, enabled);
+    } catch (_) {
+      // The in-memory flag still applies for this session.
+    }
+  }
+
   /// Existing installs may have Normal mode and download tags disabled. Turn
   /// on Verbose once for this diagnostics rollout, then respect later choices
   /// made in Advanced settings.
@@ -383,6 +397,7 @@ class AppLogger {
       _minLevel =
           box.get(kLogMinLevel, defaultValue: _currentMode.minLevel) as int;
       _suppressImages = box.get(kLogSuppressImages, defaultValue: true) as bool;
+      _ntfyEnabled = box.get(kLogNtfyEnabled, defaultValue: true) as bool;
 
       final disabled = <String>{};
       final tagMap = {
@@ -475,8 +490,9 @@ class AppLogger {
     if (logLevel.index < _minLevel) return;
     if (tag != null &&
         _disabledTags.contains(tag) &&
-        logLevel != LogLevel.error)
+        logLevel != LogLevel.error) {
       return;
+    }
     if (_suppressImages &&
         logLevel == LogLevel.error &&
         (safeMessage.contains('Failed to load') ||
