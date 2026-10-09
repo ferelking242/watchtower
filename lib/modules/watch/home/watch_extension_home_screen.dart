@@ -88,6 +88,13 @@ class _WatchExtensionHomeScreenState
   UiLayout _layout = UiLayout.empty;
   Map<String, dynamic>? _layoutJson;
   Future<void>? _layoutLoadOperation;
+  Future<void>? _refreshOperation;
+
+  /// Last rendered failure, retained while a retry is in flight so the build
+  /// keeps returning the same empty-state surface instead of swapping to the
+  /// full-screen loading shimmer. The swap destroyed the inline challenge
+  /// WebView and reloaded the page on every attempt.
+  Object? _lastSectionError;
   _LayoutEditorDestination _editorDestination = _LayoutEditorDestination.home;
   bool _editorDockExpanded = false;
   String? _pendingReplacementSectionId;
@@ -501,7 +508,17 @@ class _WatchExtensionHomeScreenState
     }
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh() {
+    final existing = _refreshOperation;
+    if (existing != null) return existing;
+    final operation = _refreshOnce();
+    _refreshOperation = operation;
+    return operation.whenComplete(() {
+      if (identical(_refreshOperation, operation)) _refreshOperation = null;
+    });
+  }
+
+  Future<void> _refreshOnce() async {
     _loggedRequestErrors.clear();
     extensionPageCache.invalidateSource(source);
     if (!_layoutReady && source.providesHome) {
@@ -692,15 +709,38 @@ class _WatchExtensionHomeScreenState
     final isLoadingSections = sectionAsyncValues.any(
       (value) => value.isLoading,
     );
+    // Keep the previous failure across the retry that clears the AsyncError,
+    // so the build returns the same empty state instead of bouncing to the
+    // full-screen shimmer. Every bounce remounted the inline challenge WebView
+    // and reloaded it, which is the loop the user sees. A settled call clears
+    // the retained error so a later plain-empty state is not mislabelled.
+    final Object? retainedSectionError;
+    if (sectionError != null) {
+      retainedSectionError = sectionError;
+    } else if (isLoadingSections) {
+      retainedSectionError = _lastSectionError;
+    } else {
+      retainedSectionError = null;
+    }
+    _lastSectionError = retainedSectionError;
     if (hasDeclaredSections &&
         !widget.layoutEditorMode &&
-        !hasSectionContent &&
-        (!isLoadingSections || sectionError != null)) {
-      return _ExtensionEmpty(
-        source: source,
-        onRefresh: _refresh,
-        error: sectionError,
-      );
+        !hasSectionContent) {
+      if (sectionError != null || retainedSectionError != null) {
+        return _ExtensionEmpty(
+          source: source,
+          onRefresh: _refresh,
+          error: sectionError ?? retainedSectionError,
+        );
+      }
+      if (isLoadingSections) {
+        return _ExtensionHomeLoading(
+          source: source,
+          onSearch: () => setState(() => _isSearching = true),
+          onRefresh: _refresh,
+        );
+      }
+      return _ExtensionEmpty(source: source, onRefresh: _refresh);
     }
 
     final popularAsync = hasDeclaredSections
@@ -723,11 +763,29 @@ class _WatchExtensionHomeScreenState
     final hasError =
         popularAsync?.hasError == true || latestAsync?.hasError == true;
 
+    // Mirror the retained-error behaviour above for sources without a declared
+    // layout: while a retry runs, Riverpod clears the error and reports
+    // loading, so remember the previous failure to keep the empty state (and
+    // the inline challenge WebView) mounted instead of swapping in the shimmer.
+    final Object? retainedError;
+    if (hasError) {
+      retainedError = error;
+    } else if (isLoading && popular.isEmpty && latest.isEmpty) {
+      retainedError = _lastSectionError;
+    } else {
+      retainedError = null;
+    }
+    _lastSectionError = retainedError;
+
     // Keep the empty state (and the inline bypass WebView it may host) mounted
     // while a retry is in flight: swapping to the full-screen loading shimmer
     // on every attempt remounted the whole surface — header, feed and WebView —
     // which read as the page reloading over and over.
-    if (isLoading && popular.isEmpty && latest.isEmpty && !hasError) {
+    if (isLoading &&
+        popular.isEmpty &&
+        latest.isEmpty &&
+        retainedError == null &&
+        !hasError) {
       return _ExtensionHomeLoading(
         source: source,
         onSearch: () => setState(() => _isSearching = true),
@@ -735,12 +793,18 @@ class _WatchExtensionHomeScreenState
       );
     }
 
-    if (hasError && popular.isEmpty && latest.isEmpty) {
+    if ((hasError || retainedError != null) &&
+        popular.isEmpty &&
+        latest.isEmpty) {
       _logRequestFailure(
         popularAsync?.hasError == true ? 'popular' : 'latest',
         error,
       );
-      return _ExtensionEmpty(source: source, onRefresh: _refresh, error: error);
+      return _ExtensionEmpty(
+        source: source,
+        onRefresh: _refresh,
+        error: error ?? retainedError,
+      );
     }
 
     return _ExtensionFeed(
