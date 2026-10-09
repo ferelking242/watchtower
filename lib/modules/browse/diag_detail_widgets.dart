@@ -2,7 +2,7 @@ import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
-import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart'
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart'
     show isCloudflareError;
 import 'package:watchtower/modules/browse/diag_ui_widgets.dart' show ExtStatus;
 import 'package:watchtower/modules/browse/diag_video_preview.dart';

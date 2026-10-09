@@ -1154,7 +1154,6 @@ AntiBotAssessment antiBotAssessmentOf(BaseResponse response) {
 class ResolveCloudFlareChallenge extends RetryPolicy {
   bool showCloudFlareError;
   final int? sourceId;
-  final Set<String> _challengeAttempts = {};
 
   ResolveCloudFlareChallenge(
     this.showCloudFlareError, {
@@ -1177,15 +1176,10 @@ class ResolveCloudFlareChallenge extends RetryPolicy {
 
     final url = response.request?.url.toString();
     if (url == null || url.isEmpty) return false;
-    final requestKey = '${response.request?.method ?? 'GET'} $url';
-    if (!_challengeAttempts.add(requestKey)) return false;
 
-    final resolved = await BypassNotificationService.instance
-        .openChallengeAndWait(url);
-    if (!resolved) return false;
-
-    // Only retry if the real WebView stored an observed clearance cookie for
-    // this source. No cookie is forged and no TLS/browser fingerprint is changed.
+    // The challenge is solved in the inline panel the UI already shows. Opening
+    // a second WebView here pushed a brand-new page on every retry and reloaded
+    // the screen endlessly. Only retry when the panel stored a clearance cookie.
     return MClient.hasCfClearanceCookie(url, sourceId: sourceId);
   }
 }

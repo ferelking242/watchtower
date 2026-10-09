@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -14,7 +15,8 @@ import 'package:watchtower/utils/log/logger.dart';
 /// an [InAppWebView] throws. Treating that as unsupported keeps the panel — and
 /// the test suite — from crashing.
 bool cloudflareWebviewSupported() {
-  final osSupported = !kIsWeb &&
+  final osSupported =
+      !kIsWeb &&
       !Platform.isLinux &&
       (Platform.isAndroid ||
           Platform.isIOS ||
@@ -35,6 +37,10 @@ bool cloudflareWebviewSupported() {
 ///    solve;
 ///  * [AntiBotPageType.normal] → the page loads normally: the UI says so and
 ///    never reports a “resolved challenge”.
+///
+/// The WebView is mounted exactly once and never swapped out for a loading
+/// surface. Replacing it on a transient navigation destroyed and recreated the
+/// native view, which made the page reload endlessly before it ever settled.
 class CloudflareBypassPanel extends StatefulWidget {
   final String url;
   final int? sourceId;
@@ -52,7 +58,7 @@ class CloudflareBypassPanel extends StatefulWidget {
   /// Small heading style for embedded cards (no big hero layout).
   final bool compact;
 
-  /// Expands the real browser surface to fill a full-screen route.
+  /// Fills a full-screen route (notification-triggered challenge screen).
   final bool fullScreen;
 
   const CloudflareBypassPanel({
@@ -84,10 +90,11 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   _CfPhase _phase = _CfPhase.checking;
   final ValueNotifier<double> _progress = ValueNotifier<double>(0);
   bool _cookieStoreReady = false;
+  bool _pageLoadedOnce = false;
   bool _resolvedCallbackSent = false;
   bool _inspectionInProgress = false;
   bool _retryLocked = false;
-  String _host = '';
+  bool _expanded = false;
   String? _statusNote;
 
   /// True only when a challenge was actually displayed in the WebView. The UI
@@ -97,11 +104,15 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   Timer? _retryCooldown;
   InAppWebViewController? _webView;
   AntiBotPageType? _lastLoggedPage;
+  int _pollTicks = 0;
+
+  /// Polling is a safety net for challenges that clear without a new load, not
+  /// a heartbeat. It stops after ~2.5 min so a stuck page cannot spin forever.
+  static const int _maxPollTicks = 150;
 
   @override
   void initState() {
     super.initState();
-    _host = _hostFrom(widget.url);
     _init();
   }
 
@@ -140,15 +151,6 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     });
   }
 
-  String _hostFrom(String url) {
-    try {
-      final host = Uri.parse(url).host;
-      return host.isEmpty ? url : host;
-    } catch (_) {
-      return url;
-    }
-  }
-
   Future<AntiBotAssessment> _probe() async {
     final controller = _webView;
     if (controller == null) return const AntiBotAssessment();
@@ -167,7 +169,12 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
 
   void _startPolling() {
     _pollTimer ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) _inspectPage();
+      if (!mounted) return;
+      if (_pollTicks++ >= _maxPollTicks) {
+        _stopPolling();
+        return;
+      }
+      _inspectPage();
     });
   }
 
@@ -179,6 +186,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   Future<void> _onPageLoaded() async {
     if (!mounted) return;
     _progress.value = 1;
+    if (!_pageLoadedOnce) setState(() => _pageLoadedOnce = true);
     await _inspectPage();
   }
 
@@ -215,7 +223,10 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           return;
         case AntiBotPageType.blocked:
           _stopPolling();
-          _setPhase(_CfPhase.blocked);
+          _setPhase(
+            _CfPhase.blocked,
+            statusNote: 'Accès refusé, sans challenge',
+          );
           return;
         case AntiBotPageType.normal:
           // Always try to persist the browser session, even when no challenge
@@ -257,7 +268,8 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     final controller = _webView;
     if (controller != null) {
       try {
-        final ua = await controller.evaluateJavascript(
+        final ua =
+            await controller.evaluateJavascript(
               source: 'navigator.userAgent',
             ) ??
             '';
@@ -301,22 +313,26 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
 
     if (resolved) {
       _setPhase(_CfPhase.solved);
-      if (!_resolvedCallbackSent) {
+      if (!_resolvedCallbackSent && widget.onResolved != null) {
         _resolvedCallbackSent = true;
         await Future<void>.delayed(const Duration(milliseconds: 250));
         if (mounted) widget.onResolved?.call();
       }
     } else {
+      // No auto-retry here: the user retries from the panel, so the screen is
+      // never torn down and rebuilt while they are looking at it.
       _setPhase(
         _CfPhase.clearedWithoutCookie,
         statusNote: _challengeSeen
-            ? 'Le challenge a disparu mais le cookie cf_clearance n’a pas été '
-                'enregistré pour les requêtes HTTP.'
-            : 'La page se charge, mais aucun cookie cf_clearance n’a été '
-                'déposé : le site ne demande pas de vérification à ce '
-                'navigateur. Réessaye la source.',
+            ? 'Challenge franchi — cookie non enregistré'
+            : 'Aucun challenge détecté',
       );
     }
+  }
+
+  void _toggleExpanded() {
+    if (widget.fullScreen) return;
+    setState(() => _expanded = !_expanded);
   }
 
   @override
@@ -324,391 +340,305 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     final cs = Theme.of(context).colorScheme;
     final supported = cloudflareWebviewSupported();
 
-    return Column(
-      mainAxisSize: widget.fullScreen ? MainAxisSize.max : MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!widget.fullScreen) _buildHeader(cs, showFullscreen: supported),
-        if (_phase == _CfPhase.loading ||
-            _phase == _CfPhase.checking ||
-            _phase == _CfPhase.challenge ||
-            _phase == _CfPhase.solved)
-          SizedBox(
-            height: 2,
-            child: ValueListenableBuilder<double>(
-              valueListenable: _progress,
-              builder: (context, progress, _) => _phase == _CfPhase.solved
-                  ? LinearProgressIndicator(
-                      value: 1,
-                      backgroundColor: Colors.transparent,
-                      color: Colors.green.shade500,
-                    )
-                  : LinearProgressIndicator(
-                      value: _phase == _CfPhase.challenge ? null : progress,
-                      backgroundColor: cs.surfaceContainerHighest,
-                      color: cs.primary,
-                    ),
-            ),
+    if (widget.fullScreen) {
+      return Stack(
+        children: [
+          Positioned.fill(child: _buildSurface(cs, supported)),
+          Positioned(top: 0, left: 0, right: 0, child: _buildProgress(cs)),
+          Positioned(
+            top: 6,
+            right: 6,
+            child: _buildControls(cs, allowExpand: false),
           ),
-        if (supported)
-          widget.fullScreen
-              ? Expanded(child: _buildWebview(cs))
-              : _buildWebview(cs)
-        else
-          widget.fullScreen
-              ? Expanded(child: _buildUnsupported(cs))
-              : _buildUnsupported(cs),
-        if (_statusNote != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: Text(
-              _statusNote!,
-              style: TextStyle(
-                fontSize: 11,
-                color: cs.onSurfaceVariant,
-                height: 1.35,
+        ],
+      );
+    }
+
+    final maxHeight = MediaQuery.sizeOf(context).height;
+    final collapsed = widget.compact ? 300.0 : 380.0;
+    final expanded = (maxHeight * 0.72).clamp(collapsed, maxHeight);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        height: _expanded ? expanded : collapsed,
+        child: Stack(
+          children: [
+            Positioned.fill(child: _buildSurface(cs, supported)),
+            Positioned(top: 0, left: 0, right: 0, child: _buildProgress(cs)),
+            Positioned(
+              top: 6,
+              right: 6,
+              child: _buildControls(cs, allowExpand: supported),
+            ),
+            if (_statusNote != null)
+              Positioned(
+                left: 8,
+                bottom: 8,
+                right: 64,
+                child: _StatusChip(text: _statusNote!),
               ),
-            ),
-          ),
-        if (widget.onRetry != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: _triggerRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 17),
-                label: const Text('Réessayer la source'),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  textStyle: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildHeader(ColorScheme cs, {required bool showFullscreen}) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        widget.compact ? 2 : 4,
-        widget.compact ? 4 : 6,
-        0,
-        widget.compact ? 6 : 8,
-      ),
-      child: Row(
+  Widget _buildSurface(ColorScheme cs, bool supported) {
+    if (!supported) return _buildUnsupported(cs);
+    return ColoredBox(
+      color: Colors.white,
+      child: Stack(
         children: [
-          _ShieldStatus(phase: _phase, cs: cs),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _phaseTitle(_phase),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: widget.compact ? 12.5 : 13.5,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  _host,
-                  style: TextStyle(
-                    fontSize: widget.compact ? 10.5 : 11,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          if (showFullscreen)
-            IconButton(
-              icon: const Icon(Icons.open_in_full_rounded, size: 18),
-              onPressed: _openFullScreen,
-              visualDensity: VisualDensity.compact,
-              tooltip: 'Ouvrir en plein écran',
-            ),
-          if (widget.onClose != null)
-            IconButton(
-              icon: const Icon(Icons.close_rounded, size: 18),
-              onPressed: widget.onClose,
-              visualDensity: VisualDensity.compact,
-              tooltip: 'Fermer',
-            ),
+          // Mounted once, kept alive across every phase.
+          if (_cookieStoreReady) Positioned.fill(child: _buildBrowser()),
+          if (!_pageLoadedOnce)
+            Positioned.fill(child: _buildLoadingOverlay(cs)),
+          if (_phase == _CfPhase.solved)
+            Positioned.fill(child: _buildSolvedOverlay(cs)),
         ],
       ),
     );
   }
 
-  String _phaseTitle(_CfPhase phase) => switch (phase) {
-        _CfPhase.checking => 'Vérification du challenge…',
-        _CfPhase.loading => 'Chargement de la page…',
-        _CfPhase.challenge => 'Challenge Cloudflare',
-        _CfPhase.solved => 'Challenge résolu',
-        _CfPhase.blocked => 'Blocage anti-bot (sans challenge)',
-        _CfPhase.clearedWithoutCookie => _challengeSeen
-            ? 'Challenge franchi — cookie manquant'
-            : 'Aucun challenge détecté',
-        _CfPhase.unsupported => 'WebView indisponible',
-      };
+  Widget _buildProgress(ColorScheme cs) {
+    final active =
+        _phase == _CfPhase.loading ||
+        _phase == _CfPhase.checking ||
+        _phase == _CfPhase.challenge ||
+        _phase == _CfPhase.solved;
+    return AnimatedOpacity(
+      opacity: active ? 1 : 0,
+      duration: const Duration(milliseconds: 160),
+      child: SizedBox(
+        height: 2,
+        child: ValueListenableBuilder<double>(
+          valueListenable: _progress,
+          builder: (context, progress, _) => _phase == _CfPhase.solved
+              ? LinearProgressIndicator(
+                  value: 1,
+                  backgroundColor: Colors.transparent,
+                  color: Colors.green.shade500,
+                )
+              : LinearProgressIndicator(
+                  value: _phase == _CfPhase.challenge ? null : progress,
+                  backgroundColor: cs.surfaceContainerHighest,
+                  color: cs.primary,
+                ),
+        ),
+      ),
+    );
+  }
 
-  Widget _buildWebview(ColorScheme cs) {
-    if (!_cookieStoreReady || _phase == _CfPhase.checking) {
-      final loading = const Center(child: CircularProgressIndicator());
-      return widget.fullScreen
-          ? loading
-          : Padding(
-              padding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
-              child: SizedBox(
-                height: 32,
-                width: 32,
-                child: loading,
-              ),
-            );
-    }
-
-    if (_phase == _CfPhase.solved) {
-      final resolvedContent = Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-        child: Row(children: [
-          Icon(Icons.check_circle_rounded, size: 16, color: Colors.green.shade600),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Accès rétabli — le cookie cf_clearance a été détecté et enregistré.',
-              style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
-            ),
-          ),
-        ]),
-      );
-      return widget.fullScreen
-          ? Center(child: resolvedContent)
-          : resolvedContent;
-    }
-
-    return Column(
-      mainAxisSize: widget.fullScreen ? MainAxisSize.max : MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _buildControls(ColorScheme cs, {required bool allowExpand}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        if (_phase == _CfPhase.blocked)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-            child: Text(
-              'Cloudflare renvoie un refus d’accès, pas un challenge '
-              'interactif : cette page ne peut pas le résoudre.',
-              style: TextStyle(color: cs.error, fontSize: 12),
-            ),
+        if (widget.onRetry != null)
+          _BoxIconButton(
+            icon: Icons.refresh_rounded,
+            tooltip: 'Réessayer la source',
+            onPressed: _triggerRetry,
           ),
-        if (widget.fullScreen)
-          Expanded(child: _buildBrowser())
-        else
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-            child: SizedBox(
-              height: widget.compact ? 230 : 320,
-              child: _buildBrowser(),
-            ),
+        if (allowExpand)
+          _BoxIconButton(
+            icon: _expanded
+                ? Icons.close_fullscreen_rounded
+                : Icons.open_in_full_rounded,
+            tooltip: _expanded ? 'Réduire' : 'Agrandir',
+            onPressed: _toggleExpanded,
           ),
-
+        if (widget.onClose != null)
+          _BoxIconButton(
+            icon: Icons.close_rounded,
+            tooltip: 'Fermer',
+            onPressed: widget.onClose!,
+          ),
       ],
     );
   }
 
-  /// The inline WebView is only ~230-320 px tall, which is too short for the
-  /// Turnstile widget. Opening the same panel full screen gives the challenge
-  /// room to be solved, and the inline panel refreshes on return.
-  Future<void> _openFullScreen() async {
-    final resolved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (routeContext) => Scaffold(
-          appBar: AppBar(
-            title: Text(
-              _host.isEmpty ? 'Vérification' : _host,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          body: SafeArea(
-            child: CloudflareBypassPanel(
-              url: widget.url,
-              sourceId: widget.sourceId,
-              fullScreen: true,
-              onResolved: () => Navigator.of(routeContext).pop(true),
-              onRetry: widget.onRetry == null
-                  ? null
-                  : () {
-                      Navigator.of(routeContext).pop(false);
-                      _triggerRetry();
-                    },
-              onClose: () => Navigator.of(routeContext).pop(false),
-            ),
+  Widget _buildLoadingOverlay(ColorScheme cs) {
+    return ColoredBox(
+      color: Colors.white,
+      child: Center(
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.primary),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSolvedOverlay(ColorScheme cs) {
+    return ColoredBox(
+      color: Colors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle_rounded,
+                size: 18,
+                color: Colors.green.shade600,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Accès rétabli — réessaye la source.',
+                  style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
-    if (!mounted) return;
-    if (resolved == true) {
-      widget.onResolved?.call();
-    }
   }
 
   Widget _buildBrowser() {
     return ClipRect(
-      child: ColoredBox(
-        color: Colors.white,
-        child: InAppWebView(
-          initialUrlRequest: URLRequest(url: WebUri(widget.url)),
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            domStorageEnabled: true,
-            thirdPartyCookiesEnabled: true,
-            useShouldOverrideUrlLoading: false,
-            // Scroll, pinch-zoom and text selection must stay enabled: the
-            // Turnstile widget and the “Verify you are human” button sit below
-            // the fold, so the user has to be able to reach them.
-            disableVerticalScroll: false,
-            disableHorizontalScroll: false,
-            verticalScrollBarEnabled: true,
-            horizontalScrollBarEnabled: true,
-            overScrollMode: OverScrollMode.ALWAYS,
-            supportZoom: true,
-            builtInZoomControls: true,
-            displayZoomControls: false,
-            useWideViewPort: true,
-            loadWithOverviewMode: true,
-            // Without hybrid composition the Android surface view swallows
-            // touch drags, so the embedded page cannot be scrolled and the
-            // “Verify you are human” button below the fold is unreachable.
-            useHybridComposition: true,
-            isTextInteractionEnabled: true,
-            // Same UA as the HTTP client so cf_clearance stays valid for both.
-            userAgent: widget.sourceId == null
-                ? MClient.userAgentForRequests()
-                : MClient.extensionUserAgentForRequests(
-                    sourceId: widget.sourceId,
-                  ),
-          ),
-          onWebViewCreated: (controller) => _webView = controller,
-          onLoadStart: (ctrl, url) {
-            if (mounted) {
-              _webView = ctrl;
-              _progress.value = 0;
-              _setPhase(_CfPhase.loading);
-            }
-          },
-          onProgressChanged: (ctrl, progress) {
-            if (mounted) _progress.value = progress / 100.0;
-          },
-          onLoadStop: (ctrl, url) => _onPageLoaded(),
+      child: InAppWebView(
+        initialUrlRequest: URLRequest(url: WebUri(widget.url)),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          domStorageEnabled: true,
+          thirdPartyCookiesEnabled: true,
+          useShouldOverrideUrlLoading: false,
+          // Scroll, pinch-zoom and text selection must stay enabled: the
+          // Turnstile widget and the “Verify you are human” button sit below
+          // the fold, so the user has to be able to reach them.
+          disableVerticalScroll: false,
+          disableHorizontalScroll: false,
+          verticalScrollBarEnabled: true,
+          horizontalScrollBarEnabled: true,
+          overScrollMode: OverScrollMode.ALWAYS,
+          supportZoom: true,
+          builtInZoomControls: true,
+          displayZoomControls: false,
+          useWideViewPort: true,
+          loadWithOverviewMode: true,
+          // Without hybrid composition the Android surface view swallows
+          // touch drags, so the embedded page cannot be scrolled and the
+          // “Verify you are human” button below the fold is unreachable.
+          useHybridComposition: true,
+          isTextInteractionEnabled: true,
+          // Same UA as the HTTP client so cf_clearance stays valid for both.
+          userAgent: widget.sourceId == null
+              ? MClient.userAgentForRequests()
+              : MClient.extensionUserAgentForRequests(
+                  sourceId: widget.sourceId,
+                ),
         ),
+        onWebViewCreated: (controller) => _webView = controller,
+        onLoadStart: (ctrl, url) {
+          if (!mounted) return;
+          _webView = ctrl;
+          _progress.value = 0;
+          // Only the first navigation is a real load: a later in-page
+          // navigation must not flip the surface back to its loading state.
+          if (!_pageLoadedOnce) _setPhase(_CfPhase.loading);
+        },
+        onProgressChanged: (ctrl, progress) {
+          if (mounted) _progress.value = progress / 100.0;
+        },
+        onLoadStop: (ctrl, url) => _onPageLoaded(),
       ),
     );
   }
 
   Widget _buildUnsupported(ColorScheme cs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      padding: const EdgeInsets.all(14),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(Icons.info_outline_rounded, size: 14, color: cs.onSurfaceVariant),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'Le challenge ne peut pas être affiché sur cette plateforme. '
-                'Ouvrez la source dans votre navigateur, résolvez le challenge, '
-                'puis réessayez la source ici.',
-                style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant, height: 1.35),
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 14,
+                color: cs.onSurfaceVariant,
               ),
-            ),
-          ]),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Le challenge ne peut pas être affiché ici. Ouvre la source '
+                  'dans ton navigateur, résous le challenge, puis réessaye.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: cs.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _ShieldStatus extends StatelessWidget {
-  final _CfPhase phase;
-  final ColorScheme cs;
+/// Compact icon button drawn over the WebView, on a translucent disc so it
+/// stays legible on any page.
+class _BoxIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
 
-  const _ShieldStatus({required this.phase, required this.cs});
+  const _BoxIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final (icon, color, animating) = switch (phase) {
-      _CfPhase.checking || _CfPhase.loading || _CfPhase.challenge => (
-          Icons.shield_outlined,
-          Colors.amber.shade700,
-          true,
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.55),
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Icon(icon, size: 17, color: Colors.white),
+            ),
+          ),
         ),
-      _CfPhase.solved => (Icons.shield_rounded, Colors.green.shade600, false),
-      _CfPhase.blocked || _CfPhase.clearedWithoutCookie => (
-          Icons.gpp_maybe_outlined,
-          cs.error,
-          false,
-        ),
-      _CfPhase.unsupported => (Icons.shield_outlined, cs.outlineVariant, false),
-    };
-
-    Widget shield = Icon(icon, size: 20, color: color);
-    if (animating) {
-      shield = _PulsingIcon(color: color);
-    }
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        shape: BoxShape.circle,
       ),
-      child: Center(child: shield),
     );
   }
 }
 
-class _PulsingIcon extends StatefulWidget {
-  final Color color;
-  const _PulsingIcon({required this.color});
+/// One-line state note shown at the bottom of the box.
+class _StatusChip extends StatelessWidget {
+  final String text;
 
-  @override
-  State<_PulsingIcon> createState() => _PulsingIconState();
-}
-
-class _PulsingIconState extends State<_PulsingIcon>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 1100),
-        lowerBound: 0.5)
-      ..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
+  const _StatusChip({required this.text});
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _c,
-      child: Icon(Icons.shield_outlined, size: 20, color: widget.color),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 10.5, color: Colors.white),
+      ),
     );
   }
 }

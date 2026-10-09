@@ -89,42 +89,33 @@ String? extensionErrorDetail(Object? error) {
   return detail;
 }
 
+/// One short line per HTTP status. The user asked for the code and nothing
+/// else; the raw upstream text stays available behind the details disclosure.
+String _httpCodeLine(int code) => switch (code) {
+      401 || 403 => 'Accès refusé (HTTP $code)',
+      404 => 'Introuvable (HTTP 404)',
+      429 => 'Trop de requêtes (HTTP 429)',
+      >= 500 => 'Erreur serveur (HTTP $code)',
+      _ => 'Erreur HTTP $code',
+    };
+
 String? extensionRequestFailureMessage(Object? error) {
   if (error == null) return null;
   final detail = error.toString().toLowerCase();
   final statusCode = extensionHttpStatusCode(error);
   if (extensionErrorIsCloudflareApiBlock(error)) {
-    if (statusCode != null) {
-      return 'Cloudflare bloque la requête API de l’extension '
-          '(HTTP $statusCode).';
-    }
-    if (extensionErrorIsConnectionDropped(error)) {
-      return 'Cloudflare a coupé la requête API de l’extension avant toute '
-          'réponse. Vérifie l’accès à la source ci-dessous.';
-    }
-    return 'Cloudflare bloque l’API de l’extension, mais l’erreur ne fournit '
-        'aucun code HTTP. Vérifie l’accès à la source ci-dessous.';
+    return statusCode == null
+        ? 'Accès bloqué'
+        : 'Accès bloqué (HTTP $statusCode)';
   }
   if (extensionErrorIsCloudflareChallenge(error)) {
-    final statusSuffix = statusCode == null ? '' : ' (HTTP $statusCode)';
-    return 'La source demande une vérification anti-bot$statusSuffix. '
-        'Termine-la dans le panneau, puis réessaie.';
+    return statusCode == null
+        ? 'Vérification requise'
+        : 'Vérification requise (HTTP $statusCode)';
   }
-  if (statusCode != null) {
-    return switch (statusCode) {
-      401 || 403 =>
-        'La source a refusé la requête (HTTP $statusCode). Elle peut être temporairement inaccessible ou demander une vérification.',
-      404 => 'La source a renvoyé une page introuvable (HTTP 404).',
-      429 =>
-        'La source limite temporairement les requêtes (HTTP 429). Réessaie dans quelques instants.',
-      >= 500 =>
-        'La source rencontre une erreur serveur (HTTP $statusCode). Réessaie dans quelques instants.',
-      _ => 'La source a renvoyé une erreur HTTP $statusCode.',
-    };
-  }
+  if (statusCode != null) return _httpCodeLine(statusCode);
   if (extensionErrorIsConnectionDropped(error)) {
-    return 'La source a coupé la connexion (anti-bot). '
-        'Termine la vérification ci-dessous, puis réessaie.';
+    return 'Connexion coupée';
   }
   if (detail.contains('socketexception') ||
       detail.contains('failed host lookup') ||
@@ -132,15 +123,15 @@ String? extensionRequestFailureMessage(Object? error) {
       detail.contains('timeout') ||
       detail.contains('network') ||
       detail.contains('connection')) {
-    return 'Connexion à la source impossible. Vérifie le réseau ou réessaie dans quelques instants.';
+    return 'Vérifie le réseau';
   }
   if (detail.contains('http 401') || detail.contains('http 403')) {
-    return 'La source a refusé la requête. Elle peut être temporairement inaccessible ou demander une vérification.';
+    return 'Accès refusé';
   }
   // Never hide an unrecognised failure behind a catch-all sentence: show the
-  // extension's own message so the real cause stays visible.
-  return extensionErrorDetail(error) ??
-      'La source est momentanément indisponible. Réessaie dans quelques instants.';
+  // extension's own message so the real cause stays visible. When there is no
+  // detail the title alone already says everything.
+  return extensionErrorDetail(error);
 }
 
 bool extensionErrorIsCloudflareApiBlock(Object? error) {
@@ -315,12 +306,13 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                 onRefresh: widget.onRefresh,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final animationSize = isPlainEmpty
-                        ? math.min(
-                            220.0,
-                            math.max(120.0, constraints.maxHeight * .32),
-                          )
-                        : 48.0;
+                    // Same animation on every surface, sized to the viewport:
+                    // the error states used to shrink it to a 48 px badge next
+                    // to a “!” icon, which read as a second, different page.
+                    final animationSize = math.min(
+                      200.0,
+                      math.max(110.0, constraints.maxHeight * .30),
+                    );
                     return SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(
                         parent: ClampingScrollPhysics(),
@@ -341,6 +333,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
+                                  // One single empty-state surface for every
+                                  // case (plain empty, HTTP failure, anti-bot):
+                                  // the animation replaces the old error page
+                                  // with its separate “!” icon.
                                   // LottieFiles: “empty box3” by partho prothimdatta.
                                   // Free to use under the Lottie Simple License.
                                   // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
@@ -353,43 +349,16 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                               : cloudflareApiBlocked
                                                   ? 'Accès API bloqué'
                                                   : 'Échec de connexion à la source',
-                                      child: isPlainEmpty
-                                          ? Lottie.asset(
-                                              'assets/animations/empty_box_partho.json',
-                                              key: const ValueKey(
-                                                'extension-empty-lottie',
-                                              ),
-                                              width: animationSize,
-                                              height: animationSize,
-                                              fit: BoxFit.contain,
-                                              repeat: true,
-                                            )
-                                          : Container(
-                                              width: animationSize,
-                                              height: animationSize,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withValues(
-                                                  alpha: .06,
-                                                ),
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: Colors.white.withValues(
-                                                    alpha: .10,
-                                                  ),
-                                                ),
-                                              ),
-                                              child: Icon(
-                                                challengeDetected
-                                                    ? Icons.shield_rounded
-                                                    : Icons.warning_amber_rounded,
-                                                size: 24,
-                                                color: challengeDetected
-                                                    ? Theme.of(context)
-                                                        .colorScheme
-                                                        .primary
-                                                    : Colors.white70,
-                                              ),
-                                            ),
+                                      child: Lottie.asset(
+                                        'assets/animations/empty_box_partho.json',
+                                        key: const ValueKey(
+                                          'extension-empty-lottie',
+                                        ),
+                                        width: animationSize,
+                                        height: animationSize,
+                                        fit: BoxFit.contain,
+                                        repeat: true,
+                                      ),
                                     ),
                                   ),
                                   SizedBox(height: challengeDetected ? 10 : 14),
@@ -456,8 +425,8 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                   ] else if (challengeDetected) ...[
                                     const SizedBox(height: 10),
                                     const Text(
-                                      'La source demande une vérification. '
-                                      'Termine-la dans le panneau, puis réessaie.',
+                                      'Termine la vérification dans le panneau, '
+                                      'puis réessaye.',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: Colors.white70,
@@ -468,12 +437,8 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                   ] else ...[
                                     const SizedBox(height: 10),
                                     const Text(
-                                      'La source a répondu mais n’a renvoyé '
-                                      'aucun élément. Le site sert peut-être '
-                                      'une protection anti-bot invisible, ou '
-                                      'l’extension est obsolète : mets-la à '
-                                      'jour, puis réessaie. Les LOGS donnent '
-                                      'le détail.',
+                                      'La source n’a renvoyé aucun élément. '
+                                      'Réessaye, ou mets l’extension à jour.',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: Colors.white70,
@@ -498,60 +463,45 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       url: challengeUrl!,
                                       sourceId: widget.sourceId,
                                       compact: true,
-                                      onResolved: _retrySource,
+                                      // No auto-retry on resolution: the panel
+                                      // shows “Accès rétabli” and the user taps
+                                      // the retry icon, so the screen is never
+                                      // refreshed in a loop.
                                       onRetry: _retrySource,
                                       onClose: () => setState(
                                         () => _showChallenge = false,
                                       ),
                                     ),
-                                  ],
-                                  if (!(hasChallengeUrl && _showChallenge))
-                                    ...[
-                                      const SizedBox(height: 18),
-                                      Center(
-                                        child: SizedBox(
-                                          width: 190,
-                                          child: FilledButton.icon(
-                                            onPressed: _retrySource,
-                                            icon: const Icon(
-                                              Icons.refresh_rounded,
-                                              size: 18,
+                                  ] else ...[
+                                    const SizedBox(height: 18),
+                                    Center(
+                                      child: SizedBox(
+                                        width: 190,
+                                        child: FilledButton.icon(
+                                          onPressed: _retrySource,
+                                          icon: const Icon(
+                                            Icons.refresh_rounded,
+                                            size: 18,
+                                          ),
+                                          label: const Text('Réessayer'),
+                                          style: FilledButton.styleFrom(
+                                            minimumSize: const Size.fromHeight(
+                                              48,
                                             ),
-                                            label: const Text('Réessayer'),
-                                            style: FilledButton.styleFrom(
-                                              minimumSize:
-                                                  const Size.fromHeight(48),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 20,
-                                                    vertical: 12,
-                                                  ),
-                                              textStyle: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                              ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                              vertical: 12,
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  if (hasChallengeUrl &&
-                                      !_showChallenge) ...[
-                                    const SizedBox(height: 8),
-                                    TextButton.icon(
-                                      onPressed: () => setState(
-                                        () => _showChallenge = true,
-                                      ),
-                                      icon: const Icon(
-                                        Icons.shield_outlined,
-                                        size: 18,
-                                      ),
-                                      label: const Text(
-                                        'Vérifier l’accès à la source',
                                       ),
                                     ),
                                   ],

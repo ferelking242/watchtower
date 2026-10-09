@@ -187,7 +187,7 @@ class BypassNotificationService {
             url: challengeUrl,
             sourceName: source?.name,
             sourceId: source?.id,
-              ),
+          ),
         ),
       );
       return resolved == true;

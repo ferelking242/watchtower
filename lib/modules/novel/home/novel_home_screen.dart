@@ -26,9 +26,11 @@ import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
-import 'package:watchtower/modules/anti_bot/cloudflare_error_widget.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart'
+    show isCloudflareError;
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart'
-    show extensionFailedUrl;
+    show extensionFailedUrl, extensionErrorTitle;
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/ui/widgets/see_all_button.dart';
@@ -883,14 +885,26 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     if (isCloudflareError(error.toString())) {
       return SingleChildScrollView(
         child: Padding(padding: const EdgeInsets.all(16),
-          child: CloudflareErrorWidget(
-            errorText: error.toString(),
-            // Prefer the exact failing URL so the WebView shows the challenge.
-            url: extensionFailedUrl(error) ??
-                ref.read(sourceBaseUrlProvider(source: source)),
-            sourceId: source.id,
-            onRetry: retry,
-          )),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(
+              extensionErrorTitle(error),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 14),
+            CloudflareBypassPanel(
+              // Prefer the exact failing URL so the WebView shows the
+              // challenge instead of the site root.
+              url: extensionFailedUrl(error) ??
+                  ref.read(sourceBaseUrlProvider(source: source)),
+              sourceId: source.id,
+              // No auto-retry: the panel shows “Accès rétabli” and the user
+              // retries with the in-box icon, so the screen never refreshes
+              // in a loop.
+              onRetry: retry,
+            ),
+          ]),
+        ),
       );
     }
 

@@ -67,10 +67,7 @@ void main() {
       expect(extensionErrorIsCloudflareApiBlock(apiError), isTrue);
       expect(extensionErrorIsCloudflareChallenge(apiError), isFalse);
       expect(extensionHttpStatusCode(apiError), isNull);
-      expect(
-        extensionRequestFailureMessage(apiError),
-        contains('aucun code HTTP'),
-      );
+      expect(extensionRequestFailureMessage(apiError), 'Accès bloqué');
       expect(
         extensionErrorIsCloudflareChallenge(
           Exception('HTTP 403: cf-chl-out challenge page'),
@@ -110,10 +107,7 @@ void main() {
     expect(extensionErrorIsConnectionDropped(dropped), isTrue);
     expect(extensionErrorIsCloudflareApiBlock(dropped), isTrue);
     expect(extensionErrorTitle(dropped), 'Accès API bloqué');
-    expect(
-      extensionRequestFailureMessage(dropped),
-      contains('coupé la requête API'),
-    );
+    expect(extensionRequestFailureMessage(dropped), 'Accès bloqué');
     expect(extensionRequestFailureMessage(dropped), isNot(contains('HTTP 0')));
     expect(extensionFailedUrl(dropped), 'https://api.allanime.day/api?q=1');
 
@@ -123,10 +117,7 @@ void main() {
     );
     expect(extensionErrorIsConnectionDropped(generic), isTrue);
     expect(extensionErrorTitle(generic), 'Blocage anti-bot — connexion coupée');
-    expect(
-      extensionRequestFailureMessage(generic),
-      contains('coupé la connexion'),
-    );
+    expect(extensionRequestFailureMessage(generic), 'Connexion coupée');
   });
 
   test('a plain connection drop without anti-bot context is not mislabelled', () {
@@ -246,7 +237,6 @@ void main() {
 
     expect(find.text('Vérification Cloudflare requise'), findsOneWidget);
     expect(find.text('HTTP 403'), findsOneWidget);
-    expect(find.byIcon(Icons.shield_rounded), findsOneWidget);
     expect(find.byIcon(Icons.cloud_off_rounded), findsNothing);
   });
 
@@ -270,14 +260,19 @@ void main() {
       await tester.pump();
 
       expect(find.text('Accès API bloqué'), findsOneWidget);
-      expect(find.textContaining('Cloudflare bloque l’API'), findsOneWidget);
-      expect(find.text('Réessayer la source'), findsOneWidget);
+      expect(find.textContaining('Accès bloqué'), findsWidgets);
+      // Retry is an icon inside the box, not a text button.
+      expect(find.byTooltip('Réessayer la source'), findsOneWidget);
       expect(find.text('Vérifier la page'), findsNothing);
       // The panel opens on the exact challenged request, not the site root.
       final panel = tester.widget<CloudflareBypassPanel>(
         find.byType(CloudflareBypassPanel),
       );
       expect(panel.url, 'https://api.allanime.day/api?query=x');
+      // No onResolved wiring: solving the challenge must not auto-refresh the
+      // screen in a loop. Retry stays a manual, in-box action.
+      expect(panel.onResolved, isNull);
+      expect(panel.onRetry, isNotNull);
       expect(find.text('Vérification Cloudflare requise'), findsNothing);
       expect(find.byIcon(Icons.cloud_off_rounded), findsNothing);
     },
@@ -348,9 +343,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Connexion impossible'), findsOneWidget);
+    expect(find.text('Vérifie le réseau'), findsOneWidget);
     expect(find.text('Impossible de charger le contenu'), findsNothing);
     expect(find.text('Challenge Cloudflare'), findsNothing);
-    expect(find.text('Vérifier l’accès à la source'), findsOneWidget);
   });
 }

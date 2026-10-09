@@ -282,6 +282,17 @@ AntiBotAssessment assessErrorMessage(String? message) {
   return const AntiBotAssessment();
 }
 
+/// True only when the error text carries actual anti-bot evidence.
+///
+/// A bare 403/503, a timeout, or the word “challenge” alone is NOT Cloudflare:
+/// those errors keep the normal error rendering path.
+bool isCloudflareError(String? error) {
+  final assessment = assessErrorMessage(error);
+  return assessment.cloudflareInvolved ||
+      assessment.challenge ||
+      assessment.blocked;
+}
+
 /// The exact URL a bypass WebView must open. Never rewrites an API URL to the
 /// site root: the challenge must be solved on the URL that actually failed.
 String? resolveBypassUrl(String? url) {

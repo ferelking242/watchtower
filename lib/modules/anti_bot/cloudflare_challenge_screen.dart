@@ -30,21 +30,9 @@ class _CloudflareChallengeScreenState extends State<CloudflareChallengeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final host = Uri.tryParse(widget.url)?.host;
-    final sourceName = widget.sourceName?.trim();
-    final title = sourceName != null && sourceName.isNotEmpty
-        ? sourceName
-        : host == null || host.isEmpty
-        ? 'Challenge Cloudflare'
-        : host;
+    // No AppBar: the panel draws its own close icon over the box, so the box is
+    // the only surface on screen.
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
       body: SafeArea(
         child: CloudflareBypassPanel(
           url: widget.url,
