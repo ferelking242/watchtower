@@ -1616,6 +1616,17 @@ class _GroupedDownloadTabListState
     final seriesPercent = seriesProgress == null
         ? null
         : (seriesProgress * 100).round();
+    // A fresh manga series whose page total is not known yet must show the
+    // animated sweep, not a static empty bar. Give the bar a null value so the
+    // widget renders its indeterminate sweep.
+    final seriesProgressIndeterminate =
+        itemType == ItemType.manga &&
+        seriesProgress == null &&
+        unfinishedItems.any(
+          (download) =>
+              download.status == 'downloading' ||
+              download.status == 'initializing',
+        );
     final showSeriesProgress =
         seriesProgress != null ||
         unfinishedItems.any(
@@ -1739,7 +1750,9 @@ class _GroupedDownloadTabListState
                                   if (showSeriesProgress) ...[
                                     const SizedBox(height: 8),
                                     MbGradientProgressBar(
-                                      value: seriesProgress,
+                                      value: seriesProgressIndeterminate
+                                          ? null
+                                          : seriesProgress,
                                       height: 4,
                                     ),
                                     const SizedBox(height: 5),
