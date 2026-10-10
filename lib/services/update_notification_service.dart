@@ -957,6 +957,26 @@ class WatchtowerNotificationService {
           await prefs.remove(key);
         }
       }
+      for (final entry in _mediaDownloadNotices.entries.toList(
+        growable: false,
+      )) {
+        final notice = entry.value;
+        if (!notice.isOngoing && !notice.isPaused) continue;
+        await showMediaDownloadProgress(
+          chapterId: entry.key,
+          seriesTitle: notice.seriesTitle,
+          chapterTitle: notice.chapterTitle,
+          itemType: notice.itemType,
+          completed: notice.completed,
+          total: notice.total,
+          downloadedBytes: notice.downloadedBytes,
+          totalBytes: notice.totalBytes,
+          filePath: notice.filePath,
+          isPaused: notice.isPaused,
+          forceUpdate: true,
+          updateSummary: false,
+        );
+      }
       await _updateMediaDownloadSummary();
     } catch (e) {
       AppLogger.log(
@@ -1002,6 +1022,8 @@ class WatchtowerNotificationService {
     bool isCompleted = false,
     bool isPaused = false,
     bool isFailed = false,
+    bool forceUpdate = false,
+    bool updateSummary = true,
   }) async {
     if (!_supported) return;
     try {
@@ -1036,6 +1058,7 @@ class WatchtowerNotificationService {
       final isTerminal = isCompleted || isPaused || isFailed;
       if (previous != null &&
           !isTerminal &&
+          !forceUpdate &&
           now.difference(previous.lastShownAt) <
               const Duration(milliseconds: 350)) {
         return;
@@ -1158,7 +1181,7 @@ class WatchtowerNotificationService {
           if (filePath?.isNotEmpty == true) 'path': filePath,
         }),
       );
-      await _updateMediaDownloadSummary();
+      if (updateSummary) await _updateMediaDownloadSummary();
     } catch (e) {
       AppLogger.log(
         'showMediaDownloadProgress failed: $e',
