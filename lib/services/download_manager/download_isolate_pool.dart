@@ -141,8 +141,16 @@ class DownloadIsolatePool {
     required FutureOr<void> Function() onComplete,
     required void Function(Exception) onError,
     void Function()? onCancelled,
+    bool Function()? shouldCancel,
   }) async {
     if (!_initialized) await initialize();
+
+    // A pause may arrive while the pool is still initializing. Do not clear
+    // that cancellation marker and start a task the user has already paused.
+    if (shouldCancel?.call() ?? false) {
+      onCancelled?.call();
+      return;
+    }
 
     AppLogger.log(
       '[ch:$taskId] pool submit pages=${pageUrls.length} '

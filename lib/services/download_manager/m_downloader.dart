@@ -20,6 +20,7 @@ class MDownloader {
   final Chapter chapter;
   final List<Track>? subtitles;
   final String? subDownloadDir;
+  final bool Function()? shouldCancel;
 
   static var httpClient = MClient.httpClient(
     settings: const ClientSettings(
@@ -33,6 +34,7 @@ class MDownloader {
     required this.pageUrls,
     required this.subtitles,
     required this.subDownloadDir,
+    this.shouldCancel,
     this.concurrentDownloads = 1,
   });
 
@@ -163,14 +165,6 @@ class MDownloader {
         onProgress(progress);
       },
       onComplete: () {
-        onProgress(
-          DownloadProgress(
-            1,
-            1,
-            chapter.manga.value!.itemType,
-            isCompleted: true,
-          ),
-        );
         if (!completer.isCompleted) {
           completer.complete();
         }
@@ -188,6 +182,7 @@ class MDownloader {
           completer.complete();
         }
       },
+      shouldCancel: shouldCancel,
     );
 
     AppLogger.log(

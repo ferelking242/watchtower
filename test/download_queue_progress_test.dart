@@ -6,7 +6,7 @@ void main() {
     test('prefers live page counts to stale persisted counts', () {
       final progress = mangaChapterProgress(
         storedCompleted: 0,
-        storedTotal: 36,
+        storedTotal: 34,
         isComplete: false,
         liveCompleted: 18,
         liveTotal: 36,
@@ -30,7 +30,7 @@ void main() {
       expect(mangaSeriesProgress([progress]), 0.5);
     });
 
-    test('averages chapter progress so one of two finished is 50 percent', () {
+    test('weights completed chapters by their page counts', () {
       final finished = mangaChapterProgress(
         storedCompleted: 0,
         storedTotal: 36,
@@ -42,7 +42,43 @@ void main() {
         isComplete: false,
       );
 
-      expect(mangaSeriesProgress([finished, pending]), 0.5);
+      expect(mangaSeriesProgress([finished, pending]), 0.6);
+    });
+
+    test('weights unequal chapters by pages rather than chapter count', () {
+      final almostFinishedSmallChapter = mangaChapterProgress(
+        storedCompleted: 9,
+        storedTotal: 10,
+        isComplete: false,
+      );
+      final untouchedLargeChapter = mangaChapterProgress(
+        storedCompleted: 0,
+        storedTotal: 90,
+        isComplete: false,
+      );
+
+      expect(
+        mangaSeriesProgress([
+          almostFinishedSmallChapter,
+          untouchedLargeChapter,
+        ]),
+        0.09,
+      );
+    });
+
+    test('does not claim a percentage while any page total is unknown', () {
+      final known = mangaChapterProgress(
+        storedCompleted: 36,
+        storedTotal: 36,
+        isComplete: true,
+      );
+      final unknown = mangaChapterProgress(
+        storedCompleted: 0,
+        storedTotal: 1,
+        isComplete: false,
+      );
+
+      expect(mangaSeriesProgress([known, unknown]), isNull);
     });
 
     test('does not turn impossible stored counters into completed pages', () {

@@ -97,6 +97,25 @@ void main() {
       expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
     });
 
+    test('pause keeps the claimed worker interrupted until it exits', () async {
+      expect(
+        ActiveDownloadRegistry.tryRegisterInternal(
+          downloadId,
+          '$downloadId',
+          itemType: ItemType.manga,
+          source: 'test',
+        ),
+        isTrue,
+      );
+
+      await ActiveDownloadRegistry.pause(downloadId);
+
+      expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
+      expect(ActiveDownloadRegistry.wasInterrupted(downloadId), isTrue);
+      ActiveDownloadRegistry.unregister(downloadId);
+      expect(ActiveDownloadRegistry.wasInterrupted(downloadId), isFalse);
+    });
+
     test('cancel is idempotent and clears the slot', () {
       expect(
         ActiveDownloadRegistry.tryRegisterInternal(

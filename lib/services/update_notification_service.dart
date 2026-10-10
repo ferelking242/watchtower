@@ -25,6 +25,7 @@ const int _kMediaDownloadSummaryNotifId = 9913;
 const int _kExtensionUpdateNotifId = 9914;
 const int _kNewExtensionNotifId = 9915;
 const String _kMediaDownloadGroupKey = 'watchtower_media_downloads';
+const String _kMediaDownloadNoticeKeyPrefix = 'media_download_notice_';
 int _nextMediaNotifId =
     1000000000 + (DateTime.now().millisecondsSinceEpoch % 1000000000);
 const String _kNextMediaNotifIdKey = 'next_media_download_notification_id';
@@ -251,6 +252,7 @@ class WatchtowerNotificationService {
 
       final launchDetails = await _plugin.getNotificationAppLaunchDetails();
       _initialized = true;
+      await _restoreMediaDownloadNotices();
       _initCompleter!.complete();
       final launchResponse = launchDetails?.notificationResponse;
       if (launchDetails?.didNotificationLaunchApp == true &&
@@ -923,6 +925,67 @@ class WatchtowerNotificationService {
     });
   }
 
+  Future<void> _restoreMediaDownloadNotices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in prefs.getKeys().toList(growable: false)) {
+        if (!key.startsWith(_kMediaDownloadNoticeKeyPrefix)) continue;
+        final chapterId = int.tryParse(
+          key.substring(_kMediaDownloadNoticeKeyPrefix.length),
+        );
+        final encoded = prefs.getString(key);
+        if (chapterId == null || encoded == null) {
+          await prefs.remove(key);
+          continue;
+        }
+        try {
+          final decoded = jsonDecode(encoded);
+          if (decoded is! Map) {
+            await prefs.remove(key);
+            continue;
+          }
+          final notice = _MediaDownloadNotice.fromJson(
+            Map<String, dynamic>.from(decoded),
+          );
+          if (notice == null) {
+            await prefs.remove(key);
+            continue;
+          }
+          _mediaNotificationIds[chapterId] = notice.id;
+          _mediaDownloadNotices[chapterId] = notice;
+        } catch (_) {
+          await prefs.remove(key);
+        }
+      }
+      await _updateMediaDownloadSummary();
+    } catch (e) {
+      AppLogger.log(
+        'Restoring media download notices failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  Future<void> _persistMediaDownloadNotice(
+    int chapterId,
+    _MediaDownloadNotice notice,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        '$_kMediaDownloadNoticeKeyPrefix$chapterId',
+        jsonEncode(notice.toJson()),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'Persisting media download notice failed for chapter $chapterId: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
   /// Posts or updates the notification for one chapter. A stable notification
   /// id means progress updates replace that chapter's notice instead of
   /// creating a new notice for every image or video segment.
@@ -978,6 +1041,7 @@ class WatchtowerNotificationService {
         return;
       }
       notice.lastShownAt = now;
+      await _persistMediaDownloadNotice(chapterId, notice);
 
       final displayTitle = 'Watchtower';
       final progressPercent = _mediaProgressPercent(notice);
@@ -1136,8 +1200,8 @@ class WatchtowerNotificationService {
       itemType: notice.itemType,
       completed: notice.completed,
       total: notice.total,
-      downloadedBytes: null,
-      totalBytes: null,
+      downloadedBytes: notice.downloadedBytes,
+      totalBytes: notice.totalBytes,
       filePath: notice.filePath,
       isPaused: isPaused,
     );
@@ -1179,9 +1243,18 @@ class WatchtowerNotificationService {
 
   Future<void> cancelMediaDownloadNotification(int chapterId) async {
     final notice = _mediaDownloadNotices.remove(chapterId);
-    if (notice == null || !_supported) return;
+    if (!_supported) return;
     try {
-      await _plugin.cancel(notice.id);
+      final prefs = await SharedPreferences.getInstance();
+      final id =
+          notice?.id ??
+          _mediaNotificationIds[chapterId] ??
+          prefs.getInt('media_download_notification_id_$chapterId');
+      if (id != null) await _plugin.cancel(id);
+      _mediaNotificationIds.remove(chapterId);
+      _mediaNotificationIdFutures.remove(chapterId);
+      await prefs.remove('$_kMediaDownloadNoticeKeyPrefix$chapterId');
+      await prefs.remove('media_download_notification_id_$chapterId');
       await _updateMediaDownloadSummary();
     } catch (e) {
       AppLogger.log(
@@ -1425,6 +1498,49 @@ class _MediaDownloadNotice {
   DateTime lastShownAt;
 
   bool get isOngoing => !isCompleted && !isPaused && !isFailed;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'seriesTitle': seriesTitle,
+    'chapterTitle': chapterTitle,
+    'itemType': itemType,
+    'completed': completed,
+    'total': total,
+    'downloadedBytes': downloadedBytes,
+    'totalBytes': totalBytes,
+    'filePath': filePath,
+    'isCompleted': isCompleted,
+    'isPaused': isPaused,
+    'isFailed': isFailed,
+    'lastShownAt': lastShownAt.millisecondsSinceEpoch,
+  };
+
+  static _MediaDownloadNotice? fromJson(Map<String, dynamic> json) {
+    int? readInt(String key) {
+      final value = json[key];
+      return value is num ? value.toInt() : null;
+    }
+
+    final id = readInt('id');
+    if (id == null || id < 1000000000 || id > 1999999999) return null;
+    return _MediaDownloadNotice(
+      id: id,
+      seriesTitle: json['seriesTitle'] as String? ?? '',
+      chapterTitle: json['chapterTitle'] as String? ?? '',
+      itemType: json['itemType'] as String? ?? 'manga',
+      completed: readInt('completed') ?? 0,
+      total: readInt('total') ?? 1,
+      downloadedBytes: readInt('downloadedBytes'),
+      totalBytes: readInt('totalBytes'),
+      filePath: json['filePath'] as String?,
+      isCompleted: json['isCompleted'] == true,
+      isPaused: json['isPaused'] == true,
+      isFailed: json['isFailed'] == true,
+      lastShownAt: DateTime.fromMillisecondsSinceEpoch(
+        readInt('lastShownAt') ?? 0,
+      ),
+    );
+  }
 }
 
 @pragma('vm:entry-point')

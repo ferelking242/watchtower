@@ -1294,6 +1294,17 @@ Future<void> downloadChapter(
       final settings = DownloadSettingsService.instance;
       final archiveFormat = settings.mangaArchiveFormat;
       if (archiveFormat == MangaArchiveFormat.folder) return;
+      for (final extension in {
+        archiveFormat.extension,
+        '.cbz',
+        '.zip',
+      }) {
+        if (await File(
+          p.join(mangaMainDirectory!.path, '${chapter.name}$extension'),
+        ).exists()) {
+          return;
+        }
+      }
       final compressionLevel = settings.mangaArchiveCompression;
       final chapterIdForProgress = chapter.id;
       try {
@@ -1348,6 +1359,7 @@ Future<void> downloadChapter(
           'Erreur lors de la création de l’archive manga : '
           '${friendlyErrorMessage(error)}',
         );
+        rethrow;
       } finally {
         if (chapterIdForProgress != null) {
           ArchiveProgressStore.instance.clear(chapterIdForProgress);
@@ -1355,10 +1367,9 @@ Future<void> downloadChapter(
       }
     }
 
-    // Tracks the KB already stored in Isar from a previous (paused) download
-    // session.  Captured once on the very first setProgress() call, then added
-    // as an offset to every subsequent tick so the progress bar never goes
-    // backwards after a pause → resume.  -1 = not yet captured.
+    // Tracks an existing non-manga resume offset. Manga resume progress is
+    // rebuilt from reusable page files after the manifest scan, so its stored
+    // counters must not be added a second time. -1 = not yet captured.
     var _resumeSucceededKbOffset = -1;
 
     // ── Speed Master: live per-download speed (EMA, MB/s) ──────────────────
@@ -1615,26 +1626,26 @@ Future<void> downloadChapter(
 
       // ── First-tick: capture resume offset from Isar ──────────────────────
       // setProgress(0, 0, …) is called once before any real progress arrives.
-      // If the stored record already has bytes, this is a resume — capture the
-      // offset so every subsequent tick adds it back in.
+      // Manga progress is based on pages verified on disk, not stale counters.
       if (_resumeSucceededKbOffset < 0) {
         final stored = storedSucceeded;
-        // Threshold is type-aware:
-        //   • anime  → succeeded is in KB; anything >500 KB is a real progress value.
-        //   • manga  → succeeded is page count; anything >1 means real progress.
-        final threshold = progress.itemType == ItemType.anime ? 500 : 1;
-        _resumeSucceededKbOffset =
-            stored > threshold &&
-                (progress.itemType != ItemType.anime ||
-                    stored <= maxTrustedDownloadBytes ~/ 1024)
-            ? stored
-            : 0;
+        if (progress.itemType == ItemType.manga) {
+          _resumeSucceededKbOffset = 0;
+        } else {
+          final threshold = progress.itemType == ItemType.anime ? 500 : 1;
+          _resumeSucceededKbOffset =
+              stored > threshold &&
+                      (progress.itemType != ItemType.anime ||
+                          stored <= maxTrustedDownloadBytes ~/ 1024)
+              ? stored
+              : 0;
+        }
       }
 
-      // ── Resume-safe corrections (manga and known-size files) ──────────────
-      // On pause → resume, the fresh downloader only sees remaining items:
-      //   • isarTotal  may be re-estimated from remaining items → differs from original.
-      //   • isarSucceeded restarts from 0                       → appears to go backwards.
+      // ── Resume-safe corrections for non-manga downloads ─────────────────
+      // Manga callbacks are already translated to full page-list counts using
+      // the current manifest scan, so neither its denominator nor numerator
+      // should be frozen to stale Isar values.
       // Corrections:
       //   1. Once a meaningful total is established, freeze it completely
       //      — never allow it to grow OR shrink from a new estimate.
@@ -1652,7 +1663,8 @@ Future<void> downloadChapter(
             progress.itemType != ItemType.anime ||
             reportedTotalBytes != null ||
             persistedTotalBytes != null;
-        if (storedTotal > freezeThreshold &&
+        if (progress.itemType != ItemType.manga &&
+            storedTotal > freezeThreshold &&
             (progress.itemType != ItemType.anime ||
                 storedTotal <= maxTrustedDownloadBytes ~/ 1024) &&
             !progress.isCompleted &&
@@ -2041,6 +2053,21 @@ Future<void> downloadChapter(
       }
     }
 
+    bool isQueueActionPending() {
+      final id = chapter.id;
+      if (id == null) return false;
+      if (ActiveDownloadRegistry.wasInterrupted(id) ||
+          ref.read(downloadQueueStateProvider).pausedIds.contains(id)) {
+        return true;
+      }
+      try {
+        final status = isar.downloads.getSync(id)?.status;
+        return status == 'paused' || status == 'cancelled';
+      } catch (_) {
+        return false;
+      }
+    }
+
     String? fetchError;
 
     if (itemType == ItemType.manga) {
@@ -2314,16 +2341,10 @@ Future<void> downloadChapter(
 
     // ── Pause check after async URL fetch ────────────────────────────────────
     // If the user paused while we were fetching URLs (getChapterPages /
-    // getVideoList can take several seconds), honour the pause now instead of
-    // starting the actual download.  Without this check the early
-    // registerInternal at line 662 would absorb the cancelTask() call (no
-    // running pool task yet → no-op), and the download would start anyway.
-    if (chapter.id != null &&
-        (ref
-                .read(downloadQueueStateProvider)
-                .pausedIds
-                .contains(chapter.id!) ||
-            isar.downloads.getSync(chapter.id!)?.status == 'cancelled')) {
+    // getVideoList can take several seconds), honour it before preparing pages.
+    // The pool also checks the pause state after initialization, covering a
+    // pause that arrives between this check and task submission.
+    if (isQueueActionPending()) {
       // Unregister so processDownloads sees this chapter as idle and can
       // re-pick it the moment the user taps resume.
       ActiveDownloadRegistry.unregister(chapter.id!);
@@ -2381,6 +2402,7 @@ Future<void> downloadChapter(
       final manifestPages = <PageUrl>[];
       final manifestFilePaths = <String>[];
       final manifestCompleted = <bool>[];
+      var mangaCompletedPagesOnDisk = 0;
       final pendingMangaPaths = <String>{};
       MangaDownloadManifest? activeManifest = mangaManifestFile == null
           ? null
@@ -2500,6 +2522,9 @@ Future<void> downloadChapter(
             }
           }
         }
+        mangaCompletedPagesOnDisk = manifestCompleted
+            .where((isComplete) => isComplete)
+            .length;
       }
 
       Future<void> reconcileAndPersistMangaManifest({
@@ -2605,7 +2630,27 @@ Future<void> downloadChapter(
         logLevel: LogLevel.info,
         tag: LogTag.download,
       );
-      if (pages.isEmpty && pageUrls.isNotEmpty) {
+      final pausedDuringPreparation = isQueueActionPending();
+      if (pausedDuringPreparation) {
+        AppLogger.log(
+          '[ch:${chapter.id}] pause/cancel honored after page scan',
+          logLevel: LogLevel.info,
+          tag: LogTag.download,
+        );
+      } else if (itemType == ItemType.manga && pageUrls.isNotEmpty) {
+        // Restore the full denominator and verified on-disk page count before
+        // downloading only the missing subset.
+        await setProgress(
+          DownloadProgress(
+            mangaCompletedPagesOnDisk,
+            pageUrls.length,
+            itemType,
+          ),
+        );
+      }
+      if (!pausedDuringPreparation &&
+          pages.isEmpty &&
+          pageUrls.isNotEmpty) {
         AppLogger.log(
           '[ch:${chapter.id}] all pages already on disk → marking complete',
           logLevel: LogLevel.info,
@@ -2613,19 +2658,10 @@ Future<void> downloadChapter(
         );
         if (itemType == ItemType.manga) {
           await reconcileAndPersistMangaManifest();
-          if (!archiveFileExist) await processConvert();
         }
         await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
-      } else {
-        // Register internal task for pause/cancel support
-        final taskId = '${chapter.id}';
+      } else if (!pausedDuringPreparation) {
         if (chapter.id != null) {
-          ActiveDownloadRegistry.registerInternal(
-            chapter.id!,
-            taskId,
-            itemType: itemType,
-            source: manga.source ?? '_unknown',
-          );
           ref
               .read(downloadQueueStateProvider.notifier)
               .setEngine(chapter.id!, 'ATLAS');
@@ -2652,8 +2688,25 @@ Future<void> downloadChapter(
             subtitles: subtitles,
             subDownloadDir: chapterDirectory.path,
             concurrentDownloads: mangaConnections,
+            shouldCancel: isQueueActionPending,
           ).download((progress) {
-            setProgress(progress);
+            final visibleProgress =
+                itemType == ItemType.manga &&
+                    !progress.isCompleted &&
+                    progress.total > 0
+                ? DownloadProgress(
+                    (mangaCompletedPagesOnDisk + progress.completed)
+                        .clamp(0, pageUrls.length)
+                        .toInt(),
+                    pageUrls.length,
+                    progress.itemType,
+                    pageUrl: progress.pageUrl,
+                    isIndeterminate: progress.isIndeterminate,
+                    downloadedBytes: progress.downloadedBytes,
+                    totalBytes: progress.totalBytes,
+                  )
+                : progress;
+            setProgress(visibleProgress);
           });
           try {
             await runPageTransfer();
@@ -2685,7 +2738,9 @@ Future<void> downloadChapter(
             savePageUrls();
             await buildPendingPages();
             await reconcileAndPersistMangaManifest(markDownloading: true);
-            if (pages.isNotEmpty) await runPageTransfer();
+            if (pages.isNotEmpty && !isQueueActionPending()) {
+              await runPageTransfer();
+            }
           }
           if (itemType == ItemType.manga) {
             await reconcileAndPersistMangaManifest();

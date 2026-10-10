@@ -55,7 +55,20 @@ MangaChapterProgress mangaChapterProgress({
 }
 
 double? mangaSeriesProgress(Iterable<MangaChapterProgress> chapters) {
-  final values = chapters.map((chapter) => chapter.value).toList();
-  if (values.isEmpty) return null;
-  return values.reduce((sum, value) => sum + value) / values.length;
+  final values = chapters.toList(growable: false);
+  if (values.isEmpty || values.any((chapter) => !chapter.isDeterminate)) {
+    return null;
+  }
+
+  final totalPages = values.fold<int>(
+    0,
+    (sum, chapter) => sum + chapter.totalPages,
+  );
+  if (totalPages <= 0) return null;
+
+  final completedPages = values.fold<int>(
+    0,
+    (sum, chapter) => sum + chapter.completedPages,
+  );
+  return (completedPages / totalPages).clamp(0.0, 1.0).toDouble();
 }

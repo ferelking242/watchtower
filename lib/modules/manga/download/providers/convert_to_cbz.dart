@@ -315,10 +315,19 @@ List<String> _convertToMangaArchive(
       archivePath,
     );
   }
-  try {
-    Directory(chapterDir).deleteSync(recursive: true);
-  } catch (e) {
-    throw FileSystemException("Failed to delete chapter directory", chapterDir);
+  final sourceDirectory = Directory(chapterDir);
+  if (sourceDirectory.existsSync()) {
+    try {
+      sourceDirectory.deleteSync(recursive: true);
+    } catch (e) {
+      // The archive has already been flushed and renamed successfully. A
+      // leftover source folder is recoverable and must not turn a valid CBZ
+      // into a failed download.
+      debugPrint(
+        'Watchtower: archive created, but chapter cleanup failed '
+        'for $chapterDir: $e',
+      );
+    }
   }
 
   return includedFiles;
