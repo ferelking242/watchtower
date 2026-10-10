@@ -104,13 +104,46 @@ void main() {
       await tester.pumpWidget(
         _app(GalleryComponentRenderer.rail(_ctx(descriptor.id))),
       );
-      await tester.pump();
+      // Let finite entrance animations (e.g. AnimatedDiscoveryCard) finish so
+      // no pending timer leaks into the next iteration.
+      await tester.pumpAndSettle(const Duration(milliseconds: 20));
       expect(
         tester.takeException(),
         isNull,
         reason: '${descriptor.id} failed to render',
       );
     }
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  testWidgets('every catalog component renders on phone and desktop widths', (
+    tester,
+  ) async {
+    for (final size in const [Size(360, 740), Size(1280, 900)]) {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      for (final descriptor in GalleryComponentCatalog.descriptors) {
+        await tester.pumpWidget(
+          _app(GalleryComponentRenderer.rail(_ctx(descriptor.id))),
+        );
+        await tester.pumpAndSettle(const Duration(milliseconds: 20));
+        expect(
+          tester.takeException(),
+          isNull,
+          reason:
+              '${descriptor.id} failed to render at ${size.width.toInt()}px',
+        );
+      }
+    }
+  }, timeout: const Timeout(Duration(minutes: 4)));
+
+  test('gallery-backed definitions expose their palette parameters', () {
+    final definition = LayoutComponentRegistry.resolve('media-grid');
+    expect(definition, isNotNull);
+    expect(
+      definition!.configurableProperties,
+      containsAll(['columns', 'rows', 'items', 'width', 'height']),
+      reason: 'a grid definition should surface the palette parameters',
+    );
   });
 
   test('params survive a UiSection round trip', () {

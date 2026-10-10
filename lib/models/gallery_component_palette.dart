@@ -68,14 +68,48 @@ class GalleryComponentPalette {
     ),
     GalleryComponentParameter(
       key: 'items',
-      label: 'Nombre d\'éléments',
+      label: 'Nombre de cartes',
       kind: GalleryParameterKind.number,
       description: 'Limite le nombre de cartes affichées.',
     ),
     GalleryComponentParameter(
+      key: 'layout',
+      label: 'Disposition',
+      kind: GalleryParameterKind.selection,
+      options: ['row', 'grid'],
+      defaultValue: 'row',
+      description: 'Rangée horizontale défilante ou grille fixe.',
+    ),
+    GalleryComponentParameter(
       key: 'columns',
-      label: 'Colonnes',
+      label: 'Colonnes (grille)',
       kind: GalleryParameterKind.number,
+      description: 'Nombre de colonnes quand la disposition est « grid ».',
+    ),
+    GalleryComponentParameter(
+      key: 'rows',
+      label: 'Lignes (grille)',
+      kind: GalleryParameterKind.number,
+      description: 'Nombre de lignes affichées quand la disposition est '
+          '« grid ». Laisse vide pour tout afficher.',
+    ),
+    GalleryComponentParameter(
+      key: 'height',
+      label: 'Hauteur (px)',
+      kind: GalleryParameterKind.number,
+      description: 'Hauteur forcée pour les cartes qui la supportent.',
+    ),
+    GalleryComponentParameter(
+      key: 'width',
+      label: 'Largeur (px)',
+      kind: GalleryParameterKind.number,
+      description: 'Largeur des cartes. Vide = largeur de design ou cellule.',
+    ),
+    GalleryComponentParameter(
+      key: 'spacing',
+      label: 'Espacement (px)',
+      kind: GalleryParameterKind.number,
+      description: 'Espace entre les cartes d\'une rangée ou d\'une grille.',
     ),
     GalleryComponentParameter(
       key: 'subtitle',
@@ -89,6 +123,12 @@ class GalleryComponentPalette {
       key: 'hero',
       label: 'Bandeau héro',
       kind: GalleryParameterKind.boolean,
+    ),
+    GalleryComponentParameter(
+      key: 'fill',
+      label: 'Pleine largeur',
+      kind: GalleryParameterKind.boolean,
+      description: 'Étire les cartes composites à la largeur du conteneur.',
     ),
   ];
 

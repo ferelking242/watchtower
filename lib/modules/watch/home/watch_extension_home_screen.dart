@@ -1964,17 +1964,22 @@ class ExtensionLayoutPreview extends StatelessWidget {
     // Gallery components are data-bound through the shared renderer so both
     // home screens can select any card documented by the developer gallery.
     if (definition.galleryFamily != null) {
+      final scoped = GalleryComponentContext(
+        componentId: component,
+        items: contentItems,
+        title: title,
+        params: {
+          ...params,
+          if (columns != null) 'columns': columns,
+          if (rows != null) 'rows': rows,
+          if (scrollDirection != null) 'layout': scrollDirection,
+        },
+        onOpen: (index) => onOpen(items[index]),
+        onSeeAll: onSeeAll,
+      );
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: GalleryComponentRenderer.rail(
-          GalleryComponentContext(
-            componentId: component,
-            items: contentItems,
-            title: title,
-            onOpen: (index) => onOpen(items[index]),
-            onSeeAll: onSeeAll,
-          ),
-        ),
+        child: GalleryComponentRenderer.section(scoped),
       );
     }
 

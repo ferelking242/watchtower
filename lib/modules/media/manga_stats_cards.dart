@@ -1005,38 +1005,41 @@ class MangaCategoryRankingCard extends StatelessWidget {
             onSeeAll: onSeeAll,
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              for (var i = 0; i < filters.length; i++) ...[
-                if (i > 0) const SizedBox(width: 6),
-                InkWell(
-                  onTap: () => onFilterChanged?.call(i),
-                  borderRadius: BorderRadius.circular(99),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: i == selectedFilter
-                          ? accent
-                          : Colors.white.withValues(alpha: .05),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      filters[i],
-                      style: TextStyle(
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < filters.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () => onFilterChanged?.call(i),
+                    borderRadius: BorderRadius.circular(99),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
                         color: i == selectedFilter
-                            ? Colors.white
-                            : Colors.white54,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
+                            ? accent
+                            : Colors.white.withValues(alpha: .05),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        filters[i],
+                        style: TextStyle(
+                          color: i == selectedFilter
+                              ? Colors.white
+                              : Colors.white54,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
           const SizedBox(height: 10),
           for (var i = 0; i < items.length; i++) ...[

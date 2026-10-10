@@ -1,4 +1,5 @@
 import 'package:watchtower/models/gallery_component_catalog.dart';
+import 'package:watchtower/models/gallery_component_palette.dart';
 
 /// Contexts in which a layout component can be rendered.
 enum LayoutComponentContext {
@@ -91,6 +92,16 @@ class LayoutComponentDefinition {
       'requiresAuth',
       'monthSelector',
     };
+    // Gallery-backed definitions expose the palette parameters for their
+    // family (layout, columns, rows, width, height, spacing…) so an editor can
+    // configure every card without hard-coding the list per component.
+    if (galleryFamily != null) {
+      return {
+        ...shared,
+        for (final parameter in GalleryComponentPalette.forFamily(galleryFamily!))
+          parameter.key,
+      };
+    }
     if (renderer != LayoutComponentRenderer.grid) return shared;
     return {
       ...shared,

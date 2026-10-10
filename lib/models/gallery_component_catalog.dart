@@ -348,6 +348,7 @@ class GalleryComponentCatalog {
       description: 'Franchise spécifique, titre en grand',
       renderer: GalleryComponentFamily.collections,
       loadingPreview: LayoutComponentLoadingPreview.collections,
+      aliases: ['universe'],
     ),
     GalleryComponentDescriptor(
       id: 'saga',
@@ -384,6 +385,7 @@ class GalleryComponentCatalog {
       description: 'Genre + rangées de genres voisins',
       renderer: GalleryComponentFamily.collections,
       loadingPreview: LayoutComponentLoadingPreview.collections,
+      aliases: ['category-card'],
     ),
     GalleryComponentDescriptor(
       id: 'actor',
@@ -393,6 +395,7 @@ class GalleryComponentCatalog {
       description: 'Portrait, âge et filmographie',
       renderer: GalleryComponentFamily.collections,
       loadingPreview: LayoutComponentLoadingPreview.collections,
+      aliases: ['cast'],
     ),
     GalleryComponentDescriptor(
       id: 'director',
@@ -508,33 +511,6 @@ class GalleryComponentCatalog {
       label: 'Carrousel d’univers',
       category: 'COLLECTIONS & FRANCHISES',
       description: 'Collections / univers avec flèches',
-      renderer: GalleryComponentFamily.collections,
-      loadingPreview: LayoutComponentLoadingPreview.collections,
-    ),
-    GalleryComponentDescriptor(
-      id: 'universe',
-      className: 'UniverseCard',
-      label: 'Univers (alias)',
-      category: 'COLLECTIONS & FRANCHISES',
-      description: 'Alias générique de FranchiseCard',
-      renderer: GalleryComponentFamily.collections,
-      loadingPreview: LayoutComponentLoadingPreview.collections,
-    ),
-    GalleryComponentDescriptor(
-      id: 'category-card',
-      className: 'CategoryCard',
-      label: 'Catégorie (alias)',
-      category: 'COLLECTIONS & FRANCHISES',
-      description: 'Alias générique de GenreCard',
-      renderer: GalleryComponentFamily.collections,
-      loadingPreview: LayoutComponentLoadingPreview.collections,
-    ),
-    GalleryComponentDescriptor(
-      id: 'cast',
-      className: 'CastCard',
-      label: 'Casting (alias)',
-      category: 'COLLECTIONS & FRANCHISES',
-      description: 'Alias générique de ActorCard',
       renderer: GalleryComponentFamily.collections,
       loadingPreview: LayoutComponentLoadingPreview.collections,
     ),
@@ -1383,42 +1359,7 @@ class GalleryComponentCatalog {
       description: 'Rail 16:9 paramétrable (titre + icône)',
       renderer: GalleryComponentFamily.landscape,
       loadingPreview: LayoutComponentLoadingPreview.landscape,
-    ),
-    GalleryComponentDescriptor(
-      id: 'landscape-films',
-      className: 'LandscapeFilmsSection',
-      label: 'Films — À l’affiche',
-      category: 'FILMS & SÉRIES · SECTIONS',
-      description: 'Rail 16:9 des films du moment',
-      renderer: GalleryComponentFamily.landscape,
-      loadingPreview: LayoutComponentLoadingPreview.landscape,
-    ),
-    GalleryComponentDescriptor(
-      id: 'landscape-series',
-      className: 'LandscapeSeriesSection',
-      label: 'Séries — Populaires',
-      category: 'FILMS & SÉRIES · SECTIONS',
-      description: 'Rail 16:9 des séries à la mode',
-      renderer: GalleryComponentFamily.landscape,
-      loadingPreview: LayoutComponentLoadingPreview.landscape,
-    ),
-    GalleryComponentDescriptor(
-      id: 'landscape-manga',
-      className: 'LandscapeMangaSection',
-      label: 'Mangas — Coup de cœur',
-      category: 'FILMS & SÉRIES · SECTIONS',
-      description: 'Rail 16:9 des mangas appréciés',
-      renderer: GalleryComponentFamily.landscape,
-      loadingPreview: LayoutComponentLoadingPreview.landscape,
-    ),
-    GalleryComponentDescriptor(
-      id: 'landscape-novels',
-      className: 'LandscapeNovelsSection',
-      label: 'Novels — Recommandés',
-      category: 'FILMS & SÉRIES · SECTIONS',
-      description: 'Rail 16:9 des novels à lire',
-      renderer: GalleryComponentFamily.landscape,
-      loadingPreview: LayoutComponentLoadingPreview.landscape,
+      aliases: ['landscape-films', 'landscape-series', 'landscape-manga', 'landscape-novels'],
     ),
     GalleryComponentDescriptor(
       id: 'landscape-playlist',
@@ -1798,6 +1739,10 @@ class GalleryComponentCatalog {
   };
 
   static GalleryComponentDescriptor? resolve(String id) => _byId[id];
+
+  /// The canonical id for [id]; aliases resolve to their primary descriptor so
+  /// differently-named duplicates share a single renderer.
+  static String canonical(String id) => _byId[id]?.id ?? id;
 
   static bool supports(String id) => _byId.containsKey(id);
 
