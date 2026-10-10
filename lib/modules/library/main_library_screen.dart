@@ -1,6 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
-import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -82,17 +82,20 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     with TickerProviderStateMixin {
   int _typeIndex = 1; // default = Watch (index of ItemType.anime in _kTypes)
   bool _showSearch = false;
+  bool _searchOpening = false;
+  bool _searchIconRotated = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   int _selectedCatIndex = 0;
+  double _librarySwipeDistance = 0;
   int _arcPage = (_kCarouselCopies ~/ 2) * _kTypes.length + 1;
   int? _pendingWheelPage;
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
   late final PageController _arcPageCtrl = PageController(
-    // Anchor the active type near the left edge; adjacent types enter from the
-    // right and the viewport clips them before they can run under the actions.
-    viewportFraction: 0.20,
+    // Three positions fit in the viewport: the selected type is in front,
+    // with one neighboring type visible on either side.
+    viewportFraction: 0.34,
     initialPage: _arcPage,
   );
 
@@ -116,18 +119,32 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
   ItemType get _currentType => _kTypes[_typeIndex];
 
-  void _toggleSearch() {
-    setState(() {
-      _showSearch = !_showSearch;
-      if (!_showSearch) {
+  Future<void> _toggleSearch() async {
+    if (_showSearch) {
+      setState(() {
+        _showSearch = false;
         _searchController.clear();
         _searchFocus.unfocus();
-      } else {
-        // Focus the field after the expand animation
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _searchFocus.requestFocus(),
-        );
-      }
+        _searchIconRotated = false;
+      });
+      return;
+    }
+    if (_searchOpening) return;
+
+    // Let the search control complete its spin before it expands over the
+    // carousel from right to left.
+    setState(() {
+      _searchOpening = true;
+      _searchIconRotated = true;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 240));
+    if (!mounted) return;
+    setState(() {
+      _searchOpening = false;
+      _showSearch = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
     });
   }
 
@@ -165,9 +182,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         itemCount: _kTypes.length * _kCarouselCopies,
         physics: const BouncingScrollPhysics(),
         onPageChanged: (page) {
+          final nextTypeIndex = page % _kTypes.length;
           setState(() {
             _arcPage = page;
-            _typeIndex = page % _kTypes.length;
+            if (_typeIndex != nextTypeIndex) _selectedCatIndex = 0;
+            _typeIndex = nextTypeIndex;
           });
 
           // Re-center before the user can reach either artificial end. This
@@ -292,6 +311,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     required VoidCallback onTap,
     bool active = false,
     String? tooltip,
+    double rotationTurns = 0,
   }) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -311,14 +331,19 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                       ? cs.onSurface.withValues(alpha: 0.08)
                       : cs.onSurface.withValues(alpha: 0.06)),
           ),
-          child: Icon(
-            icon,
-            color: active
-                ? cs.onSurface
-                : (isDark
-                      ? cs.onSurface.withValues(alpha: 0.60)
-                      : cs.onSurface.withValues(alpha: 0.55)),
-            size: 17,
+          child: AnimatedRotation(
+            turns: rotationTurns,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeInOutCubic,
+            child: Icon(
+              icon,
+              color: active
+                  ? cs.onSurface
+                  : (isDark
+                        ? cs.onSurface.withValues(alpha: 0.60)
+                        : cs.onSurface.withValues(alpha: 0.55)),
+              size: 17,
+            ),
           ),
         ),
       ),
@@ -353,6 +378,31 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           ref.read(isLongPressedStateProvider.notifier).update(true);
         },
       ),
+    );
+  }
+
+  void _onLibrarySwipeEnd(DragEndDetails details) {
+    final distance = _librarySwipeDistance;
+    _librarySwipeDistance = 0;
+    if (_showSearch || !_arcPageCtrl.hasClients) return;
+
+    final velocity = details.primaryVelocity ?? 0;
+    final int direction;
+    if (velocity.abs() >= 300) {
+      direction = velocity < 0 ? 1 : -1;
+    } else if (distance.abs() >= 56) {
+      direction = distance < 0 ? 1 : -1;
+    } else {
+      return;
+    }
+
+    final targetPage = (_arcPage + direction)
+        .clamp(0, _kTypes.length * _kCarouselCopies - 1)
+        .toInt();
+    _arcPageCtrl.animateToPage(
+      targetPage,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -472,41 +522,81 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           // ── Row 1: arc type selector + action icons ────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 14, 14, 0),
-            child: Row(
-              children: [
-                // ── Arc carousel type selector ─────────────────────────
-                Expanded(
-                  child: SizedBox(
-                    height: 56,
-                    child: _buildArcTypeSelector(cs, isDark),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                // ── Actions: Search → Filter → More ─────────────────────
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 1. Search toggle
-                    _iconBtn(
-                      icon: Broken.search_normal_1,
-                      onTap: _toggleSearch,
-                      active: _showSearch,
-                      tooltip: l10n.search,
-                    ),
-                    const SizedBox(width: 6),
-
-                    // 2. Filter overlay
-                    if (!_showSearch) ...[
-                      filterButton,
-                      const SizedBox(width: 6),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final rowWidth = constraints.maxWidth;
+                return SizedBox(
+                  width: rowWidth,
+                  height: 56,
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      Positioned.fill(
+                        child: AnimatedOpacity(
+                          opacity: _showSearch ? 0 : 1,
+                          duration: const Duration(milliseconds: 200),
+                          child: IgnorePointer(
+                            ignoring: _showSearch,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 56,
+                                    child: _buildArcTypeSelector(cs, isDark),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _iconBtn(
+                                      icon: Broken.search_normal_1,
+                                      onTap: () =>
+                                          unawaited(_toggleSearch()),
+                                      active: _showSearch,
+                                      tooltip: l10n.search,
+                                      rotationTurns: _searchIconRotated
+                                          ? 1
+                                          : 0,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    filterButton,
+                                    const SizedBox(width: 6),
+                                    _buildThreeDotsBtn(
+                                      context,
+                                      l10n,
+                                      mangaList,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 5,
+                        child: ClipRect(
+                          child: AnimatedContainer(
+                            width: _showSearch ? rowWidth : 0,
+                            height: 46,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeInOutCubic,
+                            child: _showSearch
+                                ? SizedBox(
+                                    width: rowWidth,
+                                    height: 46,
+                                    child: _buildSearchBar(cs, isDark),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
                     ],
-
-                    // Library actions stay available in the overflow menu.
-                    _buildThreeDotsBtn(context, l10n, mangaList),
-                  ],
-                ),
-              ],
+                  ),
+                );
+              },
             ),
           ),
 
@@ -516,36 +606,32 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             child: _buildCategoryBar(context, cats, cs, isDark),
           ),
 
-          // ── Search bar (animated slide-in below the category row) ──────
-          ClipRect(
-            child: AnimatedAlign(
-              duration: const Duration(milliseconds: 140),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              heightFactor: _showSearch ? 1.0 : 0.0,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                child: _buildSearchBar(cs, isDark),
-              ),
-            ),
-          ),
-
           const SizedBox(height: 8),
 
           // ── Library content ──────────────────────────────────────────
           Expanded(
-            child: _currentType == ItemType.music
-                ? const MusicDiscoveryScreen()
-                : LibraryScreen(
-                    key: ValueKey('lib_${_typeIndex}_$extCatId'),
-                    itemType: _currentType,
-                    presetInput: null,
-                    hideOwnAppBar: true,
-                    externalSearchQuery: _showSearch
-                        ? _searchController.text
-                        : null,
-                    externalCategoryId: extCatId,
-                  ),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragStart: (_) => _librarySwipeDistance = 0,
+              onHorizontalDragUpdate: (details) {
+                _librarySwipeDistance += details.delta.dx;
+              },
+              onHorizontalDragEnd: _onLibrarySwipeEnd,
+              child: _currentType == ItemType.music
+                  ? const MusicDiscoveryScreen()
+                  : LibraryScreen(
+                      key: ValueKey('lib_${_typeIndex}_$extCatId'),
+                      itemType: _currentType,
+                      presetInput: null,
+                      hideOwnAppBar: true,
+                      // Keep the embedded library controller in sync when
+                      // search closes, so the old query cannot stay applied.
+                      externalSearchQuery: _showSearch
+                          ? _searchController.text
+                          : '',
+                      externalCategoryId: extCatId,
+                    ),
+            ),
           ),
         ],
       ),
@@ -657,7 +743,16 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
           ),
 
-          const SizedBox(width: 2),
+          IconButton(
+            tooltip: 'Fermer la recherche',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => unawaited(_toggleSearch()),
+            icon: Icon(
+              Broken.close_circle,
+              color: cs.onSurface.withValues(alpha: 0.48),
+              size: 18,
+            ),
+          ),
         ],
       ),
     );
@@ -692,13 +787,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     width: 1,
                   ),
                 ),
-                child: Transform.rotate(
-                  angle: -math.pi / 4,
-                  child: Icon(
-                    Icons.build_rounded,
-                    size: 17,
-                    color: cs.onSurface.withValues(alpha: 0.62),
-                  ),
+                child: Icon(
+                  Icons.grid_view_rounded,
+                  size: 17,
+                  color: cs.onSurface.withValues(alpha: 0.62),
                 ),
               ),
             ),

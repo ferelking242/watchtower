@@ -12,6 +12,7 @@ import 'package:watchtower/local_indexer/metadata/local_metadata_resolver.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
+import 'package:watchtower/modules/more/settings/downloads/smart_library_icon.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 
 enum _SmartLibraryFilter { all, movies, series, manga, unknown }
@@ -360,19 +361,15 @@ class _LibraryHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
+          SizedBox(
             width: 54,
             height: 54,
-            decoration: BoxDecoration(
-              color: colors.primary,
-              borderRadius: BorderRadius.circular(17),
-            ),
-            child: Icon(
-              isManga
-                  ? Icons.auto_stories_rounded
-                  : Icons.video_library_rounded,
-              color: colors.onPrimary,
-              size: 29,
+            child: Center(
+              child: SmartLibraryIcon(
+                isManga: isManga,
+                color: colors.primary,
+                size: 46,
+              ),
             ),
           ),
           const SizedBox(width: 14),

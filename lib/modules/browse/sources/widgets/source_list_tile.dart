@@ -7,7 +7,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:watchtower/utils/language.dart';
@@ -109,17 +109,10 @@ class SourceListTile extends StatelessWidget {
                 ),
                 child: (source.iconUrl?.isEmpty ?? true)
                     ? const Icon(Icons.extension_rounded)
-                    : cachedNetworkImage(
-                        imageUrl: source.iconUrl ?? '',
-                        fit: BoxFit.contain,
-                        width: 37,
-                        height: 37,
-                        errorWidget: const SizedBox(
-                          width: 37,
-                          height: 37,
-                          child: Center(child: Icon(Icons.extension_rounded)),
-                        ),
-                        useCustomNetworkImage: false,
+                    : ExtensionIconWidget(
+                        sourceId: source.id,
+                        iconUrl: source.iconUrl,
+                        size: 37,
                       ),
               ),
         subtitle: Row(

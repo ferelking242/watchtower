@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/modules/more/settings/downloads/smart_library_icon.dart';
 
 /// Browser entry for the on-device index. It is intentionally separate from
 /// Local Source, which opens the user-managed Watchtower/local folder.
@@ -20,20 +21,15 @@ class SmartLibrarySourceTile extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
       elevation: 0,
       child: ListTile(
-        leading: Container(
+        leading: SizedBox(
           height: 42,
           width: 42,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [accent, accent.withValues(alpha: 0.62)],
+          child: Center(
+            child: SmartLibraryIcon(
+              isManga: isManga,
+              color: accent,
+              size: 36,
             ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            isManga ? Icons.auto_stories_rounded : Icons.video_library_rounded,
-            color: Colors.white,
           ),
         ),
         title: Text(
