@@ -7,6 +7,7 @@ import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/episode_cards.dart';
+import 'package:watchtower/modules/media/home_hero_cards.dart';
 import 'package:watchtower/modules/media/manga_chapter_cards.dart';
 import 'package:watchtower/modules/media/manga_volume_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
@@ -62,6 +63,43 @@ void main() {
     );
   });
 
+  test('duplicate gallery variants are not offered for new layouts', () {
+    const retiredIds = [
+      'poster-card-compact',
+      'discovery',
+      'animated-discovery',
+      'landscape',
+      'episode',
+      'movie-collection',
+      'home-airecommender',
+      'home-mini-player',
+      'expandable-movie',
+      'hover-movie',
+      'movie-quick-view',
+      'media-quick-view',
+      'media-preview',
+      'movie-details-modal',
+      'media-details-modal',
+      'top-movies',
+      'top-series',
+      'top-anime',
+      'top-by-genre',
+      'top-by-country',
+      'global-ranking',
+      'top-rated-ranking',
+      'trending-ranking',
+      'top-by-decade',
+      'must-watch',
+    ];
+    for (final id in retiredIds) {
+      expect(
+        LayoutComponentRegistry.resolve(id)?.selectable,
+        isFalse,
+        reason: '$id must stay resolvable for old layouts but leave the picker',
+      );
+    }
+  });
+
   testWidgets('family renderers build the expected production widgets', (
     tester,
   ) async {
@@ -97,6 +135,64 @@ void main() {
     expect(find.byType(MangaChapterCard), findsNWidgets(2));
   });
 
+  testWidgets('poster card keeps compact mode as a parameter on the shared card', (
+    tester,
+  ) async {
+    final ctx = GalleryComponentContext(
+      componentId: 'poster',
+      items: [_items.first],
+      params: const {'compact': true},
+      onOpen: (_) {},
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.rail(ctx)));
+    await tester.pump();
+
+    expect(find.byType(PosterCard), findsOneWidget);
+    expect(tester.widget<PosterCard>(find.byType(PosterCard)).compact, isTrue);
+  });
+
+  testWidgets('expanded movie selection uses the working auto-toggle card', (
+    tester,
+  ) async {
+    final ctx = GalleryComponentContext(
+      componentId: 'expanded-movie',
+      items: [_items.first],
+      params: const {'cast': 'Actor One'},
+      onOpen: (_) {},
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.rail(ctx)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ExpandableMovieCard), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.keyboard_arrow_up_rounded), findsOneWidget);
+  });
+
+  testWidgets('country grid shows flag emoji instead of country code', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        const HomeLanguageGridCard(
+          chips: [
+            HomeCountryChip(
+              label: 'Japon',
+              code: 'JP',
+              backgroundUrl: '',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('🇯🇵'), findsOneWidget);
+    expect(find.text('JP'), findsNothing);
+  });
+
   testWidgets('every catalog component renders without a layout error', (
     tester,
   ) async {
@@ -104,7 +200,7 @@ void main() {
       await tester.pumpWidget(
         _app(GalleryComponentRenderer.rail(_ctx(descriptor.id))),
       );
-      // Let finite entrance animations (e.g. AnimatedDiscoveryCard) finish so
+      // Let finite entrance animations (e.g. ExpandableMovieCard) finish so
       // no pending timer leaks into the next iteration.
       await tester.pumpAndSettle(const Duration(milliseconds: 20));
       expect(

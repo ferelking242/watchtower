@@ -134,6 +134,21 @@ class GalleryComponentPalette {
 
   static const Map<GalleryComponentFamily, List<GalleryComponentParameter>>
   _specific = {
+    GalleryComponentFamily.richMedia: [
+      GalleryComponentParameter(
+        key: 'genres',
+        label: 'Genres',
+        description: 'Genres séparés par des virgules.',
+      ),
+    ],
+    GalleryComponentFamily.posterRail: [
+      GalleryComponentParameter(
+        key: 'compact',
+        label: 'Affiche compacte',
+        kind: GalleryParameterKind.boolean,
+        defaultValue: 'false',
+      ),
+    ],
     GalleryComponentFamily.mangaGenre: [
       GalleryComponentParameter(
         key: 'showCount',

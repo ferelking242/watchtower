@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
@@ -273,17 +274,46 @@ const _orderedGallerySections = <String>[
   'STREAMING & PROGRESSION',
   'COLLECTIONS & FRANCHISES',
   'ÉPISODES & SAISONS',
-  'CLASSEMENTS & TOP 10',
   'FILMS & SÉRIES · SECTIONS',
   'ACCUEIL & LECTURE',
-  'DÉTAIL MÉDIA',
   'EXTENSIONS WATCH',
   'MANGA & LECTURE',
+];
+
+/// These entries are screen-specific samples, not reusable cards or sections.
+/// Keep their implementation in their owning screens; do not expose them as
+/// gallery choices or wrap them in the gallery's preview tile.
+const _hiddenGallerySections = <String>{
+  'CLASSEMENTS & TOP 10',
+  'DÉTAIL MÉDIA',
   'RECHERCHE',
   'HISTORIQUE & BIBLIOTHÈQUE',
   'ÉTATS & FEEDBACK',
   'SECTIONS RÉUTILISABLES',
-];
+};
+
+const _hiddenGalleryCards = <String>{
+  'PosterCard(compact)',
+  'LandscapeCard',
+  'DiscoveryCard',
+  'AnimatedDiscoveryCard',
+  'AppCrossfadeCarousel',
+  'HoverMovieCard',
+  'MovieQuickView',
+  'MediaQuickView',
+  'MediaPreview',
+  'MovieDetailsModal',
+  'MediaDetailsModal',
+  'ExpandableMovieCard',
+  'MovieCollectionCard',
+  'HomeAIRecommenderCard',
+  'HomeMiniPlayerCard',
+  'EpisodeCard',
+  'LandscapeFilmsSection',
+  'LandscapeSeriesSection',
+  'LandscapeMangaSection',
+  'LandscapeNovelsSection',
+};
 
 class _ComponentSpec {
   final String title;
@@ -307,6 +337,18 @@ class _ComponentSpec {
     this.layoutComponent,
     required this.result,
   });
+
+  _ComponentSpec withLayoutComponent(String id) => _ComponentSpec(
+    title: title,
+    className: className,
+    path: path,
+    usage: usage,
+    section: section,
+    icon: icon,
+    kind: kind,
+    layoutComponent: id,
+    result: result,
+  );
 
   /// Les petits composants (chips, tuiles compactes, posters seuls) sont
   /// répétés côte à côte pour bien exploiter la rangée de la galerie.
@@ -401,7 +443,29 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           : _components;
 
   List<_ComponentSpec> _buildGalleryComponents() {
-    final allComponents = _buildComponents();
+    final descriptorsByClassName = {
+      for (final descriptor in GalleryComponentCatalog.descriptors)
+        descriptor.className: descriptor,
+    };
+    final allComponents = _buildComponents()
+        .where((component) {
+          if (_hiddenGallerySections.contains(component.section)) return false;
+          if (_hiddenGalleryCards.contains(component.className)) return false;
+          return true;
+        })
+        .map((component) {
+          if (component.layoutComponent != null) return component;
+          final descriptor = descriptorsByClassName[component.className];
+          if (descriptor == null || !descriptor.selectable) return component;
+          if (!LayoutComponentRegistry.supports(
+            descriptor.id,
+            LayoutComponentContext.home,
+          )) {
+            return component;
+          }
+          return component.withLayoutComponent(descriptor.id);
+        })
+        .toList(growable: false);
     final existingLayoutPreviews = <String, _ComponentSpec>{};
     for (final component in allComponents) {
       final id = component.layoutComponent;
@@ -1409,8 +1473,8 @@ class _ComponentGrid extends StatelessWidget {
           final double targetWidth;
           final int maxColumns;
           if (component.isCompactPreview) {
-            targetWidth = 300;
-            maxColumns = 4;
+            targetWidth = 350;
+            maxColumns = 3;
           } else if (component.isWidePreview) {
             targetWidth = 640;
             maxColumns = 2;
@@ -1418,7 +1482,7 @@ class _ComponentGrid extends StatelessWidget {
             targetWidth = 460;
             maxColumns = 3;
           }
-          final minColumns = availableWidth < 620 ? 1 : 2;
+          final minColumns = availableWidth < 720 ? 1 : 2;
           final columns = (availableWidth / targetWidth)
               .floor()
               .clamp(minColumns, maxColumns)
@@ -2234,7 +2298,7 @@ class SpotlightSkeleton extends StatelessWidget {
   }
 }
 
-/// Small landscape 1.44:1 tile + title (TmdbTonightMiniCard).
+/// Small landscape tile and title preview.
 class TonightMiniSkeleton extends StatelessWidget {
   const TonightMiniSkeleton({super.key});
 
@@ -4681,7 +4745,7 @@ List<_ComponentSpec> _buildComponents() => [
     section: 'CARTES RICHES',
     icon: Icons.unfold_more_rounded,
     kind: _PreviewKind.richExpanded,
-    result: (_) => ExpandedMovieCard(
+    result: (_) => ExpandableMovieCard(
       data: _richCardData(_tmdbItems[2]),
       director: 'Denis Villeneuve',
       actors: const ['Timothée Chalamet', 'Zendaya', 'Rebecca Ferguson'],
@@ -9557,12 +9621,42 @@ List<_ComponentSpec> _buildComponents() => [
     result: (_) => HomeLanguageGridCard(
       onSeeAll: () {},
       chips: const [
-        HomeCountryChip(label: 'États-Unis', code: 'US'),
-        HomeCountryChip(label: 'Royaume-Uni', code: 'UK'),
-        HomeCountryChip(label: 'France', code: 'FR'),
-        HomeCountryChip(label: 'Japon', code: 'JP'),
-        HomeCountryChip(label: 'Corée du Sud', code: 'KR'),
-        HomeCountryChip(label: 'Allemagne', code: 'DE'),
+          HomeCountryChip(
+            label: 'États-Unis',
+            code: 'US',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1496588152823-86ff7695e68f?auto=format&fit=crop&w=420&q=80',
+          ),
+          HomeCountryChip(
+            label: 'Royaume-Uni',
+            code: 'GB',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=420&q=80',
+          ),
+          HomeCountryChip(
+            label: 'France',
+            code: 'FR',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=420&q=80',
+          ),
+          HomeCountryChip(
+            label: 'Japon',
+            code: 'JP',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=420&q=80',
+          ),
+          HomeCountryChip(
+            label: 'Corée du Sud',
+            code: 'KR',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=420&q=80',
+          ),
+          HomeCountryChip(
+            label: 'Allemagne',
+            code: 'DE',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1560969184-10fe8719e047?auto=format&fit=crop&w=420&q=80',
+          ),
       ],
     ),
   ),
@@ -9668,22 +9762,6 @@ List<_ComponentSpec> _buildComponents() => [
       rank: 1,
       heroTag: 'gallery-tmdb-ranked',
       onTap: () {},
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Mini carte du soir',
-    className: 'TmdbTonightMiniCard',
-    path: 'lib/modules/home/watchtower_home_screen.dart',
-    usage: 'Bloc À voir ce soir',
-    icon: Icons.nightlight_round,
-    kind: _PreviewKind.mini,
-    result: (context) => SizedBox(
-      width: 170,
-      child: TmdbTonightMiniCard(
-        media: _tmdbItems[4],
-        background: Theme.of(context).colorScheme.surface,
-        onTap: () {},
-      ),
     ),
   ),
   _ComponentSpec(

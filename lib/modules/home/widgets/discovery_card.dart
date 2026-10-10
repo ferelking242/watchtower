@@ -1,6 +1,7 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Card helpers
@@ -961,8 +962,10 @@ class DiscoveryRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, i) => DiscoveryCard(
-              media: items[i],
+            itemBuilder: (_, i) => PosterCard(
+              item: ContentItem.fromAnilist(items[i]),
+              width: 116,
+              showMediaMetadata: true,
               onTap: () => onItemTap(items[i]),
             ),
           ),

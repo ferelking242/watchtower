@@ -87,12 +87,18 @@ class HomeMyListEntry {
 class HomeCountryChip {
   final String label;
 
-  /// Drapeau / code court (`US`, `UK`…).
+  /// ISO 3166-1 alpha-2 country code used to render a flag.
   final String? code;
+  final String? backgroundUrl;
 
   final VoidCallback? onTap;
 
-  const HomeCountryChip({required this.label, this.code, this.onTap});
+  const HomeCountryChip({
+    required this.label,
+    this.code,
+    this.backgroundUrl,
+    this.onTap,
+  });
 }
 
 /// ─────────────────────────────────────────────────────────────────────────
@@ -979,55 +985,76 @@ class HomeLanguageGridCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Wrap(
-            spacing: 7,
-            runSpacing: 7,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               for (final chip in chips)
                 InkWell(
                   onTap: chip.onTap,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .05),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: .1),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 18,
-                          height: 18,
-                          alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            color: Colors.white12,
-                            shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(11),
+                  child: SizedBox(
+                    width: 146,
+                    height: 82,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(11),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ContentImage(
+                            url:
+                                chip.backgroundUrl ??
+                                _countryScenery(chip.code),
+                            radius: 11,
                           ),
-                          child: Text(
-                            chip.code ?? chip.label.characters.first,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w900,
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Color(0x26000000),
+                                  Color(0x22000000),
+                                  Color(0xD9000000),
+                                ],
+                                stops: [0, .35, 1],
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          chip.label,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w800,
+                          Positioned(
+                            top: 7,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: .48),
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              child: Text(
+                                _countryFlag(chip.code),
+                                style: const TextStyle(fontSize: 15),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          Positioned(
+                            left: 9,
+                            right: 7,
+                            bottom: 8,
+                            child: Text(
+                              chip.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1037,6 +1064,48 @@ class HomeLanguageGridCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _countryFlag(String? countryCode) {
+  var code = countryCode?.trim().toUpperCase();
+  if (code == 'UK') code = 'GB';
+  if (code == null ||
+      code.length != 2 ||
+      code.codeUnits.any((unit) => unit < 65 || unit > 90)) {
+    return '🌍';
+  }
+  return String.fromCharCodes(
+    code.codeUnits.map((unit) => 0x1F1E6 + unit - 65),
+  );
+}
+
+String? _countryScenery(String? countryCode) {
+  final code = countryCode?.trim().toUpperCase();
+  return switch (code) {
+    'BR' =>
+      'https://images.unsplash.com/photo-1483729558449-99ef09a8c325?auto=format&fit=crop&w=420&q=80',
+    'CN' =>
+      'https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=420&q=80',
+    'US' =>
+      'https://images.unsplash.com/photo-1496588152823-86ff7695e68f?auto=format&fit=crop&w=420&q=80',
+    'GB' || 'UK' =>
+      'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=420&q=80',
+    'FR' =>
+      'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=420&q=80',
+    'ES' =>
+      'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=420&q=80',
+    'IN' =>
+      'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=420&q=80',
+    'IT' =>
+      'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=420&q=80',
+    'JP' =>
+      'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=420&q=80',
+    'KR' =>
+      'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=420&q=80',
+    'DE' =>
+      'https://images.unsplash.com/photo-1560969184-10fe8719e047?auto=format&fit=crop&w=420&q=80',
+    _ => null,
+  };
 }
 
 /// ── 7. HomeMyListCard ───────────────────────────────────────────────────

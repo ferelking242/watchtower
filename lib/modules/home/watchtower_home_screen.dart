@@ -1472,11 +1472,12 @@ class _Row extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, i) => AnimatedDiscoveryCard(
+              itemBuilder: (_, i) => PosterCard(
                 key: ValueKey(items[i].id ?? i),
-                media: items[i],
+                item: ContentItem.fromAnilist(items[i]),
+                width: 116,
+                showMediaMetadata: true,
                 onTap: () => onTap(items[i]),
-                delay: Duration(milliseconds: i * 35),
               ),
             ),
           ),
@@ -1533,8 +1534,10 @@ class _MixedRow extends StatelessWidget {
                       media: items[i],
                       onTap: () => onTap(items[i]),
                     )
-                  : DiscoveryCard(
-                      media: items[i],
+                  : PosterCard(
+                      item: ContentItem.fromAnilist(items[i]),
+                      width: 120,
+                      showMediaMetadata: true,
                       onTap: () => onTap(items[i]),
                     ),
             ),
@@ -2414,10 +2417,16 @@ class _TmdbTonightSection extends StatelessWidget {
                     for (var i = 0; i < picks.length; i++) ...[
                       if (i > 0) const SizedBox(width: 10),
                       Expanded(
-                        child: TmdbTonightMiniCard(
-                          media: picks[i],
-                          onTap: () => onTap(picks[i]),
-                          background: surface,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => LandscapeCard(
+                            item: ContentItem.fromTmdb(picks[i]),
+                            width: constraints.maxWidth,
+                            heroTag: tmdbHeroTag(
+                              picks[i],
+                              'home-tonight-$i',
+                            ),
+                            onTap: () => onTap(picks[i]),
+                          ),
                         ),
                       ),
                     ],
@@ -2448,48 +2457,6 @@ class _TmdbTonightImage extends StatelessWidget {
       image,
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => ColoredBox(color: background),
-    );
-  }
-}
-
-class TmdbTonightMiniCard extends StatelessWidget {
-  final TmdbMedia media;
-  final VoidCallback onTap;
-  final Color background;
-
-  const TmdbTonightMiniCard({
-    required this.media,
-    required this.onTap,
-    required this.background,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(11),
-            child: AspectRatio(
-              aspectRatio: 1.44,
-              child: _TmdbTonightImage(media: media, background: background),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            media.displayTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -155,6 +155,41 @@ class MovieDetailsCard extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (data.genres?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: data.genres!
+                            .split(RegExp(r'[,|•·]'))
+                            .map((genre) => genre.trim())
+                            .where((genre) => genre.isNotEmpty)
+                            .take(3)
+                            .map(
+                              (genre) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: .18),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  genre,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     if (item.description != null)
                       Text(
@@ -331,6 +366,7 @@ class MovieDetailCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
+                      flex: 2,
                       child: _PrimaryAction(
                         icon: Broken.play,
                         label: 'Regarder',
@@ -338,12 +374,15 @@ class MovieDetailCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _SecondaryAction(
-                      icon: data.inList
-                          ? Broken.tick_circle
-                          : Broken.add_circle,
-                      label: 'Ma liste',
-                      onTap: data.onAddToList,
+                    Expanded(
+                      flex: 3,
+                      child: _SecondaryAction(
+                        icon: data.inList
+                            ? Broken.tick_circle
+                            : Broken.add_circle,
+                        label: 'Ma liste',
+                        onTap: data.onAddToList,
+                      ),
                     ),
                   ],
                 ),

@@ -21,6 +21,7 @@ class ContentItem {
     this.description,
     this.rating,
     this.badge,
+    this.countryCode,
   });
 
   final String key;
@@ -30,6 +31,7 @@ class ContentItem {
   final String? description;
   final double? rating;
   final String? badge;
+  final String? countryCode;
 
   factory ContentItem.fromManga(MManga item) => ContentItem(
     key: 'extension-${item.link ?? item.name ?? item.hashCode}',
@@ -60,6 +62,7 @@ class ContentItem {
     description: item.description,
     rating: item.averageScore == null ? null : item.averageScore! / 10,
     badge: item.format,
+    countryCode: item.countryOfOrigin,
   );
 
   factory ContentItem.fromObject(Object item) {
@@ -87,6 +90,7 @@ class PosterCard extends StatelessWidget {
     this.width = 120,
     this.heroTag,
     this.compact = false,
+    this.showMediaMetadata = false,
   });
 
   final ContentItem item;
@@ -94,6 +98,7 @@ class PosterCard extends StatelessWidget {
   final double width;
   final String? heroTag;
   final bool compact;
+  final bool showMediaMetadata;
 
   @override
   Widget build(BuildContext context) {
@@ -131,6 +136,26 @@ class PosterCard extends StatelessWidget {
                         right: 7,
                         child: _RatingPill(rating: rating),
                       ),
+                    if (showMediaMetadata &&
+                        _countryFlag(item.countryCode).isNotEmpty)
+                      Positioned(
+                        top: 7,
+                        left: 7,
+                        child: _MediaBadge(
+                          label: _countryFlag(item.countryCode),
+                          fontSize: 14,
+                        ),
+                      ),
+                    if (showMediaMetadata &&
+                        item.badge?.trim().isNotEmpty == true)
+                      Positioned(
+                        bottom: 7,
+                        left: 7,
+                        child: _MediaBadge(
+                          label: _formatLabel(item.badge!),
+                          fontSize: 8,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -145,6 +170,59 @@ class PosterCard extends StatelessWidget {
               style: titleStyle,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+String _countryFlag(String? code) {
+  var normalized = code?.trim().toUpperCase();
+  if (normalized == 'UK') normalized = 'GB';
+  if (normalized == null ||
+      normalized.length != 2 ||
+      normalized.codeUnits.any((unit) => unit < 65 || unit > 90)) {
+    return '';
+  }
+  return String.fromCharCodes(
+    normalized.codeUnits.map((unit) => 0x1F1E6 + unit - 65),
+  );
+}
+
+String _formatLabel(String value) => switch (value.toUpperCase()) {
+  'TV' => 'SÉRIE',
+  'TV_SHORT' => 'COURT',
+  'MOVIE' => 'FILM',
+  'ONA' => 'ONA',
+  'OVA' => 'OVA',
+  'SPECIAL' => 'SP',
+  'NOVEL' => 'ROMAN',
+  'MANGA' => 'MANGA',
+  'MANHWA' => 'MANHWA',
+  'ONE_SHOT' => '1-SHOT',
+  _ => value.toUpperCase(),
+};
+
+class _MediaBadge extends StatelessWidget {
+  const _MediaBadge({required this.label, required this.fontSize});
+
+  final String label;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .68),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -324,10 +402,16 @@ class RankedCard extends StatelessWidget {
 }
 
 class TagCard extends StatelessWidget {
-  const TagCard({super.key, required this.item, required this.onTap});
+  const TagCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.width = 210,
+  });
 
   final ContentItem item;
   final VoidCallback onTap;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -335,30 +419,53 @@ class TagCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        width: width,
+        padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(13),
           gradient: const LinearGradient(
             colors: [Color(0xFF173E46), Color(0xFF236B70)],
           ),
         ),
         child: Row(
           children: [
+            Container(
+              width: 38,
+              height: 42,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .38),
+                    blurRadius: 7,
+                    offset: const Offset(2, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: ContentImage(
+                  url: item.posterUrl ?? item.backdropUrl,
+                  radius: 8,
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
             const Icon(
               Icons.local_offer_rounded,
-              size: 16,
+              size: 14,
               color: Color(0xFF9AF3E2),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
               child: Text(
                 item.title,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
-                  fontSize: 11,
+                  fontSize: 10.5,
                 ),
               ),
             ),

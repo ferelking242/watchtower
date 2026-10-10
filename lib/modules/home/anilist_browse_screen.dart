@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
-import 'package:watchtower/modules/home/widgets/discovery_card.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
 
 /// Paginated grid of AniList media filtered by an [AnilistBrowseFilter].
 /// Used as the destination of "See all" links and category cards.
@@ -132,9 +132,10 @@ class _AnilistBrowseScreenState extends ConsumerState<AnilistBrowseScreen> {
                               );
                       }
                       final m = _items[i];
-                      return DiscoveryCard(
-                        media: m,
+                      return PosterCard(
+                        item: ContentItem.fromAnilist(m),
                         width: 130,
+                        showMediaMetadata: true,
                         onTap: () =>
                             context.push('/anilistDetail', extra: m),
                       );

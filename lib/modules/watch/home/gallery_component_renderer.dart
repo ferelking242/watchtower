@@ -863,34 +863,14 @@ class GalleryComponentRenderer {
 
       // ── Landscape sections ──
       case 'landscape-showcase':
+      case 'landscape-films':
+      case 'landscape-series':
+      case 'landscape-manga':
+      case 'landscape-novels':
         return LandscapeShowcaseSection(
           title: title,
           subtitle: ctx.text('subtitle') ?? 'Sélection',
           icon: Icons.view_carousel_outlined,
-          items: _landscape(ctx, items),
-          width: w ?? 900,
-          onSeeAll: seeAll,
-        );
-      case 'landscape-films':
-        return LandscapeFilmsSection(
-          items: _landscape(ctx, items),
-          width: w ?? 900,
-          onSeeAll: seeAll,
-        );
-      case 'landscape-series':
-        return LandscapeSeriesSection(
-          items: _landscape(ctx, items),
-          width: w ?? 900,
-          onSeeAll: seeAll,
-        );
-      case 'landscape-manga':
-        return LandscapeMangaSection(
-          items: _landscape(ctx, items),
-          width: w ?? 900,
-          onSeeAll: seeAll,
-        );
-      case 'landscape-novels':
-        return LandscapeNovelsSection(
           items: _landscape(ctx, items),
           width: w ?? 900,
           onSeeAll: seeAll,
@@ -1018,7 +998,7 @@ class GalleryComponentRenderer {
       case 'movie-detail':
         return MovieDetailCard(data: _rich(ctx, item), width: w ?? 220);
       case 'expanded-movie':
-        return ExpandedMovieCard(
+        return ExpandableMovieCard(
           data: _rich(ctx, item),
           director: ctx.text('subtitle'),
           actors: _cast(ctx),
@@ -1436,7 +1416,13 @@ class GalleryComponentRenderer {
 
       // ── Poster / landscape / ranked / tag ──
       case 'poster':
-        return PosterCard(item: item, width: w ?? 120, onTap: onTap);
+        return PosterCard(
+          item: item,
+          width: w ?? 120,
+          compact: ctx.flag('compact'),
+          showMediaMetadata: true,
+          onTap: onTap,
+        );
       case 'poster-card-compact':
         return PosterCard(
           item: item,
@@ -1458,15 +1444,11 @@ class GalleryComponentRenderer {
 
       // ── Discovery cards ──
       case 'discovery':
-        return DiscoveryCard(
-          media: _anilist(item),
-          width: w ?? 120,
-          onTap: onTap,
-        );
       case 'animated-discovery':
-        return AnimatedDiscoveryCard(
-          media: _anilist(item),
+        return PosterCard(
+          item: item,
           width: w ?? 120,
+          showMediaMetadata: true,
           onTap: onTap,
         );
       case 'featured-discovery':
@@ -1611,7 +1593,7 @@ class GalleryComponentRenderer {
   ) => RichMediaCardData(
     item: item,
     meta: item.badge,
-    genres: item.description,
+    genres: ctx.text('genres'),
     runtimeMinutes: ctx.number('runtime'),
     onPlay: () {},
     onAddToList: () {},
@@ -2076,9 +2058,34 @@ class GalleryComponentRenderer {
       HomeMyListEntry(title: item.title, thumbUrl: item.posterUrl),
   ];
 
-  static List<HomeCountryChip> _countryChips(List<ContentItem> items) => [
-    for (final item in items) HomeCountryChip(label: item.title),
-  ];
+  static List<HomeCountryChip> _countryChips(List<ContentItem> items) {
+    const countryNames = <String, String>{
+      'BR': 'Brésil',
+      'CN': 'Chine',
+      'DE': 'Allemagne',
+      'ES': 'Espagne',
+      'FR': 'France',
+      'GB': 'Royaume-Uni',
+      'IN': 'Inde',
+      'IT': 'Italie',
+      'JP': 'Japon',
+      'KR': 'Corée du Sud',
+      'US': 'États-Unis',
+    };
+    final seen = <String>{};
+    final chips = <HomeCountryChip>[];
+    for (final item in items) {
+      final code = item.countryCode?.trim().toUpperCase();
+      if (code == null || code.length != 2 || !seen.add(code)) continue;
+      chips.add(
+        HomeCountryChip(
+          label: countryNames[code] ?? code,
+          code: code,
+        ),
+      );
+    }
+    return chips;
+  }
 
   static AnilistMedia _anilist(ContentItem item) => AnilistMedia(
     id: item.key.hashCode,

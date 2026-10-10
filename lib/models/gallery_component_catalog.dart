@@ -114,6 +114,7 @@ class GalleryComponentCatalog {
       description: 'Le tap étend/replie la carte',
       renderer: GalleryComponentFamily.richMedia,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'interactive-movie',
@@ -132,6 +133,7 @@ class GalleryComponentCatalog {
       description: 'La fiche glisse par-dessus le poster',
       renderer: GalleryComponentFamily.richMedia,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'movie-quick-view',
@@ -141,6 +143,7 @@ class GalleryComponentCatalog {
       description: 'Aperçu rapide avec fond image et fermer',
       renderer: GalleryComponentFamily.richMedia,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'media-quick-view',
@@ -150,6 +153,7 @@ class GalleryComponentCatalog {
       description: 'Alias générique de MovieQuickView',
       renderer: GalleryComponentFamily.richMedia,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'movie-preview',
@@ -168,6 +172,7 @@ class GalleryComponentCatalog {
       description: 'Alias générique de MoviePreview',
       renderer: GalleryComponentFamily.richMedia,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'movie-details-modal',
@@ -177,6 +182,7 @@ class GalleryComponentCatalog {
       description: 'Feuille modale détails rapides',
       renderer: GalleryComponentFamily.richMedia,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'media-details-modal',
@@ -186,6 +192,7 @@ class GalleryComponentCatalog {
       description: 'Alias générique de MovieDetailsModal',
       renderer: GalleryComponentFamily.richMedia,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'continue-watching',
@@ -267,6 +274,7 @@ class GalleryComponentCatalog {
       description: 'Saison dépliable, épisodes courant/verrouillé',
       renderer: GalleryComponentFamily.streaming,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'season',
@@ -339,6 +347,7 @@ class GalleryComponentCatalog {
       description: 'Trilogie / saga + posters latéraux',
       renderer: GalleryComponentFamily.collections,
       loadingPreview: LayoutComponentLoadingPreview.collections,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'franchise',
@@ -693,6 +702,7 @@ class GalleryComponentCatalog {
       description: 'Films les plus populaires',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'top-series',
@@ -702,6 +712,7 @@ class GalleryComponentCatalog {
       description: 'Séries les plus regardées',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'top-anime',
@@ -711,6 +722,7 @@ class GalleryComponentCatalog {
       description: 'Animés les plus populaires',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'top-by-genre',
@@ -720,6 +732,7 @@ class GalleryComponentCatalog {
       description: 'Tuiles de genres 1-10',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'top-by-country',
@@ -729,6 +742,7 @@ class GalleryComponentCatalog {
       description: 'Tuiles de pays 1-10',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'global-ranking',
@@ -738,6 +752,7 @@ class GalleryComponentCatalog {
       description: 'Top 20 tous contenus confondus',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'top-rated-ranking',
@@ -747,6 +762,7 @@ class GalleryComponentCatalog {
       description: 'Notes des utilisateurs',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'trending-ranking',
@@ -756,6 +772,7 @@ class GalleryComponentCatalog {
       description: 'Ce qui fait le plus parler',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'top-by-decade',
@@ -765,6 +782,7 @@ class GalleryComponentCatalog {
       description: 'Tuiles de décennies',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'must-watch',
@@ -774,6 +792,7 @@ class GalleryComponentCatalog {
       description: 'Sélection des incontournables',
       renderer: GalleryComponentFamily.ranking,
       loadingPreview: LayoutComponentLoadingPreview.ranked,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'manga-chapter',
@@ -1450,6 +1469,7 @@ class GalleryComponentCatalog {
       description: 'Saisie de suggestion personnalisée',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'home-mini-player',
@@ -1459,6 +1479,7 @@ class GalleryComponentCatalog {
       description: 'Reprendre la lecture en bas d\\',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'poster',
@@ -1477,6 +1498,7 @@ class GalleryComponentCatalog {
       description: 'Grille multi-rangées',
       renderer: GalleryComponentFamily.posterRail,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'landscape',
@@ -1486,6 +1508,7 @@ class GalleryComponentCatalog {
       description: 'Rails paysage',
       renderer: GalleryComponentFamily.landscape,
       loadingPreview: LayoutComponentLoadingPreview.landscape,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'ranked-card',
@@ -1504,6 +1527,7 @@ class GalleryComponentCatalog {
       description: 'Rails découverte',
       renderer: GalleryComponentFamily.posterRail,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'animated-discovery',
@@ -1513,6 +1537,7 @@ class GalleryComponentCatalog {
       description: 'Entrée animée',
       renderer: GalleryComponentFamily.posterRail,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'ranked-discovery',
