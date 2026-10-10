@@ -1043,18 +1043,19 @@ class WatchtowerNotificationService {
       notice.lastShownAt = now;
       await _persistMediaDownloadNotice(chapterId, notice);
 
-      final displayTitle = 'Watchtower';
+      final displayTitle = notice.seriesTitle.trim().isNotEmpty
+          ? notice.seriesTitle.trim()
+          : notice.chapterTitle.trim().isNotEmpty
+          ? notice.chapterTitle.trim()
+          : 'Watchtower';
       final progressPercent = _mediaProgressPercent(notice);
-      final title = notice.seriesTitle.isNotEmpty
-          ? notice.seriesTitle
-          : notice.chapterTitle;
-      final chapterLabel = title == notice.chapterTitle
-          ? title
-          : '$title · ${notice.chapterTitle}';
+      final chapterLabel = notice.chapterTitle.trim();
       final progressLabel = _mediaProgressLabel(notice);
-      final body = notice.isCompleted || notice.isPaused || notice.isFailed
-          ? '$chapterLabel · $progressLabel'
-          : 'Téléchargement · $chapterLabel · $progressLabel';
+      final body = [
+        if (chapterLabel.isNotEmpty && chapterLabel != displayTitle)
+          chapterLabel,
+        progressLabel,
+      ].join(' · ');
       final androidDetails = AndroidNotificationDetails(
         _kDownloadChannelId,
         _kDownloadChannelName,
@@ -1077,7 +1078,6 @@ class WatchtowerNotificationService {
         styleInformation: BigTextStyleInformation(
           body,
           contentTitle: displayTitle,
-          summaryText: 'Téléchargement',
         ),
         actions: isCompleted
             ? const [
@@ -1285,14 +1285,14 @@ class WatchtowerNotificationService {
   }
 
   String _mediaProgressLabel(_MediaDownloadNotice notice) {
-    if (notice.isFailed) return 'Échec du téléchargement';
+    if (notice.isFailed) return 'Échec';
     if (notice.isPaused) return 'En pause';
-    if (notice.isCompleted) return 'Téléchargement terminé';
+    if (notice.isCompleted) return 'Terminé';
     if (notice.itemType == 'manga') {
       if (notice.total > 1) {
         return '${notice.completed}/${notice.total} pages';
       }
-      return notice.completed > 0 ? '${notice.completed} pages' : 'Téléchargement';
+      return notice.completed == 1 ? '1 page' : 'Préparation…';
     }
     if (notice.downloadedBytes != null &&
         notice.totalBytes != null &&
@@ -1300,7 +1300,7 @@ class WatchtowerNotificationService {
       return '${_formatNotificationBytes(notice.downloadedBytes!)} / '
           '${_formatNotificationBytes(notice.totalBytes!)}';
     }
-    return 'Téléchargement';
+    return 'En cours';
   }
 
   String _formatNotificationBytes(int bytes) {
@@ -1335,7 +1335,6 @@ class WatchtowerNotificationService {
         : completed;
 
     late final String title;
-    late final String summaryText;
     late final String body;
     if (active.length == 1) {
       title = active.single.seriesTitle.isNotEmpty
@@ -1343,14 +1342,12 @@ class WatchtowerNotificationService {
           : active.single.chapterTitle;
       body =
           '${active.single.chapterTitle} · ${_mediaProgressLabel(active.single)}';
-      summaryText = 'Téléchargement';
     } else if (active.length > 1) {
       title = '${active.length} téléchargements en cours';
       body = active
           .take(5)
           .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
           .join(' • ');
-      summaryText = 'Téléchargements Watchtower';
     } else if (paused.isNotEmpty) {
       title = paused.length == 1
           ? 'Téléchargement en pause'
@@ -1359,7 +1356,6 @@ class WatchtowerNotificationService {
           .take(5)
           .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
           .join(' • ');
-      summaryText = 'En pause';
     } else if (failed.isNotEmpty) {
       title = failed.length == 1
           ? 'Échec du téléchargement'
@@ -1368,7 +1364,6 @@ class WatchtowerNotificationService {
           .take(5)
           .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
           .join(' • ');
-      summaryText = 'À réessayer';
     } else {
       title = completed.length == 1
           ? 'Téléchargement terminé'
@@ -1377,7 +1372,6 @@ class WatchtowerNotificationService {
           .take(5)
           .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
           .join(' • ');
-      summaryText = 'Téléchargements Watchtower';
     }
 
     final androidDetails = AndroidNotificationDetails(
@@ -1407,7 +1401,6 @@ class WatchtowerNotificationService {
             )
             .toList(),
         contentTitle: title,
-        summaryText: summaryText,
       ),
     );
     await _plugin.show(
