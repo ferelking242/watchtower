@@ -81,7 +81,7 @@ class DiscoveryStage {
         )) {
           if (entity is! File) continue;
 
-          if (_isInExcludedDir(entity.path)) continue;
+          if (_isInExcludedDir(entity.path, root)) continue;
           if (policy.maximumDepth != null &&
               _relativeDepth(entity.path, root) > policy.maximumDepth!) {
             continue;
@@ -140,16 +140,22 @@ class DiscoveryStage {
   }
 
   /// Vérifie si un chemin contient un dossier exclu.
-  bool _isInExcludedDir(String path) {
-    final parts = p.split(path);
-    for (var i = 0; i < parts.length; i++) {
-      final segment = parts[i].toLowerCase();
+  ///
+  /// Seuls les segments situés *sous* [root] sont examinés. Un dossier
+  /// sélectionné par l'utilisateur peut lui-même vivre dans un répertoire
+  /// nommé `tmp`, `cache`… ; filtrer ses ancêtres rejetait alors l'intégralité
+  /// de la bibliothèque.
+  bool _isInExcludedDir(String path, String root) {
+    final pathParts = p.split(p.normalize(path));
+    final rootParts = p.split(p.normalize(root));
+    for (var i = rootParts.length; i < pathParts.length; i++) {
+      final segment = pathParts[i].toLowerCase();
       if (segment.isEmpty) continue;
       if (segment.startsWith('.') ||
           policy.ignoredDirectories.contains(segment) ||
           (segment == 'android' &&
-              i + 1 < parts.length &&
-              {'data', 'obb'}.contains(parts[i + 1].toLowerCase()))) {
+              i + 1 < pathParts.length &&
+              {'data', 'obb'}.contains(pathParts[i + 1].toLowerCase()))) {
         return true;
       }
       if (policy.ignoredPatterns.any((pattern) => pattern.hasMatch(segment))) {

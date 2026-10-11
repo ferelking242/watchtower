@@ -7,7 +7,7 @@ class NoiseRemover {
   static const _noiseTokens = <String>{
     // Encodeurs / groupes communs
     'bluray', 'blu-ray', 'bdrip', 'brrip', 'dvdrip', 'dvd', 'dvdscr',
-    'hdtv', 'hdrip', 'webrip', 'web-dl', 'webdl', 'web', 'amzn', 'nf',
+    'hdtv', 'hdrip', 'webrip', 'web-dl', 'webdl', 'web', 'dl', 'amzn', 'nf',
     'dsnp', 'cr', 'hmax',
     // Remasters / versions
     'repack', 'proper', 'extended', 'theatrical', 'unrated', 'directors',

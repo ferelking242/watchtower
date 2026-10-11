@@ -96,6 +96,32 @@ class NameNormalizer {
     // ── 5. Détection épisode/chapitre ─────────────────────────────────────
     final episode = EpisodeDetector.detect(tokens);
 
+    // ── 5b. Groupe de release collé par un tiret ──────────────────────────
+    // "...x265-GROUP" est tokenisé en "x265", "GROUP" (le tiret est un
+    // séparateur) : le groupe n'apparaît donc pas dans un bloc [..]. On ne le
+    // retire que si le token précédent est déjà reconnu comme métadonnée
+    // (qualité, codec, langue…) ou comme bruit, afin de ne pas amputer un
+    // titre légitime contenant un tiret ("Spider-Man").
+    if (releaseGroup == null && tokens.length >= 2) {
+      final lastIndex = tokens.length - 1;
+      final prevIndex = lastIndex - 1;
+      final last = tokens[lastIndex];
+      final precededByMetadata =
+          quality.consumedIndices.contains(prevIndex) ||
+          episode.consumedIndices.contains(prevIndex) ||
+          lang.consumedIndices.contains(prevIndex) ||
+          NoiseRemover.isNoise(tokens[prevIndex]);
+      if (_stem(filename).contains('-') &&
+          precededByMetadata &&
+          !quality.consumedIndices.contains(lastIndex) &&
+          !episode.consumedIndices.contains(lastIndex) &&
+          !lang.consumedIndices.contains(lastIndex) &&
+          RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{1,23}$').hasMatch(last)) {
+        groupIndices.add(lastIndex);
+        releaseGroup = last;
+      }
+    }
+
     // ── 6. Indices à exclure pour l'extraction du titre ───────────────────
     final excluded = <int>{
       ...groupIndices,
@@ -129,12 +155,23 @@ class NameNormalizer {
     }
     var title = _cleanTitle(rawTitle);
 
-    // ── 9. Type de média ─────────────────────────────────────────────────
+    // ── 9. Type de média + métadonnées de chemin ─────────────────────────
     final kind = _detectKind(filename, episode);
-    if (kind == LocalMediaKind.manga &&
-        title.isEmpty &&
-        episode.chapter != null) {
-      title = _mangaParentTitle(filename) ?? title;
+    var chapter = episode.chapter;
+    var volume = episode.volume;
+    if (kind == LocalMediaKind.manga) {
+      // Le volume/chapitre peut vivre dans un dossier parent
+      // ("/Manga/Berserk/Vol. 2/page.cbz") : la tokenisation ne voit que le
+      // basename, il faut donc relire le chemin.
+      final pathMeta = _mangaPathMetadata(filename);
+      volume ??= pathMeta.volume;
+      chapter ??= pathMeta.chapter;
+      // Un fichier de page ("page.cbz") n'est pas un titre : on préfère le
+      // dossier manga ("Berserk").
+      final parentTitle = _mangaParentTitle(filename);
+      if (parentTitle != null && _isPageLikeTitle(title)) {
+        title = parentTitle;
+      }
     }
 
     // ── 10. Clé canonique ────────────────────────────────────────────────
@@ -157,8 +194,8 @@ class NameNormalizer {
       kind: kind,
       season: episode.season,
       episode: episode.episode,
-      chapter: episode.chapter,
-      volume: episode.volume,
+      chapter: chapter,
+      volume: volume,
       part: episode.part,
       quality: quality.resolution,
       codec: quality.videoCodec,
@@ -179,6 +216,13 @@ class NameNormalizer {
         .replaceFirstMapped(RegExp(r'^[a-z]'), (m) => m.group(0)!.toUpperCase());
   }
 
+  /// Dernier segment du chemin (nom de fichier), utilisé pour savoir si un
+  /// groupe de release a pu être collé par un tiret (`x265-GROUP`).
+  static String _stem(String filename) {
+    final parts = filename.split(RegExp(r'[/\\]'));
+    return parts.isEmpty ? filename : parts.last;
+  }
+
   static String _fallbackTitle(String filename) {
     var name = filename;
     final slash = filename.lastIndexOf(RegExp(r'[/\\]'));
@@ -186,6 +230,51 @@ class NameNormalizer {
     final dot = name.lastIndexOf('.');
     if (dot > 0) name = name.substring(0, dot);
     return name.replaceAll(RegExp(r'[_\-\.]'), ' ').trim();
+  }
+
+  /// Extrait le volume/chapitre depuis les dossiers parents
+  /// ("/Manga/Berserk/Vol. 2/page.cbz" → volume 2).
+  static ({int? volume, int? chapter}) _mangaPathMetadata(String filename) {
+    final parts = filename.split(RegExp(r'[/\\]'));
+    int? volume, chapter;
+    for (var i = 0; i < parts.length - 1; i++) {
+      final seg = parts[i];
+      final vol = RegExp(
+        r'^(?:volume|vol)[ ._-]{1,2}(\d{1,4})$',
+        caseSensitive: false,
+      ).firstMatch(seg);
+      if (vol != null) {
+        volume ??= int.parse(vol.group(1)!);
+        continue;
+      }
+      final chap = RegExp(
+        r'^(?:chapter|chap|ch)[ ._-]{1,2}(\d{1,5})$',
+        caseSensitive: false,
+      ).firstMatch(seg);
+      if (chap != null) chapter ??= int.parse(chap.group(1)!);
+    }
+    return (volume: volume, chapter: chapter);
+  }
+
+  /// Vrai si le "titre" n'est en réalité qu'un nom de page générique
+  /// ("page", "001", "cover"…), auquel cas le dossier manga est plus fiable.
+  static bool _isPageLikeTitle(String title) {
+    final normalized = title.toLowerCase().trim();
+    if (normalized.isEmpty) return true;
+    if (RegExp(r'^\d+$').hasMatch(normalized)) return true;
+    return const {
+      'page',
+      'pages',
+      'scan',
+      'scan1',
+      'cover',
+      'front',
+      'back',
+      'img',
+      'image',
+      'photo',
+      'untitled',
+    }.contains(normalized);
   }
 
   static String? _mangaParentTitle(String filename) {

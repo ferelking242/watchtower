@@ -30,9 +30,17 @@ String sanitizePersistedUrl(String raw) {
       query[entry.key] = entry.value;
     }
   }
-  return uri
-      .replace(userInfo: '', queryParameters: query, fragment: '')
-      .toString();
+  // Rebuild the URI instead of using Uri.replace: replace always emits the
+  // query and fragment separators it was given, so an empty query turned
+  // "https://host/page" into "https://host/page?#" and broke every cached
+  // page URL. Passing null keeps absent components absent.
+  return Uri(
+    scheme: uri.scheme.isEmpty ? null : uri.scheme,
+    host: uri.hasAuthority ? uri.host : null,
+    port: uri.hasPort ? uri.port : null,
+    path: uri.path,
+    queryParameters: query.isEmpty ? null : query,
+  ).toString();
 }
 
 String safeUrlOriginForLog(String raw) {

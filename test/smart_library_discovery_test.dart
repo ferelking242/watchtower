@@ -3,6 +3,13 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 
+/// Crée un fichier non vide : `File.create` produit 0 octet, ce qui est
+/// rejeté par `minimumFileSize` (1) et ferait échouer la découverte.
+Future<void> _writeFile(String path) async {
+  final file = await File(path).create(recursive: true);
+  await file.writeAsBytes([1, 2, 3, 4]);
+}
+
 void main() {
   group('Smart Library scan policies', () {
     late Directory root;
@@ -16,10 +23,9 @@ void main() {
     });
 
     test('Watch mode discovers videos but never manga or novels', () async {
-      await File('${root.path}/Movies/Film.mp4').create(recursive: true);
-      await File('${root.path}/Manga/One Piece/Chapter 1.cbz')
-          .create(recursive: true);
-      await File('${root.path}/Books/Novel.epub').create(recursive: true);
+      await _writeFile('${root.path}/Movies/Film.mp4');
+      await _writeFile('${root.path}/Manga/One Piece/Chapter 1.cbz');
+      await _writeFile('${root.path}/Books/Novel.epub');
 
       final files = <DiscoveredFile>[];
       await for (final batch in DiscoveryStage(
@@ -32,15 +38,11 @@ void main() {
     });
 
     test('Manga mode keeps one page representative per chapter folder', () async {
-      await File(
-        '${root.path}/Manga/One Piece/Chapter 12/page-001.jpg',
-      ).create(recursive: true);
-      await File(
-        '${root.path}/Manga/One Piece/Chapter 12/page-002.jpg',
-      ).create();
-      await File('${root.path}/Manga/One Piece/Chapter 13.cbz').create();
-      await File('${root.path}/Movies/Film.mp4').create(recursive: true);
-      await File('${root.path}/Books/Novel.epub').create(recursive: true);
+      await _writeFile('${root.path}/Manga/One Piece/Chapter 12/page-001.jpg');
+      await _writeFile('${root.path}/Manga/One Piece/Chapter 12/page-002.jpg');
+      await _writeFile('${root.path}/Manga/One Piece/Chapter 13.cbz');
+      await _writeFile('${root.path}/Movies/Film.mp4');
+      await _writeFile('${root.path}/Books/Novel.epub');
 
       final files = <DiscoveredFile>[];
       await for (final batch in DiscoveryStage(
