@@ -37,39 +37,112 @@ class CategoryDef {
       );
 }
 
+/// Picks a distinct artwork per genre from the catalogue so two adjacent
+/// tiles never share the same picture, and tiles that match nothing still
+/// get a real (non-colour) background. Pure and side-effect free so it can be
+/// unit tested without a network or a widget tree.
+List<CategoryDef> enrichCategoryImages(
+  List<CategoryDef> categories,
+  List<AnilistMedia>? media, {
+  bool preferBanner = true,
+}) {
+  if (media == null || media.isEmpty) return categories;
+
+  String? artwork(AnilistMedia m) =>
+      preferBanner ? m.bestBackdrop : m.bestCover;
+
+  final used = <String>{};
+  final resolved = List<String?>.filled(categories.length, null);
+
+  // Pass 1 - exact genre matches claim their artwork first, so a genre tile is
+  // never starved by an earlier tile that merely fell back to the same image.
+  for (var i = 0; i < categories.length; i++) {
+    final cat = categories[i];
+    if (cat.imageUrl != null) {
+      resolved[i] = cat.imageUrl;
+      used.add(cat.imageUrl!);
+      continue;
+    }
+    final genre = cat.genre?.toLowerCase();
+    if (genre == null) continue;
+    for (final m in media) {
+      final candidate = artwork(m);
+      if (candidate == null || used.contains(candidate)) continue;
+      if (m.genres.any((g) => g.toLowerCase() == genre)) {
+        resolved[i] = candidate;
+        used.add(candidate);
+        break;
+      }
+    }
+  }
+
+  // Pass 2 - remaining tiles get any still-unused artwork (round-robin).
+  var cursor = 0;
+  for (var i = 0; i < categories.length; i++) {
+    if (resolved[i] != null) continue;
+    for (var j = 0; j < media.length; j++) {
+      final candidate = artwork(media[(cursor + j) % media.length]);
+      if (candidate != null && !used.contains(candidate)) {
+        resolved[i] = candidate;
+        used.add(candidate);
+        cursor = (cursor + j + 1) % media.length;
+        break;
+      }
+    }
+  }
+
+  return [
+    for (var i = 0; i < categories.length; i++)
+      categories[i].withImage(resolved[i]),
+  ];
+}
+
 /// Horizontal scrolling row of [CategoryDef] cards with background images.
 class CategoryRow extends StatelessWidget {
   final String title;
   final List<CategoryDef> categories;
   final List<AnilistMedia>? mediaForImages;
 
+  /// Card geometry. The row stays 160×110 by default and scales with the
+  /// supplied values so the same component fits compact and wide layouts.
+  final double cardWidth;
+  final double cardHeight;
+
+  /// Prefer the wide banner artwork over the portrait cover for backgrounds.
+  final bool preferBanner;
+
+  /// When false the gradient stays the only background even if media is
+  /// supplied (useful for a strictly coloured rail).
+  final bool useImages;
+
   const CategoryRow({
     super.key,
     required this.title,
     required this.categories,
     this.mediaForImages,
+    this.cardWidth = 160,
+    this.cardHeight = 110,
+    this.preferBanner = true,
+    this.useImages = true,
   });
+
+  /// Picks a distinct artwork per genre from the catalogue so two adjacent
+  /// tiles never share the same picture, and tiles that match nothing still
+  /// get a real (non-colour) background.
+  List<CategoryDef> _enrich() {
+    if (!useImages) return categories;
+    return enrichCategoryImages(
+      categories,
+      mediaForImages,
+      preferBanner: preferBanner,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     if (categories.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
-
-    // Enrich categories with cover images from media list if available
-    final enriched = <CategoryDef>[];
-    for (var i = 0; i < categories.length; i++) {
-      final cat = categories[i];
-      if (mediaForImages != null && cat.imageUrl == null) {
-        // Find a media item whose genres contain this category label
-        final match = mediaForImages!.firstWhere(
-          (m) => m.genres.any((g) => g.toLowerCase() == cat.genre?.toLowerCase()),
-          orElse: () => mediaForImages![i % mediaForImages!.length],
-        );
-        enriched.add(cat.withImage(match.bestCover));
-      } else {
-        enriched.add(cat);
-      }
-    }
+    final enriched = _enrich();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,17 +151,24 @@ class CategoryRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
           child: Text(
             title,
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         SizedBox(
-          height: 110,
+          height: cardHeight,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: enriched.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (_, i) => _AnimatedCategoryCard(index: i, def: enriched[i]),
+            itemBuilder: (_, i) => _AnimatedCategoryCard(
+              index: i,
+              def: enriched[i],
+              width: cardWidth,
+              height: cardHeight,
+            ),
           ),
         ),
       ],
@@ -98,12 +178,19 @@ class CategoryRow extends StatelessWidget {
 
 class _CategoryCard extends StatelessWidget {
   final CategoryDef def;
-  const _CategoryCard({required this.def});
+  final double width;
+  final double height;
+
+  const _CategoryCard({
+    required this.def,
+    this.width = 160,
+    this.height = 110,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 160,
+      width: width,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -120,8 +207,8 @@ class _CategoryCard extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: SizedBox(
-              width: 160,
-              height: 110,
+              width: width,
+              height: height,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -139,16 +226,22 @@ class _CategoryCard extends StatelessWidget {
                   else
                     _GradientBg(gradient: def.gradient),
 
-                  // Always-on dark overlay for legibility
+                  // Legibility scrim — kept light over real artwork so the
+                  // image stays visible, heavier over a plain gradient.
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          def.gradient.first.withValues(alpha: 0.55),
-                          def.gradient.last.withValues(alpha: 0.75),
-                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: def.imageUrl == null
+                            ? [
+                                def.gradient.first.withValues(alpha: 0.55),
+                                def.gradient.last.withValues(alpha: 0.75),
+                              ]
+                            : [
+                                Colors.black.withValues(alpha: 0.05),
+                                Colors.black.withValues(alpha: 0.78),
+                              ],
                       ),
                     ),
                   ),
@@ -175,7 +268,7 @@ class _CategoryCard extends StatelessWidget {
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.20),
+                            color: Colors.black.withValues(alpha: 0.32),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(def.icon, size: 18, color: Colors.white),
@@ -370,7 +463,14 @@ List<CategoryDef> novelCategories() {
   class _AnimatedCategoryCard extends StatefulWidget {
     final int index;
     final CategoryDef def;
-    const _AnimatedCategoryCard({required this.index, required this.def});
+    final double width;
+    final double height;
+    const _AnimatedCategoryCard({
+      required this.index,
+      required this.def,
+      this.width = 160,
+      this.height = 110,
+    });
 
     @override
     State<_AnimatedCategoryCard> createState() => _AnimatedCategoryCardState();
@@ -408,7 +508,14 @@ List<CategoryDef> novelCategories() {
     @override
     Widget build(BuildContext context) => FadeTransition(
           opacity: _fade,
-          child: SlideTransition(position: _slide, child: _CategoryCard(def: widget.def)),
+          child: SlideTransition(
+            position: _slide,
+            child: _CategoryCard(
+              def: widget.def,
+              width: widget.width,
+              height: widget.height,
+            ),
+          ),
         );
   }
   

@@ -22,6 +22,8 @@ class ContentItem {
     this.rating,
     this.badge,
     this.countryCode,
+    this.imageUrl,
+    this.meta,
   });
 
   final String key;
@@ -32,6 +34,14 @@ class ContentItem {
   final double? rating;
   final String? badge;
   final String? countryCode;
+
+  /// Optional artwork that overrides [posterUrl] for cards that show a single
+  /// wide visual (genre tiles, category cards).
+  final String? imageUrl;
+
+  /// Optional free-form meta line (studio, genre, country…) for cards that
+  /// display one instead of the badge.
+  final String? meta;
 
   factory ContentItem.fromManga(MManga item) => ContentItem(
     key: 'extension-${item.link ?? item.name ?? item.hashCode}',
@@ -63,6 +73,22 @@ class ContentItem {
     rating: item.averageScore == null ? null : item.averageScore! / 10,
     badge: item.format,
     countryCode: item.countryOfOrigin,
+    imageUrl: item.bestBackdrop,
+    meta: item.mainStudio,
+  );
+
+  /// A genre tile backed by a real artwork taken from the catalogue.
+  factory ContentItem.genreTile({
+    required String label,
+    required String? imageUrl,
+    String? key,
+  }) => ContentItem(
+    key: key ?? 'genre-${label.toLowerCase()}',
+    title: label,
+    posterUrl: imageUrl,
+    backdropUrl: imageUrl,
+    imageUrl: imageUrl,
+    badge: label,
   );
 
   factory ContentItem.fromObject(Object item) {

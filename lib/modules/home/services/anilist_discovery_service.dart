@@ -7,6 +7,24 @@ import 'dart:async';
   import 'package:http/http.dart' as http;
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Studio model
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  class AnilistStudio {
+    final int id;
+    final String name;
+    final int? favourites;
+
+    const AnilistStudio({required this.id, required this.name, this.favourites});
+
+    factory AnilistStudio.fromJson(Map<String, dynamic> json) => AnilistStudio(
+          id: (json['id'] as num?)?.toInt() ?? 0,
+          name: (json['name'] as String?)?.trim() ?? '',
+          favourites: (json['favourites'] as num?)?.toInt(),
+        );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // Core media model
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -27,6 +45,36 @@ import 'dart:async';
     final int? chapters;
     final List<String> genres;
 
+    /// Airing lifecycle (`RELEASING`, `FINISHED`, `NOT_YET_RELEASED`…).
+    final String? status;
+
+    /// Broadcast season (`WINTER`…`FALL`).
+    final String? season;
+
+    /// Broadcast year.
+    final int? seasonYear;
+
+    /// Episode runtime in minutes (anime).
+    final int? duration;
+
+    /// AniList popularity score (number of users with the media on a list).
+    final int? popularity;
+
+    /// AniList favourites count.
+    final int? favourites;
+
+    /// Adapted-from material (`ORIGINAL`, `MANGA`, `LIGHT_NOVEL`…).
+    final String? source;
+
+    /// Main animation studios.
+    final List<AnilistStudio> studios;
+
+    /// Next episode number when the media is currently airing.
+    final int? nextEpisodeNumber;
+
+    /// Airing time of the next episode.
+    final DateTime? nextAiringAt;
+
     const AnilistMedia({
       required this.id,
       required this.type,
@@ -43,12 +91,34 @@ import 'dart:async';
       this.episodes,
       this.chapters,
       this.genres = const [],
+      this.status,
+      this.season,
+      this.seasonYear,
+      this.duration,
+      this.popularity,
+      this.favourites,
+      this.source,
+      this.studios = const [],
+      this.nextEpisodeNumber,
+      this.nextAiringAt,
     });
 
     String get displayTitle =>
         titleEnglish ?? titleRomaji ?? titleNative ?? 'Untitled';
 
     String? get bestCover => coverExtraLarge ?? coverLarge;
+
+    /// Wide artwork preferred for genre cards and banners, falling back to the
+    /// portrait cover when AniList has no banner for the title.
+    String? get bestBackdrop => bannerImage ?? coverExtraLarge ?? coverLarge;
+
+    /// Name of the main studio, or `null` when unknown.
+    String? get mainStudio =>
+        studios.isEmpty ? null : (studios.first.name.isEmpty ? null : studios.first.name);
+
+    /// Comma-separated studio names for compact meta lines.
+    String? get studiosLabel =>
+        studios.isEmpty ? null : studios.map((s) => s.name).join(' · ');
 
     bool get isNovel => format == 'NOVEL';
 
@@ -57,6 +127,11 @@ import 'dart:async';
       final cover =
           (json['coverImage'] as Map?)?.cast<String, dynamic>() ?? const {};
       final genresRaw = json['genres'];
+      final studiosRaw = (json['studios'] as Map?)?.cast<String, dynamic>();
+      final studioNodes = studiosRaw?['nodes'];
+      final nextAiring =
+          (json['nextAiringEpisode'] as Map?)?.cast<String, dynamic>();
+      final airingAt = (nextAiring?['airingAt'] as num?)?.toInt();
       return AnilistMedia(
         id: (json['id'] as num).toInt(),
         type: (json['type'] as String?) ?? 'ANIME',
@@ -77,6 +152,23 @@ import 'dart:async';
         genres: genresRaw is List
             ? genresRaw.whereType<String>().toList(growable: false)
             : const [],
+        status: json['status'] as String?,
+        season: json['season'] as String?,
+        seasonYear: (json['seasonYear'] as num?)?.toInt(),
+        duration: (json['duration'] as num?)?.toInt(),
+        popularity: (json['popularity'] as num?)?.toInt(),
+        favourites: (json['favourites'] as num?)?.toInt(),
+        source: json['source'] as String?,
+        studios: studioNodes is List
+            ? studioNodes
+                  .whereType<Map>()
+                  .map((s) => AnilistStudio.fromJson(s.cast<String, dynamic>()))
+                  .toList(growable: false)
+            : const [],
+        nextEpisodeNumber: (nextAiring?['episode'] as num?)?.toInt(),
+        nextAiringAt: airingAt == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(airingAt * 1000),
       );
     }
   }
@@ -429,6 +521,21 @@ import 'dart:async';
     final List<AnilistMedia> popularNovels;
     final List<AnilistMedia> latestNovels;
 
+    /// Highest-rated anime movies (separate from popularity-sorted [animeMovies]).
+    final List<AnilistMedia> topMovies;
+
+    /// Currently airing anime ordered by popularity.
+    final List<AnilistMedia> airingAnimes;
+
+    /// Audience favourites, ordered by AniList favourites count.
+    final List<AnilistMedia> favouriteAnimes;
+
+    /// Long-running series (many episodes).
+    final List<AnilistMedia> longRunningAnimes;
+
+    /// Most popular studios.
+    final List<AnilistStudio> topStudios;
+
     const AnilistHome({
       this.trendingAnimes = const [],
       this.popularAnimes = const [],
@@ -445,7 +552,42 @@ import 'dart:async';
       this.trendingNovels = const [],
       this.popularNovels = const [],
       this.latestNovels = const [],
+      this.topMovies = const [],
+      this.airingAnimes = const [],
+      this.favouriteAnimes = const [],
+      this.longRunningAnimes = const [],
+      this.topStudios = const [],
     });
+
+    /// Every anime list, de-duplicated, used to seed genre cards and studios.
+    List<AnilistMedia> get allAnimes {
+      final seen = <int>{};
+      final out = <AnilistMedia>[];
+      for (final list in [
+        trendingAnimes,
+        popularAnimes,
+        topRatedAnimes,
+        airingAnimes,
+        favouriteAnimes,
+        recentAnimes,
+        longRunningAnimes,
+        animeMovies,
+        topMovies,
+        upcomingAnimes,
+        latestAnimes,
+      ]) {
+        for (final media in list) {
+          if (seen.add(media.id)) out.add(media);
+        }
+      }
+      return out;
+    }
+
+    /// Recently released anime, de-duplicated.
+    List<AnilistMedia> get recentAnimes => [
+      ...recentlyUpdatedAnimes,
+      ...latestAnimes,
+    ];
   }
 
   const _anilistEndpoint = 'https://graphql.anilist.co';
@@ -457,16 +599,19 @@ import 'dart:async';
   query Home($perPage: Int = 20) {
     trendingAnimes: Page(page: 1, perPage: $perPage) {
       media(type: ANIME, sort: TRENDING_DESC, isAdult: false) {
-        id type format countryOfOrigin averageScore episodes bannerImage description genres
+        id type format countryOfOrigin averageScore meanScore popularity favourites episodes duration source status season seasonYear bannerImage description genres
         title { romaji english native }
         coverImage { large extraLarge }
+        studios(isMain: true) { nodes { id name favourites } }
+        nextAiringEpisode { episode airingAt }
       }
     }
     popularAnimes: Page(page: 1, perPage: $perPage) {
       media(type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
-        id type format averageScore episodes genres
+        id type format averageScore meanScore popularity favourites episodes duration source status season seasonYear genres
         title { romaji english native }
         coverImage { large extraLarge }
+        studios(isMain: true) { nodes { id name favourites } }
       }
     }
     upcomingAnimes: Page(page: 1, perPage: $perPage) {
@@ -499,10 +644,47 @@ import 'dart:async';
     }
     animeMovies: Page(page: 1, perPage: $perPage) {
       media(type: ANIME, format: MOVIE, sort: [POPULARITY_DESC, SCORE_DESC], isAdult: false) {
-        id type format averageScore genres bannerImage
+        id type format averageScore meanScore popularity favourites episodes duration source status season seasonYear genres bannerImage
         title { romaji english native }
         coverImage { large extraLarge }
+        studios(isMain: true) { nodes { id name favourites } }
       }
+    }
+    topMovies: Page(page: 1, perPage: $perPage) {
+      media(type: ANIME, format: MOVIE, sort: [SCORE_DESC, POPULARITY_DESC], averageScore_greater: 75, isAdult: false) {
+        id type format averageScore popularity favourites duration genres bannerImage
+        title { romaji english native }
+        coverImage { large extraLarge }
+        studios(isMain: true) { nodes { id name favourites } }
+      }
+    }
+    airingAnimes: Page(page: 1, perPage: $perPage) {
+      media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC, isAdult: false) {
+        id type format status season seasonYear averageScore popularity favourites episodes duration genres bannerImage
+        title { romaji english native }
+        coverImage { large extraLarge }
+        studios(isMain: true) { nodes { id name favourites } }
+        nextAiringEpisode { episode airingAt }
+      }
+    }
+    favouriteAnimes: Page(page: 1, perPage: $perPage) {
+      media(type: ANIME, sort: FAVOURITES_DESC, isAdult: false) {
+        id type format status seasonYear averageScore popularity favourites episodes genres bannerImage
+        title { romaji english native }
+        coverImage { large extraLarge }
+        studios(isMain: true) { nodes { id name favourites } }
+      }
+    }
+    longRunningAnimes: Page(page: 1, perPage: $perPage) {
+      media(type: ANIME, episodes_greater: 100, sort: [POPULARITY_DESC, SCORE_DESC], isAdult: false) {
+        id type format status averageScore popularity favourites episodes duration genres
+        title { romaji english native }
+        coverImage { large extraLarge }
+        studios(isMain: true) { nodes { id name favourites } }
+      }
+    }
+    topStudios: Page(page: 1, perPage: 12) {
+      studios(sort: FAVOURITES_DESC) { id name favourites }
     }
     trendingMangas: Page(page: 1, perPage: $perPage) {
       media(type: MANGA, format_not: NOVEL, countryOfOrigin: "JP", sort: TRENDING_DESC) {
@@ -573,6 +755,16 @@ import 'dart:async';
         .toList(growable: false);
   }
 
+  List<AnilistStudio> _parseStudios(dynamic page) {
+    if (page is! Map) return const [];
+    final studios = page['studios'];
+    if (studios is! List) return const [];
+    return studios
+        .whereType<Map>()
+        .map((e) => AnilistStudio.fromJson(e.cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
   Future<AnilistHome> _fetchAnilistHome() async {
     try {
       final conn = await Connectivity().checkConnectivity();
@@ -624,6 +816,11 @@ import 'dart:async';
       trendingNovels: _parseList(data['trendingNovels']),
       popularNovels: _parseList(data['popularNovels']),
       latestNovels: _parseList(data['latestNovels']),
+      topMovies: _parseList(data['topMovies']),
+      airingAnimes: _parseList(data['airingAnimes']),
+      favouriteAnimes: _parseList(data['favouriteAnimes']),
+      longRunningAnimes: _parseList(data['longRunningAnimes']),
+      topStudios: _parseStudios(data['topStudios']),
     );
   }
 
@@ -864,6 +1061,11 @@ class AnilistBrowseFilter {
   final String? genre;
   final String? format;
   final String? country;
+  final int? studioId;
+
+  /// AniList `MediaSort` value (e.g. `POPULARITY_DESC`, `SCORE_DESC`,
+  /// `TRENDING_DESC`, `START_DATE_DESC`, `FAVOURITES_DESC`).
+  final String? sort;
   final int page;
 
   const AnilistBrowseFilter({
@@ -871,6 +1073,8 @@ class AnilistBrowseFilter {
     this.genre,
     this.format,
     this.country,
+    this.studioId,
+    this.sort,
     this.page = 1,
   });
 
@@ -879,6 +1083,8 @@ class AnilistBrowseFilter {
     String? genre,
     String? format,
     String? country,
+    int? studioId,
+    String? sort,
     int? page,
   }) {
     return AnilistBrowseFilter(
@@ -886,6 +1092,8 @@ class AnilistBrowseFilter {
       genre: genre ?? this.genre,
       format: format ?? this.format,
       country: country ?? this.country,
+      studioId: studioId ?? this.studioId,
+      sort: sort ?? this.sort,
       page: page ?? this.page,
     );
   }
@@ -897,10 +1105,20 @@ class AnilistBrowseFilter {
       other.genre == genre &&
       other.format == format &&
       other.country == country &&
+      other.studioId == studioId &&
+      other.sort == sort &&
       other.page == page;
 
   @override
-  int get hashCode => Object.hash(mediaType, genre, format, country, page);
+  int get hashCode => Object.hash(
+    mediaType,
+    genre,
+    format,
+    country,
+    studioId,
+    sort,
+    page,
+  );
 }
 
 class AnilistBrowsePage {
@@ -927,14 +1145,15 @@ final anilistOfflineNotifier = ValueNotifier<bool>(false);
 
 Future<AnilistBrowsePage> _fetchBrowsePage(AnilistBrowseFilter filter) async {
   const String _browseQuery = r'''
-query ($type: MediaType, $genre: String, $format: MediaFormat, $country: CountryCode, $page: Int, $perPage: Int) {
+query ($type: MediaType, $genre: String, $format: MediaFormat, $country: CountryCode, $studioId: Int, $sort: [MediaSort], $page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
     pageInfo { currentPage hasNextPage }
-    media(type: $type, genre: $genre, format: $format, countryOfOrigin: $country, sort: POPULARITY_DESC, isAdult: false) {
-      id type format countryOfOrigin averageScore episodes chapters
+    media(type: $type, genre: $genre, format: $format, countryOfOrigin: $country, studioId: $studioId, sort: $sort, isAdult: false) {
+      id type format status season seasonYear countryOfOrigin averageScore meanScore popularity favourites episodes chapters duration source genres bannerImage
       title { romaji english native }
       coverImage { large extraLarge }
-      bannerImage genres
+      studios(isMain: true) { nodes { id name favourites } }
+      nextAiringEpisode { episode airingAt }
     }
   }
 }
@@ -947,6 +1166,8 @@ query ($type: MediaType, $genre: String, $format: MediaFormat, $country: Country
     if (filter.genre != null) 'genre': filter.genre,
     if (filter.format != null) 'format': filter.format,
     if (filter.country != null) 'country': filter.country,
+    if (filter.studioId != null) 'studioId': filter.studioId,
+    'sort': [filter.sort ?? 'POPULARITY_DESC'],
   };
 
   final response = await http.post(

@@ -7,6 +7,7 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/search/tmdb_search_screen.dart';
@@ -1735,6 +1736,9 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     this.extensionSectionId,
     this.initialExtensionItems = const [],
     this.cardStyle,
+    this.anilistFilter,
+    this.initialAnilistItems = const [],
+    this.onOpenAnilist,
     super.key,
   });
 
@@ -1749,7 +1753,28 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
        initialItems = const [],
        isTv = false,
        extensionSource = source,
-       extensionSectionId = sectionId;
+       extensionSectionId = sectionId,
+       anilistFilter = null,
+       initialAnilistItems = const [],
+       onOpenAnilist = null;
+
+  /// Paginated destination for an AniList filter. Reuses the same catalogue
+  /// shell (sort/filter sheet, infinite scroll, grid) as the film/série
+  /// "see all" page so every hub shares one implementation.
+  const TmdbMoviesListScreen.anilist({
+    required this.title,
+    required AnilistBrowseFilter filter,
+    this.initialAnilistItems = const [],
+    this.cardStyle,
+    this.onOpenAnilist,
+    super.key,
+  }) : path = '',
+       initialItems = const [],
+       isTv = false,
+       extensionSource = null,
+       extensionSectionId = null,
+       initialExtensionItems = const [],
+       anilistFilter = filter;
 
   final String title;
   final String path;
@@ -1760,6 +1785,13 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
   final List<MManga> initialExtensionItems;
   final String? cardStyle;
 
+  /// When set, the screen pages through AniList instead of TMDB/extensions.
+  final AnilistBrowseFilter? anilistFilter;
+  final List<AnilistMedia> initialAnilistItems;
+
+  /// Opens a tapped AniList media. Falls back to the AniList detail route.
+  final ValueChanged<AnilistMedia>? onOpenAnilist;
+
   @override
   ConsumerState<TmdbMoviesListScreen> createState() =>
       _TmdbMoviesListScreenState();
@@ -1769,6 +1801,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   final ScrollController _scrollController = ScrollController();
   late final List<TmdbMedia> _movies;
   late final List<MManga> _extensionItems;
+  late final List<AnilistMedia> _anilistItems;
   bool _loading = false;
   bool _hasMore = true;
   int _page = 1;
@@ -1780,8 +1813,15 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     super.initState();
     _movies = [...widget.initialItems];
     _extensionItems = [...widget.initialExtensionItems];
+    _anilistItems = [...widget.initialAnilistItems];
     _scrollController.addListener(_onScroll);
-    if (_isExtension) {
+    if (_isAnilist) {
+      if (_anilistItems.isNotEmpty) {
+        _page = 2;
+      } else {
+        _loadPage();
+      }
+    } else if (_isExtension) {
       if (_extensionItems.isNotEmpty) {
         _page = 2;
       } else {
@@ -1797,6 +1837,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   bool get _isExtension =>
       widget.extensionSource != null && widget.extensionSectionId != null;
 
+  bool get _isAnilist => widget.anilistFilter != null;
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     if (_scrollController.position.extentAfter < 500) {
@@ -1811,6 +1853,25 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       _error = null;
     });
     try {
+      if (_isAnilist) {
+        final filter = widget.anilistFilter!.copyWith(
+          page: _page,
+          sort: _anilistSortFor(_sortMode),
+        );
+        final result = await ref.read(anilistBrowseProvider(filter).future);
+        if (!mounted) return;
+        final seen = {for (final item in _anilistItems) item.id};
+        final nextItems = result.items
+            .where((item) => seen.add(item.id))
+            .toList(growable: false);
+        setState(() {
+          _anilistItems.addAll(nextItems);
+          _hasMore = result.hasNextPage;
+          if (nextItems.isNotEmpty) _page++;
+          _loading = false;
+        });
+        return;
+      }
       if (_isExtension) {
         final result = await _fetchExtensionPage(_page);
         if (!mounted) return;
@@ -1870,8 +1931,24 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     };
   }
 
+  String? _anilistSortFor(String sortMode) => switch (sortMode) {
+    'rating' => 'SCORE_DESC',
+    'title' => 'TITLE_ROMAJI',
+    'trending' => 'TRENDING_DESC',
+    'newest' => 'START_DATE_DESC',
+    _ => 'POPULARITY_DESC',
+  };
+
   Future<void> _chooseSort() async {
-    final choices = _isExtension
+    final choices = _isAnilist
+        ? const [
+            ('Most Popular', 'popular'),
+            ('Highest rated', 'rating'),
+            ('Trending', 'trending'),
+            ('Newest', 'newest'),
+            ('A — Z', 'title'),
+          ]
+        : _isExtension
         ? const [('Most Popular', 'popular'), ('A — Z', 'title')]
         : const [
             ('Most Popular', 'popular'),
@@ -1991,7 +2068,9 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           ),
         ],
       ),
-      body: _isExtension
+      body: _isAnilist
+          ? _buildAnilistBody(_anilistItems)
+          : _isExtension
           ? _buildExtensionBody(extensionItems)
           : _error != null && movies.isEmpty
           ? _CatalogError(title: widget.title, onRetry: _loadPage)
@@ -2041,6 +2120,87 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  Future<void> _refreshAnilist() async {
+    setState(() {
+      _anilistItems.clear();
+      _page = 1;
+      _hasMore = true;
+      _error = null;
+    });
+    await _loadPage();
+  }
+
+  Widget _buildAnilistBody(List<AnilistMedia> items) {
+    if (_error != null && items.isEmpty) {
+      return _CatalogError(title: widget.title, onRetry: _loadPage);
+    }
+    if (items.isEmpty && _loading) return const AppMediaGridShimmer();
+    if (items.isEmpty) {
+      return const Center(
+        child: Text('Aucun résultat', style: TextStyle(color: Colors.white70)),
+      );
+    }
+
+    final isTagGrid = widget.cardStyle == 'tag';
+    final isLandscapeGrid = widget.cardStyle == 'landscape';
+    final open = widget.onOpenAnilist;
+    void onTap(AnilistMedia media) {
+      if (open != null) {
+        open(media);
+      } else {
+        context.push('/anilistDetail', extra: media);
+      }
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshAnilist,
+      child: GridView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+          AppUI.pagePadding(context),
+          12,
+          AppUI.pagePadding(context),
+          110,
+        ),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: AppUI.mediaGridColumns(context),
+          childAspectRatio: isTagGrid
+              ? 2.6
+              : isLandscapeGrid
+              ? 1.25
+              : AppUI.mediaGridChildAspectRatio(context),
+          crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: items.length + (_loading ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= items.length) {
+            return const AppShimmerBlock(radius: AppUI.cardRadius);
+          }
+          final media = items[index];
+          final item = ContentItem.fromAnilist(media);
+          if (isTagGrid) {
+            return TagCard(item: item, onTap: () => onTap(media));
+          }
+          if (isLandscapeGrid) {
+            return LandscapeCard(
+              item: item,
+              width: double.infinity,
+              onTap: () => onTap(media),
+            );
+          }
+          return PosterCard(
+            item: item,
+            width: double.infinity,
+            showMediaMetadata: true,
+            onTap: () => onTap(media),
+          );
+        },
+      ),
     );
   }
 

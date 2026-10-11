@@ -56,7 +56,6 @@ import 'package:watchtower/modules/main_view/main_screen.dart';
 import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/main_library_screen.dart';
-import 'package:watchtower/modules/home/anilist_browse_screen.dart';
 import 'package:watchtower/modules/home/anilist_detail_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/novel/novel_discovery_screen.dart';
@@ -69,6 +68,7 @@ import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/media_hub_screen.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/search/tmdb_search_screen.dart';
 import 'package:watchtower/modules/media/tmdb_media_detail_screen.dart';
 import 'package:watchtower/modules/media/tmdb_people_screen.dart';
@@ -372,7 +372,10 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute<(AnilistBrowseFilter, String)>(
       name: "anilistBrowse",
-      builder: (data) => AnilistBrowseScreen(filter: data.$1, title: data.$2),
+      builder: (data) => TmdbMoviesListScreen.anilist(
+        title: data.$2,
+        filter: data.$1,
+      ),
     ),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),

@@ -1330,7 +1330,8 @@ class GalleryComponentRenderer {
           height: ctx.decimal('height') ?? 112,
           child: AppGenreTile(
             label: item.title,
-            imageUrl: item.posterUrl,
+            imageUrl: item.imageUrl ?? item.posterUrl,
+            icon: ctx.text('icon') == null ? null : Icons.category_rounded,
             onTap: onTap,
           ),
         );
