@@ -1422,9 +1422,16 @@ Future<void> downloadChapter(
         final bucket = (percent ~/ 10) * 10;
         if (bucket >= 10 && bucket > lastLoggedProgressBucket) {
           lastLoggedProgressBucket = bucket;
+          final downloadedText =
+              progress.downloadedBytes?.toString() ?? 'inconnu';
+          final totalBytesText = progress.totalBytes?.toString() ?? 'inconnu';
+          final speedText = _speedEmaMbs > 0.05
+              ? '${_speedEmaMbs.toStringAsFixed(1)} MB/s'
+              : 'mesure en cours';
           AppLogger.log(
             '[ch:${chapter.id}] transfer progress=$bucket% '
-            'units=${progress.completed}/${progress.total}',
+            'units=${progress.completed}/${progress.total} '
+            'bytes=$downloadedText/$totalBytesText speed=$speedText',
             logLevel: LogLevel.debug,
             tag: LogTag.download,
           );
@@ -1845,6 +1852,7 @@ Future<void> downloadChapter(
                 : progress.total,
             downloadedBytes: liveDownloadedBytes,
             totalBytes: liveTotalBytes,
+            speedMbs: _speedEmaMbs,
           ),
         );
       }
@@ -1873,12 +1881,10 @@ Future<void> downloadChapter(
             );
         final hasKnownSize =
             notificationTotalBytes != null && notificationTotalBytes > 0;
-        final pct = hasKnownSize
-            ? (((downloadedBytes * 100) ~/ notificationTotalBytes!)).clamp(
-                0,
-                100,
-              )
-            : -1;
+        final progressFraction = progress.progressFraction;
+        final pct = progressFraction == null
+            ? -1
+            : (progressFraction * 100).round().clamp(0, 100).toInt();
         final remaining = hasKnownSize
             ? (notificationTotalBytes! - downloadedBytes)
                   .clamp(0, double.infinity)
@@ -1888,9 +1894,16 @@ Future<void> downloadChapter(
           ItemType.anime,
         );
         final chapterTitle = chapter.name?.trim();
-        final notifSub = chapterTitle?.isNotEmpty == true
+        final baseSubtitle = chapterTitle?.isNotEmpty == true
             ? chapterTitle!
             : 'Vidéo en cours de téléchargement';
+        final segmentProgress =
+            !hasKnownSize && progress.totalBytes == null && progress.total > 1
+            ? '${progress.completed}/${progress.total} segments'
+            : null;
+        final notifSub = segmentProgress == null
+            ? baseSubtitle
+            : '$baseSubtitle · $segmentProgress';
         final etaSeconds = _speedEmaMbs >= 0.05 && hasKnownSize
             ? ((remaining / (_speedEmaMbs * 1024 * 1024))
                   .clamp(0, double.infinity)
@@ -1926,14 +1939,21 @@ Future<void> downloadChapter(
         final activeCount = ActiveDownloadRegistry.activeCountForType(
           progress.itemType,
         );
+        final pageProgress = progress.itemType == ItemType.manga &&
+                totalUnits > 1
+            ? '$completedUnits/$totalUnits pages'
+            : null;
+        final baseSubtitle = activeCount == 1
+            ? chapterTitle
+            : '$seriesTitle · $chapterTitle';
         unawaited(
           BackgroundKeepAlive.update(
             count: activeCount,
             title: notificationTitle,
             progress: pct,
-            subtitle: activeCount == 1
-                ? chapterTitle
-                : '$seriesTitle · $chapterTitle',
+            subtitle: pageProgress == null
+                ? baseSubtitle
+                : '$baseSubtitle · $pageProgress',
             force: progress.isCompleted,
           ),
         );
@@ -1990,6 +2010,15 @@ Future<void> downloadChapter(
             itemType: progress.itemType.name,
             filePath: completedPath,
             chapterId: chapter.id!,
+            completed: progress.itemType == ItemType.manga
+                ? isarSucceeded
+                : progress.completed,
+            total: progress.itemType == ItemType.manga
+                ? isarTotal
+                : progress.total,
+            downloadedBytes: exactDownloadedBytes,
+            totalBytes: exactTotalBytes,
+            speedMbs: _speedEmaMbs,
           ),
         );
       }

@@ -23,6 +23,7 @@ void main() {
       expect(progress.downloadedBytes, 512 * 1024);
       expect(progress.totalBytes, isNull);
       expect(progress.isIndeterminate, isTrue);
+      expect(progress.progressFraction, isNull);
     });
 
     test('a known Content-Length keeps byte progress determinate', () {
@@ -35,6 +36,7 @@ void main() {
       expect(progress.isIndeterminate, isFalse);
       expect(progress.completed, 512 * 1024);
       expect(progress.total, 2 * 1024 * 1024);
+      expect(progress.progressFraction, 0.25);
     });
   });
 
@@ -124,6 +126,7 @@ segments/0002.m4s
     expect(progress.total, 3);
     expect(progress.totalBytes, isNull);
     expect(progress.isIndeterminate, isFalse);
+    expect(progress.progressFraction, closeTo(1 / 3, 0.0001));
   });
 
   test('HLS resume progress keeps the original segment total', () {
@@ -140,6 +143,7 @@ segments/0002.m4s
     expect(progress.downloadedBytes, 12 * 1024 * 1024);
     expect(progress.totalBytes, isNull);
     expect(progress.isIndeterminate, isFalse);
+    expect(progress.progressFraction, 0.4);
   });
 
   test('HLS resume state counts only non-empty completed segments', () async {

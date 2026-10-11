@@ -31,6 +31,11 @@ class BackgroundKeepAlive {
   static String _lastNotificationTitle = '';
   static String _lastNotificationSubtitle = '';
   static int _lastNotificationCount = -1;
+  static int _lastNotificationDownloadedBytes = -1;
+  static int? _lastNotificationTotalBytes;
+  static double _lastNotificationSpeedMbs = -1;
+  static int? _lastNotificationEtaSeconds;
+  static String _lastNotificationQuality = '';
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -70,18 +75,24 @@ class BackgroundKeepAlive {
       final titleChanged = title != _lastNotificationTitle;
       final subtitleChanged = subtitle != _lastNotificationSubtitle;
       final countChanged = count != _lastNotificationCount;
+      final visibleStateChanged =
+          progressChanged || titleChanged || subtitleChanged || countChanged;
+      final transferStatsChanged =
+          downloadedBytes != _lastNotificationDownloadedBytes ||
+          totalBytes != _lastNotificationTotalBytes ||
+          speedMbs != _lastNotificationSpeedMbs ||
+          etaSeconds != _lastNotificationEtaSeconds ||
+          quality != _lastNotificationQuality;
       final elapsed = _lastNotificationUpdate == null
           ? const Duration(seconds: 1)
           : now.difference(_lastNotificationUpdate!);
       // Progress callbacks can arrive for every network chunk. Throttle the
-      // tray to a steady cadence so updates remain readable and do not cause
-      // notification flicker or excessive binder traffic.
+      // byte/speed-only updates to a steady cadence. A changed item or percent
+      // is sent immediately; transfer statistics refresh at most every 250 ms.
       if (!force &&
-          !progressChanged &&
-          !titleChanged &&
-          !subtitleChanged &&
-          !countChanged &&
-          elapsed < const Duration(milliseconds: 250)) {
+          !visibleStateChanged &&
+          (!transferStatsChanged ||
+              elapsed < const Duration(milliseconds: 250))) {
         return;
       }
       _lastNotificationUpdate = now;
@@ -89,6 +100,11 @@ class BackgroundKeepAlive {
       _lastNotificationTitle = title;
       _lastNotificationSubtitle = subtitle;
       _lastNotificationCount = count;
+      _lastNotificationDownloadedBytes = downloadedBytes;
+      _lastNotificationTotalBytes = totalBytes;
+      _lastNotificationSpeedMbs = speedMbs;
+      _lastNotificationEtaSeconds = etaSeconds;
+      _lastNotificationQuality = quality;
       try {
         await _ch.invokeMethod<void>('update', {
           'count': count,
@@ -113,6 +129,11 @@ class BackgroundKeepAlive {
     _lastNotificationTitle = '';
     _lastNotificationSubtitle = '';
     _lastNotificationCount = -1;
+    _lastNotificationDownloadedBytes = -1;
+    _lastNotificationTotalBytes = null;
+    _lastNotificationSpeedMbs = -1;
+    _lastNotificationEtaSeconds = null;
+    _lastNotificationQuality = '';
     if (!kIsWeb && Platform.isAndroid) {
       try {
         await _ch.invokeMethod<void>('stop');

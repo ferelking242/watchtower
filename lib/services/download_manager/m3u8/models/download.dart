@@ -84,6 +84,23 @@ class DownloadProgress {
          totalBytes: totalBytes,
        );
 
+  /// Real progress when the transfer has a byte total or a known unit total.
+  /// HLS uses completed/total segments until the merged file size is known;
+  /// unknown-length direct files stay indeterminate instead of inventing a
+  /// byte denominator.
+  double? get progressFraction {
+    if (isCompleted) return 1;
+    final bytes = downloadedBytes;
+    final byteTotal = totalBytes;
+    if (bytes != null && byteTotal != null && byteTotal > 0) {
+      return (bytes / byteTotal).clamp(0.0, 1.0).toDouble();
+    }
+    if (!isIndeterminate && total > 0) {
+      return (completed / total).clamp(0.0, 1.0).toDouble();
+    }
+    return null;
+  }
+
   @override
   String toString() {
     return 'DownloadProgress(segment: $segment, pageUrl: $pageUrl completed: $completed, total: $total, isCompleted: $isCompleted, bytes: $downloadedBytes/$totalBytes)';

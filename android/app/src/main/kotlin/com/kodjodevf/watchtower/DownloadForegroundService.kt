@@ -198,18 +198,40 @@ class DownloadForegroundService : Service() {
             this, 0, launchIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val body = listOf("Téléchargement", title, subtitle)
-            .filter { it.isNotEmpty() }
-            .joinToString(" • ")
-            .ifEmpty {
-            when {
-                count > 1  -> "$count téléchargements en cours"
-                count == 1 -> "1 téléchargement en cours"
-                else       -> "En attente…"
+        val displayedTotalBytes = totalBytes?.takeIf { it > 0 }
+        val displayedEtaSeconds = etaSeconds
+        val transferDetails = mutableListOf<String>()
+        if (downloadedBytes > 0) {
+            transferDetails += if (displayedTotalBytes != null) {
+                "${formatBytes(downloadedBytes)} / ${formatBytes(displayedTotalBytes)}"
+            } else {
+                "${formatBytes(downloadedBytes)} téléchargés"
             }
         }
+        if (speedMbs > 0.05) {
+            transferDetails += "%.1f MB/s".format(speedMbs)
+        }
+        if (displayedEtaSeconds != null && progress in 0..99) {
+            transferDetails += "reste ${formatDuration(displayedEtaSeconds)}"
+        }
+        if (quality.isNotBlank()) {
+            transferDetails += quality
+        }
+        val notificationTitle = title.ifBlank { "Watchtower" }
+        val body = listOf(
+            transferDetails.joinToString(" · ").ifEmpty {
+                when {
+                    count > 1  -> "$count téléchargements en cours"
+                    count == 1 -> "Téléchargement"
+                    else       -> "En attente…"
+                }
+            },
+            subtitle,
+        )
+            .filter { it.isNotEmpty() }
+            .joinToString(" • ")
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Watchtower")
+            .setContentTitle(notificationTitle)
             .setContentText(body)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true)
@@ -218,9 +240,7 @@ class DownloadForegroundService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOnlyAlertOnce(true)
             .setGroup(GROUP_KEY)
-            .setSubText(
-                if (count > 1) "$count téléchargements actifs" else "Watchtower",
-            )
+            .setSubText(if (count > 1) "$count téléchargements actifs" else "Watchtower")
             // Show a determinate progress bar when we know the percentage,
             // or an indeterminate spinner while the download is starting up.
             .setProgress(
@@ -233,7 +253,7 @@ class DownloadForegroundService : Service() {
             builder.setStyle(
                 NotificationCompat.BigTextStyle()
                     .bigText(body)
-                    .setBigContentTitle("Watchtower")
+                    .setBigContentTitle(notificationTitle)
             )
         }
 

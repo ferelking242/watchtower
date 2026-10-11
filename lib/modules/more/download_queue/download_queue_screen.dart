@@ -11,6 +11,7 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
+import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_progress.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -1564,6 +1565,10 @@ class _GroupedDownloadTabListState
     final unfinishedItems = items
         .where((download) => download.isDownload != true)
         .toList();
+    if (!shouldShowDownloadGroupHeader(unfinishedItems)) {
+      if (unfinishedItems.isEmpty) return const SizedBox.shrink();
+      return _buildDismissible(unfinishedItems.single);
+    }
     final animeHasExactTotals =
         itemType == ItemType.anime &&
         items.every((download) => (download.totalBytes ?? 0) > 0);
@@ -1991,6 +1996,7 @@ class _GroupedDownloadTabListState
           retryCount: retryCount,
           priority: priority,
           liveProgress: liveProgress,
+          speedMbs: widget.queueState.speeds[element.id ?? -1] ?? 0,
           swipeLeftAction: widget.swipeLeft,
           swipeRightAction: widget.swipeRight,
           onPauseResume: () => isCancelled
@@ -2263,6 +2269,7 @@ class _DownloadCard extends ConsumerWidget {
   final int priority;
 
   final DownloadLiveProgress? liveProgress;
+  final double speedMbs;
   final SwipeAction swipeLeftAction;
   final SwipeAction swipeRightAction;
   final VoidCallback onPauseResume;
@@ -2280,6 +2287,7 @@ class _DownloadCard extends ConsumerWidget {
     required this.retryCount,
     this.priority = 0,
     this.liveProgress,
+    this.speedMbs = 0,
     required this.swipeLeftAction,
     required this.swipeRightAction,
     required this.onPauseResume,
@@ -2371,6 +2379,12 @@ class _DownloadCard extends ConsumerWidget {
               ? null
               : trustedDownloadByteCount(liveTotalBytes)
         : null;
+    final hasKnownUnitProgress =
+        itemType == ItemType.anime &&
+        exactTotalBytes == null &&
+        live != null &&
+        !live.isIndeterminate &&
+        live.totalUnits > 1;
     final hasObservedBytes = (exactDownloadedBytes ?? 0) > 0;
     final isIndeterminateTransfer =
         !isComplete &&
@@ -2378,15 +2392,26 @@ class _DownloadCard extends ConsumerWidget {
         !isPaused &&
         itemType == ItemType.anime &&
         exactTotalBytes == null &&
+        !hasKnownUnitProgress &&
         (download.status == 'downloading' ||
             download.status == 'initializing');
     final progress = exactTotalBytes != null && exactTotalBytes > 0
         ? ((exactDownloadedBytes ?? 0) / exactTotalBytes)
               .clamp(0.0, 1.0)
               .toDouble()
+        : hasKnownUnitProgress
+        ? (live!.completedUnits / live!.totalUnits)
+              .clamp(0.0, 1.0)
+              .toDouble()
         : itemType == ItemType.manga
         ? mangaProgress!.value
         : 0.0;
+    final progressLabel = _buildProgressLabel(
+      itemType,
+      succeeded,
+      total,
+      failed,
+    );
 
     final scheme = Theme.of(context).colorScheme;
 
@@ -2479,6 +2504,7 @@ class _DownloadCard extends ConsumerWidget {
         : !isComplete &&
               (progress > 0 ||
                   isProgressIndeterminate ||
+                  hasKnownUnitProgress ||
                   (itemType == ItemType.manga && total > 1))
         ? MbGradientProgressBar(
             value: isProgressIndeterminate ? null : progress,
@@ -2536,16 +2562,7 @@ class _DownloadCard extends ConsumerWidget {
           ? 'Annulé'
           : isPaused
           ? 'En pause'
-          : itemType == ItemType.manga && total > 1
-          ? '$succeeded/$total pages'
-          : itemType == ItemType.manga && succeeded > 0
-          ? '$succeeded pages'
-          : itemType == ItemType.anime &&
-                exactDownloadedBytes != null &&
-                exactTotalBytes != null
-          ? '${_formatBytes(exactDownloadedBytes)} / '
-                '${_formatBytes(exactTotalBytes)}'
-          : '';
+          : progressLabel;
 
       return Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
@@ -2652,9 +2669,12 @@ class _DownloadCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                if ((progress > 0 || isIndeterminateTransfer) && !isComplete)
+                if ((progress > 0 ||
+                        isIndeterminateTransfer ||
+                        hasKnownUnitProgress) &&
+                    !isComplete)
                   Text(
-                    _buildProgressLabel(itemType, succeeded, total, failed),
+                    progressLabel,
                     style: TextStyle(
                       color: scheme.onSurfaceVariant,
                       fontSize: 10,
@@ -2777,6 +2797,18 @@ class _DownloadCard extends ConsumerWidget {
               const SizedBox(height: 4),
               progressBar,
             ],
+            if (progressLabel.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                progressLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -2870,15 +2902,12 @@ class _DownloadCard extends ConsumerWidget {
                             ),
                           ),
                           const Spacer(),
-                          if ((progress > 0 || isIndeterminateTransfer) &&
+                          if ((progress > 0 ||
+                                  isIndeterminateTransfer ||
+                                  hasKnownUnitProgress) &&
                               !isComplete)
                             Text(
-                              _buildProgressLabel(
-                                itemType,
-                                succeeded,
-                                total,
-                                failed,
-                              ),
+                              progressLabel,
                               style: TextStyle(
                                 color: scheme.onSurfaceVariant.withValues(
                                   alpha: 0.7,
@@ -2995,12 +3024,7 @@ class _DownloadCard extends ConsumerWidget {
                   Text(
                     isComplete
                         ? 'Téléchargement terminé'
-                        : _buildProgressLabel(
-                            itemType,
-                            succeeded,
-                            total,
-                            failed,
-                          ),
+                        : progressLabel,
                     style: TextStyle(
                       color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                       fontSize: 11,
@@ -3094,12 +3118,7 @@ class _DownloadCard extends ConsumerWidget {
                             ? 'En pause'
                             : isComplete
                             ? 'Terminé'
-                            : _buildProgressLabel(
-                                itemType,
-                                succeeded,
-                                total,
-                                failed,
-                              ),
+                            : progressLabel,
                         style: TextStyle(
                           color: hasFailed
                               ? mbRed
@@ -3141,10 +3160,20 @@ class _DownloadCard extends ConsumerWidget {
     int total,
     int failed,
   ) {
+    String withSpeed(String label) {
+      if (speedMbs <= 0.05) return label;
+      final speed = '${speedMbs.toStringAsFixed(1)} MB/s';
+      return label.isEmpty ? speed : '$label · $speed';
+    }
+
     switch (itemType) {
       case ItemType.manga:
-        if (total > 1) return '$succeeded/$total pages';
-        return succeeded > 0 ? '$succeeded pages' : '';
+        final label = total > 1
+            ? '$succeeded/$total pages'
+            : succeeded > 0
+            ? '$succeeded pages'
+            : '';
+        return withSpeed(label);
       case ItemType.anime:
         final downloaded = trustedDownloadByteCount(
           liveProgress?.downloadedBytes ?? download.downloadedBytes,
@@ -3152,12 +3181,21 @@ class _DownloadCard extends ConsumerWidget {
         final totalBytes = trustedDownloadByteCount(
           liveProgress?.totalBytes ?? download.totalBytes,
         );
+        final details = <String>[];
         if (downloaded != null && totalBytes != null) {
-          return '${_formatBytes(downloaded)} / ${_formatBytes(totalBytes)}';
+          details.add('${_formatBytes(downloaded)} / ${_formatBytes(totalBytes)}');
+        } else {
+          final live = liveProgress;
+          if (live != null &&
+              !live.isIndeterminate &&
+              live.totalUnits > 1) {
+            details.add('${live.completedUnits}/${live.totalUnits} segments');
+          }
+          if (downloaded != null && downloaded > 0) {
+            details.add('${_formatBytes(downloaded)} reçus');
+          }
         }
-        return downloaded != null && downloaded > 0
-            ? _formatBytes(downloaded)
-            : '';
+        return withSpeed(details.join(' · '));
       case ItemType.novel:
       case ItemType.music:
       case ItemType.game:

@@ -971,6 +971,7 @@ class WatchtowerNotificationService {
           total: notice.total,
           downloadedBytes: notice.downloadedBytes,
           totalBytes: notice.totalBytes,
+          speedMbs: notice.speedMbs,
           filePath: notice.filePath,
           isPaused: notice.isPaused,
           forceUpdate: true,
@@ -1018,6 +1019,7 @@ class WatchtowerNotificationService {
     required int total,
     int? downloadedBytes,
     int? totalBytes,
+    double speedMbs = 0,
     String? filePath,
     bool isCompleted = false,
     bool isPaused = false,
@@ -1046,6 +1048,7 @@ class WatchtowerNotificationService {
         total: total,
         downloadedBytes: downloadedBytes,
         totalBytes: totalBytes,
+        speedMbs: speedMbs,
         filePath: filePath,
         isCompleted: isCompleted,
         isPaused: isPaused,
@@ -1065,6 +1068,15 @@ class WatchtowerNotificationService {
       }
       notice.lastShownAt = now;
       await _persistMediaDownloadNotice(chapterId, notice);
+
+      if (Platform.isAndroid && notice.isOngoing) {
+        // The foreground service is the one Android must keep visible while
+        // downloading. Showing this per-chapter progress notice as well creates
+        // two cards for the same transfer and the two bars can disagree.
+        await _plugin.cancel(id);
+        if (updateSummary) await _updateMediaDownloadSummary();
+        return;
+      }
 
       final displayTitle = notice.seriesTitle.trim().isNotEmpty
           ? notice.seriesTitle.trim()
@@ -1197,14 +1209,22 @@ class WatchtowerNotificationService {
     required String itemType,
     required String? filePath,
     required int chapterId,
+    int completed = 1,
+    int total = 1,
+    int? downloadedBytes,
+    int? totalBytes,
+    double speedMbs = 0,
   }) async {
     await showMediaDownloadProgress(
       chapterId: chapterId,
       seriesTitle: seriesTitle,
       chapterTitle: title,
       itemType: itemType,
-      completed: 1,
-      total: 1,
+      completed: completed,
+      total: total,
+      downloadedBytes: downloadedBytes,
+      totalBytes: totalBytes,
+      speedMbs: speedMbs,
       filePath: filePath,
       isCompleted: true,
     );
@@ -1225,6 +1245,7 @@ class WatchtowerNotificationService {
       total: notice.total,
       downloadedBytes: notice.downloadedBytes,
       totalBytes: notice.totalBytes,
+      speedMbs: notice.speedMbs,
       filePath: notice.filePath,
       isPaused: isPaused,
     );
@@ -1259,6 +1280,7 @@ class WatchtowerNotificationService {
       total: notice.total,
       downloadedBytes: notice.downloadedBytes,
       totalBytes: notice.totalBytes,
+      speedMbs: notice.speedMbs,
       filePath: notice.filePath,
       isFailed: true,
     );
@@ -1298,6 +1320,12 @@ class WatchtowerNotificationService {
           .clamp(0, 100)
           .toInt();
     }
+    if (notice.itemType == 'anime' && notice.total > 1) {
+      return ((notice.completed / notice.total) * 100)
+          .round()
+          .clamp(0, 100)
+          .toInt();
+    }
     if (notice.itemType == 'manga' && notice.total > 1) {
       return ((notice.completed / notice.total) * 100)
           .round()
@@ -1310,20 +1338,44 @@ class WatchtowerNotificationService {
   String _mediaProgressLabel(_MediaDownloadNotice notice) {
     if (notice.isFailed) return 'Échec';
     if (notice.isPaused) return 'En pause';
-    if (notice.isCompleted) return 'Terminé';
+    if (notice.isCompleted) {
+      final details = <String>[];
+      if (notice.itemType == 'manga' && notice.total > 1) {
+        details.add('${notice.total} pages');
+      } else if (notice.itemType == 'anime' &&
+          (notice.downloadedBytes ?? 0) > 0) {
+        details.add(_formatNotificationBytes(notice.downloadedBytes!));
+      }
+      return details.isEmpty
+          ? 'Terminé'
+          : 'Terminé · ${details.join(' · ')}';
+    }
     if (notice.itemType == 'manga') {
       if (notice.total > 1) {
         return '${notice.completed}/${notice.total} pages';
       }
       return notice.completed == 1 ? '1 page' : 'Préparation…';
     }
-    if (notice.downloadedBytes != null &&
-        notice.totalBytes != null &&
-        notice.totalBytes! > 0) {
-      return '${_formatNotificationBytes(notice.downloadedBytes!)} / '
-          '${_formatNotificationBytes(notice.totalBytes!)}';
+    final details = <String>[];
+    if (notice.totalBytes != null && notice.totalBytes! > 0) {
+      details.add(
+        '${_formatNotificationBytes(notice.downloadedBytes ?? 0)} / '
+        '${_formatNotificationBytes(notice.totalBytes!)}',
+      );
+    } else {
+      if (notice.total > 1) {
+        details.add('${notice.completed}/${notice.total} segments');
+      }
+      if ((notice.downloadedBytes ?? 0) > 0) {
+        details.add(
+          '${_formatNotificationBytes(notice.downloadedBytes!)} reçus',
+        );
+      }
     }
-    return 'En cours';
+    if (notice.speedMbs > 0.05) {
+      details.add('${notice.speedMbs.toStringAsFixed(1)} Mo/s');
+    }
+    return details.isEmpty ? 'En cours' : details.join(' · ');
   }
 
   String _formatNotificationBytes(int bytes) {
@@ -1340,12 +1392,15 @@ class WatchtowerNotificationService {
   Future<void> _updateMediaDownloadSummary() async {
     if (!_supported || !Platform.isAndroid) return;
     final notices = _mediaDownloadNotices.values.toList(growable: false);
-    if (notices.isEmpty) {
+    final active = notices.where((notice) => notice.isOngoing).toList();
+    // Android already has the mandatory foreground-service notification for
+    // active transfers. A second Flutter notification for each same transfer
+    // was creating duplicate, conflicting progress entries in the tray.
+    if (notices.isEmpty || active.isNotEmpty || notices.length == 1) {
       await _plugin.cancel(_kMediaDownloadSummaryNotifId);
       return;
     }
 
-    final active = notices.where((notice) => notice.isOngoing).toList();
     final paused = notices.where((notice) => notice.isPaused).toList();
     final failed = notices.where((notice) => notice.isFailed).toList();
     final completed = notices.where((notice) => notice.isCompleted).toList();
@@ -1492,6 +1547,7 @@ class _MediaDownloadNotice {
     required this.total,
     required this.downloadedBytes,
     required this.totalBytes,
+    required this.speedMbs,
     required this.filePath,
     required this.isCompleted,
     required this.isPaused,
@@ -1507,6 +1563,7 @@ class _MediaDownloadNotice {
   final int total;
   final int? downloadedBytes;
   final int? totalBytes;
+  final double speedMbs;
   final String? filePath;
   final bool isCompleted;
   final bool isPaused;
@@ -1524,6 +1581,7 @@ class _MediaDownloadNotice {
     'total': total,
     'downloadedBytes': downloadedBytes,
     'totalBytes': totalBytes,
+    'speedMbs': speedMbs,
     'filePath': filePath,
     'isCompleted': isCompleted,
     'isPaused': isPaused,
@@ -1537,6 +1595,11 @@ class _MediaDownloadNotice {
       return value is num ? value.toInt() : null;
     }
 
+    double readDouble(String key) {
+      final value = json[key];
+      return value is num ? value.toDouble() : 0;
+    }
+
     final id = readInt('id');
     if (id == null || id < 1000000000 || id > 1999999999) return null;
     return _MediaDownloadNotice(
@@ -1548,6 +1611,7 @@ class _MediaDownloadNotice {
       total: readInt('total') ?? 1,
       downloadedBytes: readInt('downloadedBytes'),
       totalBytes: readInt('totalBytes'),
+      speedMbs: readDouble('speedMbs'),
       filePath: json['filePath'] as String?,
       isCompleted: json['isCompleted'] == true,
       isPaused: json['isPaused'] == true,
