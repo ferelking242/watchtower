@@ -56,8 +56,19 @@ class CloudflareBypassPanel extends StatefulWidget {
   /// Optional close action (panel embedded in a dismissible surface).
   final VoidCallback? onClose;
 
+  /// When provided, the expand control asks the host to move this same panel
+  /// into a fullscreen surface instead of resizing in place. The host reuses
+  /// the panel's key so the WebView — and its Cloudflare session — is moved,
+  /// never reloaded.
+  final VoidCallback? onToggleFullscreen;
+
   /// Small heading style for embedded cards (no big hero layout).
   final bool compact;
+
+  /// Fills the height its parent gives it instead of a fixed collapsed box.
+  /// Used when the panel is one section of a larger scrollable page: the host
+  /// sizes the WebView, so it can be tall enough to scroll down to the captcha.
+  final bool embeddedFullHeight;
 
   /// Fills a full-screen route (notification-triggered challenge screen).
   final bool fullScreen;
@@ -69,7 +80,9 @@ class CloudflareBypassPanel extends StatefulWidget {
     this.onResolved,
     this.onRetry,
     this.onClose,
+    this.onToggleFullscreen,
     this.compact = false,
+    this.embeddedFullHeight = false,
     this.fullScreen = false,
   });
 
@@ -106,6 +119,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   /// never reports “challenge resolved” without this flag.
   bool _challengeSeen = false;
   Timer? _pollTimer;
+  Timer? _retryCooldown;
   InAppWebViewController? _webView;
   AntiBotPageType? _lastLoggedPage;
   int _pollTicks = 0;
@@ -113,6 +127,12 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   /// Polling is a safety net for challenges that clear without a new load, not
   /// a heartbeat. It stops after ~2.5 min so a stuck page cannot spin forever.
   static const int _maxPollTicks = 150;
+
+  /// A reload returns as soon as the navigation is scheduled, so the lock alone
+  /// releases too early: an impatient tap (or an automated double-fire) would
+  /// start a fresh reload while the previous one is still settling. This
+  /// cooldown keeps a burst from turning into a reload loop.
+  static const Duration _retryCooldownDelay = Duration(milliseconds: 1200);
 
   @override
   void initState() {
@@ -123,6 +143,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _retryCooldown?.cancel();
     _progress.dispose();
     super.dispose();
   }
@@ -275,6 +296,12 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     final reopenChallenge = _shouldReloadChallenge;
     if (_retryLocked || (!reopenChallenge && widget.onRetry == null)) return;
     setState(() => _retryLocked = true);
+    // Hold the lock for the whole navigation: a single tap must never queue a
+    // second reload while the first one is still in flight.
+    _retryCooldown?.cancel();
+    _retryCooldown = Timer(_retryCooldownDelay, () {
+      if (mounted) setState(() => _retryLocked = false);
+    });
     try {
       if (reopenChallenge) {
         _mainFrameHttpStatusCode = null;
@@ -288,8 +315,6 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         logLevel: LogLevel.warning,
         tag: kLogTagNet,
       );
-    } finally {
-      if (mounted) setState(() => _retryLocked = false);
     }
   }
 
@@ -301,8 +326,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
       return true;
     }
     return _phase == _CfPhase.requestFailed &&
-        (_mainFrameHttpStatusCode == 403 ||
-            _mainFrameHttpStatusCode == 503);
+        (_mainFrameHttpStatusCode == 403 || _mainFrameHttpStatusCode == 503);
   }
 
   /// Called when the page no longer shows a challenge after one was seen.
@@ -370,10 +394,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
       }
     } else if (_challengeSeen && statusCode != null && statusCode >= 400) {
       _challengeNavigationPending = false;
-      _setPhase(
-        _CfPhase.requestFailed,
-        statusNote: 'HTTP $statusCode',
-      );
+      _setPhase(_CfPhase.requestFailed, statusNote: 'HTTP $statusCode');
     } else {
       _challengeNavigationPending = false;
       // No auto-retry here: the user retries from the panel, so the screen is
@@ -389,6 +410,14 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
 
   void _toggleExpanded() {
     if (widget.fullScreen) return;
+    // When the host can promote the panel to fullscreen, ask it to do so: the
+    // panel is moved (same key, same WebView), so the page keeps its session
+    // instead of being rebuilt from scratch.
+    final promote = widget.onToggleFullscreen;
+    if (promote != null) {
+      promote();
+      return;
+    }
     setState(() => _expanded = !_expanded);
   }
 
@@ -414,10 +443,13 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     final maxHeight = MediaQuery.sizeOf(context).height;
     final collapsed = widget.compact ? 300.0 : 380.0;
     final expanded = (maxHeight * 0.72).clamp(collapsed, maxHeight);
+    final boxHeight = widget.embeddedFullHeight
+        ? double.infinity
+        : (_expanded ? expanded : collapsed);
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
-        height: _expanded ? expanded : collapsed,
+        height: boxHeight,
         child: Stack(
           children: [
             Positioned.fill(child: _buildSurface(cs, supported)),
@@ -450,17 +482,41 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           if (_cookieStoreReady) Positioned.fill(child: _buildBrowser()),
           if (!_pageLoadedOnce)
             Positioned.fill(child: _buildLoadingOverlay(cs)),
-          if (_challengeNavigationPending || _phase == _CfPhase.verifying)
-            Positioned.fill(child: _buildResolutionLoadingOverlay(cs))
-          else if (_phase == _CfPhase.solved ||
-              _phase == _CfPhase.requestFailed ||
-              _phase == _CfPhase.blocked ||
-              (_challengeSeen && _phase == _CfPhase.clearedWithoutCookie))
-            Positioned.fill(child: _buildResolutionOverlay(cs)),
+          // A post-challenge navigation shows a slim banner at the top instead
+          // of a full-cover overlay: covering the WebView on every redirect made
+          // the page flash white over and over — it read as the whole screen
+          // reloading. The live page must stay visible at all times.
+          if (_pageLoadedOnce &&
+              (_challengeNavigationPending || _phase == _CfPhase.verifying))
+            Positioned(
+              top: 8,
+              left: 8,
+              right: 8,
+              child: _buildResolutionLoadingBanner(cs),
+            ),
+          // The resolution state is a short banner pinned to the bottom, not a
+          // full-cover “!” page: the WebView stays visible, so the surface never
+          // looks like a second, different screen.
+          if (_pageLoadedOnce &&
+              !_challengeNavigationPending &&
+              _phase != _CfPhase.verifying &&
+              _resolutionBannerVisible)
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 8,
+              child: _buildResolutionBanner(cs),
+            ),
         ],
       ),
     );
   }
+
+  bool get _resolutionBannerVisible =>
+      _phase == _CfPhase.solved ||
+      _phase == _CfPhase.requestFailed ||
+      _phase == _CfPhase.blocked ||
+      (_challengeSeen && _phase == _CfPhase.clearedWithoutCookie);
 
   Widget _buildProgress(ColorScheme cs) {
     final active =
@@ -540,33 +596,41 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     );
   }
 
-  Widget _buildResolutionLoadingOverlay(ColorScheme cs) {
-    return ColoredBox(
-      color: Colors.white,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 25,
-              height: 25,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.4,
-                color: cs.primary,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Vérification…',
-              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-            ),
-          ],
-        ),
+  Widget _buildResolutionLoadingBanner(ColorScheme cs) {
+    // Slim, translucent strip: it reports progress without hiding the page.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .92),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: .5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .12),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 15,
+            height: 15,
+            child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Vérification…',
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildResolutionOverlay(ColorScheme cs) {
+  Widget _buildResolutionBanner(ColorScheme cs) {
     final statusCode = _mainFrameHttpStatusCode;
     final IconData icon;
     final Color iconColor;
@@ -606,38 +670,53 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
         break;
     }
 
-    return ColoredBox(
-      color: Colors.white,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color: iconColor,
-              ),
-              const SizedBox(height: 9),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
-              ),
-            ],
+    // Compact card over the live page: the WebView is never covered, so the
+    // user can still scroll it and see what Cloudflare is showing.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: .6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .18),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
-        ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: iconColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.35,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -693,8 +772,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           }
         },
         onReceivedHttpError: (ctrl, request, errorResponse) {
-          if (request.isForMainFrame == true &&
-              _phase != _CfPhase.challenge) {
+          if (request.isForMainFrame == true && _phase != _CfPhase.challenge) {
             _mainFrameHttpStatusCode = errorResponse.statusCode;
           }
         },

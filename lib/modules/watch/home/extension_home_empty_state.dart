@@ -92,12 +92,12 @@ String? extensionErrorDetail(Object? error) {
 /// One short line per HTTP status. The user asked for the code and nothing
 /// else; the raw upstream text stays available behind the details disclosure.
 String _httpCodeLine(int code) => switch (code) {
-      401 || 403 => 'Accès refusé (HTTP $code)',
-      404 => 'Introuvable (HTTP 404)',
-      429 => 'Trop de requêtes (HTTP 429)',
-      >= 500 => 'Erreur serveur (HTTP $code)',
-      _ => 'Erreur HTTP $code',
-    };
+  401 || 403 => 'Accès refusé (HTTP $code)',
+  404 => 'Introuvable (HTTP 404)',
+  429 => 'Trop de requêtes (HTTP 429)',
+  >= 500 => 'Erreur serveur (HTTP $code)',
+  _ => 'Erreur HTTP $code',
+};
 
 String? extensionRequestFailureMessage(Object? error) {
   if (error == null) return null;
@@ -113,9 +113,13 @@ String? extensionRequestFailureMessage(Object? error) {
         ? 'Vérification requise'
         : 'Vérification requise (HTTP $statusCode)';
   }
+  // The real status code is the whole message; never append upstream text.
   if (statusCode != null) return _httpCodeLine(statusCode);
   if (extensionErrorIsConnectionDropped(error)) {
     return 'Connexion coupée';
+  }
+  if (extensionErrorIsConnectionInterrupted(error)) {
+    return 'Connexion interrompue';
   }
   if (detail.contains('socketexception') ||
       detail.contains('failed host lookup') ||
@@ -128,10 +132,38 @@ String? extensionRequestFailureMessage(Object? error) {
   if (detail.contains('http 401') || detail.contains('http 403')) {
     return 'Accès refusé';
   }
-  // Never hide an unrecognised failure behind a catch-all sentence: show the
-  // extension's own message so the real cause stays visible. When there is no
-  // detail the title alone already says everything.
-  return extensionErrorDetail(error);
+  // Unrecognised failures keep the extension's own wording — but only the short
+  // headline. A raw stack trace or full HTTP dump is never the visible summary;
+  // it stays behind the “Détails” disclosure.
+  return _shortenSummary(extensionErrorDetail(error));
+}
+
+/// Caps a fallback summary so a long upstream dump can never fill the surface.
+String? _shortenSummary(String? detail) {
+  if (detail == null) return null;
+  final oneLine = detail.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (oneLine.isEmpty) return null;
+  const maxLength = 90;
+  if (oneLine.length <= maxLength) return oneLine;
+  return '${oneLine.substring(0, maxLength - 1)}…';
+}
+
+/// A dropped TCP connection reported without an anti-bot marker still reads as
+/// an interruption, not as an opaque “HTTP 0” or a multi-line stack trace.
+bool extensionErrorIsConnectionInterrupted(Object? error) {
+  if (error == null) return false;
+  final detail = error.toString().toLowerCase();
+  return detail.contains('connection interrupted') ||
+      detail.contains('err_connection') ||
+      detail.contains('net::err') ||
+      detail.contains('connection closed') ||
+      detail.contains('connection reset') ||
+      detail.contains('connection aborted') ||
+      detail.contains('connection terminated') ||
+      detail.contains('clientexception') ||
+      detail.contains('connection attempt failed') ||
+      detail.contains('connection refused') ||
+      detail.contains('broken pipe');
 }
 
 bool extensionErrorIsCloudflareApiBlock(Object? error) {
@@ -169,7 +201,8 @@ bool extensionErrorIsCloudflareChallenge(Object? error) {
 bool extensionErrorIsConnectionDropped(Object? error) {
   if (error == null) return false;
   final detail = error.toString().toLowerCase();
-  final dropped = detail.contains('connection closed') ||
+  final dropped =
+      detail.contains('connection closed') ||
       detail.contains('connection reset') ||
       detail.contains('connection terminated') ||
       detail.contains('connection aborted') ||
@@ -242,17 +275,23 @@ class ExtensionHomeEmptyState extends StatefulWidget {
 }
 
 class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
-  late bool _showChallenge = extensionErrorNeedsBypass(widget.error);
+  bool _showInlineChallenge = true;
   bool _showDetails = false;
   bool _retryInProgress = false;
+
+  /// Stable identity for the inline resolver so promoting it to fullscreen moves
+  /// the same panel (and its live WebView) instead of rebuilding it.
+  final GlobalKey _resolverKey = GlobalKey();
+  bool _resolverFullscreen = false;
 
   @override
   void didUpdateWidget(covariant ExtensionHomeEmptyState oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final wasChallenge = extensionErrorNeedsBypass(oldWidget.error);
-    final isChallenge = extensionErrorNeedsBypass(widget.error);
-    if (wasChallenge != isChallenge) {
-      _showChallenge = isChallenge;
+    // Re-open the inline resolver when a new bypassable failure arrives, so the
+    // same surface keeps hosting the WebView instead of opening a second page.
+    if (extensionErrorNeedsBypass(widget.error) &&
+        widget.error != oldWidget.error) {
+      _showInlineChallenge = true;
     }
   }
 
@@ -291,10 +330,14 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
     final cloudflareApiBlocked = extensionErrorIsCloudflareApiBlock(
       widget.error,
     );
-    final challengeDetected = extensionErrorIsCloudflareChallenge(
-      widget.error,
-    );
+    final challengeDetected = extensionErrorIsCloudflareChallenge(widget.error);
     final isPlainEmpty = widget.error == null && !challengeDetected;
+    // A bypassable failure is resolved inline: the WebView lives inside this
+    // same surface, never on a second page.
+    final showBypass =
+        hasChallengeUrl &&
+        _showInlineChallenge &&
+        extensionErrorNeedsBypass(widget.error);
     // A generic HTTP failure shows its real code in the title, so the separate
     // chip would only duplicate it. Challenge / API-block states keep the chip
     // because their title is a category, not a code.
@@ -303,6 +346,43 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
         !challengeDetected &&
         !cloudflareApiBlocked &&
         httpStatusCode != null;
+    final bypassPanel = showBypass
+        ? CloudflareBypassPanel(
+            // A GlobalKey keeps the same panel State (and its live WebView)
+            // when the reduced box promotes itself to fullscreen: the page
+            // continues instead of being reopened from scratch.
+            key: _resolverKey,
+            url: challengeUrl!,
+            sourceId: widget.sourceId,
+            compact: !_resolverFullscreen,
+            fullScreen: _resolverFullscreen,
+            embeddedFullHeight: true,
+            onToggleFullscreen: _resolverFullscreen
+                ? null
+                : () => setState(() => _resolverFullscreen = true),
+            // No auto-retry on resolution: the panel shows “Accès rétabli” and
+            // the user taps the retry icon, so the screen is never refreshed in
+            // a loop.
+            onRetry: _retrySource,
+            onClose: () => setState(() {
+              if (_resolverFullscreen) {
+                _resolverFullscreen = false;
+              } else {
+                _showInlineChallenge = false;
+              }
+            }),
+          )
+        : null;
+
+    // Fullscreen resolver: the very same panel, moved to fill the screen. It is
+    // the only surface on screen — no app header, no second page.
+    if (_resolverFullscreen && bypassPanel != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0B0B11),
+        body: SafeArea(child: bypassPanel),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       body: Column(
@@ -315,49 +395,51 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                 onRefresh: widget.onRefresh,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    // Same animation on every surface, sized to the viewport:
-                    // the error states used to shrink it to a 48 px badge next
-                    // to a “!” icon, which read as a second, different page.
+                    // One single surface for every case (plain empty, HTTP
+                    // failure, anti-bot): a compact summary, and — for a
+                    // bypassable failure — the resolver WebView below it. Both
+                    // live in the same scrollable page, so nothing is a second
+                    // screen and the WebView is never remounted.
+                    final available = constraints.maxHeight;
                     final animationSize = math.min(
-                      200.0,
-                      math.max(110.0, constraints.maxHeight * .30),
+                      96.0,
+                      math.max(64.0, available * .12),
+                    );
+                    final resolverHeight = math.min(
+                      math.max(320.0, available * .55),
+                      available * .72,
                     );
                     return SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(
                         parent: ClampingScrollPhysics(),
                       ),
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
-                        ),
+                        constraints: BoxConstraints(minHeight: available),
                         child: Center(
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 420),
+                            constraints: const BoxConstraints(maxWidth: 480),
                             child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: challengeDetected ? 14 : 22,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 16,
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // One single empty-state surface for every
-                                  // case (plain empty, HTTP failure, anti-bot):
-                                  // the animation replaces the old error page
-                                  // with its separate “!” icon.
-                                  // LottieFiles: “empty box3” by partho prothimdatta.
-                                  // Free to use under the Lottie Simple License.
+                                  // LottieFiles: “empty box3” by partho
+                                  // prothimdatta. Free to use under the Lottie
+                                  // Simple License.
                                   // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
                                   Center(
                                     child: Semantics(
                                       label: isPlainEmpty
                                           ? 'Boîte vide'
                                           : challengeDetected
-                                              ? 'Vérification Cloudflare nécessaire'
-                                              : cloudflareApiBlocked
-                                                  ? 'Accès API bloqué'
-                                                  : 'Échec de connexion à la source',
+                                          ? 'Vérification Cloudflare nécessaire'
+                                          : cloudflareApiBlocked
+                                          ? 'Accès API bloqué'
+                                          : 'Échec de connexion à la source',
                                       child: Lottie.asset(
                                         'assets/animations/empty_box_partho.json',
                                         key: const ValueKey(
@@ -370,14 +452,16 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       ),
                                     ),
                                   ),
-                                  SizedBox(height: challengeDetected ? 10 : 14),
+                                  const SizedBox(height: 8),
                                   Text(
                                     extensionErrorTitle(widget.error),
-                                    key: const ValueKey('extension-empty-title'),
+                                    key: const ValueKey(
+                                      'extension-empty-title',
+                                    ),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 17,
+                                      fontSize: 16,
                                       height: 1.3,
                                       letterSpacing: -0.2,
                                       fontWeight: FontWeight.w700,
@@ -388,12 +472,12 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                   if (httpStatusCode != null &&
                                       httpStatusCode > 0 &&
                                       !titleShowsHttpCode) ...[
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 6),
                                     Center(
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 10,
-                                          vertical: 5,
+                                          vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.white.withValues(
@@ -421,43 +505,30 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                     ),
                                   ],
                                   if (failureMessage != null) ...[
-                                    const SizedBox(height: 10),
+                                    const SizedBox(height: 6),
                                     Text(
                                       failureMessage,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         color: Colors.white70,
-                                        fontSize: 13,
-                                        height: 1.45,
+                                        fontSize: 12.5,
+                                        height: 1.4,
                                       ),
                                     ),
-                                  ] else if (challengeDetected) ...[
-                                    const SizedBox(height: 10),
+                                  ] else if (isPlainEmpty) ...[
+                                    const SizedBox(height: 6),
                                     const Text(
-                                      'Termine la vérification dans le panneau, '
-                                      'puis réessaye.',
+                                      'Tirer vers le bas pour actualiser',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: Colors.white70,
-                                        fontSize: 13,
-                                        height: 1.45,
-                                      ),
-                                    ),
-                                  ] else ...[
-                                    const SizedBox(height: 10),
-                                    const Text(
-                                      'La source n’a renvoyé aucun élément. '
-                                      'Réessaye, ou mets l’extension à jour.',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        height: 1.45,
+                                        fontSize: 12.5,
+                                        height: 1.4,
                                       ),
                                     ),
                                   ],
                                   if (_errorDetail != null) ...[
-                                    const SizedBox(height: 10),
+                                    const SizedBox(height: 8),
                                     _ErrorDetailsDisclosure(
                                       detail: _errorDetail!,
                                       expanded: _showDetails,
@@ -466,23 +537,14 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                       ),
                                     ),
                                   ],
-                                  if (hasChallengeUrl && _showChallenge) ...[
+                                  if (bypassPanel != null) ...[
                                     const SizedBox(height: 14),
-                                    CloudflareBypassPanel(
-                                      url: challengeUrl!,
-                                      sourceId: widget.sourceId,
-                                      compact: true,
-                                      // No auto-retry on resolution: the panel
-                                      // shows “Accès rétabli” and the user taps
-                                      // the retry icon, so the screen is never
-                                      // refreshed in a loop.
-                                      onRetry: _retrySource,
-                                      onClose: () => setState(
-                                        () => _showChallenge = false,
-                                      ),
+                                    SizedBox(
+                                      height: resolverHeight,
+                                      child: bypassPanel,
                                     ),
-                                  ] else ...[
-                                    const SizedBox(height: 18),
+                                  ] else if (!isPlainEmpty) ...[
+                                    const SizedBox(height: 14),
                                     Center(
                                       child: SizedBox(
                                         width: 190,
@@ -497,11 +559,11 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                           label: const Text('Réessayer'),
                                           style: FilledButton.styleFrom(
                                             minimumSize: const Size.fromHeight(
-                                              48,
+                                              46,
                                             ),
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 20,
-                                              vertical: 12,
+                                              vertical: 11,
                                             ),
                                             textStyle: const TextStyle(
                                               fontSize: 14,
@@ -513,18 +575,6 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  ],
-                                  if (isPlainEmpty) ...[
-                                    const SizedBox(height: 12),
-                                    const Text(
-                                      'Tirer vers le bas pour actualiser',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12.5,
-                                        height: 1.4,
                                       ),
                                     ),
                                   ],
@@ -579,11 +629,7 @@ class _ErrorDetailsDisclosure extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.terminal_rounded,
-                    size: 15,
-                    color: cs.primary,
-                  ),
+                  Icon(Icons.terminal_rounded, size: 15, color: cs.primary),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
@@ -732,7 +778,7 @@ class _ExtensionAppleRefreshDotsState extends State<_ExtensionAppleRefreshDots>
       height: 34,
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           final phase = _controller.value * math.pi * 2;
           return Stack(
             alignment: Alignment.center,

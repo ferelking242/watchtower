@@ -120,11 +120,16 @@ void main() {
     expect(extensionRequestFailureMessage(generic), 'Connexion coupée');
   });
 
-  test('a plain connection drop without anti-bot context is not mislabelled', () {
-    final plain = Exception('ClientException: Connection closed before full '
-        'header was received');
-    expect(extensionErrorIsConnectionDropped(plain), isFalse);
-  });
+  test(
+    'a plain connection drop without anti-bot context is not mislabelled',
+    () {
+      final plain = Exception(
+        'ClientException: Connection closed before full '
+        'header was received',
+      );
+      expect(extensionErrorIsConnectionDropped(plain), isFalse);
+    },
+  );
 
   testWidgets('reveals the raw error behind a “Détails” disclosure', (
     tester,
@@ -157,21 +162,12 @@ void main() {
     expect(find.textContaining('Cloudflare interstitial'), findsOneWidget);
   });
 
-  testWidgets('shows the source header and retries from the empty state', (
-    tester,
-  ) async {
-    var retries = 0;
-    var refreshes = 0;
-
+  testWidgets('shows the source header and the empty state', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ExtensionHomeEmptyState(
-          onRetry: () async {
-            retries++;
-          },
-          onRefresh: () async {
-            refreshes++;
-          },
+          onRetry: () async {},
+          onRefresh: () async {},
           header: const Text('Extension source header'),
         ),
       ),
@@ -184,14 +180,38 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Aucun contenu disponible'), findsOneWidget);
-    expect(find.text('Réessayer'), findsOneWidget);
+    // A plain empty state offers the same in-surface refresh: no separate error
+    // page, just the pull-to-refresh hint.
     expect(find.text('Tirer vers le bas pour actualiser'), findsOneWidget);
+    expect(find.text('Réessayer'), findsNothing);
+  });
+
+  testWidgets('a plain failure retries in-surface without a second page', (
+    tester,
+  ) async {
+    var retries = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {
+            retries++;
+          },
+          onRefresh: () async {},
+          header: const SizedBox.shrink(),
+          error: Exception('SocketException: connection timed out'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Vérifie le réseau'), findsOneWidget);
+    expect(find.text('Réessayer'), findsOneWidget);
+    expect(find.byType(CloudflareBypassPanel), findsNothing);
 
     await tester.tap(find.text('Réessayer'));
     await tester.pump();
-
     expect(retries, 1);
-    expect(refreshes, 0);
   });
 
   testWidgets('pull-to-refresh invokes the supplied refresh callback', (
@@ -273,10 +293,58 @@ void main() {
       // screen in a loop. Retry stays a manual, in-box action.
       expect(panel.onResolved, isNull);
       expect(panel.onRetry, isNotNull);
+      // The box fills the height the surface gives it, so its WebView can
+      // scroll down to the captcha instead of being clipped at 300 px.
+      expect(panel.embeddedFullHeight, isTrue);
+      expect(panel.fullScreen, isFalse);
       expect(find.text('Vérification Cloudflare requise'), findsNothing);
       expect(find.byIcon(Icons.cloud_off_rounded), findsNothing);
     },
   );
+
+  testWidgets('promotes the same panel to fullscreen instead of reopening it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {},
+          onRefresh: () async {},
+          header: const Text('Source header'),
+          challengeUrl: 'https://api.allanime.day/api?query=x',
+          error: Exception(
+            'Error: [AllManga] Cloudflare challenge blocked the API request '
+            '(https://api.allanime.day/api?query=x)',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final before = tester.widget<CloudflareBypassPanel>(
+      find.byType(CloudflareBypassPanel),
+    );
+    expect(before.fullScreen, isFalse);
+    expect(before.embeddedFullHeight, isTrue);
+    expect(before.onToggleFullscreen, isNotNull);
+    // The header is part of the single surface at this point.
+    expect(find.text('Source header'), findsOneWidget);
+
+    // The panel's expand control asks the host to promote it (in a real app the
+    // control is only shown when the WebView is supported).
+    before.onToggleFullscreen!.call();
+    await tester.pump();
+
+    final after = tester.widget<CloudflareBypassPanel>(
+      find.byType(CloudflareBypassPanel),
+    );
+    // Same State (same key) — the WebView is moved, not rebuilt.
+    expect(after.key, same(before.key));
+    expect(after.fullScreen, isTrue);
+    // Fullscreen resolver is the only surface: no app header, no second page.
+    expect(find.text('Source header'), findsNothing);
+    expect(find.byType(ExtensionHomeEmptyState), findsOneWidget);
+  });
 
   testWidgets('shows concise HTTP 403, 404 and 500 errors', (tester) async {
     for (final code in [403, 404, 500]) {
