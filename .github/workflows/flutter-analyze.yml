@@ -102,6 +102,7 @@ jobs:
         run: |
           flutter test \
             test/gallery_component_renderer_test.dart \
+            test/gallery_responsive_layout_test.dart \
             test/ui_layout_test.dart \
             test/filter_widget_bounds_test.dart \
             test/widget_test.dart \
