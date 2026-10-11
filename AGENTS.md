@@ -106,3 +106,24 @@ the failing step name before treating a red `Build Release APK` as a code bug.
 - The Windows NSIS installer banner/header in
   `.github/workflows/build-windows-x64.yml` must draw the eye, not a hand-coded
   tower. It renders `assets/app_icons/icon.png` directly.
+
+## Local indexer / normalizer invariants
+- `sanitizePersistedUrl` (`lib/services/http/persisted_request_metadata.dart`)
+  must rebuild the URI instead of `Uri.replace`. `replace` always emits the
+  separators of the components it is given, so passing an empty query/fragment
+  appends `?#` and corrupts every cached page URL. Absent components must stay
+  absent. Covered by `test/persisted_request_metadata_test.dart` and
+  `test/page_url_cache_test.dart`.
+- `DiscoveryStage._isInExcludedDir` must only inspect path segments **below**
+  the scan root. Looking at ancestors made a library living under a folder
+  named `tmp`/`cache`/`temp` scan to nothing.
+- The Smart Library discovery test writes real file bytes: `File.create` yields
+  0 bytes, which `minimumFileSize` (1) rejects.
+- The name normalizer reads volume/chapter from parent folders for manga
+  (`/Manga/Berserk/Vol. 2/page.cbz`) and ignores release-group tokens glued by
+  a dash (`...x265-GROUP`). Covered by `test/smart_library_normalizer_test.dart`.
+
+## Known non-blocking analyzer noise
+`flutter analyze` reports ~2.6k issues but **0 errors**; the vast majority are
+`withOpacity`/`activeColor`/`surfaceVariant` deprecations and
+`use_build_context_synchronously` infos. Do not treat the count as a failure.
