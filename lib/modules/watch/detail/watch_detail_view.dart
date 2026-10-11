@@ -2600,6 +2600,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       elevation: 0,
+      // No dimming barrier: the video must stay visible and keep playing while
+      // the download box is open, with no shadow cast over the player.
+      barrierColor: Colors.transparent,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (_) => _DownloadSheet(
         manga: widget.manga,
@@ -2995,6 +2998,11 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   /// Display format: false = compact grid (columns), true = list with covers.
   bool _listMode = false;
 
+  /// Every box in the sheet (Saison, Langue, Résolution, Télécharger) uses this
+  /// exact height so the row reads as one aligned line — the resolution box was
+  /// visibly taller than the others before.
+  static const double _kPillHeight = 40;
+
   bool get _isFilm {
     if (widget.chapters.length != 1) return false;
     final name = widget.chapters.first.name ?? '';
@@ -3255,7 +3263,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     final maxH       = screenH - 230 - statusH;
     final seasons    = _seasons;
     final qualities  = _qualities;
-    final totalSz    = _totalSizeLabel();
 
     return Container(
       height: maxH,
@@ -3275,9 +3282,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
               borderRadius: BorderRadius.zero,
             ),
 
-          // ── [Saison] [Qualité] [⬇ Télécharger] — 3 left-aligned box pills ────
+          // ── [Saison] [Langue] [Résolution] — selection boxes, scrollable ──────
           if (!_loading)
-            _buildActionPillsRow(seasons, qualities, totalSz),
+            _buildActionPillsRow(seasons, qualities),
 
           // ── Divider ───────────────────────────────────────────────────────────
           Divider(height: 1, thickness: 0.8, color: _faint),
@@ -3348,7 +3355,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        height: _kPillHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -3376,6 +3384,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: _bg,
+      elevation: 0,
+      barrierColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -3446,66 +3456,72 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     );
   }
 
-  // ── 3 left-aligned boxes: [Saison] [Qualité] [⬇ Télécharger] ─────────────────
-  // "Télécharger avec" removed per user request.
-  // The download CTA is the 3rd box — highlighted when episodes are selected.
-  Widget _buildActionPillsRow(
-      List<String> seasons, List<String> qualities, String totalSz) {
+  // ── [Saison] [Langue] [Résolution] — selection boxes, scrollable ──────────────
+  // All boxes share [_kPillHeight] so none stands taller than the resolution
+  // box; the row scrolls horizontally instead of wrapping or clipping.
+  Widget _buildActionPillsRow(List<String> seasons, List<String> qualities) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-      child: Row(
-        children: [
-          // Season pill — only when multiple seasons
-          if (seasons.length > 1) ...[
-            _buildPill(
-              label: _selectedSeason ?? seasons.first,
-              onTap: () => _showPillSheet(
-                'Saison',
-                seasons,
-                _selectedSeason,
-                (s) => setState(() {
-                  _selectedSeason = _selectedSeason == s ? null : s;
-                  _selected.clear();
-                  _selectAll = false;
-                }),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          // Langue pill — only when the source exposes several languages
-          if (_langs.length > 1) ...[
-            _buildPill(
-              label: _selectedLang ?? 'Langue',
-              onTap: () => _showPillSheet(
-                'Langue',
-                _langs,
-                _selectedLang ?? _langs.first,
-                (l) => setState(() => _selectedLang = l),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          // Quality pill — only when qualities loaded
-          if (_qualities.isNotEmpty) ...[
-            _buildPill(
-              label: _selectedQuality ?? _qualities.first,
-              onTap: () => _showPillSheet(
-                'Résolution',
-                qualities,
-                _selectedQuality ?? _qualities.first,
-                (q) => setState(() => _selectedQuality = q),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ],
+      child: SizedBox(
+        height: _kPillHeight,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              // Season pill — only when multiple seasons
+              if (seasons.length > 1) ...[
+                _buildPill(
+                  label: _selectedSeason ?? seasons.first,
+                  onTap: () => _showPillSheet(
+                    'Saison',
+                    seasons,
+                    _selectedSeason,
+                    (s) => setState(() {
+                      _selectedSeason = _selectedSeason == s ? null : s;
+                      _selected.clear();
+                      _selectAll = false;
+                    }),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              // Langue pill — only when the source exposes several languages
+              if (_langs.length > 1) ...[
+                _buildPill(
+                  label: _selectedLang ?? 'Langue',
+                  onTap: () => _showPillSheet(
+                    'Langue',
+                    _langs,
+                    _selectedLang ?? _langs.first,
+                    (l) => setState(() => _selectedLang = l),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              // Quality pill — only when qualities loaded
+              if (_qualities.isNotEmpty) ...[
+                _buildPill(
+                  label: _selectedQuality ?? _qualities.first,
+                  onTap: () => _showPillSheet(
+                    'Résolution',
+                    qualities,
+                    _selectedQuality ?? _qualities.first,
+                    (q) => setState(() => _selectedQuality = q),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  // ── Bottom-centered download CTA — full-width accent button, MovieBox style.
-  // The pills row above is selection-only; the action lives at the bottom so
-  // it never fights with Saison/Langue/Qualité for space. ──────────────────────
+  // ── Bottom-centered download CTA — full-width box, same height as the
+  // Saison/Langue/Résolution boxes above, no shadow and no focus ring so the
+  // sheet stays calm while the video keeps playing behind it. ──────────────────
   Widget _buildDownloadFooter() {
     final displayedCount = _displayChapters.length;
     final selectedCount =
@@ -3527,7 +3543,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     ].join(' • ');
 
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
+      padding: EdgeInsets.fromLTRB(
+          16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(
         color: _bg,
         border: Border(top: BorderSide(color: _faint, width: 0.8)),
@@ -3540,27 +3557,39 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
               padding: const EdgeInsets.only(bottom: 6),
               child: Text(recap, style: TextStyle(color: _grey, fontSize: 11)),
             ),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              onPressed: empty ? null : _startDownload,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _accent,
-                disabledBackgroundColor: _card,
-                disabledForegroundColor: _grey,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+          GestureDetector(
+            onTap: empty ? null : _startDownload,
+            child: Container(
+              width: double.infinity,
+              height: _kPillHeight,
+              decoration: BoxDecoration(
+                color: empty ? _card : _accent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: empty ? _faint : _accent,
+                  width: 0.8,
+                ),
               ),
-              icon: Icon(Icons.download_rounded, size: 18,
-                  color: empty ? _grey : Colors.white),
-              label: Text(label,
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: empty ? _grey : Colors.white)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.download_rounded,
+                      size: 16, color: empty ? _grey : Colors.white),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: empty ? _grey : Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
