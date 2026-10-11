@@ -22,7 +22,9 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
     final customButtons = ref.watch(getCustomButtonsStreamProvider);
     return Scaffold(
       appBar: AppBar(
-          leading: const BackButton(),title: Text(l10n.custom_buttons_edit)),
+        leading: const BackButton(),
+        title: Text(l10n.custom_buttons_edit),
+      ),
       body: customButtons.when(
         data: (data) {
           if (data.isEmpty) {
@@ -115,13 +117,13 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
                   ],
                 );
               },
-              onReorder: (oldIndex, newIndex) async {
+              onReorderItem: (oldIndex, newIndex) async {
                 if (oldIndex < newIndex) {
                   final draggedItemPos = data[oldIndex].pos;
-                  for (var i = oldIndex; i < newIndex - 1; i++) {
+                  for (var i = oldIndex; i < newIndex; i++) {
                     data[i].pos = data[i + 1].pos;
                   }
-                  data[newIndex - 1].pos = draggedItemPos;
+                  data[newIndex].pos = draggedItemPos;
                 } else {
                   final draggedItemPos = data[oldIndex].pos;
                   for (var i = oldIndex; i > newIndex; i--) {

@@ -439,8 +439,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             .where(
               (entry) =>
                   _isBulkActionable(entry) &&
-                  (entry.status == 'paused' ||
-                      pausedIds.contains(entry.id)),
+                  (entry.status == 'paused' || pausedIds.contains(entry.id)),
             )
             .map((entry) => entry.id!)
             .toList();
@@ -745,8 +744,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         color: scheme.primary,
                         onTap: () {
                           Navigator.pop(context);
-                          final pausedIds = widget
-                              .parentRef
+                          final pausedIds = widget.parentRef
                               .read(downloadQueueStateProvider)
                               .pausedIds;
                           final ids = entries
@@ -821,8 +819,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         onTap: () {
                           Navigator.pop(context);
                           for (final e in entries) {
-                            if ((e.failed ?? 0) > 0 &&
-                                e.id != null) {
+                            if ((e.failed ?? 0) > 0 && e.id != null) {
                               unawaited(
                                 handleMediaDownloadNotificationAction(
                                   widget.parentRef,
@@ -1581,18 +1578,20 @@ class _GroupedDownloadTabListState
       (sum, download) => sum + (download.totalBytes ?? 0),
     );
     final mangaChapterProgresses = itemType == ItemType.manga
-        ? items.map((download) {
-            final live = download.id == null
-                ? null
-                : widget.queueState.liveProgress[download.id!];
-            return mangaChapterProgress(
-              storedCompleted: download.succeeded,
-              storedTotal: download.total,
-              isComplete: download.isDownload == true,
-              liveCompleted: live?.completedUnits,
-              liveTotal: live?.totalUnits,
-            );
-          }).toList(growable: false)
+        ? items
+              .map((download) {
+                final live = download.id == null
+                    ? null
+                    : widget.queueState.liveProgress[download.id!];
+                return mangaChapterProgress(
+                  storedCompleted: download.succeeded,
+                  storedTotal: download.total,
+                  isComplete: download.isDownload == true,
+                  liveCompleted: live?.completedUnits,
+                  liveTotal: live?.totalUnits,
+                );
+              })
+              .toList(growable: false)
         : const <MangaChapterProgress>[];
     final mangaHasProgressData =
         itemType == ItemType.manga &&
@@ -1611,10 +1610,7 @@ class _GroupedDownloadTabListState
     if (itemType == ItemType.manga) {
       seriesProgress = mangaProgress;
     } else if (animeHasExactTotals && animeTotalBytes > 0) {
-      seriesProgress = (animeDownloadedBytes / animeTotalBytes).clamp(
-        0.0,
-        1.0,
-      );
+      seriesProgress = (animeDownloadedBytes / animeTotalBytes).clamp(0.0, 1.0);
     } else {
       seriesProgress = null;
     }
@@ -1735,7 +1731,8 @@ class _GroupedDownloadTabListState
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: itemType == ItemType.manga ||
+                        child:
+                            itemType == ItemType.manga ||
                                 itemType == ItemType.anime
                             ? Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -2012,10 +2009,7 @@ class _GroupedDownloadTabListState
     );
   }
 
-  Widget _buildConnectedSeriesChild(
-    Download download, {
-    required bool isLast,
-  }) {
+  Widget _buildConnectedSeriesChild(Download download, {required bool isLast}) {
     final connectorColor = Theme.of(
       context,
     ).colorScheme.outlineVariant.withValues(alpha: 0.72);
@@ -2084,9 +2078,8 @@ class _GroupedDownloadTabListState
         shadowColor: scheme.shadow.withValues(alpha: 0.4),
         child: child,
       ),
-      onReorder: (oldIdx, newIdx) {
+      onReorderItem: (oldIdx, newIdx) {
         setState(() {
-          if (newIdx > oldIdx) newIdx--;
           final moved = sources.removeAt(oldIdx);
           sources.insert(newIdx, moved);
           _persistOrder(List<String>.from(sources));
@@ -2393,16 +2386,13 @@ class _DownloadCard extends ConsumerWidget {
         itemType == ItemType.anime &&
         exactTotalBytes == null &&
         !hasKnownUnitProgress &&
-        (download.status == 'downloading' ||
-            download.status == 'initializing');
+        (download.status == 'downloading' || download.status == 'initializing');
     final progress = exactTotalBytes != null && exactTotalBytes > 0
         ? ((exactDownloadedBytes ?? 0) / exactTotalBytes)
               .clamp(0.0, 1.0)
               .toDouble()
         : hasKnownUnitProgress
-        ? (live!.completedUnits / live!.totalUnits)
-              .clamp(0.0, 1.0)
-              .toDouble()
+        ? (live!.completedUnits / live!.totalUnits).clamp(0.0, 1.0).toDouble()
         : itemType == ItemType.manga
         ? mangaProgress!.value
         : 0.0;
@@ -2803,10 +2793,7 @@ class _DownloadCard extends ConsumerWidget {
                 progressLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  fontSize: 10,
-                ),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 10),
               ),
             ],
           ],
@@ -3022,9 +3009,7 @@ class _DownloadCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isComplete
-                        ? 'Téléchargement terminé'
-                        : progressLabel,
+                    isComplete ? 'Téléchargement terminé' : progressLabel,
                     style: TextStyle(
                       color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                       fontSize: 11,
@@ -3183,12 +3168,12 @@ class _DownloadCard extends ConsumerWidget {
         );
         final details = <String>[];
         if (downloaded != null && totalBytes != null) {
-          details.add('${_formatBytes(downloaded)} / ${_formatBytes(totalBytes)}');
+          details.add(
+            '${_formatBytes(downloaded)} / ${_formatBytes(totalBytes)}',
+          );
         } else {
           final live = liveProgress;
-          if (live != null &&
-              !live.isIndeterminate &&
-              live.totalUnits > 1) {
+          if (live != null && !live.isIndeterminate && live.totalUnits > 1) {
             details.add('${live.completedUnits}/${live.totalUnits} segments');
           }
           if (downloaded != null && downloaded > 0) {

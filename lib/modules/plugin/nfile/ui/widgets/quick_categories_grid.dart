@@ -15,7 +15,11 @@ class QuickCategoriesGrid extends StatelessWidget {
 
   const QuickCategoriesGrid({super.key, required this.onNavigateTab});
 
-  static Map<String, Map<String, dynamic>> getAllCategoriesMap(BuildContext context, bool isDark, Function(int) onNavigateTab) {
+  static Map<String, Map<String, dynamic>> getAllCategoriesMap(
+    BuildContext context,
+    bool isDark,
+    Function(int) onNavigateTab,
+  ) {
     final mediaProvider = Provider.of<MediaProvider>(context, listen: false);
     final map = <String, Map<String, dynamic>>{
       'Images': {
@@ -24,7 +28,15 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.purpleAccent : Colors.purple,
         'count': '${mediaProvider.getCategoryItemCount("Images")}',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => MediaCategoryScreen(mediaType: MediaType.images, onNavigateTab: onNavigateTab))),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MediaCategoryScreen(
+              mediaType: MediaType.images,
+              onNavigateTab: onNavigateTab,
+            ),
+          ),
+        ),
       },
       'Videos': {
         'label': 'Videos',
@@ -32,7 +44,15 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.redAccent : const Color(0xFFD32F2F),
         'count': '${mediaProvider.getCategoryItemCount("Videos")}',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => MediaCategoryScreen(mediaType: MediaType.videos, onNavigateTab: onNavigateTab))),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MediaCategoryScreen(
+              mediaType: MediaType.videos,
+              onNavigateTab: onNavigateTab,
+            ),
+          ),
+        ),
       },
       'Audio': {
         'label': 'Audio',
@@ -40,7 +60,15 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.orangeAccent : const Color(0xFFE65100),
         'count': '${mediaProvider.getCategoryItemCount("Audio")}',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => MediaCategoryScreen(mediaType: MediaType.audios, onNavigateTab: onNavigateTab))),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MediaCategoryScreen(
+              mediaType: MediaType.audios,
+              onNavigateTab: onNavigateTab,
+            ),
+          ),
+        ),
       },
       'Documents': {
         'label': 'Documents',
@@ -48,7 +76,15 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.blueAccent : const Color(0xFF1976D2),
         'count': '${mediaProvider.getCategoryItemCount("Documents")}',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => MediaCategoryScreen(mediaType: MediaType.documents, onNavigateTab: onNavigateTab))),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MediaCategoryScreen(
+              mediaType: MediaType.documents,
+              onNavigateTab: onNavigateTab,
+            ),
+          ),
+        ),
       },
       'Archives': {
         'label': 'Archives',
@@ -56,7 +92,15 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.tealAccent : const Color(0xFF00796B),
         'count': '${mediaProvider.getCategoryItemCount("Archives")}',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => MediaCategoryScreen(mediaType: MediaType.archives, onNavigateTab: onNavigateTab))),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MediaCategoryScreen(
+              mediaType: MediaType.archives,
+              onNavigateTab: onNavigateTab,
+            ),
+          ),
+        ),
       },
       'Downloads': {
         'label': 'Downloads',
@@ -64,7 +108,15 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.greenAccent : const Color(0xFF2E7D32),
         'count': '${mediaProvider.getCategoryItemCount("Downloads")}',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => MediaCategoryScreen(mediaType: MediaType.downloads, onNavigateTab: onNavigateTab))),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MediaCategoryScreen(
+              mediaType: MediaType.downloads,
+              onNavigateTab: onNavigateTab,
+            ),
+          ),
+        ),
       },
       'APKs': {
         'label': 'APKs',
@@ -72,7 +124,15 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.amber : const Color(0xFFF57C00),
         'count': '${mediaProvider.getCategoryItemCount("APKs")}',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => MediaCategoryScreen(mediaType: MediaType.apks, onNavigateTab: onNavigateTab))),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MediaCategoryScreen(
+              mediaType: MediaType.apks,
+              onNavigateTab: onNavigateTab,
+            ),
+          ),
+        ),
       },
       'Screenshots': {
         'label': 'Screenshots',
@@ -80,7 +140,15 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.pinkAccent : const Color(0xFFC2185B),
         'count': '${mediaProvider.getCategoryItemCount("Screenshots")}',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => MediaCategoryScreen(mediaType: MediaType.screenshots, onNavigateTab: onNavigateTab))),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MediaCategoryScreen(
+              mediaType: MediaType.screenshots,
+              onNavigateTab: onNavigateTab,
+            ),
+          ),
+        ),
       },
       'Apps': {
         'label': 'Apps',
@@ -88,7 +156,10 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.lightGreenAccent : const Color(0xFF4CAF50),
         'count': 'Manager',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppManagerScreen())),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AppManagerScreen()),
+        ),
       },
       'Recycle Bin': {
         'label': 'Recycle Bin',
@@ -96,7 +167,10 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.redAccent : const Color(0xFFC62828),
         'count': 'Bin',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RecycleBinScreen())),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RecycleBinScreen()),
+        ),
       },
       'Settings': {
         'label': 'Settings',
@@ -104,7 +178,10 @@ class QuickCategoriesGrid extends StatelessWidget {
         'color': isDark ? Colors.blueGrey.shade300 : Colors.blueGrey,
         'count': 'Configure',
         'isCustom': false,
-        'action': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MoreSettingsScreen())),
+        'action': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MoreSettingsScreen()),
+        ),
       },
     };
 
@@ -132,17 +209,26 @@ class QuickCategoriesGrid extends StatelessWidget {
     return map;
   }
 
-  static void showCustomizeDialog(BuildContext context, [Function(int)? onNavigateTab]) {
+  static void showCustomizeDialog(
+    BuildContext context, [
+    Function(int)? onNavigateTab,
+  ]) {
     final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
-        return _CustomizeCategoriesSheet(onNavigateTab: onNavigateTab ?? (index) {
-          Navigator.popUntil(context, (route) => route.isFirst);
-        });
+        return _CustomizeCategoriesSheet(
+          onNavigateTab:
+              onNavigateTab ??
+              (index) {
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
+        );
       },
     );
   }
@@ -153,10 +239,18 @@ class QuickCategoriesGrid extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final mediaProvider = context.watch<MediaProvider>();
 
-    final allCategoriesMap = getAllCategoriesMap(context, isDark, onNavigateTab);
+    final allCategoriesMap = getAllCategoriesMap(
+      context,
+      isDark,
+      onNavigateTab,
+    );
 
     final activeList = mediaProvider.categoryOrder
-        .where((label) => mediaProvider.activeCategories.contains(label) && allCategoriesMap.containsKey(label))
+        .where(
+          (label) =>
+              mediaProvider.activeCategories.contains(label) &&
+              allCategoriesMap.containsKey(label),
+        )
         .map((label) => allCategoriesMap[label]!)
         .toList();
 
@@ -170,21 +264,34 @@ class QuickCategoriesGrid extends StatelessWidget {
             children: [
               Text(
                 'Quick Categories',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
               InkWell(
                 onTap: () => showCustomizeDialog(context, onNavigateTab),
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8.0,
+                    vertical: 4.0,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Broken.setting_2, size: 16, color: theme.colorScheme.primary),
+                      Icon(
+                        Broken.setting_2,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Customize',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -199,7 +306,9 @@ class QuickCategoriesGrid extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 24.0),
                 child: Text(
                   'No shortcuts pinned. Tap Customize to add.',
-                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
                 ),
               ),
             )
@@ -211,7 +320,9 @@ class QuickCategoriesGrid extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: (MediaQuery.of(context).size.width / 120).floor().clamp(4, 10),
+                  crossAxisCount: (MediaQuery.of(context).size.width / 120)
+                      .floor()
+                      .clamp(4, 10),
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 20,
                   childAspectRatio: 0.82,
@@ -259,7 +370,9 @@ class QuickCategoriesGrid extends StatelessWidget {
                       Text(
                         count,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                          color: theme.textTheme.bodySmall?.color?.withValues(
+                            alpha: 0.6,
+                          ),
                           fontSize: 10.5,
                           fontWeight: FontWeight.w500,
                         ),
@@ -297,30 +410,63 @@ class _CustomizeCategoriesSheet extends StatelessWidget {
           builder: (context, provider, child) {
             final activeCats = provider.activeCategories;
             final order = provider.categoryOrder;
-            final categoriesMap = QuickCategoriesGrid.getAllCategoriesMap(context, isDark, onNavigateTab);
+            final categoriesMap = QuickCategoriesGrid.getAllCategoriesMap(
+              context,
+              isDark,
+              onNavigateTab,
+            );
 
             return Column(
               children: [
                 const SizedBox(height: 12),
-                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2))),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Customize Shortcuts', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                      Text(
+                        'Customize Shortcuts',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          'Done',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0,
+                    vertical: 4.0,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Drag items by the handle (=) to reorder icons on the Home Screen.',
-                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -329,16 +475,26 @@ class _CustomizeCategoriesSheet extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   child: OutlinedButton.icon(
                     icon: const NfileIcon(Broken.add, size: 20),
-                    label: const Text('Add Folder / File Shortcut', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Add Folder / File Shortcut',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(46),
                       foregroundColor: theme.colorScheme.primary,
-                      side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      side: BorderSide(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     onPressed: () async {
                       final fileManager = context.read<FileManagerProvider>();
-                      final paths = await InternalFilePickerScreen.show(context, rootPath: fileManager.rootPath);
+                      final paths = await InternalFilePickerScreen.show(
+                        context,
+                        rootPath: fileManager.rootPath,
+                      );
                       if (paths != null && paths.isNotEmpty) {
                         for (final p in paths) {
                           provider.addCustomShortcut(p);
@@ -353,12 +509,14 @@ class _CustomizeCategoriesSheet extends StatelessWidget {
                   child: ReorderableListView.builder(
                     scrollController: scrollController,
                     physics: const BouncingScrollPhysics(),
-                    onReorder: (oldIndex, newIndex) => provider.reorderCategory(oldIndex, newIndex),
+                    onReorderItem: (oldIndex, newIndex) =>
+                        provider.reorderCategory(oldIndex, newIndex),
                     itemCount: order.length,
                     itemBuilder: (context, index) {
                       final label = order[index];
                       final cat = categoriesMap[label];
-                      if (cat == null) return const SizedBox.shrink(key: ValueKey('empty'));
+                      if (cat == null)
+                        return const SizedBox.shrink(key: ValueKey('empty'));
 
                       final icon = cat['icon'] as IconData;
                       final color = cat['color'] as Color;
@@ -411,21 +569,45 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
   List<String> _getDefaultPaths(String category) {
     switch (category) {
       case 'Images':
-        return ['Device Gallery (Auto)', '/storage/emulated/0/DCIM', '/storage/emulated/0/Pictures'];
+        return [
+          'Device Gallery (Auto)',
+          '/storage/emulated/0/DCIM',
+          '/storage/emulated/0/Pictures',
+        ];
       case 'Videos':
-        return ['Device Gallery (Auto)', '/storage/emulated/0/DCIM', '/storage/emulated/0/Movies'];
+        return [
+          'Device Gallery (Auto)',
+          '/storage/emulated/0/DCIM',
+          '/storage/emulated/0/Movies',
+        ];
       case 'Audio':
         return ['Device Audio Library (Auto)', '/storage/emulated/0/Music'];
       case 'Documents':
-        return ['/storage/emulated/0/Documents', 'Internal Storage (All Folders Scanned)'];
+        return [
+          '/storage/emulated/0/Documents',
+          'Internal Storage (All Folders Scanned)',
+        ];
       case 'Archives':
-        return ['/storage/emulated/0/Download', 'Internal Storage (All Folders Scanned)'];
+        return [
+          '/storage/emulated/0/Download',
+          'Internal Storage (All Folders Scanned)',
+        ];
       case 'Downloads':
-        return ['/storage/emulated/0/Download', '/storage/emulated/0/Downloads'];
+        return [
+          '/storage/emulated/0/Download',
+          '/storage/emulated/0/Downloads',
+        ];
       case 'APKs':
-        return ['/storage/emulated/0/Download', 'Internal Storage (All Folders Scanned)'];
+        return [
+          '/storage/emulated/0/Download',
+          'Internal Storage (All Folders Scanned)',
+        ];
       case 'Screenshots':
-        return ['Device Gallery (Screenshots)', '/storage/emulated/0/DCIM/Screenshots', '/storage/emulated/0/Pictures/Screenshots'];
+        return [
+          'Device Gallery (Screenshots)',
+          '/storage/emulated/0/DCIM/Screenshots',
+          '/storage/emulated/0/Pictures/Screenshots',
+        ];
       default:
         return [];
     }
@@ -447,7 +629,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
       'Archives',
       'Downloads',
       'APKs',
-      'Screenshots'
+      'Screenshots',
     ].contains(label);
 
     final customPaths = widget.provider.customCategoryPaths[label] ?? [];
@@ -460,18 +642,29 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
           leading: Container(
             width: 42,
             height: 42,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
             child: NfileIcon(icon, color: color, size: 22),
           ),
           title: Row(
             children: [
               Expanded(
-                child: Text(widget.cat['label'] as String, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                child: Text(
+                  widget.cat['label'] as String,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
               ),
               if (isStandardCategory) ...[
                 IconButton(
                   icon: Icon(
-                    _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     size: 20,
                     color: theme.colorScheme.primary,
                   ),
@@ -487,16 +680,35 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
             ],
           ),
           subtitle: isCustom
-              ? Text(widget.cat['path'] as String, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)), maxLines: 1, overflow: TextOverflow.ellipsis)
+              ? Text(
+                  widget.cat['path'] as String,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
               : (isStandardCategory && customPaths.isNotEmpty
-                  ? Text('${customPaths.length} custom path(s)', style: TextStyle(fontSize: 11, color: theme.colorScheme.primary, fontWeight: FontWeight.w500))
-                  : null),
+                    ? Text(
+                        '${customPaths.length} custom path(s)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    : null),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isCustom) ...[
                 IconButton(
-                  icon: const NfileIcon(Broken.trash, color: Colors.redAccent, size: 20),
+                  icon: const NfileIcon(
+                    Broken.trash,
+                    color: Colors.redAccent,
+                    size: 20,
+                  ),
                   tooltip: 'Delete Shortcut',
                   onPressed: () => widget.provider.removeCustomShortcut(label),
                 ),
@@ -510,14 +722,22 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
               const SizedBox(width: 12),
               ReorderableDragStartListener(
                 index: widget.index,
-                child: const Icon(Icons.drag_handle, color: Colors.grey, size: 24),
+                child: const Icon(
+                  Icons.drag_handle,
+                  color: Colors.grey,
+                  size: 24,
+                ),
               ),
             ],
           ),
         ),
         if (isStandardCategory && _isExpanded) ...[
           Padding(
-            padding: const EdgeInsets.only(left: 72.0, right: 16.0, bottom: 8.0),
+            padding: const EdgeInsets.only(
+              left: 72.0,
+              right: 16.0,
+              bottom: 8.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -532,10 +752,17 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                 ),
                 const SizedBox(height: 4),
                 ..._getDefaultPaths(label).map((path) {
-                  final isExcluded = widget.provider.excludedDefaultPaths[label]?.contains(path) == true;
+                  final isExcluded =
+                      widget.provider.excludedDefaultPaths[label]?.contains(
+                        path,
+                      ) ==
+                      true;
                   return Container(
                     margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: isExcluded
                           ? theme.colorScheme.error.withValues(alpha: 0.03)
@@ -563,9 +790,15 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                             style: TextStyle(
                               fontSize: 12,
                               color: isExcluded
-                                  ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
-                                  : theme.colorScheme.onSurface.withValues(alpha: 0.85),
-                              decoration: isExcluded ? TextDecoration.lineThrough : null,
+                                  ? theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.4,
+                                    )
+                                  : theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.85,
+                                    ),
+                              decoration: isExcluded
+                                  ? TextDecoration.lineThrough
+                                  : null,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -573,10 +806,17 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                         ),
                         if (isExcluded)
                           IconButton(
-                            icon: const Icon(Icons.add_circle_outline, color: Colors.green, size: 18),
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              color: Colors.green,
+                              size: 18,
+                            ),
                             tooltip: 'Restore Location',
                             onPressed: () {
-                              widget.provider.includeDefaultCategoryPath(label, path);
+                              widget.provider.includeDefaultCategoryPath(
+                                label,
+                                path,
+                              );
                             },
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -584,10 +824,17 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                           )
                         else
                           IconButton(
-                            icon: const NfileIcon(Broken.trash, color: Colors.redAccent, size: 18),
+                            icon: const NfileIcon(
+                              Broken.trash,
+                              color: Colors.redAccent,
+                              size: 18,
+                            ),
                             tooltip: 'Exclude Location',
                             onPressed: () {
-                              widget.provider.excludeDefaultCategoryPath(label, path);
+                              widget.provider.excludeDefaultCategoryPath(
+                                label,
+                                path,
+                              );
                             },
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -613,41 +860,64 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
                     child: Text(
                       'No custom paths added.',
-                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 12, fontStyle: FontStyle.italic),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.4,
+                        ),
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   )
                 else
-                  ...customPaths.map((path) => Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            const NfileIcon(Broken.folder, size: 16, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
+                  ...customPaths.map(
+                    (path) => Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const NfileIcon(
+                            Broken.folder,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              path,
+                              style: const TextStyle(fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const NfileIcon(
+                              Broken.trash,
+                              color: Colors.redAccent,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              widget.provider.removeCustomCategoryPath(
+                                label,
                                 path,
-                                style: const TextStyle(fontSize: 12),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const NfileIcon(Broken.trash, color: Colors.redAccent, size: 18),
-                              onPressed: () {
-                                widget.provider.removeCustomCategoryPath(label, path);
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
-                        ),
-                      )),
+                              );
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: () async {
@@ -664,12 +934,22 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                     }
                   },
                   icon: const NfileIcon(Broken.folder_add, size: 16),
-                  label: const Text('Add Custom Path', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Add Custom Path',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                   style: TextButton.styleFrom(
                     foregroundColor: theme.colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    backgroundColor: theme.colorScheme.primary.withValues(
+                      alpha: 0.08,
+                    ),
                   ),
                 ),
               ],

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -29,10 +30,10 @@ import 'package:watchtower/ui/widgets/namida_app_bar.dart';
 // ── Display mode ───────────────────────────────────────────────────────────────
 
 enum _DiscoverDisplayMode {
-  compact,      // Compact Grid — default, multi-column covers
-  comfortable,  // Comfortable Grid — larger cards, info below
-  cinema,       // Cinéma — full cover card with dark text overlay
-  list,         // List view
+  compact, // Compact Grid — default, multi-column covers
+  comfortable, // Comfortable Grid — larger cards, info below
+  cinema, // Cinéma — full cover card with dark text overlay
+  list, // List view
 }
 
 // ── Discover modes ─────────────────────────────────────────────────────────────
@@ -46,21 +47,31 @@ enum _DiscoverMode {
 
   String get label {
     switch (this) {
-      case _DiscoverMode.watch:  return 'Watch';
-      case _DiscoverMode.manga:  return 'Manga';
-      case _DiscoverMode.novel:  return 'Novel';
-      case _DiscoverMode.music:  return 'Music';
-      case _DiscoverMode.custom: return 'Custom';
+      case _DiscoverMode.watch:
+        return 'Watch';
+      case _DiscoverMode.manga:
+        return 'Manga';
+      case _DiscoverMode.novel:
+        return 'Novel';
+      case _DiscoverMode.music:
+        return 'Music';
+      case _DiscoverMode.custom:
+        return 'Custom';
     }
   }
 
   IconData get icon {
     switch (this) {
-      case _DiscoverMode.watch:  return Icons.play_circle_outline_rounded;
-      case _DiscoverMode.manga:  return Icons.menu_book_rounded;
-      case _DiscoverMode.novel:  return Icons.auto_stories_rounded;
-      case _DiscoverMode.music:  return Icons.music_note_rounded;
-      case _DiscoverMode.custom: return Icons.extension_rounded;
+      case _DiscoverMode.watch:
+        return Icons.play_circle_outline_rounded;
+      case _DiscoverMode.manga:
+        return Icons.menu_book_rounded;
+      case _DiscoverMode.novel:
+        return Icons.auto_stories_rounded;
+      case _DiscoverMode.music:
+        return Icons.music_note_rounded;
+      case _DiscoverMode.custom:
+        return Icons.extension_rounded;
     }
   }
 }
@@ -68,16 +79,21 @@ enum _DiscoverMode {
 // ── Content types ──────────────────────────────────────────────────────────────
 
 enum _ContentType {
-  anime('Tout anime',   'ANIME', null,    null),
-  film('Film',          'ANIME', 'MOVIE', null),
-  serie('Série TV',     'ANIME', 'TV',    null),
-  ova('OVA / ONA',      'ANIME', null,    ['OVA', 'ONA', 'SPECIAL']),
-  manga('Manga',        'MANGA', 'MANGA', null),
-  webtoon('Webtoon',    'MANGA', 'MANGA', null),
-  novel('Novel',        'MANGA', 'NOVEL', null),
-  oneShot('One Shot',   'MANGA', 'ONE_SHOT', null);
+  anime('Tout anime', 'ANIME', null, null),
+  film('Film', 'ANIME', 'MOVIE', null),
+  serie('Série TV', 'ANIME', 'TV', null),
+  ova('OVA / ONA', 'ANIME', null, ['OVA', 'ONA', 'SPECIAL']),
+  manga('Manga', 'MANGA', 'MANGA', null),
+  webtoon('Webtoon', 'MANGA', 'MANGA', null),
+  novel('Novel', 'MANGA', 'NOVEL', null),
+  oneShot('One Shot', 'MANGA', 'ONE_SHOT', null);
 
-  const _ContentType(this.label, this.aniType, this.aniFormat, this.aniFormatIn);
+  const _ContentType(
+    this.label,
+    this.aniType,
+    this.aniFormat,
+    this.aniFormatIn,
+  );
   final String label;
   final String aniType;
   final String? aniFormat;
@@ -87,11 +103,11 @@ enum _ContentType {
 // ── Sort options ───────────────────────────────────────────────────────────────
 
 enum _SortOption {
-  trending('Tendance',      Icons.local_fire_department_outlined,   'TRENDING_DESC'),
-  popularity('Popularité',  Icons.trending_up_rounded,              'POPULARITY_DESC'),
-  score('Meilleure note',   Icons.star_outline_rounded,             'SCORE_DESC'),
-  newest('Plus récent',     Icons.fiber_new_outlined,               'START_DATE_DESC'),
-  az('A–Z',                 Icons.sort_by_alpha_rounded,            'TITLE_ROMAJI');
+  trending('Tendance', Icons.local_fire_department_outlined, 'TRENDING_DESC'),
+  popularity('Popularité', Icons.trending_up_rounded, 'POPULARITY_DESC'),
+  score('Meilleure note', Icons.star_outline_rounded, 'SCORE_DESC'),
+  newest('Plus récent', Icons.fiber_new_outlined, 'START_DATE_DESC'),
+  az('A–Z', Icons.sort_by_alpha_rounded, 'TITLE_ROMAJI');
 
   const _SortOption(this.label, this.icon, this.aniSort);
   final String label;
@@ -102,39 +118,62 @@ enum _SortOption {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const _kGenres = [
-  'Action', 'Adventure', 'Comedy', 'Drama', 'Ecchi', 'Fantasy',
-  'Horror', 'Mahou Shoujo', 'Mecha', 'Music', 'Mystery', 'Psychological',
-  'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller',
+  'Action',
+  'Adventure',
+  'Comedy',
+  'Drama',
+  'Ecchi',
+  'Fantasy',
+  'Horror',
+  'Mahou Shoujo',
+  'Mecha',
+  'Music',
+  'Mystery',
+  'Psychological',
+  'Romance',
+  'Sci-Fi',
+  'Slice of Life',
+  'Sports',
+  'Supernatural',
+  'Thriller',
 ];
 
-const _kAnimeFormats = ['TV', 'TV Short', 'Movie', 'OVA', 'ONA', 'Special', 'Music'];
+const _kAnimeFormats = [
+  'TV',
+  'TV Short',
+  'Movie',
+  'OVA',
+  'ONA',
+  'Special',
+  'Music',
+];
 const _kMangaFormats = ['Manga', 'Novel', 'One Shot'];
 
 const _kSeasons = [
   (label: 'Toutes saisons', value: null),
-  (label: 'Hiver',          value: 'WINTER'),
-  (label: 'Printemps',      value: 'SPRING'),
-  (label: 'Été',            value: 'SUMMER'),
-  (label: 'Automne',        value: 'FALL'),
+  (label: 'Hiver', value: 'WINTER'),
+  (label: 'Printemps', value: 'SPRING'),
+  (label: 'Été', value: 'SUMMER'),
+  (label: 'Automne', value: 'FALL'),
 ];
 
 const _kStatuses = [
-  (label: 'Tous statuts',       value: null),
-  (label: 'Terminé',            value: 'FINISHED'),
-  (label: 'En cours',           value: 'RELEASING'),
-  (label: 'Pas encore sorti',   value: 'NOT_YET_RELEASED'),
-  (label: 'Annulé',             value: 'CANCELLED'),
-  (label: 'En pause',           value: 'HIATUS'),
+  (label: 'Tous statuts', value: null),
+  (label: 'Terminé', value: 'FINISHED'),
+  (label: 'En cours', value: 'RELEASING'),
+  (label: 'Pas encore sorti', value: 'NOT_YET_RELEASED'),
+  (label: 'Annulé', value: 'CANCELLED'),
+  (label: 'En pause', value: 'HIATUS'),
 ];
 
 const _kScoreOptions = [
   (label: 'Tous scores', value: null),
-  (label: '60+ ★',       value: 60),
-  (label: '70+ ★',       value: 70),
-  (label: '75+ ★',       value: 75),
-  (label: '80+ ★',       value: 80),
-  (label: '85+ ★',       value: 85),
-  (label: '90+ ★',       value: 90),
+  (label: '60+ ★', value: 60),
+  (label: '70+ ★', value: 70),
+  (label: '75+ ★', value: 75),
+  (label: '80+ ★', value: 80),
+  (label: '85+ ★', value: 85),
+  (label: '90+ ★', value: 90),
 ];
 
 // ── Discover Item ─────────────────────────────────────────────────────────────
@@ -277,10 +316,14 @@ class _WatchtowerDiscoverScreenState
 
   _ContentType get _defaultTypeForMode {
     switch (_mode) {
-      case _DiscoverMode.watch: return _ContentType.anime;
-      case _DiscoverMode.manga: return _ContentType.manga;
-      case _DiscoverMode.novel: return _ContentType.novel;
-      default: return _ContentType.anime;
+      case _DiscoverMode.watch:
+        return _ContentType.anime;
+      case _DiscoverMode.manga:
+        return _ContentType.manga;
+      case _DiscoverMode.novel:
+        return _ContentType.novel;
+      default:
+        return _ContentType.anime;
     }
   }
 
@@ -322,11 +365,7 @@ class _WatchtowerDiscoverScreenState
           _ContentType.ova,
         ];
       case _DiscoverMode.manga:
-        return [
-          _ContentType.manga,
-          _ContentType.webtoon,
-          _ContentType.oneShot,
-        ];
+        return [_ContentType.manga, _ContentType.webtoon, _ContentType.oneShot];
       case _DiscoverMode.novel:
         return [_ContentType.novel];
       default:
@@ -489,25 +528,35 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     final res = await http
         .post(
           Uri.parse('https://graphql.anilist.co'),
-          headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
           body: jsonEncode({'query': gql, 'variables': vars}),
         )
         .timeout(const Duration(seconds: 15));
 
-    if (res.statusCode != 200) throw Exception('AniList HTTP ${res.statusCode}');
+    if (res.statusCode != 200)
+      throw Exception('AniList HTTP ${res.statusCode}');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final errors = body['errors'] as List?;
     if (errors != null && errors.isNotEmpty) {
-      throw Exception((errors.first as Map)['message']?.toString() ?? 'AniList error');
+      throw Exception(
+        (errors.first as Map)['message']?.toString() ?? 'AniList error',
+      );
     }
-    final data = ((body['data'] as Map?)?.cast<String, dynamic>())?['Page']
-        as Map<String, dynamic>?;
+    final data =
+        ((body['data'] as Map?)?.cast<String, dynamic>())?['Page']
+            as Map<String, dynamic>?;
     final hasNext =
-        ((data?['pageInfo'] as Map?)?.cast<String, dynamic>()?['hasNextPage'] as bool?) ??
+        ((data?['pageInfo'] as Map?)?.cast<String, dynamic>()?['hasNextPage']
+            as bool?) ??
         false;
     final mediaList = (data?['media'] as List?) ?? [];
     return (
-      mediaList.map((e) => _DiscoverItem.fromJson(e as Map<String, dynamic>)).toList(),
+      mediaList
+          .map((e) => _DiscoverItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
       hasNext,
     );
   }
@@ -545,7 +594,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
     showModalBottomSheet(
       context: ctx,
-      useRootNavigator: true,           // rises above BottomNavigationBar
+      useRootNavigator: true, // rises above BottomNavigationBar
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
@@ -582,8 +631,14 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                               if (_hasActiveFilters) ...[
                                 ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  leading: Icon(Icons.delete_outline_rounded, color: cs.error),
-                                  title: Text('Effacer les filtres', style: TextStyle(color: cs.error)),
+                                  leading: Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: cs.error,
+                                  ),
+                                  title: Text(
+                                    'Effacer les filtres',
+                                    style: TextStyle(color: cs.error),
+                                  ),
                                   onTap: () {
                                     Navigator.pop(sheetCtx);
                                     _clearFilters();
@@ -604,31 +659,56 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 8),
                                       child: GestureDetector(
-                                        onTap: () => setLocal(() => localSort = opt),
+                                        onTap: () =>
+                                            setLocal(() => localSort = opt),
                                         child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 150),
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                          duration: const Duration(
+                                            milliseconds: 150,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 9,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: isSel
-                                                ? cs.primaryContainer.withValues(alpha: 0.80)
-                                                : (isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh),
-                                            borderRadius: BorderRadius.circular(12),
+                                                ? cs.primaryContainer
+                                                      .withValues(alpha: 0.80)
+                                                : (isDark
+                                                      ? const Color(0xFF2C2C2E)
+                                                      : cs.surfaceContainerHigh),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             border: Border.all(
-                                              color: isSel ? cs.primary : Colors.transparent,
+                                              color: isSel
+                                                  ? cs.primary
+                                                  : Colors.transparent,
                                               width: 1.5,
                                             ),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(opt.icon, size: 14, color: isSel ? cs.primary : cs.onSurface.withValues(alpha: 0.65)),
+                                              Icon(
+                                                opt.icon,
+                                                size: 14,
+                                                color: isSel
+                                                    ? cs.primary
+                                                    : cs.onSurface.withValues(
+                                                        alpha: 0.65,
+                                                      ),
+                                              ),
                                               const SizedBox(width: 6),
                                               Text(
                                                 opt.label,
                                                 style: TextStyle(
                                                   fontSize: 13,
-                                                  fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                                                  color: isSel ? cs.primary : cs.onSurface,
+                                                  fontWeight: isSel
+                                                      ? FontWeight.w700
+                                                      : FontWeight.w500,
+                                                  color: isSel
+                                                      ? cs.primary
+                                                      : cs.onSurface,
                                                 ),
                                               ),
                                             ],
@@ -656,66 +736,97 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                   _DisplayModeBtn(
                                     icon: Icons.grid_view_rounded,
                                     label: 'Compact Grid',
-                                    selected: localDisplay == _DiscoverDisplayMode.compact,
-                                    cs: cs, isDark: isDark,
+                                    selected:
+                                        localDisplay ==
+                                        _DiscoverDisplayMode.compact,
+                                    cs: cs,
+                                    isDark: isDark,
                                     onTap: () => setLocal(() {
-                                      localDisplay = _DiscoverDisplayMode.compact;
+                                      localDisplay =
+                                          _DiscoverDisplayMode.compact;
                                       if (localColumns > 4) localColumns = 2;
                                     }),
                                   ),
                                   _DisplayModeBtn(
                                     icon: Icons.grid_on_rounded,
                                     label: 'Comfortable Grid',
-                                    selected: localDisplay == _DiscoverDisplayMode.comfortable,
-                                    cs: cs, isDark: isDark,
+                                    selected:
+                                        localDisplay ==
+                                        _DiscoverDisplayMode.comfortable,
+                                    cs: cs,
+                                    isDark: isDark,
                                     onTap: () => setLocal(() {
-                                      localDisplay = _DiscoverDisplayMode.comfortable;
+                                      localDisplay =
+                                          _DiscoverDisplayMode.comfortable;
                                       if (localColumns > 2) localColumns = 2;
                                     }),
                                   ),
                                   _DisplayModeBtn(
                                     icon: Icons.local_movies_rounded,
                                     label: 'Cinéma',
-                                    selected: localDisplay == _DiscoverDisplayMode.cinema,
-                                    cs: cs, isDark: isDark,
+                                    selected:
+                                        localDisplay ==
+                                        _DiscoverDisplayMode.cinema,
+                                    cs: cs,
+                                    isDark: isDark,
                                     onTap: () => setLocal(() {
-                                      localDisplay = _DiscoverDisplayMode.cinema;
+                                      localDisplay =
+                                          _DiscoverDisplayMode.cinema;
                                       if (localColumns > 2) localColumns = 2;
                                     }),
                                   ),
                                   _DisplayModeBtn(
                                     icon: Icons.view_list_rounded,
                                     label: 'List',
-                                    selected: localDisplay == _DiscoverDisplayMode.list,
-                                    cs: cs, isDark: isDark,
-                                    onTap: () => setLocal(() => localDisplay = _DiscoverDisplayMode.list),
+                                    selected:
+                                        localDisplay ==
+                                        _DiscoverDisplayMode.list,
+                                    cs: cs,
+                                    isDark: isDark,
+                                    onTap: () => setLocal(
+                                      () => localDisplay =
+                                          _DiscoverDisplayMode.list,
+                                    ),
                                   ),
                                 ],
                               ),
 
                               // ── Grid Size (hidden for list mode) ───────────
-                              if (localDisplay != _DiscoverDisplayMode.list) ...[
+                              if (localDisplay !=
+                                  _DiscoverDisplayMode.list) ...[
                                 const SizedBox(height: 20),
                                 _SheetSectionLabel('GRID SIZE', cs),
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [
-                                    for (final n in localDisplay == _DiscoverDisplayMode.compact
-                                        ? [1, 2, 3, 4]
-                                        : [1, 2])
+                                    for (final n
+                                        in localDisplay ==
+                                                _DiscoverDisplayMode.compact
+                                            ? [1, 2, 3, 4]
+                                            : [1, 2])
                                       Padding(
-                                        padding: const EdgeInsets.only(right: 8),
+                                        padding: const EdgeInsets.only(
+                                          right: 8,
+                                        ),
                                         child: GestureDetector(
-                                          onTap: () => setLocal(() => localColumns = n),
+                                          onTap: () =>
+                                              setLocal(() => localColumns = n),
                                           child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 150),
+                                            duration: const Duration(
+                                              milliseconds: 150,
+                                            ),
                                             width: 48,
                                             height: 48,
                                             decoration: BoxDecoration(
                                               color: localColumns == n
                                                   ? cs.primary
-                                                  : (isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh),
-                                              borderRadius: BorderRadius.circular(12),
+                                                  : (isDark
+                                                        ? const Color(
+                                                            0xFF2C2C2E,
+                                                          )
+                                                        : cs.surfaceContainerHigh),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                             child: Center(
                                               child: Text(
@@ -723,7 +834,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                                 style: TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w700,
-                                                  color: localColumns == n ? cs.onPrimary : cs.onSurface,
+                                                  color: localColumns == n
+                                                      ? cs.onPrimary
+                                                      : cs.onSurface,
                                                 ),
                                               ),
                                             ),
@@ -735,12 +848,16 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                               ],
 
                               // ── Custom source change ────────────────────────
-                              if (_mode == _DiscoverMode.custom && _customSource != null) ...[
+                              if (_mode == _DiscoverMode.custom &&
+                                  _customSource != null) ...[
                                 const SizedBox(height: 12),
                                 Divider(height: 1, color: cs.outlineVariant),
                                 ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  leading: Icon(Icons.swap_horiz_rounded, color: cs.primary),
+                                  leading: Icon(
+                                    Icons.swap_horiz_rounded,
+                                    color: cs.primary,
+                                  ),
                                   title: const Text("Changer d'extension"),
                                   onTap: () {
                                     Navigator.pop(sheetCtx);
@@ -756,7 +873,10 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                       ),
 
                       // ── Footer: Annuler | Appliquer ─────────────────────────
-                      Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.5)),
+                      Divider(
+                        height: 1,
+                        color: cs.outlineVariant.withValues(alpha: 0.5),
+                      ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                         child: Row(
@@ -765,13 +885,20 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                               child: OutlinedButton(
                                 onPressed: () => Navigator.pop(sheetCtx),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
                                   side: BorderSide(color: cs.outlineVariant),
                                 ),
                                 child: Text(
                                   'Annuler',
-                                  style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: cs.onSurface,
+                                  ),
                                 ),
                               ),
                             ),
@@ -783,7 +910,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                   Navigator.pop(sheetCtx);
                                   setState(() {
                                     _displayMode = localDisplay;
-                                    _columnsCount = localDisplay == _DiscoverDisplayMode.compact
+                                    _columnsCount =
+                                        localDisplay ==
+                                            _DiscoverDisplayMode.compact
                                         ? localColumns
                                         : localColumns.clamp(1, 2);
                                     _sort = localSort;
@@ -791,8 +920,12 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                   if (sortChanged) _fetchResults(reset: true);
                                 },
                                 style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
                                 ),
                                 child: const Text(
                                   'Appliquer',
@@ -835,91 +968,89 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
         onClose: () => _drawerKey.currentState?.close(),
       ),
       child: Scaffold(
-      floatingActionButton: _showFab ? _buildFab(cs) : null,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── 1. Header (Discovery title + pills + action buttons) ──────
-            _DiscoveryHeader(
-              currentMode: _mode,
-              customSourceName: _customSource?.name,
-              cs: cs,
-              isDark: isDark,
-              searchCollapsed: _searchCollapsed && showSearch,
-              onDrawerTap: () => _drawerKey.currentState?.toggle(),
-              onMoreTap: () => _showMoreSheet(context),
-              onSearchTap: _expandSearch,
-              onModeChanged: (m) {
-                if (m == _DiscoverMode.custom) {
-                  if (_mode == _DiscoverMode.custom) {
-                    // Already on Custom → always open picker (change extension)
-                    _pickCustomSource(context);
+        floatingActionButton: _showFab ? _buildFab(cs) : null,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── 1. Header (Discovery title + pills + action buttons) ──────
+              _DiscoveryHeader(
+                currentMode: _mode,
+                customSourceName: _customSource?.name,
+                cs: cs,
+                isDark: isDark,
+                searchCollapsed: _searchCollapsed && showSearch,
+                onDrawerTap: () => _drawerKey.currentState?.toggle(),
+                onMoreTap: () => _showMoreSheet(context),
+                onSearchTap: _expandSearch,
+                onModeChanged: (m) {
+                  if (m == _DiscoverMode.custom) {
+                    if (_mode == _DiscoverMode.custom) {
+                      // Already on Custom → always open picker (change extension)
+                      _pickCustomSource(context);
+                    } else {
+                      _setMode(m);
+                      // Open picker immediately if no source is selected yet
+                      if (_customSource == null) _pickCustomSource(context);
+                    }
                   } else {
                     _setMode(m);
-                    // Open picker immediately if no source is selected yet
-                    if (_customSource == null) _pickCustomSource(context);
                   }
-                } else {
-                  _setMode(m);
-                }
-              },
-            ),
+                },
+              ),
 
-            // ── 2. Search + filter icon row (collapses on scroll) ──────────
-            if (showSearch)
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeInOut,
-                height: _searchCollapsed ? 0 : 50,
-                clipBehavior: Clip.hardEdge,
-                decoration: const BoxDecoration(),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _SearchField(
-                          controller: _searchCtrl,
-                          focusNode: _searchFocus,
-                          onChanged: _onSearchChanged,
+              // ── 2. Search + filter icon row (collapses on scroll) ──────────
+              if (showSearch)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOut,
+                  height: _searchCollapsed ? 0 : 50,
+                  clipBehavior: Clip.hardEdge,
+                  decoration: const BoxDecoration(),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _SearchField(
+                            controller: _searchCtrl,
+                            focusNode: _searchFocus,
+                            onChanged: _onSearchChanged,
+                            cs: cs,
+                            isDark: isDark,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterIconButton(
+                          active: _filterOpen || _hasActiveFilters,
+                          count: _activeFilterCount,
                           cs: cs,
                           isDark: isDark,
+                          onTap: () =>
+                              setState(() => _filterOpen = !_filterOpen),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterIconButton(
-                        active: _filterOpen || _hasActiveFilters,
-                        count: _activeFilterCount,
-                        cs: cs,
-                        isDark: isDark,
-                        onTap: () =>
-                            setState(() => _filterOpen = !_filterOpen),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-            // ── 3. Filter panel (collapses together with search on scroll) ─
-            if (showFilters)
-              AnimatedSize(
-                duration: const Duration(milliseconds: 260),
-                curve: Curves.easeInOut,
-                child: (_filterOpen && !_searchCollapsed)
-                    ? _buildFilterPanel(context, cs, isDark)
-                    : const SizedBox.shrink(),
-              ),
+              // ── 3. Filter panel (collapses together with search on scroll) ─
+              if (showFilters)
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeInOut,
+                  child: (_filterOpen && !_searchCollapsed)
+                      ? _buildFilterPanel(context, cs, isDark)
+                      : const SizedBox.shrink(),
+                ),
 
-            // ── 4. Content ─────────────────────────────────────────────────
-            Expanded(
-              child: _buildContent(context, cs, isDark),
-            ),
-          ],
+              // ── 4. Content ─────────────────────────────────────────────────
+              Expanded(child: _buildContent(context, cs, isDark)),
+            ],
+          ),
         ),
-      ),
-    ), // Scaffold
+      ), // Scaffold
     ); // NamidaInnerDrawer
   }
 
@@ -947,10 +1078,10 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   // ── Filter panel (animated) ───────────────────────────────────────────────────
 
   Widget _buildFilterPanel(BuildContext context, ColorScheme cs, bool isDark) {
-    final bgColor =
-        isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh;
-    final borderColor =
-        isDark ? Colors.white.withValues(alpha: 0.08) : cs.outlineVariant;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh;
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : cs.outlineVariant;
 
     // Helper to build one filter dropdown inline
     Widget drop({
@@ -982,9 +1113,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
-            color: _adult
-                ? cs.errorContainer.withValues(alpha: 0.22)
-                : bgColor,
+            color: _adult ? cs.errorContainer.withValues(alpha: 0.22) : bgColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _adult ? cs.error : borderColor,
@@ -993,9 +1122,11 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
           ),
           child: Row(
             children: [
-              Icon(Icons.eighteen_up_rating_rounded,
-                  size: 14,
-                  color: _adult ? cs.error : cs.onSurface.withValues(alpha: 0.65)),
+              Icon(
+                Icons.eighteen_up_rating_rounded,
+                size: 14,
+                color: _adult ? cs.error : cs.onSurface.withValues(alpha: 0.65),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -1004,14 +1135,14 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11.5,
-                    color: _adult ? cs.error : cs.onSurface.withValues(alpha: 0.65),
-                    fontWeight:
-                        _adult ? FontWeight.w600 : FontWeight.normal,
+                    color: _adult
+                        ? cs.error
+                        : cs.onSurface.withValues(alpha: 0.65),
+                    fontWeight: _adult ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
-              if (_adult)
-                Icon(Icons.check_rounded, size: 13, color: cs.error),
+              if (_adult) Icon(Icons.check_rounded, size: 13, color: cs.error),
             ],
           ),
         ),
@@ -1024,176 +1155,185 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Panel header: label + clear
-          Row(children: [
-            Icon(Icons.tune_rounded, size: 13, color: cs.onSurfaceVariant),
-            const SizedBox(width: 5),
-            Text(
-              'Filtres',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: cs.onSurfaceVariant,
-                letterSpacing: 0.3,
-              ),
-            ),
-            if (_activeFilterCount > 0) ...[
+          Row(
+            children: [
+              Icon(Icons.tune_rounded, size: 13, color: cs.onSurfaceVariant),
               const SizedBox(width: 5),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: cs.primary,
+              Text(
+                'Filtres',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              if (_activeFilterCount > 0) ...[
+                const SizedBox(width: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$_activeFilterCount',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onPrimary,
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              if (_hasActiveFilters)
+                InkWell(
+                  onTap: _clearFilters,
                   borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$_activeFilterCount',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onPrimary,
-                  ),
-                ),
-              ),
-            ],
-            const Spacer(),
-            if (_hasActiveFilters)
-              InkWell(
-                onTap: _clearFilters,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.delete_outline_rounded,
-                          size: 13, color: cs.error),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Effacer',
-                        style: TextStyle(
-                          fontSize: 11,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          size: 13,
                           color: cs.error,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 3),
+                        Text(
+                          'Effacer',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-          ]),
+            ],
+          ),
 
           const SizedBox(height: 8),
 
           // ── Row 1 (3 cols): Type | Sort | Genre ───────────────────────────
-          Row(children: [
-            Expanded(
-              child: drop(
-                icon: Icons.category_outlined,
-                label: _type.label,
-                active: _typeIsChanged,
-                onTap: () => _showEnumPicker<_ContentType>(
-                  title: 'Type de contenu',
-                  items: _contentTypeItems,
-                  selected: _type,
-                  labelOf: (t) => t.label,
-                  onSelected: (t) {
-                    setState(() => _type = t);
-                    _fetchResults(reset: true);
-                  },
+          Row(
+            children: [
+              Expanded(
+                child: drop(
+                  icon: Icons.category_outlined,
+                  label: _type.label,
+                  active: _typeIsChanged,
+                  onTap: () => _showEnumPicker<_ContentType>(
+                    title: 'Type de contenu',
+                    items: _contentTypeItems,
+                    selected: _type,
+                    labelOf: (t) => t.label,
+                    onSelected: (t) {
+                      setState(() => _type = t);
+                      _fetchResults(reset: true);
+                    },
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: drop(
-                icon: _sort.icon,
-                label: _sort.label,
-                active: _sort != _SortOption.trending,
-                onTap: () => _showEnumPicker<_SortOption>(
-                  title: 'Trier par',
-                  items: _SortOption.values,
-                  selected: _sort,
-                  labelOf: (s) => s.label,
-                  iconOf: (s) => s.icon,
-                  onSelected: (s) {
-                    setState(() => _sort = s);
-                    _fetchResults(reset: true);
-                  },
+              const SizedBox(width: 6),
+              Expanded(
+                child: drop(
+                  icon: _sort.icon,
+                  label: _sort.label,
+                  active: _sort != _SortOption.trending,
+                  onTap: () => _showEnumPicker<_SortOption>(
+                    title: 'Trier par',
+                    items: _SortOption.values,
+                    selected: _sort,
+                    labelOf: (s) => s.label,
+                    iconOf: (s) => s.icon,
+                    onSelected: (s) {
+                      setState(() => _sort = s);
+                      _fetchResults(reset: true);
+                    },
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: drop(
-                icon: Icons.label_outline_rounded,
-                label: _genre ?? 'Genre',
-                active: _genre != null,
-                onTap: () => _showStringPicker(
-                  title: 'Genres',
-                  items: ['Tous genres', ..._kGenres],
-                  selected: _genre,
-                  onSelected: (v) {
-                    setState(() => _genre = v == 'Tous genres' ? null : v);
-                    _fetchResults(reset: true);
-                  },
+              const SizedBox(width: 6),
+              Expanded(
+                child: drop(
+                  icon: Icons.label_outline_rounded,
+                  label: _genre ?? 'Genre',
+                  active: _genre != null,
+                  onTap: () => _showStringPicker(
+                    title: 'Genres',
+                    items: ['Tous genres', ..._kGenres],
+                    selected: _genre,
+                    onSelected: (v) {
+                      setState(() => _genre = v == 'Tous genres' ? null : v);
+                      _fetchResults(reset: true);
+                    },
+                  ),
                 ),
               ),
-            ),
-          ]),
+            ],
+          ),
 
           const SizedBox(height: 6),
 
           // ── Row 2 (2 cols): Format | Saison ───────────────────────────────
-          Row(children: [
-            Expanded(
-              child: drop(
-                icon: Icons.tv_outlined,
-                label: _format ?? 'Format',
-                active: _format != null,
-                onTap: () => _showStringPicker(
-                  title: 'Formats',
-                  items: ['Tous formats', ..._availableFormats],
-                  selected: _format,
-                  onSelected: (v) {
-                    setState(
-                        () => _format = v == 'Tous formats' ? null : v);
-                    _fetchResults(reset: true);
-                  },
+          Row(
+            children: [
+              Expanded(
+                child: drop(
+                  icon: Icons.tv_outlined,
+                  label: _format ?? 'Format',
+                  active: _format != null,
+                  onTap: () => _showStringPicker(
+                    title: 'Formats',
+                    items: ['Tous formats', ..._availableFormats],
+                    selected: _format,
+                    onSelected: (v) {
+                      setState(() => _format = v == 'Tous formats' ? null : v);
+                      _fetchResults(reset: true);
+                    },
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: drop(
-                icon: Icons.eco_outlined,
-                label: _season != null
-                    ? _kSeasons.firstWhere((e) => e.value == _season).label
-                    : 'Saison',
-                active: _season != null,
-                enabled: _type.aniType == 'ANIME',
-                onTap: () => _showStringPicker(
-                  title: 'Saison',
-                  items: _kSeasons.map((e) => e.label).toList(),
-                  selected: _season != null
+              const SizedBox(width: 6),
+              Expanded(
+                child: drop(
+                  icon: Icons.eco_outlined,
+                  label: _season != null
                       ? _kSeasons.firstWhere((e) => e.value == _season).label
-                      : null,
-                  onSelected: (v) {
-                    final found = _kSeasons.firstWhere((e) => e.label == v);
-                    setState(() => _season = found.value);
-                    _fetchResults(reset: true);
-                  },
+                      : 'Saison',
+                  active: _season != null,
+                  enabled: _type.aniType == 'ANIME',
+                  onTap: () => _showStringPicker(
+                    title: 'Saison',
+                    items: _kSeasons.map((e) => e.label).toList(),
+                    selected: _season != null
+                        ? _kSeasons.firstWhere((e) => e.value == _season).label
+                        : null,
+                    onSelected: (v) {
+                      final found = _kSeasons.firstWhere((e) => e.label == v);
+                      setState(() => _season = found.value);
+                      _fetchResults(reset: true);
+                    },
+                  ),
                 ),
               ),
-            ),
-          ]),
+            ],
+          ),
 
           const SizedBox(height: 6),
 
           // ── Row 3 (1 col full): Année ─────────────────────────────────────
           drop(
             icon: Icons.calendar_today_outlined,
-            label:
-                _timeless ? 'Année' : (_seasonYear?.toString() ?? 'Année'),
+            label: _timeless ? 'Année' : (_seasonYear?.toString() ?? 'Année'),
             active: !_timeless,
             onTap: _showYearPicker,
           ),
@@ -1201,57 +1341,55 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
           const SizedBox(height: 6),
 
           // ── Row 4 (2 cols): Statut | Score ────────────────────────────────
-          Row(children: [
-            Expanded(
-              child: drop(
-                icon: Icons.pending_outlined,
-                label: _status != null
-                    ? _kStatuses
-                        .firstWhere((e) => e.value == _status)
-                        .label
-                    : 'Statut',
-                active: _status != null,
-                onTap: () => _showStringPicker(
-                  title: 'Statut',
-                  items: _kStatuses.map((e) => e.label).toList(),
-                  selected: _status != null
-                      ? _kStatuses
-                          .firstWhere((e) => e.value == _status)
-                          .label
-                      : null,
-                  onSelected: (v) {
-                    final found =
-                        _kStatuses.firstWhere((e) => e.label == v);
-                    setState(() => _status = found.value);
-                    _fetchResults(reset: true);
-                  },
+          Row(
+            children: [
+              Expanded(
+                child: drop(
+                  icon: Icons.pending_outlined,
+                  label: _status != null
+                      ? _kStatuses.firstWhere((e) => e.value == _status).label
+                      : 'Statut',
+                  active: _status != null,
+                  onTap: () => _showStringPicker(
+                    title: 'Statut',
+                    items: _kStatuses.map((e) => e.label).toList(),
+                    selected: _status != null
+                        ? _kStatuses.firstWhere((e) => e.value == _status).label
+                        : null,
+                    onSelected: (v) {
+                      final found = _kStatuses.firstWhere((e) => e.label == v);
+                      setState(() => _status = found.value);
+                      _fetchResults(reset: true);
+                    },
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: drop(
-                icon: Icons.star_outline_rounded,
-                label: _minScore != null ? '$_minScore+ ★' : 'Score min',
-                active: _minScore != null,
-                onTap: () => _showStringPicker(
-                  title: 'Score minimum',
-                  items: _kScoreOptions.map((e) => e.label).toList(),
-                  selected: _minScore != null
-                      ? _kScoreOptions
-                          .firstWhere((e) => e.value == _minScore)
-                          .label
-                      : null,
-                  onSelected: (v) {
-                    final found =
-                        _kScoreOptions.firstWhere((e) => e.label == v);
-                    setState(() => _minScore = found.value);
-                    _fetchResults(reset: true);
-                  },
+              const SizedBox(width: 6),
+              Expanded(
+                child: drop(
+                  icon: Icons.star_outline_rounded,
+                  label: _minScore != null ? '$_minScore+ ★' : 'Score min',
+                  active: _minScore != null,
+                  onTap: () => _showStringPicker(
+                    title: 'Score minimum',
+                    items: _kScoreOptions.map((e) => e.label).toList(),
+                    selected: _minScore != null
+                        ? _kScoreOptions
+                              .firstWhere((e) => e.value == _minScore)
+                              .label
+                        : null,
+                    onSelected: (v) {
+                      final found = _kScoreOptions.firstWhere(
+                        (e) => e.label == v,
+                      );
+                      setState(() => _minScore = found.value);
+                      _fetchResults(reset: true);
+                    },
+                  ),
                 ),
               ),
-            ),
-          ]),
+            ],
+          ),
 
           const SizedBox(height: 6),
 
@@ -1266,11 +1404,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
   // ── Content router ────────────────────────────────────────────────────────────
 
-  Widget _buildContent(
-    BuildContext context,
-    ColorScheme cs,
-    bool isDark,
-  ) {
+  Widget _buildContent(BuildContext context, ColorScheme cs, bool isDark) {
     switch (_mode) {
       case _DiscoverMode.music:
         return const MusicDiscoveryScreen(initialRoute: 'search');
@@ -1308,18 +1442,20 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     }
 
     // FIX 2: support compact / comfortable / cinema display modes
-    final cols = _displayMode == _DiscoverDisplayMode.compact ? _columnsCount : _columnsCount.clamp(1, 2);
+    final cols = _displayMode == _DiscoverDisplayMode.compact
+        ? _columnsCount
+        : _columnsCount.clamp(1, 2);
     final aspectRatio = switch (_displayMode) {
       _DiscoverDisplayMode.comfortable => 0.68,
-      _DiscoverDisplayMode.cinema      => 0.70,
-      _                                => 0.62,
+      _DiscoverDisplayMode.cinema => 0.70,
+      _ => 0.62,
     };
 
     return CustomScrollView(
       controller: _scrollCtrl,
       // One grid viewport of lookahead cache at most — images further
       // off-screen are not decoded until scrolled near.
-      cacheExtent: 420,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(420),
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -1331,18 +1467,26 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 // instead of 20+ simultaneous decodes).
                 if (i >= _items.length) {
                   return _isLoading
-                      ? _SkeletonBox(isDark: isDark, cs: cs,
-                          shimmer: _shimmer)
+                      ? _SkeletonBox(isDark: isDark, cs: cs, shimmer: _shimmer)
                       : const SizedBox.shrink();
                 }
                 final item = _items[i];
                 return switch (_displayMode) {
                   _DiscoverDisplayMode.comfortable => _MediaCardComfortable(
-                      item: item, cs: cs, onTap: () => _openItem(context, item)),
+                    item: item,
+                    cs: cs,
+                    onTap: () => _openItem(context, item),
+                  ),
                   _DiscoverDisplayMode.cinema => _MediaCardCinema(
-                      item: item, cs: cs, onTap: () => _openItem(context, item)),
+                    item: item,
+                    cs: cs,
+                    onTap: () => _openItem(context, item),
+                  ),
                   _ => _MediaCard(
-                      item: item, cs: cs, onTap: () => _openItem(context, item)),
+                    item: item,
+                    cs: cs,
+                    onTap: () => _openItem(context, item),
+                  ),
                 };
               },
               childCount: _items.isEmpty && _isLoading
@@ -1377,7 +1521,8 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     return ListView.builder(
       controller: _scrollCtrl,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-      cacheExtent: 420, // scroll-stride: only build visible rows + small cache
+      // scroll-stride: only build visible rows + small cache
+      scrollCacheExtent: const ScrollCacheExtent.pixels(420),
       itemCount: _items.length + (_isLoading ? 4 : 0),
       itemBuilder: (_, i) {
         if (i >= _items.length) {
@@ -1451,7 +1596,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   }
 
   Widget _buildEmptyState(ColorScheme cs) {
-    final query = _searchQuery.isEmpty ? 'cette recherche' : '« $_searchQuery »';
+    final query = _searchQuery.isEmpty
+        ? 'cette recherche'
+        : '« $_searchQuery »';
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -1461,10 +1608,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             SizedBox(
               width: 180,
               height: 180,
-              child: Lottie.asset(
-                'assets/animations/empty.json',
-                repeat: true,
-              ),
+              child: Lottie.asset('assets/animations/empty.json', repeat: true),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1523,11 +1667,8 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _StringPickerSheet(
-        title: title,
-        items: items,
-        selected: selected,
-      ),
+      builder: (_) =>
+          _StringPickerSheet(title: title, items: items, selected: selected),
     );
     if (result != null) onSelected(result);
   }
@@ -1601,10 +1742,7 @@ class _DiscoveryHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // ── Hamburger — Namida Broken.menu_1 ────────────────────────
-              NamidaAppBarIcon(
-                icon: Broken.menu_1,
-                onPressed: onDrawerTap,
-              ),
+              NamidaAppBarIcon(icon: Broken.menu_1, onPressed: onDrawerTap),
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
@@ -1625,10 +1763,7 @@ class _DiscoveryHeader extends StatelessWidget {
                 const SizedBox(width: 2),
               ],
               // More button
-              NamidaAppBarIcon(
-                icon: Broken.more_square,
-                onPressed: onMoreTap,
-              ),
+              NamidaAppBarIcon(icon: Broken.more_square, onPressed: onMoreTap),
             ],
           ),
         ),
@@ -1645,8 +1780,7 @@ class _DiscoveryHeader extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 6),
                   child: _ModePill(
                     icon: m.icon,
-                    label: m == _DiscoverMode.custom &&
-                            customSourceName != null
+                    label: m == _DiscoverMode.custom && customSourceName != null
                         ? customSourceName!
                         : m.label,
                     selected: currentMode == m,
@@ -1694,15 +1828,15 @@ class _FilterIconButton extends StatelessWidget {
               color: active
                   ? cs.primary.withValues(alpha: 0.14)
                   : (isDark
-                      ? const Color(0xFF1C1C1E)
-                      : cs.surfaceContainerHigh),
+                        ? const Color(0xFF1C1C1E)
+                        : cs.surfaceContainerHigh),
               borderRadius: BorderRadius.circular(13),
               border: Border.all(
                 color: active
                     ? cs.primary.withValues(alpha: 0.55)
                     : (isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : cs.outlineVariant),
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : cs.outlineVariant),
                 width: active ? 1.5 : 0.8,
               ),
             ),
@@ -1780,11 +1914,13 @@ class _ViewToggleBtn extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                size: 16,
-                color: selected
-                    ? cs.primary
-                    : cs.onSurface.withValues(alpha: 0.55)),
+            Icon(
+              icon,
+              size: 16,
+              color: selected
+                  ? cs.primary
+                  : cs.onSurface.withValues(alpha: 0.55),
+            ),
             const SizedBox(width: 6),
             Text(
               label,
@@ -1857,9 +1993,13 @@ class _CustomEmptyState extends StatelessWidget {
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Sélectionner une extension'),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
           ],
@@ -1982,10 +2122,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
         );
       } else {
         result = await ref.read(
-          getPopularProvider(
-            source: widget.source,
-            page: _page,
-          ).future,
+          getPopularProvider(source: widget.source, page: _page).future,
         );
       }
       if (mounted) {
@@ -2046,8 +2183,9 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
             builder: (_, ctrl) => Container(
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1C1C1E) : cs.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
               child: Column(
                 children: [
@@ -2062,8 +2200,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                     ),
                   ),
                   Padding(
-                    padding:
-                        const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                     child: Row(
                       children: [
                         Expanded(
@@ -2089,8 +2226,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                   ),
                   Expanded(
                     child: Padding(
-                      padding:
-                          const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                       child: FilterWidget(
                         filterList: localFilters,
                         onChanged: (updated) {
@@ -2106,14 +2242,12 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () =>
-                                Navigator.pop(sheetCtx),
+                            onPressed: () => Navigator.pop(sheetCtx),
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 14),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(14)),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                             child: const Text('Annuler'),
                           ),
@@ -2126,17 +2260,17 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                               setState(() {
                                 _activeFilters = localFilters;
                                 // Count modified filters (non-default)
-                                _activeFilterCount =
-                                    _countActiveFilters(localFilters);
+                                _activeFilterCount = _countActiveFilters(
+                                  localFilters,
+                                );
                               });
                               _loadPage(reset: true);
                             },
                             style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 14),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(14)),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                             child: const Text('Appliquer'),
                           ),
@@ -2223,7 +2357,9 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                           )
                         : null,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     isDense: true,
                     filled: true,
                     fillColor: isDark
@@ -2236,7 +2372,8 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                          color: cs.primary.withValues(alpha: 0.4)),
+                        color: cs.primary.withValues(alpha: 0.4),
+                      ),
                     ),
                   ),
                 ),
@@ -2244,7 +2381,8 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
               const SizedBox(width: 8),
               // Filter icon button (reuse existing widget from the file)
               _FilterIconButton(
-                active: _filterOpen ||
+                active:
+                    _filterOpen ||
                     _activeFilterCount > 0 ||
                     _filterList.isNotEmpty,
                 count: _activeFilterCount,
@@ -2306,14 +2444,10 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
           TextButton.icon(
             onPressed: widget.onChangeTap,
             icon: const Icon(Icons.swap_horiz_rounded, size: 14),
-            label: const Text(
-              'Changer',
-              style: TextStyle(fontSize: 12),
-            ),
+            label: const Text('Changer', style: TextStyle(fontSize: 12)),
             style: TextButton.styleFrom(
               foregroundColor: cs.primary,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
@@ -2336,7 +2470,9 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
               Text(
                 'Erreur de chargement',
                 style: TextStyle(
-                    fontWeight: FontWeight.w700, color: cs.onSurface),
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
@@ -2385,9 +2521,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
         if (i >= _items.length) {
           return Container(
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF2C2C2E)
-                  : cs.surfaceContainerHigh,
+              color: isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(10),
             ),
           );
@@ -2418,8 +2552,7 @@ class _SourcePickerSheet extends StatelessWidget {
         .where()
         .findAllSync()
         .where(
-          (source) =>
-              (source.isAdded ?? false) && (source.isActive ?? false),
+          (source) => (source.isAdded ?? false) && (source.isActive ?? false),
         )
         .where((s) => s.name != 'local')
         .toList();
@@ -2459,8 +2592,11 @@ class _SourcePickerSheet extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.extension_off_rounded,
-                            size: 48, color: cs.onSurfaceVariant),
+                        Icon(
+                          Icons.extension_off_rounded,
+                          size: 48,
+                          color: cs.onSurfaceVariant,
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           'Aucune extension installée',
@@ -2502,7 +2638,9 @@ class _SourcePickerSheet extends StatelessWidget {
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: isDark
                                 ? Colors.white.withValues(alpha: 0.04)
@@ -2515,15 +2653,16 @@ class _SourcePickerSheet extends StatelessWidget {
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(
-                                  color: cs.primaryContainer
-                                      .withValues(alpha: 0.35),
+                                  color: cs.primaryContainer.withValues(
+                                    alpha: 0.35,
+                                  ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: src.iconUrl != null &&
+                                child:
+                                    src.iconUrl != null &&
                                         src.iconUrl!.isNotEmpty
                                     ? ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(11),
+                                        borderRadius: BorderRadius.circular(11),
                                         child: Image.network(
                                           src.iconUrl!,
                                           fit: BoxFit.cover,
@@ -2534,14 +2673,16 @@ class _SourcePickerSheet extends StatelessWidget {
                                           ),
                                         ),
                                       )
-                                    : Icon(Icons.extension_rounded,
-                                        size: 22, color: cs.primary),
+                                    : Icon(
+                                        Icons.extension_rounded,
+                                        size: 22,
+                                        color: cs.primary,
+                                      ),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       src.name ?? 'Extension',
@@ -2566,10 +2707,13 @@ class _SourcePickerSheet extends StatelessWidget {
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: cs.secondaryContainer
-                                      .withValues(alpha: 0.50),
+                                  color: cs.secondaryContainer.withValues(
+                                    alpha: 0.50,
+                                  ),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -2583,9 +2727,11 @@ class _SourcePickerSheet extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Icon(Icons.chevron_right_rounded,
-                                  size: 18,
-                                  color: cs.onSurface.withValues(alpha: 0.35)),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 18,
+                                color: cs.onSurface.withValues(alpha: 0.35),
+                              ),
                             ],
                           ),
                         ),
@@ -2630,25 +2776,27 @@ class _ModePill extends StatelessWidget {
           color: selected
               ? cs.primaryContainer
               : (isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : cs.onSurface.withValues(alpha: 0.05)),
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : cs.onSurface.withValues(alpha: 0.05)),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             // FIX 2: slightly larger icons in mode pills, responsive to screen
-            Builder(builder: (ctx) {
-              final w = MediaQuery.of(ctx).size.width;
-              final sz = w < 375 ? 13.0 : (w < 430 ? 15.0 : 16.0);
-              return Icon(
-                icon,
-                size: sz,
-                color: selected
-                    ? cs.onPrimaryContainer
-                    : cs.onSurface.withValues(alpha: 0.55),
-              );
-            }),
+            Builder(
+              builder: (ctx) {
+                final w = MediaQuery.of(ctx).size.width;
+                final sz = w < 375 ? 13.0 : (w < 430 ? 15.0 : 16.0);
+                return Icon(
+                  icon,
+                  size: sz,
+                  color: selected
+                      ? cs.onPrimaryContainer
+                      : cs.onSurface.withValues(alpha: 0.55),
+                );
+              },
+            ),
             const SizedBox(width: 5),
             Text(
               label,
@@ -2686,8 +2834,9 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fillColor =
-        isDark ? const Color(0xFF29292D) : cs.surfaceContainerHigh;
+    final fillColor = isDark
+        ? const Color(0xFF29292D)
+        : cs.surfaceContainerHigh;
     return Container(
       height: 42,
       decoration: BoxDecoration(
@@ -2705,8 +2854,11 @@ class _SearchField extends StatelessWidget {
         onChanged: onChanged,
         style: TextStyle(color: cs.onSurface, fontSize: 14),
         decoration: InputDecoration(
-          prefixIcon: Icon(Icons.search_rounded,
-              color: cs.onSurfaceVariant, size: 18),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: cs.onSurfaceVariant,
+            size: 18,
+          ),
           hintText: 'Rechercher…',
           hintStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
           border: InputBorder.none,
@@ -2743,13 +2895,10 @@ class _FilterDropdown extends StatelessWidget {
     final fgColor = enabled
         ? (active ? cs.primary : cs.onSurface.withValues(alpha: 0.65))
         : cs.onSurface.withValues(alpha: 0.3);
-    final bgColor =
-        isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : cs.surfaceContainerHigh;
     final borderColor = active
         ? cs.primary
-        : (isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : cs.outlineVariant);
+        : (isDark ? Colors.white.withValues(alpha: 0.08) : cs.outlineVariant);
 
     return GestureDetector(
       onTap: enabled ? onTap : null,
@@ -2777,19 +2926,19 @@ class _FilterDropdown extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.expand_more_rounded,
-                size: 13,
-                color: enabled
-                    ? cs.onSurface.withValues(alpha: 0.40)
-                    : cs.onSurface.withValues(alpha: 0.18)),
+            Icon(
+              Icons.expand_more_rounded,
+              size: 13,
+              color: enabled
+                  ? cs.onSurface.withValues(alpha: 0.40)
+                  : cs.onSurface.withValues(alpha: 0.18),
+            ),
           ],
         ),
       ),
     );
   }
 }
-
-
 
 // ── Lightweight skeleton shimmer (single shared wave) ─────────────────────────
 
@@ -2829,11 +2978,7 @@ class _SkeletonBox extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(borderRadius),
             gradient: LinearGradient(
-              colors: [
-                base,
-                Color.lerp(base, glow, 0.35 + 0.65 * t)!,
-                base,
-              ],
+              colors: [base, Color.lerp(base, glow, 0.35 + 0.65 * t)!, base],
               stops: const [0.0, 0.5, 1.0],
               begin: Alignment.centerLeft + Alignment(shift, 0),
               end: Alignment.centerRight + Alignment(shift, 0),
@@ -2852,11 +2997,7 @@ class _MediaCard extends StatelessWidget {
   final ColorScheme cs;
   final VoidCallback onTap;
 
-  const _MediaCard({
-    required this.item,
-    required this.cs,
-    required this.onTap,
-  });
+  const _MediaCard({required this.item, required this.cs, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -2877,15 +3018,15 @@ class _MediaCard extends StatelessWidget {
                       loadStateChanged: (s) {
                         switch (s.extendedImageLoadState) {
                           case LoadState.loading:
-                            return Container(
-                                color: cs.surfaceContainerHigh);
+                            return Container(color: cs.surfaceContainerHigh);
                           case LoadState.failed:
                             return Container(
                               color: cs.surfaceContainerHigh,
                               child: Icon(
                                 Icons.broken_image_outlined,
-                                color: cs.onSurfaceVariant
-                                    .withValues(alpha: 0.4),
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.4,
+                                ),
                               ),
                             );
                           case LoadState.completed:
@@ -2895,8 +3036,10 @@ class _MediaCard extends StatelessWidget {
                     )
                   : Container(
                       color: cs.surfaceContainerHigh,
-                      child: Icon(Icons.image_outlined,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                      child: Icon(
+                        Icons.image_outlined,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
                     ),
             ),
           ),
@@ -2915,10 +3058,7 @@ class _MediaCard extends StatelessWidget {
           if (item.score != null)
             Text(
               '★ ${(item.score! / 10.0).toStringAsFixed(1)}',
-              style: TextStyle(
-                fontSize: 10.5,
-                color: cs.onSurfaceVariant,
-              ),
+              style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant),
             ),
         ],
       ),
@@ -2958,8 +3098,9 @@ class _MediaListTile extends StatelessWidget {
           children: [
             // Cover thumbnail
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.horizontal(left: Radius.circular(12)),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(12),
+              ),
               child: SizedBox(
                 width: 54,
                 height: 80,
@@ -3005,10 +3146,13 @@ class _MediaListTile extends StatelessWidget {
                       if (item.format != null) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: cs.secondaryContainer
-                                .withValues(alpha: 0.55),
+                            color: cs.secondaryContainer.withValues(
+                              alpha: 0.55,
+                            ),
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
@@ -3039,8 +3183,11 @@ class _MediaListTile extends StatelessWidget {
 
             Padding(
               padding: const EdgeInsets.only(right: 10),
-              child: Icon(Icons.chevron_right_rounded,
-                  size: 18, color: cs.onSurface.withValues(alpha: 0.30)),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: cs.onSurface.withValues(alpha: 0.30),
+              ),
             ),
           ],
         ),
@@ -3085,7 +3232,9 @@ class _EnumPickerSheet<T> extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             Flexible(
@@ -3100,21 +3249,21 @@ class _EnumPickerSheet<T> extends StatelessWidget {
                   final isSel = item == selected;
                   return ListTile(
                     leading: icon != null
-                        ? Icon(icon,
+                        ? Icon(
+                            icon,
                             size: 20,
-                            color: isSel ? cs.primary : cs.onSurfaceVariant)
+                            color: isSel ? cs.primary : cs.onSurfaceVariant,
+                          )
                         : null,
                     title: Text(
                       label,
                       style: TextStyle(
                         color: isSel ? cs.primary : cs.onSurface,
-                        fontWeight:
-                            isSel ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                     trailing: isSel
-                        ? Icon(Icons.check_rounded,
-                            color: cs.primary, size: 18)
+                        ? Icon(Icons.check_rounded, color: cs.primary, size: 18)
                         : null,
                     onTap: () => Navigator.pop(context, item),
                   );
@@ -3160,7 +3309,9 @@ class _StringPickerSheet extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             Flexible(
@@ -3177,13 +3328,11 @@ class _StringPickerSheet extends StatelessWidget {
                       item,
                       style: TextStyle(
                         color: isSel ? cs.primary : cs.onSurface,
-                        fontWeight:
-                            isSel ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                     trailing: isSel
-                        ? Icon(Icons.check_rounded,
-                            color: cs.primary, size: 18)
+                        ? Icon(Icons.check_rounded, color: cs.primary, size: 18)
                         : null,
                     onTap: () => Navigator.pop(context, item),
                   );
@@ -3237,8 +3386,10 @@ class _MediaCardComfortable extends StatelessWidget {
                     )
                   : Container(
                       color: cs.surfaceContainerHigh,
-                      child: Icon(Icons.image_outlined,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                      child: Icon(
+                        Icons.image_outlined,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
                     ),
             ),
           ),
@@ -3307,8 +3458,10 @@ class _MediaCardCinema extends StatelessWidget {
             else
               Container(
                 color: cs.surfaceContainerHigh,
-                child: Icon(Icons.image_outlined,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                child: Icon(
+                  Icons.image_outlined,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                ),
               ),
 
             // Dark gradient overlay — text on black
@@ -3420,11 +3573,13 @@ class _DisplayModeBtn extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                size: 16,
-                color: selected
-                    ? cs.primary
-                    : cs.onSurface.withValues(alpha: 0.55)),
+            Icon(
+              icon,
+              size: 16,
+              color: selected
+                  ? cs.primary
+                  : cs.onSurface.withValues(alpha: 0.55),
+            ),
             const SizedBox(width: 7),
             Text(
               label,

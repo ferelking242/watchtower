@@ -42,7 +42,12 @@ class ThumbnailCache {
         final files = folder.listSync();
         for (final f in files) {
           if (f is File && f.path.endsWith('.thumb')) {
-            final key = f.path.split('/').last.split('\\').last.replaceAll('.thumb', '');
+            final key = f.path
+                .split('/')
+                .last
+                .split('\\')
+                .last
+                .replaceAll('.thumb', '');
             if (!_cache.containsKey(key)) {
               _cache[key] = f.readAsBytesSync();
             }
@@ -76,7 +81,9 @@ class ThumbnailCache {
         }
       }
 
-      final data = await asset.thumbnailDataWithSize(const ThumbnailSize.square(300));
+      final data = await asset.thumbnailDataWithSize(
+        const ThumbnailSize.square(300),
+      );
       if (data != null && data.isNotEmpty) {
         _cache[key] = data;
         if (_cacheDir != null) {
@@ -96,7 +103,8 @@ class ThumbnailCache {
   }
 
   static Uint8List? getCached(String id) => _cache[id];
-  static bool hasCached(String id) => _cache.containsKey(id) && _cache[id] != null;
+  static bool hasCached(String id) =>
+      _cache.containsKey(id) && _cache[id] != null;
 
   static void clear() {
     _cache.clear();
@@ -199,13 +207,13 @@ class MediaProvider extends ChangeNotifier {
       for (final v in _videos) {
         final titleLower = (v.title ?? '').toLowerCase();
         _videoNameMap![titleLower] = v;
-        
+
         final extIndex = titleLower.lastIndexOf('.');
         if (extIndex != -1) {
           final base = titleLower.substring(0, extIndex);
           _videoNameMap![base] = v;
         }
-        
+
         final mimeExt = v.mimeType?.split("/").last.toLowerCase();
         if (mimeExt != null) {
           _videoNameMap!['$titleLower.$mimeExt'] = v;
@@ -268,7 +276,6 @@ class MediaProvider extends ChangeNotifier {
     'Recycle Bin',
   ];
 
-
   bool _isLoading = false;
   bool _isLoaded = false;
   MediaSortOrder _sortOrder = MediaSortOrder.newest;
@@ -278,11 +285,15 @@ class MediaProvider extends ChangeNotifier {
     if (item is AssetEntity) {
       final rel = item.relativePath;
       if (rel != null) {
-        final cleanRel = rel.endsWith('/') ? rel.substring(0, rel.length - 1) : rel;
-        if (cleanRel.startsWith('/storage/emulated/0') || cleanRel.startsWith('/storage/')) {
+        final cleanRel = rel.endsWith('/')
+            ? rel.substring(0, rel.length - 1)
+            : rel;
+        if (cleanRel.startsWith('/storage/emulated/0') ||
+            cleanRel.startsWith('/storage/')) {
           return cleanRel;
         }
-        if (cleanRel.startsWith('storage/emulated/0') || cleanRel.startsWith('storage/')) {
+        if (cleanRel.startsWith('storage/emulated/0') ||
+            cleanRel.startsWith('storage/')) {
           return '/$cleanRel';
         }
         return '/storage/emulated/0/$cleanRel';
@@ -343,7 +354,9 @@ class MediaProvider extends ChangeNotifier {
 
   List<FileSystemEntity> get documents {
     final excluded = _excludedDefaultPaths['Documents'] ?? [];
-    final excludeAllScanned = excluded.contains('Internal Storage (All Folders Scanned)');
+    final excludeAllScanned = excluded.contains(
+      'Internal Storage (All Folders Scanned)',
+    );
     return _documents.where((file) {
       final docPaths = _customCategoryPaths['Documents'] ?? [];
       final isCustom = docPaths.any((dir) => p.isWithin(dir, file.path));
@@ -355,7 +368,9 @@ class MediaProvider extends ChangeNotifier {
 
   List<FileSystemEntity> get archives {
     final excluded = _excludedDefaultPaths['Archives'] ?? [];
-    final excludeAllScanned = excluded.contains('Internal Storage (All Folders Scanned)');
+    final excludeAllScanned = excluded.contains(
+      'Internal Storage (All Folders Scanned)',
+    );
     return _archives.where((file) {
       final archPaths = _customCategoryPaths['Archives'] ?? [];
       final isCustom = archPaths.any((dir) => p.isWithin(dir, file.path));
@@ -375,7 +390,9 @@ class MediaProvider extends ChangeNotifier {
 
   List<FileSystemEntity> get apks {
     final excluded = _excludedDefaultPaths['APKs'] ?? [];
-    final excludeAllScanned = excluded.contains('Internal Storage (All Folders Scanned)');
+    final excludeAllScanned = excluded.contains(
+      'Internal Storage (All Folders Scanned)',
+    );
     return _apks.where((file) {
       final apkPaths = _customCategoryPaths['APKs'] ?? [];
       final isCustom = apkPaths.any((dir) => p.isWithin(dir, file.path));
@@ -399,6 +416,7 @@ class MediaProvider extends ChangeNotifier {
     _sortDynamicList(list);
     return list;
   }
+
   List<FileItemModel> get recentFiles => _recentFiles;
 
   void _sortDynamicList(List<dynamic> list) {
@@ -412,14 +430,14 @@ class MediaProvider extends ChangeNotifier {
         return bTime.compareTo(aTime);
       };
     } else if (_sortOrder == MediaSortOrder.oldest ||
-               _sortOrder == MediaSortOrder.oldestGrouped) {
+        _sortOrder == MediaSortOrder.oldestGrouped) {
       compare = (a, b) {
         final aTime = _getDateTime(a);
         final bTime = _getDateTime(b);
         return aTime.compareTo(bTime);
       };
     } else if (_sortOrder == MediaSortOrder.sizeLargest ||
-               _sortOrder == MediaSortOrder.sizeSmallest) {
+        _sortOrder == MediaSortOrder.sizeSmallest) {
       final isSmallest = _sortOrder == MediaSortOrder.sizeSmallest;
       compare = (a, b) {
         final aSize = _getSize(a);
@@ -453,6 +471,7 @@ class MediaProvider extends ChangeNotifier {
     }
     return 0;
   }
+
   List<CustomShortcutModel> get customShortcuts => _customShortcuts;
   List<String> get categoryOrder => _categoryOrder;
   List<String> get activeCategories => _activeCategories;
@@ -476,9 +495,6 @@ class MediaProvider extends ChangeNotifier {
   }
 
   void reorderCategory(int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
     final item = _categoryOrder.removeAt(oldIndex);
     _categoryOrder.insert(newIndex, item);
     PreferencesService.saveCategoryOrder(_categoryOrder);
@@ -492,7 +508,12 @@ class MediaProvider extends ChangeNotifier {
     if (_categoryOrder.contains(id)) return;
 
     final isDir = FileSystemEntity.isDirectorySync(path);
-    final cs = CustomShortcutModel(id: id, label: label, path: path, isDirectory: isDir);
+    final cs = CustomShortcutModel(
+      id: id,
+      label: label,
+      path: path,
+      isDirectory: isDir,
+    );
     _customShortcuts.add(cs);
     _categoryOrder.add(id);
     _activeCategories.add(id);
@@ -519,16 +540,26 @@ class MediaProvider extends ChangeNotifier {
   int getCategoryItemCount(String category) {
     if (_isLoaded) {
       switch (category) {
-        case 'Images': return images.length;
-        case 'Videos': return videos.length;
-        case 'Audio': return _audios.length;
-        case 'Documents': return _documents.length;
-        case 'Archives': return _archives.length;
-        case 'Downloads': return _downloads.length;
-        case 'APKs': return _apks.length;
-        case 'Screenshots': return screenshots.length;
-        case 'Apps': return 0;
-        case 'Settings': return 0;
+        case 'Images':
+          return images.length;
+        case 'Videos':
+          return videos.length;
+        case 'Audio':
+          return _audios.length;
+        case 'Documents':
+          return _documents.length;
+        case 'Archives':
+          return _archives.length;
+        case 'Downloads':
+          return _downloads.length;
+        case 'APKs':
+          return _apks.length;
+        case 'Screenshots':
+          return screenshots.length;
+        case 'Apps':
+          return 0;
+        case 'Settings':
+          return 0;
       }
     }
     return PreferencesService.getCategoryCount(category);
@@ -573,7 +604,9 @@ class MediaProvider extends ChangeNotifier {
         final map = jsonDecode(jsonStr) as Map<String, dynamic>;
 
         if (map.containsKey('categoryOrder')) {
-          _categoryOrder = List<String>.from(map['categoryOrder'] ?? _categoryOrder);
+          _categoryOrder = List<String>.from(
+            map['categoryOrder'] ?? _categoryOrder,
+          );
           if (!_categoryOrder.contains('Apps')) {
             _categoryOrder.add('Apps');
           }
@@ -585,12 +618,17 @@ class MediaProvider extends ChangeNotifier {
           }
         }
         if (map.containsKey('activeCategories')) {
-          _activeCategories = List<String>.from(map['activeCategories'] ?? _activeCategories);
+          _activeCategories = List<String>.from(
+            map['activeCategories'] ?? _activeCategories,
+          );
         }
 
         if (map.containsKey('images')) {
           final imgMaps = List<Map<String, dynamic>>.from(
-            (map['images'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
+            (map['images'] as List?)?.map(
+                  (e) => Map<String, dynamic>.from(e as Map),
+                ) ??
+                [],
           );
           final cachedImages = imgMaps.map((m) => _assetFromMap(m)).toList();
           if (cachedImages.isNotEmpty && _images.isEmpty) {
@@ -600,7 +638,10 @@ class MediaProvider extends ChangeNotifier {
 
         if (map.containsKey('videos')) {
           final vidMaps = List<Map<String, dynamic>>.from(
-            (map['videos'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
+            (map['videos'] as List?)?.map(
+                  (e) => Map<String, dynamic>.from(e as Map),
+                ) ??
+                [],
           );
           final cachedVideos = vidMaps.map((m) => _assetFromMap(m)).toList();
           if (cachedVideos.isNotEmpty && _videos.isEmpty) {
@@ -610,9 +651,14 @@ class MediaProvider extends ChangeNotifier {
 
         if (map.containsKey('screenshots')) {
           final scMaps = List<Map<String, dynamic>>.from(
-            (map['screenshots'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
+            (map['screenshots'] as List?)?.map(
+                  (e) => Map<String, dynamic>.from(e as Map),
+                ) ??
+                [],
           );
-          final cachedScreenshots = scMaps.map((m) => _assetFromMap(m)).toList();
+          final cachedScreenshots = scMaps
+              .map((m) => _assetFromMap(m))
+              .toList();
           if (cachedScreenshots.isNotEmpty && _screenshots.isEmpty) {
             _screenshots = cachedScreenshots;
           }
@@ -620,7 +666,10 @@ class MediaProvider extends ChangeNotifier {
 
         if (map.containsKey('audios')) {
           final audMaps = List<Map<String, dynamic>>.from(
-            (map['audios'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
+            (map['audios'] as List?)?.map(
+                  (e) => Map<String, dynamic>.from(e as Map),
+                ) ??
+                [],
           );
           final cachedAudios = audMaps.map((m) => SongModel(m)).toList();
           if (cachedAudios.isNotEmpty && _audios.isEmpty) {
@@ -702,7 +751,10 @@ class MediaProvider extends ChangeNotifier {
 
         if (map.containsKey('recentFiles')) {
           final paths = List<Map<String, dynamic>>.from(
-            (map['recentFiles'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
+            (map['recentFiles'] as List?)?.map(
+                  (e) => Map<String, dynamic>.from(e as Map),
+                ) ??
+                [],
           );
           final cached = <FileItemModel>[];
           for (final entry in paths) {
@@ -711,16 +763,18 @@ class MediaProvider extends ChangeNotifier {
               if (path == null) continue;
               final f = File(path);
               if (!f.existsSync()) continue;
-              cached.add(FileItemModel(
-                entity: f,
-                name: p.basename(path),
-                path: path,
-                isDirectory: false,
-                size: (entry['size'] as num?)?.toInt() ?? 0,
-                modified: DateTime.fromMillisecondsSinceEpoch(
-                  (entry['modified'] as num?)?.toInt() ?? 0,
+              cached.add(
+                FileItemModel(
+                  entity: f,
+                  name: p.basename(path),
+                  path: path,
+                  isDirectory: false,
+                  size: (entry['size'] as num?)?.toInt() ?? 0,
+                  modified: DateTime.fromMillisecondsSinceEpoch(
+                    (entry['modified'] as num?)?.toInt() ?? 0,
+                  ),
                 ),
-              ));
+              );
             } catch (_) {}
           }
           if (cached.isNotEmpty && _recentFiles.isEmpty) {
@@ -749,11 +803,16 @@ class MediaProvider extends ChangeNotifier {
         'archives': _archives.map((e) => e.path).toList(),
         'downloads': _downloads.map((e) => e.path).toList(),
         'apks': _apks.map((e) => e.path).toList(),
-        'recentFiles': _recentFiles.take(30).map((e) => {
-          'path': e.path,
-          'size': e.size,
-          'modified': e.modified.millisecondsSinceEpoch,
-        }).toList(),
+        'recentFiles': _recentFiles
+            .take(30)
+            .map(
+              (e) => {
+                'path': e.path,
+                'size': e.size,
+                'modified': e.modified.millisecondsSinceEpoch,
+              },
+            )
+            .toList(),
       };
       await cacheFile.writeAsString(jsonEncode(map), flush: true);
     } catch (_) {}
@@ -761,12 +820,14 @@ class MediaProvider extends ChangeNotifier {
 
   Future<void> refreshMediaBackground() async {
     final futures = <Future<void>>[];
-    
+
     bool isStorageGranted = false;
     try {
-      isStorageGranted = await Permission.storage.isGranted || await Permission.manageExternalStorage.isGranted;
+      isStorageGranted =
+          await Permission.storage.isGranted ||
+          await Permission.manageExternalStorage.isGranted;
     } catch (_) {}
-    
+
     PermissionState ps = PermissionState.denied;
     try {
       ps = await PhotoManager.requestPermissionExtend();
@@ -791,7 +852,7 @@ class MediaProvider extends ChangeNotifier {
     await _scanRecentFiles();
     await _saveCache();
     _applySort();
-    
+
     PreferencesService.saveCategoryCount('Images', images.length);
     PreferencesService.saveCategoryCount('Videos', videos.length);
     PreferencesService.saveCategoryCount('Audio', _audios.length);
@@ -819,7 +880,8 @@ class MediaProvider extends ChangeNotifier {
     await _loadFromDiskCache();
 
     // show cached data immediately if we have it
-    final hasCachedData = _images.isNotEmpty ||
+    final hasCachedData =
+        _images.isNotEmpty ||
         _videos.isNotEmpty ||
         _audios.isNotEmpty ||
         _documents.isNotEmpty ||
@@ -837,7 +899,9 @@ class MediaProvider extends ChangeNotifier {
 
     bool isStorageGranted = false;
     try {
-      isStorageGranted = await Permission.storage.isGranted || await Permission.manageExternalStorage.isGranted;
+      isStorageGranted =
+          await Permission.storage.isGranted ||
+          await Permission.manageExternalStorage.isGranted;
     } catch (_) {}
 
     PermissionState ps = PermissionState.denied;
@@ -934,7 +998,9 @@ class MediaProvider extends ChangeNotifier {
 
   Future<void> _loadImagesAndVideos() async {
     try {
-      List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(onlyAll: false);
+      List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
+        onlyAll: false,
+      );
       List<AssetEntity> allScreenshots = [];
       final seenScreenshotIds = <String>{};
       for (final album in albums) {
@@ -949,19 +1015,33 @@ class MediaProvider extends ChangeNotifier {
       }
 
       if (albums.isNotEmpty) {
-        final allAlbum = albums.firstWhere((a) => a.isAll, orElse: () => albums.first);
-        List<AssetEntity> allMedia = await allAlbum.getAssetListPaged(page: 0, size: 10000);
+        final allAlbum = albums.firstWhere(
+          (a) => a.isAll,
+          orElse: () => albums.first,
+        );
+        List<AssetEntity> allMedia = await allAlbum.getAssetListPaged(
+          page: 0,
+          size: 10000,
+        );
         _images = allMedia.where((e) => e.type == AssetType.image).toList();
         _videos = allMedia.where((e) => e.type == AssetType.video).toList();
         if (allScreenshots.isEmpty) {
-          _screenshots = _images.where((e) => (e.title ?? '').toLowerCase().contains('screenshot') || (e.relativePath ?? '').toLowerCase().contains('screenshot')).toList();
+          _screenshots = _images
+              .where(
+                (e) =>
+                    (e.title ?? '').toLowerCase().contains('screenshot') ||
+                    (e.relativePath ?? '').toLowerCase().contains('screenshot'),
+              )
+              .toList();
         } else {
           _screenshots = allScreenshots;
         }
       }
 
       // Fetch distinct image albums
-      final imgAlbums = await PhotoManager.getAssetPathList(type: RequestType.image);
+      final imgAlbums = await PhotoManager.getAssetPathList(
+        type: RequestType.image,
+      );
       final filteredImgAlbums = <AssetPathEntity>[];
       for (final album in imgAlbums) {
         final count = await album.assetCountAsync;
@@ -972,7 +1052,9 @@ class MediaProvider extends ChangeNotifier {
       _imageAlbums = filteredImgAlbums;
 
       // Fetch distinct video albums
-      final vidAlbums = await PhotoManager.getAssetPathList(type: RequestType.video);
+      final vidAlbums = await PhotoManager.getAssetPathList(
+        type: RequestType.video,
+      );
       final filteredVidAlbums = <AssetPathEntity>[];
       for (final album in vidAlbums) {
         final count = await album.assetCountAsync;
@@ -988,7 +1070,9 @@ class MediaProvider extends ChangeNotifier {
     try {
       bool isStorageGranted = false;
       try {
-        isStorageGranted = await Permission.storage.isGranted || await Permission.manageExternalStorage.isGranted;
+        isStorageGranted =
+            await Permission.storage.isGranted ||
+            await Permission.manageExternalStorage.isGranted;
       } catch (_) {}
 
       if (!isStorageGranted) {
@@ -1116,7 +1200,14 @@ class MediaProvider extends ChangeNotifier {
     _documents = docs;
   }
 
-  static const List<String> _archiveExtensions = ['.zip', '.tar', '.gz', '.bz2', '.rar', '.7z'];
+  static const List<String> _archiveExtensions = [
+    '.zip',
+    '.tar',
+    '.gz',
+    '.bz2',
+    '.rar',
+    '.7z',
+  ];
   static const List<String> _apkExtensions = ['.apk', '.xapk', '.apks', '.aab'];
 
   Future<void> _loadArchivesDownloadsAndApks() async {
@@ -1125,7 +1216,10 @@ class MediaProvider extends ChangeNotifier {
     final apkList = <FileSystemEntity>[];
 
     // For downloads
-    final dlDirs = ['/storage/emulated/0/Download', '/storage/emulated/0/Downloads'];
+    final dlDirs = [
+      '/storage/emulated/0/Download',
+      '/storage/emulated/0/Downloads',
+    ];
     final customDlPaths = _customCategoryPaths['Downloads'] ?? [];
     final allDlDirs = {...dlDirs, ...customDlPaths};
     final excludedDl = _excludedDefaultPaths['Downloads'] ?? [];
@@ -1156,7 +1250,8 @@ class MediaProvider extends ChangeNotifier {
 
       await _scanDirectoryRecursively(
         dirPath,
-        (ext) => _archiveExtensions.contains(ext) || _apkExtensions.contains(ext),
+        (ext) =>
+            _archiveExtensions.contains(ext) || _apkExtensions.contains(ext),
         (file) {
           final ext = p.extension(file.path).toLowerCase();
           if (_archiveExtensions.contains(ext) && !isArchExcl) {
@@ -1211,10 +1306,16 @@ class MediaProvider extends ChangeNotifier {
     _customVideos = await _scanCustomPaths(videoPaths, FileUtils.isVideo);
 
     final screenshotPaths = _customCategoryPaths['Screenshots'] ?? [];
-    _customScreenshots = await _scanCustomPaths(screenshotPaths, FileUtils.isImage);
+    _customScreenshots = await _scanCustomPaths(
+      screenshotPaths,
+      FileUtils.isImage,
+    );
 
     final audioPaths = _customCategoryPaths['Audio'] ?? [];
-    final customAudFiles = await _scanCustomPaths(audioPaths, FileUtils.isAudio);
+    final customAudFiles = await _scanCustomPaths(
+      audioPaths,
+      FileUtils.isAudio,
+    );
     _audios.removeWhere((song) => song.id >= 900000);
     final existingAudioPaths = _audios.map((s) => s.data).toSet();
     for (int i = 0; i < customAudFiles.length; i++) {
@@ -1241,9 +1342,14 @@ class MediaProvider extends ChangeNotifier {
 
     // Documents custom path scan and merge
     final docPaths = _customCategoryPaths['Documents'] ?? [];
-    final customDocs = await _scanCustomPaths(docPaths, (ext) => _docExtensions.contains(ext));
+    final customDocs = await _scanCustomPaths(
+      docPaths,
+      (ext) => _docExtensions.contains(ext),
+    );
     _documents.removeWhere((entity) {
-      final isInCustomPath = docPaths.any((dir) => p.isWithin(dir, entity.path));
+      final isInCustomPath = docPaths.any(
+        (dir) => p.isWithin(dir, entity.path),
+      );
       if (isInCustomPath) {
         return !customDocs.any((f) => f.path == entity.path);
       }
@@ -1257,9 +1363,14 @@ class MediaProvider extends ChangeNotifier {
 
     // Archives custom path scan and merge
     final archPaths = _customCategoryPaths['Archives'] ?? [];
-    final customArch = await _scanCustomPaths(archPaths, (ext) => _archiveExtensions.contains(ext));
+    final customArch = await _scanCustomPaths(
+      archPaths,
+      (ext) => _archiveExtensions.contains(ext),
+    );
     _archives.removeWhere((entity) {
-      final isInCustomPath = archPaths.any((dir) => p.isWithin(dir, entity.path));
+      final isInCustomPath = archPaths.any(
+        (dir) => p.isWithin(dir, entity.path),
+      );
       if (isInCustomPath) {
         return !customArch.any((f) => f.path == entity.path);
       }
@@ -1273,9 +1384,14 @@ class MediaProvider extends ChangeNotifier {
 
     // APKs custom path scan and merge
     final apkPaths = _customCategoryPaths['APKs'] ?? [];
-    final customApks = await _scanCustomPaths(apkPaths, (ext) => _apkExtensions.contains(ext));
+    final customApks = await _scanCustomPaths(
+      apkPaths,
+      (ext) => _apkExtensions.contains(ext),
+    );
     _apks.removeWhere((entity) {
-      final isInCustomPath = apkPaths.any((dir) => p.isWithin(dir, entity.path));
+      final isInCustomPath = apkPaths.any(
+        (dir) => p.isWithin(dir, entity.path),
+      );
       if (isInCustomPath) {
         return !customApks.any((f) => f.path == entity.path);
       }
@@ -1303,7 +1419,9 @@ class MediaProvider extends ChangeNotifier {
       }
     }
     _downloads.removeWhere((entity) {
-      final isInCustomPath = customDlPaths.any((dir) => p.isWithin(dir, entity.path));
+      final isInCustomPath = customDlPaths.any(
+        (dir) => p.isWithin(dir, entity.path),
+      );
       if (isInCustomPath) {
         return !customDls.any((f) => f.path == entity.path);
       }
@@ -1316,7 +1434,10 @@ class MediaProvider extends ChangeNotifier {
     }
   }
 
-  Future<List<File>> _scanCustomPaths(List<String> paths, bool Function(String path) filter) async {
+  Future<List<File>> _scanCustomPaths(
+    List<String> paths,
+    bool Function(String path) filter,
+  ) async {
     final files = <File>[];
     for (final path in paths) {
       if (await Directory(path).exists()) {
@@ -1396,30 +1517,33 @@ class MediaProvider extends ChangeNotifier {
           '/storage/emulated/0/Documents',
         ]);
 
-        await Future.wait(pathsToScan.map((path) async {
-          final dir = Directory(path);
-          if (!await dir.exists()) return;
-          try {
-            final entities = await dir.list(recursive: false).toList();
-            for (final entity in entities) {
-              if (!seen.contains(entity.path)) {
-                seen.add(entity.path);
-                list.add(entity);
-              }
-              if (entity is Directory && !p.basename(entity.path).startsWith('.')) {
-                try {
-                  final sub = await entity.list(recursive: false).toList();
-                  for (final s in sub) {
-                    if (!seen.contains(s.path)) {
-                      seen.add(s.path);
-                      list.add(s);
+        await Future.wait(
+          pathsToScan.map((path) async {
+            final dir = Directory(path);
+            if (!await dir.exists()) return;
+            try {
+              final entities = await dir.list(recursive: false).toList();
+              for (final entity in entities) {
+                if (!seen.contains(entity.path)) {
+                  seen.add(entity.path);
+                  list.add(entity);
+                }
+                if (entity is Directory &&
+                    !p.basename(entity.path).startsWith('.')) {
+                  try {
+                    final sub = await entity.list(recursive: false).toList();
+                    for (final s in sub) {
+                      if (!seen.contains(s.path)) {
+                        seen.add(s.path);
+                        list.add(s);
+                      }
                     }
-                  }
-                } catch (_) {}
+                  } catch (_) {}
+                }
               }
-            }
-          } catch (_) {}
-        }));
+            } catch (_) {}
+          }),
+        );
       } catch (_) {}
     }
 
@@ -1452,29 +1576,35 @@ class MediaProvider extends ChangeNotifier {
     final filteredList = <FileSystemEntity>[];
     for (final entity in list) {
       if (entity is Directory) {
-        bool hasChild = list.any((o) => o.path != entity.path && p.isWithin(entity.path, o.path));
+        bool hasChild = list.any(
+          (o) => o.path != entity.path && p.isWithin(entity.path, o.path),
+        );
         if (hasChild) continue;
       }
       filteredList.add(entity);
     }
 
     final items = <FileItemModel>[];
-    await Future.wait(filteredList.map((f) async {
-      try {
-        if (f is Directory) return;
-        final name = p.basename(f.path);
-        if (name.startsWith('.')) return;
-        final stat = await f.stat();
-        items.add(FileItemModel(
-          entity: f,
-          name: name,
-          path: f.path,
-          isDirectory: false,
-          size: stat.size,
-          modified: stat.modified,
-        ));
-      } catch (_) {}
-    }));
+    await Future.wait(
+      filteredList.map((f) async {
+        try {
+          if (f is Directory) return;
+          final name = p.basename(f.path);
+          if (name.startsWith('.')) return;
+          final stat = await f.stat();
+          items.add(
+            FileItemModel(
+              entity: f,
+              name: name,
+              path: f.path,
+              isDirectory: false,
+              size: stat.size,
+              modified: stat.modified,
+            ),
+          );
+        } catch (_) {}
+      }),
+    );
 
     items.sort((a, b) => b.modified.compareTo(a.modified));
     _recentFiles = items;
@@ -1493,17 +1623,15 @@ class MediaProvider extends ChangeNotifier {
       _images.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
       _videos.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
       _screenshots.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
-      _audios.sort(
-          (a, b) => (b.dateAdded ?? 0).compareTo(a.dateAdded ?? 0));
+      _audios.sort((a, b) => (b.dateAdded ?? 0).compareTo(a.dateAdded ?? 0));
     } else if (_sortOrder == MediaSortOrder.oldest ||
-               _sortOrder == MediaSortOrder.oldestGrouped) {
+        _sortOrder == MediaSortOrder.oldestGrouped) {
       _images.sort((a, b) => a.createDateTime.compareTo(b.createDateTime));
       _videos.sort((a, b) => a.createDateTime.compareTo(b.createDateTime));
       _screenshots.sort((a, b) => a.createDateTime.compareTo(b.createDateTime));
-      _audios.sort(
-          (a, b) => (a.dateAdded ?? 0).compareTo(b.dateAdded ?? 0));
+      _audios.sort((a, b) => (a.dateAdded ?? 0).compareTo(b.dateAdded ?? 0));
     } else if (_sortOrder == MediaSortOrder.sizeLargest ||
-               _sortOrder == MediaSortOrder.sizeSmallest) {
+        _sortOrder == MediaSortOrder.sizeSmallest) {
       final isSmallest = _sortOrder == MediaSortOrder.sizeSmallest;
       _images.sort((a, b) {
         final aRes = a.width * a.height;
@@ -1540,7 +1668,8 @@ class MediaProvider extends ChangeNotifier {
 
         final aTime = (a as File).lastModifiedSync();
         final bTime = (b as File).lastModifiedSync();
-        return (_sortOrder == MediaSortOrder.oldest || _sortOrder == MediaSortOrder.oldestGrouped)
+        return (_sortOrder == MediaSortOrder.oldest ||
+                _sortOrder == MediaSortOrder.oldestGrouped)
             ? aTime.compareTo(bTime)
             : bTime.compareTo(aTime);
       } catch (_) {

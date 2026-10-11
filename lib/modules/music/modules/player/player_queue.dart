@@ -46,10 +46,10 @@ class PlayerQueue extends HookConsumerWidget {
     required this.playlist,
     required AudioPlayerNotifier notifier,
     super.key,
-  })  : onJump = notifier.jumpToTrack,
-        onRemove = notifier.removeTrack,
-        onReorder = notifier.moveTrack,
-        onStop = notifier.stop;
+  }) : onJump = notifier.jumpToTrack,
+       onRemove = notifier.removeTrack,
+       onReorder = notifier.moveTrack,
+       onStop = notifier.stop;
 
   @override
   Widget build(BuildContext context, ref) {
@@ -65,26 +65,25 @@ class PlayerQueue extends HookConsumerWidget {
 
     final tracks = playlist.tracks;
 
-    final filteredTracks = useMemoized(
-      () {
-        if (searchText.value.isEmpty) {
-          return tracks;
-        }
-        return tracks
-            .map((e) => (
-                  weightedRatio(
-                    '${e.name} - ${e.artists.asString()}',
-                    searchText.value,
-                  ),
-                  e
-                ))
-            .sorted((a, b) => b.$1.compareTo(a.$1))
-            .where((e) => e.$1 > 50)
-            .map((e) => e.$2)
-            .toList();
-      },
-      [tracks, searchText.value],
-    );
+    final filteredTracks = useMemoized(() {
+      if (searchText.value.isEmpty) {
+        return tracks;
+      }
+      return tracks
+          .map(
+            (e) => (
+              weightedRatio(
+                '${e.name} - ${e.artists.asString()}',
+                searchText.value,
+              ),
+              e,
+            ),
+          )
+          .sorted((a, b) => b.$1.compareTo(a.$1))
+          .where((e) => e.$1 > 50)
+          .map((e) => e.$2)
+          .toList();
+    }, [tracks, searchText.value]);
 
     if (tracks.isEmpty) {
       return const NotFound();
@@ -114,7 +113,7 @@ class PlayerQueue extends HookConsumerWidget {
                   }
                   isSearching.value = false;
                   searchText.value = '';
-                }
+                },
               },
               child: Column(
                 children: [
@@ -158,12 +157,14 @@ class PlayerQueue extends HookConsumerWidget {
                             children: [
                               const SizedBox(height: 12, width: 12),
                               ButtonTile(
-                                leading:
-                                    const Icon(SpotubeIcons.selectionCheck),
+                                leading: const Icon(
+                                  SpotubeIcons.selectionCheck,
+                                ),
                                 title: Text(context.l10n.select_all),
                                 onPressed: () {
-                                  selectedTrackIds.value =
-                                      filteredTracks.map((t) => t.id).toSet();
+                                  selectedTrackIds.value = filteredTracks
+                                      .map((t) => t.id)
+                                      .toSet();
                                   Navigator.pop(context);
                                 },
                               ),
@@ -172,8 +173,11 @@ class PlayerQueue extends HookConsumerWidget {
                                 title: Text(context.l10n.add_to_playlist),
                                 onPressed: () async {
                                   final selected = filteredTracks
-                                      .where((t) =>
-                                          selectedTrackIds.value.contains(t.id))
+                                      .where(
+                                        (t) => selectedTrackIds.value.contains(
+                                          t.id,
+                                        ),
+                                      )
                                       .toList();
                                   close();
                                   if (selected.isEmpty) return;
@@ -181,9 +185,9 @@ class PlayerQueue extends HookConsumerWidget {
                                     context: context,
                                     builder: (context) =>
                                         PlaylistAddTrackDialog(
-                                      tracks: selected,
-                                      openFromPlaylist: null,
-                                    ),
+                                          tracks: selected,
+                                          openFromPlaylist: null,
+                                        ),
                                   );
                                   if (res == true) {
                                     selectedTrackIds.value = {};
@@ -199,7 +203,8 @@ class PlayerQueue extends HookConsumerWidget {
                                   close();
                                   if (ids.isEmpty) return;
                                   await Future.wait(
-                                      ids.map((id) => onRemove(id)));
+                                    ids.map((id) => onRemove(id)),
+                                  );
                                   if (context.mounted) {
                                     selectedTrackIds.value = {};
                                     selectionMode.value = false;
@@ -261,7 +266,7 @@ class PlayerQueue extends HookConsumerWidget {
                         slivers: [
                           const SliverToBoxAdapter(child: SizedBox(height: 10)),
                           SliverReorderableList(
-                            onReorder: onReorder,
+                            onReorderItem: onReorder,
                             itemCount: filteredTracks.length,
                             onReorderStart: (index) {
                               HapticFeedback.selectionClick();
@@ -294,8 +299,9 @@ class PlayerQueue extends HookConsumerWidget {
                                   index: i,
                                   track: track,
                                   selectionMode: selectionMode.value,
-                                  selected:
-                                      selectedTrackIds.value.contains(track.id),
+                                  selected: selectedTrackIds.value.contains(
+                                    track.id,
+                                  ),
                                   onChanged: selectionMode.value
                                       ? (_) => toggleSelection(track.id)
                                       : null,
@@ -322,8 +328,9 @@ class PlayerQueue extends HookConsumerWidget {
                                         searchText.value.isEmpty &&
                                         !selectionMode.value)
                                       Padding(
-                                        padding:
-                                            const EdgeInsets.only(left: 8.0),
+                                        padding: const EdgeInsets.only(
+                                          left: 8.0,
+                                        ),
                                         child: ReorderableDragStartListener(
                                           index: i,
                                           child: const Icon(
@@ -336,7 +343,11 @@ class PlayerQueue extends HookConsumerWidget {
                               );
                             },
                           ),
-                          const SliverSafeArea(sliver: SliverToBoxAdapter(child: SizedBox(height: 100))),
+                          const SliverSafeArea(
+                            sliver: SliverToBoxAdapter(
+                              child: SizedBox(height: 100),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -353,7 +364,9 @@ class PlayerQueue extends HookConsumerWidget {
             icon: const Icon(SpotubeIcons.angleDown),
             style: IconButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-              foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+              foregroundColor: Theme.of(
+                context,
+              ).colorScheme.onSecondaryContainer,
             ),
             onPressed: () {
               controller.scrollToIndex(
@@ -362,7 +375,7 @@ class PlayerQueue extends HookConsumerWidget {
               );
             },
           ),
-        )
+        ),
       ],
     );
   }

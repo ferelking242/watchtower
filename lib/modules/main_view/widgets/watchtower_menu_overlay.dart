@@ -205,7 +205,6 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
 
   void _onReorder(List<String> order, int oldIdx, int newIdx) {
     final list = List<String>.from(order);
-    if (newIdx > oldIdx) newIdx--;
     list.insert(newIdx, list.removeAt(oldIdx));
     ref.read(navigationOrderStateProvider.notifier).set(list);
   }
@@ -553,7 +552,7 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
                             elevation: 0,
                             child: child,
                           ),
-                          onReorder: (oldIdx, newIdx) {
+                          onReorderItem: (oldIdx, newIdx) {
                             HapticFeedback.selectionClick();
                             _onReorder(navOrder, oldIdx, newIdx);
                           },
@@ -939,10 +938,9 @@ class _ReorderSheet extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 proxyDecorator: (child, index, animation) =>
                     Material(color: Colors.transparent, child: child),
-                onReorder: (oldIndex, newIndex) {
+                onReorderItem: (oldIndex, newIndex) {
                   HapticFeedback.selectionClick();
                   final list = List<String>.from(navOrder);
-                  if (newIndex > oldIndex) newIndex--;
                   list.insert(newIndex, list.removeAt(oldIndex));
                   ref.read(navigationOrderStateProvider.notifier).set(list);
                 },
