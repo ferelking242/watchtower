@@ -10,7 +10,6 @@ import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
 import 'package:lottie/lottie.dart';
 import 'package:watchtower/main.dart';
-import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
@@ -2299,7 +2298,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
           count++;
         } else if (f is GroupFilter) {
           // Recurse into grouped filters (e.g. tag-chips, genre groups)
-          count += _countActiveFilters(f.state as List<dynamic>);
+          count += _countActiveFilters(f.state);
         }
       } catch (_) {}
     }
@@ -2420,7 +2419,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                     child: Image.network(
                       src.iconUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(
+                      errorBuilder: (_, _, _) => Icon(
                         Icons.extension_rounded,
                         size: 18,
                         color: cs.primary,
@@ -2625,7 +2624,7 @@ class _SourcePickerSheet extends StatelessWidget {
                   controller: ctrl,
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   itemCount: sources.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
+                  separatorBuilder: (_, _) => const SizedBox(height: 4),
                   itemBuilder: (_, i) {
                     final src = sources[i];
                     return Material(
@@ -2666,7 +2665,7 @@ class _SourcePickerSheet extends StatelessWidget {
                                         child: Image.network(
                                           src.iconUrl!,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Icon(
+                                          errorBuilder: (_, _, _) => Icon(
                                             Icons.extension_rounded,
                                             size: 22,
                                             color: cs.primary,

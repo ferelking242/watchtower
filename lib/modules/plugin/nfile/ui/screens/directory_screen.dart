@@ -21,7 +21,6 @@ import '../widgets/selection_context_bottom_sheet.dart';
 import '../widgets/file_operation_progress_dialog.dart';
 import '../widgets/nfile_drawer.dart';
 import '../../core/icon_fonts/broken_icons.dart';
-import 'global_search_screen.dart';
 import 'internal_file_picker_screen.dart';
 import '../widgets/restricted_folder_banner.dart';
 import '../widgets/directory_tab_bar.dart';
@@ -1644,7 +1643,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                                     child: Row(
                                       children: [
                                         Icon(Broken.info_circle, size: 20),
-                                        const SizedBox(width: 12),
+                                        SizedBox(width: 12),
                                         Text(
                                           'Properties',
                                           style: TextStyle(

@@ -14,7 +14,6 @@ import 'package:watchtower/modules/music/modules/player/player_track_details.dar
 import 'package:watchtower/modules/music/modules/player/player_controls.dart';
 import 'package:watchtower/modules/music/modules/player/volume_slider.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
-import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
 

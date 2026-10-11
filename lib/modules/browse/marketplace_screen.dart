@@ -1656,7 +1656,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       height: 52,
       child: AnimatedBuilder(
         animation: _tabCtrl,
-        builder: (_, __) => ListView.builder(
+        builder: (_, _) => ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           itemCount: labels.length,
@@ -3922,7 +3922,7 @@ class _UpdateRow extends StatelessWidget {
                     width: 38,
                     height: 38,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_, _, _) => Container(
                       width: 38,
                       height: 38,
                       decoration: BoxDecoration(
@@ -5397,7 +5397,7 @@ class _BannerCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   width: double.infinity,
                   height: double.infinity,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorBuilder: (_, _, _) => Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [typeColor, compatColor],
@@ -5982,7 +5982,7 @@ class _ExtIcon extends StatelessWidget {
                               height: size,
                               radius: 12,
                             ),
-                      errorBuilder: (_, __, ___) => _fallback(cs, color),
+                      errorBuilder: (_, _, _) => _fallback(cs, color),
                     )
             : _fallback(cs, color),
       ),
@@ -6034,7 +6034,7 @@ class _SkeletonShimmerState extends State<_SkeletonShimmer>
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _anim,
-    builder: (_, __) => Container(
+    builder: (_, _) => Container(
       width: widget.width,
       height: widget.height,
       decoration: BoxDecoration(
@@ -8058,7 +8058,7 @@ class _MarketplaceSkeletonState extends State<_MarketplaceSkeleton>
   }) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
@@ -8294,7 +8294,7 @@ class _VersionHistorySheet extends StatelessWidget {
                 : ListView.separated(
                     controller: ctrl,
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    separatorBuilder: (_, __) => Divider(
+                    separatorBuilder: (_, _) => Divider(
                       height: 1,
                       indent: 16,
                       endIndent: 16,
@@ -9950,7 +9950,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
         scrollDirection: Axis.horizontal,
         itemCount: entries.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, index) {
           final entry = entries[index];
           final colors = index.isEven
@@ -10077,7 +10077,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         scrollDirection: Axis.horizontal,
         itemCount: languages.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, index) {
           final language = languages[index];
           final count = widget.entries
@@ -10383,7 +10383,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           scrollDirection: Axis.horizontal,
           itemCount: entries.length,
           addAutomaticKeepAlives: false,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
           itemBuilder: (_, index) => _StorePosterCard(
             entry: entries[index],
             installed: widget.installed.contains(entries[index].id),
@@ -10416,7 +10416,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           scrollDirection: Axis.horizontal,
           itemCount: entries.length,
           addAutomaticKeepAlives: false,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
           itemBuilder: (_, index) {
             final entry = entries[index];
             return _PlayStoreShelfCard(
@@ -11270,7 +11270,7 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
         padding: const EdgeInsets.symmetric(horizontal: 18),
         scrollDirection: Axis.horizontal,
         itemCount: labels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 26),
+        separatorBuilder: (_, _) => const SizedBox(width: 26),
         itemBuilder: (_, index) {
           final isSelected = index == selected;
           return GestureDetector(
@@ -11833,12 +11833,12 @@ class _PlayStoreIcon extends StatelessWidget {
                 url,
                 fit: BoxFit.contain,
                 placeholderBuilder: (_) => _fallback(),
-                errorBuilder: (_, __, ___) => _fallback(),
+                errorBuilder: (_, _, _) => _fallback(),
               )
             : Image.network(
                 url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _fallback(),
+                errorBuilder: (_, _, _) => _fallback(),
                 loadingBuilder: (_, child, progress) =>
                     progress == null ? child : _fallback(),
               ),

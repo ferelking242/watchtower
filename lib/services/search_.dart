@@ -4,7 +4,6 @@ import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'search_.g.dart';

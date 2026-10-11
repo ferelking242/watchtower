@@ -11,7 +11,6 @@ import 'package:watchtower/modules/music/components/heart_button/heart_button.da
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/links/link_text.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/components/track_tile/track_options_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/extensions/list.dart';

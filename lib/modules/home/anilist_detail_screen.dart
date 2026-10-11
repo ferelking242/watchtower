@@ -620,7 +620,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(0, 8, 0, 80),
           itemCount: d.staff.length,
-          separatorBuilder: (_, __) => Divider(
+          separatorBuilder: (_, _) => Divider(
             height: 1,
             thickness: 0.5,
             color: cs.outlineVariant.withValues(alpha: 0.2),
@@ -736,7 +736,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
           itemCount: d.recommendations.length,
-          separatorBuilder: (_, __) => Divider(
+          separatorBuilder: (_, _) => Divider(
             height: 1,
             thickness: 0.5,
             color: cs.outlineVariant.withValues(alpha: 0.2),
@@ -904,7 +904,7 @@ class _OverviewTabState extends State<_OverviewTab> {
         // ── Statistics box (collapsible) ───────────────────────────────────
         widget.detail.when(
           loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
           data: (d) => _StatsBox(
             media: m,
             detail: d,
@@ -968,7 +968,7 @@ class _OverviewTabState extends State<_OverviewTab> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: m.genres.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (_, i) => _GenreCategoryCard(genre: m.genres[i]),
             ),
           ),
@@ -978,7 +978,7 @@ class _OverviewTabState extends State<_OverviewTab> {
         // ── Relations ──────────────────────────────────────────────────────
         widget.detail.when(
           loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
           data: (d) {
             if (d.relations.isEmpty) return const SizedBox.shrink();
             return Column(
@@ -991,7 +991,7 @@ class _OverviewTabState extends State<_OverviewTab> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: d.relations.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (_, i) {
                       final r = d.relations[i];
                       return SizedBox(
@@ -1020,7 +1020,7 @@ class _OverviewTabState extends State<_OverviewTab> {
         // ── Recommendations preview ─────────────────────────────────────────
         widget.detail.when(
           loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
           data: (d) {
             if (d.recommendations.isEmpty) return const SizedBox.shrink();
             return Column(
@@ -1033,7 +1033,7 @@ class _OverviewTabState extends State<_OverviewTab> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: d.recommendations.take(8).length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (_, i) {
                       final r = d.recommendations[i];
                       return SizedBox(
@@ -1164,7 +1164,7 @@ class _EpisodeHoursBox extends ConsumerWidget {
     final progress = ref.watch(localAnimeProgressProvider(media)).when(
           data: (value) => value,
           loading: () => fallback,
-          error: (_, __) => fallback,
+          error: (_, _) => fallback,
         );
     final displayedTotal = progress.total > 0 ? progress.total : total;
     final percentage = progress.fraction * 100;
@@ -1572,7 +1572,7 @@ class _CharactersWithFilterState extends State<_CharactersWithFilter> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               scrollDirection: Axis.horizontal,
               itemCount: langs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
                 final lang = langs[i];
                 final selected = lang == _selectedLang;
@@ -1621,7 +1621,7 @@ class _CharactersWithFilterState extends State<_CharactersWithFilter> {
           child: ListView.separated(
             padding: const EdgeInsets.only(bottom: 80),
             itemCount: filtered.length,
-            separatorBuilder: (_, __) => Divider(
+            separatorBuilder: (_, _) => Divider(
               height: 1,
               thickness: 0.5,
               color: cs.outlineVariant.withValues(alpha: 0.2),
@@ -2153,7 +2153,7 @@ class _ActivitiesTabState extends ConsumerState<_ActivitiesTab> {
                     return ListView.separated(
                       padding: const EdgeInsets.only(bottom: 80),
                       itemCount: list.length,
-                      separatorBuilder: (_, __) => Divider(
+                      separatorBuilder: (_, _) => Divider(
                         height: 1,
                         thickness: 0.5,
                         color: cs.outlineVariant.withValues(alpha: 0.2),
@@ -2222,8 +2222,8 @@ class _ActivityShimmer extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(12, 14, 12, 80),
         itemCount: 6,
-        separatorBuilder: (_, __) => const SizedBox(height: 18),
-        itemBuilder: (_, __) => Row(
+        separatorBuilder: (_, _) => const SizedBox(height: 18),
+        itemBuilder: (_, _) => Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const CircleAvatar(radius: 18),
@@ -3470,7 +3470,7 @@ class _EpisodeRowState extends State<_EpisodeRow> {
                             ? Image.network(
                                 ep.image ?? widget.media.bestCover!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
+                                errorBuilder: (_, _, _) =>
                                     const _EpisodePlaceholder(),
                               )
                             : const _EpisodePlaceholder(),

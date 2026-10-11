@@ -18,7 +18,6 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/utils/mock_isar.dart';
-import 'package:watchtower/utils/mock_web_data.dart';
 import 'package:watchtower/remote/remote_web_sync.dart'
     if (dart.library.io) 'package:watchtower/remote/remote_web_sync_stub.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
@@ -44,7 +43,6 @@ import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart'
     show hasPendingExtensionUpdate, installExtensionUpdate;
-import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/src/rust/frb_generated.dart';
 import 'package:watchtower/utils/discord_rpc.dart';

@@ -18,7 +18,6 @@ import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/backup_compression.dart';
-import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:path/path.dart' as p;
 part 'backup.g.dart';

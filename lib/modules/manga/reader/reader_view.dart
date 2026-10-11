@@ -27,7 +27,6 @@ import 'package:watchtower/modules/manga/reader/widgets/page_indicator.dart';
 import 'package:watchtower/modules/manga/reader/widgets/image_actions_dialog.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/utils/riverpod.dart';
 import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';

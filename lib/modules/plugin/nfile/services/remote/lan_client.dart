@@ -103,7 +103,7 @@ class LanClient implements RemoteClient {
     return discovered;
   }
 
-  String get _storageKey => '$_smbPrefix${host}_${port}';
+  String get _storageKey => '$_smbPrefix${host}_$port';
 
   @override
   Future<void> connect() async {

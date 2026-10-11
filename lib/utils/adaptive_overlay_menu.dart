@@ -276,7 +276,7 @@ class _OverlayPanel extends StatelessWidget {
 
     return AnimatedBuilder(
       animation: animation,
-      builder: (_, __) => Stack(
+      builder: (_, _) => Stack(
         children: [
           // ── Barrier: close on tap outside ──────────────────────────────
           Positioned.fill(

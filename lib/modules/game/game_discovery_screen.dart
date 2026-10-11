@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/models/manga.dart';
 
 class GameDiscoveryScreen extends ConsumerStatefulWidget {
   const GameDiscoveryScreen({super.key});
@@ -47,7 +46,7 @@ class _GameDiscoveryScreenState extends ConsumerState<GameDiscoveryScreen> {
                   vertical: 6,
                 ),
                 itemCount: _platforms.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, i) {
                   final p = _platforms[i];
                   final selected = _selectedPlatform == i;

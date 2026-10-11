@@ -69,7 +69,7 @@ class SourceRow extends StatelessWidget {
                   width: 26,
                   height: 26,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _fallbackIcon(cs),
+                  errorBuilder: (_, _, _) => _fallbackIcon(cs),
                 ),
               )
             else

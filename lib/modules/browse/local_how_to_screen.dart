@@ -209,7 +209,7 @@ class LocalHowToScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _BulletPoint(
-                  'Ouvre la source "${_typeName} Local" dans Browse → Sources pour voir tes fichiers.',
+                  'Ouvre la source "$_typeName Local" dans Browse → Sources pour voir tes fichiers.',
                 ),
                 const SizedBox(height: 4),
                 _BulletPoint(

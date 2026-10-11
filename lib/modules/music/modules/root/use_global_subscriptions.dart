@@ -3,8 +3,6 @@ import 'dart:async';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
-import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/modules/metadata_plugins/plugin_update_available_dialog.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/updater/update_checker.dart';

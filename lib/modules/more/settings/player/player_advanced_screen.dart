@@ -1,7 +1,6 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';

@@ -1,5 +1,4 @@
 import 'package:watchtower/eval/model/m_bridge.dart';
-import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/update.dart';

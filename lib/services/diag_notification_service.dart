@@ -219,7 +219,7 @@ class DiagNotificationService {
   String _fmt(int ms) {
     if (ms < 1000) return '${ms}ms';
     final s = ms ~/ 1000;
-    if (s < 60) return '${s}.${(ms % 1000) ~/ 100}s';
+    if (s < 60) return '$s.${(ms % 1000) ~/ 100}s';
     return '${s ~/ 60}m${(s % 60).toString().padLeft(2, "0")}s';
   }
 }

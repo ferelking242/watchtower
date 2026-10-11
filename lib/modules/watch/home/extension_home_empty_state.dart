@@ -732,7 +732,7 @@ class _ExtensionAppleRefreshDotsState extends State<_ExtensionAppleRefreshDots>
       height: 34,
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           final phase = _controller.value * math.pi * 2;
           return Stack(
             alignment: Alignment.center,

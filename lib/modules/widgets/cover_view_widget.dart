@@ -56,7 +56,7 @@ class CoverViewWidget extends StatelessWidget {
                               child: Image(
                                 image: image!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const ColoredBox(
+                                errorBuilder: (_, _, _) => const ColoredBox(
                                   color: Color(0xFF1C1C1E),
                                 ),
                               ),

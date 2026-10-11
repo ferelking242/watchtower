@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/blacklist_provider.dart';

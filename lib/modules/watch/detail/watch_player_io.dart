@@ -6,17 +6,12 @@
 import 'dart:async';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:watchtower/modules/watch/detail/watch_progress_key.dart';
 import 'package:watchtower/services/watch_resume_store.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -30,8 +25,6 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/modules/more/settings/player/player_overview_screen.dart';
 import 'package:watchtower/services/get_video_list.dart';
-import 'package:watchtower/utils/extensions/chapter.dart';
-import 'package:watchtower/widgets/watchtower_loader.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player controls use the Broken/Iconsax pack
 import 'package:cached_network_image/cached_network_image.dart';
@@ -560,7 +553,7 @@ class WatchInlinePlayer {
         SizedBox.expand(
           child: ValueListenableBuilder<BoxFit>(
             valueListenable: fitNotifier,
-            builder: (_, fit, __) => Video(
+            builder: (_, fit, _) => Video(
               controller: _controller,
               fit: fit,
               controls: NoVideoControls,
@@ -690,7 +683,7 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
             SizedBox.expand(
               child: ValueListenableBuilder<BoxFit>(
                 valueListenable: _fitNotifier,
-                builder: (_, fit, __) => Transform(
+                builder: (_, fit, _) => Transform(
                   alignment: Alignment.center,
                   transform: Matrix4.identity()
                     ..scaleByDouble(_pinchScale, _pinchScale, _pinchScale, 1.0)
@@ -1328,7 +1321,7 @@ class _FullscreenControlsOverlayState
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemCount: speeds.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (_, i) {
                       final s = speeds[i];
                       final sel = s == _speed;
@@ -1917,7 +1910,7 @@ class _FullscreenControlsOverlayState
                       // Vignette position cible (style YouTube)
                       ValueListenableBuilder<Uint8List?>(
                         valueListenable: _thumbPreview.frame,
-                        builder: (_, frame, __) => frame == null
+                        builder: (_, frame, _) => frame == null
                             ? const SizedBox.shrink()
                             : Container(
                                 margin: const EdgeInsets.only(bottom: 8),
@@ -2710,7 +2703,7 @@ class _FullscreenControlsOverlayState
                     child: IgnorePointer(
                       child: ValueListenableBuilder<Uint8List?>(
                         valueListenable: _thumbPreview.frame,
-                        builder: (_, frame, __) => Column(
+                        builder: (_, frame, _) => Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             if (frame != null)
@@ -5004,7 +4997,7 @@ class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
                       // Vignette position cible (style YouTube)
                       ValueListenableBuilder<Uint8List?>(
                         valueListenable: _thumbPreview.frame,
-                        builder: (_, frame, __) => frame == null
+                        builder: (_, frame, _) => frame == null
                             ? const SizedBox.shrink()
                             : Container(
                                 margin: const EdgeInsets.only(bottom: 8),
@@ -5327,7 +5320,7 @@ class _InlineControlsState extends State<_InlineControls> {
                             child: IgnorePointer(
                               child: ValueListenableBuilder<Uint8List?>(
                                 valueListenable: _thumbPreview.frame,
-                                builder: (_, frame, __) => Column(
+                                builder: (_, frame, _) => Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
@@ -5582,7 +5575,7 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
       return Center(
         child: ValueListenableBuilder<bool>(
           valueListenable: widget.seekingNotifier,
-          builder: (_, seeking, __) => seeking
+          builder: (_, seeking, _) => seeking
               ? const SizedBox.shrink()
               : const _BufferingDotsIndicator(), // bufferFrac omitted → no % label in inline banner
         ),
@@ -6268,7 +6261,7 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                             imageUrl: coverUrl!,
                             fit: BoxFit.cover,
                             fadeInDuration: Duration.zero,
-                            errorWidget: (_, __, ___) => const Center(
+                            errorWidget: (_, _, _) => const Center(
                               child: Icon(
                                 Broken.video,
                                 color: Colors.white24,
@@ -6554,7 +6547,7 @@ class _PlayerJumpingDotsState extends State<_PlayerJumpingDots>
       children: List.generate(3, (i) {
         return AnimatedBuilder(
           animation: _anims[i],
-          builder: (_, __) => Transform.translate(
+          builder: (_, _) => Transform.translate(
             offset: Offset(0, _anims[i].value),
             child: Container(
               width: 7,
@@ -6742,7 +6735,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
     final topPad = MediaQuery.of(context).padding.top;
     final botPad = MediaQuery.of(context).padding.bottom;
     return PopScope(
-      onPopInvokedWithResult: (_, __) {
+      onPopInvokedWithResult: (_, _) {
         SystemChrome.setPreferredOrientations([]);
       },
       child: Scaffold(
@@ -6924,7 +6917,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                     width: 34,
                                     height: 46,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
+                                    errorBuilder: (_, _, _) =>
                                         const SizedBox(width: 34, height: 46),
                                   ),
                                 ),

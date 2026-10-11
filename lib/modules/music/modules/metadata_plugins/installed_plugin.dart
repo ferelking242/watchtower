@@ -522,7 +522,7 @@ import 'dart:io';
           loadingBuilder: (_, child, progress) => progress == null
               ? child
               : _placeholder(context),
-          errorBuilder: (_, __, ___) => _placeholder(context),
+          errorBuilder: (_, _, _) => _placeholder(context),
         ),
       );
     }

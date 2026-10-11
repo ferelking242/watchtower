@@ -1,12 +1,10 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart' show PlaylistMode;
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/models/music_models.dart';
-import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';

@@ -459,10 +459,8 @@ class ArchiveService {
         newArchiveBytes = ZipEncoder().encode(archive);
       }
 
-      if (newArchiveBytes != null) {
-        archiveFile.writeAsBytesSync(newArchiveBytes);
-        return true;
-      }
+      archiveFile.writeAsBytesSync(newArchiveBytes);
+      return true;
       return false;
     } catch (e) {
       debugPrint('Error adding to archive: $e');
@@ -571,10 +569,8 @@ class ArchiveService {
         newArchiveBytes = ZipEncoder().encode(newArchive);
       }
 
-      if (newArchiveBytes != null) {
-        archiveFile.writeAsBytesSync(newArchiveBytes);
-        return true;
-      }
+      archiveFile.writeAsBytesSync(newArchiveBytes);
+      return true;
       return false;
     } catch (e) {
       debugPrint('Error deleting from archive: $e');

@@ -107,7 +107,7 @@ class FsWatcher {
       type: type,
       path: path,
       destPath: event is FileSystemMoveEvent
-          ? (event as FileSystemMoveEvent).destination
+          ? (event).destination
           : null,
       timestamp: DateTime.now().millisecondsSinceEpoch,
     ));

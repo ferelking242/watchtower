@@ -101,7 +101,7 @@ class ServerPlaybackRoutes {
                 .future,
           );
 
-    return sourcedTrack as SourcedTrack?;
+    return sourcedTrack;
   }
 
   Future<dio_lib.Response> streamTrackInformation(

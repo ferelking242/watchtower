@@ -14,8 +14,6 @@ import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/extension_worker_count.dart';
 import 'package:watchtower/utils/log/log.dart';
 import 'package:watchtower/utils/log/logger.dart';
-import 'package:watchtower/utils/constant.dart';
-import 'package:watchtower/models/settings.dart';
 
 class _IsolateData {
   final SendPort sendPort;
@@ -328,7 +326,7 @@ class GetIsolateService {
                 if (result is List) {
                   resultSummary = '${result.length} item(s)';
                 } else if (result is MPages) {
-                  resultSummary = '${(result as MPages).list?.length ?? 0} items';
+                  resultSummary = '${(result).list?.length ?? 0} items';
                 } else {
                   resultSummary = result.runtimeType.toString();
                 }
@@ -522,7 +520,7 @@ class GetIsolateService {
         // per-source queue so a retry does not hang behind this request.
         unawaited(
           _restartWorker(worker).catchError(
-            (Object _, StackTrace __) {},
+            (Object _, StackTrace _) {},
           ),
         );
       }

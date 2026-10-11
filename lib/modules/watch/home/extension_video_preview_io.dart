@@ -159,7 +159,7 @@ class _PreviewUnavailable extends StatelessWidget {
         Image.network(
           imageUrl!,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
         ),
       ColoredBox(
         color: Colors.black.withValues(alpha: .72),

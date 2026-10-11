@@ -1,7 +1,6 @@
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
-import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'extensions_provider.g.dart';

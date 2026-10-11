@@ -406,8 +406,8 @@ class SharedSearchShimmerList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: rows,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, __) =>
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (_, _) =>
           SizedBox(height: 76, child: AppShimmerBlock(radius: 14)),
     );
   }

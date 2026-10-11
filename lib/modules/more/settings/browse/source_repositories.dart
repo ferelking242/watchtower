@@ -7,7 +7,6 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -639,7 +638,7 @@ class _SourceRepositoriesBodyState
             },
           );
         },
-        error: (_, __) {
+        error: (_, _) {
           _entries = [];
           return Center(
             child: Padding(

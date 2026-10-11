@@ -7,7 +7,6 @@ import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
-import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/episode_card.dart'
     as home_episode;

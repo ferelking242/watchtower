@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:watchtower/main.dart';
 import 'dart:ui';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';

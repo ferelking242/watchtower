@@ -32,7 +32,6 @@ import 'package:watchtower/services/anime_extractors/your_upload_extractor.dart'
 import 'package:watchtower/utils/cryptoaes/crypto_aes.dart';
 import 'package:watchtower/utils/cryptoaes/deobfuscator.dart';
 import 'package:watchtower/utils/cryptoaes/js_unpacker.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';

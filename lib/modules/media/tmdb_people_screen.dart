@@ -224,7 +224,7 @@ class _CastCrewPeopleList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
       physics: const BouncingScrollPhysics(),
       itemCount: count,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (_, index) {
         final castPerson = crew ? null : details.cast[index];
         final crewPerson = crew ? details.crew[index] : null;
@@ -1279,7 +1279,7 @@ class _PersonAboutTab extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: images.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, index) => _PersonImage(path: images[index]),
             ),
           ),

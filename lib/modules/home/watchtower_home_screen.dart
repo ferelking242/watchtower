@@ -23,7 +23,6 @@ import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_production_sections.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
-import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -831,12 +830,12 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
   // ── TV Court ──────────────────────────────────────────────────────────────
 
   List<Widget> _tvCourtTab(BuildContext ctx, AnilistHome home) {
-    final shorts = [
+    final shorts = <AnilistMedia>{
       ...home.recentlyUpdatedAnimes.where((m) => m.format == 'TV_SHORT'),
       ...home.trendingAnimes.where(
         (m) => (m.episodes ?? 99) <= 13 && m.format != 'MOVIE',
       ),
-    ].toSet().toList();
+    }.toList();
 
     if (shorts.isEmpty) {
       return _promoTab(
@@ -1123,7 +1122,7 @@ class _TitleBarState extends State<_TitleBar>
               onTap: widget.onAvatarTap,
               child: AnimatedBuilder(
                 animation: _ring,
-                builder: (_, __) => SizedBox(
+                builder: (_, _) => SizedBox(
                   width: 50,
                   height: 50,
                   child: CustomPaint(
@@ -1471,7 +1470,7 @@ class _Row extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => PosterCard(
                 key: ValueKey(items[i].id ?? i),
                 item: ContentItem.fromAnilist(items[i]),
@@ -1528,7 +1527,7 @@ class _MixedRow extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => i == 0
                   ? FeaturedDiscoveryCard(
                       media: items[i],
@@ -1589,7 +1588,7 @@ class _RankedRow extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => RankedDiscoveryCard(
                 media: items[i],
                 rank: i + 1,
@@ -1768,7 +1767,7 @@ class _SagaRow extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (_, i) => SagaDiscoveryCard(
                 media: items[i],
                 onTap: () => onTap(items[i]),
@@ -1815,7 +1814,7 @@ class _LandscapeRow extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (_, i) => LandscapeDiscoveryCard(
                 media: items[i],
                 onTap: () => onTap(items[i]),
@@ -1874,7 +1873,7 @@ class _AsiaChips extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: chips.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
               final (flag, label, type, genre) = chips[i];
               return GestureDetector(
@@ -1976,7 +1975,7 @@ class _ContinueWatchingSection extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, index) {
               final media = items[index];
               final progress = 0.15 + (index % 7) * 0.12;
@@ -2213,7 +2212,7 @@ class _TmdbRow extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) {
                 final media = items[i];
                 final source = 'home-poster-${title.hashCode}-$i';
@@ -2456,7 +2455,7 @@ class _TmdbTonightImage extends StatelessWidget {
     return Image.network(
       image,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => ColoredBox(color: background),
+      errorBuilder: (_, _, _) => ColoredBox(color: background),
     );
   }
 }
@@ -2495,7 +2494,7 @@ class _TmdbLandscapeRow extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (_, i) {
                 final media = items[i];
                 final source = 'home-landscape-${title.hashCode}-$i';
@@ -2548,7 +2547,7 @@ class _TmdbRankedRow extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
                 final media = items[i];
                 final source = 'home-ranked-${title.hashCode}-$i';

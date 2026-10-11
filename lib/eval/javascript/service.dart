@@ -1,6 +1,5 @@
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
@@ -758,7 +757,7 @@ function extLog(level, msg) {
     }
 
     final raw = promised.stringResult;
-    if (raw == null || raw.isEmpty) {
+    if (raw.isEmpty) {
       _extError(
         '$_id · $method returned empty/null after ${sw.elapsedMilliseconds}ms '
         '← extension JS returned undefined or null',

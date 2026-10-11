@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/state.dart';

@@ -1,4 +1,3 @@
-import 'package:auto_route/annotations.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/modules/player/player_queue.dart';

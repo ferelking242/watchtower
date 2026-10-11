@@ -1,4 +1,4 @@
-library metadata_objects;
+library;
 
 import 'dart:io';
 import 'dart:typed_data';

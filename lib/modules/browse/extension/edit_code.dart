@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:json_view/json_view.dart';
@@ -13,7 +12,6 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/app_font_family.dart';
-import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/isolate_service.dart';

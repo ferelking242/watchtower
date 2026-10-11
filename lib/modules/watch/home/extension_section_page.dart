@@ -19,7 +19,6 @@ import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/extension_page_cache.dart';
-import 'package:watchtower/utils/cached_network.dart';
 
 /// Paginated destination for a layout section's "All" action.
 class ExtensionSectionPage extends ConsumerStatefulWidget {

@@ -94,7 +94,7 @@ class FolderItem extends StatelessWidget {
                                   width: 38 * iconScale,
                                   height: 38 * iconScale,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(
+                                  errorBuilder: (_, _, _) => Icon(
                                     FileUtils.getFolderIcon(folderIconOption, useMaterial: useMaterialIcons),
                                     color: theme.colorScheme.primary,
                                     size: 28 * iconScale,

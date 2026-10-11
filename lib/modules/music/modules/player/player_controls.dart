@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/collections/intents.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
-import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/extensions/duration.dart';
 import 'package:watchtower/modules/music/modules/player/use_progress.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
@@ -186,7 +185,7 @@ class PlayerControls extends HookConsumerWidget {
                           ? null
                           : () async {
                               await audioPlayer.setLoopMode(
-                                switch (loopMode as PlaylistMode) {
+                                switch (loopMode) {
                                   PlaylistMode.loop => PlaylistMode.single,
                                   PlaylistMode.single => PlaylistMode.none,
                                   PlaylistMode.none => PlaylistMode.loop,

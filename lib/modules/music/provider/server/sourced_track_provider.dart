@@ -19,10 +19,10 @@ class SourcedTrackNotifier
     // state has a value (first fetch complete) do we invalidate and re-fetch
     // with the new settings.  This eliminates the triple YouTube URL fetch
     // that was visible at startup in the logs.
-    ref.listen(audioSourcePluginProvider, (_, __) {
+    ref.listen(audioSourcePluginProvider, (_, _) {
       if (state.valueOrNull != null) ref.invalidateSelf();
     });
-    ref.listen(audioSourcePresetsProvider, (_, __) {
+    ref.listen(audioSourcePresetsProvider, (_, _) {
       if (state.valueOrNull != null) ref.invalidateSelf();
     });
 

@@ -36,7 +36,7 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
     final dragDelta = useState(0.0);
 
     ref.listen(navigationPanelHeight, (_, height) {
-      shouldShow.value = (height as double).ceil() == 50;
+      shouldShow.value = (height).ceil() == 50;
     });
 
     if (!canShow || !shouldShow.value) return const SizedBox.shrink();

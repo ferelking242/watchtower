@@ -8,7 +8,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
-import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/dialogs/playlist_add_track_dialog.dart';
 import 'package:watchtower/modules/music/components/fallbacks/not_found.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:archive/archive_io.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart' hide Category;
-import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/eval/model/source_preference.dart';

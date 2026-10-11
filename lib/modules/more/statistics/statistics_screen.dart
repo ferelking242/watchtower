@@ -5,7 +5,6 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/more/statistics/statistics_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/item_type_filters.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'dart:math' as math;

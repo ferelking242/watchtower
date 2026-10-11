@@ -256,7 +256,7 @@ class _HeroHeader extends ConsumerWidget {
                     ),
                   ),
                   loading: () => const SizedBox(height: 16),
-                  error: (_, __) => const SizedBox(height: 16),
+                  error: (_, _) => const SizedBox(height: 16),
                 ),
               ],
             ),
@@ -535,7 +535,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                                 ],
                               ),
                               loading: () => const SizedBox.shrink(),
-                              error: (_, __) => const SizedBox.shrink(),
+                              error: (_, _) => const SizedBox.shrink(),
                             ),
                           ),
                           // ── Namida theme toggle ───────────────────────

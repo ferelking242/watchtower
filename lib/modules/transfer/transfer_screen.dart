@@ -1,15 +1,11 @@
 import 'dart:async';
-import 'dart:math';
 
-import 'package:extended_image/extended_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/services/transfer/transfer_library.dart';
 import 'package:watchtower/services/transfer/transfer_models.dart';
 import 'package:watchtower/services/transfer/transfer_notifier.dart';
-import 'package:watchtower/services/transfer/transfer_server.dart';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const _bg         = Color(0xFF080B10);
@@ -435,7 +431,7 @@ class _RoomTopBar extends ConsumerWidget {
           // Active indicator
           AnimatedBuilder(
             animation: pulseCtrl,
-            builder: (_, __) {
+            builder: (_, _) {
               final glow = Tween<double>(begin: 0.4, end: 1.0)
                   .evaluate(CurvedAnimation(
                       parent: pulseCtrl, curve: Curves.easeInOut));
@@ -588,7 +584,7 @@ class _EmptyPeers extends StatelessWidget {
         children: [
           AnimatedBuilder(
             animation: pulseCtrl,
-            builder: (_, __) {
+            builder: (_, _) {
               final t = Tween<double>(begin: 0.3, end: 0.8)
                   .evaluate(CurvedAnimation(
                       parent: pulseCtrl, curve: Curves.easeInOut));
@@ -1332,7 +1328,7 @@ class _WifiRingsIconState extends State<_WifiRingsIcon>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) => CustomPaint(
+      builder: (_, _) => CustomPaint(
         size: const Size(120, 120),
         painter: _WifiRingsPainter(_ctrl.value),
       ),

@@ -77,12 +77,12 @@
     // ── Bootstrap ─────────────────────────────────────────────────────────────
 
     void _bootstrap() {
-      final bk = '__wt_${_instanceId}';
+      final bk = '__wt_$_instanceId';
 
       // Install the sendMessage bridge + async eval helper via <script> injection.
       _injectScript('''
   (function(){
-    var k="${bk}";
+    var k="$bk";
     if(window[k])return;
     var p={},s=0;
     window[k]={p:p,
@@ -172,15 +172,15 @@
     }
 
     void _evalResolve(int id, String result) {
-      final bk = '__wt_${_instanceId}';
+      final bk = '__wt_$_instanceId';
       final enc = _jsStringify(result.toJS)?.toDart ?? jsonEncode(result);
-      _jsEval('(function(){var b=window["${bk}"];if(!b)return;var e=b.p[$id];if(!e)return;delete b.p[$id];e.rs($enc);})()'.toJS);
+      _jsEval('(function(){var b=window["$bk"];if(!b)return;var e=b.p[$id];if(!e)return;delete b.p[$id];e.rs($enc);})()'.toJS);
     }
 
     void _evalReject(int id, String error) {
-      final bk = '__wt_${_instanceId}';
+      final bk = '__wt_$_instanceId';
       final enc = _jsStringify(error.toJS)?.toDart ?? jsonEncode(error);
-      _jsEval('(function(){var b=window["${bk}"];if(!b)return;var e=b.p[$id];if(!e)return;delete b.p[$id];e.rj(new Error($enc));})()'.toJS);
+      _jsEval('(function(){var b=window["$bk"];if(!b)return;var e=b.p[$id];if(!e)return;delete b.p[$id];e.rj(new Error($enc));})()'.toJS);
     }
 
     // ── JavascriptRuntime interface ───────────────────────────────────────────
@@ -188,7 +188,7 @@
     @override
     void dispose() {
       _channels.clear();
-      _jsEval('delete window["__wt_${_instanceId}"];'.toJS);
+      _jsEval('delete window["__wt_$_instanceId"];'.toJS);
     }
 
     /// Runs [code] via <script> injection — class/var/function declarations
@@ -261,7 +261,7 @@
     }
 
     @override
-    String getEngineInstanceId() => 'web-browser-${_instanceId}';
+    String getEngineInstanceId() => 'web-browser-$_instanceId';
 
     @override
     void setInspectable(bool inspectable) {}

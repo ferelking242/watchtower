@@ -1,7 +1,6 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar_community/isar.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';

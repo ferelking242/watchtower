@@ -1,4 +1,3 @@
-import 'package:isar_community/isar.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/settings.dart';

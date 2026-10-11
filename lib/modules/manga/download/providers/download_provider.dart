@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'dart:ui';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +18,6 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/download/providers/convert_to_cbz.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
-import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -52,7 +50,6 @@ import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/services/download_manager/background_keep_alive.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 part 'download_provider.g.dart';
@@ -810,7 +807,7 @@ class _VideoList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       shrinkWrap: true,
       itemCount: videos.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (_, _) =>
           Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
       itemBuilder: (_, i) {
         final v = videos[i];
@@ -1327,7 +1324,7 @@ Future<void> downloadChapter(
           ArchiveProgressStore.instance.set(
             chapterIdForProgress,
             done: 0,
-            total: pageUrls.length == 0 ? 1 : pageUrls.length,
+            total: pageUrls.isEmpty ? 1 : pageUrls.length,
           );
         }
         await convertToMangaArchive(
@@ -2402,11 +2399,11 @@ Future<void> downloadChapter(
           DownloadSettingsService.instance.mangaArchiveFormat;
       var archiveFileExist = false;
       if (archiveFormat != MangaArchiveFormat.folder) {
-        for (final extension in [
+        for (final extension in {
           archiveFormat.extension,
           '.cbz',
           '.zip',
-        ].toSet()) {
+        }) {
           if (await File(
             p.join(mangaMainDirectory!.path, '${chapter.name}$extension'),
           ).exists()) {

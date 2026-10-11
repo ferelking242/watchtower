@@ -23,7 +23,7 @@ Future<void> showExtensionVideoPreview({
                 height: 150,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
           const SizedBox(height: 12),

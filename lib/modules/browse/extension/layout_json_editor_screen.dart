@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';

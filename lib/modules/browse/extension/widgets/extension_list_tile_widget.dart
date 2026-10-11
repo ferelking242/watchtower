@@ -8,7 +8,6 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/changed.dart';
-import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';

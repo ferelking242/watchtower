@@ -1,15 +1,7 @@
-import 'dart:async';
 
 import 'package:app_links/app_links.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/routes.dart';
-import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/router/music_app_router.dart';
-import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
-import 'package:flutter_sharing_intent/model/sharing_file.dart';
-import 'package:watchtower/modules/music/services/logger/logger.dart';
-import 'package:watchtower/modules/music/utils/platform.dart';
 
 final appLinks = AppLinks();
 final linkStream = appLinks.stringLinkStream.asBroadcastStream();

@@ -289,7 +289,6 @@ class MockIsarCollection<OBJ> extends IsarCollection<OBJ> {
               (obj as dynamic).toJson() as Map<String, dynamic>?;
           if (json == null) return true;
           final prop = op.property;
-          if (prop == null) return true;
           final dynamic fieldValue = json[prop];
           switch (op.type) {
             case FilterConditionType.isNull:

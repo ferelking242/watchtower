@@ -239,7 +239,7 @@ class MediaLandscapeRail extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (_, index) => LandscapeCard(
               item: items[index],
               width: width,
@@ -286,7 +286,7 @@ class MediaRankedRail extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, index) => RankedCard(
               item: items[index],
               rank: index + 1,

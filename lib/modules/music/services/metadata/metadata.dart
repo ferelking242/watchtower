@@ -11,8 +11,6 @@ import 'package:pub_semver/pub_semver.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
-import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/services/metadata/errors/exceptions.dart';
 import 'package:watchtower/modules/music/services/metadata/apis/localstorage.dart';

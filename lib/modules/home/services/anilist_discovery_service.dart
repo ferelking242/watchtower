@@ -576,9 +576,7 @@ import 'dart:async';
   Future<AnilistHome> _fetchAnilistHome() async {
     try {
       final conn = await Connectivity().checkConnectivity();
-      final list = conn is List<ConnectivityResult>
-          ? conn
-          : <ConnectivityResult>[conn as ConnectivityResult];
+      final list = conn;
       if (list.isEmpty || list.every((c) => c == ConnectivityResult.none)) {
         throw const SocketException('No network connection');
       }
@@ -1165,8 +1163,8 @@ query ($mediaId: Int, $page: Int) {
   final list = (data['data']?['Page']?['activities'] as List?) ?? [];
   return list
       .whereType<Map>()
-      .where((a) => (a as Map).containsKey('id') && a['id'] != null)
-      .map((a) => AnilistActivity.fromJson((a as Map).cast<String, dynamic>()))
+      .where((a) => (a).containsKey('id') && a['id'] != null)
+      .map((a) => AnilistActivity.fromJson((a).cast<String, dynamic>()))
       .toList();
 }
 

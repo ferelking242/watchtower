@@ -21,7 +21,7 @@ Widget cachedNetworkImage({
       fit: fit,
       alignment: alignment ?? Alignment.center,
       filterQuality: FilterQuality.medium,
-      errorBuilder: (_, __, ___) => errorWidget,
+      errorBuilder: (_, _, _) => errorWidget,
     );
   }
   return ExtendedImage(
@@ -65,7 +65,7 @@ Widget cachedCompressedNetworkImage({
       fit: fit,
       alignment: alignment ?? Alignment.center,
       filterQuality: FilterQuality.medium,
-      errorBuilder: (_, __, ___) => errorWidget,
+      errorBuilder: (_, _, _) => errorWidget,
     );
   }
   return ExtendedImage(
@@ -129,7 +129,7 @@ class _SkeletonShimmerState extends State<_SkeletonShimmer>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         color: Color.lerp(_dark, _light, _anim.value),
       ),
     );

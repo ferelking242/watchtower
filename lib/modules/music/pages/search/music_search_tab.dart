@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/modules/music/models/music_models.dart';
-import 'package:watchtower/modules/music/providers/music_player_provider.dart';
-import 'package:watchtower/modules/music/widgets/music_playbutton_card.dart';
-import 'package:watchtower/modules/music/widgets/music_track_tile.dart';
-import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
 
 // ─── Search state ─────────────────────────────────────────────────────────────
 
@@ -109,7 +104,7 @@ class _MusicSearchTabState extends ConsumerState<MusicSearchTab> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             itemCount: _chips.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
               final selected = i == chipIdx;
               return GestureDetector(

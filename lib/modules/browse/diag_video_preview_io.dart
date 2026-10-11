@@ -61,7 +61,7 @@ class _DiagVideoPreviewState extends State<DiagVideoPreview> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: urls.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
               itemBuilder: (_, i) {
                 final u = urls[i];
                 final sel = _selectedIdx == i && _playing;

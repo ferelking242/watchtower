@@ -1,5 +1,4 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-  import 'dart:typed_data';
 
   import 'package:flutter/foundation.dart';
   import 'package:flutter/material.dart';

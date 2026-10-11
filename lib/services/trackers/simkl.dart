@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:collection/collection.dart';
-import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/models/manga.dart';

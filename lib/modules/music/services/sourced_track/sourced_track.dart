@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:collection/collection.dart';
-import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
@@ -10,7 +9,6 @@ import 'package:watchtower/modules/music/models/playback/track_sources.dart';
 import 'package:watchtower/modules/music/provider/database/database.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/audio_source/quality_presets.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
-import 'package:watchtower/modules/music/services/dio/dio.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:watchtower/modules/music/services/metadata/errors/exceptions.dart';
 

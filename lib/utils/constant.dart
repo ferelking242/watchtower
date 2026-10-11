@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/track.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/utils/constant.dart';
 
 /// Identifiant unique de l'objet Settings dans Isar.
 const kSettingsId = 227;

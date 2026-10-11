@@ -491,7 +491,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             ],
             if (_successCount > 0) ...[
               const SizedBox(width: 4),
-              _Badge(label: '${_successCount}✓', color: Colors.green),
+              _Badge(label: '$_successCount✓', color: Colors.green),
             ],
           ],
         ),
@@ -569,7 +569,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 value: 'overlay',
                 child: ValueListenableBuilder<bool>(
                   valueListenable: LogOverlayController.instance.visibleListenable,
-                  builder: (_, v, __) => ListTile(dense: true, leading: Icon(v ? Broken.monitor : Broken.video_slash, size: 18, color: v ? Colors.greenAccent : null), title: Text(v ? 'Cacher overlay' : 'Overlay live')),
+                  builder: (_, v, _) => ListTile(dense: true, leading: Icon(v ? Broken.monitor : Broken.video_slash, size: 18, color: v ? Colors.greenAccent : null), title: Text(v ? 'Cacher overlay' : 'Overlay live')),
                 ),
               ),
               PopupMenuItem(
@@ -967,7 +967,7 @@ class _ExtensionLogo extends StatelessWidget {
         width: 12,
         height: 12,
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => const Icon(
+        errorBuilder: (_, _, _) => const Icon(
           Broken.global,
           size: 10,
           color: Color(0xFF6366F1),

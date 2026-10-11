@@ -1,9 +1,7 @@
-import 'package:auto_route/annotations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
-import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/hooks/utils/use_palette_color.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';

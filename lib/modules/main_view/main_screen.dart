@@ -1,11 +1,8 @@
 import 'dart:async';
 import 'package:collection/collection.dart';
 import 'dart:math' as math;
-import 'dart:io'
-    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +10,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
-import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/models/source.dart';
@@ -21,15 +17,12 @@ import 'package:watchtower/modules/more/providers/downloaded_only_state_provider
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/modules/widgets/loading_icon.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/auto_backup.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/services/sync_server.dart';
-import 'package:watchtower/modules/media/app_ui_components.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
@@ -215,10 +208,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
     // Invalidate destination caches whenever nav display settings change so
     // the classic dock and desktop rail pick up the new values immediately.
-    ref.listen<bool>(navShowLabelsProvider, (_, __) => _clearCache());
-    ref.listen<double>(navIconSizeProvider, (_, __) => _clearCache());
-    ref.listen<double>(navItemSpacingProvider, (_, __) => _clearCache());
-    ref.listen<String>(navDockStyleProvider, (_, __) => _clearCache());
+    ref.listen<bool>(navShowLabelsProvider, (_, _) => _clearCache());
+    ref.listen<double>(navIconSizeProvider, (_, _) => _clearCache());
+    ref.listen<double>(navItemSpacingProvider, (_, _) => _clearCache());
+    ref.listen<String>(navDockStyleProvider, (_, _) => _clearCache());
     // Reset dock visibility whenever the route changes so pages with little
     // content (e.g. /plugins) never get stuck with a hidden dock.
     ref.listen<String?>(routerCurrentLocationStateProvider, (prev, next) {

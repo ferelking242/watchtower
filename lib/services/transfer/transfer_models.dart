@@ -1,4 +1,3 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 enum TransferMode { idle, room, receiving, sending }
 

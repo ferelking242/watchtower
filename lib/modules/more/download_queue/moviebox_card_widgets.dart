@@ -57,7 +57,7 @@ class MbThumb extends StatelessWidget {
           width: w,
           height: h,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => placeholder,
+          errorBuilder: (_, _, _) => placeholder,
         );
       } catch (_) {}
     } else if (imageUrl != null && imageUrl!.isNotEmpty) {

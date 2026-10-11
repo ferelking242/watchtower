@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -334,7 +333,7 @@ class _AllResultsList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
       itemCount: results.length + (loadingMore ? 1 : 0),
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         if (index >= results.length) {
           return const SizedBox(
@@ -402,7 +401,7 @@ class _MediaRow extends StatelessWidget {
                         width: 58,
                         height: 84,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           width: 58,
                           height: 84,
                           color: Colors.white10,
@@ -604,7 +603,7 @@ class _PeopleResultsList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
       itemCount: people.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) => _PersonRow(person: people[index]),
     );
   }
@@ -658,7 +657,7 @@ class _CollectionsResultsListState extends State<_CollectionsResultsList> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 120),
       itemCount: collections.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final c = collections[index];
         return Material(
@@ -688,7 +687,7 @@ class _CollectionsResultsListState extends State<_CollectionsResultsList> {
                             width: 58,
                             height: 84,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, _, _) => Container(
                               width: 58,
                               height: 84,
                               color: Colors.white10,

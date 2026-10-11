@@ -6,7 +6,6 @@ import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/dialogs/select_device_dialog.dart';
 import 'package:watchtower/modules/music/components/playbutton_view/playbutton_card.dart';
 import 'package:watchtower/modules/music/components/playbutton_view/playbutton_tile.dart';
-import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/connect/connect.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/querying_track_info.dart';

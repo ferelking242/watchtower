@@ -54,7 +54,7 @@ class _JumpingDotsLoaderState extends State<JumpingDotsLoader>
       children: List.generate(3, (i) {
         return AnimatedBuilder(
           animation: _anims[i],
-          builder: (_, __) => Transform.translate(
+          builder: (_, _) => Transform.translate(
             offset: Offset(0, _anims[i].value),
             child: Container(
               width: widget.size,
@@ -132,7 +132,7 @@ class _WatchtowerLoaderState extends State<WatchtowerLoader> {
                 'assets/animations/${widget.animation}.json',
                 repeat: widget.animation != 'success' && widget.animation != 'error',
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
             if (widget.percent != null) ...[

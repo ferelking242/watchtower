@@ -6,7 +6,6 @@ import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
 
 final _extensionCookiesProvider =
@@ -112,7 +111,7 @@ class ExtensionCookieManagerScreen extends ConsumerWidget {
           : ListView.separated(
               padding: const EdgeInsets.all(12),
               itemCount: entries.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final entry = entries[i];
                 return _CookieCard(

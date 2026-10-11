@@ -1359,7 +1359,7 @@ Future<List<TmdbMedia>> fetchTmdbCollectionItems(int collectionId) async {
       .whereType<Map>()
       .map(
         (e) => TmdbMedia.fromMovieJson(
-          Map<String, dynamic>.from(e as Map<dynamic, dynamic>),
+          Map<String, dynamic>.from(e),
         ),
       )
       .where((m) => m.posterPath != null)

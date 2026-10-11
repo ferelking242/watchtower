@@ -9,7 +9,6 @@ import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/album/album_card.dart';
 import 'package:watchtower/modules/music/modules/artist/artist_card.dart';
 import 'package:watchtower/modules/music/modules/playlist/playlist_card.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/browse/section_items.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/common.dart';
 

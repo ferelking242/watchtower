@@ -176,7 +176,7 @@ class _CreatorProfileScreenState
                   ? CachedNetworkImage(
                       imageUrl: widget.creatorAvatar,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => _DefaultAvatar(),
+                      errorWidget: (_, _, _) => _DefaultAvatar(),
                     )
                   : _DefaultAvatar(),
             ),
@@ -493,7 +493,7 @@ class _VideoThumb extends StatelessWidget {
               ? CachedNetworkImage(
                   imageUrl: img,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) =>
+                  errorWidget: (_, _, _) =>
                       ColoredBox(color: Colors.grey.shade200),
                 )
               : ColoredBox(color: Colors.grey.shade200),

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/file_manager_provider.dart';
@@ -2458,7 +2457,7 @@ Widget _buildIconOptionCard(
                 width: 56,
                 height: 56,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   width: 56,
                   height: 56,
                   color: Colors.grey.withValues(alpha: 0.2),

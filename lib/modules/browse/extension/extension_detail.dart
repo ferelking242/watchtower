@@ -11,7 +11,6 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/changed.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/manga.dart';
-import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/eval/lib.dart' show withExtensionService;
 import 'package:watchtower/eval/model/extension_account.dart';
@@ -25,7 +24,6 @@ import 'package:watchtower/services/get_source_preference.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/extension_session_manager.dart';
 import 'package:watchtower/utils/cached_network.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -364,7 +362,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       width: 44,
                       height: 44,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
+                      errorBuilder: (_, _, _) =>
                           Icon(Icons.person_rounded, color: colors.primary),
                     ),
                   )
@@ -440,7 +438,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                             width: 36,
                             height: 48,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Icon(
+                            errorBuilder: (_, _, _) => Icon(
                               Icons.book_outlined,
                               color: colors.onSurfaceVariant,
                             ),

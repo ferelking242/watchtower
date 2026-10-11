@@ -20,7 +20,6 @@ import 'package:watchtower/modules/music/modules/library/local_folder/cache_expo
 import 'package:watchtower/modules/music/pages/library/user_local_tracks/user_local_tracks.dart';
 import 'package:watchtower/modules/music/components/expandable_search/expandable_search.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/components/track_presentation/sort_tracks_dropdown.dart';
 import 'package:watchtower/modules/music/components/track_tile/track_tile.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';

@@ -517,7 +517,7 @@ class _MediaIndexTile extends StatelessWidget {
                       width: 42,
                       height: 56,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _kindIcon(
+                      errorBuilder: (_, _, _) => _kindIcon(
                         icon,
                         isUnknown,
                         colors,

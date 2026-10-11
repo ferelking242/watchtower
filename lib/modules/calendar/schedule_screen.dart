@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/calendar/providers/calendar_provider.dart';
-import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/fetch_interval.dart';
@@ -787,7 +785,7 @@ class _ScheduleItem extends ConsumerWidget {
                         image: imgProvider,
                         fit: BoxFit.cover,
                         gaplessPlayback: settings.disableImageTransitions,
-                        errorBuilder: (_, __, ___) => _PlaceholderCover(),
+                        errorBuilder: (_, _, _) => _PlaceholderCover(),
                       )
                     : _PlaceholderCover(),
               ),

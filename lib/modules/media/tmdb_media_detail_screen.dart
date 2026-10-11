@@ -684,7 +684,7 @@ class _MediaSection extends StatelessWidget {
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
                     itemCount: details.backdropPaths.take(3).length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
                     itemBuilder: (_, index) =>
                         _WallpaperCard(path: details.backdropPaths[index]),
                   ),
@@ -831,7 +831,7 @@ class _SeasonsSummary extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           itemCount: visibleSeasons.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          separatorBuilder: (_, _) => const SizedBox(width: 12),
           itemBuilder: (_, index) {
             final season = visibleSeasons[index];
             return SizedBox(
@@ -906,7 +906,7 @@ class _CastSection extends StatelessWidget {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: cast.take(12).length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          separatorBuilder: (_, _) => const SizedBox(width: 12),
           itemBuilder: (_, index) {
             final person = cast[index];
             return GestureDetector(
@@ -1219,7 +1219,7 @@ class _VideosSection extends StatelessWidget {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: videos.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          separatorBuilder: (_, _) => const SizedBox(width: 12),
           itemBuilder: (_, index) {
             final video = videos[index];
             return SizedBox(
@@ -1433,7 +1433,7 @@ class _RecommendationsSection extends StatelessWidget {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 11),
+          separatorBuilder: (_, _) => const SizedBox(width: 11),
           itemBuilder: (_, index) {
             final media = items[index];
             final source = 'recommendation-$index';

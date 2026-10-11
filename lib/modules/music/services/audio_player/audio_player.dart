@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -10,7 +9,6 @@ import 'dart:async';
 import 'package:media_kit/media_kit.dart' as mk;
 
 import 'package:watchtower/modules/music/services/audio_player/playback_state.dart';
-import 'package:watchtower/modules/music/utils/platform.dart';
 
 part 'audio_players_streams_mixin.dart';
 part 'audio_player_impl.dart';

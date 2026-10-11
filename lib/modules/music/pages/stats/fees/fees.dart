@@ -4,7 +4,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:watchtower/modules/music/collections/formatters.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/modules/stats/common/artist_item.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 

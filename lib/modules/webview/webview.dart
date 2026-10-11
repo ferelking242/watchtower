@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
@@ -24,7 +23,6 @@ import 'package:watchtower/modules/more/settings/general/providers/general_state
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/extension_session_manager.dart';
 import 'package:watchtower/utils/constant.dart';
-import 'package:watchtower/utils/global_style.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -1442,7 +1440,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                 'window.location.href',
               ) ??
               _url;
-          if (currentUrl is String && currentUrl.isNotEmpty) {
+          if (currentUrl.isNotEmpty) {
             _url = currentUrl;
           }
           final cookies = await _desktopWebview!.getAllCookies();
@@ -1453,7 +1451,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             final cookie =
                 cookies.map((e) => '${e.name}=${e.value}').join(';');
             await MClient.setCookie(
-              currentUrl is String && currentUrl.isNotEmpty ? currentUrl : _url,
+              currentUrl.isNotEmpty ? currentUrl : _url,
               ua2,
               null,
               cookie: cookie,
@@ -1473,7 +1471,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               if (decoded is Map) {
                 await ExtensionSessionManager.saveBrowserLocalStorage(
                   extensionId: widget.sourceId!,
-                  url: currentUrl is String && currentUrl.isNotEmpty
+                  url: currentUrl.isNotEmpty
                       ? currentUrl
                       : _url,
                   values: <String, String>{
@@ -1487,7 +1485,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           }
           if (widget.runWebViewMode && mounted) {
             setState(() {
-              if (currentUrl is String && currentUrl.isNotEmpty) {
+              if (currentUrl.isNotEmpty) {
                 _url = currentUrl;
               }
             });
@@ -4547,7 +4545,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
                 Image.network(
                   widget.thumbnailUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),
               // Live video on top
               Video(controller: _controller, controls: NoVideoControls),
@@ -4600,7 +4598,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
                   Image.network(
                     widget.thumbnailUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
                 // Live video
                 Video(controller: _controller, controls: NoVideoControls),

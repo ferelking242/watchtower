@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,8 +20,6 @@ import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
-import 'package:watchtower/utils/global_style.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_tree_connector.dart';
@@ -2072,7 +2069,7 @@ class _GroupedDownloadTabListState
       padding: const EdgeInsets.only(bottom: 80),
       buildDefaultDragHandles: false,
       itemCount: sources.length,
-      proxyDecorator: (child, _, __) => Material(
+      proxyDecorator: (child, _, _) => Material(
         color: Colors.transparent,
         elevation: 6,
         shadowColor: scheme.shadow.withValues(alpha: 0.4),
@@ -3255,7 +3252,7 @@ class _CoverThumbnail extends StatelessWidget {
             width: w,
             height: h,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => placeholder,
+            errorBuilder: (_, _, _) => placeholder,
           ),
         );
       } catch (_) {}

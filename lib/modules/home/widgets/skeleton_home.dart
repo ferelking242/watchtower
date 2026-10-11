@@ -426,8 +426,8 @@ class _FakeLandscapeRow extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: count,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (_, __) => ClipRRect(
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, _) => ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
@@ -516,7 +516,7 @@ class _FakeCardRow extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: count,
-              separatorBuilder: (_, __) =>
+              separatorBuilder: (_, _) =>
                   SizedBox(width: ranked ? 6 : 10),
               itemBuilder: (context, i) {
                 final w = firstWide && i == 0 ? cardWidth * 1.5 : cardWidth;

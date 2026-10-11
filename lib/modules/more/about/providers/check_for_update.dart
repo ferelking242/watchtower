@@ -1,5 +1,4 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:watchtower/core/config/app_config.dart';
 import 'dart:developer';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:flutter/foundation.dart';
@@ -9,7 +8,6 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/constant.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:github_release_apk_updater/github_release_apk_updater.dart';
 

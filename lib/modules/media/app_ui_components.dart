@@ -781,8 +781,8 @@ class AppMediaRowShimmer extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
         itemCount: 8,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, __) => SizedBox(
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (_, _) => SizedBox(
           width: cardWidth,
           child: Column(
             children: [
@@ -839,7 +839,7 @@ class AppMediaGridShimmer extends StatelessWidget {
           mainAxisSpacing: 16,
         ),
         itemCount: columns * 4,
-        itemBuilder: (_, __) => Column(
+        itemBuilder: (_, _) => Column(
           children: [
             AspectRatio(
               aspectRatio: AppUI.posterAspectRatio,
@@ -907,7 +907,7 @@ class AppGenreGridShimmer extends StatelessWidget {
               mainAxisSpacing: 12,
             ),
             itemCount: 8,
-            itemBuilder: (_, __) => const AppGenreTileShimmer(),
+            itemBuilder: (_, _) => const AppGenreTileShimmer(),
           ),
         ),
       ],
@@ -976,8 +976,8 @@ class AppStreamingServicesShimmer extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: 7,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, __) => const AppStreamingServiceTileShimmer(),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (_, _) => const AppStreamingServiceTileShimmer(),
           ),
         ),
       ],
@@ -1039,8 +1039,8 @@ class AppLandscapeRowShimmer extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         scrollDirection: Axis.horizontal,
         itemCount: 5,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, __) => SizedBox(
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (_, _) => SizedBox(
           width: 238,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1075,7 +1075,7 @@ class AppRankedRowShimmer extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         scrollDirection: Axis.horizontal,
         itemCount: 7,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (_, index) => SizedBox(
           width: 110,
           child: Column(

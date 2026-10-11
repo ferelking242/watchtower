@@ -244,7 +244,7 @@ class _EmptyState extends ConsumerWidget {
 
     return asyncHome.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (home) {
         final trending = home.trendingAnimes.take(14).toList();
         final topFilms = (List<AnilistMedia>.from(home.animeMovies)
@@ -322,7 +322,7 @@ class _EmptyState extends ConsumerWidget {
                         padding:
                             const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: trending.length,
-                        separatorBuilder: (_, __) =>
+                        separatorBuilder: (_, _) =>
                             const SizedBox(width: 8),
                         itemBuilder: (_, i) => GestureDetector(
                           onTap: () => onSearch(trending[i].displayTitle),
@@ -710,7 +710,7 @@ class _SearchResultList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: items.length,
-      separatorBuilder: (_, __) => Divider(
+      separatorBuilder: (_, _) => Divider(
           height: 1,
           color: cs.outlineVariant.withValues(alpha: 0.18),
           indent: 90),

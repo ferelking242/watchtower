@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -265,7 +264,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
     if (ms <= 0) return '';
     if (ms < 1000) return '${ms}ms';
     final s = ms ~/ 1000;
-    if (s < 60) return '${s}.${((ms % 1000) ~/ 100)}s';
+    if (s < 60) return '$s.${((ms % 1000) ~/ 100)}s';
     return '${s ~/ 60}m${(s % 60).toString().padLeft(2, "0")}s';
   }
 
@@ -731,7 +730,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                         ? 'Interrompu — $_done / $_total'
                         : _isComplete
                             ? 'Terminé · $_okCount OK · $_failCount erreur(s)'
-                            : '${_allSources.length} extensions · ${_selectedScopeCountOfAll} sélectionnées',
+                            : '${_allSources.length} extensions · $_selectedScopeCountOfAll sélectionnées',
                 style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1043,7 +1042,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
       itemCount: list.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 4),
+      separatorBuilder: (_, _) => const SizedBox(height: 4),
       itemBuilder: (_, i) {
         final s = list[i];
         final status = _displayStatus(s);
@@ -1065,9 +1064,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
               : 'En attente…';
         } else {
           final parts = <String>[];
-          if (s.sourceCodeLanguage != null) {
-            parts.add(s.sourceCodeLanguage!.name);
-          }
+          parts.add(s.sourceCodeLanguage!.name);
           if (s.isNsfw == true) parts.add('NSFW');
           if (s.hasCloudflare == true) parts.add('Cloudflare');
           subtitle = parts.join(' · ');
@@ -1208,7 +1205,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
                 itemCount: sorted.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                separatorBuilder: (_, _) => const SizedBox(height: 6),
                 itemBuilder: (_, i) {
                   final r = sorted[i];
                   return ResultCard(
@@ -1374,7 +1371,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${_selectedScopeCountOfAll} / ${_allSources.length} extensions sélectionnées pour le diagnostic',
+              '$_selectedScopeCountOfAll / ${_allSources.length} extensions sélectionnées pour le diagnostic',
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 14),
@@ -1813,7 +1810,7 @@ class _StatusCard extends StatelessWidget {
                       tween: Tween(begin: 0, end: progress),
                       duration: const Duration(milliseconds: 350),
                       curve: Curves.easeOutCubic,
-                      builder: (_, v, __) => LinearProgressIndicator(
+                      builder: (_, v, _) => LinearProgressIndicator(
                         value: v,
                         minHeight: 3,
                         backgroundColor: cs.surfaceContainerHighest,

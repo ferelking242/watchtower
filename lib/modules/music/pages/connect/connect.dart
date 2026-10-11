@@ -5,7 +5,6 @@ import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/modules/connect/local_devices.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/connect/clients.dart';
 

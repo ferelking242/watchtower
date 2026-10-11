@@ -5,7 +5,6 @@ import 'package:watchtower/eval/model/m_chapter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/remote/remote_web_sync.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';

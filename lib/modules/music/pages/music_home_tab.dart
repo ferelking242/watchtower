@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/music/models/music_models.dart';
 import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/widgets/music_playbutton_card.dart';
-import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
 
 // ─── Demo data provider (replace with real Spotify/extension calls) ───────────
 

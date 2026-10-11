@@ -7,7 +7,6 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
-import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 
 /// Novel tab — AniList-powered light-novel discover page (trending, popular,

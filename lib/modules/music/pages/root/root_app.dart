@@ -19,7 +19,7 @@ class RootAppPage extends HookConsumerWidget {
     final backgroundColor = theme.scaffoldBackgroundColor;
     final brightness = theme.brightness;
 
-    ref.listen(glanceProvider, (_, __) {});
+    ref.listen(glanceProvider, (_, _) {});
     useGlobalSubscriptions(ref);
     useEndlessPlayback(ref);
     useCheckYtDlpInstalled(ref);

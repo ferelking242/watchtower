@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
   import 'package:watchtower/services/aniskip.dart';
   import 'package:watchtower/utils/chapter_recognition.dart';
   import 'package:watchtower/utils/constant.dart';
-  import 'package:watchtower/utils/riverpod.dart';
   import 'package:riverpod_annotation/riverpod_annotation.dart';
   part 'anime_player_controller_provider.g.dart';
 

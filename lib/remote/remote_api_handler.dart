@@ -10,10 +10,8 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/page.dart';
-import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
-import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
@@ -22,7 +20,6 @@ import 'package:watchtower/services/page_url_cache.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/services/get_detail.dart';
-import 'package:watchtower/utils/constant.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 Response _json(Object data, {int status = 200}) => Response(

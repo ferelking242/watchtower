@@ -328,14 +328,14 @@ class _MediaThumbnailState extends State<_MediaThumbnail> {
         final ext = extIndex != -1 ? nameLower.substring(extIndex) : '';
         if (ext.isNotEmpty) {
           final baseName = nameLower.substring(0, extIndex);
-          if (titleLower == baseName || '${titleLower}${ext}' == nameLower) {
+          if (titleLower == baseName || '$titleLower$ext' == nameLower) {
             return true;
           }
         }
         
         // Case 3: Match via mimeType
         final mimeExt = v.mimeType?.split("/").last.toLowerCase();
-        if (mimeExt != null && '${titleLower}.$mimeExt' == nameLower) {
+        if (mimeExt != null && '$titleLower.$mimeExt' == nameLower) {
           return true;
         }
         

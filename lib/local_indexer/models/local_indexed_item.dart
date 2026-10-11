@@ -84,15 +84,15 @@ class LocalIndexedItem {
   /// Ex : "S01E05", "Ch.12 Vol.2", "Film"
   String get episodeKey {
     if (chapter != null) {
-      final v = volume != null ? ' Vol.${volume}' : '';
-      final p = part != null ? ' Pt.${part}' : '';
-      return 'Ch.${chapter}$v$p';
+      final v = volume != null ? ' Vol.$volume' : '';
+      final p = part != null ? ' Pt.$part' : '';
+      return 'Ch.$chapter$v$p';
     }
-    if (volume != null) return 'Vol.${volume}';
+    if (volume != null) return 'Vol.$volume';
     if (episode != null) {
       final s = season?.toString().padLeft(2, '0') ?? '01';
       final e = episode!.toString().padLeft(2, '0');
-      return 'S${s}E${e}';
+      return 'S${s}E$e';
     }
     if (kind == LocalMediaKind.movie) return 'Film';
     return '';

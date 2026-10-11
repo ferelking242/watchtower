@@ -77,7 +77,7 @@ class ExtensionServiceRegistry {
 
     current.then<void>(
       (_) => _removeQueueIfIdle(key, queue, current),
-      onError: (Object _, StackTrace __) =>
+      onError: (Object _, StackTrace _) =>
           _removeQueueIfIdle(key, queue, current),
     );
     return result.future;
@@ -113,7 +113,7 @@ class ExtensionServiceRegistry {
 
     queue.tail.then<void>(
       (_) => _dispose(svc),
-      onError: (Object _, StackTrace __) => _dispose(svc),
+      onError: (Object _, StackTrace _) => _dispose(svc),
     );
   }
 
@@ -137,7 +137,7 @@ class ExtensionServiceRegistry {
       } else {
         queue.tail.then<void>(
           (_) => _dispose(service),
-          onError: (Object _, StackTrace __) => _dispose(service),
+          onError: (Object _, StackTrace _) => _dispose(service),
         );
       }
     }

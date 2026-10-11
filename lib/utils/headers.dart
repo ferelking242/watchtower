@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:watchtower/eval/javascript/http.dart';
 import 'package:watchtower/eval/lib.dart';
-import 'package:watchtower/models/source.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:share_plus/share_plus.dart';
 import '../../providers/file_manager_provider.dart';
 import '../../providers/media_provider.dart';
 import '../../models/file_item_model.dart';

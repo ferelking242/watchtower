@@ -304,7 +304,7 @@ class _MediaRow extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 scrollDirection: Axis.horizontal,
                 itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 11),
+                separatorBuilder: (_, _) => const SizedBox(width: 11),
                 itemBuilder: (_, index) {
                   final media = items[index];
                   final source = 'media-hub-${title.hashCode}-$index';

@@ -13,7 +13,6 @@ import 'package:watchtower/modules/music/modules/player/volume_slider.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/links/anchor_button.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/extensions/duration.dart';

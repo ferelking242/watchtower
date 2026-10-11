@@ -332,7 +332,7 @@ Future<List<ExtDiagResult>> runDiagnosticsForSources(
   if (cancelled) {
     onLog?.call('${_nowTime()}  └─ CANCELLED ── $ok OK · $failed FAIL · ${results.length} analysée(s) · ${_formatDuration(sw.elapsedMilliseconds)}');
   } else {
-    onLog?.call('${_nowTime()}  └─ DONE ── $ok OK · $failed FAIL · ${rate}% · ${_formatDuration(sw.elapsedMilliseconds)}');
+    onLog?.call('${_nowTime()}  └─ DONE ── $ok OK · $failed FAIL · $rate% · ${_formatDuration(sw.elapsedMilliseconds)}');
   }
 
   return results;
@@ -350,7 +350,7 @@ String _formatDuration(int ms) {
   if (ms < 1000) return '${ms}ms';
   final s = ms ~/ 1000;
   final rem = ms % 1000;
-  if (s < 60) return '${s}.${(rem ~/ 100)}s';
+  if (s < 60) return '$s.${(rem ~/ 100)}s';
   return '${s ~/ 60}m${(s % 60).toString().padLeft(2, "0")}s';
 }
 

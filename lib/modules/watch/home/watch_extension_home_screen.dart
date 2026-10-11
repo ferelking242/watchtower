@@ -31,7 +31,6 @@ import 'package:watchtower/services/search.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/modules/watch/home/extension_person_route.dart';
 import 'package:watchtower/modules/search/extension_search_screen.dart';
-import 'package:watchtower/modules/watch/home/extension_section_page.dart';
 import 'package:watchtower/modules/watch/home/extension_video_preview.dart';
 import 'package:watchtower/modules/watch/home/gallery_component_renderer.dart';
 import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.dart';
@@ -2229,8 +2228,8 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
               ),
               scrollDirection: Axis.horizontal,
               itemCount: 7,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, __) => const SizedBox(
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (_, _) => const SizedBox(
                 width: 84,
                 height: 32,
                 child: AppShimmerBlock(radius: 18),
@@ -2727,7 +2726,7 @@ class _ExtensionLandscapeRail extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (_, index) => LandscapeCard(
               item: ContentItem.fromManga(items[index]),
               width: width,
@@ -2773,7 +2772,7 @@ class _ExtensionRankedRail extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, index) => RankedCard(
               item: ContentItem.fromManga(items[index]),
               rank: index + 1,
@@ -3094,7 +3093,7 @@ class _ExtensionCollectionCardRail extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (_, index) => _ExtensionCollectionCard(
               item: items[index],
               onTap: () => onOpen(items[index]),
@@ -3396,7 +3395,7 @@ class _ExtensionCollectionRail extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, index) {
               final item = items[index];
               return ActionChip(
@@ -4043,8 +4042,8 @@ class ExtensionCollectionCardShimmer extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
         scrollDirection: Axis.horizontal,
         itemCount: 4,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, __) => const SizedBox(
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (_, _) => const SizedBox(
           width: 190,
           height: 112,
           child: AppShimmerBlock(radius: 15),

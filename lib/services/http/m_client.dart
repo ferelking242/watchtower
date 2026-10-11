@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'dart:async';
@@ -13,7 +12,6 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/services/http/io_client_stub.dart'
     if (dart.library.io) 'package:http/io_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
-import 'package:watchtower/utils/log/log.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/services/http/rhttp/rhttp.dart' as rhttp;
 import 'package:watchtower/services/http/doh/doh_resolver.dart';

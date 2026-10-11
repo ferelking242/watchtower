@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +11,6 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/watch/reel/creator_profile_screen.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
@@ -468,7 +466,7 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
                   horizontal: 12,
                   vertical: 6,
                 ),
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemCount: _kNiches.length,
                 itemBuilder: (ctx, i) {
                   final sel = i == _selNiche;
@@ -620,9 +618,9 @@ class _ExplorerCard extends StatelessWidget {
                     ? CachedNetworkImage(
                         imageUrl: img,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) =>
+                        placeholder: (_, _) =>
                             const ColoredBox(color: Color(0xFFEEEEEE)),
-                        errorWidget: (_, __, ___) =>
+                        errorWidget: (_, _, _) =>
                             const ColoredBox(color: Color(0xFFEEEEEE)),
                       )
                     : const ColoredBox(color: Color(0xFFEEEEEE)),
@@ -881,7 +879,7 @@ class _CreatorCard extends StatelessWidget {
                     ? CachedNetworkImage(
                         imageUrl: bannerUrl,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) =>
+                        errorWidget: (_, _, _) =>
                             ColoredBox(color: Colors.grey.shade200),
                       )
                     : ColoredBox(color: Colors.grey.shade200),
@@ -908,7 +906,7 @@ class _CreatorCard extends StatelessWidget {
                               ? CachedNetworkImage(
                                   imageUrl: img,
                                   fit: BoxFit.cover,
-                                  errorWidget: (_, __, ___) => Container(
+                                  errorWidget: (_, _, _) => Container(
                                     color: Colors.grey.shade300,
                                     child: const Icon(
                                       Icons.person,
@@ -1152,7 +1150,7 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
     final url =
         (d?['hd'] as String?) ??
         (d?['sd'] as String?) ??
-        '${widget.source.baseUrl ?? ''}';
+        widget.source.baseUrl ?? '';
     SharePlus.instance.share(ShareParams(text: url));
   }
 
@@ -1374,7 +1372,7 @@ class _ReelPage extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: img,
               fit: BoxFit.cover,
-              errorWidget: (_, __, ___) =>
+              errorWidget: (_, _, _) =>
                   const ColoredBox(color: Colors.black),
             )
           else
@@ -1518,7 +1516,7 @@ class _AvatarFollow extends StatelessWidget {
                   ? CachedNetworkImage(
                       imageUrl: avatarUrl,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => _DefaultAvatar(),
+                      errorWidget: (_, _, _) => _DefaultAvatar(),
                     )
                   : _DefaultAvatar(),
             ),
@@ -1603,7 +1601,7 @@ class _SourceDisk extends StatelessWidget {
                 ? CachedNetworkImage(
                     imageUrl: iconUrl,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => const Icon(
+                    errorWidget: (_, _, _) => const Icon(
                       Icons.extension,
                       color: Colors.white54,
                       size: 20,
@@ -1815,7 +1813,7 @@ class _SourceRow extends StatelessWidget {
                 ? CachedNetworkImage(
                     imageUrl: iconUrl,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => const Icon(
+                    errorWidget: (_, _, _) => const Icon(
                       Icons.extension,
                       color: Colors.white54,
                       size: 12,

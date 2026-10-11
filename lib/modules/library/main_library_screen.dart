@@ -6,7 +6,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:isar_community/isar.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/category.dart';
@@ -15,10 +14,8 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
-import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
-import 'package:watchtower/modules/library/widgets/library_settings_sheet.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
@@ -26,7 +23,6 @@ import 'package:watchtower/modules/more/categories/providers/isar_providers.dart
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
-import 'package:watchtower/utils/global_style.dart';
 
 // ─── Design tokens (resolved from theme at build time) ─────────────────────
 // cs.outlineVariant and _kTextSecondary replaced with cs.outlineVariant / cs.onSurfaceVariant
@@ -512,7 +508,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         : (cats.length >= _selectedCatIndex
               ? cats[_selectedCatIndex - 1].id
               : null);
-    final int extCatId = selectedCatId == null ? -1 : selectedCatId;
+    final int extCatId = selectedCatId ?? -1;
 
     return SafeArea(
       bottom: false,

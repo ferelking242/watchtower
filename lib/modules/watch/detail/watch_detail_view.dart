@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -6,13 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
@@ -20,7 +16,6 @@ import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
-import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/get_video_list.dart';
@@ -28,12 +23,9 @@ import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
-import 'package:watchtower/models/settings.dart';
-import 'package:watchtower/services/recommendation.dart';
 import 'package:watchtower/modules/watch/detail/language_display.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -269,7 +261,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         .when(
           data: (list) => list.reversed.toList(),
           loading: () => widget.manga.chapters.toList().reversed.toList(),
-          error: (_, __) => <Chapter>[],
+          error: (_, _) => <Chapter>[],
         );
 
     _maybeStartVideo(chapters);
@@ -319,7 +311,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 right: 0,
                 child: ValueListenableBuilder<bool>(
                   valueListenable: _player.controlsVisible,
-                  builder: (_, controlsVis, __) => AnimatedOpacity(
+                  builder: (_, controlsVis, _) => AnimatedOpacity(
                     opacity: controlsVis ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 250),
                     child: IgnorePointer(
@@ -335,7 +327,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           Expanded(
                             child: ValueListenableBuilder<double>(
                               valueListenable: _headerTitleOpacity,
-                              builder: (_, opacity, __) => Opacity(
+                              builder: (_, opacity, _) => Opacity(
                                 opacity: opacity,
                                 child: Text(
                                   widget.manga.name ?? '',
@@ -455,7 +447,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         // vertical/short-form content (e.g. MovieBox "TV courte").
         ValueListenableBuilder<bool>(
           valueListenable: _player.isPortraitFormat,
-          builder: (_, isReel, __) {
+          builder: (_, isReel, _) {
             if (!isReel || !_player.hasVideoUrl) return const SizedBox.shrink();
             final chapter = chapters.firstWhere(
               (c) => c.id == _player.loadedChapterId,
@@ -2186,7 +2178,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: galleryUrls.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (_, i) => ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: cachedNetworkImage(
@@ -2249,7 +2241,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: castNames.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                separatorBuilder: (_, _) => const SizedBox(width: 14),
                 itemBuilder: (ctx, i) {
                   final name = castNames[i];
                   final initials = name
@@ -2516,7 +2508,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               childAspectRatio: 0.62,
             ),
             itemCount: 9,
-            itemBuilder: (_, __) => _SkeletonBox(radius: 8, aspect: null),
+            itemBuilder: (_, _) => _SkeletonBox(radius: 8, aspect: null),
           );
         }
         final recs = snap.data;
@@ -3749,7 +3741,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                             imageUrl: chapter.thumbnailUrl!,
                             fit: BoxFit.cover,
                             fadeInDuration: Duration.zero,
-                            errorWidget: (_, __, ___) => Container(
+                            errorWidget: (_, _, _) => Container(
                               color: _bg,
                               child: Center(
                                 child: Text(epLabel,
@@ -4740,7 +4732,7 @@ class _SkeletonBoxState extends State<_SkeletonBox>
 
     Widget box = AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: widget.w,
         height: widget.h,
         decoration: BoxDecoration(
@@ -4793,7 +4785,7 @@ class _LoadingBannerPulseState extends State<_LoadingBannerPulse>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         color: Colors.black.withValues(alpha: _anim.value),
         child: const Center(
           child: _ThreeDotsAnimation(),
@@ -4848,7 +4840,7 @@ class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
       children: List.generate(3, (i) {
         return AnimatedBuilder(
           animation: _anims[i],
-          builder: (_, __) => Transform.translate(
+          builder: (_, _) => Transform.translate(
             offset: Offset(0, _anims[i].value),
             child: Container(
               width: 7,

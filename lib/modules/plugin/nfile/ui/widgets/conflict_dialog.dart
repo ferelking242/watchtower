@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 import '../../core/icon_fonts/broken_icons.dart';
 import '../../core/utils.dart';
 

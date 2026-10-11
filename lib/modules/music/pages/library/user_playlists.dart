@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:collection/collection.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';

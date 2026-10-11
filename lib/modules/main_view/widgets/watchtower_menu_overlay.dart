@@ -1,5 +1,3 @@
-import 'dart:io'
-    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

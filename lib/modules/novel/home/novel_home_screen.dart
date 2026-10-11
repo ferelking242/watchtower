@@ -7,7 +7,6 @@ import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
-import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -20,9 +19,7 @@ import 'package:watchtower/services/extension_page_cache.dart';
 import 'package:watchtower/services/get_source_baseurl.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/services/supports_latest.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
-import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
@@ -31,7 +28,6 @@ import 'package:watchtower/services/anti_bot/anti_bot_detection.dart'
     show isCloudflareError;
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart'
     show extensionFailedUrl, extensionErrorTitle;
-import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/ui/widgets/see_all_button.dart';
 
@@ -277,7 +273,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(5),
             child: Image.network(source.iconUrl!, width: 20, height: 20, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                errorBuilder: (_, _, _) => const SizedBox.shrink()),
           ),
           const SizedBox(width: 8),
         ],
@@ -436,7 +432,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                 return _NovelBookCarousel(novels: items.take(10).toList(), source: source);
               },
               loading: () => _buildCarouselSkeleton(ctx),
-              error:   (_, __) => const SizedBox(height: 8),
+              error:   (_, _) => const SizedBox(height: 8),
             );
           }),
         ),
@@ -471,7 +467,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                 return data.when(
                   data:    (d) { final items = d?.list ?? []; return isTop ? _buildRankedRow(ctx, items) : _buildBookRow(ctx, items); },
                   loading: () => isTop ? _buildRankedRowSkeleton(ctx) : _buildBookRowSkeleton(ctx),
-                  error:   (_, __) => const SizedBox(height: 8),
+                  error:   (_, _) => const SizedBox(height: 8),
                 );
               }),
             ]),
@@ -492,7 +488,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                 return latest.when(
                   data:    (d) => _buildBookRow(ctx, d?.list ?? []),
                   loading: () => _buildBookRowSkeleton(ctx),
-                  error:   (_, __) => const SizedBox(height: 8),
+                  error:   (_, _) => const SizedBox(height: 8),
                 );
               }),
             ]),
@@ -539,7 +535,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                     gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
                     itemCount: 12,
-                    itemBuilder: (_, __) => Container(
+                    itemBuilder: (_, _) => Container(
                       decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
@@ -646,7 +642,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           itemCount: 6,
-          itemBuilder: (_, __) => Padding(
+          itemBuilder: (_, _) => Padding(
             padding: const EdgeInsets.only(right: 9),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Container(width: 108, height: 152,
@@ -689,7 +685,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           itemCount: 6,
-          itemBuilder: (_, __) => Padding(
+          itemBuilder: (_, _) => Padding(
             padding: const EdgeInsets.only(right: 4),
             child: SizedBox(width: 115, child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Container(width: 36, height: 52, color: base.withValues(alpha: 0.4)),
@@ -801,7 +797,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
         itemCount: 12,
-        itemBuilder: (_, __) => Container(
+        itemBuilder: (_, _) => Container(
           decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
         ),
       ),
@@ -1077,7 +1073,7 @@ class _NovelCarouselCard extends ConsumerWidget {
             // Cover
             imgUrl.isNotEmpty
                 ? Image(image: cover, fit: BoxFit.cover, alignment: Alignment.topCenter,
-                    errorBuilder: (_, __, ___) => _NoCover(title: title))
+                    errorBuilder: (_, _, _) => _NoCover(title: title))
                 : _NoCover(title: title),
 
             // Bottom gradient
@@ -1206,7 +1202,7 @@ class _NovelBookCard extends ConsumerWidget {
             child: Stack(fit: StackFit.expand, children: [
               imgUrl.isNotEmpty
                   ? Image(image: cover, fit: BoxFit.cover, alignment: Alignment.topCenter,
-                      errorBuilder: (_, __, ___) => _coverFallback())
+                      errorBuilder: (_, _, _) => _coverFallback())
                   : _coverFallback(),
               Positioned(bottom: 0, left: 0, right: 0,
                 child: Container(height: 28,
@@ -1283,7 +1279,7 @@ class _RankedBookCard extends ConsumerWidget {
             Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(8),
               child: imgUrl.isNotEmpty
                   ? Image(image: cover, fit: BoxFit.cover, width: double.infinity,
-                      errorBuilder: (_, __, ___) => _rankFallback())
+                      errorBuilder: (_, _, _) => _rankFallback())
                   : _rankFallback(),
             )),
             const SizedBox(height: 4),
@@ -1450,7 +1446,7 @@ class _SectionPageSkeleton extends StatelessWidget {
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
         itemCount: 12,
-        itemBuilder: (_, __) => Container(
+        itemBuilder: (_, _) => Container(
           decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
         ),
       ),

@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:html/parser.dart';
 import 'package:watchtower/eval/lib.dart';
 import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/utils.dart';

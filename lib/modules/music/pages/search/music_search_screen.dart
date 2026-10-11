@@ -6,8 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
-import 'package:watchtower/models/manga.dart';
-import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/browse/sections.dart';
@@ -481,7 +479,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: sections.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
                   itemBuilder: (_, i) => _SectionMoodCard(
                     section: sections[i],
                     gradient: _moodGradient(i),
@@ -504,7 +502,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
     return SliverToBoxAdapter(
       child: browseAsync.when(
         loading: () => const SizedBox.shrink(),
-        error: (_, __) => const SizedBox.shrink(),
+        error: (_, _) => const SizedBox.shrink(),
         data: (page) {
           if (page.items.isEmpty) return const SizedBox.shrink();
           final sections = page.items;
@@ -829,7 +827,7 @@ class _HorizontalSection<T> extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (_, i) {
               final item = items[i];
               final url = imageUrl(item);
@@ -1170,7 +1168,7 @@ class _PluginAvatar extends ConsumerWidget {
         return _InitialsAvatar(initials: initials, size: size);
       },
       loading: () => _InitialsAvatar(initials: initials, size: size),
-      error: (_, __) => _InitialsAvatar(initials: initials, size: size),
+      error: (_, _) => _InitialsAvatar(initials: initials, size: size),
     );
   }
 }

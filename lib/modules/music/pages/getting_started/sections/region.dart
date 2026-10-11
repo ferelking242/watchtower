@@ -26,7 +26,7 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
     final appLocale = Localizations.localeOf(context);
     useEffect(() {
       final current = preferences.locale;
-      if (current == null || current.languageCode == 'system') {
+      if (current.languageCode == 'system') {
         final match = L10n.all
             .where((l) => l.languageCode == appLocale.languageCode)
             .firstOrNull;

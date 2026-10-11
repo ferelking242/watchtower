@@ -961,7 +961,7 @@ class DiscoveryRow extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (_, i) => PosterCard(
               item: ContentItem.fromAnilist(items[i]),
               width: 116,

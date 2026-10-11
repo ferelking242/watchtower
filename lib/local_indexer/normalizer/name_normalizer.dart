@@ -44,7 +44,7 @@ class NormalizeResult {
   String toString() =>
       'NormalizeResult('
       'title=$title, key=$canonicalKey, kind=$kind, '
-      'S${season}E${episode}, Ch$chapter, '
+      'S${season}E$episode, Ch$chapter, '
       'q=$quality, codec=$codec, lang=$language, '
       'conf=${confidence.toStringAsFixed(2)}'
       ')';

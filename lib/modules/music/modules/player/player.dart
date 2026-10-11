@@ -14,7 +14,6 @@ import 'package:watchtower/modules/music/modules/player/player_controls.dart';
 import 'package:watchtower/modules/music/modules/player/volume_slider.dart';
 import 'package:watchtower/modules/music/components/dialogs/track_details_dialog.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
-import 'package:watchtower/modules/music/components/titlebar/titlebar.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -47,7 +46,7 @@ class PlayerView extends HookConsumerWidget {
     final shouldHide = useState(true);
 
     ref.listen(navigationPanelHeight, (_, height) {
-      shouldHide.value = (height as double).ceil() == 50;
+      shouldHide.value = (height).ceil() == 50;
     });
 
     if (shouldHide.value) {

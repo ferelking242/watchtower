@@ -9,7 +9,6 @@ import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/isar_writer_stage.dart';
 import 'package:watchtower/local_indexer/engine/watcher/android_media_store.dart';
 import 'package:watchtower/local_indexer/engine/watcher/fs_watcher.dart';
-import 'package:watchtower/local_indexer/models/local_file_cache.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/search/search_engine.dart';
 

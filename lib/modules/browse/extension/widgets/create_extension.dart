@@ -2,12 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 class CreateExtension extends ConsumerStatefulWidget {
   const CreateExtension({super.key});
@@ -180,7 +177,7 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                               width: 44,
                               height: 44,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
+                              errorBuilder: (_, _, _) => Container(
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(

@@ -377,9 +377,6 @@ class VaultService {
     // Encode the archive as a ZIP
     final zipEncoder = ZipEncoder();
     final zipBytes = zipEncoder.encode(archive);
-    if (zipBytes == null) {
-      throw Exception('Failed to zip directory contents');
-    }
 
     // Write zip to a temporary file
     final tempDir = await getTemporaryDirectory();

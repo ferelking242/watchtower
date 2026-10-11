@@ -1,4 +1,3 @@
-import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
@@ -13,7 +12,7 @@ String _fmtMs(int ms) {
   if (ms <= 0) return '—';
   if (ms < 1000) return '${ms}ms';
   final s = ms ~/ 1000;
-  if (s < 60) return '${s}.${((ms % 1000) ~/ 100)}s';
+  if (s < 60) return '$s.${((ms % 1000) ~/ 100)}s';
   return '${s ~/ 60}m${(s % 60).toString().padLeft(2, "0")}s';
 }
 
@@ -236,7 +235,7 @@ class ExtensionDetail extends StatelessWidget {
             width: 40,
             height: 40,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) =>
+            errorBuilder: (_, _, _) =>
                 Icon(Icons.extension_rounded, size: 40, color: cs.onSurfaceVariant),
           ),
         )
@@ -260,12 +259,11 @@ class ExtensionDetail extends StatelessWidget {
           const SizedBox(height: 3),
           Wrap(spacing: 4, runSpacing: 4, children: [
             _TagChip(label: (src.lang ?? '?').toUpperCase(), cs: cs),
-            if (src.sourceCodeLanguage != null)
-              _TagChip(
-                  label: src.sourceCodeLanguage!.name,
-                  cs: cs,
-                  bg: cs.secondaryContainer,
-                  fg: cs.onSecondaryContainer),
+            _TagChip(
+                label: src.sourceCodeLanguage!.name,
+                cs: cs,
+                bg: cs.secondaryContainer,
+                fg: cs.onSecondaryContainer),
             if (src.isNsfw == true)
               _TagChip(
                   label: 'NSFW',
@@ -687,7 +685,7 @@ class _PagePreviewState extends State<_PagePreview> {
                           color: cs.primary,
                           strokeWidth: 2));
                 },
-                errorBuilder: (_, __, ___) => Center(
+                errorBuilder: (_, _, _) => Center(
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.broken_image_rounded,
                       size: 36, color: cs.outlineVariant),
@@ -769,7 +767,7 @@ class ResultCardState extends State<ResultCard> {
                       width: 24,
                       height: 24,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(
+                      errorBuilder: (_, _, _) => Icon(
                           Icons.extension_rounded,
                           size: 24,
                           color: cs.onSurfaceVariant)),

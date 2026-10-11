@@ -18,7 +18,6 @@ import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'app_ui_components.dart';
 import 'content_cards.dart';
-import 'media_content_sections.dart';
 import 'tmdb_genres_screen.dart';
 
 /// One feed composition for both Hub destinations. Only the selected data
@@ -998,7 +997,7 @@ class ScrollingLandscapeMovies extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final media = items[index];
               final source = 'flix-landscape-${title.hashCode}-$index';
@@ -1042,7 +1041,7 @@ class RankedMovies extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final media = items[index];
               final source = 'flix-ranked-${title.hashCode}-$index';
@@ -1093,7 +1092,7 @@ class FeaturedMovieRail extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: uniqueItems.take(10).length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final media = uniqueItems[index];
               final source = 'flix-featured-$index';
@@ -1249,7 +1248,7 @@ class MoviesFromWatchProviders extends StatelessWidget {
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 itemCount: services.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final service = services[index];
                   return _StreamingServiceCard(
@@ -1396,7 +1395,7 @@ class _AppDiscoverRailState extends State<AppDiscoverRail> {
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 itemCount: deduped.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final media = deduped[index];
                   final source = 'discover-${widget.title.hashCode}-$index';
@@ -1458,8 +1457,8 @@ class _DiscoverRailSkeleton extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: 5,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, __) => SizedBox(
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (_, _) => SizedBox(
               width: landscape ? 238 : AppUI.horizontalCardWidth(context),
               child: const AppShimmerBlock(radius: 14),
             ),
@@ -1593,7 +1592,7 @@ class _TmdbTagListSectionState extends State<TmdbTagListSection> {
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: widget.tags.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final tag = widget.tags[index];
               return TmdbTagTile(

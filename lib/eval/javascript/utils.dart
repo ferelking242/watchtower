@@ -3,7 +3,6 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
-import 'package:watchtower/stubs/js_ffi_exports.dart';
 import 'package:http/http.dart' as http;
 import 'package:watchtower/src/rust/api/epub.dart';
 import 'package:path/path.dart' as p;
@@ -83,7 +82,7 @@ class JsUtils {
       AppLogger.log('[console.$level] $msg', logLevel: lvl, tag: LogTag.extension_);
       if (kDebugMode) debugPrint('[EXT][console.$level] $msg');
       // Keep legacy Logger alive for any UI that still reads it.
-      Logger.add(LoggerLevel.warning, '$msg');
+      Logger.add(LoggerLevel.warning, msg);
       return null;
     });
     runtime.onMessage('cryptoHandler', (dynamic args) {
