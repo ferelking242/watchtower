@@ -124,6 +124,30 @@ the failing step name before treating a red `Build Release APK` as a code bug.
   a dash (`...x265-GROUP`). Covered by `test/smart_library_normalizer_test.dart`.
 
 ## Known non-blocking analyzer noise
-`flutter analyze` reports ~2.6k issues but **0 errors**; the vast majority are
-`withOpacity`/`activeColor`/`surfaceVariant` deprecations and
-`use_build_context_synchronously` infos. Do not treat the count as a failure.
+`flutter analyze` reports ~1.6k issues but **0 errors**. The
+`deprecated_member_use` set has been driven to **0** (Radio→`RadioGroup`,
+`SharePlus.instance.share(ShareParams(...))`, `value`→`initialValue`,
+`Matrix4.scale/translate`→`scaleByDouble/translateByDouble`,
+`ScreenBrightness().application`/`setApplicationScreenBrightness`,
+`SizeTransition.axisAlignment`→`alignment`,
+`SpeechListenOptions.listenFor`, `HomeWidget.registerInteractivityCallback`,
+`onReorder`→`onReorderItem`, `cacheExtent`→`scrollCacheExtent`). Remaining
+issues are `use_build_context_synchronously` and similar infos. Do not treat
+the count as a failure.
+
+When migrating `DropdownButtonFormField.value`→`initialValue`, add a
+`key: ValueKey(currentValue)` so the field still reflects a value changed
+outside the field (its internal `FormField` state no longer re-syncs on
+`didUpdateWidget`).
+
+Two web-only stubs (`lib/modules/watch/detail/watch_player_stub.dart`,
+`lib/modules/anime/anime_player_view_web.dart`) still `import 'dart:html'`;
+they are not compiled for the mobile target, so the deprecation is suppressed
+with `// ignore_for_file: … deprecated_member_use` rather than risking a
+`package:web` rewrite.
+
+## Formatting caveat
+`dart format lib/cli` is clean (that is the CI-enforced path). Running
+`dart format lib/` with the local SDK rewrites ~740 files because the tree was
+formatted with a different page width; **do not** mass-reformat `lib/`, it
+produces a huge diff unrelated to any fix. Format only the files you touch.
