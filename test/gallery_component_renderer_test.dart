@@ -96,6 +96,11 @@ void main() {
       'trending-ranking',
       'top-by-decade',
       'must-watch',
+      'season-detail',
+      'home-genre-tile',
+      'home-popular-rail',
+      'home-read-rail',
+      'landscape-discovery',
     ];
     for (final id in retiredIds) {
       expect(
@@ -259,6 +264,43 @@ void main() {
     expect(section.params['items'], 5);
     expect(section.params['subtitle'], 'Nouveaux');
     expect((section.toLegacyMap()['params'] as Map)['items'], 5);
+  });
+
+  test('every renderer parameter is configurable from layout.json', () {
+    // Keys the shared renderer reads from `GalleryComponentContext`. If a card
+    // starts reading a new key, it must also be exposed by the palette so a
+    // layout author can set it.
+    const rendererKeys = {
+      'actionLabel', 'badge', 'cast', 'columns', 'compact', 'fill', 'genres',
+      'hd', 'height', 'items', 'layout', 'numbered', 'period', 'progress',
+      'rank', 'rankLabel', 'readingDirection', 'remaining', 'rows', 'runtime',
+      'scrollDirection', 'seriesMeta', 'showCount', 'spacing', 'stats',
+      'subtitle', 'tags', 'time', 'title', 'width',
+    };
+    final exposed = {
+      for (final parameter in GalleryComponentPalette.common) parameter.key,
+      for (final family in GalleryComponentFamily.values)
+        for (final parameter in GalleryComponentPalette.forFamily(family))
+          parameter.key,
+    };
+    expect(
+      rendererKeys.difference(exposed),
+      isEmpty,
+      reason: 'renderer params missing from the palette',
+    );
+  });
+
+  test('every component exposes a unique, non-empty parameter set', () {
+    for (final descriptor in GalleryComponentCatalog.descriptors) {
+      final parameters = GalleryComponentPalette.forDescriptor(descriptor);
+      expect(parameters, isNotEmpty, reason: descriptor.id);
+      final keys = parameters.map((p) => p.key).toList();
+      expect(
+        keys.toSet().length,
+        keys.length,
+        reason: '${descriptor.id} exposes a duplicate parameter key',
+      );
+    }
   });
 
   test('every catalog component exposes a gallery family', () {

@@ -112,14 +112,6 @@ class GalleryComponentPalette {
       description: 'Espace entre les cartes d\'une rangée ou d\'une grille.',
     ),
     GalleryComponentParameter(
-      key: 'subtitle',
-      label: 'Sous-titre',
-    ),
-    GalleryComponentParameter(
-      key: 'badge',
-      label: 'Pastille',
-    ),
-    GalleryComponentParameter(
       key: 'hero',
       label: 'Bandeau héro',
       kind: GalleryParameterKind.boolean,
@@ -129,6 +121,84 @@ class GalleryComponentPalette {
       label: 'Pleine largeur',
       kind: GalleryParameterKind.boolean,
       description: 'Étire les cartes composites à la largeur du conteneur.',
+    ),
+    // ── Per-card text and metadata ────────────────────────────────────────
+    GalleryComponentParameter(
+      key: 'subtitle',
+      label: 'Sous-titre',
+    ),
+    GalleryComponentParameter(
+      key: 'badge',
+      label: 'Pastille',
+    ),
+    GalleryComponentParameter(
+      key: 'actionLabel',
+      label: 'Libellé du bouton',
+      description: 'Texte du bouton d\'action des cartes riches.',
+    ),
+    GalleryComponentParameter(
+      key: 'stats',
+      label: 'Statistiques',
+      description: 'Ligne de statistiques affichée sous le titre.',
+    ),
+    GalleryComponentParameter(
+      key: 'seriesMeta',
+      label: 'Métadonnées de série',
+      description: 'Saison, épisodes ou statut de diffusion.',
+    ),
+    GalleryComponentParameter(
+      key: 'remaining',
+      label: 'Temps restant',
+      description: 'Libellé du temps restant (progression streaming).',
+    ),
+    GalleryComponentParameter(
+      key: 'time',
+      label: 'Horodatage',
+      description: 'Moment affiché par les cartes de lecture.',
+    ),
+    GalleryComponentParameter(
+      key: 'cast',
+      label: 'Casting',
+      description: 'Noms séparés par des virgules.',
+    ),
+    GalleryComponentParameter(
+      key: 'tags',
+      label: 'Étiquettes',
+      description: 'Étiquettes séparées par des virgules.',
+    ),
+    GalleryComponentParameter(
+      key: 'runtime',
+      label: 'Durée (min)',
+      kind: GalleryParameterKind.number,
+    ),
+    GalleryComponentParameter(
+      key: 'rank',
+      label: 'Rang',
+      kind: GalleryParameterKind.number,
+      description: 'Rang de départ des cartes classées.',
+    ),
+    GalleryComponentParameter(
+      key: 'progress',
+      label: 'Progression (0–1)',
+      kind: GalleryParameterKind.number,
+      description: 'Avancement affiché par les cartes de progression.',
+    ),
+    GalleryComponentParameter(
+      key: 'numbered',
+      label: 'Numéroter',
+      kind: GalleryParameterKind.boolean,
+      description: 'Affiche le rang en tête de chaque carte.',
+    ),
+    GalleryComponentParameter(
+      key: 'hd',
+      label: 'Badge HD',
+      kind: GalleryParameterKind.boolean,
+    ),
+    GalleryComponentParameter(
+      key: 'scrollDirection',
+      label: 'Sens de défilement',
+      kind: GalleryParameterKind.selection,
+      options: ['horizontal', 'vertical'],
     ),
   ];
 

@@ -313,6 +313,12 @@ const _hiddenGalleryCards = <String>{
   'LandscapeSeriesSection',
   'LandscapeMangaSection',
   'LandscapeNovelsSection',
+  // Structural variants folded into a single canonical card.
+  'SeasonDetailCard',
+  'HomeGenreTileCard',
+  'HomePopularRailCard',
+  'HomeReadRailCard',
+  'LandscapeDiscoveryCard',
 };
 
 class _ComponentSpec {

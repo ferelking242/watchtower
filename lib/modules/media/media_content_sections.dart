@@ -212,6 +212,16 @@ class MediaLandscapeRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
+    // A 16:9 card plus its text block. Sizing the rail from the card keeps the
+    // poster ratio while leaving room for the title, description and rating so
+    // the row never clips its content.
+    final hasDescription = items.any(
+      (item) => item.description?.trim().isNotEmpty == true,
+    );
+    final hasRating = items.any((item) => (item.rating ?? 0) > 0);
+    final reserve = 30.0 + (hasDescription ? 16.0 : 0) + (hasRating ? 19.0 : 0);
+    final cardHeight = width * 9 / 16 + reserve;
+    final effectiveHeight = height > cardHeight ? height : cardHeight;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -221,7 +231,7 @@ class MediaLandscapeRail extends StatelessWidget {
           onAction: onSeeAll,
         ),
         SizedBox(
-          height: height,
+          height: effectiveHeight,
           child: ListView.separated(
             padding: EdgeInsets.symmetric(
               horizontal: AppUI.pagePadding(context),

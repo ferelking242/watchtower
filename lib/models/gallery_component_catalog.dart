@@ -566,11 +566,12 @@ class GalleryComponentCatalog {
     GalleryComponentDescriptor(
       id: 'season-detail',
       className: 'SeasonDetailCard',
-      label: 'Carte de saison',
+      label: 'Carte de saison (détail)',
       category: 'ÉPISODES & SAISONS',
-      description: 'SeasonCard — visuel, stats et description',
+      description: 'Variante détaillée de SeasonCard — fusionnée dans « season »',
       renderer: GalleryComponentFamily.episodes,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'featured-episode',
@@ -1428,29 +1429,35 @@ class GalleryComponentCatalog {
     GalleryComponentDescriptor(
       id: 'home-genre-tile',
       className: 'HomeGenreTileCard',
-      label: 'Cartes de genres',
+      label: 'Cartes de genres (accueil)',
       category: 'ACCUEIL & LECTURE',
-      description: 'Genres avec visuel carré et tagline',
+      description: 'Variante accueil de la tuile genre — fusionnée dans '
+          '« app-genre-tile »',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'home-popular-rail',
       className: 'HomePopularRailCard',
-      label: 'Populaire à regarder',
+      label: 'Populaire à regarder (accueil)',
       category: 'ACCUEIL & LECTURE',
-      description: 'Rail posters films/séries du moment',
+      description: 'Variante accueil du rail de posters — fusionnée dans '
+          '« poster-rail »',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'home-read-rail',
       className: 'HomeReadRailCard',
-      label: 'Populaire à lire',
+      label: 'Populaire à lire (accueil)',
       category: 'ACCUEIL & LECTURE',
-      description: 'Rail posters manga & novel',
+      description: 'Variante accueil du rail manga — fusionnée dans '
+          '« poster-rail »',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'home-language-grid',
@@ -1562,9 +1569,11 @@ class GalleryComponentCatalog {
       className: 'LandscapeDiscoveryCard',
       label: 'Paysage découverte',
       category: 'CATALOGUE & DISCOVERY',
-      description: 'Rails sorties',
+      description: 'Variante découverte du rail paysage — fusionnée dans '
+          '« landscape-showcase »',
       renderer: GalleryComponentFamily.landscape,
       loadingPreview: LayoutComponentLoadingPreview.landscape,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'featured-discovery',

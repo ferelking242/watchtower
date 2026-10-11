@@ -1844,12 +1844,16 @@ class MangaChapterNextCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                item.subtitle ?? '',
-                style: TextStyle(
-                  color: accent,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
+              Flexible(
+                child: Text(
+                  item.subtitle ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ],
