@@ -173,6 +173,22 @@ production home screens render the *same* widgets. The contract:
   height from the 16:9 card plus reserved text space; `MangaChapterNextCard`
   wraps its subtitle in `Flexible` with `maxLines: 1` + ellipsis. Do not
   reintroduce a fixed `height:` on a rail whose text can wrap.
+- `AnimeDiscoveryScreen` (`/AnimeLibrary`, the 2nd Hub tab) is the reference
+  consumer: genres and studios render through `app-genre-tile`, "Top 10 Anime"
+  through `top-anime`, movie rails through `landscape`. Reach for an existing
+  catalog id before adding a bespoke section — the point of the gallery is that
+  a card fixed once is fixed everywhere.
+- `ContentItem.imageUrl` is the wide artwork used by single-visual cards
+  (`app-genre-tile`, `genre`); `ContentItem.fromAnilist` fills it from
+  `AnilistMedia.bestBackdrop` (banner, then portrait cover).
+- Every "see all" and genre/studio tile opens the shared catalogue page
+  (`TmdbMoviesListScreen.anilist` via `/anilistBrowse`). Keep a single
+  implementation: pass an `AnilistBrowseFilter` (`sort`, `studioId`, `genre`,
+  `format`, `country`) rather than adding a new browse screen.
+- `enrichCategoryImages` (`category_row.dart`) is the genre-artwork selector:
+  exact genre matches are claimed first, then remaining tiles get unused
+  artwork, and no two tiles share a picture. Keep it pure so it stays unit
+  testable.
 
 ## Formatting caveat
 `dart format lib/cli` is clean (that is the CI-enforced path). Running
