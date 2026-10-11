@@ -146,6 +146,34 @@ they are not compiled for the mobile target, so the deprecation is suppressed
 with `// ignore_for_file: … deprecated_member_use` rather than risking a
 `package:web` rewrite.
 
+## Component gallery
+The developer gallery (`lib/modules/dev/component_gallery_screen.dart`) and the
+production home screens render the *same* widgets. The contract:
+
+- `GalleryComponentCatalog.descriptors` is the single source of truth for the
+  199 components. Every descriptor resolves through
+  `LayoutComponentRegistry.resolve(id)`, which carries a `galleryFamily`.
+  `ExtensionLayoutPreview` (used by `WatchExtensionHomeScreen`, and therefore by
+  `MangaHomeScreen`) delegates to `GalleryComponentRenderer.section` whenever
+  `definition.galleryFamily != null`, so a card fixed once is fixed everywhere.
+- `GalleryComponentPalette.common` must expose **every** key the renderer reads
+  via `ctx.text/number/decimal/flag`. `test/gallery_component_renderer_test.dart`
+  enforces this; add the parameter to the palette when a card starts reading a
+  new key, otherwise layout.json cannot configure it.
+- Duplicate visual variants (e.g. `season-detail`, `home-genre-tile`,
+  `home-popular-rail`, `home-read-rail`, `landscape-discovery`, `top-movies`,
+  `must-watch`) stay resolvable for old layouts but are `selectable: false`, so
+  they leave the picker while old layout JSON keeps working.
+- `tool/gallery_preview_generator.dart` renders all 199 components to
+  `build/gallery_previews/<id>.png` (cropped to content) and prints
+  `OVERFLOW_ID <id>` for any `RenderFlex` overflow. It is the fastest way to
+  catch a clipped/truncated card: run
+  `flutter test tool/gallery_preview_generator.dart` and expect `overflows: 0`.
+- Cards must size themselves from their content. `MediaLandscapeRail` derives its
+  height from the 16:9 card plus reserved text space; `MangaChapterNextCard`
+  wraps its subtitle in `Flexible` with `maxLines: 1` + ellipsis. Do not
+  reintroduce a fixed `height:` on a rail whose text can wrap.
+
 ## Formatting caveat
 `dart format lib/cli` is clean (that is the CI-enforced path). Running
 `dart format lib/` with the local SDK rewrites ~740 files because the tree was

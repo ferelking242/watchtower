@@ -7,7 +7,6 @@ import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
-import 'package:watchtower/modules/media/catalogue_cards.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_content_sections.dart';
@@ -271,11 +270,36 @@ void main() {
     // starts reading a new key, it must also be exposed by the palette so a
     // layout author can set it.
     const rendererKeys = {
-      'actionLabel', 'badge', 'cast', 'columns', 'compact', 'fill', 'genres',
-      'hd', 'height', 'items', 'layout', 'numbered', 'period', 'progress',
-      'rank', 'rankLabel', 'readingDirection', 'remaining', 'rows', 'runtime',
-      'scrollDirection', 'seriesMeta', 'showCount', 'spacing', 'stats',
-      'subtitle', 'tags', 'time', 'title', 'width',
+      'actionLabel',
+      'badge',
+      'cast',
+      'columns',
+      'compact',
+      'fill',
+      'genres',
+      'hd',
+      'height',
+      'items',
+      'layout',
+      'numbered',
+      'period',
+      'progress',
+      'rank',
+      'rankLabel',
+      'readingDirection',
+      'remaining',
+      'rows',
+      'runtime',
+      'scrollDirection',
+      'seriesMeta',
+      'showCount',
+      'spacing',
+      'stats',
+      'subtitle',
+      'tags',
+      'time',
+      'title',
+      'width',
     };
     final exposed = {
       for (final parameter in GalleryComponentPalette.common) parameter.key,

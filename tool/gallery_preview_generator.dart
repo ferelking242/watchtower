@@ -80,15 +80,17 @@ void main() {
         print('OVERFLOW_ID ${descriptor.id} :: $overflow');
       }
 
-      final boundary =
-          tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(key),
+      );
       await tester.runAsync(() async {
         final ui.Image image = await boundary.toImage(pixelRatio: 1.0);
         final ByteData? cropped = await _cropToContent(image);
         image.dispose();
         if (cropped == null) return;
-        File('${outDir.path}/${descriptor.id}.png')
-            .writeAsBytesSync(cropped.buffer.asUint8List());
+        File(
+          '${outDir.path}/${descriptor.id}.png',
+        ).writeAsBytesSync(cropped.buffer.asUint8List());
       });
     }
     expect(outDir.listSync().length, greaterThan(0));

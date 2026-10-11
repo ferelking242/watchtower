@@ -90,7 +90,8 @@ class GalleryComponentPalette {
       key: 'rows',
       label: 'Lignes (grille)',
       kind: GalleryParameterKind.number,
-      description: 'Nombre de lignes affichées quand la disposition est '
+      description:
+          'Nombre de lignes affichées quand la disposition est '
           '« grid ». Laisse vide pour tout afficher.',
     ),
     GalleryComponentParameter(
@@ -123,14 +124,8 @@ class GalleryComponentPalette {
       description: 'Étire les cartes composites à la largeur du conteneur.',
     ),
     // ── Per-card text and metadata ────────────────────────────────────────
-    GalleryComponentParameter(
-      key: 'subtitle',
-      label: 'Sous-titre',
-    ),
-    GalleryComponentParameter(
-      key: 'badge',
-      label: 'Pastille',
-    ),
+    GalleryComponentParameter(key: 'subtitle', label: 'Sous-titre'),
+    GalleryComponentParameter(key: 'badge', label: 'Pastille'),
     GalleryComponentParameter(
       key: 'actionLabel',
       label: 'Libellé du bouton',
@@ -251,10 +246,7 @@ class GalleryComponentPalette {
       ),
     ],
     GalleryComponentFamily.landscape: [
-      GalleryComponentParameter(
-        key: 'genres',
-        label: 'Sous-titre des cartes',
-      ),
+      GalleryComponentParameter(key: 'genres', label: 'Sous-titre des cartes'),
     ],
   };
 
