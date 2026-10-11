@@ -72,6 +72,14 @@ void _playerToast(String message) {
   }
 }
 
+void _openPlayerSettings(BuildContext context) {
+  Navigator.of(context, rootNavigator: true).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => const PlayerOverviewScreen(),
+    ),
+  );
+}
+
 /// Slider track with a restrained LED-like glow on the played segment.
 class _LedSliderTrackShape extends RoundedRectSliderTrackShape {
   const _LedSliderTrackShape();
@@ -794,9 +802,6 @@ class _FullscreenControlsOverlayState
     Offset _pinchOffset  = Offset.zero;
     Offset? _panStart;
 
-    // ── Gesture hint (first launch) ───────────────────────────────────────────
-    bool _showGestureHint = false;
-
     // ── Subtitle delay ────────────────────────────────────────────────────────
     double _subDelaySec = 0.0;
 
@@ -812,7 +817,6 @@ class _FullscreenControlsOverlayState
         (widget.loadedVideos.isNotEmpty ? widget.loadedVideos.first.quality : null);
     _startPositionWatcher();
     _loadSavedProgress();
-    _checkGestureHint();
     // Buffer fraction stream
     _bufSub = widget.player.stream.buffer.listen((buf) {
       if (!mounted) return;
@@ -964,21 +968,6 @@ class _FullscreenControlsOverlayState
           'savedAt': DateTime.now().millisecondsSinceEpoch,
         }),
       );
-    } catch (_) {}
-  }
-
-  // ── Gesture hint ──────────────────────────────────────────────────────────
-  Future<void> _checkGestureHint() async {
-    try {
-      final dir  = await getTemporaryDirectory();
-      final file = File('${dir.path}/wt_gesture_hint_shown');
-      if (!await file.exists()) {
-        await Future.delayed(const Duration(milliseconds: 600));
-        if (mounted) setState(() => _showGestureHint = true);
-        await Future.delayed(const Duration(seconds: 5));
-        if (mounted) setState(() => _showGestureHint = false);
-        await file.writeAsString('1');
-      }
     } catch (_) {}
   }
 
@@ -2235,13 +2224,6 @@ class _FullscreenControlsOverlayState
               },
             ),
           ),
-        // Gesture hint (first launch)
-        if (_showGestureHint)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: _GestureHintOverlay(),
-            ),
-          ),
       ],
     );
   }
@@ -2304,18 +2286,14 @@ class _FullscreenControlsOverlayState
           // More (PLAYit-style panel)
           IconButton(
             icon: Icon(
-              Broken.more,
-              color: _showMorePanel ? Theme.of(context).primaryColor : Colors.white,
+              Broken.setting_2,
+              color: Colors.white,
               size: 22,
             ),
             onPressed: () {
               _hideTimer?.cancel();
-              setState(() {
-                _showMorePanel     = !_showMorePanel;
-                _showSpeedPicker   = false;
-                _showQualityPicker = false;
-                _showEpPanel       = false;
-              });
+              setState(() => _showMorePanel = false);
+              _openPlayerSettings(context);
             },
             padding: const EdgeInsets.all(8),
           ),
@@ -2354,19 +2332,16 @@ class _FullscreenControlsOverlayState
   }
 
   Widget _buildCenterRow() {
-    // Pas de pause au centre (déjà en bas à gauche dans la toolbar).
-    // -15 / +15 centrés à 25 % / 75 % de la largeur — pas aux bords.
-    return Row(
-      children: [
-        Expanded(
-          child:
-              Center(child: _buildSkipButton(isForward: false, seconds: 15)),
-        ),
-        Expanded(
-          child:
-              Center(child: _buildSkipButton(isForward: true, seconds: 15)),
-        ),
-      ],
+    // Keep the two seek controls close to the centre in landscape.
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSkipButton(isForward: false, seconds: 15),
+          const SizedBox(width: 48),
+          _buildSkipButton(isForward: true, seconds: 15),
+        ],
+      ),
     );
   }
 
@@ -3996,6 +3971,30 @@ class _TrackTile extends StatelessWidget {
       widget.player.seek(next.isNegative ? Duration.zero : (next > dur ? dur : next));
     }
 
+    Widget _buildPortraitSeekButton({required bool isForward}) {
+      final seconds = isForward ? 15 : -15;
+      return IconButton(
+        tooltip: isForward
+            ? 'Avancer de 15 secondes'
+            : 'Reculer de 15 secondes',
+        onPressed: () {
+          _seek(seconds);
+          _resetHideTimer();
+        },
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.black54,
+          foregroundColor: Colors.white,
+          shape: const CircleBorder(),
+          minimumSize: const Size(52, 52),
+          padding: EdgeInsets.zero,
+        ),
+        icon: Icon(
+          isForward ? Broken.forward_15_seconds : Broken.backward_15_seconds,
+          size: 26,
+        ),
+      );
+    }
+
     void _handleDoubleTap({required bool isRight}) {
       _doubleTapResetTimer?.cancel();
       if (_doubleTapRight != null && _doubleTapRight != isRight) {
@@ -4326,6 +4325,19 @@ class _TrackTile extends StatelessWidget {
                 onTap: _onTap,
               ),
             ),
+            if (_showControls)
+              Positioned.fill(
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildPortraitSeekButton(isForward: false),
+                      const SizedBox(width: 36),
+                      _buildPortraitSeekButton(isForward: true),
+                    ],
+                  ),
+                ),
+              ),
             // ── Skip HUD double-tap — flèches latérales animées (style YouTube)
             if (_showLeftSkipHUD)
               Positioned(
@@ -4409,22 +4421,13 @@ class _TrackTile extends StatelessWidget {
               Positioned(
                 top: safeTop + 2,
                 right: 6,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    // Ouvre les paramètres « Lecteur Vidéo » de l'app
-                    // (le bouton retour ramène sur la vidéo).
-                    if (context.mounted) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PlayerOverviewScreen(),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Broken.setting_2, color: Colors.white, size: 20),
+                child: IconButton(
+                  tooltip: 'Paramètres du lecteur',
+                  onPressed: () => _openPlayerSettings(context),
+                  icon: const Icon(
+                    Broken.setting_2,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
               ),
@@ -5643,73 +5646,6 @@ class _NextEpCard extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Gesture Hint Overlay (first launch) ──────────────────────────────────────
-
-class _GestureHintOverlay extends StatelessWidget {
-  const _GestureHintOverlay();
-
-  Widget _hint(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white12,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: Colors.white70, size: 18),
-          ),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.65),
-      child: Center(
-        child: Container(
-          width: 260,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: const Color(0xCC000000),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white12, width: 0.8),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Gestes du lecteur',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              _hint(Icons.touch_app_outlined,       'Double tap → avancer / reculer'),
-              _hint(Icons.swipe_right_alt_outlined,  'Swipe → seek (n\'importe où)'),
-              _hint(Broken.sun,'Swipe gauche → luminosité'),
-              _hint(Broken.volume_high,        'Swipe droite → volume'),
-              _hint(Icons.speed_outlined,            'Maintenir droite → vitesse ×2'),
-              _hint(Broken.lock,      'Cadenas → verrouiller écran'),
-              const SizedBox(height: 8),
-              const Text(
-                'Ce tutoriel n\'apparaît qu\'une fois.',
-                style: TextStyle(color: Colors.white38, fontSize: 10),
-              ),
-            ],
-          ),
         ),
       ),
     );

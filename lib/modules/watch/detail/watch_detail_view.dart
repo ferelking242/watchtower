@@ -24,6 +24,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/get_video_list.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -58,6 +59,14 @@ const _kSerieSvg = '''
   <circle cx="8" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/>
   <path d="M13 8h4M13 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 </svg>''';
+
+enum _ResourceMenuAction {
+  refresh,
+  openInBrowser,
+  extensionSettings,
+  share,
+  downloadAll,
+}
 
 class WatchDetailView extends ConsumerStatefulWidget {
   final Manga manga;
@@ -386,7 +395,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(Broken.arrow_left, color: Colors.white),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -1184,9 +1193,70 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ),
               const SizedBox(width: 8),
             ],
-            GestureDetector(
-              onTap: () => _showOptionsSheet(context, chapters),
-              child: Icon(Icons.more_vert_rounded, size: 20, color: _grey),
+            ArrowPopupMenuButton<_ResourceMenuAction>(
+              tooltip: 'Options de la source',
+              icon: Icon(Broken.more, size: 20, color: _grey),
+              color: _surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              elevation: 10,
+              menuWidth: 224,
+              offset: const Offset(0, 8),
+              onSelected: (action) {
+                switch (action) {
+                  case _ResourceMenuAction.refresh:
+                    widget.checkForUpdate(true);
+                  case _ResourceMenuAction.openInBrowser:
+                    _openInBrowser();
+                  case _ResourceMenuAction.extensionSettings:
+                    if (source != null) {
+                      context.pushNamed('extension_detail', extra: source);
+                    }
+                  case _ResourceMenuAction.share:
+                    _share(context);
+                  case _ResourceMenuAction.downloadAll:
+                    _downloadAll(chapters);
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: _ResourceMenuAction.refresh,
+                  child: const _ResourceMenuItem(
+                    icon: Broken.refresh,
+                    label: 'Actualiser',
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _ResourceMenuAction.openInBrowser,
+                  child: const _ResourceMenuItem(
+                    icon: Broken.export,
+                    label: 'Ouvrir dans le navigateur',
+                  ),
+                ),
+                if (source != null)
+                  PopupMenuItem(
+                    value: _ResourceMenuAction.extensionSettings,
+                    child: const _ResourceMenuItem(
+                      icon: Broken.setting_2,
+                      label: "Paramètres de l'extension",
+                    ),
+                  ),
+                PopupMenuItem(
+                  value: _ResourceMenuAction.share,
+                  child: const _ResourceMenuItem(
+                    icon: Broken.share,
+                    label: 'Partager',
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _ResourceMenuAction.downloadAll,
+                  child: const _ResourceMenuItem(
+                    icon: Broken.document_download,
+                    label: 'Tout télécharger',
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -2653,8 +2723,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
-  // ─── OPTIONS SHEET ──────────────────────────────────────────────────────────
-
   void _openInBrowser() {
     final source = getSource(
         widget.manga.lang ?? '',
@@ -2666,76 +2734,34 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         extra: {'url': raw, 'title': widget.manga.name ?? ''});
   }
 
-  void _showOptionsSheet(BuildContext ctx, List<Chapter> chapters) {
-    final source = getSource(
-        widget.manga.lang ?? '',
-        widget.manga.source ?? '',
-        widget.manga.sourceId);
-    showModalBottomSheet(
-      context: ctx,
-      backgroundColor: _surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 38, height: 4,
-              margin: const EdgeInsets.only(top: 10, bottom: 8),
-              decoration: BoxDecoration(
-                  color: _faint,
-                  borderRadius: BorderRadius.circular(2)),
+}
+
+class _ResourceMenuItem extends StatelessWidget {
+  const _ResourceMenuItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 17, color: colors.onSurfaceVariant),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.onSurface,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
-            ListTile(
-              leading: Icon(Icons.refresh, color: _grey),
-              title: Text('Actualiser',
-                  style: TextStyle(color: _textPrimary)),
-              onTap: () {
-                Navigator.pop(ctx);
-                widget.checkForUpdate(true);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.open_in_browser_outlined, color: _grey),
-              title: Text('Ouvrir dans le navigateur',
-                  style: TextStyle(color: _textPrimary)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _openInBrowser();
-              },
-            ),
-            if (source != null)
-              ListTile(
-                leading: Icon(Icons.settings_outlined, color: _grey),
-                title: Text("Paramètres de l'extension",
-                    style: TextStyle(color: _textPrimary)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  ctx.pushNamed('extension_detail', extra: source);
-                },
-              ),
-            ListTile(
-              leading: Icon(Icons.share, color: _grey),
-              title: Text('Partager',
-                  style: TextStyle(color: _textPrimary)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _share(ctx);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.download, color: _grey),
-              title: Text('Tout télécharger',
-                  style: TextStyle(color: _textPrimary)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _downloadAll(chapters);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

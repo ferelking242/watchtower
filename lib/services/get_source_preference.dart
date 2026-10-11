@@ -6,6 +6,18 @@ const extensionDefaultQualityKey = '__watchtower_default_quality';
 const extensionQualityFallbackKey = '__watchtower_quality_fallback';
 const extensionLanguagesKey = '__watchtower_languages';
 const extensionKeepSessionKey = '__watchtower_keep_session';
+const _standardVideoQualities = <String>[
+  'Auto',
+  '144p',
+  '240p',
+  '360p',
+  '480p',
+  '720p',
+  '1080p',
+  '1440p (2K)',
+  '2160p (4K)',
+  '4320p (8K)',
+];
 
 List<SourcePreference> getSourcePreference({required Source source}) {
   final service = getExtensionService(source);
@@ -95,9 +107,10 @@ List<SourcePreference> withWatchtowerDefaults(
 List<String> _qualityOptions(Source source) {
   final declared = (source.videoQualities ?? const <String>[])
       .map((quality) => quality.trim())
-      .where((quality) => quality.isNotEmpty);
-  final values = <String>{...declared};
-  if (values.isEmpty) {
+      .where((quality) => quality.isNotEmpty)
+      .toList(growable: false);
+  final extensionQualities = [...declared];
+  if (extensionQualities.isEmpty) {
     // Some older catalogue entries predate the videoQualities field. Their
     // JS manifest can still declare the same contract in sourceCode.
     final match = RegExp(
@@ -105,7 +118,7 @@ List<String> _qualityOptions(Source source) {
       caseSensitive: false,
     ).firstMatch(source.sourceCode ?? '');
     if (match != null) {
-      values.addAll(
+      extensionQualities.addAll(
         RegExp(r'''['"]([^'"]+)['"]''')
             .allMatches(match.group(1)!)
             .map((match) => match.group(1)!.trim())
@@ -113,9 +126,16 @@ List<String> _qualityOptions(Source source) {
       );
     }
   }
-  // AUTO is a safe universal fallback for extensions that choose the
-  // available stream dynamically and do not publish a quality list.
-  return (values.isEmpty ? {'AUTO'} : values).toList(growable: false);
+
+  // Keep a consistent quality selector even when an extension advertises
+  // only the streams it currently returns. Auto remains the safe default;
+  // source-specific values are retained after the common resolution list.
+  final values = <String>[..._standardVideoQualities];
+  final seen = values.map((quality) => quality.toLowerCase()).toSet();
+  for (final quality in extensionQualities) {
+    if (seen.add(quality.toLowerCase())) values.add(quality);
+  }
+  return values;
 }
 
 int _defaultQualityIndex(List<String> qualities) {
