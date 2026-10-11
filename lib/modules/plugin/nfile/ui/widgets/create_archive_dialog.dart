@@ -87,7 +87,7 @@ class _CreateArchiveDialogState extends State<CreateArchiveDialog> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(Broken.archive_add, color: theme.colorScheme.primary, size: 24),

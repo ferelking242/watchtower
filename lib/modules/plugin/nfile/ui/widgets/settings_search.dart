@@ -22,11 +22,11 @@ class SettingsSearchBar extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark 
-            ? theme.colorScheme.surfaceContainerHighest.withOpacity(0.3)
-            : theme.colorScheme.surfaceVariant.withOpacity(0.4),
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.08),
+          color: theme.colorScheme.outline.withValues(alpha: 0.08),
           width: 1,
         ),
       ),
@@ -40,19 +40,19 @@ class SettingsSearchBar extends StatelessWidget {
         decoration: InputDecoration(
           hintText: 'Search settings...',
           hintStyle: TextStyle(
-            color: theme.colorScheme.onSurface.withOpacity(0.4),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
             fontSize: 15,
           ),
           prefixIcon: Icon(
             Broken.search_normal,
-            color: theme.colorScheme.primary.withOpacity(0.7),
+            color: theme.colorScheme.primary.withValues(alpha: 0.7),
             size: 20,
           ),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
                   icon: Icon(
                     Icons.clear_rounded,
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     size: 20,
                   ),
                   onPressed: onClear,

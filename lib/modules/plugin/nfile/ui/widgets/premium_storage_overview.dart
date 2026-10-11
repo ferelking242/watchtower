@@ -33,16 +33,16 @@ class PremiumStorageOverview extends StatelessWidget {
 
     final gradientColors = isDark
         ? [
-            Color.alphaBlend(theme.colorScheme.primary.withOpacity(0.15), const Color(0xFF181818)),
-            Color.alphaBlend(theme.colorScheme.primary.withOpacity(0.05), const Color(0xFF0C0C0C)),
+            Color.alphaBlend(theme.colorScheme.primary.withValues(alpha: 0.15), const Color(0xFF181818)),
+            Color.alphaBlend(theme.colorScheme.primary.withValues(alpha: 0.05), const Color(0xFF0C0C0C)),
           ] // Primary Theme Gradient in Dark Mode
-        : [theme.colorScheme.primary, theme.colorScheme.primary.withOpacity(0.82)]; // Primary Theme Gradient in Light Mode
+        : [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.82)]; // Primary Theme Gradient in Light Mode
 
     final accentColor = isDark ? theme.colorScheme.primary : Colors.white;
-    final iconBgColor = isDark ? theme.colorScheme.primary.withOpacity(0.15) : Colors.white.withOpacity(0.25);
-    final iconBorderColor = isDark ? theme.colorScheme.primary.withOpacity(0.3) : Colors.white.withOpacity(0.4);
-    final shadowColor = isDark ? const Color(0xFF0F172A).withOpacity(0.3) : theme.colorScheme.primary.withOpacity(0.35);
-    final progressBgColor = isDark ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.3);
+    final iconBgColor = isDark ? theme.colorScheme.primary.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.25);
+    final iconBorderColor = isDark ? theme.colorScheme.primary.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.4);
+    final shadowColor = isDark ? const Color(0xFF0F172A).withValues(alpha: 0.3) : theme.colorScheme.primary.withValues(alpha: 0.35);
+    final progressBgColor = isDark ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.3);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -61,7 +61,7 @@ class PremiumStorageOverview extends StatelessWidget {
               offset: const Offset(0, 8),
             ),
           ],
-          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
         ),
         child: Material(
           color: Colors.transparent,
@@ -69,8 +69,8 @@ class PremiumStorageOverview extends StatelessWidget {
           child: InkWell(
             onTap: onBrowseStorage,
             borderRadius: BorderRadius.circular(24),
-            splashColor: Colors.white.withOpacity(0.15),
-            highlightColor: Colors.white.withOpacity(0.08),
+            splashColor: Colors.white.withValues(alpha: 0.15),
+            highlightColor: Colors.white.withValues(alpha: 0.08),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -107,7 +107,7 @@ class PremiumStorageOverview extends StatelessWidget {
                             Text(
                               'Browse device files',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -121,9 +121,9 @@ class PremiumStorageOverview extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
@@ -159,7 +159,7 @@ class PremiumStorageOverview extends StatelessWidget {
                       ),
                       Text(
                         '$totalStorageStr total',
-                        style: TextStyle(color: Colors.white.withOpacity(0.72), fontWeight: FontWeight.w500, fontSize: 12),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontWeight: FontWeight.w500, fontSize: 12),
                       ),
                     ],
                   ),

@@ -29,11 +29,11 @@ class AboutNFileScreen extends StatelessWidget {
     // AMOLED or normal backgrounds
     final scaffoldBg = theme.scaffoldBackgroundColor;
     final cardBg = isDark
-        ? Colors.white.withOpacity(0.04)
-        : Colors.black.withOpacity(0.03);
+        ? Colors.white.withValues(alpha: 0.04)
+        : Colors.black.withValues(alpha: 0.03);
     final borderCol = isDark
-        ? Colors.white.withOpacity(0.08)
-        : Colors.black.withOpacity(0.08);
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.08);
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -46,7 +46,7 @@ class AboutNFileScreen extends StatelessWidget {
             floating: false,
             pinned: true,
             elevation: 0,
-            backgroundColor: scaffoldBg.withOpacity(0.9),
+            backgroundColor: scaffoldBg.withValues(alpha: 0.9),
             iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
@@ -82,8 +82,8 @@ class AboutNFileScreen extends StatelessWidget {
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
                             colors: [
-                              theme.colorScheme.primary.withOpacity(0.2),
-                              theme.colorScheme.secondary.withOpacity(0.0),
+                              theme.colorScheme.primary.withValues(alpha: 0.2),
+                              theme.colorScheme.secondary.withValues(alpha: 0.0),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -98,8 +98,8 @@ class AboutNFileScreen extends StatelessWidget {
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
                             colors: [
-                              theme.colorScheme.primary.withOpacity(0.4),
-                              theme.colorScheme.secondary.withOpacity(0.1),
+                              theme.colorScheme.primary.withValues(alpha: 0.4),
+                              theme.colorScheme.secondary.withValues(alpha: 0.1),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -113,10 +113,10 @@ class AboutNFileScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isDark ? const Color(0xFF121212) : Colors.white,
-                          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.4), width: 2),
+                          border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.4), width: 2),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.colorScheme.primary.withOpacity(0.25),
+                              color: theme.colorScheme.primary.withValues(alpha: 0.25),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
                             )
@@ -158,9 +158,9 @@ class AboutNFileScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.12),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
+                      border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
                     ),
                     child: Text(
                       'v1.0.42 (Stable)',
@@ -187,7 +187,7 @@ class AboutNFileScreen extends StatelessWidget {
                       'NFile is a beautiful, fluid, and open-source file manager and offline media hub built with Flutter. Designed for extreme performance, clean glassmorphic aesthetics, and seamless user experiences.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface.withOpacity(0.85),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
                         fontSize: 14.5,
                         height: 1.5,
                         fontWeight: FontWeight.w400,
@@ -309,7 +309,7 @@ class AboutNFileScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       fontFamily: 'LexendDeca',
                     ),
                   ),
@@ -318,7 +318,7 @@ class AboutNFileScreen extends StatelessWidget {
                     'Copyright © 2026 NFile. All rights reserved.',
                     style: TextStyle(
                       fontSize: 11,
-                      color: theme.colorScheme.onSurface.withOpacity(0.35),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -340,11 +340,11 @@ class AboutNFileScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cardBg = isDark
-        ? Colors.white.withOpacity(0.03)
-        : Colors.black.withOpacity(0.02);
+        ? Colors.white.withValues(alpha: 0.03)
+        : Colors.black.withValues(alpha: 0.02);
     final borderCol = isDark
-        ? Colors.white.withOpacity(0.06)
-        : Colors.black.withOpacity(0.06);
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.06);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -373,7 +373,7 @@ class AboutNFileScreen extends StatelessWidget {
             subtitle,
             style: TextStyle(
               fontSize: 10.5,
-              color: theme.colorScheme.onSurface.withOpacity(0.5),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -392,11 +392,11 @@ class AboutNFileScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cardBg = isDark
-        ? Colors.white.withOpacity(0.03)
-        : Colors.black.withOpacity(0.02);
+        ? Colors.white.withValues(alpha: 0.03)
+        : Colors.black.withValues(alpha: 0.02);
     final borderCol = isDark
-        ? Colors.white.withOpacity(0.06)
-        : Colors.black.withOpacity(0.06);
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.06);
 
     return Material(
       color: Colors.transparent,
@@ -426,7 +426,7 @@ class AboutNFileScreen extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
-                color: theme.colorScheme.onSurface.withOpacity(0.3),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
               ),
             ],
           ),

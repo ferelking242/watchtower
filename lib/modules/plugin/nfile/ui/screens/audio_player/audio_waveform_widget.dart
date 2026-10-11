@@ -116,7 +116,7 @@ class _AudioWaveformWidgetState extends State<AudioWaveformWidget>
         (widget.position.inMilliseconds / safeDur).clamp(0.0, 1.0);
 
     final decorationBehind = BoxDecoration(
-      color: theme.colorScheme.onSurface.withOpacity(0.15),
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(5),
     );
 
@@ -125,7 +125,7 @@ class _AudioWaveformWidgetState extends State<AudioWaveformWidget>
       borderRadius: BorderRadius.circular(5),
       boxShadow: [
         BoxShadow(
-          color: widget.accentColor.withOpacity(0.5),
+          color: widget.accentColor.withValues(alpha: 0.5),
           blurRadius: 10,
           spreadRadius: 1,
         ),

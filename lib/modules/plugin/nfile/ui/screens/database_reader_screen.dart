@@ -224,7 +224,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
             ),
             Text(
               'SQLite Database Reader',
-              style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurface.withOpacity(0.5)),
+              style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
             ),
           ],
         ),
@@ -278,7 +278,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
   Widget _buildBrowseTab(ThemeData theme) {
     if (_tables.isEmpty) {
       return Center(
-        child: Text('No tables found in this database.', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5))),
+        child: Text('No tables found in this database.', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
       );
     }
 
@@ -296,9 +296,9 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
+                        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
@@ -357,7 +357,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                     child: Container(
                       height: 44,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: TextField(
@@ -407,9 +407,9 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Broken.info_circle, size: 36, color: theme.colorScheme.onSurface.withOpacity(0.3)),
+                          Icon(Broken.info_circle, size: 36, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
                           const SizedBox(height: 8),
-                          Text('No rows found', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                          Text('No rows found', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
                         ],
                       ),
                     )
@@ -422,7 +422,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                             headingRowHeight: 40,
                             dataRowMinHeight: 36,
                             dataRowMaxHeight: 48,
-                            headingRowColor: MaterialStateProperty.all(theme.colorScheme.surfaceVariant.withOpacity(0.4)),
+                            headingRowColor: MaterialStateProperty.all(theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4)),
                             columns: _tableColumns.map((col) {
                               return DataColumn(
                                 label: Text(
@@ -440,7 +440,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                                       val == null ? 'NULL' : val.toString(),
                                       style: TextStyle(
                                         fontSize: 12.5,
-                                        color: val == null ? theme.colorScheme.onSurface.withOpacity(0.3) : theme.colorScheme.onSurface,
+                                        color: val == null ? theme.colorScheme.onSurface.withValues(alpha: 0.3) : theme.colorScheme.onSurface,
                                         fontStyle: val == null ? FontStyle.italic : FontStyle.normal,
                                       ),
                                       maxLines: 2,
@@ -461,14 +461,14 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
-            border: Border(top: BorderSide(color: theme.colorScheme.outline.withOpacity(0.1))),
+            border: Border(top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.1))),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Showing ${_offset + 1} - ${_offset + _tableRows.length}',
-                style: TextStyle(fontSize: 12.5, color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 12.5, color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.w600),
               ),
               Row(
                 children: [
@@ -507,7 +507,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
   Widget _buildSchemaTab(ThemeData theme) {
     if (_schemaColumns.isEmpty) {
       return Center(
-        child: Text('No schema details loaded.', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5))),
+        child: Text('No schema details loaded.', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
       );
     }
 
@@ -527,7 +527,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: isPk ? theme.colorScheme.primary.withOpacity(0.15) : theme.colorScheme.surfaceVariant,
+              backgroundColor: isPk ? theme.colorScheme.primary.withValues(alpha: 0.15) : theme.colorScheme.surfaceContainerHighest,
               child: Icon(
                 isPk ? Broken.key : Broken.document_text,
                 color: isPk ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
@@ -542,7 +542,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.2),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -556,7 +556,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.15),
+                      color: Colors.redAccent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Text(
@@ -572,9 +572,9 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Type: $type', style: TextStyle(fontSize: 12.5, color: theme.colorScheme.onSurface.withOpacity(0.7))),
+                  Text('Type: $type', style: TextStyle(fontSize: 12.5, color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
                   if (dfltValue != null)
-                    Text('Default: $dfltValue', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                    Text('Default: $dfltValue', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
                 ],
               ),
             ),
@@ -592,9 +592,9 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
           padding: const EdgeInsets.all(12.0),
           child: Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: theme.colorScheme.outline.withOpacity(0.15)),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -679,9 +679,9 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.redAccent.withOpacity(0.12),
+                color: Colors.redAccent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -706,7 +706,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                   ? Center(
                       child: Text(
                         _sqlErrorMessage == null ? 'Execute a SELECT query to view results.' : 'Error executing query.',
-                        style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4), fontSize: 13),
+                        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 13),
                       ),
                     )
                   : Column(
@@ -716,7 +716,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                           child: Text(
                             'Query returned ${_sqlResultRows.length} rows',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                           ),
                         ),
                         Expanded(
@@ -729,7 +729,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                                   headingRowHeight: 38,
                                   dataRowMinHeight: 34,
                                   dataRowMaxHeight: 46,
-                                  headingRowColor: MaterialStateProperty.all(theme.colorScheme.surfaceVariant.withOpacity(0.3)),
+                                  headingRowColor: MaterialStateProperty.all(theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)),
                                   columns: _sqlResultColumns.map((col) {
                                     return DataColumn(
                                       label: Text(
@@ -747,7 +747,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen> with Single
                                             val == null ? 'NULL' : val.toString(),
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: val == null ? theme.colorScheme.onSurface.withOpacity(0.3) : theme.colorScheme.onSurface,
+                                              color: val == null ? theme.colorScheme.onSurface.withValues(alpha: 0.3) : theme.colorScheme.onSurface,
                                               fontStyle: val == null ? FontStyle.italic : FontStyle.normal,
                                             ),
                                           ),

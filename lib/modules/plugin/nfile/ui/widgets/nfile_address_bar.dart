@@ -244,15 +244,15 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
             child: Material(
               elevation: 12,
               borderRadius: BorderRadius.circular(16),
-              color: theme.colorScheme.surface.withOpacity(0.95),
-              shadowColor: Colors.black.withOpacity(0.4),
+              color: theme.colorScheme.surface.withValues(alpha: 0.95),
+              shadowColor: Colors.black.withValues(alpha: 0.4),
               child: Container(
                 constraints: BoxConstraints(
                   maxHeight: (size.height * 0.35).clamp(150.0, 300.0),
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.dividerColor.withOpacity(0.15)),
+                  border: Border.all(color: theme.dividerColor.withValues(alpha: 0.15)),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
@@ -273,7 +273,7 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                               child: Text(
                                 'No matching directories or files found',
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                   fontStyle: FontStyle.italic,
                                 ),
                                 textAlign: TextAlign.center,
@@ -302,7 +302,7 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                                   leading: Icon(
                                     isDir ? Broken.folder : Broken.document,
                                     size: 20,
-                                    color: isDir ? theme.colorScheme.primary : theme.colorScheme.onSurface.withOpacity(0.6),
+                                    color: isDir ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                   ),
                                   title: Text(
                                     displayName,
@@ -314,7 +314,7 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                                     fullPath,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -411,16 +411,16 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
         height: 48,
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _isEditing ? theme.colorScheme.primary.withOpacity(0.5) : theme.dividerColor.withOpacity(0.1),
+            color: _isEditing ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.dividerColor.withValues(alpha: 0.1),
             width: _isEditing ? 1.5 : 1.0,
           ),
           boxShadow: _isEditing
               ? [
                   BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.08),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   )
@@ -434,7 +434,7 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
               icon: Icon(
                 _isEditing ? Broken.arrow_left : Broken.edit,
                 size: 20,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               onPressed: () {
                 if (_isEditing) {
@@ -511,7 +511,7 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                                             fontWeight: isLast ? FontWeight.bold : FontWeight.w500,
                                             color: isLast
                                                 ? theme.colorScheme.primary
-                                                : theme.colorScheme.onSurface.withOpacity(0.8),
+                                                : theme.colorScheme.onSurface.withValues(alpha: 0.8),
                                           ),
                                         ),
                                       ),
@@ -523,12 +523,12 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                           decoration: BoxDecoration(
-                                            color: theme.colorScheme.surface.withOpacity(0.92),
+                                            color: theme.colorScheme.surface.withValues(alpha: 0.92),
                                             borderRadius: BorderRadius.circular(16),
-                                            border: Border.all(color: theme.colorScheme.primary.withOpacity(0.35), width: 1.5),
+                                            border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.35), width: 1.5),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: theme.colorScheme.shadow.withOpacity(0.18),
+                                                color: theme.colorScheme.shadow.withValues(alpha: 0.18),
                                                 blurRadius: 16,
                                                 offset: const Offset(0, 8),
                                               ),
@@ -567,8 +567,9 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                                     }
 
                                     return DragTarget<DragPayload>(
-                                      onWillAccept: (data) {
-                                        if (data == null || data.paths.isEmpty) return false;
+                                      onWillAcceptWithDetails: (details) {
+                                        final data = details.data;
+                                        if (data.paths.isEmpty) return false;
                                         if (data.paths.contains(segment.path)) return false;
                                         if (data.paths.any((x) => segment.path.startsWith(x + p.separator))) return false;
 
@@ -592,7 +593,8 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                                         _hoverTimers[segment.path]?.cancel();
                                         _hoverTimers.remove(segment.path);
                                       },
-                                      onAccept: (data) {
+                                      onAcceptWithDetails: (details) {
+                                        final data = details.data;
                                         setStateSegment(() {
                                           isDragOverSegment = false;
                                         });
@@ -618,7 +620,7 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                                           duration: const Duration(milliseconds: 200),
                                           decoration: BoxDecoration(
                                             color: isDragOverSegment
-                                                ? theme.colorScheme.primary.withOpacity(0.18)
+                                                ? theme.colorScheme.primary.withValues(alpha: 0.18)
                                                 : Colors.transparent,
                                             borderRadius: BorderRadius.circular(8),
                                             border: isDragOverSegment
@@ -635,7 +637,7 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
                                   Icon(
                                     Broken.arrow_right_3,
                                     size: 14,
-                                    color: theme.colorScheme.onSurface.withOpacity(0.35),
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
                                   ),
                               ],
                             );

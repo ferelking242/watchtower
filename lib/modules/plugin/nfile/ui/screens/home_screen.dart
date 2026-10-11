@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver, Si
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Exit Confirmation',
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) {
         return const SizedBox.shrink();
@@ -115,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver, Si
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.errorContainer.withOpacity(0.2),
+                        color: theme.colorScheme.errorContainer.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
                       child: NfileIcon(

@@ -244,7 +244,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen>
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Lyrics',
-      barrierColor: Colors.black.withOpacity(0.4),
+      barrierColor: Colors.black.withValues(alpha: 0.4),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) {
         return LyricsDialog(
@@ -359,7 +359,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen>
                   icon: const Icon(Icons.restart_alt_rounded, color: Colors.white70, size: 18),
                   label: const Text('Reset to Default', style: TextStyle(color: Colors.white70)),
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () {
@@ -534,7 +534,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen>
                 ),
                 trailing: Switch(
                   value: _isShuffled,
-                  activeColor: Colors.deepPurpleAccent,
+                  activeThumbColor: Colors.deepPurpleAccent,
                   onChanged: (_) {
                     _toggleShuffle();
                     setSheet(() {});
@@ -632,12 +632,12 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen>
                 end: Alignment.bottomCenter,
                 colors: isDark
                     ? [
-                        accent.withOpacity(0.2),
+                        accent.withValues(alpha: 0.2),
                         theme.scaffoldBackgroundColor,
                         theme.scaffoldBackgroundColor,
                       ]
                     : [
-                        accent.withOpacity(0.12),
+                        accent.withValues(alpha: 0.12),
                         theme.scaffoldBackgroundColor,
                         theme.scaffoldBackgroundColor,
                       ],
@@ -683,7 +683,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen>
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 15,
-                                color: theme.colorScheme.onSurface.withOpacity(0.9),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
                               ),
                             ),
                           ],
@@ -692,7 +692,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen>
                       Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: theme.colorScheme.onSurface.withOpacity(0.08),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
                         ),
                         child: IconButton(
                           icon: const Icon(Icons.more_horiz_rounded, size: 22),
@@ -744,7 +744,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen>
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 15,
-                                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -754,7 +754,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen>
                               IconButton(
                                 icon: Icon(
                                   _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                                  color: _isFavorite ? Colors.redAccent : theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: _isFavorite ? Colors.redAccent : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                   size: 28,
                                 ),
                                 onPressed: () => setState(() => _isFavorite = !_isFavorite),

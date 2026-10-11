@@ -199,7 +199,7 @@ class QuickCategoriesGrid extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 24.0),
                 child: Text(
                   'No shortcuts pinned. Tap Customize to add.',
-                  style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                 ),
               ),
             )
@@ -230,13 +230,13 @@ class QuickCategoriesGrid extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Material(
-                        color: color.withOpacity(0.15),
+                        color: color.withValues(alpha: 0.15),
                         shape: const CircleBorder(),
                         child: InkWell(
                           onTap: action,
                           customBorder: const CircleBorder(),
-                          splashColor: color.withOpacity(0.25),
-                          highlightColor: color.withOpacity(0.15),
+                          splashColor: color.withValues(alpha: 0.25),
+                          highlightColor: color.withValues(alpha: 0.15),
                           child: Container(
                             width: 52,
                             height: 52,
@@ -259,7 +259,7 @@ class QuickCategoriesGrid extends StatelessWidget {
                       Text(
                         count,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                           fontSize: 10.5,
                           fontWeight: FontWeight.w500,
                         ),
@@ -302,7 +302,7 @@ class _CustomizeCategoriesSheet extends StatelessWidget {
             return Column(
               children: [
                 const SizedBox(height: 12),
-                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2))),
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2))),
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -320,7 +320,7 @@ class _CustomizeCategoriesSheet extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Drag items by the handle (=) to reorder icons on the Home Screen.',
-                      style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13),
+                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 13),
                     ),
                   ),
                 ),
@@ -333,7 +333,7 @@ class _CustomizeCategoriesSheet extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(46),
                       foregroundColor: theme.colorScheme.primary,
-                      side: BorderSide(color: theme.colorScheme.primary.withOpacity(0.5)),
+                      side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     onPressed: () async {
@@ -460,7 +460,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
           leading: Container(
             width: 42,
             height: 42,
-            decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
             child: NfileIcon(icon, color: color, size: 22),
           ),
           title: Row(
@@ -487,7 +487,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
             ],
           ),
           subtitle: isCustom
-              ? Text(widget.cat['path'] as String, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.5)), maxLines: 1, overflow: TextOverflow.ellipsis)
+              ? Text(widget.cat['path'] as String, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)), maxLines: 1, overflow: TextOverflow.ellipsis)
               : (isStandardCategory && customPaths.isNotEmpty
                   ? Text('${customPaths.length} custom path(s)', style: TextStyle(fontSize: 11, color: theme.colorScheme.primary, fontWeight: FontWeight.w500))
                   : null),
@@ -504,7 +504,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
               ],
               Switch(
                 value: widget.isEnabled,
-                activeColor: theme.colorScheme.primary,
+                activeThumbColor: theme.colorScheme.primary,
                 onChanged: (val) => widget.provider.toggleCategory(label),
               ),
               const SizedBox(width: 12),
@@ -526,7 +526,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary.withOpacity(0.8),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.8),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -538,13 +538,13 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: isExcluded
-                          ? theme.colorScheme.error.withOpacity(0.03)
-                          : theme.colorScheme.primary.withOpacity(0.05),
+                          ? theme.colorScheme.error.withValues(alpha: 0.03)
+                          : theme.colorScheme.primary.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isExcluded
-                            ? theme.colorScheme.error.withOpacity(0.1)
-                            : theme.colorScheme.primary.withOpacity(0.1),
+                            ? theme.colorScheme.error.withValues(alpha: 0.1)
+                            : theme.colorScheme.primary.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Row(
@@ -553,7 +553,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                           Icons.folder_shared_outlined,
                           size: 16,
                           color: isExcluded
-                              ? theme.colorScheme.error.withOpacity(0.5)
+                              ? theme.colorScheme.error.withValues(alpha: 0.5)
                               : theme.colorScheme.primary,
                         ),
                         const SizedBox(width: 8),
@@ -563,8 +563,8 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                             style: TextStyle(
                               fontSize: 12,
                               color: isExcluded
-                                  ? theme.colorScheme.onSurface.withOpacity(0.4)
-                                  : theme.colorScheme.onSurface.withOpacity(0.85),
+                                  ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+                                  : theme.colorScheme.onSurface.withValues(alpha: 0.85),
                               decoration: isExcluded ? TextDecoration.lineThrough : null,
                             ),
                             maxLines: 1,
@@ -603,7 +603,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -613,7 +613,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
                     child: Text(
                       'No custom paths added.',
-                      style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4), fontSize: 12, fontStyle: FontStyle.italic),
+                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 12, fontStyle: FontStyle.italic),
                     ),
                   )
                 else
@@ -621,7 +621,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -669,7 +669,7 @@ class _CategoryItemWidgetState extends State<CategoryItemWidget> {
                     foregroundColor: theme.colorScheme.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    backgroundColor: theme.colorScheme.primary.withOpacity(0.08),
+                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.08),
                   ),
                 ),
               ],

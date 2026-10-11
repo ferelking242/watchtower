@@ -52,12 +52,12 @@ class FileItem extends StatelessWidget {
 
     final child = Card(
       margin: cardMargin,
-      color: isSelected ? theme.colorScheme.primaryContainer.withOpacity(0.4) : theme.colorScheme.surface,
+      color: isSelected ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4) : theme.colorScheme.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isSelected ? theme.colorScheme.primary : theme.dividerColor.withOpacity(0.1),
+          color: isSelected ? theme.colorScheme.primary : theme.dividerColor.withValues(alpha: 0.1),
           width: isSelected ? 1.5 : 1.0,
         ),
       ),
@@ -75,7 +75,7 @@ class FileItem extends StatelessWidget {
                   width: 48 * iconScale,
                   height: 48 * iconScale,
                   decoration: BoxDecoration(
-                    color: isSelected ? theme.colorScheme.primary : iconColor.withOpacity(0.1),
+                    color: isSelected ? theme.colorScheme.primary : iconColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: ClipRRect(
@@ -126,7 +126,7 @@ class FileItem extends StatelessWidget {
                               Text(
                                 FileUtils.formatDate(file.modified, use24Hour: provider.use24HourFormat),
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -134,7 +134,7 @@ class FileItem extends StatelessWidget {
                             Text(
                               FileUtils.formatBytes(file.size, 2),
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                               ),
                             ),
                           ],
@@ -199,10 +199,10 @@ class FileItem extends StatelessWidget {
               child: Container(
                 margin: cardMargin,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.06),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: theme.colorScheme.primary.withOpacity(0.25),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.25),
                     width: 1.5,
                   ),
                 ),
@@ -397,7 +397,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
           Center(
             child: Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
               child: Icon(FileUtils.getAdaptiveIcon(Broken.video, useMaterialIcons), color: Colors.white, size: 16 * widget.iconScale),
             ),
           ),
@@ -419,7 +419,7 @@ class _MediaThumbnailState extends State<MediaThumbnail> {
           Center(
             child: Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
               child: Icon(FileUtils.getAdaptiveIcon(Broken.music, useMaterialIcons), color: Colors.white, size: 16 * widget.iconScale),
             ),
           ),
@@ -461,7 +461,7 @@ class _TrailingInfoWidget extends StatelessWidget {
         child: Text(
           FileUtils.formatDate(item.modified, use24Hour: provider.use24HourFormat),
           style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
             fontSize: 12.0 * (1 + (iconScale - 1) * 0.3),
           ),
         ),
@@ -475,7 +475,7 @@ class _TrailingInfoWidget extends StatelessWidget {
           child: Text(
             FileUtils.formatBytes(item.size, 1),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
               fontSize: 12.0 * (1 + (iconScale - 1) * 0.3),
             ),
           ),
@@ -494,7 +494,7 @@ class _TrailingInfoWidget extends StatelessWidget {
               child: Text(
                 label,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
                   fontSize: 12.0 * (1 + (iconScale - 1) * 0.3),
                 ),
               ),

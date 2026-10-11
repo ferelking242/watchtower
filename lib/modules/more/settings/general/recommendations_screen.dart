@@ -125,7 +125,7 @@ class _RecommendationsScreenState
                       ),
                       color: selected
                           ? opt.color.withValues(alpha: 0.08)
-                          : colorScheme.surfaceContainerHighest.withOpacity(
+                          : colorScheme.surfaceContainerHighest.withValues(alpha: 
                               0.4,
                             ),
                     ),

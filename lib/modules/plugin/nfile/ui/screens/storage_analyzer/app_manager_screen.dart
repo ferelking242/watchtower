@@ -196,7 +196,7 @@ class _AppManagerScreenState extends State<AppManagerScreen> with SingleTickerPr
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
           indicatorColor: theme.colorScheme.primary,
           labelColor: theme.colorScheme.primary,
-          unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withOpacity(0.5),
+          unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
           tabs: const [
             Tab(text: 'Installed User Apps'),
             Tab(text: 'System Packages'),
@@ -220,7 +220,7 @@ class _AppManagerScreenState extends State<AppManagerScreen> with SingleTickerPr
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: theme.dividerColor.withOpacity(0.08)),
+                        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.08)),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
@@ -240,7 +240,7 @@ class _AppManagerScreenState extends State<AppManagerScreen> with SingleTickerPr
                                     ? 'Search backups...'
                                     : 'Search packages or names...',
                                 hintStyle: TextStyle(
-                                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.4),
+                                  color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.4),
                                 ),
                                 border: InputBorder.none,
                               ),
@@ -258,7 +258,7 @@ class _AppManagerScreenState extends State<AppManagerScreen> with SingleTickerPr
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: theme.dividerColor.withOpacity(0.08)),
+                        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.08)),
                       ),
                       child: const Icon(Icons.sort_rounded, size: 22),
                     ),
@@ -343,9 +343,9 @@ class _AppManagerScreenState extends State<AppManagerScreen> with SingleTickerPr
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withOpacity(0.08),
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.15), width: 1.2),
+        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.15), width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,7 +367,7 @@ class _AppManagerScreenState extends State<AppManagerScreen> with SingleTickerPr
             'To see exact app storage sizes (APK + data + cache) instead of just the raw installer size, please enable the Usage Access permission for NFile in System Settings.',
             style: TextStyle(
               fontSize: 12.5,
-              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+              color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
               height: 1.3,
             ),
           ),

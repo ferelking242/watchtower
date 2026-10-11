@@ -88,17 +88,17 @@ class _BackupSettingsTile extends StatelessWidget {
     return Card(
       elevation: 0,
       margin: const EdgeInsets.symmetric(vertical: 4),
-      color: theme.colorScheme.surface.withOpacity(0.5),
+      color: theme.colorScheme.surface.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.1)),
+        side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.1)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: theme.colorScheme.primary, size: 22),
@@ -111,12 +111,12 @@ class _BackupSettingsTile extends StatelessWidget {
           padding: const EdgeInsets.only(top: 4.0),
           child: Text(
             subtitle,
-            style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+            style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
         ),
         trailing: Icon(
           Icons.chevron_right_rounded,
-          color: theme.colorScheme.onSurface.withOpacity(0.4),
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
           size: 22,
         ),
         onTap: onTap,

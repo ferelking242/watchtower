@@ -361,13 +361,13 @@ class _WatchLogoContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     final scaffoldBg  = Theme.of(context).scaffoldBackgroundColor;
     final blendedBg   = Color.alphaBlend(
-      scaffoldBg.withOpacity(0.5),
+      scaffoldBg.withValues(alpha: 0.5),
       isDark ? Colors.black : Colors.white,
     );
     final fg = Color.alphaBlend(
-      cs.primary.withOpacity(0.1),
+      cs.primary.withValues(alpha: 0.1),
       Theme.of(context).colorScheme.onSurface,
-    ).withOpacity(0.8);
+    ).withValues(alpha: 0.8);
 
     return Material(
       color: Colors.transparent,
@@ -380,13 +380,13 @@ class _WatchLogoContainer extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: cs.primary.withOpacity(0.5)),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.5)),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color.alphaBlend(blendedBg.withOpacity(0.90), cs.primary),
-                Color.alphaBlend(blendedBg.withOpacity(0.65), cs.primary),
+                Color.alphaBlend(blendedBg.withValues(alpha: 0.90), cs.primary),
+                Color.alphaBlend(blendedBg.withValues(alpha: 0.65), cs.primary),
               ],
             ),
             boxShadow: [
@@ -411,7 +411,7 @@ class _WatchLogoContainer extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 17.5,
                     fontWeight: FontWeight.w800,
-                    color: fg.withOpacity(0.72),
+                    color: fg.withValues(alpha: 0.72),
                     overflow: TextOverflow.fade,
                   ),
                   softWrap: false,

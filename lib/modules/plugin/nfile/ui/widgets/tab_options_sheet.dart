@@ -49,7 +49,7 @@ class TabOptionsSheet extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 24,
             offset: const Offset(0, -4),
           ),
@@ -66,7 +66,7 @@ class TabOptionsSheet extends StatelessWidget {
                 height: 4,
                 margin: const EdgeInsets.only(top: 12, bottom: 8),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withOpacity(0.15),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -79,7 +79,7 @@ class TabOptionsSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.08),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Icon(
@@ -110,7 +110,7 @@ class TabOptionsSheet extends StatelessWidget {
                           displayPath,
                           style: TextStyle(
                             fontSize: 12,
-                            color: theme.colorScheme.onSurface.withOpacity(0.5),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                             fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
@@ -184,7 +184,7 @@ class TabOptionsSheet extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         child: Row(
           children: [
-            Icon(icon, color: iconColor ?? displayColor.withOpacity(0.8), size: 22),
+            Icon(icon, color: iconColor ?? displayColor.withValues(alpha: 0.8), size: 22),
             const SizedBox(width: 16),
             Text(
               label,

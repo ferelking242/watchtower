@@ -172,7 +172,7 @@ class _VaultLockScreenState extends State<VaultLockScreen> with SingleTickerProv
           gradient: LinearGradient(
             colors: isDark
                 ? [const Color(0xFF0F172A), const Color(0xFF1E293B), const Color(0xFF020617)]
-                : [theme.colorScheme.primaryContainer.withOpacity(0.4), theme.colorScheme.surface, theme.colorScheme.surface],
+                : [theme.colorScheme.primaryContainer.withValues(alpha: 0.4), theme.colorScheme.surface, theme.colorScheme.surface],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -200,11 +200,11 @@ class _VaultLockScreenState extends State<VaultLockScreen> with SingleTickerProv
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.12),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.primary.withOpacity(0.08),
+                          color: theme.colorScheme.primary.withValues(alpha: 0.08),
                           blurRadius: 24,
                           spreadRadius: 2,
                         ),
@@ -232,7 +232,7 @@ class _VaultLockScreenState extends State<VaultLockScreen> with SingleTickerProv
                       fontWeight: FontWeight.w600,
                       color: _isError 
                           ? theme.colorScheme.error 
-                          : theme.colorScheme.onSurface.withOpacity(0.6),
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -259,13 +259,13 @@ class _VaultLockScreenState extends State<VaultLockScreen> with SingleTickerProv
                         border: Border.all(
                           color: isFilled 
                               ? theme.colorScheme.primary 
-                              : theme.colorScheme.onSurface.withOpacity(0.24),
+                              : theme.colorScheme.onSurface.withValues(alpha: 0.24),
                           width: 2,
                         ),
                         boxShadow: isFilled
                             ? [
                                 BoxShadow(
-                                  color: theme.colorScheme.primary.withOpacity(0.4),
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
                                   blurRadius: 10,
                                   spreadRadius: 1,
                                 ),
@@ -351,20 +351,20 @@ class _VaultLockScreenState extends State<VaultLockScreen> with SingleTickerProv
       child: InkWell(
         onTap: () => _onKeyPress(label),
         borderRadius: BorderRadius.circular(40),
-        splashColor: theme.colorScheme.primary.withOpacity(0.12),
-        highlightColor: theme.colorScheme.primary.withOpacity(0.06),
+        splashColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+        highlightColor: theme.colorScheme.primary.withValues(alpha: 0.06),
         child: Container(
           width: 72,
           height: 72,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: theme.colorScheme.outline.withOpacity(0.1),
+              color: theme.colorScheme.outline.withValues(alpha: 0.1),
               width: 1.5,
             ),
             color: isDark 
-                ? Colors.white.withOpacity(0.02) 
-                : Colors.black.withOpacity(0.01),
+                ? Colors.white.withValues(alpha: 0.02) 
+                : Colors.black.withValues(alpha: 0.01),
           ),
           child: Center(
             child: Text(
@@ -393,8 +393,8 @@ class _VaultLockScreenState extends State<VaultLockScreen> with SingleTickerProv
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(40),
-        splashColor: theme.colorScheme.primary.withOpacity(0.12),
-        highlightColor: theme.colorScheme.primary.withOpacity(0.06),
+        splashColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+        highlightColor: theme.colorScheme.primary.withValues(alpha: 0.06),
         child: Container(
           width: 72,
           height: 72,
@@ -405,7 +405,7 @@ class _VaultLockScreenState extends State<VaultLockScreen> with SingleTickerProv
             child: Icon(
               icon,
               size: 24,
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ),

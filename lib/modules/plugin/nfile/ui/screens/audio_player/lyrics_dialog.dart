@@ -252,12 +252,12 @@ class _LyricsDialogState extends State<LyricsDialog> {
           width: double.infinity,
           height: MediaQuery.of(context).size.height * 0.7,
           decoration: BoxDecoration(
-            color: const Color(0xFF131324).withOpacity(0.85),
+            color: const Color(0xFF131324).withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: Colors.white10),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -273,7 +273,7 @@ class _LyricsDialogState extends State<LyricsDialog> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(Broken.document, color: theme.colorScheme.primary, size: 20),
@@ -297,7 +297,7 @@ class _LyricsDialogState extends State<LyricsDialog> {
                           Text(
                             widget.artist,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: Colors.white.withValues(alpha: 0.6),
                               fontSize: 12,
                             ),
                             maxLines: 1,
@@ -343,10 +343,10 @@ class _LyricsDialogState extends State<LyricsDialog> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
+              color: Colors.white.withValues(alpha: 0.04),
               shape: BoxShape.circle,
             ),
-            child: Icon(Broken.music, size: 48, color: Colors.white.withOpacity(0.3)),
+            child: Icon(Broken.music, size: 48, color: Colors.white.withValues(alpha: 0.3)),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -357,7 +357,7 @@ class _LyricsDialogState extends State<LyricsDialog> {
           const SizedBox(height: 10),
           Text(
             'Keep a .lrc file with the exact same name next to your song, or select it manually below.',
-            style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13, height: 1.5),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 13, height: 1.5),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -408,13 +408,13 @@ class _LyricsDialogState extends State<LyricsDialog> {
                       child: Text(
                         line.text.isEmpty ? "♪" : line.text,
                         style: TextStyle(
-                          color: isSelected ? theme.colorScheme.primary : Colors.white.withOpacity(0.4),
+                          color: isSelected ? theme.colorScheme.primary : Colors.white.withValues(alpha: 0.4),
                           fontSize: isSelected ? 18 : 15,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                           shadows: isSelected
                               ? [
                                   Shadow(
-                                    color: theme.colorScheme.primary.withOpacity(0.4),
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
                                     blurRadius: 10,
                                   ),
                                 ]
@@ -437,7 +437,7 @@ class _LyricsDialogState extends State<LyricsDialog> {
               child: Text(
                 'Tap a line to seek playback',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.35),
+                  color: Colors.white.withValues(alpha: 0.35),
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),

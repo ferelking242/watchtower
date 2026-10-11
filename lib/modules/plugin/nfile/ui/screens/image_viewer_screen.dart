@@ -281,11 +281,11 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Broken.image, size: 64, color: Colors.white.withOpacity(0.5)),
+                          Icon(Broken.image, size: 64, color: Colors.white.withValues(alpha: 0.5)),
                           const SizedBox(height: 16),
                           Text(
                             'Failed to load image',
-                            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16, fontWeight: FontWeight.w600),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),

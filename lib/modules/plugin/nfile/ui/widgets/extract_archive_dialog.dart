@@ -67,7 +67,7 @@ class _ExtractArchiveDialogState extends State<ExtractArchiveDialog> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.secondary.withOpacity(0.1),
+                      color: theme.colorScheme.secondary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(Broken.archive, color: theme.colorScheme.secondary, size: 24),
@@ -83,7 +83,7 @@ class _ExtractArchiveDialogState extends State<ExtractArchiveDialog> {
                         ),
                         Text(
                           widget.archiveName,
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(0.6)),
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

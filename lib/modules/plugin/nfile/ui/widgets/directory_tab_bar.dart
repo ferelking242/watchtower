@@ -23,7 +23,7 @@ class DirectoryTabBar extends StatelessWidget implements PreferredSizeWidget {
         color: theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: theme.dividerColor.withOpacity(0.08),
+            color: theme.dividerColor.withValues(alpha: 0.08),
             width: 1,
           ),
         ),
@@ -46,8 +46,8 @@ class DirectoryTabBar extends StatelessWidget implements PreferredSizeWidget {
                   margin: const EdgeInsets.only(right: 8),
                   child: Material(
                     color: isSelected
-                        ? theme.colorScheme.primaryContainer.withOpacity(0.8)
-                        : theme.colorScheme.surfaceVariant.withOpacity(0.4),
+                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.8)
+                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       onTap: () => provider.setActiveTab(index),
@@ -59,8 +59,8 @@ class DirectoryTabBar extends StatelessWidget implements PreferredSizeWidget {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected
-                                ? theme.colorScheme.primary.withOpacity(0.4)
-                                : theme.dividerColor.withOpacity(0.05),
+                                ? theme.colorScheme.primary.withValues(alpha: 0.4)
+                                : theme.dividerColor.withValues(alpha: 0.05),
                             width: 1.2,
                           ),
                         ),
@@ -76,7 +76,7 @@ class DirectoryTabBar extends StatelessWidget implements PreferredSizeWidget {
                                   ? Colors.orange
                                   : (isSelected
                                       ? theme.colorScheme.primary
-                                      : theme.colorScheme.onSurface.withOpacity(0.6)),
+                                      : theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -86,7 +86,7 @@ class DirectoryTabBar extends StatelessWidget implements PreferredSizeWidget {
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                   color: isSelected
                                       ? theme.colorScheme.primary
-                                      : theme.colorScheme.onSurface.withOpacity(0.8)),
+                                      : theme.colorScheme.onSurface.withValues(alpha: 0.8)),
                             ),
                             if (tabs.length > 1 && !tab.isPinned) ...[
                               const SizedBox(width: 8),
@@ -96,8 +96,8 @@ class DirectoryTabBar extends StatelessWidget implements PreferredSizeWidget {
                                   Icons.close,
                                   size: 14,
                                   color: isSelected
-                                      ? theme.colorScheme.primary.withOpacity(0.7)
-                                      : theme.colorScheme.onSurface.withOpacity(0.4),
+                                      ? theme.colorScheme.primary.withValues(alpha: 0.7)
+                                      : theme.colorScheme.onSurface.withValues(alpha: 0.4),
                                 ),
                               ),
                             ],
@@ -113,7 +113,7 @@ class DirectoryTabBar extends StatelessWidget implements PreferredSizeWidget {
           Container(
             height: 32,
             width: 1,
-            color: theme.dividerColor.withOpacity(0.12),
+            color: theme.dividerColor.withValues(alpha: 0.12),
           ),
           IconButton(
             constraints: const BoxConstraints(),

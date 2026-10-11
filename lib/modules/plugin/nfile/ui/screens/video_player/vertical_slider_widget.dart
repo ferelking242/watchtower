@@ -20,15 +20,15 @@ class VerticalSliderWidget extends StatelessWidget {
         width: 48.0,
         height: 180.0,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.65),
+          color: Colors.black.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(24.0),
           border: Border.all(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             width: 1.0,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               blurRadius: 16.0,
               spreadRadius: 4.0,
             ),
@@ -53,7 +53,7 @@ class VerticalSliderWidget extends StatelessWidget {
                   Container(
                     width: 6.0,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(3.0),
                     ),
                   ),

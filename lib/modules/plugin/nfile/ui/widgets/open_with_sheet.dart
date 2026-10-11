@@ -36,7 +36,7 @@ class _OpenWithSheetState extends State<OpenWithSheet> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurface.withOpacity(0.2),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -56,7 +56,7 @@ class _OpenWithSheetState extends State<OpenWithSheet> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 16),
@@ -76,13 +76,13 @@ class _OpenWithSheetState extends State<OpenWithSheet> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _selectedType == 'native'
-                        ? theme.colorScheme.primary.withOpacity(0.12)
+                        ? theme.colorScheme.primary.withValues(alpha: 0.12)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: _selectedType == 'native'
                           ? theme.colorScheme.primary
-                          : theme.colorScheme.outline.withOpacity(0.2),
+                          : theme.colorScheme.outline.withValues(alpha: 0.2),
                       width: _selectedType == 'native' ? 1.5 : 1,
                     ),
                   ),
@@ -91,7 +91,7 @@ class _OpenWithSheetState extends State<OpenWithSheet> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -119,7 +119,7 @@ class _OpenWithSheetState extends State<OpenWithSheet> {
                               "NFile's custom native experience",
                               style: TextStyle(
                                 fontSize: 12,
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                               ),
                             ),
                           ],
@@ -148,13 +148,13 @@ class _OpenWithSheetState extends State<OpenWithSheet> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _selectedType == 'external'
-                        ? theme.colorScheme.primary.withOpacity(0.12)
+                        ? theme.colorScheme.primary.withValues(alpha: 0.12)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: _selectedType == 'external'
                           ? theme.colorScheme.primary
-                          : theme.colorScheme.outline.withOpacity(0.2),
+                          : theme.colorScheme.outline.withValues(alpha: 0.2),
                       width: _selectedType == 'external' ? 1.5 : 1,
                     ),
                   ),
@@ -163,7 +163,7 @@ class _OpenWithSheetState extends State<OpenWithSheet> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -191,7 +191,7 @@ class _OpenWithSheetState extends State<OpenWithSheet> {
                               "Open with third party apps on device",
                               style: TextStyle(
                                 fontSize: 12,
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                               ),
                             ),
                           ],

@@ -985,7 +985,7 @@ class MangaReaderSettingsCard extends StatelessWidget {
               Switch(
                 value: nightMode,
                 onChanged: onNightModeChanged,
-                activeColor: accent,
+                activeThumbColor: accent,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ],

@@ -416,7 +416,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
                 Switch(
                   value: _subtitlesEnabled,
                   onChanged: (v) => setState(() => _subtitlesEnabled = v),
-                  activeColor: _teal,
+                  activeThumbColor: _teal,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ],
@@ -434,7 +434,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
                   onChanged: _subtitlesEnabled
                       ? (v) => setState(() => _bilingueEnabled = v)
                       : null,
-                  activeColor: _teal,
+                  activeThumbColor: _teal,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ],

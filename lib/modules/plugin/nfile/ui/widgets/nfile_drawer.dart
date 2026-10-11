@@ -124,14 +124,14 @@ class NFileDrawer extends StatelessWidget {
                       child: Theme(
                         data: theme.copyWith(dividerColor: Colors.transparent),
                         child: ExpansionTile(
-                          leading: NfileIcon(Broken.wifi_square, size: 22, color: theme.colorScheme.onSurface.withOpacity(0.8)),
+                          leading: NfileIcon(Broken.wifi_square, size: 22, color: theme.colorScheme.onSurface.withValues(alpha: 0.8)),
                           title: Text(
                             'Servers & Tools',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.9)),
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withValues(alpha: 0.9)),
                           ),
                           iconColor: theme.colorScheme.primary,
                           textColor: theme.colorScheme.primary,
-                          collapsedIconColor: theme.colorScheme.onSurface.withOpacity(0.8),
+                          collapsedIconColor: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                           tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
                           children: [
                             _buildDrawerTile(
@@ -218,14 +218,14 @@ class NFileDrawer extends StatelessWidget {
                       child: Theme(
                         data: theme.copyWith(dividerColor: Colors.transparent),
                         child: ExpansionTile(
-                          leading: NfileIcon(Icons.category_rounded, size: 22, color: theme.colorScheme.onSurface.withOpacity(0.8)),
+                          leading: NfileIcon(Icons.category_rounded, size: 22, color: theme.colorScheme.onSurface.withValues(alpha: 0.8)),
                           title: Text(
                             'Quick Categories',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withOpacity(0.9)),
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withValues(alpha: 0.9)),
                           ),
                           iconColor: theme.colorScheme.primary,
                           textColor: theme.colorScheme.primary,
-                          collapsedIconColor: theme.colorScheme.onSurface.withOpacity(0.8),
+                          collapsedIconColor: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                           tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
                           children: [
                             ...activeList.map((cat) {
@@ -281,7 +281,7 @@ class NFileDrawer extends StatelessWidget {
                 scale: 0.85,
                 child: Switch(
                   value: isDark,
-                  activeColor: theme.colorScheme.primary,
+                  activeThumbColor: theme.colorScheme.primary,
                   onChanged: (_) => toggleTheme(),
                 ),
               ),
@@ -314,7 +314,7 @@ class NFileDrawer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Text(
                 'NFile v1.0.42',
-                style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurface.withOpacity(0.4), fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurface.withValues(alpha: 0.4), fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -331,17 +331,17 @@ class NFileDrawer extends StatelessWidget {
         gradient: LinearGradient(
           colors: isDark
               ? [
-                  Color.alphaBlend(theme.colorScheme.primary.withOpacity(0.15), const Color(0xFF0F172A)),
-                  Color.alphaBlend(theme.colorScheme.primary.withOpacity(0.05), const Color(0xFF1E293B)),
+                  Color.alphaBlend(theme.colorScheme.primary.withValues(alpha: 0.15), const Color(0xFF0F172A)),
+                  Color.alphaBlend(theme.colorScheme.primary.withValues(alpha: 0.05), const Color(0xFF1E293B)),
                 ]
-              : [theme.colorScheme.primary.withOpacity(0.85), theme.colorScheme.primary],
+              : [theme.colorScheme.primary.withValues(alpha: 0.85), theme.colorScheme.primary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.25),
+            color: theme.colorScheme.primary.withValues(alpha: 0.25),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -353,7 +353,7 @@ class NFileDrawer extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const NfileIcon(Broken.folder, color: Colors.white, size: 28),
@@ -370,7 +370,7 @@ class NFileDrawer extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'Beautiful Media Suite',
-                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12.5, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -387,7 +387,7 @@ class NFileDrawer extends StatelessWidget {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          color: theme.colorScheme.primary.withOpacity(0.8),
+          color: theme.colorScheme.primary.withValues(alpha: 0.8),
           fontSize: 11,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.0,
@@ -408,23 +408,23 @@ class NFileDrawer extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
       child: Material(
-        color: isSelected ? theme.colorScheme.primary.withOpacity(0.15) : Colors.transparent,
+        color: isSelected ? theme.colorScheme.primary.withValues(alpha: 0.15) : Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          splashColor: theme.colorScheme.primary.withOpacity(0.15),
-          highlightColor: theme.colorScheme.primary.withOpacity(0.08),
+          splashColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+          highlightColor: theme.colorScheme.primary.withValues(alpha: 0.08),
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: trailing != null ? 4.0 : 12.0),
             child: Row(
               children: [
-                NfileIcon(icon, size: 22, color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withOpacity(0.8)),
+                NfileIcon(icon, size: 22, color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.8)),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     title,
-                    style: TextStyle(fontSize: 15, fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withOpacity(0.9)),
+                    style: TextStyle(fontSize: 15, fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.9)),
                   ),
                 ),
                 // ignore: use_null_aware_elements
@@ -441,7 +441,7 @@ class NFileDrawer extends StatelessWidget {
   Widget _buildDivider(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-      child: Divider(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1), height: 1),
+      child: Divider(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1), height: 1),
     );
   }
 

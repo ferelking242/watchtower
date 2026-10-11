@@ -398,7 +398,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
 
     await showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.55),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (ctx) => BatchRenameDialog(
         provider: context.read<FileManagerProvider>(),
         selectedPaths: filePaths,
@@ -438,7 +438,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                   children: [
                     Expanded(child: Text(value, style: const TextStyle(fontSize: 13), softWrap: true)),
                     const SizedBox(width: 4),
-                    Icon(Broken.document_copy, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                    Icon(Broken.document_copy, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
                   ],
                 ),
               ),
@@ -600,7 +600,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                         const SizedBox(height: 4),
                         Text(
                           'Long press to Open with...',
-                          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
                         ),
                       ],
                     ],
@@ -1015,7 +1015,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, -2))],
       ),
       child: SafeArea(
         child: SingleChildScrollView(
@@ -1144,10 +1144,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withOpacity(0.35),
+                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: theme.colorScheme.primary.withOpacity(0.15),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
                       ),
                     ),
                     child: Text(
@@ -1163,7 +1163,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                   const SizedBox(width: 10),
                   Expanded(
                     child: Divider(
-                      color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
                       thickness: 1,
                     ),
                   ),
@@ -1208,7 +1208,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                     children: [
                       const SizedBox(height: 12),
                       Divider(
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.15),
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.15),
                         thickness: 1.5,
                         indent: 16,
                         endIndent: 16,
@@ -1279,7 +1279,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 width: double.infinity,
                 height: double.infinity,
                 errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withValues(alpha: 0.1),
                   child: const Center(child: Icon(Broken.image, size: 24, color: Colors.grey)),
                 ),
               ),
@@ -1291,7 +1291,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             left: 4,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
               child: Text(
                 dateStr.split(',').first,
                 style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
@@ -1304,7 +1304,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             right: 6,
             child: Icon(
               isSelected ? Broken.tick_square : Icons.check_box_outline_blank,
-              color: isSelected ? theme.colorScheme.primary : Colors.white.withOpacity(0.8),
+              color: isSelected ? theme.colorScheme.primary : Colors.white.withValues(alpha: 0.8),
               size: 24,
             ),
           )
@@ -1325,7 +1325,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               },
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
                 child: const Icon(Broken.more, color: Colors.white, size: 18),
               ),
             ),
@@ -1450,7 +1450,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                color: theme.colorScheme.surfaceVariant,
+                color: theme.colorScheme.surfaceContainerHighest,
                 padding: const EdgeInsets.all(8),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1475,7 +1475,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             left: 4,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
               child: Text(
                 dateStr.split(',').first,
                 style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
@@ -1488,7 +1488,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             right: 6,
             child: Icon(
               isSelected ? Broken.tick_square : Icons.check_box_outline_blank,
-              color: isSelected ? theme.colorScheme.primary : Colors.white.withOpacity(0.8),
+              color: isSelected ? theme.colorScheme.primary : Colors.white.withValues(alpha: 0.8),
               size: 24,
             ),
           )
@@ -1509,7 +1509,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               },
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
                 child: const Icon(Broken.more, color: Colors.white, size: 18),
               ),
             ),
@@ -1641,7 +1641,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             : audio.artist ?? "Unknown Artist",
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.55), fontSize: 11),
+        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.55), fontSize: 11),
       ),
       trailing: _isSelectionMode
           ? null
@@ -1719,7 +1719,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
             child: Icon(icon, color: color, size: 22),
           ),
           if (_isSelectionMode || isSelected)
@@ -1738,7 +1738,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         showDate
             ? '${FileUtils.formatBytes(size, 1)} • ${FileUtils.formatDate(modified)}'
             : FileUtils.formatBytes(size, 1),
-        style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 11),
+        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11),
       ),
       trailing: _isSelectionMode
           ? null
@@ -1817,7 +1817,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: iconColor.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
             child: isApk
                 ? _ApkThumbnail(path: path, iconColor: iconColor)
                 : Icon(FileUtils.getIconForFile(name), color: iconColor, size: 22),
@@ -1838,7 +1838,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         showDate
             ? '${FileUtils.formatBytes(size, 1)} • ${FileUtils.formatDate(modified)}'
             : FileUtils.formatBytes(size, 1),
-        style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 11),
+        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11),
       ),
       trailing: _isSelectionMode
           ? null
@@ -1915,9 +1915,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(_emptyIcon, size: 72, color: theme.colorScheme.onSurface.withOpacity(0.2)),
+          Icon(_emptyIcon, size: 72, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
-          Text('No ${_title.toLowerCase()} found', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 16)),
+          Text('No ${_title.toLowerCase()} found', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 16)),
         ],
       ),
     );
@@ -1937,7 +1937,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       child: Container(
         height: 40,
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -2109,7 +2109,7 @@ class _CachedImageTileState extends State<_CachedImageTile> {
                   height: double.infinity,
                   gaplessPlayback: true,
                   errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     child: const Center(child: Icon(Broken.image, size: 24, color: Colors.grey)),
                   ),
                 )
@@ -2198,7 +2198,7 @@ class _CachedVideoTileState extends State<_CachedVideoTile> {
                       height: double.infinity,
                       gaplessPlayback: true,
                       errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         child: const Center(child: Icon(Broken.video, size: 24, color: Colors.grey)),
                       ),
                     )
@@ -2207,7 +2207,7 @@ class _CachedVideoTileState extends State<_CachedVideoTile> {
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withOpacity(0.5)]),
+                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: 0.5)]),
                 ),
               ),
             ),
@@ -2215,7 +2215,7 @@ class _CachedVideoTileState extends State<_CachedVideoTile> {
               child: Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
                 child: const Icon(Icons.play_arrow, color: Colors.white, size: 22),
               ),
             ),
@@ -2224,7 +2224,7 @@ class _CachedVideoTileState extends State<_CachedVideoTile> {
               right: 6,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(4)),
                 child: Text(
                   _formatDuration(widget.asset.duration),
                   style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
@@ -2289,8 +2289,8 @@ class _FolderGridItemState extends State<FolderGridItem> {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
-            border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.4)),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: Stack(
             fit: StackFit.expand,
@@ -2310,14 +2310,14 @@ class _FolderGridItemState extends State<FolderGridItem> {
                       end: Alignment.bottomRight,
                     ),
                   ),
-                  child: Icon(Broken.folder_2, color: theme.colorScheme.primary.withOpacity(0.5), size: 40),
+                  child: Icon(Broken.folder_2, color: theme.colorScheme.primary.withValues(alpha: 0.5), size: 40),
                 ),
               // Gradient Overlay
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.transparent, Colors.black.withOpacity(0.85)],
+                      colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       stops: const [0.4, 1.0],
@@ -2348,7 +2348,7 @@ class _FolderGridItemState extends State<FolderGridItem> {
                     Text(
                       '$_count items',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.75),
+                        color: Colors.white.withValues(alpha: 0.75),
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),

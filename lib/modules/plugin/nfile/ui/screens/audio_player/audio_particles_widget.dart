@@ -127,7 +127,7 @@ class _ParticlesPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (var p in particles) {
       final paint = Paint()
-        ..color = color.withOpacity(p.alpha)
+        ..color = color.withValues(alpha: p.alpha)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
       canvas.drawCircle(Offset(p.x, p.y), p.radius, paint);
     }

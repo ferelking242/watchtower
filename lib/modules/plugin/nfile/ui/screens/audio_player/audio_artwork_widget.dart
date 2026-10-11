@@ -209,13 +209,13 @@ class _AudioArtworkWidgetState extends State<AudioArtworkWidget>
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: widget.accentColor.withOpacity(widget.isPlaying ? 0.35 : 0.15),
+                  color: widget.accentColor.withValues(alpha: widget.isPlaying ? 0.35 : 0.15),
                   blurRadius: 40,
                   spreadRadius: 8,
                   offset: const Offset(0, 16),
                 ),
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 20,
                   spreadRadius: 2,
                   offset: const Offset(0, 10),
@@ -225,7 +225,7 @@ class _AudioArtworkWidgetState extends State<AudioArtworkWidget>
             child: ClipRRect(
               borderRadius: BorderRadius.circular(28),
               child: Container(
-                color: widget.accentColor.withOpacity(0.12),
+                color: widget.accentColor.withValues(alpha: 0.12),
                 child: _isLoading
                     ? Center(
                         child: CircularProgressIndicator(
@@ -256,12 +256,12 @@ class _AudioArtworkWidgetState extends State<AudioArtworkWidget>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.music_note_rounded, size: size * 0.3, color: widget.accentColor.withOpacity(0.8)),
+          Icon(Icons.music_note_rounded, size: size * 0.3, color: widget.accentColor.withValues(alpha: 0.8)),
           const SizedBox(height: 12),
           Text(
             'Lossless Audio',
             style: TextStyle(
-               color: widget.accentColor.withOpacity(0.6),
+               color: widget.accentColor.withValues(alpha: 0.6),
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),

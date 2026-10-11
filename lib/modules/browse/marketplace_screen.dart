@@ -1563,7 +1563,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                       value: _showNsfw,
                       onChanged: (v) =>
                           ref.read(showNSFWStateProvider.notifier).state = v,
-                      activeColor: Colors.red.shade400,
+                      activeThumbColor: Colors.red.shade400,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),

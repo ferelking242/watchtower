@@ -15,7 +15,7 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.4),
+      barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (context) => PopScope(
         canPop: false, // Prevent dismissing via standard back button
         child: BackgroundOperationProgressDialog(service: service),
@@ -48,12 +48,12 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
 
             return Card(
               elevation: 24,
-              shadowColor: Colors.black.withOpacity(0.3),
+              shadowColor: Colors.black.withValues(alpha: 0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28),
-                side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.12)),
+                side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
               ),
-              color: theme.colorScheme.surface.withOpacity(0.85),
+              color: theme.colorScheme.surface.withValues(alpha: 0.85),
               margin: const EdgeInsets.symmetric(horizontal: 24),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(28),
@@ -70,7 +70,7 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withOpacity(0.12),
+                                color: theme.colorScheme.primary.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Icon(
@@ -95,7 +95,7 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
                                   Text(
                                     operation.archiveName,
                                     style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.55),
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                                       fontWeight: FontWeight.w500,
                                     ),
                                     maxLines: 1,
@@ -111,16 +111,16 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceVariant.withOpacity(0.4),
+                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: theme.colorScheme.outline.withOpacity(0.06)),
+                            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.06)),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 Broken.document,
                                 size: 18,
-                                color: theme.colorScheme.primary.withOpacity(0.8),
+                                color: theme.colorScheme.primary.withValues(alpha: 0.8),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -128,7 +128,7 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
                                   operation.currentFile.isEmpty ? 'Processing...' : operation.currentFile,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface.withOpacity(0.85),
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -149,7 +149,7 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
                                   'Overall Progress',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface.withOpacity(0.55),
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                                   ),
                                 ),
                                 Text(
@@ -168,7 +168,7 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
                                 children: [
                                   Container(
                                     height: 10,
-                                    color: theme.colorScheme.primary.withOpacity(0.08),
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
                                   ),
                                   AnimatedContainer(
                                     duration: const Duration(milliseconds: 300),
@@ -203,7 +203,7 @@ class BackgroundOperationProgressDialog extends StatelessWidget {
                                 label: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.redAccent,
-                                  side: BorderSide(color: Colors.redAccent.withOpacity(0.4)),
+                                  side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.4)),
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),

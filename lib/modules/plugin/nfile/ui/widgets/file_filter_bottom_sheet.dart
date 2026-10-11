@@ -84,7 +84,7 @@ class FileFilterBottomSheet extends StatelessWidget {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: theme.dividerColor.withOpacity(0.15),
+                  color: theme.dividerColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -101,7 +101,7 @@ class FileFilterBottomSheet extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'Select a category to display matching files only',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.55)),
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
                   ),
                 ],
               ),
@@ -129,12 +129,12 @@ class FileFilterBottomSheet extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? item.color.withOpacity(0.12)
+                              ? item.color.withValues(alpha: 0.12)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isSelected
-                                ? item.color.withOpacity(0.3)
+                                ? item.color.withValues(alpha: 0.3)
                                 : Colors.transparent,
                             width: 1.5,
                           ),
@@ -145,13 +145,13 @@ class FileFilterBottomSheet extends StatelessWidget {
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? item.color.withOpacity(0.2)
-                                    : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
+                                    ? item.color.withValues(alpha: 0.2)
+                                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03)),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 item.icon,
-                                color: isSelected ? item.color : theme.colorScheme.onSurface.withOpacity(0.7),
+                                color: isSelected ? item.color : theme.colorScheme.onSurface.withValues(alpha: 0.7),
                                 size: 22,
                               ),
                             ),
@@ -165,7 +165,7 @@ class FileFilterBottomSheet extends StatelessWidget {
                                     style: TextStyle(
                                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                                       fontSize: 15,
-                                      color: isSelected ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withOpacity(0.85),
+                                      color: isSelected ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.85),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -173,7 +173,7 @@ class FileFilterBottomSheet extends StatelessWidget {
                                     item.subtitle,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                                     ),
                                   ),
                                 ],

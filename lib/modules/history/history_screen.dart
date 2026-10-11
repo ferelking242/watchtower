@@ -909,7 +909,7 @@ class _HistoryGrid extends ConsumerWidget {
           ),
           color: selected
               ? cs.primary.withValues(alpha: 0.08)
-              : cs.surfaceVariant.withValues(alpha: 0.4),
+              : cs.surfaceContainerHighest.withValues(alpha: 0.4),
         ),
         child: InkWell(
           onTap: onTap,
@@ -971,7 +971,7 @@ class _HistoryGrid extends ConsumerWidget {
           ),
           color: selected
               ? cs.primary.withValues(alpha: 0.12)
-              : cs.surfaceVariant.withValues(alpha: 0.5),
+              : cs.surfaceContainerHighest.withValues(alpha: 0.5),
         ),
         child: InkWell(
           onTap: onTap,

@@ -339,9 +339,9 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: isDark ? theme.colorScheme.surfaceVariant.withOpacity(0.3) : theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                          color: isDark ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.05)),
+                          border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,7 +356,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: (isActive ? Colors.teal : Colors.amber).withOpacity(0.4),
+                                        color: (isActive ? Colors.teal : Colors.amber).withValues(alpha: 0.4),
                                         blurRadius: 8,
                                         spreadRadius: 1,
                                       ),
@@ -376,7 +376,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
                               children: [
                                 Text(
                                   'Network status',
-                                  style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.w500),
+                                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
                                 ),
                                 const Text(
                                   'Connected',
@@ -390,7 +390,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
                               children: [
                                 Text(
                                   'Server address',
-                                  style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.w500),
+                                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
                                 ),
                                 SelectableText(
                                   'ftp://${_ftpService.ipAddress}:${_ftpService.port}',
@@ -406,9 +406,9 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
                       // Settings Card
                       Container(
                         decoration: BoxDecoration(
-                          color: isDark ? theme.colorScheme.surfaceVariant.withOpacity(0.3) : theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                          color: isDark ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.05)),
+                          border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
                         ),
                         child: Column(
                           children: [
@@ -440,7 +440,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
                               title: const Text('User name', style: TextStyle(fontWeight: FontWeight.w500)),
                               trailing: Text(
                                 _ftpService.anonymous ? 'Anonymous' : _ftpService.username,
-                                style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.bold),
+                                style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.bold),
                               ),
                               onTap: _showUserDialog,
                             ),
@@ -449,7 +449,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
                             SwitchListTile(
                               title: const Text('Show hidden files', style: TextStyle(fontWeight: FontWeight.w500)),
                               value: _ftpService.showHidden,
-                              activeColor: theme.colorScheme.primary,
+                              activeThumbColor: theme.colorScheme.primary,
                               onChanged: (val) {
                                 _ftpService.configure(showHidden: val);
                                 setState(() {});
@@ -458,7 +458,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
 
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Divider(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+                              child: Divider(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
                             ),
 
                              // FTPES Row
@@ -466,7 +466,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
                                title: const Text('FTPES', style: TextStyle(fontWeight: FontWeight.w500)),
                                subtitle: const Text('Secure FTP connection over explicit TLS', style: TextStyle(fontSize: 11.5)),
                                value: _ftpesEnabled,
-                               activeColor: theme.colorScheme.primary,
+                               activeThumbColor: theme.colorScheme.primary,
                                onChanged: (val) {
                                  setState(() {
                                    _ftpesEnabled = val;

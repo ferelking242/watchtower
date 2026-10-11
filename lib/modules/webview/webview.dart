@@ -4057,7 +4057,7 @@ class _AdBlockFullPage extends StatelessWidget {
                     ),
                     value: enabled,
                     onChanged: (v) { onToggle(v); Navigator.pop(context); },
-                    activeColor: isDark ? Colors.greenAccent : Colors.green.shade600,
+                    activeThumbColor: isDark ? Colors.greenAccent : Colors.green.shade600,
                   ),
                   Divider(height: 1, color: divColor),
 

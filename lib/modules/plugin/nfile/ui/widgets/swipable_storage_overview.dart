@@ -28,7 +28,7 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final borderCol = isDark ? Colors.white.withOpacity(0.05) : theme.colorScheme.primary.withOpacity(0.08);
+    final borderCol = isDark ? Colors.white.withValues(alpha: 0.05) : theme.colorScheme.primary.withValues(alpha: 0.08);
     final double cardHeight = isMultiVolume ? 160.0 : 144.0;
 
     return Padding(
@@ -41,7 +41,7 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
           border: Border.all(color: borderCol, width: 1),
           boxShadow: [
             BoxShadow(
-              color: isDark ? Colors.black.withOpacity(0.15) : Colors.black.withOpacity(0.04),
+              color: isDark ? Colors.black.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -154,10 +154,10 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
               if (vol.isInternal) {
                 gradientColors = isDark
                     ? [
-                        Color.alphaBlend(theme.colorScheme.primary.withOpacity(0.15), const Color(0xFF181818)),
-                        Color.alphaBlend(theme.colorScheme.primary.withOpacity(0.05), const Color(0xFF0C0C0C)),
+                        Color.alphaBlend(theme.colorScheme.primary.withValues(alpha: 0.15), const Color(0xFF181818)),
+                        Color.alphaBlend(theme.colorScheme.primary.withValues(alpha: 0.05), const Color(0xFF0C0C0C)),
                       ]
-                    : [theme.colorScheme.primary, theme.colorScheme.primary.withOpacity(0.82)];
+                    : [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.82)];
                 iconData = Broken.folder_2;
                 accentColor = isDark ? theme.colorScheme.primary : Colors.white;
               } else if (vol.name.toLowerCase().contains('sd')) {
@@ -174,10 +174,10 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
                 accentColor = isDark ? const Color(0xFF2DD4BF) : Colors.white;
               }
 
-              final iconBgColor = isDark ? accentColor.withOpacity(0.15) : Colors.white.withOpacity(0.25);
-              final iconBorderColor = isDark ? accentColor.withOpacity(0.3) : Colors.white.withOpacity(0.4);
-              final shadowColor = isDark ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.06);
-              final progressBgColor = isDark ? Colors.white.withOpacity(0.12) : Colors.white.withOpacity(0.3);
+              final iconBgColor = isDark ? accentColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.25);
+              final iconBorderColor = isDark ? accentColor.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.4);
+              final shadowColor = isDark ? Colors.black.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.06);
+              final progressBgColor = isDark ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.3);
 
               return Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: volumes.length > 1 ? 8.0 : 4.0),
@@ -196,7 +196,7 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
                         offset: const Offset(0, 3),
                       ),
                     ],
-                    border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
                   ),
                   child: Material(
                     color: Colors.transparent,
@@ -216,8 +216,8 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
                         }
                       },
                       borderRadius: BorderRadius.circular(24),
-                      splashColor: Colors.white.withOpacity(0.15),
-                      highlightColor: Colors.white.withOpacity(0.08),
+                      splashColor: Colors.white.withValues(alpha: 0.15),
+                      highlightColor: Colors.white.withValues(alpha: 0.08),
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
@@ -254,7 +254,7 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
                                       Text(
                                         vol.path,
                                         style: TextStyle(
-                                          color: Colors.white.withOpacity(0.8),
+                                          color: Colors.white.withValues(alpha: 0.8),
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -268,9 +268,9 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
                                 // Container(
                                 //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                                 //   decoration: BoxDecoration(
-                                //     color: Colors.white.withOpacity(0.15),
+                                //     color: Colors.white.withValues(alpha: 0.15),
                                 //     borderRadius: BorderRadius.circular(14),
-                                //     border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+                                //     border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1),
                                 //   ),
                                 //   child: const Row(
                                 //     mainAxisSize: MainAxisSize.min,
@@ -306,7 +306,7 @@ class _SwipableStorageOverviewState extends State<SwipableStorageOverview> {
                                 ),
                                 Text(
                                   '$totalStorageStr total',
-                                  style: TextStyle(color: Colors.white.withOpacity(0.82), fontWeight: FontWeight.w500, fontSize: 12.5),
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontWeight: FontWeight.w500, fontSize: 12.5),
                                 ),
                               ],
                             ),
@@ -392,7 +392,7 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder> with SingleTick
             width: widget.width,
             height: widget.height,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08),
+              color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(widget.borderRadius),
             ),
           ),

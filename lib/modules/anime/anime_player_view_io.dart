@@ -4043,7 +4043,7 @@ class _PlayerSettingsDialogState extends State<_PlayerSettingsDialog> {
             child: Switch(
               value: value,
               onChanged: onChanged,
-              activeColor: Theme.of(context).colorScheme.primary,
+              activeThumbColor: Theme.of(context).colorScheme.primary,
             ),
           ),
         ],

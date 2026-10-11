@@ -119,11 +119,11 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _getFileIconColor(context).withOpacity(0.1),
+                        color: _getFileIconColor(context).withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: _getFileIconColor(context).withOpacity(0.2),
+                            color: _getFileIconColor(context).withValues(alpha: 0.2),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           )
@@ -152,9 +152,9 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer.withOpacity(0.25),
+                              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: theme.colorScheme.primary.withOpacity(0.12)),
+                              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.12)),
                             ),
                             child: Text(
                               itemName,
@@ -177,7 +177,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        theme.colorScheme.primary.withOpacity(0.25),
+                        theme.colorScheme.primary.withValues(alpha: 0.25),
                         Colors.transparent,
                       ],
                     ),
@@ -191,7 +191,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                     fontWeight: FontWeight.w900,
                     fontSize: 11,
                     letterSpacing: 1.3,
-                    color: theme.colorScheme.primary.withOpacity(0.85),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.85),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -232,13 +232,13 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.06)),
+                    border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.06)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Broken.info_circle, size: 18, color: theme.colorScheme.primary.withOpacity(0.7)),
+                      Icon(Broken.info_circle, size: 18, color: theme.colorScheme.primary.withValues(alpha: 0.7)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -249,7 +249,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                             fontSize: 12,
                             fontFamily: 'monospace',
                             fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface.withOpacity(0.8),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                           ),
                         ),
                       ),
@@ -264,7 +264,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                     fontWeight: FontWeight.w900,
                     fontSize: 11,
                     letterSpacing: 1.3,
-                    color: theme.colorScheme.primary.withOpacity(0.85),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.85),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -310,7 +310,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                         'Cancel',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface.withOpacity(0.55),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
                     ),
@@ -320,7 +320,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: theme.colorScheme.primary.withOpacity(0.35),
+                            color: theme.colorScheme.primary.withValues(alpha: 0.35),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           )
@@ -372,7 +372,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: theme.colorScheme.primary.withOpacity(0.04),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 )
@@ -387,12 +387,12 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
           side: BorderSide(
             color: isSelected
                 ? theme.colorScheme.primary
-                : theme.colorScheme.onSurface.withOpacity(0.08),
+                : theme.colorScheme.onSurface.withValues(alpha: 0.08),
             width: isSelected ? 2.0 : 1.0,
           ),
         ),
         color: isSelected
-            ? theme.colorScheme.primary.withOpacity(0.06)
+            ? theme.colorScheme.primary.withValues(alpha: 0.06)
             : theme.colorScheme.surface,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -408,12 +408,12 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: (isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface).withOpacity(0.08),
+                    color: (isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
-                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withOpacity(0.55),
+                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.55),
                     size: 20,
                   ),
                 ),
@@ -436,7 +436,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w500,
-                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
                     ],
@@ -450,7 +450,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                     border: Border.all(
                       color: isSelected
                           ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withOpacity(0.25),
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.25),
                       width: 2,
                     ),
                   ),
@@ -492,7 +492,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: color.withOpacity(0.04),
+                    color: color.withValues(alpha: 0.04),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   )
@@ -505,11 +505,11 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: isSelected ? color : theme.colorScheme.onSurface.withOpacity(0.08),
+              color: isSelected ? color : theme.colorScheme.onSurface.withValues(alpha: 0.08),
               width: isSelected ? 2.0 : 1.0,
             ),
           ),
-          color: isSelected ? color.withOpacity(0.06) : theme.colorScheme.surface,
+          color: isSelected ? color.withValues(alpha: 0.06) : theme.colorScheme.surface,
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: isDisabled
@@ -526,7 +526,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
+                      color: color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(icon, color: color, size: 22),
@@ -550,7 +550,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w500,
-                            color: theme.colorScheme.onSurface.withOpacity(0.5),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -562,7 +562,7 @@ class _DragDropActionDialogState extends State<DragDropActionDialog> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isSelected ? color : theme.colorScheme.onSurface.withOpacity(0.25),
+                        color: isSelected ? color : theme.colorScheme.onSurface.withValues(alpha: 0.25),
                         width: 2.0,
                       ),
                       color: isSelected ? color : Colors.transparent,

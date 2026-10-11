@@ -229,7 +229,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.4 : 0.1),
+                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -4),
                   ),
@@ -254,7 +254,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                           width: 48,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.onSurface.withOpacity(0.15),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(2.5),
                           ),
                         ),
@@ -282,7 +282,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                             ],
                           ),
                           IconButton(
-                            icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                            icon: Icon(Icons.close_rounded, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ],
@@ -291,7 +291,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                       Text(
                         'Optimize rendering performance for large, design-heavy, or scanned documents.',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -300,10 +300,10 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(0.08),
+                          color: theme.colorScheme.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: theme.colorScheme.primary.withOpacity(0.2),
+                            color: theme.colorScheme.primary.withValues(alpha: 0.2),
                             width: 1,
                           ),
                         ),
@@ -378,7 +378,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                         child: SegmentedButton<PdfPageLayoutMode>(
                           showSelectedIcon: false,
                           style: SegmentedButton.styleFrom(
-                            selectedBackgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+                            selectedBackgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
                             selectedForegroundColor: theme.colorScheme.primary,
                           ),
                           segments: const [
@@ -419,7 +419,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                         child: SegmentedButton<PdfScrollDirection>(
                           showSelectedIcon: false,
                           style: SegmentedButton.styleFrom(
-                            selectedBackgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+                            selectedBackgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
                             selectedForegroundColor: theme.colorScheme.primary,
                           ),
                           segments: const [
@@ -449,7 +449,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.onSurface.withOpacity(0.05),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: SwitchListTile(
@@ -464,7 +464,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                             style: TextStyle(fontSize: 12),
                           ),
                           value: _pdfEnableTextSelection,
-                          activeColor: theme.colorScheme.primary,
+                          activeThumbColor: theme.colorScheme.primary,
                           onChanged: (val) {
                             setModalState(() {
                               _pdfEnableTextSelection = val;
@@ -496,7 +496,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       color: isActive ? theme.colorScheme.primary : theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(12),
       elevation: isActive ? 2 : 0,
-      shadowColor: theme.colorScheme.primary.withOpacity(0.4),
+      shadowColor: theme.colorScheme.primary.withValues(alpha: 0.4),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -505,7 +505,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isActive ? Colors.transparent : theme.colorScheme.outline.withOpacity(0.2),
+              color: isActive ? Colors.transparent : theme.colorScheme.outline.withValues(alpha: 0.2),
             ),
           ),
           child: Column(
@@ -524,7 +524,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 11,
-                  color: isActive ? theme.colorScheme.onPrimary.withOpacity(0.8) : theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: isActive ? theme.colorScheme.onPrimary.withValues(alpha: 0.8) : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -552,7 +552,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         Text(
           subtitle,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurface.withOpacity(0.6),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
         const SizedBox(height: 10),
@@ -712,7 +712,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.4 : 0.08),
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
                 blurRadius: 16,
                 offset: const Offset(0, 8),
               ),
@@ -765,7 +765,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                       sheetName,
                       style: TextStyle(
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? Colors.green : theme.colorScheme.onSurface.withOpacity(0.7),
+                        color: isSelected ? Colors.green : theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
@@ -785,7 +785,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: Table(
                         border: TableBorder.all(
-                          color: theme.colorScheme.onSurface.withOpacity(0.2),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                           width: 1,
                         ),
                         defaultColumnWidth: const IntrinsicColumnWidth(),
@@ -794,9 +794,9 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                           return TableRow(
                             decoration: BoxDecoration(
                               color: isHeader
-                                  ? Colors.green.withOpacity(0.15)
+                                  ? Colors.green.withValues(alpha: 0.15)
                                   : (rows.indexOf(row) % 2 == 0
-                                      ? theme.colorScheme.surface.withOpacity(0.5)
+                                      ? theme.colorScheme.surface.withValues(alpha: 0.5)
                                       : Colors.transparent),
                             ),
                             children: row.map((cell) {
@@ -839,10 +839,10 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.orangeAccent.withOpacity(0.3), width: 2),
+              border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3), width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.4 : 0.08),
+                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 ),
@@ -937,10 +937,10 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             width: 120,
             height: 140,
             decoration: BoxDecoration(
-              color: fileColor.withOpacity(0.12),
+              color: fileColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: fileColor.withOpacity(0.3), width: 1.5),
+                  color: fileColor.withValues(alpha: 0.3), width: 1.5),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -993,7 +993,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                   sizeStr,
                   style: TextStyle(
                     color:
-                        theme.colorScheme.onSurface.withOpacity(0.5),
+                        theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     fontSize: 13,
                   ),
                 );
@@ -1024,7 +1024,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
               icon: Icon(Icons.share, color: fileColor),
               label: Text('Share', style: TextStyle(color: fileColor)),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: fileColor.withOpacity(0.5)),
+                side: BorderSide(color: fileColor.withValues(alpha: 0.5)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),

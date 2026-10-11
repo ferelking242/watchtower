@@ -19,7 +19,7 @@ class BatchRenameDialog extends StatefulWidget {
     if (provider.selectedPaths.isEmpty) return Future.value();
     return showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.55),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (context) => BatchRenameDialog(
         provider: provider,
         selectedPaths: List<String>.from(provider.selectedPaths),
@@ -217,12 +217,12 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
           width: size.width * 0.9,
           constraints: BoxConstraints(maxHeight: size.height * 0.85),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withOpacity(0.92),
+            color: theme.colorScheme.surface.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: theme.colorScheme.outline.withOpacity(0.15)),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.25),
+                color: Colors.black.withValues(alpha: 0.25),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -260,7 +260,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
           Text(
             'Please wait, updating folder content',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ],
@@ -282,7 +282,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.12),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
@@ -307,7 +307,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                       Text(
                         'Configuring ${widget.selectedPaths.length} items',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.55),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -322,9 +322,9 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
             Container(
               height: 120,
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurface.withOpacity(0.04),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: theme.colorScheme.outline.withOpacity(0.08)),
+                border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.08)),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
@@ -333,7 +333,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                   itemCount: widget.selectedPaths.length,
                   separatorBuilder: (context, index) => Divider(
                     height: 1,
-                    color: theme.colorScheme.outline.withOpacity(0.06),
+                    color: theme.colorScheme.outline.withValues(alpha: 0.06),
                   ),
                   itemBuilder: (context, index) {
                     final path = widget.selectedPaths[index];
@@ -350,7 +350,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                             size: 18,
                             color: isDir
                                 ? Colors.amber.shade700
-                                : theme.colorScheme.primary.withOpacity(0.7),
+                                : theme.colorScheme.primary.withValues(alpha: 0.7),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -358,7 +358,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                             child: Text(
                               origName,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -368,7 +368,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                             child: Icon(
                               Icons.arrow_forward_rounded,
                               size: 14,
-                              color: theme.colorScheme.onSurface.withOpacity(0.3),
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                             ),
                           ),
                           Expanded(
@@ -468,7 +468,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                       floatingLabelBehavior: FloatingLabelBehavior.always,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      prefixIcon: Icon(Broken.edit, size: 20, color: theme.colorScheme.primary.withOpacity(0.6)),
+                      prefixIcon: Icon(Broken.edit, size: 20, color: theme.colorScheme.primary.withValues(alpha: 0.6)),
                     ),
                   ),
                 ),
@@ -478,7 +478,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                     '.',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
                   ),
                 ),
@@ -669,7 +669,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
+                    color: Colors.grey.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -692,7 +692,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                           Text(
                             'Reviewing ${widget.selectedPaths.length} items',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.55),
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                             ),
                           ),
                         ],
@@ -721,11 +721,11 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                       return Card(
                         elevation: 0,
                         margin: EdgeInsets.zero,
-                        color: theme.colorScheme.surface.withOpacity(0.5),
+                        color: theme.colorScheme.surface.withValues(alpha: 0.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                           side: BorderSide(
-                            color: theme.colorScheme.outline.withOpacity(0.12),
+                            color: theme.colorScheme.outline.withValues(alpha: 0.12),
                           ),
                         ),
                         child: Padding(
@@ -740,14 +740,14 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
                                     size: 16,
                                     color: isDir
                                         ? Colors.amber.shade700
-                                        : theme.colorScheme.primary.withOpacity(0.6),
+                                        : theme.colorScheme.primary.withValues(alpha: 0.6),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       origName,
                                       style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                                         height: 1.3,
                                       ),
                                     ),
@@ -848,7 +848,7 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: theme.colorScheme.primary.withOpacity(0.08),
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,

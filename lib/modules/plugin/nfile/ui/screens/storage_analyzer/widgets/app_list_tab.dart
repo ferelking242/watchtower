@@ -37,7 +37,7 @@ class AppListTab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.08),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -69,13 +69,13 @@ class AppListTab extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
             color: isSelected
-                ? theme.colorScheme.primaryContainer.withOpacity(0.35)
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.35)
                 : theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected
                   ? theme.colorScheme.primary
-                  : theme.dividerColor.withOpacity(0.06),
+                  : theme.dividerColor.withValues(alpha: 0.06),
               width: isSelected ? 1.5 : 1.0,
             ),
           ),
@@ -100,7 +100,7 @@ class AppListTab extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.08),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: ClipRRect(
@@ -130,7 +130,7 @@ class AppListTab extends StatelessWidget {
                         Text(
                           '${app.packageName} • v${app.version}',
                           style: TextStyle(
-                            color: theme.textTheme.bodySmall?.color?.withOpacity(0.55),
+                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.55),
                             fontSize: 11,
                           ),
                           maxLines: 1,
@@ -204,7 +204,7 @@ class _AppIconWidget extends StatelessWidget {
             fit: BoxFit.contain,
           );
         }
-        return Icon(Broken.mobile, size: size * 0.8, color: Theme.of(context).colorScheme.primary.withOpacity(0.5));
+        return Icon(Broken.mobile, size: size * 0.8, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5));
       },
     );
   }

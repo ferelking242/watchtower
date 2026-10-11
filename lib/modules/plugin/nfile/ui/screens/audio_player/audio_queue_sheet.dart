@@ -34,7 +34,7 @@ class AudioQueueSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withOpacity(0.2),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -75,8 +75,8 @@ class AudioQueueSheet extends StatelessWidget {
                     height: 48,
                     decoration: BoxDecoration(
                       color: isPlaying
-                          ? accentColor.withOpacity(0.2)
-                          : theme.colorScheme.onSurface.withOpacity(0.08),
+                          ? accentColor.withValues(alpha: 0.2)
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: ClipRRect(
@@ -113,7 +113,7 @@ class AudioQueueSheet extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withOpacity(0.55),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
                   trailing: isPlaying

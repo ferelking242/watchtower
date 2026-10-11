@@ -3593,7 +3593,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                                           setState(() => _bilingual = v);
                                           _applyBilingual();
                                         },
-                                        activeColor: _kBlue,
+                                        activeThumbColor: _kBlue,
                                         activeTrackColor: _kBlue,
                                         materialTapTargetSize:
                                             MaterialTapTargetSize
