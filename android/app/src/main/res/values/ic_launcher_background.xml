@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon background colour. Kept in its own file because
+  flutter_launcher_icons regenerates exactly this file (values/ic_launcher_background.xml)
+  when adaptive_icon_background is set; hand-editing colors.xml would be
+  overwritten and could duplicate the resource.
+-->
+<resources>
+    <color name="ic_launcher_background">#0E1117</color>
+</resources>

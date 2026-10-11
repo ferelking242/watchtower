@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive launcher icon.
+
+  Without this file Android 12+ has no adaptive icon for Watchtower, so it
+  wraps the legacy transparent launcher_icon.png in the system's default
+  white shape — the white box seen at launch.  The eye is a transparent-
+  background foreground layer, so the shape takes @color/ic_launcher_background
+  (dark) instead.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/launcher_icon_foreground" />
+</adaptive-icon>

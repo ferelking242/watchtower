@@ -6,7 +6,12 @@
         <item name="android:windowBackground">@color/splash_background</item>
         <item name="android:windowSplashScreenBackground">@color/splash_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
-        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <!-- Match the splash surface exactly. The platform tints this icon
+             background with a system accent when the icon is fully opaque, so a
+             transparent value is not a safe choice; using the same dark colour
+             as windowSplashScreenBackground leaves the eye floating cleanly
+             with no visible box. -->
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/splash_background</item>
     </style>
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>

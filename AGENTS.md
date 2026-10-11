@@ -95,6 +95,14 @@ the failing step name before treating a red `Build Release APK` as a code bug.
 - Splash logos (`assets/app_icons/splash_logo.png` and
   `android/app/src/main/res/drawable-nodpi/splash_logo.png`) must keep a
   **transparent** background: the native launch surface supplies the colour.
+- Android 12+ must ship an **adaptive** launcher icon. Without
+  `android/app/src/main/res/mipmap-anydpi-v26/launcher_icon.xml` the system
+  wraps the transparent legacy `launcher_icon.png` in its default **white**
+  shape — the white box seen at launch. The adaptive background is the dark
+  `@color/ic_launcher_background` (`values/ic_launcher_background.xml`), the
+  foreground is the re-padded eye from `scripts/generate_adaptive_icon.py`.
+  The Android 12 splash icon background must also stay dark
+  (`@color/splash_background`), never `@android:color/transparent`.
 - The Windows NSIS installer banner/header in
   `.github/workflows/build-windows-x64.yml` must draw the eye, not a hand-coded
   tower. It renders `assets/app_icons/icon.png` directly.

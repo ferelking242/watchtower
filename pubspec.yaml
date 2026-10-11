@@ -329,6 +329,12 @@ flutter_launcher_icons:
   # and the icon would become a blank white square.
   background_color_ios: "#0E1117"
   image_path: "assets/app_icons/icon.png"
+  # Adaptive icon: keep the dark background. Without this the generator falls
+  # back to a white shape, which is the white box Android 12+ draws at launch.
+  # The checked-in mipmap-anydpi-v26/launcher_icon.xml + per-density
+  # launcher_icon_foreground.png are produced by scripts/generate_adaptive_icon.py.
+  adaptive_icon_background: "#0E1117"
+  adaptive_icon_foreground: "scripts/icon_foreground.png"
   min_sdk_android: 21
   windows:
     generate: true
