@@ -2998,11 +2998,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   /// Display format: false = compact grid (columns), true = list with covers.
   bool _listMode = false;
 
-  /// Every box in the sheet (Saison, Langue, Résolution, Télécharger) uses this
-  /// exact height so the row reads as one aligned line — the resolution box was
-  /// visibly taller than the others before.
-  static const double _kPillHeight = 40;
-
   bool get _isFilm {
     if (widget.chapters.length != 1) return false;
     final name = widget.chapters.first.name ?? '';
@@ -3263,6 +3258,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     final maxH       = screenH - 230 - statusH;
     final seasons    = _seasons;
     final qualities  = _qualities;
+    final totalSz    = _totalSizeLabel();
 
     return Container(
       height: maxH,
@@ -3282,9 +3278,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
               borderRadius: BorderRadius.zero,
             ),
 
-          // ── [Saison] [Langue] [Résolution] — selection boxes, scrollable ──────
+          // ── [Saison] [Qualité] [⬇ Télécharger] — 3 left-aligned box pills ────
           if (!_loading)
-            _buildActionPillsRow(seasons, qualities),
+            _buildActionPillsRow(seasons, qualities, totalSz),
 
           // ── Divider ───────────────────────────────────────────────────────────
           Divider(height: 1, thickness: 0.8, color: _faint),
@@ -3355,8 +3351,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: _kPillHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -3456,65 +3451,59 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     );
   }
 
-  // ── [Saison] [Langue] [Résolution] — selection boxes, scrollable ──────────────
-  // All boxes share [_kPillHeight] so none stands taller than the resolution
-  // box; the row scrolls horizontally instead of wrapping or clipping.
-  Widget _buildActionPillsRow(List<String> seasons, List<String> qualities) {
+  // ── 3 left-aligned boxes: [Saison] [Qualité] [⬇ Télécharger] ─────────────────
+  // "Télécharger avec" removed per user request.
+  // The download CTA is the 3rd box — highlighted when episodes are selected.
+  Widget _buildActionPillsRow(
+      List<String> seasons, List<String> qualities, String totalSz) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-      child: SizedBox(
-        height: _kPillHeight,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              // Season pill — only when multiple seasons
-              if (seasons.length > 1) ...[
-                _buildPill(
-                  label: _selectedSeason ?? seasons.first,
-                  onTap: () => _showPillSheet(
-                    'Saison',
-                    seasons,
-                    _selectedSeason,
-                    (s) => setState(() {
-                      _selectedSeason = _selectedSeason == s ? null : s;
-                      _selected.clear();
-                      _selectAll = false;
-                    }),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              // Langue pill — only when the source exposes several languages
-              if (_langs.length > 1) ...[
-                _buildPill(
-                  label: _selectedLang ?? 'Langue',
-                  onTap: () => _showPillSheet(
-                    'Langue',
-                    _langs,
-                    _selectedLang ?? _langs.first,
-                    (l) => setState(() => _selectedLang = l),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              // Quality pill — only when qualities loaded
-              if (_qualities.isNotEmpty) ...[
-                _buildPill(
-                  label: _selectedQuality ?? _qualities.first,
-                  onTap: () => _showPillSheet(
-                    'Résolution',
-                    qualities,
-                    _selectedQuality ?? _qualities.first,
-                    (q) => setState(() => _selectedQuality = q),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
+      child: Row(
+        children: [
+          // Season pill — only when multiple seasons
+          if (seasons.length > 1) ...[
+            _buildPill(
+              label: _selectedSeason ?? seasons.first,
+              onTap: () => _showPillSheet(
+                'Saison',
+                seasons,
+                _selectedSeason,
+                (s) => setState(() {
+                  _selectedSeason = _selectedSeason == s ? null : s;
+                  _selected.clear();
+                  _selectAll = false;
+                }),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          // Langue pill — only when the source exposes several languages
+          if (_langs.length > 1) ...[
+            _buildPill(
+              label: _selectedLang ?? 'Langue',
+              onTap: () => _showPillSheet(
+                'Langue',
+                _langs,
+                _selectedLang ?? _langs.first,
+                (l) => setState(() => _selectedLang = l),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          // Quality pill — only when qualities loaded
+          if (_qualities.isNotEmpty) ...[
+            _buildPill(
+              label: _selectedQuality ?? _qualities.first,
+              onTap: () => _showPillSheet(
+                'Résolution',
+                qualities,
+                _selectedQuality ?? _qualities.first,
+                (q) => setState(() => _selectedQuality = q),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
       ),
     );
   }
@@ -3561,7 +3550,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             onTap: empty ? null : _startDownload,
             child: Container(
               width: double.infinity,
-              height: _kPillHeight,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: empty ? _card : _accent,
                 borderRadius: BorderRadius.circular(8),
@@ -3574,7 +3563,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.download_rounded,
-                      size: 16, color: empty ? _grey : Colors.white),
+                      size: 18, color: empty ? _grey : Colors.white),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
