@@ -260,9 +260,10 @@ class GalleryComponentPalette {
 
   /// Ready-to-render sections for the manga home stack.
   ///
-  /// Each entry points at a gallery component and mirrors the
-  /// `EnumMangaHomeWidget` cards, so the manga home composes the exact cards
-  /// the developer gallery previews without shipping a second implementation.
+  /// This is the single source of truth for the manga home order: the
+  /// production screen, the gallery previews and the layout editor all read
+  /// this list, so the manga home composes the exact cards the developer
+  /// gallery previews without shipping a second implementation.
   static const List<GalleryHomePreset> mangaHomeStack = [
     GalleryHomePreset(
       id: 'hero',
