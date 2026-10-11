@@ -20,14 +20,28 @@ import 'package:share_plus/share_plus.dart';
 import '../widgets/file_action_dialogs.dart';
 import '../widgets/batch_rename_dialog.dart';
 
-enum MediaType { images, videos, audios, documents, archives, downloads, apks, screenshots }
+enum MediaType {
+  images,
+  videos,
+  audios,
+  documents,
+  archives,
+  downloads,
+  apks,
+  screenshots,
+}
 
 class MediaCategoryScreen extends StatefulWidget {
   final MediaType mediaType;
   final AssetPathEntity? album;
   final Function(int)? onNavigateTab;
 
-  const MediaCategoryScreen({super.key, required this.mediaType, this.album, this.onNavigateTab});
+  const MediaCategoryScreen({
+    super.key,
+    required this.mediaType,
+    this.album,
+    this.onNavigateTab,
+  });
 
   @override
   State<MediaCategoryScreen> createState() => _MediaCategoryScreenState();
@@ -40,7 +54,8 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
   Set<String> _selectedFilePaths = {};
   Set<String> _selectedAssetIds = {};
 
-  bool get _isSelectionMode => _selectedFilePaths.isNotEmpty || _selectedAssetIds.isNotEmpty;
+  bool get _isSelectionMode =>
+      _selectedFilePaths.isNotEmpty || _selectedAssetIds.isNotEmpty;
 
   bool _showFoldersMode = false;
   List<AssetEntity> _albumAssets = [];
@@ -54,7 +69,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       duration: const Duration(milliseconds: 1500),
     )..repeat();
 
-    if (widget.album == null && (widget.mediaType == MediaType.images || widget.mediaType == MediaType.videos)) {
+    if (widget.album == null &&
+        (widget.mediaType == MediaType.images ||
+            widget.mediaType == MediaType.videos)) {
       _showFoldersMode = PreferencesService.getPreferFoldersInMedia();
     }
 
@@ -71,7 +88,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     setState(() => _loadingAlbum = true);
     try {
       final count = await widget.album!.assetCountAsync;
-      final assets = await widget.album!.getAssetListPaged(page: 0, size: count);
+      final assets = await widget.album!.getAssetListPaged(
+        page: 0,
+        size: count,
+      );
       if (mounted) {
         setState(() {
           _albumAssets = assets;
@@ -191,7 +211,11 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     final paths = _selectedFilePaths.toList();
     if (_selectedAssetIds.isNotEmpty) {
       final provider = context.read<MediaProvider>();
-      final allAssets = [...provider.images, ...provider.videos, ...provider.screenshots];
+      final allAssets = [
+        ...provider.images,
+        ...provider.videos,
+        ...provider.screenshots,
+      ];
       for (final id in _selectedAssetIds) {
         final match = allAssets.where((a) => a.id == id).firstOrNull;
         if (match != null) {
@@ -204,7 +228,13 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     if (paths.isNotEmpty && mounted) {
       context.read<FileManagerProvider>().setClipboard(paths, isCut: isCut);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isCut ? 'Cut ${paths.length} items to clipboard' : 'Copied ${paths.length} items to clipboard')),
+        SnackBar(
+          content: Text(
+            isCut
+                ? 'Cut ${paths.length} items to clipboard'
+                : 'Copied ${paths.length} items to clipboard',
+          ),
+        ),
       );
       _clearSelection();
     }
@@ -218,9 +248,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Confirm Deletion'),
-        content: Text('Are you sure you want to permanently delete $count selected items?'),
+        content: Text(
+          'Are you sure you want to permanently delete $count selected items?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -236,7 +271,11 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       final assetIds = _selectedAssetIds.toList();
 
       if (_selectedAssetIds.isNotEmpty) {
-        final allAssets = [...mediaProvider.images, ...mediaProvider.videos, ...mediaProvider.screenshots];
+        final allAssets = [
+          ...mediaProvider.images,
+          ...mediaProvider.videos,
+          ...mediaProvider.screenshots,
+        ];
         for (final id in assetIds) {
           final match = allAssets.where((a) => a.id == id).firstOrNull;
           if (match != null) {
@@ -246,9 +285,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         }
       }
 
-      await mediaProvider.deleteMediaItems(filePaths: filePaths, assetIds: assetIds);
+      await mediaProvider.deleteMediaItems(
+        filePaths: filePaths,
+        assetIds: assetIds,
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Successfully deleted $count items')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Successfully deleted $count items')),
+        );
         _clearSelection();
       }
     }
@@ -259,9 +303,12 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     if (!fm.hasClipboard) return;
 
     String destDir = '/storage/emulated/0/Download';
-    if (widget.mediaType == MediaType.documents) destDir = '/storage/emulated/0/Documents';
-    if (widget.mediaType == MediaType.archives) destDir = '/storage/emulated/0/Download';
-    if (widget.mediaType == MediaType.apks) destDir = '/storage/emulated/0/Download';
+    if (widget.mediaType == MediaType.documents)
+      destDir = '/storage/emulated/0/Documents';
+    if (widget.mediaType == MediaType.archives)
+      destDir = '/storage/emulated/0/Download';
+    if (widget.mediaType == MediaType.apks)
+      destDir = '/storage/emulated/0/Download';
 
     final dir = Directory(destDir);
     if (!dir.existsSync()) dir.createSync(recursive: true);
@@ -283,7 +330,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     }
 
     fm.clearClipboard();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pasted $pastedCount items to $destDir')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Pasted $pastedCount items to $destDir')),
+    );
     await context.read<MediaProvider>().loadMedia(forceRefresh: true);
   }
 
@@ -294,7 +343,11 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     final filePaths = _selectedFilePaths.toList();
     if (_selectedAssetIds.isNotEmpty) {
       final mediaProvider = context.read<MediaProvider>();
-      final allAssets = [...mediaProvider.images, ...mediaProvider.videos, ...mediaProvider.screenshots];
+      final allAssets = [
+        ...mediaProvider.images,
+        ...mediaProvider.videos,
+        ...mediaProvider.screenshots,
+      ];
       for (final id in _selectedAssetIds) {
         final match = allAssets.where((a) => a.id == id).firstOrNull;
         if (match != null) {
@@ -313,12 +366,12 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
 
     if (filesToShare.isNotEmpty) {
       try {
-        await Share.shareXFiles(filesToShare);
+        await SharePlus.instance.share(ShareParams(files: filesToShare));
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error sharing: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error sharing: $e')));
         }
       }
     } else {
@@ -342,13 +395,15 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
       );
 
       try {
-        final allAssets = [...mediaProvider.images, ...mediaProvider.videos, ...mediaProvider.screenshots];
+        final allAssets = [
+          ...mediaProvider.images,
+          ...mediaProvider.videos,
+          ...mediaProvider.screenshots,
+        ];
         for (final id in assetIds) {
           final match = allAssets.where((a) => a.id == id).firstOrNull;
           if (match != null) {
@@ -386,7 +441,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           actionText: 'Rename',
         );
         if (newName != null && newName.isNotEmpty && mounted) {
-          await context.read<FileManagerProvider>().renameFile(filePath, newName);
+          await context.read<FileManagerProvider>().renameFile(
+            filePath,
+            newName,
+          );
           _clearSelection();
           await context.read<MediaProvider>().loadMedia(forceRefresh: true);
         }
@@ -419,7 +477,12 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       child: InkWell(
         onTap: () {
           Clipboard.setData(ClipboardData(text: value));
-          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Copied $label to clipboard'), duration: const Duration(seconds: 1)));
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            SnackBar(
+              content: Text('Copied $label to clipboard'),
+              duration: const Duration(seconds: 1),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(8),
         child: Padding(
@@ -429,16 +492,33 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             children: [
               Expanded(
                 flex: 3,
-                child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.primary)),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
               ),
               Expanded(
                 flex: 7,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Text(value, style: const TextStyle(fontSize: 13), softWrap: true)),
+                    Expanded(
+                      child: Text(
+                        value,
+                        style: const TextStyle(fontSize: 13),
+                        softWrap: true,
+                      ),
+                    ),
                     const SizedBox(width: 4),
-                    Icon(Broken.document_copy, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                    Icon(
+                      Broken.document_copy,
+                      size: 14,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
                   ],
                 ),
               ),
@@ -449,9 +529,17 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     );
   }
 
-  Future<void> _showPropertiesDialog({String? singleFilePath, String? singleAssetId, String? explicitName}) async {
-    final filePaths = singleFilePath != null ? [singleFilePath] : _selectedFilePaths.toList();
-    final assetIds = singleAssetId != null ? [singleAssetId] : _selectedAssetIds.toList();
+  Future<void> _showPropertiesDialog({
+    String? singleFilePath,
+    String? singleAssetId,
+    String? explicitName,
+  }) async {
+    final filePaths = singleFilePath != null
+        ? [singleFilePath]
+        : _selectedFilePaths.toList();
+    final assetIds = singleAssetId != null
+        ? [singleAssetId]
+        : _selectedAssetIds.toList();
 
     int totalBytes = 0;
     int count = filePaths.length + assetIds.length;
@@ -464,20 +552,26 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
 
     if (assetIds.isNotEmpty) {
       final provider = context.read<MediaProvider>();
-      final allAssets = [...provider.images, ...provider.videos, ...provider.screenshots];
+      final allAssets = [
+        ...provider.images,
+        ...provider.videos,
+        ...provider.screenshots,
+      ];
       for (final id in assetIds) {
         final match = allAssets.where((a) => a.id == id).firstOrNull;
         if (match != null) {
           final f = await match.file;
           if (f != null) {
             if (count == 1) fullPath = f.path;
-            if (count == 1 && nameDisplay.isEmpty) nameDisplay = f.path.split('/').last;
+            if (count == 1 && nameDisplay.isEmpty)
+              nameDisplay = f.path.split('/').last;
             try {
               final FileStat st = f.statSync();
               totalBytes += st.size;
               if (count == 1) {
                 lastMod = st.modified;
-                permissionsStr = '${(st.mode & 0x100) != 0 ? "R" : ""}${(st.mode & 0x80) != 0 ? "/W" : ""}';
+                permissionsStr =
+                    '${(st.mode & 0x100) != 0 ? "R" : ""}${(st.mode & 0x80) != 0 ? "/W" : ""}';
               }
             } catch (_) {}
             if (count == 1) {
@@ -486,7 +580,8 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 mimeType = match.mimeType ?? 'image/${f.path.split('.').last}';
               } else if (match.type == AssetType.video) {
                 final d = Duration(seconds: match.duration);
-                dimensionsOrDuration = '${match.width} x ${match.height} • ${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, "0")}';
+                dimensionsOrDuration =
+                    '${match.width} x ${match.height} • ${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, "0")}';
                 mimeType = match.mimeType ?? 'video/${f.path.split('.').last}';
               }
             }
@@ -505,7 +600,8 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           totalBytes += st.size;
           if (count == 1) {
             lastMod = st.modified;
-            permissionsStr = '${(st.mode & 0x100) != 0 ? "R" : ""}${(st.mode & 0x80) != 0 ? "/W" : ""}';
+            permissionsStr =
+                '${(st.mode & 0x100) != 0 ? "R" : ""}${(st.mode & 0x80) != 0 ? "/W" : ""}';
             final ext = path_helper.extension(p).toLowerCase();
             if (widget.mediaType == MediaType.audios) {
               mimeType = 'audio/$ext';
@@ -530,7 +626,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           children: [
             Icon(Broken.info_circle, color: theme.colorScheme.primary),
             const SizedBox(width: 10),
-            const Text('Properties', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const Text(
+              'Properties',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
           ],
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -542,30 +641,55 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               if (count == 1) ...[
                 _buildCopyableRow('Name', nameDisplay, ctx),
                 _buildCopyableRow('Path', fullPath, ctx),
-                _buildCopyableRow('Size', '${FileUtils.formatBytes(totalBytes, 2)} ($totalBytes bytes)', ctx),
-                if (lastMod != null) _buildCopyableRow('Modified', FileUtils.formatDate(lastMod), ctx),
-                if (mimeType.isNotEmpty && mimeType != 'file/') _buildCopyableRow('Type', mimeType, ctx),
-                if (dimensionsOrDuration.isNotEmpty) _buildCopyableRow('Media Info', dimensionsOrDuration, ctx),
-                if (permissionsStr.isNotEmpty) _buildCopyableRow('Permissions', permissionsStr, ctx),
+                _buildCopyableRow(
+                  'Size',
+                  '${FileUtils.formatBytes(totalBytes, 2)} ($totalBytes bytes)',
+                  ctx,
+                ),
+                if (lastMod != null)
+                  _buildCopyableRow(
+                    'Modified',
+                    FileUtils.formatDate(lastMod),
+                    ctx,
+                  ),
+                if (mimeType.isNotEmpty && mimeType != 'file/')
+                  _buildCopyableRow('Type', mimeType, ctx),
+                if (dimensionsOrDuration.isNotEmpty)
+                  _buildCopyableRow('Media Info', dimensionsOrDuration, ctx),
+                if (permissionsStr.isNotEmpty)
+                  _buildCopyableRow('Permissions', permissionsStr, ctx),
               ] else ...[
                 _buildCopyableRow('Items Selected', '$count items', ctx),
-                _buildCopyableRow('Total Size', '${FileUtils.formatBytes(totalBytes, 2)} ($totalBytes bytes)', ctx),
+                _buildCopyableRow(
+                  'Total Size',
+                  '${FileUtils.formatBytes(totalBytes, 2)} ($totalBytes bytes)',
+                  ctx,
+                ),
               ],
             ],
           ),
         ),
         actions: [
-          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Done'),
+          ),
         ],
       ),
     );
   }
 
-  void _showSingleItemOptions({required String name, String? filePath, String? assetId}) {
+  void _showSingleItemOptions({
+    required String name,
+    String? filePath,
+    String? assetId,
+  }) {
     final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       backgroundColor: theme.scaffoldBackgroundColor,
       builder: (ctx) {
         return SafeArea(
@@ -573,220 +697,322 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              GestureDetector(
-                onLongPress: (filePath != null)
-                    ? () {
-                        try {
-                          HapticFeedback.mediumImpact();
-                        } catch (_) {}
-                        Navigator.pop(ctx);
-                        context.read<FileManagerProvider>().openFile(context, filePath, forceOpenWith: true);
-                      }
-                    : null,
-                child: Container(
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      if (filePath != null) ...[
-                        const SizedBox(height: 4),
+                GestureDetector(
+                  onLongPress: (filePath != null)
+                      ? () {
+                          try {
+                            HapticFeedback.mediumImpact();
+                          } catch (_) {}
+                          Navigator.pop(ctx);
+                          context.read<FileManagerProvider>().openFile(
+                            context,
+                            filePath,
+                            forceOpenWith: true,
+                          );
+                        }
+                      : null,
+                  child: Container(
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16.0,
+                      horizontal: 24.0,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         Text(
-                          'Long press to Open with...',
-                          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: Icon(Broken.document_copy, color: theme.colorScheme.primary),
-                title: const Text('Copy'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  String? target = filePath;
-                  if (assetId != null) {
-                    final provider = context.read<MediaProvider>();
-                    final allAssets = [...provider.images, ...provider.videos, ...provider.screenshots];
-                    final match = allAssets.where((a) => a.id == assetId).firstOrNull;
-                    if (match != null) {
-                      final f = await match.file;
-                      target = f?.path;
-                    }
-                  }
-                  if (target != null && mounted) {
-                    context.read<FileManagerProvider>().setClipboard([target], isCut: false);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Copied $name to clipboard')));
-                  }
-                },
-              ),
-              ListTile(
-                leading: Icon(Broken.scissor, color: theme.colorScheme.primary),
-                title: const Text('Cut'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  String? target = filePath;
-                  if (assetId != null) {
-                    final provider = context.read<MediaProvider>();
-                    final allAssets = [...provider.images, ...provider.videos, ...provider.screenshots];
-                    final match = allAssets.where((a) => a.id == assetId).firstOrNull;
-                    if (match != null) {
-                      final f = await match.file;
-                      target = f?.path;
-                    }
-                  }
-                  if (target != null && mounted) {
-                    context.read<FileManagerProvider>().setClipboard([target], isCut: true);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cut $name to clipboard')));
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Broken.trash, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (c) => AlertDialog(
-                      title: const Text('Confirm Deletion'),
-                      content: Text('Permanently delete "$name"?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-                        FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                          onPressed: () => Navigator.pop(c, true),
-                          child: const Text('Delete'),
-                        ),
+                        if (filePath != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Long press to Open with...',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.4,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                  );
-                  if (confirm == true && mounted) {
-                    final mediaProvider = context.read<MediaProvider>();
-                    List<String> files = [];
-                    if (filePath != null) files.add(filePath);
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(
+                    Broken.document_copy,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: const Text('Copy'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    String? target = filePath;
                     if (assetId != null) {
-                      final allAssets = [...mediaProvider.images, ...mediaProvider.videos, ...mediaProvider.screenshots];
-                      final match = allAssets.where((a) => a.id == assetId).firstOrNull;
+                      final provider = context.read<MediaProvider>();
+                      final allAssets = [
+                        ...provider.images,
+                        ...provider.videos,
+                        ...provider.screenshots,
+                      ];
+                      final match = allAssets
+                          .where((a) => a.id == assetId)
+                          .firstOrNull;
                       if (match != null) {
                         final f = await match.file;
-                        if (f != null) files.add(f.path);
+                        target = f?.path;
                       }
                     }
-                    await mediaProvider.deleteMediaItems(filePaths: files, assetIds: assetId != null ? [assetId] : []);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Deleted $name')));
+                    if (target != null && mounted) {
+                      context.read<FileManagerProvider>().setClipboard([
+                        target,
+                      ], isCut: false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Copied $name to clipboard')),
+                      );
                     }
-                  }
-                },
-              ),
-              if (filePath != null)
-                ListTile(
-                  leading: Icon(Broken.folder_open, color: theme.colorScheme.primary),
-                  title: const Text('Show in location'),
-                  onTap: () {
-                    context.read<FileManagerProvider>().showFileInLocation(filePath);
-                    Navigator.pop(ctx);
-                    Navigator.popUntil(context, (route) => route.isFirst);
-                    widget.onNavigateTab?.call(1);
                   },
                 ),
-              if (filePath != null && FileUtils.isArchive(filePath))
                 ListTile(
-                  leading: Icon(Broken.archive, color: theme.colorScheme.primary),
-                  title: const Text('Extract'),
+                  leading: Icon(
+                    Broken.scissor,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: const Text('Cut'),
                   onTap: () async {
                     Navigator.pop(ctx);
-                    await context.read<FileManagerProvider>().extractArchiveDirectly(context, filePath);
+                    String? target = filePath;
+                    if (assetId != null) {
+                      final provider = context.read<MediaProvider>();
+                      final allAssets = [
+                        ...provider.images,
+                        ...provider.videos,
+                        ...provider.screenshots,
+                      ];
+                      final match = allAssets
+                          .where((a) => a.id == assetId)
+                          .firstOrNull;
+                      if (match != null) {
+                        final f = await match.file;
+                        target = f?.path;
+                      }
+                    }
+                    if (target != null && mounted) {
+                      context.read<FileManagerProvider>().setClipboard([
+                        target,
+                      ], isCut: true);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Cut $name to clipboard')),
+                      );
+                    }
                   },
                 ),
-              if (filePath != null)
                 ListTile(
-                  leading: Icon(Broken.edit, color: theme.colorScheme.primary),
-                  title: const Text('Rename'),
+                  leading: const Icon(Broken.trash, color: Colors.red),
+                  title: const Text(
+                    'Delete',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () async {
                     Navigator.pop(ctx);
-                    final currentName = path_helper.basename(filePath);
-                    final newName = await FileActionDialogs.showTextInputDialog(
-                      context,
-                      title: 'Rename',
-                      hint: 'Enter new name',
-                      initialValue: currentName,
-                      actionText: 'Rename',
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text('Confirm Deletion'),
+                        content: Text('Permanently delete "$name"?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(c, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            onPressed: () => Navigator.pop(c, true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
                     );
-                    if (newName != null && newName.isNotEmpty && mounted) {
-                      await context.read<FileManagerProvider>().renameFile(filePath, newName);
-                      context.read<MediaProvider>().loadMedia(forceRefresh: true);
-                    }
-                  },
-                ),
-              if (filePath != null)
-                ListTile(
-                  leading: Icon(Broken.eye, color: theme.colorScheme.primary),
-                  title: const Text('Open with...'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    context.read<FileManagerProvider>().openFile(context, filePath, forceOpenWith: true);
-                  },
-                ),
-              ListTile(
-                leading: Icon(Broken.info_circle, color: theme.colorScheme.primary),
-                title: const Text('Properties'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showPropertiesDialog(singleFilePath: assetId == null ? filePath : null, singleAssetId: assetId, explicitName: name);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.share_outlined, color: theme.colorScheme.primary),
-                title: const Text('Share'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  String? target = filePath;
-                  if (assetId != null) {
-                    final provider = context.read<MediaProvider>();
-                    final allAssets = [...provider.images, ...provider.videos, ...provider.screenshots];
-                    final match = allAssets.where((a) => a.id == assetId).firstOrNull;
-                    if (match != null) {
-                      final f = await match.file;
-                      target = f?.path;
-                    }
-                  }
-                  if (target != null && FileSystemEntity.isFileSync(target)) {
-                    try {
-                      await Share.shareXFiles([XFile(target)]);
-                    } catch (e) {
+                    if (confirm == true && mounted) {
+                      final mediaProvider = context.read<MediaProvider>();
+                      List<String> files = [];
+                      if (filePath != null) files.add(filePath);
+                      if (assetId != null) {
+                        final allAssets = [
+                          ...mediaProvider.images,
+                          ...mediaProvider.videos,
+                          ...mediaProvider.screenshots,
+                        ];
+                        final match = allAssets
+                            .where((a) => a.id == assetId)
+                            .firstOrNull;
+                        if (match != null) {
+                          final f = await match.file;
+                          if (f != null) files.add(f.path);
+                        }
+                      }
+                      await mediaProvider.deleteMediaItems(
+                        filePaths: files,
+                        assetIds: assetId != null ? [assetId] : [],
+                      );
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error sharing: $e')),
+                          SnackBar(content: Text('Deleted $name')),
                         );
                       }
                     }
-                  } else {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('File not found or not shareable.')),
+                  },
+                ),
+                if (filePath != null)
+                  ListTile(
+                    leading: Icon(
+                      Broken.folder_open,
+                      color: theme.colorScheme.primary,
+                    ),
+                    title: const Text('Show in location'),
+                    onTap: () {
+                      context.read<FileManagerProvider>().showFileInLocation(
+                        filePath,
                       );
+                      Navigator.pop(ctx);
+                      Navigator.popUntil(context, (route) => route.isFirst);
+                      widget.onNavigateTab?.call(1);
+                    },
+                  ),
+                if (filePath != null && FileUtils.isArchive(filePath))
+                  ListTile(
+                    leading: Icon(
+                      Broken.archive,
+                      color: theme.colorScheme.primary,
+                    ),
+                    title: const Text('Extract'),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await context
+                          .read<FileManagerProvider>()
+                          .extractArchiveDirectly(context, filePath);
+                    },
+                  ),
+                if (filePath != null)
+                  ListTile(
+                    leading: Icon(
+                      Broken.edit,
+                      color: theme.colorScheme.primary,
+                    ),
+                    title: const Text('Rename'),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final currentName = path_helper.basename(filePath);
+                      final newName =
+                          await FileActionDialogs.showTextInputDialog(
+                            context,
+                            title: 'Rename',
+                            hint: 'Enter new name',
+                            initialValue: currentName,
+                            actionText: 'Rename',
+                          );
+                      if (newName != null && newName.isNotEmpty && mounted) {
+                        await context.read<FileManagerProvider>().renameFile(
+                          filePath,
+                          newName,
+                        );
+                        context.read<MediaProvider>().loadMedia(
+                          forceRefresh: true,
+                        );
+                      }
+                    },
+                  ),
+                if (filePath != null)
+                  ListTile(
+                    leading: Icon(Broken.eye, color: theme.colorScheme.primary),
+                    title: const Text('Open with...'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      context.read<FileManagerProvider>().openFile(
+                        context,
+                        filePath,
+                        forceOpenWith: true,
+                      );
+                    },
+                  ),
+                ListTile(
+                  leading: Icon(
+                    Broken.info_circle,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: const Text('Properties'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showPropertiesDialog(
+                      singleFilePath: assetId == null ? filePath : null,
+                      singleAssetId: assetId,
+                      explicitName: name,
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.share_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: const Text('Share'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    String? target = filePath;
+                    if (assetId != null) {
+                      final provider = context.read<MediaProvider>();
+                      final allAssets = [
+                        ...provider.images,
+                        ...provider.videos,
+                        ...provider.screenshots,
+                      ];
+                      final match = allAssets
+                          .where((a) => a.id == assetId)
+                          .firstOrNull;
+                      if (match != null) {
+                        final f = await match.file;
+                        target = f?.path;
+                      }
                     }
-                  }
-                },
-              ),
-            ],
+                    if (target != null && FileSystemEntity.isFileSync(target)) {
+                      try {
+                        await SharePlus.instance.share(
+                          ShareParams(files: [XFile(target)]),
+                        );
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error sharing: $e')),
+                          );
+                        }
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('File not found or not shareable.'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   int _getTotalItemCount(MediaProvider mediaProvider) {
     if (widget.album != null) {
@@ -817,14 +1043,26 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     final theme = Theme.of(context);
     final fm = context.watch<FileManagerProvider>();
     final mediaProvider = context.watch<MediaProvider>();
-    final canPaste = (widget.mediaType == MediaType.downloads || widget.mediaType == MediaType.documents || widget.mediaType == MediaType.archives || widget.mediaType == MediaType.apks) && fm.hasClipboard;
+    final canPaste =
+        (widget.mediaType == MediaType.downloads ||
+            widget.mediaType == MediaType.documents ||
+            widget.mediaType == MediaType.archives ||
+            widget.mediaType == MediaType.apks) &&
+        fm.hasClipboard;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_isSelectionMode ? '${_selectedFilePaths.length + _selectedAssetIds.length}/${_getTotalItemCount(mediaProvider)}' : _title),
+        title: Text(
+          _isSelectionMode
+              ? '${_selectedFilePaths.length + _selectedAssetIds.length}/${_getTotalItemCount(mediaProvider)}'
+              : _title,
+        ),
         leading: _isSelectionMode
-            ? IconButton(icon: const Icon(Broken.close_square), onPressed: _clearSelection)
+            ? IconButton(
+                icon: const Icon(Broken.close_square),
+                onPressed: _clearSelection,
+              )
             : null,
         actions: [
           if (_isSelectionMode)
@@ -866,12 +1104,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                     ),
                     CheckedPopupMenuItem(
                       value: MediaSortOrder.newestGrouped,
-                      checked: provider.sortOrder == MediaSortOrder.newestGrouped,
+                      checked:
+                          provider.sortOrder == MediaSortOrder.newestGrouped,
                       child: const Text('Newest First (Grouped per month)'),
                     ),
                     CheckedPopupMenuItem(
                       value: MediaSortOrder.oldestGrouped,
-                      checked: provider.sortOrder == MediaSortOrder.oldestGrouped,
+                      checked:
+                          provider.sortOrder == MediaSortOrder.oldestGrouped,
                       child: const Text('Oldest First (Grouped per month)'),
                     ),
                     CheckedPopupMenuItem(
@@ -881,7 +1121,8 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                     ),
                     CheckedPopupMenuItem(
                       value: MediaSortOrder.sizeSmallest,
-                      checked: provider.sortOrder == MediaSortOrder.sizeSmallest,
+                      checked:
+                          provider.sortOrder == MediaSortOrder.sizeSmallest,
                       child: const Text('Size (Small First)'),
                     ),
                   ],
@@ -902,13 +1143,17 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       ),
       body: Column(
         children: [
-          if (widget.album == null && (widget.mediaType == MediaType.images || widget.mediaType == MediaType.videos))
+          if (widget.album == null &&
+              (widget.mediaType == MediaType.images ||
+                  widget.mediaType == MediaType.videos))
             _buildFoldersToggle(theme),
           Expanded(
             child: Consumer<MediaProvider>(
               builder: (context, provider, child) {
                 if (widget.album == null && _showFoldersMode) {
-                  final albums = widget.mediaType == MediaType.images ? provider.imageAlbums : provider.videoAlbums;
+                  final albums = widget.mediaType == MediaType.images
+                      ? provider.imageAlbums
+                      : provider.videoAlbums;
                   if (albums.isEmpty) {
                     return _buildEmptyState(theme);
                   }
@@ -916,7 +1161,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                     padding: const EdgeInsets.all(12),
                     physics: const BouncingScrollPhysics(),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: (MediaQuery.of(context).size.width / 180).floor().clamp(2, 6),
+                      crossAxisCount: (MediaQuery.of(context).size.width / 180)
+                          .floor()
+                          .clamp(2, 6),
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                       childAspectRatio: 0.95,
@@ -929,11 +1176,13 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                         onTap: () {
                           Navigator.push(
                             context,
-                            _slideRoute(MediaCategoryScreen(
-                              mediaType: widget.mediaType,
-                              album: album,
-                              onNavigateTab: widget.onNavigateTab,
-                            )),
+                            _slideRoute(
+                              MediaCategoryScreen(
+                                mediaType: widget.mediaType,
+                                album: album,
+                                onNavigateTab: widget.onNavigateTab,
+                              ),
+                            ),
                           );
                         },
                       );
@@ -949,29 +1198,48 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                   if (provider.sortOrder == MediaSortOrder.newest ||
                       provider.sortOrder == MediaSortOrder.newestGrouped ||
                       provider.sortOrder == MediaSortOrder.dateWise) {
-                    displayAssets.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
+                    displayAssets.sort(
+                      (a, b) => b.createDateTime.compareTo(a.createDateTime),
+                    );
                   } else if (provider.sortOrder == MediaSortOrder.oldest ||
-                             provider.sortOrder == MediaSortOrder.oldestGrouped) {
-                    displayAssets.sort((a, b) => a.createDateTime.compareTo(b.createDateTime));
+                      provider.sortOrder == MediaSortOrder.oldestGrouped) {
+                    displayAssets.sort(
+                      (a, b) => a.createDateTime.compareTo(b.createDateTime),
+                    );
                   } else if (provider.sortOrder == MediaSortOrder.sizeLargest ||
-                             provider.sortOrder == MediaSortOrder.sizeSmallest) {
-                    final isSmallest = provider.sortOrder == MediaSortOrder.sizeSmallest;
+                      provider.sortOrder == MediaSortOrder.sizeSmallest) {
+                    final isSmallest =
+                        provider.sortOrder == MediaSortOrder.sizeSmallest;
                     displayAssets.sort((a, b) {
                       final aRes = a.width * a.height;
                       final bRes = b.width * b.height;
-                      return isSmallest ? aRes.compareTo(bRes) : bRes.compareTo(aRes);
+                      return isSmallest
+                          ? aRes.compareTo(bRes)
+                          : bRes.compareTo(aRes);
                     });
                   }
 
-                  final isDateWise = provider.sortOrder == MediaSortOrder.dateWise;
-                  final isGrouped = provider.sortOrder == MediaSortOrder.newestGrouped ||
+                  final isDateWise =
+                      provider.sortOrder == MediaSortOrder.dateWise;
+                  final isGrouped =
+                      provider.sortOrder == MediaSortOrder.newestGrouped ||
                       provider.sortOrder == MediaSortOrder.oldestGrouped ||
                       provider.sortOrder == MediaSortOrder.dateWise;
 
                   if (widget.mediaType == MediaType.images) {
-                    return _buildImageGrid(displayAssets, theme, isDateWise, isGrouped);
+                    return _buildImageGrid(
+                      displayAssets,
+                      theme,
+                      isDateWise,
+                      isGrouped,
+                    );
                   } else {
-                    return _buildVideoGrid(displayAssets, theme, isDateWise, isGrouped);
+                    return _buildVideoGrid(
+                      displayAssets,
+                      theme,
+                      isDateWise,
+                      isGrouped,
+                    );
                   }
                 }
 
@@ -979,34 +1247,78 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                   return _buildShimmerLoading(theme);
                 }
 
-                final isDateWise = provider.sortOrder == MediaSortOrder.dateWise;
-                final isGrouped = provider.sortOrder == MediaSortOrder.newestGrouped ||
+                final isDateWise =
+                    provider.sortOrder == MediaSortOrder.dateWise;
+                final isGrouped =
+                    provider.sortOrder == MediaSortOrder.newestGrouped ||
                     provider.sortOrder == MediaSortOrder.oldestGrouped ||
                     provider.sortOrder == MediaSortOrder.dateWise;
 
                 if (widget.mediaType == MediaType.images) {
-                  return _buildImageGrid(provider.images, theme, isDateWise, isGrouped);
+                  return _buildImageGrid(
+                    provider.images,
+                    theme,
+                    isDateWise,
+                    isGrouped,
+                  );
                 } else if (widget.mediaType == MediaType.videos) {
-                  return _buildVideoGrid(provider.videos, theme, isDateWise, isGrouped);
+                  return _buildVideoGrid(
+                    provider.videos,
+                    theme,
+                    isDateWise,
+                    isGrouped,
+                  );
                 } else if (widget.mediaType == MediaType.audios) {
-                  return _buildAudioList(provider.audios, theme, isDateWise, isGrouped);
+                  return _buildAudioList(
+                    provider.audios,
+                    theme,
+                    isDateWise,
+                    isGrouped,
+                  );
                 } else if (widget.mediaType == MediaType.screenshots) {
-                  return _buildImageGrid(provider.screenshots, theme, isDateWise, isGrouped);
+                  return _buildImageGrid(
+                    provider.screenshots,
+                    theme,
+                    isDateWise,
+                    isGrouped,
+                  );
                 } else if (widget.mediaType == MediaType.archives) {
-                  return _buildGenericFileList(provider.archives, theme, isDateWise, isGrouped);
+                  return _buildGenericFileList(
+                    provider.archives,
+                    theme,
+                    isDateWise,
+                    isGrouped,
+                  );
                 } else if (widget.mediaType == MediaType.downloads) {
-                  return _buildGenericFileList(provider.downloads, theme, isDateWise, isGrouped);
+                  return _buildGenericFileList(
+                    provider.downloads,
+                    theme,
+                    isDateWise,
+                    isGrouped,
+                  );
                 } else if (widget.mediaType == MediaType.apks) {
-                  return _buildGenericFileList(provider.apks, theme, isDateWise, isGrouped);
+                  return _buildGenericFileList(
+                    provider.apks,
+                    theme,
+                    isDateWise,
+                    isGrouped,
+                  );
                 } else {
-                  return _buildDocumentList(provider.documents, theme, isDateWise, isGrouped);
+                  return _buildDocumentList(
+                    provider.documents,
+                    theme,
+                    isDateWise,
+                    isGrouped,
+                  );
                 }
               },
             ),
           ),
         ],
       ),
-      bottomNavigationBar: _isSelectionMode ? _buildBottomActionBar(theme) : null,
+      bottomNavigationBar: _isSelectionMode
+          ? _buildBottomActionBar(theme)
+          : null,
     );
   }
 
@@ -1015,7 +1327,13 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, -2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: SafeArea(
         child: SingleChildScrollView(
@@ -1025,12 +1343,43 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildActionItem(theme, icon: Broken.document_copy, label: 'Copy', onTap: () => _handleCopyCut(false)),
-              _buildActionItem(theme, icon: Broken.scissor, label: 'Cut', onTap: () => _handleCopyCut(true)),
-              _buildActionItem(theme, icon: Broken.edit, label: 'Rename', onTap: _handleBatchRename),
-              _buildActionItem(theme, icon: Broken.trash, label: 'Delete', color: Colors.red, onTap: _handleDelete),
-              _buildActionItem(theme, icon: Icons.share_outlined, label: 'Share', onTap: _handleShare),
-              _buildActionItem(theme, icon: Broken.info_circle, label: 'Info', onTap: () => _showPropertiesDialog()),
+              _buildActionItem(
+                theme,
+                icon: Broken.document_copy,
+                label: 'Copy',
+                onTap: () => _handleCopyCut(false),
+              ),
+              _buildActionItem(
+                theme,
+                icon: Broken.scissor,
+                label: 'Cut',
+                onTap: () => _handleCopyCut(true),
+              ),
+              _buildActionItem(
+                theme,
+                icon: Broken.edit,
+                label: 'Rename',
+                onTap: _handleBatchRename,
+              ),
+              _buildActionItem(
+                theme,
+                icon: Broken.trash,
+                label: 'Delete',
+                color: Colors.red,
+                onTap: _handleDelete,
+              ),
+              _buildActionItem(
+                theme,
+                icon: Icons.share_outlined,
+                label: 'Share',
+                onTap: _handleShare,
+              ),
+              _buildActionItem(
+                theme,
+                icon: Broken.info_circle,
+                label: 'Info',
+                onTap: () => _showPropertiesDialog(),
+              ),
             ],
           ),
         ),
@@ -1038,7 +1387,13 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     );
   }
 
-  Widget _buildActionItem(ThemeData theme, {required IconData icon, required String label, required VoidCallback onTap, Color? color}) {
+  Widget _buildActionItem(
+    ThemeData theme, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
     final c = color ?? theme.colorScheme.primary;
     return InkWell(
       onTap: onTap,
@@ -1050,7 +1405,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           children: [
             Icon(icon, color: c, size: 24),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(
+                color: c,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -1059,8 +1421,12 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
 
   Widget _buildShimmerLoading(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
-    final baseColor = isDark ? const Color(0xFF1E1E2E) : const Color(0xFFE0E0E0);
-    final highlightColor = isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF5F5F5);
+    final baseColor = isDark
+        ? const Color(0xFF1E1E2E)
+        : const Color(0xFFE0E0E0);
+    final highlightColor = isDark
+        ? const Color(0xFF2A2A3E)
+        : const Color(0xFFF5F5F5);
 
     return AnimatedBuilder(
       animation: _shimmerController,
@@ -1068,7 +1434,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         return GridView.builder(
           padding: const EdgeInsets.all(8),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: (MediaQuery.of(context).size.width / 120).floor().clamp(3, 10),
+            crossAxisCount: (MediaQuery.of(context).size.width / 120)
+                .floor()
+                .clamp(3, 10),
             crossAxisSpacing: 6,
             mainAxisSpacing: 6,
           ),
@@ -1109,7 +1477,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  Map<String, List<T>> _groupByMonth<T>(List<T> items, DateTime Function(T) getDate) {
+  Map<String, List<T>> _groupByMonth<T>(
+    List<T> items,
+    DateTime Function(T) getDate,
+  ) {
     final groups = <String, List<T>>{};
     for (final item in items) {
       final date = getDate(item);
@@ -1138,16 +1509,28 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           // Month Header
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: 8,
+              ),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+                      color: theme.colorScheme.primaryContainer.withValues(
+                        alpha: 0.35,
+                      ),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.15,
+                        ),
                       ),
                     ),
                     child: Text(
@@ -1163,7 +1546,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                   const SizedBox(width: 10),
                   Expanded(
                     child: Divider(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.3,
+                      ),
                       thickness: 1,
                     ),
                   ),
@@ -1177,28 +1562,24 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               padding: const EdgeInsets.symmetric(horizontal: 6),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: (MediaQuery.of(context).size.width / 120).floor().clamp(3, 10),
+                  crossAxisCount: (MediaQuery.of(context).size.width / 120)
+                      .floor()
+                      .clamp(3, 10),
                   crossAxisSpacing: 6,
                   mainAxisSpacing: 6,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final item = entry.value[index];
-                    return itemTileBuilder(item, isDateWise);
-                  },
-                  childCount: entry.value.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final item = entry.value[index];
+                  return itemTileBuilder(item, isDateWise);
+                }, childCount: entry.value.length),
               ),
             )
           else
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final item = entry.value[index];
-                  return itemTileBuilder(item, isDateWise);
-                },
-                childCount: entry.value.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final item = entry.value[index];
+                return itemTileBuilder(item, isDateWise);
+              }, childCount: entry.value.length),
             ),
           // Spacing / line after month of files
           SliverToBoxAdapter(
@@ -1208,7 +1589,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                     children: [
                       const SizedBox(height: 12),
                       Divider(
-                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.15),
+                        color: theme.colorScheme.outlineVariant.withValues(
+                          alpha: 0.15,
+                        ),
                         thickness: 1.5,
                         indent: 16,
                         endIndent: 16,
@@ -1233,7 +1616,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     final isAsset = item is AssetEntity;
     final id = isAsset ? item.id : item.path;
     final path = isAsset ? '' : item.path;
-    final title = isAsset ? (item.title ?? 'Image_$id') : path_helper.basename(path);
+    final title = isAsset
+        ? (item.title ?? 'Image_$id')
+        : path_helper.basename(path);
 
     return Stack(
       key: ValueKey(id),
@@ -1248,11 +1633,16 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               } else {
                 final file = await item.file;
                 if (file != null && mounted) {
-                  Navigator.push(context, _slideRoute(ImageViewerScreen(
-                    imagePath: file.path,
-                    siblingItems: images,
-                    initialAssetId: item.id,
-                  )));
+                  Navigator.push(
+                    context,
+                    _slideRoute(
+                      ImageViewerScreen(
+                        imagePath: file.path,
+                        siblingItems: images,
+                        initialAssetId: item.id,
+                      ),
+                    ),
+                  );
                 }
               }
             },
@@ -1264,10 +1654,12 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               if (_isSelectionMode) {
                 _toggleSelection(path, null);
               } else {
-                Navigator.push(context, _slideRoute(ImageViewerScreen(
-                  imagePath: path,
-                  siblingItems: images,
-                )));
+                Navigator.push(
+                  context,
+                  _slideRoute(
+                    ImageViewerScreen(imagePath: path, siblingItems: images),
+                  ),
+                );
               }
             },
             onLongPress: () => _toggleSelection(path, null),
@@ -1280,7 +1672,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 height: double.infinity,
                 errorBuilder: (context, error, stackTrace) => Container(
                   color: Colors.grey.withValues(alpha: 0.1),
-                  child: const Center(child: Icon(Broken.image, size: 24, color: Colors.grey)),
+                  child: const Center(
+                    child: Icon(Broken.image, size: 24, color: Colors.grey),
+                  ),
                 ),
               ),
             ),
@@ -1291,10 +1685,17 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             left: 4,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(4),
+              ),
               child: Text(
                 dateStr.split(',').first,
-                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -1304,7 +1705,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             right: 6,
             child: Icon(
               isSelected ? Broken.tick_square : Icons.check_box_outline_blank,
-              color: isSelected ? theme.colorScheme.primary : Colors.white.withValues(alpha: 0.8),
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : Colors.white.withValues(alpha: 0.8),
               size: 24,
             ),
           )
@@ -1317,7 +1720,11 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 if (isAsset) {
                   final f = await item.file;
                   if (f != null) {
-                    _showSingleItemOptions(name: title, filePath: f.path, assetId: item.id);
+                    _showSingleItemOptions(
+                      name: title,
+                      filePath: f.path,
+                      assetId: item.id,
+                    );
                   }
                 } else {
                   _showSingleItemOptions(name: title, filePath: path);
@@ -1325,7 +1732,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               },
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(Broken.more, color: Colors.white, size: 18),
               ),
             ),
@@ -1334,7 +1744,12 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     );
   }
 
-  Widget _buildImageGrid(List<dynamic> images, ThemeData theme, bool isDateWise, bool isGrouped) {
+  Widget _buildImageGrid(
+    List<dynamic> images,
+    ThemeData theme,
+    bool isDateWise,
+    bool isGrouped,
+  ) {
     if (images.isEmpty) return _buildEmptyState(theme);
     if (isGrouped) {
       return _buildGroupedView<dynamic>(
@@ -1355,7 +1770,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             } catch (_) {}
           }
           final dateStr = FileUtils.formatDate(date);
-          return _buildImageTile(item, theme, isSelected, showDate, dateStr, images);
+          return _buildImageTile(
+            item,
+            theme,
+            isSelected,
+            showDate,
+            dateStr,
+            images,
+          );
         },
       );
     }
@@ -1363,7 +1785,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       padding: const EdgeInsets.all(6),
       physics: const BouncingScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: (MediaQuery.of(context).size.width / 120).floor().clamp(3, 10),
+        crossAxisCount: (MediaQuery.of(context).size.width / 120).floor().clamp(
+          3,
+          10,
+        ),
         crossAxisSpacing: 6,
         mainAxisSpacing: 6,
       ),
@@ -1382,7 +1807,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           } catch (_) {}
         }
         final dateStr = FileUtils.formatDate(date);
-        return _buildImageTile(item, theme, isSelected, isDateWise, dateStr, images);
+        return _buildImageTile(
+          item,
+          theme,
+          isSelected,
+          isDateWise,
+          dateStr,
+          images,
+        );
       },
     );
   }
@@ -1398,7 +1830,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     final isAsset = item is AssetEntity;
     final id = isAsset ? item.id : item.path;
     final path = isAsset ? '' : item.path;
-    final title = isAsset ? (item.title ?? 'Video_$id') : path_helper.basename(path);
+    final title = isAsset
+        ? (item.title ?? 'Video_$id')
+        : path_helper.basename(path);
 
     return Stack(
       key: ValueKey(id),
@@ -1455,11 +1889,18 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Broken.video, size: 28, color: theme.colorScheme.primary),
+                    Icon(
+                      Broken.video,
+                      size: 28,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(height: 6),
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
@@ -1475,10 +1916,17 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             left: 4,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(4),
+              ),
               child: Text(
                 dateStr.split(',').first,
-                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -1488,7 +1936,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             right: 6,
             child: Icon(
               isSelected ? Broken.tick_square : Icons.check_box_outline_blank,
-              color: isSelected ? theme.colorScheme.primary : Colors.white.withValues(alpha: 0.8),
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : Colors.white.withValues(alpha: 0.8),
               size: 24,
             ),
           )
@@ -1501,7 +1951,11 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 if (isAsset) {
                   final f = await item.file;
                   if (f != null) {
-                    _showSingleItemOptions(name: title, filePath: f.path, assetId: item.id);
+                    _showSingleItemOptions(
+                      name: title,
+                      filePath: f.path,
+                      assetId: item.id,
+                    );
                   }
                 } else {
                   _showSingleItemOptions(name: title, filePath: path);
@@ -1509,7 +1963,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               },
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(Broken.more, color: Colors.white, size: 18),
               ),
             ),
@@ -1518,7 +1975,12 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     );
   }
 
-  Widget _buildVideoGrid(List<dynamic> videos, ThemeData theme, bool isDateWise, bool isGrouped) {
+  Widget _buildVideoGrid(
+    List<dynamic> videos,
+    ThemeData theme,
+    bool isDateWise,
+    bool isGrouped,
+  ) {
     if (videos.isEmpty) return _buildEmptyState(theme);
     if (isGrouped) {
       return _buildGroupedView<dynamic>(
@@ -1539,7 +2001,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             } catch (_) {}
           }
           final dateStr = FileUtils.formatDate(date);
-          return _buildVideoTile(item, theme, isSelected, showDate, dateStr, videos);
+          return _buildVideoTile(
+            item,
+            theme,
+            isSelected,
+            showDate,
+            dateStr,
+            videos,
+          );
         },
       );
     }
@@ -1547,7 +2016,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       padding: const EdgeInsets.all(6),
       physics: const BouncingScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: (MediaQuery.of(context).size.width / 120).floor().clamp(3, 10),
+        crossAxisCount: (MediaQuery.of(context).size.width / 120).floor().clamp(
+          3,
+          10,
+        ),
         crossAxisSpacing: 6,
         mainAxisSpacing: 6,
       ),
@@ -1566,7 +2038,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           } catch (_) {}
         }
         final dateStr = FileUtils.formatDate(date);
-        return _buildVideoTile(item, theme, isSelected, isDateWise, dateStr, videos);
+        return _buildVideoTile(
+          item,
+          theme,
+          isSelected,
+          isDateWise,
+          dateStr,
+          videos,
+        );
       },
     );
   }
@@ -1590,17 +2069,29 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           Navigator.push(
             context,
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => AudioPlayerScreen(
-                audioPath: path,
-                title: audio.title,
-                artist: audio.artist ?? 'Unknown Artist',
-                allSongs: audios,
-                initialIndex: index,
-              ),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) => SlideTransition(
-                position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-                child: child,
-              ),
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  AudioPlayerScreen(
+                    audioPath: path,
+                    title: audio.title,
+                    artist: audio.artist ?? 'Unknown Artist',
+                    allSongs: audios,
+                    initialIndex: index,
+                  ),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) =>
+                      SlideTransition(
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(0, 1),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                        child: child,
+                      ),
               transitionDuration: const Duration(milliseconds: 400),
             ),
           );
@@ -1612,7 +2103,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           Container(
             width: 50,
             height: 50,
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: theme.colorScheme.primaryContainer),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: theme.colorScheme.primaryContainer,
+            ),
             child: QueryArtworkWidget(
               id: audio.id,
               type: ArtworkType.AUDIO,
@@ -1620,7 +2114,11 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               artworkFit: BoxFit.cover,
               artworkWidth: 50,
               artworkHeight: 50,
-              nullArtworkWidget: Icon(Icons.music_note, size: 26, color: theme.colorScheme.onPrimaryContainer),
+              nullArtworkWidget: Icon(
+                Icons.music_note,
+                size: 26,
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
             ),
           ),
           if (_isSelectionMode || isSelected)
@@ -1628,31 +2126,54 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               bottom: 0,
               right: 0,
               child: Container(
-                decoration: BoxDecoration(color: theme.colorScheme.surface, shape: BoxShape.circle),
-                child: Icon(isSelected ? Broken.tick_square : Icons.check_box_outline_blank, color: isSelected ? theme.colorScheme.primary : Colors.grey, size: 20),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isSelected
+                      ? Broken.tick_square
+                      : Icons.check_box_outline_blank,
+                  color: isSelected ? theme.colorScheme.primary : Colors.grey,
+                  size: 20,
+                ),
               ),
             ),
         ],
       ),
-      title: Text(audio.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      title: Text(
+        audio.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
       subtitle: Text(
         showDate
             ? '${audio.artist ?? "Unknown Artist"} • $dateStr'
             : audio.artist ?? "Unknown Artist",
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.55), fontSize: 11),
+        style: TextStyle(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+          fontSize: 11,
+        ),
       ),
       trailing: _isSelectionMode
           ? null
           : IconButton(
               icon: const Icon(Broken.more),
-              onPressed: () => _showSingleItemOptions(name: audio.title, filePath: path),
+              onPressed: () =>
+                  _showSingleItemOptions(name: audio.title, filePath: path),
             ),
     );
   }
 
-  Widget _buildAudioList(List<SongModel> audios, ThemeData theme, bool isDateWise, bool isGrouped) {
+  Widget _buildAudioList(
+    List<SongModel> audios,
+    ThemeData theme,
+    bool isDateWise,
+    bool isGrouped,
+  ) {
     if (audios.isEmpty) return _buildEmptyState(theme);
     if (isGrouped) {
       return _buildGroupedView<SongModel>(
@@ -1667,9 +2188,19 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           try {
             modified = File(path).statSync().modified;
           } catch (_) {}
-          final dateStr = modified != null ? FileUtils.formatDate(modified) : 'Unknown Date';
+          final dateStr = modified != null
+              ? FileUtils.formatDate(modified)
+              : 'Unknown Date';
           final index = audios.indexOf(audio);
-          return _buildAudioTile(audio, theme, isSelected, showDate, dateStr, index, audios);
+          return _buildAudioTile(
+            audio,
+            theme,
+            isSelected,
+            showDate,
+            dateStr,
+            index,
+            audios,
+          );
         },
       );
     }
@@ -1684,8 +2215,18 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         try {
           modified = File(path).statSync().modified;
         } catch (_) {}
-        final dateStr = modified != null ? FileUtils.formatDate(modified) : 'Unknown Date';
-        return _buildAudioTile(audio, theme, isSelected, isDateWise, dateStr, index, audios);
+        final dateStr = modified != null
+            ? FileUtils.formatDate(modified)
+            : 'Unknown Date';
+        return _buildAudioTile(
+          audio,
+          theme,
+          isSelected,
+          isDateWise,
+          dateStr,
+          index,
+          audios,
+        );
       },
     );
   }
@@ -1700,7 +2241,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
   ) {
     final path = doc.path;
     final name = path.split('/').last;
-    final ext = name.contains('.') ? name.substring(name.lastIndexOf('.')).toLowerCase() : '';
+    final ext = name.contains('.')
+        ? name.substring(name.lastIndexOf('.')).toLowerCase()
+        : '';
     final icon = _docIcon(ext);
     final color = _docColor(ext);
 
@@ -1710,7 +2253,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         if (_isSelectionMode) {
           _toggleSelection(path, null);
         } else {
-          Navigator.push(context, _slideRoute(DocumentViewerScreen(filePath: path)));
+          Navigator.push(
+            context,
+            _slideRoute(DocumentViewerScreen(filePath: path)),
+          );
         }
       },
       onLongPress: () => _toggleSelection(path, null),
@@ -1719,7 +2265,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Icon(icon, color: color, size: 22),
           ),
           if (_isSelectionMode || isSelected)
@@ -1727,29 +2276,52 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               bottom: 0,
               right: 0,
               child: Container(
-                decoration: BoxDecoration(color: theme.colorScheme.surface, shape: BoxShape.circle),
-                child: Icon(isSelected ? Broken.tick_square : Icons.check_box_outline_blank, color: isSelected ? theme.colorScheme.primary : Colors.grey, size: 20),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isSelected
+                      ? Broken.tick_square
+                      : Icons.check_box_outline_blank,
+                  color: isSelected ? theme.colorScheme.primary : Colors.grey,
+                  size: 20,
+                ),
               ),
             ),
         ],
       ),
-      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w500)),
+      title: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
       subtitle: Text(
         showDate
             ? '${FileUtils.formatBytes(size, 1)} • ${FileUtils.formatDate(modified)}'
             : FileUtils.formatBytes(size, 1),
-        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11),
+        style: TextStyle(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          fontSize: 11,
+        ),
       ),
       trailing: _isSelectionMode
           ? null
           : IconButton(
               icon: const Icon(Broken.more),
-              onPressed: () => _showSingleItemOptions(name: name, filePath: path),
+              onPressed: () =>
+                  _showSingleItemOptions(name: name, filePath: path),
             ),
     );
   }
 
-  Widget _buildDocumentList(List<FileSystemEntity> documents, ThemeData theme, bool isDateWise, bool isGrouped) {
+  Widget _buildDocumentList(
+    List<FileSystemEntity> documents,
+    ThemeData theme,
+    bool isDateWise,
+    bool isGrouped,
+  ) {
     if (documents.isEmpty) return _buildEmptyState(theme);
     if (isGrouped) {
       return _buildGroupedView<FileSystemEntity>(
@@ -1766,7 +2338,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             size = st.size;
             modified = st.modified;
           } catch (_) {}
-          return _buildDocumentTile(doc, theme, isSelected, showDate, size, modified);
+          return _buildDocumentTile(
+            doc,
+            theme,
+            isSelected,
+            showDate,
+            size,
+            modified,
+          );
         },
       );
     }
@@ -1784,7 +2363,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           size = st.size;
           modified = st.modified;
         } catch (_) {}
-        return _buildDocumentTile(doc, theme, isSelected, isDateWise, size, modified);
+        return _buildDocumentTile(
+          doc,
+          theme,
+          isSelected,
+          isDateWise,
+          size,
+          modified,
+        );
       },
     );
   }
@@ -1800,7 +2386,11 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     final path = file.path;
     final name = path.split('/').last;
     final iconColor = FileUtils.getColorForFile(name, context);
-    final isApk = name.toLowerCase().endsWith('.apk') || name.toLowerCase().endsWith('.xapk') || name.toLowerCase().endsWith('.apks') || name.toLowerCase().endsWith('.apkm');
+    final isApk =
+        name.toLowerCase().endsWith('.apk') ||
+        name.toLowerCase().endsWith('.xapk') ||
+        name.toLowerCase().endsWith('.apks') ||
+        name.toLowerCase().endsWith('.apkm');
 
     return ListTile(
       key: ValueKey(path),
@@ -1817,39 +2407,69 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: isApk
                 ? _ApkThumbnail(path: path, iconColor: iconColor)
-                : Icon(FileUtils.getIconForFile(name), color: iconColor, size: 22),
+                : Icon(
+                    FileUtils.getIconForFile(name),
+                    color: iconColor,
+                    size: 22,
+                  ),
           ),
           if (_isSelectionMode || isSelected)
             Positioned(
               bottom: 0,
               right: 0,
               child: Container(
-                decoration: BoxDecoration(color: theme.colorScheme.surface, shape: BoxShape.circle),
-                child: Icon(isSelected ? Broken.tick_square : Icons.check_box_outline_blank, color: isSelected ? theme.colorScheme.primary : Colors.grey, size: 20),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isSelected
+                      ? Broken.tick_square
+                      : Icons.check_box_outline_blank,
+                  color: isSelected ? theme.colorScheme.primary : Colors.grey,
+                  size: 20,
+                ),
               ),
             ),
         ],
       ),
-      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w500)),
+      title: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
       subtitle: Text(
         showDate
             ? '${FileUtils.formatBytes(size, 1)} • ${FileUtils.formatDate(modified)}'
             : FileUtils.formatBytes(size, 1),
-        style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11),
+        style: TextStyle(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          fontSize: 11,
+        ),
       ),
       trailing: _isSelectionMode
           ? null
           : IconButton(
               icon: const Icon(Broken.more),
-              onPressed: () => _showSingleItemOptions(name: name, filePath: path),
+              onPressed: () =>
+                  _showSingleItemOptions(name: name, filePath: path),
             ),
     );
   }
 
-  Widget _buildGenericFileList(List<FileSystemEntity> files, ThemeData theme, bool isDateWise, bool isGrouped) {
+  Widget _buildGenericFileList(
+    List<FileSystemEntity> files,
+    ThemeData theme,
+    bool isDateWise,
+    bool isGrouped,
+  ) {
     if (files.isEmpty) return _buildEmptyState(theme);
     if (isGrouped) {
       return _buildGroupedView<FileSystemEntity>(
@@ -1866,7 +2486,14 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             size = st.size;
             modified = st.modified;
           } catch (_) {}
-          return _buildGenericFileTile(file, theme, isSelected, showDate, size, modified);
+          return _buildGenericFileTile(
+            file,
+            theme,
+            isSelected,
+            showDate,
+            size,
+            modified,
+          );
         },
       );
     }
@@ -1884,29 +2511,54 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           size = st.size;
           modified = st.modified;
         } catch (_) {}
-        return _buildGenericFileTile(file, theme, isSelected, isDateWise, size, modified);
+        return _buildGenericFileTile(
+          file,
+          theme,
+          isSelected,
+          isDateWise,
+          size,
+          modified,
+        );
       },
     );
   }
 
   IconData _docIcon(String ext) {
     switch (ext) {
-      case '.pdf': return Broken.document;
-      case '.doc': case '.docx': case '.xls': case '.xlsx': return Broken.document_text;
-      case '.ppt': case '.pptx': return Broken.presention_chart;
-      case '.txt': return Broken.note_2;
-      default: return Broken.document;
+      case '.pdf':
+        return Broken.document;
+      case '.doc':
+      case '.docx':
+      case '.xls':
+      case '.xlsx':
+        return Broken.document_text;
+      case '.ppt':
+      case '.pptx':
+        return Broken.presention_chart;
+      case '.txt':
+        return Broken.note_2;
+      default:
+        return Broken.document;
     }
   }
 
   Color _docColor(String ext) {
     switch (ext) {
-      case '.pdf': return Colors.redAccent;
-      case '.doc': case '.docx': return Colors.blueAccent;
-      case '.xls': case '.xlsx': return Colors.green;
-      case '.ppt': case '.pptx': return Colors.orangeAccent;
-      case '.txt': return Colors.purpleAccent;
-      default: return Colors.teal;
+      case '.pdf':
+        return Colors.redAccent;
+      case '.doc':
+      case '.docx':
+        return Colors.blueAccent;
+      case '.xls':
+      case '.xlsx':
+        return Colors.green;
+      case '.ppt':
+      case '.pptx':
+        return Colors.orangeAccent;
+      case '.txt':
+        return Colors.purpleAccent;
+      default:
+        return Colors.teal;
     }
   }
 
@@ -1915,9 +2567,19 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(_emptyIcon, size: 72, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+          Icon(
+            _emptyIcon,
+            size: 72,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
-          Text('No ${_title.toLowerCase()} found', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 16)),
+          Text(
+            'No ${_title.toLowerCase()} found',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 16,
+            ),
+          ),
         ],
       ),
     );
@@ -1926,7 +2588,8 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
   PageRoute _slideRoute(Widget page) {
     return PageRouteBuilder(
       pageBuilder: (context, animation, secondaryAnimation) => page,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(opacity: animation, child: child),
       transitionDuration: const Duration(milliseconds: 250),
     );
   }
@@ -1937,7 +2600,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
       child: Container(
         height: 40,
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.4,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -1952,13 +2617,17 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 child: Container(
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: !_showFoldersMode ? theme.colorScheme.primary : Colors.transparent,
+                    color: !_showFoldersMode
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'All Items',
                     style: TextStyle(
-                      color: !_showFoldersMode ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                      color: !_showFoldersMode
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurfaceVariant,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1976,13 +2645,17 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 child: Container(
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: _showFoldersMode ? theme.colorScheme.primary : Colors.transparent,
+                    color: _showFoldersMode
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Folders',
                     style: TextStyle(
-                      color: _showFoldersMode ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                      color: _showFoldersMode
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurfaceVariant,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                     ),
@@ -2001,16 +2674,22 @@ class _ThumbnailShimmerPlaceholder extends StatefulWidget {
   const _ThumbnailShimmerPlaceholder({super.key});
 
   @override
-  State<_ThumbnailShimmerPlaceholder> createState() => _ThumbnailShimmerPlaceholderState();
+  State<_ThumbnailShimmerPlaceholder> createState() =>
+      _ThumbnailShimmerPlaceholderState();
 }
 
-class _ThumbnailShimmerPlaceholderState extends State<_ThumbnailShimmerPlaceholder> with SingleTickerProviderStateMixin {
+class _ThumbnailShimmerPlaceholderState
+    extends State<_ThumbnailShimmerPlaceholder>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
   }
 
   @override
@@ -2023,8 +2702,12 @@ class _ThumbnailShimmerPlaceholderState extends State<_ThumbnailShimmerPlacehold
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final baseColor = isDark ? const Color(0xFF1E1E2E) : const Color(0xFFE0E0E0);
-    final highlightColor = isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF5F5F5);
+    final baseColor = isDark
+        ? const Color(0xFF1E1E2E)
+        : const Color(0xFFE0E0E0);
+    final highlightColor = isDark
+        ? const Color(0xFF2A2A3E)
+        : const Color(0xFFF5F5F5);
 
     return AnimatedBuilder(
       animation: _controller,
@@ -2046,7 +2729,11 @@ class _CachedImageTile extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
-  const _CachedImageTile({required this.asset, required this.onTap, required this.onLongPress});
+  const _CachedImageTile({
+    required this.asset,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   State<_CachedImageTile> createState() => _CachedImageTileState();
@@ -2110,7 +2797,9 @@ class _CachedImageTileState extends State<_CachedImageTile> {
                   gaplessPlayback: true,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: Colors.grey.withValues(alpha: 0.1),
-                    child: const Center(child: Icon(Broken.image, size: 24, color: Colors.grey)),
+                    child: const Center(
+                      child: Icon(Broken.image, size: 24, color: Colors.grey),
+                    ),
                   ),
                 )
               : const _ThumbnailShimmerPlaceholder(key: ValueKey('shimmer')),
@@ -2125,7 +2814,11 @@ class _CachedVideoTile extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
-  const _CachedVideoTile({required this.asset, required this.onTap, required this.onLongPress});
+  const _CachedVideoTile({
+    required this.asset,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   State<_CachedVideoTile> createState() => _CachedVideoTileState();
@@ -2199,15 +2892,30 @@ class _CachedVideoTileState extends State<_CachedVideoTile> {
                       gaplessPlayback: true,
                       errorBuilder: (context, error, stackTrace) => Container(
                         color: Colors.grey.withValues(alpha: 0.1),
-                        child: const Center(child: Icon(Broken.video, size: 24, color: Colors.grey)),
+                        child: const Center(
+                          child: Icon(
+                            Broken.video,
+                            size: 24,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
                     )
-                  : const _ThumbnailShimmerPlaceholder(key: ValueKey('shimmer')),
+                  : const _ThumbnailShimmerPlaceholder(
+                      key: ValueKey('shimmer'),
+                    ),
             ),
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: 0.5)]),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.5),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -2215,8 +2923,15 @@ class _CachedVideoTileState extends State<_CachedVideoTile> {
               child: Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 22),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
             ),
             Positioned(
@@ -2224,10 +2939,17 @@ class _CachedVideoTileState extends State<_CachedVideoTile> {
               right: 6,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
                 child: Text(
                   _formatDuration(widget.asset.duration),
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -2282,15 +3004,19 @@ class _FolderGridItemState extends State<FolderGridItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return GestureDetector(
       onTap: widget.onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.3,
+            ),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
           ),
           child: Stack(
             fit: StackFit.expand,
@@ -2305,19 +3031,29 @@ class _FolderGridItemState extends State<FolderGridItem> {
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [theme.colorScheme.surfaceContainerHighest, theme.colorScheme.surface],
+                      colors: [
+                        theme.colorScheme.surfaceContainerHighest,
+                        theme.colorScheme.surface,
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                   ),
-                  child: Icon(Broken.folder_2, color: theme.colorScheme.primary.withValues(alpha: 0.5), size: 40),
+                  child: Icon(
+                    Broken.folder_2,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                    size: 40,
+                  ),
                 ),
               // Gradient Overlay
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.85),
+                      ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       stops: const [0.4, 1.0],
@@ -2368,10 +3104,7 @@ class _ApkThumbnail extends StatefulWidget {
   final String path;
   final Color iconColor;
 
-  const _ApkThumbnail({
-    required this.path,
-    required this.iconColor,
-  });
+  const _ApkThumbnail({required this.path, required this.iconColor});
 
   @override
   State<_ApkThumbnail> createState() => _ApkThumbnailState();
@@ -2419,7 +3152,8 @@ class _ApkThumbnailState extends State<_ApkThumbnail> {
           fit: BoxFit.cover,
           width: 44,
           height: 44,
-          errorBuilder: (context, error, stackTrace) => Icon(Broken.mobile, color: widget.iconColor, size: 22),
+          errorBuilder: (context, error, stackTrace) =>
+              Icon(Broken.mobile, color: widget.iconColor, size: 22),
         ),
       );
     }

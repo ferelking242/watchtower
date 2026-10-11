@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -139,8 +140,9 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
   String _displayLine(String raw) {
     if (_showDate) return raw;
     // Timestamps look like `[2026-04-21 13:42:43.142][INFO ] ...`
-    final m = RegExp(r'^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]')
-        .firstMatch(raw);
+    final m = RegExp(
+      r'^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]',
+    ).firstMatch(raw);
     if (m == null) return raw;
     return raw.substring(m.end);
   }
@@ -152,8 +154,9 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
     // Skip the timestamp + level prefix to find the optional `[TAG]` token.
     // Format: `[TS][LEVEL] [TAG] message…` — the first two `[..]` brackets
     // are TS and LEVEL, the optional 3rd one is the tag.
-    final tag = RegExp(r'^\[[^\]]+\]\[[^\]]+\]\s+\[([A-Z_]+)\]')
-        .firstMatch(raw);
+    final tag = RegExp(
+      r'^\[[^\]]+\]\[[^\]]+\]\s+\[([A-Z_]+)\]',
+    ).firstMatch(raw);
     if (tag != null) return tag.group(1)!;
     // Fall back to the level so at least ERROR vs INFO groups separately.
     final lvl = RegExp(r'^\[[^\]]+\]\[([A-Z ]+)\]').firstMatch(raw);
@@ -180,23 +183,22 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
       } else {
         final id = groupId++;
         final expanded = _expandedGroups.contains(id);
-        out.add(_LogRow(
-          text: rows[i],
-          depth: 0,
-          isParent: true,
-          siblings: children,
-          groupId: id,
-          expanded: expanded,
-          tag: key,
-        ));
+        out.add(
+          _LogRow(
+            text: rows[i],
+            depth: 0,
+            isParent: true,
+            siblings: children,
+            groupId: id,
+            expanded: expanded,
+            tag: key,
+          ),
+        );
         if (expanded) {
           for (var k = i + 1; k < j; k++) {
-            out.add(_LogRow(
-              text: rows[k],
-              depth: 1,
-              isParent: false,
-              groupId: id,
-            ));
+            out.add(
+              _LogRow(text: rows[k], depth: 1, isParent: false, groupId: id),
+            );
           }
         }
       }
@@ -219,21 +221,13 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
       } else {
         left = _pos.dx.clamp(0.0, (mq.size.width - handleSize.width));
       }
-      return Positioned(
-        left: left,
-        top: top,
-        child: _buildHandle(),
-      );
+      return Positioned(left: left, top: top, child: _buildHandle());
     }
     final maxLeft = (mq.size.width - 80).clamp(0.0, mq.size.width);
     final maxTop = (mq.size.height - 80).clamp(0.0, mq.size.height);
     final left = _pos.dx.clamp(0.0, maxLeft);
     final top = _pos.dy.clamp(0.0, maxTop);
-    return Positioned(
-      left: left,
-      top: top,
-      child: _buildPanel(),
-    );
+    return Positioned(left: left, top: top, child: _buildPanel());
   }
 
   Widget _buildHandle() {
@@ -268,21 +262,24 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
               topRight: Radius.circular(8),
               bottomRight: Radius.circular(8),
             ),
-            border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.5)),
+            border: Border.all(
+              color: Colors.greenAccent.withValues(alpha: 0.5),
+            ),
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.terminal_rounded,
-                  size: 14, color: Colors.greenAccent),
+              Icon(Icons.terminal_rounded, size: 14, color: Colors.greenAccent),
               SizedBox(width: 6),
-              Text('LOGS',
-                  style: TextStyle(
-                    color: Colors.greenAccent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  )),
+              Text(
+                'LOGS',
+                style: TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
             ],
           ),
         ),
@@ -303,7 +300,9 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
             Container(
               decoration: BoxDecoration(
                 color: const Color(0xFF0D1117).withValues(alpha: 0.92),
-                border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.35)),
+                border: Border.all(
+                  color: Colors.greenAccent.withValues(alpha: 0.35),
+                ),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: const [
                   BoxShadow(blurRadius: 10, color: Colors.black54),
@@ -314,7 +313,10 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
                   _buildTitleBar(flat.length),
                   _buildToolbar(),
                   const Divider(
-                      height: 1, thickness: 1, color: Color(0xFF222C36)),
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFF222C36),
+                  ),
                   Expanded(child: _buildList(tree)),
                   _buildBottomBar(),
                 ],
@@ -374,8 +376,11 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
         color: const Color(0xFF161B22),
         child: Row(
           children: [
-            const Icon(Icons.terminal_rounded,
-                size: 14, color: Colors.greenAccent),
+            const Icon(
+              Icons.terminal_rounded,
+              size: 14,
+              color: Colors.greenAccent,
+            ),
             const SizedBox(width: 6),
             Text(
               'Live logs · $visibleCount',
@@ -430,18 +435,23 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
               controller: _filterCtrl,
               onChanged: (v) => setState(() => _filter = v),
               style: GoogleFonts.jetBrainsMono(
-                  fontSize: 11, color: Colors.white),
+                fontSize: 11,
+                color: Colors.white,
+              ),
               decoration: const InputDecoration(
                 isDense: true,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
                 hintText: 'filtrer…',
                 hintStyle: TextStyle(color: Colors.white38, fontSize: 11),
                 border: InputBorder.none,
-                prefixIcon: Icon(Icons.search,
-                    size: 14, color: Colors.white38),
-                prefixIconConstraints:
-                    BoxConstraints(minWidth: 20, minHeight: 20),
+                prefixIcon: Icon(Icons.search, size: 14, color: Colors.white38),
+                prefixIconConstraints: BoxConstraints(
+                  minWidth: 20,
+                  minHeight: 20,
+                ),
               ),
             ),
           ),
@@ -493,13 +503,16 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
         final tmpDir = Directory.systemTemp;
         final stamp = DateTime.now().millisecondsSinceEpoch;
         toShare = File(
-            '${tmpDir.path}${Platform.pathSeparator}watchtower_logs_$stamp.log');
+          '${tmpDir.path}${Platform.pathSeparator}watchtower_logs_$stamp.log',
+        );
         await toShare.writeAsString(_filtered.join('\n'));
       }
-      await Share.shareXFiles(
-        [XFile(toShare.path)],
-        subject: 'Watchtower logs',
-        text: 'Logs Watchtower',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(toShare.path)],
+          subject: 'Watchtower logs',
+          text: 'Logs Watchtower',
+        ),
       );
     } catch (_) {
       // Last-ditch fallback: copy to clipboard so the user still has
@@ -564,20 +577,25 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
                       child: SelectableText(
                         display,
                         style: GoogleFonts.jetBrainsMono(
-                            fontSize: 10, color: color),
+                          fontSize: 10,
+                          color: color,
+                        ),
                         maxLines: 6,
                       ),
                     ),
                     Container(
                       margin: const EdgeInsets.only(left: 4),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.cyanAccent.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                            color: Colors.cyanAccent.withValues(alpha: 0.4),
-                            width: 0.5),
+                          color: Colors.cyanAccent.withValues(alpha: 0.4),
+                          width: 0.5,
+                        ),
                       ),
                       child: Text(
                         '+${row.siblings}',
@@ -595,8 +613,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
           }
 
           return Padding(
-            padding: EdgeInsets.fromLTRB(
-                4 + (row.depth * 16.0), 1, 4, 1),
+            padding: EdgeInsets.fromLTRB(4 + (row.depth * 16.0), 1, 4, 1),
             child: SelectableText(
               display,
               style: GoogleFonts.jetBrainsMono(fontSize: 10, color: color),

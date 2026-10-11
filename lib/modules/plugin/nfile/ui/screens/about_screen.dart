@@ -66,7 +66,10 @@ class AboutNFileScreen extends StatelessWidget {
           // Scrollable content
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 10.0,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -83,7 +86,9 @@ class AboutNFileScreen extends StatelessWidget {
                           gradient: LinearGradient(
                             colors: [
                               theme.colorScheme.primary.withValues(alpha: 0.2),
-                              theme.colorScheme.secondary.withValues(alpha: 0.0),
+                              theme.colorScheme.secondary.withValues(
+                                alpha: 0.0,
+                              ),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -99,7 +104,9 @@ class AboutNFileScreen extends StatelessWidget {
                           gradient: LinearGradient(
                             colors: [
                               theme.colorScheme.primary.withValues(alpha: 0.4),
-                              theme.colorScheme.secondary.withValues(alpha: 0.1),
+                              theme.colorScheme.secondary.withValues(
+                                alpha: 0.1,
+                              ),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -112,14 +119,23 @@ class AboutNFileScreen extends StatelessWidget {
                         height: 90,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isDark ? const Color(0xFF121212) : Colors.white,
-                          border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.4), width: 2),
+                          color: isDark
+                              ? const Color(0xFF121212)
+                              : Colors.white,
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.4,
+                            ),
+                            width: 2,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.25,
+                              ),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
-                            )
+                            ),
                           ],
                         ),
                         child: ClipRRect(
@@ -156,11 +172,16 @@ class AboutNFileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                      ),
                     ),
                     child: Text(
                       'v1.0.42 (Stable)',
@@ -187,7 +208,9 @@ class AboutNFileScreen extends StatelessWidget {
                       'NFile is a beautiful, fluid, and open-source file manager and offline media hub built with Flutter. Designed for extreme performance, clean glassmorphic aesthetics, and seamless user experiences.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.85,
+                        ),
                         fontSize: 14.5,
                         height: 1.5,
                         fontWeight: FontWeight.w400,
@@ -272,7 +295,8 @@ class AboutNFileScreen extends StatelessWidget {
                     context,
                     icon: Broken.magic_star,
                     label: 'Star on Repository',
-                    onTap: () => _launchUrl(context, 'https://github.com/Senzme/NFile'),
+                    onTap: () =>
+                        _launchUrl(context, 'https://github.com/Senzme/NFile'),
                   ),
                   const SizedBox(height: 10),
                   _buildSocialAction(
@@ -287,9 +311,12 @@ class AboutNFileScreen extends StatelessWidget {
                     icon: Broken.send,
                     label: 'Share App with Friends',
                     onTap: () {
-                      Share.share(
-                        'Check out NFile, a beautiful offline file manager and media hub: https://github.com/Senzme/NFile/releases',
-                        subject: 'NFile - Beautiful File Manager',
+                      SharePlus.instance.share(
+                        ShareParams(
+                          text:
+                              'Check out NFile, a beautiful offline file manager and media hub: https://github.com/Senzme/NFile/releases',
+                          subject: 'NFile - Beautiful File Manager',
+                        ),
                       );
                     },
                   ),
@@ -298,7 +325,8 @@ class AboutNFileScreen extends StatelessWidget {
                     context,
                     icon: Icons.code_rounded,
                     label: 'Explore GitHub Source Code',
-                    onTap: () => _launchUrl(context, 'https://github.com/Senzme/NFile'),
+                    onTap: () =>
+                        _launchUrl(context, 'https://github.com/Senzme/NFile'),
                   ),
 
                   const SizedBox(height: 48),
@@ -318,7 +346,9 @@ class AboutNFileScreen extends StatelessWidget {
                     'Copyright © 2026 NFile. All rights reserved.',
                     style: TextStyle(
                       fontSize: 11,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.35,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -361,10 +391,7 @@ class AboutNFileScreen extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

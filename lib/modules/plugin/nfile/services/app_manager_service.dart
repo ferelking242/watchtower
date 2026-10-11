@@ -7,16 +7,22 @@ import 'package:share_plus/share_plus.dart';
 import '../models/app_info_model.dart';
 
 class AppManagerService {
-  static const MethodChannel _channel = MethodChannel('com.rubex.nfile/root_shizuku');
+  static const MethodChannel _channel = MethodChannel(
+    'com.rubex.nfile/root_shizuku',
+  );
 
-  static Future<List<AppInfoModel>> getInstalledApps({bool includeSystem = false}) async {
+  static Future<List<AppInfoModel>> getInstalledApps({
+    bool includeSystem = false,
+  }) async {
     try {
       final List<dynamic>? apps = await _channel.invokeMethod<List<dynamic>>(
         'getInstalledApps',
         {'includeSystem': includeSystem},
       );
       if (apps == null) return [];
-      return apps.map((map) => AppInfoModel.fromMap(Map<dynamic, dynamic>.from(map))).toList();
+      return apps
+          .map((map) => AppInfoModel.fromMap(Map<dynamic, dynamic>.from(map)))
+          .toList();
     } catch (e) {
       return [];
     }
@@ -48,10 +54,9 @@ class AppManagerService {
 
   static Future<bool> launchApp(String packageName) async {
     try {
-      final bool? success = await _channel.invokeMethod<bool>(
-        'launchApp',
-        {'packageName': packageName},
-      );
+      final bool? success = await _channel.invokeMethod<bool>('launchApp', {
+        'packageName': packageName,
+      });
       return success ?? false;
     } catch (e) {
       return false;
@@ -72,10 +77,9 @@ class AppManagerService {
 
   static Future<bool> uninstallApp(String packageName) async {
     try {
-      final bool? success = await _channel.invokeMethod<bool>(
-        'uninstallApp',
-        {'packageName': packageName},
-      );
+      final bool? success = await _channel.invokeMethod<bool>('uninstallApp', {
+        'packageName': packageName,
+      });
       return success ?? false;
     } catch (e) {
       return false;
@@ -84,7 +88,9 @@ class AppManagerService {
 
   static Future<bool> checkUsageStatsPermission() async {
     try {
-      final bool? success = await _channel.invokeMethod<bool>('checkUsageStatsPermission');
+      final bool? success = await _channel.invokeMethod<bool>(
+        'checkUsageStatsPermission',
+      );
       return success ?? false;
     } catch (e) {
       return false;
@@ -93,7 +99,9 @@ class AppManagerService {
 
   static Future<bool> requestUsageStatsPermission() async {
     try {
-      final bool? success = await _channel.invokeMethod<bool>('requestUsageStatsPermission');
+      final bool? success = await _channel.invokeMethod<bool>(
+        'requestUsageStatsPermission',
+      );
       return success ?? false;
     } catch (e) {
       return false;
@@ -102,10 +110,9 @@ class AppManagerService {
 
   static Future<bool> changeAppIcon(String aliasName) async {
     try {
-      final bool? success = await _channel.invokeMethod<bool>(
-        'changeAppIcon',
-        {'alias': aliasName},
-      );
+      final bool? success = await _channel.invokeMethod<bool>('changeAppIcon', {
+        'alias': aliasName,
+      });
       return success ?? false;
     } catch (e) {
       return false;
@@ -191,7 +198,9 @@ class AppManagerService {
       }
 
       if (filesToShare.isNotEmpty) {
-        await Share.shareXFiles(filesToShare, text: 'Sharing APK for ${app.name}');
+        await SharePlus.instance.share(
+          ShareParams(files: filesToShare, text: 'Sharing APK for ${app.name}'),
+        );
       }
     } catch (e) {
       debugPrint('Error sharing app: $e');
@@ -210,13 +219,23 @@ class AppManagerService {
         for (final splitPath in app.splitSourceDirs) {
           final splitFile = File(splitPath);
           if (splitFile.existsSync()) {
-            filesToShare.add(XFile(splitFile.path, name: '${app.name}_${p.basename(splitPath)}'));
+            filesToShare.add(
+              XFile(
+                splitFile.path,
+                name: '${app.name}_${p.basename(splitPath)}',
+              ),
+            );
           }
         }
       }
 
       if (filesToShare.isNotEmpty) {
-        await Share.shareXFiles(filesToShare, text: 'Sharing APKs of selected apps');
+        await SharePlus.instance.share(
+          ShareParams(
+            files: filesToShare,
+            text: 'Sharing APKs of selected apps',
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Error batch sharing apps: $e');
@@ -249,7 +268,8 @@ class AppManagerService {
 
             backups.add({
               'name': appName.replaceAll('_', ' '),
-              'packageName': name, // Store original filename as unique package identifier
+              'packageName':
+                  name, // Store original filename as unique package identifier
               'version': version,
               'apkSize': stat.size,
               'installTime': stat.modified,
@@ -263,7 +283,11 @@ class AppManagerService {
       debugPrint('Error listing backups: $e');
     }
     // Sort by modification date (newest first)
-    backups.sort((a, b) => (b['installTime'] as DateTime).compareTo(a['installTime'] as DateTime));
+    backups.sort(
+      (a, b) => (b['installTime'] as DateTime).compareTo(
+        a['installTime'] as DateTime,
+      ),
+    );
     return backups;
   }
 

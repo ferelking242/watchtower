@@ -24,24 +24,24 @@ import 'package:watchtower/services/get_custom_list.dart';
 // Route params:  source, listId (initial Pour toi list), startGifId (optional)
 
 const _kTabExplorer = 0;
-const _kTabSuivis   = 1;
-const _kTabPourToi  = 2;
+const _kTabSuivis = 1;
+const _kTabPourToi = 2;
 
 // ── Niche filter list (mirrors redgifs.js _NICHES) ────────────────────────────
 const _kNiches = <({String id, String label})>[
-  (id: 'for_you',              label: 'For you'),
-  (id: 'niche_just-boobs',     label: 'Just Boobs'),
-  (id: 'niche_blowjobs',       label: 'Blowjobs'),
-  (id: 'niche_thick-booty',    label: 'Thick Booty'),
-  (id: 'niche_amateur-girls',  label: 'Amateur Girls'),
-  (id: 'niche_real-couples',   label: 'Real Couples'),
-  (id: 'niche_real-orgasms',   label: 'Real Orgasms'),
-  (id: 'niche_curvy-chicks',   label: 'Curvy Chicks'),
-  (id: 'niche_rough-sex',      label: 'Rough Sex'),
-  (id: 'niche_legal-teens',    label: 'Legal Teens'),
-  (id: 'niche_busty-asians',   label: 'Busty Asians'),
-  (id: 'niche_goth-girls',     label: 'Goth Girls'),
-  (id: 'niche_latinas',        label: 'Latinas'),
+  (id: 'for_you', label: 'For you'),
+  (id: 'niche_just-boobs', label: 'Just Boobs'),
+  (id: 'niche_blowjobs', label: 'Blowjobs'),
+  (id: 'niche_thick-booty', label: 'Thick Booty'),
+  (id: 'niche_amateur-girls', label: 'Amateur Girls'),
+  (id: 'niche_real-couples', label: 'Real Couples'),
+  (id: 'niche_real-orgasms', label: 'Real Orgasms'),
+  (id: 'niche_curvy-chicks', label: 'Curvy Chicks'),
+  (id: 'niche_rough-sex', label: 'Rough Sex'),
+  (id: 'niche_legal-teens', label: 'Legal Teens'),
+  (id: 'niche_busty-asians', label: 'Busty Asians'),
+  (id: 'niche_goth-girls', label: 'Goth Girls'),
+  (id: 'niche_latinas', label: 'Latinas'),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,13 +50,18 @@ const _kNiches = <({String id, String label})>[
 
 Map<String, dynamic>? _parseLink(String? link) {
   if (link == null) return null;
-  try { return jsonDecode(link) as Map<String, dynamic>; }
-  catch (_) { return null; }
+  try {
+    return jsonDecode(link) as Map<String, dynamic>;
+  } catch (_) {
+    return null;
+  }
 }
 
 String _fmtCount(int n) {
-  if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1).replaceAll('.', ',')} M';
-  if (n >=    1000) return '${(n /    1000).toStringAsFixed(1).replaceAll('.', ',')} K';
+  if (n >= 1000000)
+    return '${(n / 1000000).toStringAsFixed(1).replaceAll('.', ',')} M';
+  if (n >= 1000)
+    return '${(n / 1000).toStringAsFixed(1).replaceAll('.', ',')} K';
   return n.toString();
 }
 
@@ -69,7 +74,7 @@ List<String> _parseTags(Map<String, dynamic>? d) {
 // Saves/unsaves a reel to the Watchtower watch library.
 // Returns the new favorite state.
 bool _toggleFavoriteSync(MManga m, Source src) {
-  final d     = _parseLink(m.link);
+  final d = _parseLink(m.link);
   final gifId = (d?['gifId'] as String?) ?? m.link ?? '';
   if (gifId.isEmpty || src.id == null) return false;
 
@@ -89,22 +94,24 @@ bool _toggleFavoriteSync(MManga m, Source src) {
     return next;
   } else {
     isar.writeTxnSync(() {
-      isar.mangas.putSync(Manga(
-        source:      src.name ?? '',
-        sourceId:    src.id,
-        name:        (d?['creator'] as String?) ?? m.name ?? '',
-        link:        gifId,
-        imageUrl:    m.imageUrl ?? (d?['poster'] as String?) ?? '',
-        description: (d?['title']   as String?) ?? m.description ?? '',
-        author:      (d?['creator'] as String?) ?? '',
-        artist:      '',
-        genre:       _parseTags(d),
-        lang:        src.lang ?? 'multi',
-        status:      Status.unknown,
-        favorite:    true,
-        itemType:    src.itemType,
-        dateAdded:   DateTime.now().millisecondsSinceEpoch,
-      ));
+      isar.mangas.putSync(
+        Manga(
+          source: src.name ?? '',
+          sourceId: src.id,
+          name: (d?['creator'] as String?) ?? m.name ?? '',
+          link: gifId,
+          imageUrl: m.imageUrl ?? (d?['poster'] as String?) ?? '',
+          description: (d?['title'] as String?) ?? m.description ?? '',
+          author: (d?['creator'] as String?) ?? '',
+          artist: '',
+          genre: _parseTags(d),
+          lang: src.lang ?? 'multi',
+          status: Status.unknown,
+          favorite: true,
+          itemType: src.itemType,
+          dateAdded: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
     });
     return true;
   }
@@ -127,8 +134,8 @@ bool _isFavoritedSync(String gifId, int? sourceId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ReelScreen extends ConsumerStatefulWidget {
-  final Source  source;
-  final String  listId;
+  final Source source;
+  final String listId;
   final String? startGifId;
 
   const ReelScreen({
@@ -191,10 +198,10 @@ class _ReelScreenState extends ConsumerState<ReelScreen>
   @override
   Widget build(BuildContext context) {
     final isPourToi = _pourToiActive;
-    final bg        = isPourToi ? Colors.black : Colors.white;
-    final iconCol   = isPourToi ? Colors.white : Colors.black87;
-    final tabSel    = isPourToi ? Colors.white : Colors.black87;
-    final tabUnsel  = isPourToi ? Colors.white54 : Colors.black38;
+    final bg = isPourToi ? Colors.black : Colors.white;
+    final iconCol = isPourToi ? Colors.white : Colors.black87;
+    final tabSel = isPourToi ? Colors.white : Colors.black87;
+    final tabUnsel = isPourToi ? Colors.white54 : Colors.black38;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -224,9 +231,14 @@ class _ReelScreenState extends ConsumerState<ReelScreen>
           labelColor: tabSel,
           unselectedLabelColor: tabUnsel,
           labelStyle: const TextStyle(
-              fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.1),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
+          ),
           unselectedLabelStyle: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w500),
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
           splashFactory: NoSplash.splashFactory,
           overlayColor: WidgetStateProperty.all(Colors.transparent),
           tabs: [
@@ -250,9 +262,9 @@ class _ReelScreenState extends ConsumerState<ReelScreen>
           _ExplorerTab(source: widget.source),
           _SuivisTab(source: widget.source),
           _PourToiTab(
-            source:      widget.source,
-            listId:      widget.listId,
-            startGifId:  widget.startGifId,
+            source: widget.source,
+            listId: widget.listId,
+            startGifId: widget.startGifId,
           ),
         ],
       ),
@@ -315,16 +327,17 @@ class _ExplorerTab extends ConsumerStatefulWidget {
 class _ExplorerTabState extends ConsumerState<_ExplorerTab>
     with AutomaticKeepAliveClientMixin {
   final List<MManga> _items = [];
-  String     _listId   = _kNiches[0].id;
-  int        _selNiche  = 0;
+  String _listId = _kNiches[0].id;
+  int _selNiche = 0;
   _MediaType _mediaType = _MediaType.all;
-  int  _page    = 1;
+  int _page = 1;
   bool _hasNext = true;
   bool _loading = false;
-  bool _init    = true;
+  bool _init = true;
   final _scroll = ScrollController();
 
-  @override bool get wantKeepAlive => true;
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -334,21 +347,27 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
   }
 
   @override
-  void dispose() { _scroll.dispose(); super.dispose(); }
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   void _onScroll() {
-    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 800) _load();
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 800)
+      _load();
   }
 
   Future<void> _load() async {
     if (_loading || !_hasNext) return;
     setState(() => _loading = true);
     try {
-      final res = await ref.read(getCustomListProvider(
-        source: widget.source,
-        listId: _listId,
-        page: _page,
-      ).future);
+      final res = await ref.read(
+        getCustomListProvider(
+          source: widget.source,
+          listId: _listId,
+          page: _page,
+        ).future,
+      );
       if (res != null && mounted) {
         setState(() {
           _items.addAll(res.list);
@@ -356,7 +375,8 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
           _page++;
           _init = false;
         });
-      } else if (mounted) setState(() => _init = false);
+      } else if (mounted)
+        setState(() => _init = false);
     } catch (_) {
       if (mounted) setState(() => _init = false);
     } finally {
@@ -367,13 +387,13 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
   void _selectNiche(int idx) {
     if (idx == _selNiche && _mediaType == _MediaType.all) return;
     setState(() {
-      _selNiche  = idx;
-      _listId    = _kNiches[idx].id;
+      _selNiche = idx;
+      _listId = _kNiches[idx].id;
       _mediaType = _MediaType.all;
       _items.clear();
-      _page    = 1;
+      _page = 1;
       _hasNext = true;
-      _init    = true;
+      _init = true;
     });
     _load();
   }
@@ -383,9 +403,9 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
     setState(() {
       _mediaType = t;
       _items.clear();
-      _page    = 1;
+      _page = 1;
       _hasNext = true;
-      _init    = true;
+      _init = true;
     });
     _load();
   }
@@ -393,7 +413,7 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final left  = <MManga>[];
+    final left = <MManga>[];
     final right = <MManga>[];
     for (var i = 0; i < _items.length; i++) {
       (i.isEven ? left : right).add(_items[i]);
@@ -403,8 +423,11 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
       controller: _scroll,
       slivers: [
         // ── Top padding for AppBar ───────────────────────────────────
-        SliverToBoxAdapter(child: SizedBox(
-            height: MediaQuery.of(context).padding.top + kToolbarHeight + 8)),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
+          ),
+        ),
 
         // ── Type filter (Tout / GIF / Image) ────────────────────────
         SliverToBoxAdapter(
@@ -412,14 +435,23 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
             child: Row(
               children: [
-                _TypePill(label: 'Tout',  active: _mediaType == _MediaType.all,
-                    onTap: () => _selectType(_MediaType.all)),
+                _TypePill(
+                  label: 'Tout',
+                  active: _mediaType == _MediaType.all,
+                  onTap: () => _selectType(_MediaType.all),
+                ),
                 const SizedBox(width: 8),
-                _TypePill(label: 'GIF',   active: _mediaType == _MediaType.gif,
-                    onTap: () => _selectType(_MediaType.gif)),
+                _TypePill(
+                  label: 'GIF',
+                  active: _mediaType == _MediaType.gif,
+                  onTap: () => _selectType(_MediaType.gif),
+                ),
                 const SizedBox(width: 8),
-                _TypePill(label: 'Image', active: _mediaType == _MediaType.image,
-                    onTap: () => _selectType(_MediaType.image)),
+                _TypePill(
+                  label: 'Image',
+                  active: _mediaType == _MediaType.image,
+                  onTap: () => _selectType(_MediaType.image),
+                ),
               ],
             ),
           ),
@@ -432,7 +464,10 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
               height: 44,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemCount: _kNiches.length,
                 itemBuilder: (ctx, i) {
@@ -454,7 +489,8 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
                         _kNiches[i].label,
                         style: TextStyle(
                           color: sel ? Colors.white : Colors.black54,
-                          fontSize: 12, fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -472,8 +508,12 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
           )
         else if (_items.isEmpty)
           const SliverFillRemaining(
-            child: Center(child: Text('Aucun contenu',
-                style: TextStyle(color: Colors.black45))),
+            child: Center(
+              child: Text(
+                'Aucun contenu',
+                style: TextStyle(color: Colors.black45),
+              ),
+            ),
           )
         else ...[
           SliverPadding(
@@ -508,17 +548,19 @@ class _GridColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: items.map((m) => _ExplorerCard(manga: m)).toList(),
-    );
+    return Column(children: items.map((m) => _ExplorerCard(manga: m)).toList());
   }
 }
 
 class _TypePill extends StatelessWidget {
-  final String       label;
-  final bool         active;
+  final String label;
+  final bool active;
   final VoidCallback onTap;
-  const _TypePill({required this.label, required this.active, required this.onTap});
+  const _TypePill({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -538,7 +580,8 @@ class _TypePill extends StatelessWidget {
           label,
           style: TextStyle(
             color: active ? Colors.white : Colors.black54,
-            fontSize: 13, fontWeight: FontWeight.w600,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -552,14 +595,14 @@ class _ExplorerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final d      = _parseLink(manga.link);
-    final w      = (d?['width']  as num?)?.toDouble() ?? 9.0;
-    final h      = (d?['height'] as num?)?.toDouble() ?? 16.0;
-    final ratio  = w > 0 && h > 0 ? w / h : 9 / 16;
-    final likes  = (d?['likes'] as num?)?.toInt() ?? 0;
-    final title  = (d?['title']   as String?)?.trim()  ?? '';
-    final author = (d?['creator'] as String?)?.trim()  ?? manga.name ?? '';
-    final img    = manga.imageUrl ?? '';
+    final d = _parseLink(manga.link);
+    final w = (d?['width'] as num?)?.toDouble() ?? 9.0;
+    final h = (d?['height'] as num?)?.toDouble() ?? 16.0;
+    final ratio = w > 0 && h > 0 ? w / h : 9 / 16;
+    final likes = (d?['likes'] as num?)?.toInt() ?? 0;
+    final title = (d?['title'] as String?)?.trim() ?? '';
+    final author = (d?['creator'] as String?)?.trim() ?? manga.name ?? '';
+    final img = manga.imageUrl ?? '';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
@@ -590,10 +633,13 @@ class _ExplorerCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (title.isNotEmpty)
-                      Text(title,
+                      Text(
+                        title,
                         style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600,
-                          color: Colors.black87, height: 1.3,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                          height: 1.3,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -602,19 +648,25 @@ class _ExplorerCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          width: 16, height: 16,
+                          width: 16,
+                          height: 16,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.grey.shade300,
                           ),
-                          child: const Icon(Icons.person,
-                              size: 10, color: Colors.white),
+                          child: const Icon(
+                            Icons.person,
+                            size: 10,
+                            color: Colors.white,
+                          ),
                         ),
                         const SizedBox(width: 4),
                         Expanded(
-                          child: Text(author,
+                          child: Text(
+                            author,
                             style: const TextStyle(
-                              fontSize: 11, color: Colors.black45,
+                              fontSize: 11,
+                              color: Colors.black45,
                               fontWeight: FontWeight.w500,
                             ),
                             maxLines: 1,
@@ -623,12 +675,18 @@ class _ExplorerCard extends StatelessWidget {
                         ),
                         if (likes > 0) ...[
                           const SizedBox(width: 4),
-                          Icon(Icons.favorite_rounded,
-                              size: 10, color: Colors.grey.shade400),
+                          Icon(
+                            Icons.favorite_rounded,
+                            size: 10,
+                            color: Colors.grey.shade400,
+                          ),
                           const SizedBox(width: 2),
-                          Text(_fmtCount(likes),
+                          Text(
+                            _fmtCount(likes),
                             style: TextStyle(
-                              fontSize: 10, color: Colors.grey.shade500),
+                              fontSize: 10,
+                              color: Colors.grey.shade500,
+                            ),
                           ),
                         ],
                       ],
@@ -658,13 +716,14 @@ class _SuivisTab extends ConsumerStatefulWidget {
 class _SuivisTabState extends ConsumerState<_SuivisTab>
     with AutomaticKeepAliveClientMixin {
   final List<MManga> _items = [];
-  int  _page    = 1;
+  int _page = 1;
   bool _hasNext = true;
   bool _loading = false;
-  bool _init    = true;
+  bool _init = true;
   final _scroll = ScrollController();
 
-  @override bool get wantKeepAlive => true;
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -674,21 +733,27 @@ class _SuivisTabState extends ConsumerState<_SuivisTab>
   }
 
   @override
-  void dispose() { _scroll.dispose(); super.dispose(); }
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   void _onScroll() {
-    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 400) _load();
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 400)
+      _load();
   }
 
   Future<void> _load() async {
     if (_loading || !_hasNext) return;
     setState(() => _loading = true);
     try {
-      final res = await ref.read(getCustomListProvider(
-        source: widget.source,
-        listId: 'creators_trending',
-        page: _page,
-      ).future);
+      final res = await ref.read(
+        getCustomListProvider(
+          source: widget.source,
+          listId: 'creators_trending',
+          page: _page,
+        ).future,
+      );
       if (res != null && mounted) {
         setState(() {
           _items.addAll(res.list);
@@ -696,7 +761,8 @@ class _SuivisTabState extends ConsumerState<_SuivisTab>
           _page++;
           _init = false;
         });
-      } else if (mounted) setState(() => _init = false);
+      } else if (mounted)
+        setState(() => _init = false);
     } catch (_) {
       if (mounted) setState(() => _init = false);
     } finally {
@@ -713,13 +779,18 @@ class _SuivisTabState extends ConsumerState<_SuivisTab>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(height: MediaQuery.of(context).padding.top + kToolbarHeight + 4),
+        SizedBox(
+          height: MediaQuery.of(context).padding.top + kToolbarHeight + 4,
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
           child: Text(
             'Créateurs populaires',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
           ),
         ),
         Expanded(
@@ -758,24 +829,27 @@ class _CreatorCard extends StatelessWidget {
 
   void _openProfile(BuildContext ctx) {
     final d = _parseLink(manga.link);
-    ctx.pushNamed('creatorProfile', extra: {
-      'source':        source,
-      'creator':       manga.name ?? '',
-      'creatorAvatar': manga.imageUrl ?? '',
-      'verified':      d?['verified'] as bool? ?? false,
-      'followers':     (d?['followers'] as num?)?.toInt() ?? 0,
-      'bio':           (d?['bio'] as String?) ?? '',
-    });
+    ctx.pushNamed(
+      'creatorProfile',
+      extra: {
+        'source': source,
+        'creator': manga.name ?? '',
+        'creatorAvatar': manga.imageUrl ?? '',
+        'verified': d?['verified'] as bool? ?? false,
+        'followers': (d?['followers'] as num?)?.toInt() ?? 0,
+        'bio': (d?['bio'] as String?) ?? '',
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final d         = _parseLink(manga.link);
+    final d = _parseLink(manga.link);
     final followers = (d?['followers'] as num?)?.toInt() ?? 0;
-    final gifs      = (d?['totalGifs'] as num?)?.toInt() ?? 0;
-    final verified  = d?['verified'] as bool? ?? false;
-    final img       = manga.imageUrl ?? '';
-    final username  = manga.name ?? '';
+    final gifs = (d?['totalGifs'] as num?)?.toInt() ?? 0;
+    final verified = d?['verified'] as bool? ?? false;
+    final img = manga.imageUrl ?? '';
+    final username = manga.name ?? '';
     final bannerUrl = (d?['bannerUrl'] as String?) ?? img;
 
     return GestureDetector(
@@ -788,7 +862,8 @@ class _CreatorCard extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 6, offset: const Offset(0, 2),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -797,8 +872,9 @@ class _CreatorCard extends StatelessWidget {
           children: [
             // Banner
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(10)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(10),
+              ),
               child: AspectRatio(
                 aspectRatio: 2.5,
                 child: bannerUrl.isNotEmpty
@@ -821,7 +897,8 @@ class _CreatorCard extends StatelessWidget {
                     Transform.translate(
                       offset: const Offset(0, -20),
                       child: Container(
-                        width: 48, height: 48,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
@@ -831,15 +908,22 @@ class _CreatorCard extends StatelessWidget {
                               ? CachedNetworkImage(
                                   imageUrl: img,
                                   fit: BoxFit.cover,
-                                  errorWidget: (_, __, ___) =>
-                                      Container(color: Colors.grey.shade300,
-                                        child: const Icon(Icons.person,
-                                            color: Colors.white, size: 24)),
+                                  errorWidget: (_, __, ___) => Container(
+                                    color: Colors.grey.shade300,
+                                    child: const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
                                 )
                               : Container(
                                   color: Colors.grey.shade300,
-                                  child: const Icon(Icons.person,
-                                      color: Colors.white, size: 24),
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
                                 ),
                         ),
                       ),
@@ -855,9 +939,11 @@ class _CreatorCard extends StatelessWidget {
                               Flexible(
                                 child: Text(
                                   username,
-                                  style: const TextStyle(fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black87),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black87,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
@@ -865,34 +951,51 @@ class _CreatorCard extends StatelessWidget {
                               ),
                               if (verified) ...[
                                 const SizedBox(width: 3),
-                                const Icon(Icons.verified_rounded,
-                                    size: 14, color: Color(0xFF1DA1F2)),
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  size: 14,
+                                  color: Color(0xFF1DA1F2),
+                                ),
                               ],
                             ],
                           ),
                           const SizedBox(height: 3),
                           if (followers > 0)
-                            Text('${_fmtCount(followers)} abonnés',
-                                style: const TextStyle(fontSize: 11,
-                                    color: Colors.black45)),
+                            Text(
+                              '${_fmtCount(followers)} abonnés',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.black45,
+                              ),
+                            ),
                           if (gifs > 0)
-                            Text('$gifs GIFs',
-                                style: const TextStyle(fontSize: 11,
-                                    color: Colors.black38)),
+                            Text(
+                              '$gifs GIFs',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.black38,
+                              ),
+                            ),
                           const SizedBox(height: 10),
                           Container(
                             height: 30,
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                  color: Colors.black87, width: 1.2),
+                                color: Colors.black87,
+                                width: 1.2,
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             alignment: Alignment.center,
-                            child: const Text('Suivre',
-                              style: TextStyle(fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black87)),
+                            child: const Text(
+                              'Suivre',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -913,8 +1016,8 @@ class _CreatorCard extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _PourToiTab extends ConsumerStatefulWidget {
-  final Source  source;
-  final String  listId;
+  final Source source;
+  final String listId;
   final String? startGifId;
   const _PourToiTab({
     required this.source,
@@ -927,27 +1030,28 @@ class _PourToiTab extends ConsumerStatefulWidget {
 
 class _PourToiTabState extends ConsumerState<_PourToiTab>
     with AutomaticKeepAliveClientMixin {
-  late final Player          _player;
+  late final Player _player;
   late final VideoController _videoCtrl;
-  late final PageController  _pageCtrl;
+  late final PageController _pageCtrl;
 
-  final List<MManga> _items        = [];
-  final Set<String>  _favoritedIds = {};
-  int  _page    = 1;
-  int  _curPage = 0;
+  final List<MManga> _items = [];
+  final Set<String> _favoritedIds = {};
+  int _page = 1;
+  int _curPage = 0;
   bool _hasNext = true;
   bool _loading = false;
-  bool _init    = true;
-  bool _paused  = false;
+  bool _init = true;
+  bool _paused = false;
 
-  @override bool get wantKeepAlive => true;
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _player    = Player();
+    _player = Player();
     _videoCtrl = VideoController(_player);
-    _pageCtrl  = PageController();
+    _pageCtrl = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPage());
   }
 
@@ -962,11 +1066,13 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
     if (_loading || !_hasNext) return;
     setState(() => _loading = true);
     try {
-      final res = await ref.read(getCustomListProvider(
-        source: widget.source,
-        listId: widget.listId,
-        page: _page,
-      ).future);
+      final res = await ref.read(
+        getCustomListProvider(
+          source: widget.source,
+          listId: widget.listId,
+          page: _page,
+        ).future,
+      );
       if (res != null && mounted) {
         final wasEmpty = _items.isEmpty;
         // Pre-check favorites in isar
@@ -974,8 +1080,7 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
         for (final m in res.list) {
           final d = _parseLink(m.link);
           final gid = (d?['gifId'] as String?) ?? '';
-          if (gid.isNotEmpty &&
-              _isFavoritedSync(gid, widget.source.id)) {
+          if (gid.isNotEmpty && _isFavoritedSync(gid, widget.source.id)) {
             newFavIds.add(gid);
           }
         }
@@ -987,15 +1092,17 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
           _init = false;
         });
         if (wasEmpty && widget.startGifId != null) {
-          final idx = _items.indexWhere((m) =>
-              _parseLink(m.link)?['gifId'] == widget.startGifId);
+          final idx = _items.indexWhere(
+            (m) => _parseLink(m.link)?['gifId'] == widget.startGifId,
+          );
           if (idx > 0) {
             _curPage = idx;
             _pageCtrl.jumpToPage(idx);
           }
         }
         _playCurrentItem();
-      } else if (mounted) setState(() => _init = false);
+      } else if (mounted)
+        setState(() => _init = false);
     } catch (_) {
       if (mounted) setState(() => _init = false);
     } finally {
@@ -1005,7 +1112,7 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
 
   void _playCurrentItem() {
     if (_items.isEmpty || _curPage >= _items.length) return;
-    final d   = _parseLink(_items[_curPage].link);
+    final d = _parseLink(_items[_curPage].link);
     final url = (d?['hd'] as String?) ?? (d?['sd'] as String?) ?? '';
     if (url.isEmpty) return;
     _player
@@ -1042,7 +1149,8 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
 
   void _onShareTap() {
     final d = _parseLink(_current?.link);
-    final url = (d?['hd'] as String?) ??
+    final url =
+        (d?['hd'] as String?) ??
         (d?['sd'] as String?) ??
         '${widget.source.baseUrl ?? ''}';
     SharePlus.instance.share(ShareParams(text: url));
@@ -1052,14 +1160,18 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
     final d = _parseLink(_current?.link);
     final creator = (d?['creator'] as String?) ?? _current?.name ?? '';
     if (creator.isEmpty) return;
-    ctx.pushNamed('creatorProfile', extra: {
-      'source':        widget.source,
-      'creator':       creator,
-      'creatorAvatar': (d?['creatorAvatar'] as String?) ?? _current?.imageUrl ?? '',
-      'verified':      d?['verified'] as bool? ?? false,
-      'followers':     (d?['followers'] as num?)?.toInt() ?? 0,
-      'bio':           (d?['bio'] as String?) ?? '',
-    });
+    ctx.pushNamed(
+      'creatorProfile',
+      extra: {
+        'source': widget.source,
+        'creator': creator,
+        'creatorAvatar':
+            (d?['creatorAvatar'] as String?) ?? _current?.imageUrl ?? '',
+        'verified': d?['verified'] as bool? ?? false,
+        'followers': (d?['followers'] as num?)?.toInt() ?? 0,
+        'bio': (d?['bio'] as String?) ?? '',
+      },
+    );
   }
 
   MManga? get _current =>
@@ -1078,29 +1190,37 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
     if (_init) {
       return const ColoredBox(
         color: Colors.black,
-        child: Center(child: CircularProgressIndicator(
-            color: Colors.white54, strokeWidth: 2)),
+        child: Center(
+          child: CircularProgressIndicator(
+            color: Colors.white54,
+            strokeWidth: 2,
+          ),
+        ),
       );
     }
     if (_items.isEmpty) {
       return const ColoredBox(
         color: Colors.black,
-        child: Center(child: Text('Aucun contenu',
-            style: TextStyle(color: Colors.white54, fontSize: 15))),
+        child: Center(
+          child: Text(
+            'Aucun contenu',
+            style: TextStyle(color: Colors.white54, fontSize: 15),
+          ),
+        ),
       );
     }
 
-    final d            = _parseLink(_current?.link);
-    final hasAudio     = d?['hasAudio'] as bool? ?? false;
-    final likes        = (d?['likes'] as num?)?.toInt() ?? 0;
-    final views        = (d?['views'] as num?)?.toInt() ?? 0;
-    final creator      = (d?['creator'] as String?) ?? _current?.name ?? '';
-    final creatorAvatar= (d?['creatorAvatar'] as String?) ?? '';
-    final verified     = d?['verified'] as bool? ?? false;
-    final title        = (d?['title'] as String?) ?? _current?.description ?? '';
-    final tags         = _parseTags(d);
+    final d = _parseLink(_current?.link);
+    final hasAudio = d?['hasAudio'] as bool? ?? false;
+    final likes = (d?['likes'] as num?)?.toInt() ?? 0;
+    final views = (d?['views'] as num?)?.toInt() ?? 0;
+    final creator = (d?['creator'] as String?) ?? _current?.name ?? '';
+    final creatorAvatar = (d?['creatorAvatar'] as String?) ?? '';
+    final verified = d?['verified'] as bool? ?? false;
+    final title = (d?['title'] as String?) ?? _current?.description ?? '';
+    final tags = _parseTags(d);
     final supportsComments = widget.source.supportsComments ?? false;
-    final isFav        = _currentIsFavorited;
+    final isFav = _currentIsFavorited;
 
     return ColoredBox(
       color: Colors.black,
@@ -1115,15 +1235,19 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
             itemCount: _items.length + (_hasNext ? 1 : 0),
             itemBuilder: (ctx, i) {
               if (i >= _items.length) {
-                return const Center(child: CircularProgressIndicator(
-                    color: Colors.white38, strokeWidth: 2));
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white38,
+                    strokeWidth: 2,
+                  ),
+                );
               }
               return _ReelPage(
-                manga:           _items[i],
+                manga: _items[i],
                 videoController: _videoCtrl,
-                isActive:        i == _curPage,
-                paused:          _paused,
-                onTap:           _togglePause,
+                isActive: i == _curPage,
+                paused: _paused,
+                onTap: _togglePause,
               );
             },
           ),
@@ -1170,33 +1294,35 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
             right: 10,
             bottom: 90,
             child: _ReelRail(
-              creatorAvatar:    creatorAvatar,
-              hasAudio:         hasAudio,
-              likes:            likes,
-              views:            views,
-              isFavorited:      isFav,
+              creatorAvatar: creatorAvatar,
+              hasAudio: hasAudio,
+              likes: likes,
+              views: views,
+              isFavorited: isFav,
               supportsComments: supportsComments,
-              sourceIconUrl:    widget.source.iconUrl ?? '',
-              sourceName:       widget.source.name ?? '',
-              onAvatarTap:      () => _openCreatorProfile(context),
-              onLike:           () {},          // like not supported yet — visual only
-              onComment:        supportsComments ? () {} : null,
-              onFavorite:       _onFavoriteTap,
-              onShare:          _onShareTap,
+              sourceIconUrl: widget.source.iconUrl ?? '',
+              sourceName: widget.source.name ?? '',
+              onAvatarTap: () => _openCreatorProfile(context),
+              onLike: () {}, // like not supported yet — visual only
+              onComment: supportsComments ? () {} : null,
+              onFavorite: _onFavoriteTap,
+              onShare: _onShareTap,
             ),
           ),
 
           // ── Bottom left info ──────────────────────────────────────────
           Positioned(
-            left: 14, right: 90, bottom: 20,
+            left: 14,
+            right: 90,
+            bottom: 20,
             child: _ReelBottomLeft(
-              creator:    creator,
-              verified:   verified,
-              title:      title,
-              tags:       tags,
+              creator: creator,
+              verified: verified,
+              title: title,
+              tags: tags,
               onCreatorTap: () => _openCreatorProfile(context),
               sourceIconUrl: widget.source.iconUrl ?? '',
-              sourceName:    widget.source.name ?? '',
+              sourceName: widget.source.name ?? '',
             ),
           ),
 
@@ -1204,8 +1330,11 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
           if (_paused)
             const IgnorePointer(
               child: Center(
-                child: Icon(Icons.play_arrow_rounded,
-                    color: Colors.white54, size: 80),
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white54,
+                  size: 80,
+                ),
               ),
             ),
         ],
@@ -1219,11 +1348,11 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ReelPage extends StatelessWidget {
-  final MManga          manga;
+  final MManga manga;
   final VideoController videoController;
-  final bool            isActive;
-  final bool            paused;
-  final VoidCallback    onTap;
+  final bool isActive;
+  final bool paused;
+  final VoidCallback onTap;
   const _ReelPage({
     required this.manga,
     required this.videoController,
@@ -1267,19 +1396,19 @@ class _ReelPage extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ReelRail extends StatelessWidget {
-  final String   creatorAvatar;
-  final bool     hasAudio;
-  final int      likes;
-  final int      views;
-  final bool     isFavorited;
-  final bool     supportsComments;
-  final String   sourceIconUrl;
-  final String   sourceName;
-  final VoidCallback  onAvatarTap;
-  final VoidCallback  onLike;
+  final String creatorAvatar;
+  final bool hasAudio;
+  final int likes;
+  final int views;
+  final bool isFavorited;
+  final bool supportsComments;
+  final String sourceIconUrl;
+  final String sourceName;
+  final VoidCallback onAvatarTap;
+  final VoidCallback onLike;
   final VoidCallback? onComment;
-  final VoidCallback  onFavorite;
-  final VoidCallback  onShare;
+  final VoidCallback onFavorite;
+  final VoidCallback onShare;
 
   const _ReelRail({
     required this.creatorAvatar,
@@ -1348,7 +1477,7 @@ class _ReelRail extends StatelessWidget {
           onTap: onShare,
           child: Transform(
             alignment: Alignment.center,
-            transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
+            transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0),
             child: const _RailBtn(
               icon: Icons.reply_rounded,
               color: Colors.white,
@@ -1371,13 +1500,15 @@ class _AvatarFollow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 48, height: 58,
+      width: 48,
+      height: 58,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
         children: [
           Container(
-            width: 48, height: 48,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 1.8),
@@ -1387,8 +1518,7 @@ class _AvatarFollow extends StatelessWidget {
                   ? CachedNetworkImage(
                       imageUrl: avatarUrl,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) =>
-                          _DefaultAvatar(),
+                      errorWidget: (_, __, ___) => _DefaultAvatar(),
                     )
                   : _DefaultAvatar(),
             ),
@@ -1396,7 +1526,8 @@ class _AvatarFollow extends StatelessWidget {
           Positioned(
             bottom: 0,
             child: Container(
-              width: 22, height: 22,
+              width: 22,
+              height: 22,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: Color(0xFFFF3B5C),
@@ -1422,8 +1553,8 @@ class _DefaultAvatar extends StatelessWidget {
 
 class _RailBtn extends StatelessWidget {
   final IconData icon;
-  final String?  count;
-  final Color    color;
+  final String? count;
+  final Color color;
   const _RailBtn({required this.icon, this.count, required this.color});
 
   @override
@@ -1434,7 +1565,8 @@ class _RailBtn extends StatelessWidget {
         Icon(icon, color: color, size: 32),
         if (count != null) ...[
           const SizedBox(height: 3),
-          Text(count!,
+          Text(
+            count!,
             style: TextStyle(
               color: color,
               fontSize: 12,
@@ -1459,7 +1591,8 @@ class _SourceDisk extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 40, height: 40,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.grey.shade900,
@@ -1471,10 +1604,12 @@ class _SourceDisk extends StatelessWidget {
                     imageUrl: iconUrl,
                     fit: BoxFit.cover,
                     errorWidget: (_, __, ___) => const Icon(
-                        Icons.extension, color: Colors.white54, size: 20),
+                      Icons.extension,
+                      color: Colors.white54,
+                      size: 20,
+                    ),
                   )
-                : const Icon(Icons.extension,
-                    color: Colors.white54, size: 20),
+                : const Icon(Icons.extension, color: Colors.white54, size: 20),
           ),
         ),
       ],
@@ -1487,13 +1622,13 @@ class _SourceDisk extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ReelBottomLeft extends StatefulWidget {
-  final String   creator;
-  final bool     verified;
-  final String   title;
+  final String creator;
+  final bool verified;
+  final String title;
   final List<String> tags;
   final VoidCallback onCreatorTap;
-  final String   sourceIconUrl;
-  final String   sourceName;
+  final String sourceIconUrl;
+  final String sourceName;
 
   const _ReelBottomLeft({
     required this.creator,
@@ -1544,8 +1679,11 @@ class _ReelBottomLeftState extends State<_ReelBottomLeft> {
                 ),
                 if (widget.verified) ...[
                   const SizedBox(width: 5),
-                  const Icon(Icons.verified_rounded,
-                      size: 16, color: Color(0xFF1DA1F2)),
+                  const Icon(
+                    Icons.verified_rounded,
+                    size: 16,
+                    color: Color(0xFF1DA1F2),
+                  ),
                 ],
               ],
             ),
@@ -1566,11 +1704,13 @@ class _ReelBottomLeftState extends State<_ReelBottomLeft> {
                   shadows: shadow,
                 ),
                 children: [
-                  TextSpan(text: _expanded
-                      ? widget.title
-                      : (widget.title.length > 80
-                          ? widget.title.substring(0, 80)
-                          : widget.title)),
+                  TextSpan(
+                    text: _expanded
+                        ? widget.title
+                        : (widget.title.length > 80
+                              ? widget.title.substring(0, 80)
+                              : widget.title),
+                  ),
                   if (!_expanded && widget.title.length > 80)
                     const TextSpan(
                       text: ' ...plus',
@@ -1594,18 +1734,22 @@ class _ReelBottomLeftState extends State<_ReelBottomLeft> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: widget.tags.map((t) => Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Text(
-                  '#$t',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    shadows: shadow,
-                  ),
-                ),
-              )).toList(),
+              children: widget.tags
+                  .map(
+                    (t) => Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Text(
+                        '#$t',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          shadows: shadow,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ],
@@ -1614,7 +1758,7 @@ class _ReelBottomLeftState extends State<_ReelBottomLeft> {
 
         // ── Voir la traduction (placeholder) ─────────────────────────
         GestureDetector(
-          onTap: () {},   // TODO: translation provider
+          onTap: () {}, // TODO: translation provider
           child: const Text(
             'Voir la traduction',
             style: TextStyle(
@@ -1631,7 +1775,7 @@ class _ReelBottomLeftState extends State<_ReelBottomLeft> {
         // ── Source row (replaces music row) ───────────────────────────
         _SourceRow(
           iconUrl: widget.sourceIconUrl,
-          name:    widget.sourceName,
+          name: widget.sourceName,
           creator: widget.creator,
         ),
       ],
@@ -1659,7 +1803,8 @@ class _SourceRow extends StatelessWidget {
       children: [
         // Source icon in small circle
         Container(
-          width: 22, height: 22,
+          width: 22,
+          height: 22,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.black54,
@@ -1670,12 +1815,13 @@ class _SourceRow extends StatelessWidget {
                 ? CachedNetworkImage(
                     imageUrl: iconUrl,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
-                        const Icon(Icons.extension,
-                            color: Colors.white54, size: 12),
+                    errorWidget: (_, __, ___) => const Icon(
+                      Icons.extension,
+                      color: Colors.white54,
+                      size: 12,
+                    ),
                   )
-                : const Icon(Icons.extension,
-                    color: Colors.white54, size: 12),
+                : const Icon(Icons.extension, color: Colors.white54, size: 12),
           ),
         ),
         const SizedBox(width: 7),

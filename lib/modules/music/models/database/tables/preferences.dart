@@ -1,15 +1,8 @@
 part of '../database.dart';
 
-enum LayoutMode {
-  compact,
-  extended,
-  adaptive,
-}
+enum LayoutMode { compact, extended, adaptive }
 
-enum CloseBehavior {
-  minimizeToTray,
-  close,
-}
+enum CloseBehavior { minimizeToTray, close }
 
 enum YoutubeClientEngine {
   ytDlp("yt-dlp"),
@@ -57,8 +50,9 @@ class PreferencesTable extends Table {
   BoolColumn get systemTitleBar =>
       boolean().withDefault(const Constant(false))();
   BoolColumn get skipNonMusic => boolean().withDefault(const Constant(false))();
-  TextColumn get closeBehavior => textEnum<CloseBehavior>()
-      .withDefault(Constant(CloseBehavior.close.name))();
+  TextColumn get closeBehavior => textEnum<CloseBehavior>().withDefault(
+    Constant(CloseBehavior.close.name),
+  )();
   TextColumn get accentColorScheme => text()
       .withDefault(const Constant("green:0xff4caf50"))
       .map(const SpotubeColorConverter())();
@@ -102,7 +96,7 @@ class PreferencesTable extends Table {
       systemTitleBar: false,
       skipNonMusic: false,
       closeBehavior: CloseBehavior.close,
-      accentColorScheme: SpotubeColor(Colors.green.value, name: "green"),
+      accentColorScheme: SpotubeColor(Colors.green.toARGB32(), name: "green"),
       layoutMode: LayoutMode.adaptive,
       locale: const Locale("system", "system"),
       market: Market.US,

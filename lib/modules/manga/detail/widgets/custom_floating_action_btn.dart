@@ -40,7 +40,7 @@ class CustomFloatingActionBtn extends StatelessWidget {
             return SizeTransition(
               sizeFactor: animation,
               axis: Axis.horizontal,
-              axisAlignment: -1,
+              alignment: const Alignment(-1, -1),
               child: FadeTransition(opacity: animation, child: child),
             );
           },

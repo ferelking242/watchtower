@@ -24,18 +24,18 @@ class SpotubeColor extends Color {
 }
 
 final Set<SpotubeColor> colorsMap = {
-  SpotubeColor(Colors.blueGrey.value, name: "slate"),
-  SpotubeColor(Colors.grey.value, name: "gray"),
-  SpotubeColor(Colors.grey.value, name: "zinc"),
-  SpotubeColor(Colors.grey.value, name: "neutral"),
-  SpotubeColor(Colors.brown.value, name: "stone"),
-  SpotubeColor(Colors.red.value, name: "red"),
-  SpotubeColor(Colors.orange.value, name: "orange"),
-  SpotubeColor(Colors.yellow.value, name: "yellow"),
-  SpotubeColor(Colors.green.value, name: "green"),
-  SpotubeColor(Colors.blue.value, name: "blue"),
-  SpotubeColor(Colors.purple.value, name: "violet"),
-  SpotubeColor(Colors.pink.value, name: "rose"),
+  SpotubeColor(Colors.blueGrey.toARGB32(), name: "slate"),
+  SpotubeColor(Colors.grey.toARGB32(), name: "gray"),
+  SpotubeColor(Colors.grey.toARGB32(), name: "zinc"),
+  SpotubeColor(Colors.grey.toARGB32(), name: "neutral"),
+  SpotubeColor(Colors.brown.toARGB32(), name: "stone"),
+  SpotubeColor(Colors.red.toARGB32(), name: "red"),
+  SpotubeColor(Colors.orange.toARGB32(), name: "orange"),
+  SpotubeColor(Colors.yellow.toARGB32(), name: "yellow"),
+  SpotubeColor(Colors.green.toARGB32(), name: "green"),
+  SpotubeColor(Colors.blue.toARGB32(), name: "blue"),
+  SpotubeColor(Colors.purple.toARGB32(), name: "violet"),
+  SpotubeColor(Colors.pink.toARGB32(), name: "rose"),
 };
 
 final Map<String, ColorScheme> colorSchemeMap = {
@@ -63,9 +63,9 @@ class ColorSchemePickerDialog extends HookConsumerWidget {
 
     final scheme = preferences.accentColorScheme;
     final active = useState<String?>(
-      colorsMap.firstWhereOrNull(
-        (element) => scheme.name == element.name,
-      )?.name,
+      colorsMap
+          .firstWhereOrNull((element) => scheme.name == element.name)
+          ?.name,
     );
 
     return AlertDialog(
@@ -86,21 +86,19 @@ class ColorSchemePickerDialog extends HookConsumerWidget {
         child: Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: colorsMap.map(
-            (color) {
-              return _ColorChip(
-                name: color.name,
-                color: color,
-                isActive: color.name == active.value,
-                onPressed: () {
-                  active.value = color.name;
-                  preferencesNotifier.setAccentColorScheme(
-                    colorsMap.firstWhere((e) => e.name == color.name),
-                  );
-                },
-              );
-            },
-          ).toList(),
+          children: colorsMap.map((color) {
+            return _ColorChip(
+              name: color.name,
+              color: color,
+              isActive: color.name == active.value,
+              onPressed: () {
+                active.value = color.name;
+                preferencesNotifier.setAccentColorScheme(
+                  colorsMap.firstWhere((e) => e.name == color.name),
+                );
+              },
+            );
+          }).toList(),
         ),
       ),
     );

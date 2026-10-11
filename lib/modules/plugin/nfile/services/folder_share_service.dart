@@ -6,7 +6,10 @@ import 'archive_service.dart';
 
 class FolderShareService {
   /// Compresses folders into temporary ZIP archives and shares files + compressed folders natively.
-  static Future<void> sharePaths(BuildContext context, List<String> paths) async {
+  static Future<void> sharePaths(
+    BuildContext context,
+    List<String> paths,
+  ) async {
     if (paths.isEmpty) return;
 
     // Show a loading dialog since compression can take a while
@@ -50,8 +53,9 @@ class FolderShareService {
           filesToShare.add(XFile(path));
         } else if (type == FileSystemEntityType.directory) {
           final folderName = p.basename(path);
-          final tempZipName = '${folderName}_${DateTime.now().millisecondsSinceEpoch}';
-          
+          final tempZipName =
+              '${folderName}_${DateTime.now().millisecondsSinceEpoch}';
+
           // Compress the folder using high-performance ArchiveService
           await ArchiveService.createArchive(
             sourcePaths: [path],
@@ -77,7 +81,7 @@ class FolderShareService {
       }
 
       if (filesToShare.isNotEmpty) {
-        await Share.shareXFiles(filesToShare);
+        await SharePlus.instance.share(ShareParams(files: filesToShare));
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

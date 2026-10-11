@@ -225,7 +225,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       setState(() => _query = result.recognizedWords);
                     }
                   },
-                  listenFor: const Duration(seconds: 8),
+                  listenOptions: SpeechListenOptions(
+                    listenFor: const Duration(seconds: 8),
+                  ),
                 );
                 // Auto-stop after timeout
                 await Future.delayed(const Duration(seconds: 9));

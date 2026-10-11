@@ -138,7 +138,9 @@ class ProfileScreen extends StatelessWidget {
                     _ProfileAction(
                       icon: Icons.share_outlined,
                       title: copy.share,
-                      onTap: () => Share.share(copy.shareMessage),
+                      onTap: () => SharePlus.instance.share(
+                        ShareParams(text: copy.shareMessage),
+                      ),
                     ),
                     _ProfileAction(
                       icon: Icons.info_outline_rounded,

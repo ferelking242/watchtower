@@ -4,7 +4,8 @@
 //   import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math' as math;
@@ -26,7 +27,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/chapter.dart';
-  import 'package:watchtower/models/video.dart' as wt;
+import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/modules/more/settings/player/player_overview_screen.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
@@ -36,18 +37,39 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player control
 import 'package:cached_network_image/cached_network_image.dart';
 
 // ─── Speed levels ─────────────────────────────────────────────────────────────
-const _kAllSpeeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0];
+const _kAllSpeeds = <double>[
+  0.25,
+  0.5,
+  0.75,
+  1.0,
+  1.25,
+  1.5,
+  1.75,
+  2.0,
+  3.0,
+  4.0,
+  6.0,
+  8.0,
+  12.0,
+  16.0,
+];
 
 // ─── Aspect-ratio / fit cycle ─────────────────────────────────────────────────
 // "Plein écran" (Fullscreen) = BoxFit.cover: the video is scaled up just
 // enough to cover the whole surface with zero black bars/margins on any
 // side (cropping overflow instead of letterboxing it).
-const _kFitCycle = <BoxFit>[BoxFit.contain, BoxFit.cover, BoxFit.fill, BoxFit.fitWidth, BoxFit.fitHeight];
+const _kFitCycle = <BoxFit>[
+  BoxFit.contain,
+  BoxFit.cover,
+  BoxFit.fill,
+  BoxFit.fitWidth,
+  BoxFit.fitHeight,
+];
 const _kFitNames = <BoxFit, String>{
-  BoxFit.contain:   'Ajuster',
-  BoxFit.cover:     'Plein écran',
-  BoxFit.fill:      'Remplir',
-  BoxFit.fitWidth:  '16:9 →',
+  BoxFit.contain: 'Ajuster',
+  BoxFit.cover: 'Plein écran',
+  BoxFit.fill: 'Remplir',
+  BoxFit.fitWidth: '16:9 →',
   BoxFit.fitHeight: '↕ Hauteur',
 };
 
@@ -75,9 +97,7 @@ void _playerToast(String message) {
 
 void _openPlayerSettings(BuildContext context) {
   Navigator.of(context, rootNavigator: true).push<void>(
-    MaterialPageRoute<void>(
-      builder: (_) => const PlayerOverviewScreen(),
-    ),
+    MaterialPageRoute<void>(builder: (_) => const PlayerOverviewScreen()),
   );
 }
 
@@ -209,21 +229,33 @@ class WatchInlinePlayer {
   Future<void> switchQuality(wt.Video targetVideo) async {
     final savedPos = _player.state.position;
     selectedQuality = targetVideo.quality;
-    final ua      = targetVideo.headers?['User-Agent'] ?? targetVideo.headers?['user-agent'] ?? '';
-    final referer = targetVideo.headers?['Referer']    ?? targetVideo.headers?['referer']    ?? '';
+    final ua =
+        targetVideo.headers?['User-Agent'] ??
+        targetVideo.headers?['user-agent'] ??
+        '';
+    final referer =
+        targetVideo.headers?['Referer'] ??
+        targetVideo.headers?['referer'] ??
+        '';
     try {
       final plat = _player.platform as dynamic;
-      if (ua.isNotEmpty)      await plat.setProperty('user-agent', ua);
+      if (ua.isNotEmpty) await plat.setProperty('user-agent', ua);
       if (referer.isNotEmpty) await plat.setProperty('referrer', referer);
     } catch (_) {}
     if (_isDisposed) return;
-    await _player.open(Media(targetVideo.url, httpHeaders: targetVideo.headers), play: true);
+    await _player.open(
+      Media(targetVideo.url, httpHeaders: targetVideo.headers),
+      play: true,
+    );
     // Restore position after the new stream is ready
     if (savedPos > Duration.zero) {
       try {
         await _player.stream.duration
             .firstWhere((d) => d > Duration.zero)
-            .timeout(const Duration(seconds: 12), onTimeout: () => Duration.zero);
+            .timeout(
+              const Duration(seconds: 12),
+              onTimeout: () => Duration.zero,
+            );
         await _player.seek(savedPos);
       } catch (_) {}
     }
@@ -235,23 +267,23 @@ class WatchInlinePlayer {
     loadFailed = false;
   }
 
-  Future<void> load({
-    required WidgetRef ref,
-    required Chapter chapter,
-  }) async {
+  Future<void> load({required WidgetRef ref, required Chapter chapter}) async {
     loadFailed = false;
     hasVideoUrl = false;
     // Kill any ongoing playback immediately so the old audio doesn't bleed
     // into the next episode while the network request is in flight.
-    try { await _player.stop(); } catch (_) {}
+    try {
+      await _player.stop();
+    } catch (_) {}
     AppLogger.log(
       '[PLAYER] load START chapterId=${chapter.id}',
       logLevel: LogLevel.info,
       tag: LogTag.watch,
     );
     try {
-      final data =
-          await ref.read(getVideoListProvider(episode: chapter).future);
+      final data = await ref.read(
+        getVideoListProvider(episode: chapter).future,
+      );
       final (videos, _, __, ___) = data;
       loadedVideos = videos;
 
@@ -267,7 +299,7 @@ class WatchInlinePlayer {
       }
 
       for (var i = 0; i < videos.length; i++) {
-        final v    = videos[i];
+        final v = videos[i];
         AppLogger.log(
           '[PLAYER] try [${i + 1}/${videos.length}] quality="${v.quality}" '
           'host=${Uri.tryParse(v.url)?.host ?? "unknown"}',
@@ -278,7 +310,7 @@ class WatchInlinePlayer {
         // Completer: blocks until the video plays OR errors OR watchdog fires
         final completer = Completer<bool>(); // true=success false=fail
         StreamSubscription<Duration>? durSub;
-        StreamSubscription<String>?   errSub;
+        StreamSubscription<String>? errSub;
 
         final watchdog = Timer(const Duration(seconds: 30), () {
           if (completer.isCompleted) return;
@@ -297,7 +329,8 @@ class WatchInlinePlayer {
           if (completer.isCompleted || dur <= Duration.zero) return;
           watchdog.cancel();
           errSub?.cancel();
-          durSub?.cancel(); // cancel self to avoid accumulating listeners across loads
+          durSub
+              ?.cancel(); // cancel self to avoid accumulating listeners across loads
           hasVideoUrl = true;
           selectedQuality = v.quality;
           AppLogger.log(
@@ -323,47 +356,56 @@ class WatchInlinePlayer {
         });
 
         // ── MPV headers + Dart HTTP probe (captures real CDN status code) ────────
-            final _ua      = v.headers?['User-Agent'] ?? v.headers?['user-agent'] ?? '';
-            final _referer = v.headers?['Referer']    ?? v.headers?['referer']    ?? '';
+        final _ua = v.headers?['User-Agent'] ?? v.headers?['user-agent'] ?? '';
+        final _referer = v.headers?['Referer'] ?? v.headers?['referer'] ?? '';
 
-            // Dart HttpClient probe: log real HTTP status BEFORE libmpv tries
-            try {
-              final _cli = HttpClient();
-              _cli.connectionTimeout = const Duration(seconds: 8);
-              final _req = await _cli.headUrl(Uri.parse(v.url));
-              if (_ua.isNotEmpty)      _req.headers.set('User-Agent', _ua);
-              if (_referer.isNotEmpty) _req.headers.set('Referer', _referer);
-              _req.headers.set('Accept', '*/*');
-              final _resp = await _req.close();
-              AppLogger.log(
-                '[PLAYER] HTTP probe  status=${_resp.statusCode}'
-                '  host=${Uri.tryParse(v.url)?.host ?? "unknown"}',
-                logLevel: _resp.statusCode == 200 || _resp.statusCode == 206
-                    ? LogLevel.info : LogLevel.error,
-                tag: LogTag.watch,
-              );
-              _cli.close(force: true);
-            } catch (_probeErr) {
-              AppLogger.log('[PLAYER] HTTP probe exc: $_probeErr',
-                  logLevel: LogLevel.warning, tag: LogTag.watch);
-            }
+        // Dart HttpClient probe: log real HTTP status BEFORE libmpv tries
+        try {
+          final _cli = HttpClient();
+          _cli.connectionTimeout = const Duration(seconds: 8);
+          final _req = await _cli.headUrl(Uri.parse(v.url));
+          if (_ua.isNotEmpty) _req.headers.set('User-Agent', _ua);
+          if (_referer.isNotEmpty) _req.headers.set('Referer', _referer);
+          _req.headers.set('Accept', '*/*');
+          final _resp = await _req.close();
+          AppLogger.log(
+            '[PLAYER] HTTP probe  status=${_resp.statusCode}'
+            '  host=${Uri.tryParse(v.url)?.host ?? "unknown"}',
+            logLevel: _resp.statusCode == 200 || _resp.statusCode == 206
+                ? LogLevel.info
+                : LogLevel.error,
+            tag: LogTag.watch,
+          );
+          _cli.close(force: true);
+        } catch (_probeErr) {
+          AppLogger.log(
+            '[PLAYER] HTTP probe exc: $_probeErr',
+            logLevel: LogLevel.warning,
+            tag: LogTag.watch,
+          );
+        }
 
-            // Set MPV props: 'referrer' (dedicated mpv property, more reliable than http-header-fields)
-            if (!_isDisposed && v.headers != null && v.headers!.isNotEmpty) {
-              try {
-                final _plat = _player.platform as dynamic;
-                if (_ua.isNotEmpty)      await _plat.setProperty('user-agent', _ua);
-                if (_referer.isNotEmpty) await _plat.setProperty('referrer', _referer);
-                AppLogger.log(
-                  '[PLAYER] MPV headers  ua="${_ua.isEmpty ? "default" : _ua.substring(0, _ua.length.clamp(0, 40))}"'
-                  '  referer="${_referer.isEmpty ? "none" : _referer}"',
-                  logLevel: LogLevel.debug, tag: LogTag.watch,
-                );
-              } catch (_setErr) {
-                AppLogger.log('[PLAYER] setProperty indispo: $_setErr',
-                    logLevel: LogLevel.warning, tag: LogTag.watch);
-              }
-            }
+        // Set MPV props: 'referrer' (dedicated mpv property, more reliable than http-header-fields)
+        if (!_isDisposed && v.headers != null && v.headers!.isNotEmpty) {
+          try {
+            final _plat = _player.platform as dynamic;
+            if (_ua.isNotEmpty) await _plat.setProperty('user-agent', _ua);
+            if (_referer.isNotEmpty)
+              await _plat.setProperty('referrer', _referer);
+            AppLogger.log(
+              '[PLAYER] MPV headers  ua="${_ua.isEmpty ? "default" : _ua.substring(0, _ua.length.clamp(0, 40))}"'
+              '  referer="${_referer.isEmpty ? "none" : _referer}"',
+              logLevel: LogLevel.debug,
+              tag: LogTag.watch,
+            );
+          } catch (_setErr) {
+            AppLogger.log(
+              '[PLAYER] setProperty indispo: $_setErr',
+              logLevel: LogLevel.warning,
+              tag: LogTag.watch,
+            );
+          }
+        }
         if (_isDisposed) {
           watchdog.cancel();
           durSub?.cancel();
@@ -371,10 +413,7 @@ class WatchInlinePlayer {
           return;
         }
         try {
-          await _player.open(
-            Media(v.url, httpHeaders: v.headers),
-            play: true,
-          );
+          await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
         } catch (openError) {
           if (completer.isCompleted) continue;
           watchdog.cancel();
@@ -395,7 +434,7 @@ class WatchInlinePlayer {
 
         if (i < videos.length - 1) {
           AppLogger.log(
-            '[PLAYER] qualité="${v.quality}" échouée → essai qualité "${videos[i+1].quality}"',
+            '[PLAYER] qualité="${v.quality}" échouée → essai qualité "${videos[i + 1].quality}"',
             logLevel: LogLevel.warning,
             tag: LogTag.watch,
           );
@@ -410,7 +449,6 @@ class WatchInlinePlayer {
         logLevel: LogLevel.error,
         tag: LogTag.watch,
       );
-
     } catch (e, st) {
       loadFailed = true;
       AppLogger.log(
@@ -545,7 +583,7 @@ class WatchInlinePlayer {
             chapters: chapters,
             onEpisodeTap: onEpisodeTap,
             fallbackCoverUrl: coverUrl,
-          )
+          ),
         ),
       ],
     );
@@ -590,7 +628,7 @@ class _FullscreenPlayerPage extends StatefulWidget {
 class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
   final _fitNotifier = ValueNotifier<BoxFit>(BoxFit.contain);
   double _pinchScale = 1.0;
-  double _pinchBase  = 1.0;
+  double _pinchBase = 1.0;
   Offset _pinchOffset = Offset.zero;
   Offset _panFocalStart = Offset.zero;
   Offset _panOffsetStart = Offset.zero;
@@ -641,49 +679,57 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
         },
         onScaleEnd: (_) {
           if (_pinchScale < 1.05) {
-            setState(() { _pinchScale = 1.0; _pinchOffset = Offset.zero; });
+            setState(() {
+              _pinchScale = 1.0;
+              _pinchOffset = Offset.zero;
+            });
           }
         },
         child: Stack(
-        children: [
-          SizedBox.expand(
-            child: ValueListenableBuilder<BoxFit>(
-              valueListenable: _fitNotifier,
-              builder: (_, fit, __) => Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()
-                  ..scale(_pinchScale)
-                  ..translate(_pinchOffset.dx / _pinchScale, _pinchOffset.dy / _pinchScale),
-                child: Video(
-                  controller: widget.controller,
-                  fit: fit,
-                  controls: NoVideoControls,
+          children: [
+            SizedBox.expand(
+              child: ValueListenableBuilder<BoxFit>(
+                valueListenable: _fitNotifier,
+                builder: (_, fit, __) => Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()
+                    ..scaleByDouble(_pinchScale, _pinchScale, _pinchScale, 1.0)
+                    ..translateByDouble(
+                      _pinchOffset.dx / _pinchScale,
+                      _pinchOffset.dy / _pinchScale,
+                      0.0,
+                      1.0,
+                    ),
+                  child: Video(
+                    controller: widget.controller,
+                    fit: fit,
+                    controls: NoVideoControls,
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned.fill(
-            child: _FullscreenControlsOverlay(
-              player: widget.player,
-              controller: widget.controller,
-              title: widget.title,
-              currentChapterId: widget.currentChapterId,
-              showBackButton: true,
-              fitNotifier: _fitNotifier,
-              fallbackCoverUrl: widget.fallbackCoverUrl,
-              loadedVideos: widget.loadedVideos,
-              onSwitchQuality: widget.onSwitchQuality,
-              selectedQuality: widget.selectedQuality,
-              onPrevEpisode: widget.onPrevEpisode,
-              onNextEpisode: widget.onNextEpisode,
-              chapters: widget.chapters,
-              onEpisodeTap: widget.onEpisodeTap,
+            Positioned.fill(
+              child: _FullscreenControlsOverlay(
+                player: widget.player,
+                controller: widget.controller,
+                title: widget.title,
+                currentChapterId: widget.currentChapterId,
+                showBackButton: true,
+                fitNotifier: _fitNotifier,
+                fallbackCoverUrl: widget.fallbackCoverUrl,
+                loadedVideos: widget.loadedVideos,
+                onSwitchQuality: widget.onSwitchQuality,
+                selectedQuality: widget.selectedQuality,
+                onPrevEpisode: widget.onPrevEpisode,
+                onNextEpisode: widget.onNextEpisode,
+                chapters: widget.chapters,
+                onEpisodeTap: widget.onEpisodeTap,
+              ),
             ),
-          ),
-        ],
-        ),   // Stack
-      ),     // GestureDetector
-    );       // Scaffold
+          ],
+        ), // Stack
+      ), // GestureDetector
+    ); // Scaffold
   }
 }
 
@@ -737,113 +783,116 @@ class _FullscreenControlsOverlayState
   Timer? _hideTimer;
 
   // ── Speed / Quality / Language / More inline pickers ──────────────────────
-  bool _showSpeedPicker   = false;
+  bool _showSpeedPicker = false;
   bool _showQualityPicker = false;
-  bool _showMorePanel     = false;
-  bool _showEpPanel       = false;
+  bool _showMorePanel = false;
+  bool _showEpPanel = false;
 
   // ── More panel state ───────────────────────────────────────────────────────
-  bool _loopOne           = false;
-  bool _loopAll           = false;
-  bool _mirrorMode        = false;
-  bool _nightMode         = false;
-  bool _abRepeatOn        = false;
+  bool _loopOne = false;
+  bool _loopAll = false;
+  bool _mirrorMode = false;
+  bool _nightMode = false;
+  bool _abRepeatOn = false;
   Duration? _abStart;
   Duration? _abEnd;
 
   // ── Brightness / Volume swipe ─────────────────────────────────────────────
-    double _brightness       = 0.5;
-    double _volume           = 0.5;
-    bool _showBrightnessHUD  = false;
-    bool _showVolumeHUD      = false;
-    Offset? _dragStartPos;
-    Timer? _hudTimer;
+  double _brightness = 0.5;
+  double _volume = 0.5;
+  bool _showBrightnessHUD = false;
+  bool _showVolumeHUD = false;
+  Offset? _dragStartPos;
+  Timer? _hudTimer;
 
-    // ── Hold-right speed boost + horizontal speed swipe ──────────────────────
-    bool _holdSpeedActive       = false;
-    double _preHoldSpeed        = 1.0;
-    double _holdBoostSpeed      = 2.0;
-    double? _horizDragStartX;
-    double _horizDragStartSpeed = 1.0;
-    bool _showSpeedBoostHUD     = false;
+  // ── Hold-right speed boost + horizontal speed swipe ──────────────────────
+  bool _holdSpeedActive = false;
+  double _preHoldSpeed = 1.0;
+  double _holdBoostSpeed = 2.0;
+  double? _horizDragStartX;
+  double _horizDragStartSpeed = 1.0;
+  bool _showSpeedBoostHUD = false;
 
-    // ── Seek + mute + orientation + audio-only ────────────────────────────────
-    int _seekSeconds = 15;
-    bool _muted = false;
-    bool _landscapeIsLeft = true;
-    bool _audioOnly = false;
-    bool _showSubPanel = false;
+  // ── Seek + mute + orientation + audio-only ────────────────────────────────
+  int _seekSeconds = 15;
+  bool _muted = false;
+  bool _landscapeIsLeft = true;
+  bool _audioOnly = false;
+  bool _showSubPanel = false;
 
-    // ── Double-tap escalation (skip zones) ────────────────────────────────────
-    int _doubleTapCount = 0;
-    bool? _doubleTapRight;
-    Timer? _doubleTapResetTimer;
-    bool _showLeftSkipHUD  = false;
-    bool _showRightSkipHUD = false;
-    int _skipHudSeconds = 15;
-    Timer? _skipHudTimer;
-    // Debounce: accumulate delta, fire ONE seek per rapid-tap burst
-    Timer? _seekDebounceTimer;
-    int _accumulatedSeekDelta = 0;
+  // ── Double-tap escalation (skip zones) ────────────────────────────────────
+  int _doubleTapCount = 0;
+  bool? _doubleTapRight;
+  Timer? _doubleTapResetTimer;
+  bool _showLeftSkipHUD = false;
+  bool _showRightSkipHUD = false;
+  int _skipHudSeconds = 15;
+  Timer? _skipHudTimer;
+  // Debounce: accumulate delta, fire ONE seek per rapid-tap burst
+  Timer? _seekDebounceTimer;
+  int _accumulatedSeekDelta = 0;
 
-    // ── Current quality (synced with loadedVideos) ────────────────────────────
-    String? _currentQuality;
+  // ── Current quality (synced with loadedVideos) ────────────────────────────
+  String? _currentQuality;
 
-    // ── Miniature preview (YouTube-style) ────────────────────────────────────
-    final _SeekThumbPreview _thumbPreview = _SeekThumbPreview();
+  // ── Miniature preview (YouTube-style) ────────────────────────────────────
+  final _SeekThumbPreview _thumbPreview = _SeekThumbPreview();
 
-    // ── Seekbar drag state (smooth preview without seeking on every frame) ─────
-    bool _seekDragging = false;
-    double _seekDragValue = 0.0;
+  // ── Seekbar drag state (smooth preview without seeking on every frame) ─────
+  bool _seekDragging = false;
+  double _seekDragValue = 0.0;
 
-    // ── Buffer fraction (updated from stream) ─────────────────────────────────
-    double _bufferFrac = 0.0;
-    StreamSubscription<Duration>? _bufSub;
+  // ── Buffer fraction (updated from stream) ─────────────────────────────────
+  double _bufferFrac = 0.0;
+  StreamSubscription<Duration>? _bufSub;
 
-    // ── Buffering indicator debounce ──────────────────────────────────────────
-    bool _showBuffering = false;
-    Timer? _bufDebounce;
-    Timer? _bufWatchdog;
-    Duration _bufAnchor = Duration.zero;
-    StreamSubscription<bool>? _bufferingSub;
-    StreamSubscription<bool>? _completedSub;
+  // ── Buffering indicator debounce ──────────────────────────────────────────
+  bool _showBuffering = false;
+  Timer? _bufDebounce;
+  Timer? _bufWatchdog;
+  Duration _bufAnchor = Duration.zero;
+  StreamSubscription<bool>? _bufferingSub;
+  StreamSubscription<bool>? _completedSub;
 
-    // ── Horizontal swipe → seek ───────────────────────────────────────────────
-    Duration _horizSeekStartPos = Duration.zero;
-    int _horizSeekDelta = 0;
-    bool _showSeekSwipeHUD = false;
+  // ── Horizontal swipe → seek ───────────────────────────────────────────────
+  Duration _horizSeekStartPos = Duration.zero;
+  int _horizSeekDelta = 0;
+  bool _showSeekSwipeHUD = false;
 
-    // ── Auto Next Episode (Netflix-style) ─────────────────────────────────────
-    bool _showNextEpCard = false;
-    int  _nextEpCountdown = 20;
-    Timer? _nextEpTimer;
-    bool _nextEpTriggered = false;
+  // ── Auto Next Episode (Netflix-style) ─────────────────────────────────────
+  bool _showNextEpCard = false;
+  int _nextEpCountdown = 20;
+  Timer? _nextEpTimer;
+  bool _nextEpTriggered = false;
 
-    // ── Continue Watching ─────────────────────────────────────────────────────
-    Timer? _saveProgressTimer;
+  // ── Continue Watching ─────────────────────────────────────────────────────
+  Timer? _saveProgressTimer;
 
-    // ── Rotation lock mode: 0=auto 1=portrait 2=landscape-L 3=landscape-R ─────
-    int _rotationMode = 2;
-    bool _showRotationPicker = false;
+  // ── Rotation lock mode: 0=auto 1=portrait 2=landscape-L 3=landscape-R ─────
+  int _rotationMode = 2;
+  bool _showRotationPicker = false;
 
-    // ── Pinch to zoom ─────────────────────────────────────────────────────────
-    double _pinchScale   = 1.0;
-    Offset _pinchOffset  = Offset.zero;
-    Offset? _panStart;
+  // ── Pinch to zoom ─────────────────────────────────────────────────────────
+  double _pinchScale = 1.0;
+  Offset _pinchOffset = Offset.zero;
+  Offset? _panStart;
 
-    // ── Subtitle delay ────────────────────────────────────────────────────────
-    double _subDelaySec = 0.0;
+  // ── Subtitle delay ────────────────────────────────────────────────────────
+  double _subDelaySec = 0.0;
 
-    // ── Adaptive hide: track recent taps ─────────────────────────────────────
-    DateTime _lastTapTime = DateTime.now();
+  // ── Adaptive hide: track recent taps ─────────────────────────────────────
+  DateTime _lastTapTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _resetHideTimer();
     _initMedia();
-    _currentQuality = widget.selectedQuality ??
-        (widget.loadedVideos.isNotEmpty ? widget.loadedVideos.first.quality : null);
+    _currentQuality =
+        widget.selectedQuality ??
+        (widget.loadedVideos.isNotEmpty
+            ? widget.loadedVideos.first.quality
+            : null);
     _startPositionWatcher();
     _loadSavedProgress();
     // Buffer fraction stream
@@ -851,7 +900,12 @@ class _FullscreenControlsOverlayState
       if (!mounted) return;
       final dur = widget.player.state.duration;
       if (dur.inMilliseconds > 0) {
-        setState(() => _bufferFrac = (buf.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0));
+        setState(
+          () => _bufferFrac = (buf.inMilliseconds / dur.inMilliseconds).clamp(
+            0.0,
+            1.0,
+          ),
+        );
       }
     });
     // Buffering dots — debounced 800ms to avoid spurious flickers.
@@ -911,19 +965,29 @@ class _FullscreenControlsOverlayState
       // Sécurité: mpv n'émet parfois jamais buffering=false → dès que la
       // position avance au-delà du point de mise en tampon, la lecture a repris
       // (pas besoin d'attendre l'état "playing") → on masque les points.
-      if (_showBuffering && pos > _bufAnchor + const Duration(milliseconds: 250)) {
+      if (_showBuffering &&
+          pos > _bufAnchor + const Duration(milliseconds: 250)) {
         setState(() => _showBuffering = false);
       }
 
       // Auto Next Episode: show card 20s before end
       final remaining = dur - pos;
-      if (!_nextEpTriggered && remaining.inSeconds <= 20 && remaining.inSeconds > 0
-          && widget.onNextEpisode != null) {
+      if (!_nextEpTriggered &&
+          remaining.inSeconds <= 20 &&
+          remaining.inSeconds > 0 &&
+          widget.onNextEpisode != null) {
         _nextEpTriggered = true;
-        setState(() { _showNextEpCard = true; _nextEpCountdown = remaining.inSeconds.clamp(1, 20); });
+        setState(() {
+          _showNextEpCard = true;
+          _nextEpCountdown = remaining.inSeconds.clamp(1, 20);
+        });
         _startNextEpCountdown();
       } else if (remaining.inSeconds > 22) {
-        if (_nextEpTriggered) { _nextEpTriggered = false; _nextEpTimer?.cancel(); setState(() => _showNextEpCard = false); }
+        if (_nextEpTriggered) {
+          _nextEpTriggered = false;
+          _nextEpTimer?.cancel();
+          setState(() => _showNextEpCard = false);
+        }
       }
     });
   }
@@ -978,17 +1042,12 @@ class _FullscreenControlsOverlayState
     final dur = state.duration;
     final completed =
         dur > Duration.zero && ms >= dur.inMilliseconds - 5000 && ms > 0;
-    await writeWatchResume(
-      widget.title,
-      chapterId,
-      ms,
-      completed: completed,
-    );
+    await writeWatchResume(widget.title, chapterId, ms, completed: completed);
   }
 
   Future<void> _initMedia() async {
     try {
-      _brightness = await ScreenBrightness().current;
+      _brightness = await ScreenBrightness().application;
     } catch (_) {}
     try {
       // Hide the native OS volume overlay (Android/iOS) — we draw our own
@@ -1023,40 +1082,58 @@ class _FullscreenControlsOverlayState
   // 0=auto, 1=portrait, 2=landscape-L, 3=landscape-R
   IconData _rotationModeIcon() {
     switch (_rotationMode) {
-      case 0: return Icons.screen_rotation_rounded;
-      case 1: return Icons.stay_current_portrait_outlined;
-      case 2: return Icons.stay_current_landscape_outlined;
-      case 3: return Icons.screen_rotation_alt_outlined;
-      default: return Icons.screen_rotation_rounded;
+      case 0:
+        return Icons.screen_rotation_rounded;
+      case 1:
+        return Icons.stay_current_portrait_outlined;
+      case 2:
+        return Icons.stay_current_landscape_outlined;
+      case 3:
+        return Icons.screen_rotation_alt_outlined;
+      default:
+        return Icons.screen_rotation_rounded;
     }
   }
+
   String _rotationModeLabel() {
     switch (_rotationMode) {
-      case 0: return 'Auto';
-      case 1: return 'Portrait';
-      case 2: return 'Paysage ←';
-      case 3: return 'Paysage →';
-      default: return 'Auto';
+      case 0:
+        return 'Auto';
+      case 1:
+        return 'Portrait';
+      case 2:
+        return 'Paysage ←';
+      case 3:
+        return 'Paysage →';
+      default:
+        return 'Auto';
     }
   }
+
   void _setRotationMode(int mode) {
     _showRotationPicker = false;
     setState(() => _rotationMode = mode % 4);
     switch (_rotationMode) {
       case 0:
         SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp, DeviceOrientation.portraitDown,
-          DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight,
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
         ]);
         break;
       case 1:
         SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
         break;
       case 2:
-        SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+        ]);
         break;
       case 3:
-        SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeRight]);
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeRight,
+        ]);
         break;
     }
     _playerToast('Rotation : ${_rotationModeLabel()}');
@@ -1085,7 +1162,11 @@ class _FullscreenControlsOverlayState
               width: sel ? 1.6 : 1,
             ),
           ),
-          child: Icon(icn, color: sel ? Colors.white : Colors.white60, size: 17),
+          child: Icon(
+            icn,
+            color: sel ? Colors.white : Colors.white60,
+            size: 17,
+          ),
         ),
       ),
     );
@@ -1130,11 +1211,15 @@ class _FullscreenControlsOverlayState
     // Show HUD — stays visible until 800 ms after the last tap
     _skipHudTimer?.cancel();
     setState(() {
-      _showLeftSkipHUD  = !isRight;
+      _showLeftSkipHUD = !isRight;
       _showRightSkipHUD = isRight;
     });
     _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
-      if (mounted) setState(() { _showLeftSkipHUD = false; _showRightSkipHUD = false; });
+      if (mounted)
+        setState(() {
+          _showLeftSkipHUD = false;
+          _showRightSkipHUD = false;
+        });
     });
 
     // Reset escalation counter 1 s after last tap
@@ -1165,15 +1250,19 @@ class _FullscreenControlsOverlayState
       return;
     }
     setState(() => _showControls = !_showControls);
-    if (_showControls) _resetHideTimer();
-    else _hideTimer?.cancel();
+    if (_showControls)
+      _resetHideTimer();
+    else
+      _hideTimer?.cancel();
   }
 
   void _seek(int deltaSeconds) {
     final pos = widget.player.state.position;
     final dur = widget.player.state.duration;
     final next = pos + Duration(seconds: deltaSeconds);
-    widget.player.seek(next.isNegative ? Duration.zero : (next > dur ? dur : next));
+    widget.player.seek(
+      next.isNegative ? Duration.zero : (next > dur ? dur : next),
+    );
     _resetHideTimer();
   }
 
@@ -1226,9 +1315,10 @@ class _FullscreenControlsOverlayState
                     child: Text(
                       'Vitesse de lecture',
                       style: TextStyle(
-                          color: Color(0xFF8E8E93),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600),
+                        color: Color(0xFF8E8E93),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -1253,7 +1343,9 @@ class _FullscreenControlsOverlayState
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: sel
                                 ? Theme.of(context).primaryColor
@@ -1263,12 +1355,11 @@ class _FullscreenControlsOverlayState
                                 ? null
                                 : Border.all(
                                     color: const Color(0xFF3A3A3C),
-                                    width: 0.8),
+                                    width: 0.8,
+                                  ),
                           ),
                           child: Text(
-                            s == s.roundToDouble()
-                                ? '${s.toInt()}x'
-                                : '${s}x',
+                            s == s.roundToDouble() ? '${s.toInt()}x' : '${s}x',
                             style: TextStyle(
                               color: sel
                                   ? Colors.white
@@ -1297,105 +1388,117 @@ class _FullscreenControlsOverlayState
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        // NOTE: no onTap here — single tap is handled exclusively by the
-        // left/right half-screen zones below (which also own onDoubleTap).
-        // Having onTap on this outer wrapper AND on the inner zones created
-        // a gesture-arena race: the outer tap fired instantly while the
-        // inner tap waited for the double-tap timeout, causing controls to
-        // flicker open/close and double-taps to sometimes register as two
-        // single taps.
-        onLongPressStart: (d) {
-          if (_locked) return;
-          if (d.globalPosition.dx > size.width / 2) {
-            _preHoldSpeed = _speed;
-            _holdBoostSpeed = 2.0;
-            _speed = 2.0;
-            _holdSpeedActive = true;
-            widget.player.setRate(2.0);
-            _hideTimer?.cancel();
-            setState(() => _showSpeedBoostHUD = true);
-          }
-        },
-        onLongPressMoveUpdate: (d) {
-          if (!_holdSpeedActive) return;
-          final dx = d.offsetFromOrigin.dx;
-          final shift = (dx / 50).round().clamp(-6, 6);
-          const base2xIdx = 7;
-          final newIdx = (base2xIdx + shift).clamp(0, _kAllSpeeds.length - 1);
-          final newSpeed = _kAllSpeeds[newIdx];
-          if (newSpeed != _holdBoostSpeed) {
-            _holdBoostSpeed = newSpeed;
-            _speed = newSpeed;
-            widget.player.setRate(newSpeed);
-            setState(() {});
-          }
-        },
-        onLongPressEnd: (_) {
-          if (_holdSpeedActive) {
-            _holdSpeedActive = false;
-            _speed = _preHoldSpeed;
-            _holdBoostSpeed = 2.0;
-            widget.player.setRate(_preHoldSpeed);
-            setState(() => _showSpeedBoostHUD = false);
-            _resetHideTimer();
-          }
-        },
-        onHorizontalDragStart: (d) {
-          if (_locked || _holdSpeedActive) return;
-          _horizDragStartX = d.globalPosition.dx;
-          _horizSeekStartPos = widget.player.state.position;
-          _horizSeekDelta = 0;
+      behavior: HitTestBehavior.opaque,
+      // NOTE: no onTap here — single tap is handled exclusively by the
+      // left/right half-screen zones below (which also own onDoubleTap).
+      // Having onTap on this outer wrapper AND on the inner zones created
+      // a gesture-arena race: the outer tap fired instantly while the
+      // inner tap waited for the double-tap timeout, causing controls to
+      // flicker open/close and double-taps to sometimes register as two
+      // single taps.
+      onLongPressStart: (d) {
+        if (_locked) return;
+        if (d.globalPosition.dx > size.width / 2) {
+          _preHoldSpeed = _speed;
+          _holdBoostSpeed = 2.0;
+          _speed = 2.0;
+          _holdSpeedActive = true;
+          widget.player.setRate(2.0);
           _hideTimer?.cancel();
-        },
-        onHorizontalDragUpdate: (d) {
-          if (_horizDragStartX == null || _holdSpeedActive) return;
-          final dx = d.globalPosition.dx - _horizDragStartX!;
-          final dur = widget.player.state.duration.inSeconds;
-          if (dur <= 0) return;
-          // Vitesse adaptative : un swipe pleine largeur couvre ~1/4 de la
-          // durée du flux (clip de 20 min → précis, film de 2 h → rapide).
-          final secondsPerScreen =
-              (widget.player.state.duration.inSeconds / 4).clamp(20.0, 900.0);
-          _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
-          setState(() => _showSeekSwipeHUD = true);
-          // Vignette position cible (style YouTube)
-          final full = widget.player.state.duration;
-          final target = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
-          if (full > Duration.zero) {
-            _requestThumb(
-                (target.inMilliseconds / full.inMilliseconds).clamp(0.0, 1.0));
-          }
-        },
-        onHorizontalDragEnd: (_) {
-          if (_horizDragStartX != null && !_holdSpeedActive && _horizSeekDelta != 0) {
-            final dur = widget.player.state.duration;
-            final next = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
-            final clamped = next < Duration.zero ? Duration.zero : (next > dur ? dur : next);
-            widget.player.seek(clamped);
-          }
-          _horizDragStartX = null;
-          _horizSeekDelta = 0;
-          setState(() => _showSeekSwipeHUD = false);
-          _thumbPreview.clearRequest();
+          setState(() => _showSpeedBoostHUD = true);
+        }
+      },
+      onLongPressMoveUpdate: (d) {
+        if (!_holdSpeedActive) return;
+        final dx = d.offsetFromOrigin.dx;
+        final shift = (dx / 50).round().clamp(-6, 6);
+        const base2xIdx = 7;
+        final newIdx = (base2xIdx + shift).clamp(0, _kAllSpeeds.length - 1);
+        final newSpeed = _kAllSpeeds[newIdx];
+        if (newSpeed != _holdBoostSpeed) {
+          _holdBoostSpeed = newSpeed;
+          _speed = newSpeed;
+          widget.player.setRate(newSpeed);
+          setState(() {});
+        }
+      },
+      onLongPressEnd: (_) {
+        if (_holdSpeedActive) {
+          _holdSpeedActive = false;
+          _speed = _preHoldSpeed;
+          _holdBoostSpeed = 2.0;
+          widget.player.setRate(_preHoldSpeed);
+          setState(() => _showSpeedBoostHUD = false);
           _resetHideTimer();
-        },
-        onVerticalDragStart: (d) {
-          if (_locked) return;
-          _dragStartPos = d.globalPosition;
-          _hideTimer?.cancel();
-        },
-        onVerticalDragUpdate: (d) { if (_locked) return; _handleSwipeDrag(d, size); },
-        onVerticalDragEnd: (_) {
-          if (_locked) { return; }
-          _dragStartPos = null;
-          if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer();
-        },
+        }
+      },
+      onHorizontalDragStart: (d) {
+        if (_locked || _holdSpeedActive) return;
+        _horizDragStartX = d.globalPosition.dx;
+        _horizSeekStartPos = widget.player.state.position;
+        _horizSeekDelta = 0;
+        _hideTimer?.cancel();
+      },
+      onHorizontalDragUpdate: (d) {
+        if (_horizDragStartX == null || _holdSpeedActive) return;
+        final dx = d.globalPosition.dx - _horizDragStartX!;
+        final dur = widget.player.state.duration.inSeconds;
+        if (dur <= 0) return;
+        // Vitesse adaptative : un swipe pleine largeur couvre ~1/4 de la
+        // durée du flux (clip de 20 min → précis, film de 2 h → rapide).
+        final secondsPerScreen = (widget.player.state.duration.inSeconds / 4)
+            .clamp(20.0, 900.0);
+        _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
+        setState(() => _showSeekSwipeHUD = true);
+        // Vignette position cible (style YouTube)
+        final full = widget.player.state.duration;
+        final target = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+        if (full > Duration.zero) {
+          _requestThumb(
+            (target.inMilliseconds / full.inMilliseconds).clamp(0.0, 1.0),
+          );
+        }
+      },
+      onHorizontalDragEnd: (_) {
+        if (_horizDragStartX != null &&
+            !_holdSpeedActive &&
+            _horizSeekDelta != 0) {
+          final dur = widget.player.state.duration;
+          final next = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+          final clamped = next < Duration.zero
+              ? Duration.zero
+              : (next > dur ? dur : next);
+          widget.player.seek(clamped);
+        }
+        _horizDragStartX = null;
+        _horizSeekDelta = 0;
+        setState(() => _showSeekSwipeHUD = false);
+        _thumbPreview.clearRequest();
+        _resetHideTimer();
+      },
+      onVerticalDragStart: (d) {
+        if (_locked) return;
+        _dragStartPos = d.globalPosition;
+        _hideTimer?.cancel();
+      },
+      onVerticalDragUpdate: (d) {
+        if (_locked) return;
+        _handleSwipeDrag(d, size);
+      },
+      onVerticalDragEnd: (_) {
+        if (_locked) {
+          return;
+        }
+        _dragStartPos = null;
+        if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer();
+      },
       child: Stack(
         children: [
           // ── Left-half double-tap zone (seek back) — also single-tap toggles controls
           Positioned(
-            left: 0, top: 0, bottom: 0,
+            left: 0,
+            top: 0,
+            bottom: 0,
             width: size.width * 0.5,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -1408,7 +1511,9 @@ class _FullscreenControlsOverlayState
           ),
           // ── Right-half double-tap zone (seek forward) — also single-tap toggles controls
           Positioned(
-            right: 0, top: 0, bottom: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
             width: size.width * 0.5,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -1423,7 +1528,9 @@ class _FullscreenControlsOverlayState
           // ── Skip ripple — left half of screen ───────────────────────────────
           if (_showLeftSkipHUD)
             Positioned(
-              left: 0, top: 0, bottom: 0,
+              left: 0,
+              top: 0,
+              bottom: 0,
               width: size.width * 0.5,
               child: IgnorePointer(
                 child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds),
@@ -1432,7 +1539,9 @@ class _FullscreenControlsOverlayState
           // ── Skip ripple — right half of screen ──────────────────────────────
           if (_showRightSkipHUD)
             Positioned(
-              right: 0, top: 0, bottom: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
               width: size.width * 0.5,
               child: IgnorePointer(
                 child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
@@ -1456,12 +1565,20 @@ class _FullscreenControlsOverlayState
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white12, width: 1),
                         ),
-                        child: const Icon(Broken.musicnote, color: Colors.white70, size: 44),
+                        child: const Icon(
+                          Broken.musicnote,
+                          color: Colors.white70,
+                          size: 44,
+                        ),
                       ),
                       const SizedBox(height: 18),
                       Text(
                         widget.title,
-                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLines: 2,
                         textAlign: TextAlign.center,
                       ),
@@ -1474,7 +1591,10 @@ class _FullscreenControlsOverlayState
                           final dur = widget.player.state.duration;
                           return Text(
                             '${_fmt(pos)} / ${_fmt(dur)}',
-                            style: const TextStyle(color: Colors.white54, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
+                            ),
                           );
                         },
                       ),
@@ -1488,7 +1608,10 @@ class _FullscreenControlsOverlayState
           IgnorePointer(
             child: Center(
               child: AnimatedOpacity(
-                opacity: (_showBuffering && !_seekDragging && !_showSeekSwipeHUD) ? 1.0 : 0.0,
+                opacity:
+                    (_showBuffering && !_seekDragging && !_showSeekSwipeHUD)
+                    ? 1.0
+                    : 0.0,
                 duration: const Duration(milliseconds: 250),
                 child: _BufferingDotsIndicator(bufferFrac: _bufferFrac),
               ),
@@ -1524,8 +1647,10 @@ class _FullscreenControlsOverlayState
                   _resetHideTimer();
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(20),
@@ -1535,11 +1660,14 @@ class _FullscreenControlsOverlayState
                     children: const [
                       Icon(Broken.lock, color: Colors.white, size: 16),
                       SizedBox(width: 6),
-                      Text('Déverrouiller',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500)),
+                      Text(
+                        'Déverrouiller',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1549,7 +1677,9 @@ class _FullscreenControlsOverlayState
           // Left controls (unlocked): Lock + Mute
           if (_showControls && !_locked)
             Positioned(
-              left: 20, top: 0, bottom: 0,
+              left: 20,
+              top: 0,
+              bottom: 0,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1565,7 +1695,9 @@ class _FullscreenControlsOverlayState
           // Right controls (unlocked): Screenshot + Rotate
           if (_showControls && !_locked)
             Positioned(
-              right: 20, top: 0, bottom: 0,
+              right: 20,
+              top: 0,
+              bottom: 0,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1580,7 +1712,8 @@ class _FullscreenControlsOverlayState
                           final bytes = await widget.player.screenshot();
                           if (bytes != null) {
                             final dir = await getTemporaryDirectory();
-                            final path = '${dir.path}/wt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                            final path =
+                                '${dir.path}/wt_${DateTime.now().millisecondsSinceEpoch}.jpg';
                             await File(path).writeAsBytes(bytes);
                             if (mounted) {
                               _playerToast('Capture sauvegardée');
@@ -1604,8 +1737,7 @@ class _FullscreenControlsOverlayState
                             child: Align(
                               alignment: Alignment.centerLeft,
                               widthFactor: anim.value,
-                              child: FadeTransition(
-                                  opacity: anim, child: c),
+                              child: FadeTransition(opacity: anim, child: c),
                             ),
                           ),
                           child: !_showRotationPicker
@@ -1614,39 +1746,40 @@ class _FullscreenControlsOverlayState
                                   key: const ValueKey('rotOpts'),
                                   height: 40,
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 6),
-                                  margin:
-                                      const EdgeInsets.only(right: 8),
+                                    horizontal: 6,
+                                  ),
+                                  margin: const EdgeInsets.only(right: 8),
                                   decoration: BoxDecoration(
-                                    color: Colors.black
-                                        .withValues(alpha: 0.55),
-                                    borderRadius:
-                                        BorderRadius.circular(20),
+                                    color: Colors.black.withValues(alpha: 0.55),
+                                    borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
-                                        color: Colors.white24,
-                                        width: 0.8),
+                                      color: Colors.white24,
+                                      width: 0.8,
+                                    ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       _buildRotOption(
-                                          0,
-                                          Icons.screen_rotation_rounded,
-                                          'Auto'),
+                                        0,
+                                        Icons.screen_rotation_rounded,
+                                        'Auto',
+                                      ),
                                       _buildRotOption(
-                                          1,
-                                          Icons
-                                              .stay_current_portrait_outlined,
-                                          'Portrait'),
+                                        1,
+                                        Icons.stay_current_portrait_outlined,
+                                        'Portrait',
+                                      ),
                                       _buildRotOption(
-                                          2,
-                                          Icons
-                                              .stay_current_landscape_outlined,
-                                          'Paysage ←'),
+                                        2,
+                                        Icons.stay_current_landscape_outlined,
+                                        'Paysage ←',
+                                      ),
                                       _buildRotOption(
-                                          3,
-                                          Icons.screen_rotation_alt_outlined,
-                                          'Paysage →'),
+                                        3,
+                                        Icons.screen_rotation_alt_outlined,
+                                        'Paysage →',
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -1656,9 +1789,9 @@ class _FullscreenControlsOverlayState
                           tooltip: 'Orientation',
                           onTap: () {
                             _hideTimer?.cancel();
-                            setState(() =>
-                                _showRotationPicker =
-                                    !_showRotationPicker);
+                            setState(
+                              () => _showRotationPicker = !_showRotationPicker,
+                            );
                           },
                         ),
                       ],
@@ -1683,115 +1816,136 @@ class _FullscreenControlsOverlayState
             ),
 
           // Luminosité / Volume — pilule horizontale en HAUT au centre
-            if (_showBrightnessHUD || _showVolumeHUD)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 10,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: _showBrightnessHUD
-                        ? _buildTopMediaHud(
-                            icon: Broken.sun,
-                            value: _brightness)
-                        : _buildTopMediaHud(
-                            icon: _volume <= 0
-                                ? Broken.volume_slash
-                                : _volume < 0.5
-                                    ? Broken.volume_low
-                                    : Broken.volume_high,
-                            value: _volume),
-                  ),
+          if (_showBrightnessHUD || _showVolumeHUD)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: _showBrightnessHUD
+                      ? _buildTopMediaHud(icon: Broken.sun, value: _brightness)
+                      : _buildTopMediaHud(
+                          icon: _volume <= 0
+                              ? Broken.volume_slash
+                              : _volume < 0.5
+                              ? Broken.volume_low
+                              : Broken.volume_high,
+                          value: _volume,
+                        ),
                 ),
               ),
+            ),
 
-            // Speed boost HUD — center top
-              if (_showSpeedBoostHUD)
-                Positioned(
-                  top: 40, left: 0, right: 0,
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.72),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
+          // Speed boost HUD — center top
+          if (_showSpeedBoostHUD)
+            Positioned(
+              top: 40,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Broken.forward, color: Colors.white, size: 18),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _holdBoostSpeed == _holdBoostSpeed.roundToDouble()
-                                      ? '${_holdBoostSpeed.toInt()}x'
-                                      : '${_holdBoostSpeed}x',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                                ),
-                              ],
+                            const Icon(
+                              Broken.forward,
+                              color: Colors.white,
+                              size: 18,
                             ),
-                            const SizedBox(height: 6),
-                            SizedBox(
-                              width: 120,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(3),
-                                child: LinearProgressIndicator(
-                                  value: ((_kAllSpeeds.indexOf(_holdBoostSpeed) + 1) / _kAllSpeeds.length).clamp(0.0, 1.0),
-                                  backgroundColor: Colors.white24,
-                                  valueColor: const AlwaysStoppedAnimation(Colors.white),
-                                  minHeight: 3,
-                                ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _holdBoostSpeed == _holdBoostSpeed.roundToDouble()
+                                  ? '${_holdBoostSpeed.toInt()}x'
+                                  : '${_holdBoostSpeed}x',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
                               ),
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          width: 120,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value:
+                                  ((_kAllSpeeds.indexOf(_holdBoostSpeed) + 1) /
+                                          _kAllSpeeds.length)
+                                      .clamp(0.0, 1.0),
+                              backgroundColor: Colors.white24,
+                              valueColor: const AlwaysStoppedAnimation(
+                                Colors.white,
+                              ),
+                              minHeight: 3,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              ),
+            ),
 
-              // Seek swipe HUD — juste au-dessus de la barre de progression
+          // Seek swipe HUD — juste au-dessus de la barre de progression
           if (_showSeekSwipeHUD)
             Positioned(
-              bottom: 84, left: 0, right: 0,
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Vignette position cible (style YouTube)
-                          ValueListenableBuilder<Uint8List?>(
-                            valueListenable: _thumbPreview.frame,
-                            builder: (_, frame, __) => frame == null
-                                ? const SizedBox.shrink()
-                                : Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                          color: Colors.white24, width: 0.8),
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(7),
-                                      child: Image.memory(
-                                        frame,
-                                        width: 180,
-                                        height: 101,
-                                        fit: BoxFit.cover,
-                                        gaplessPlayback: true,
-                                      ),
-                                    ),
+              bottom: 84,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Vignette position cible (style YouTube)
+                      ValueListenableBuilder<Uint8List?>(
+                        valueListenable: _thumbPreview.frame,
+                        builder: (_, frame, __) => frame == null
+                            ? const SizedBox.shrink()
+                            : Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.white24,
+                                    width: 0.8,
                                   ),
-                          ),
-                          _buildSeekSwipeHUD(),
-                        ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(7),
+                                  child: Image.memory(
+                                    frame,
+                                    width: 180,
+                                    height: 101,
+                                    fit: BoxFit.cover,
+                                    gaplessPlayback: true,
+                                  ),
+                                ),
+                              ),
                       ),
-                    ),
+                      _buildSeekSwipeHUD(),
+                    ],
                   ),
                 ),
+              ),
+            ),
         ],
       ),
     );
@@ -1799,16 +1953,21 @@ class _FullscreenControlsOverlayState
 
   void _handleSwipeDrag(DragUpdateDetails d, Size size) {
     final startX = _dragStartPos?.dx ?? d.globalPosition.dx;
-    final dy     = d.delta.dy;
+    final dy = d.delta.dy;
     final isLeft = startX < size.width / 2;
 
     if (isLeft) {
       // ── Brightness ──────────────────────────────────────────────────────
       final next = (_brightness - dy / size.height * 2.5).clamp(0.0, 1.0);
       _brightness = next;
-      try { ScreenBrightness().setScreenBrightness(next); } catch (_) {}
+      try {
+        ScreenBrightness().setApplicationScreenBrightness(next);
+      } catch (_) {}
       _hudTimer?.cancel();
-      setState(() { _showBrightnessHUD = true; _showVolumeHUD = false; });
+      setState(() {
+        _showBrightnessHUD = true;
+        _showVolumeHUD = false;
+      });
       _hudTimer = Timer(const Duration(milliseconds: 1200), () {
         if (mounted) setState(() => _showBrightnessHUD = false);
       });
@@ -1816,10 +1975,15 @@ class _FullscreenControlsOverlayState
       // ── Volume — up to 200% (extra gain via player, hardware caps at 100%)
       final next = (_volume - dy / size.height * 2.5).clamp(0.0, 2.0);
       _volume = next;
-      try { VolumeController.instance.setVolume(next.clamp(0.0, 1.0)); } catch (_) {}
+      try {
+        VolumeController.instance.setVolume(next.clamp(0.0, 1.0));
+      } catch (_) {}
       widget.player.setVolume(next * 100);
       _hudTimer?.cancel();
-      setState(() { _showVolumeHUD = true; _showBrightnessHUD = false; });
+      setState(() {
+        _showVolumeHUD = true;
+        _showBrightnessHUD = false;
+      });
       _hudTimer = Timer(const Duration(milliseconds: 1200), () {
         if (mounted) setState(() => _showVolumeHUD = false);
       });
@@ -1867,8 +2031,8 @@ class _FullscreenControlsOverlayState
 
   // ── Pilule Luminosité/Volume — horizontale, en haut au centre ────────────
   Widget _buildTopMediaHud({required IconData icon, required double value}) {
-    final base  = value.clamp(0.0, 1.0);         // 0→100 % : remplissage blanc
-    final extra = (value - 1.0).clamp(0.0, 1.0);  // >100 % : 2e couche jaune
+    final base = value.clamp(0.0, 1.0); // 0→100 % : remplissage blanc
+    final extra = (value - 1.0).clamp(0.0, 1.0); // >100 % : 2e couche jaune
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 180),
@@ -1883,9 +2047,11 @@ class _FullscreenControlsOverlayState
         ),
         child: Row(
           children: [
-            Icon(icon,
-                color: extra > 0 ? Colors.amber : Colors.white,
-                size: 20),
+            Icon(
+              icon,
+              color: extra > 0 ? Colors.amber : Colors.white,
+              size: 20,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: ClipRRect(
@@ -1934,7 +2100,9 @@ class _FullscreenControlsOverlayState
   Widget _buildSeekSwipeHUD() {
     final pos = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
     final dur = widget.player.state.duration;
-    final clamped = pos < Duration.zero ? Duration.zero : (pos > dur ? dur : pos);
+    final clamped = pos < Duration.zero
+        ? Duration.zero
+        : (pos > dur ? dur : pos);
     final sign = _horizSeekDelta >= 0 ? '+' : '';
     // Pilule minimale centrée au-dessus de la barre de progression
     return Container(
@@ -1954,7 +2122,11 @@ class _FullscreenControlsOverlayState
           const SizedBox(width: 6),
           Text(
             '$sign${_horizSeekDelta}s',
-            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(width: 10),
           Text(
@@ -1965,6 +2137,7 @@ class _FullscreenControlsOverlayState
       ),
     );
   }
+
   // ── Miniature preview : flux courant + position demandée ───────────────────
   wt.Video? get _currentVideo {
     final vids = widget.loadedVideos;
@@ -2051,8 +2224,10 @@ class _FullscreenControlsOverlayState
       final dir = Directory('${base.path}/Watchtower/Downloads');
       await dir.create(recursive: true);
       final clean = widget.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final cleanQuality =
-          selectedVideo.quality.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final cleanQuality = selectedVideo.quality.replaceAll(
+        RegExp(r'[\\/:*?"<>|]'),
+        '_',
+      );
       final destination = File('${dir.path}/$clean ($cleanQuality).mp4');
       // Keep the temporary file beside its destination for an atomic rename.
       final temporary = File('${destination.path}.part');
@@ -2069,8 +2244,9 @@ class _FullscreenControlsOverlayState
         receivedBytes += chunk.length;
         final totalBytes = response.contentLength;
         if (totalBytes > 0) {
-          final percent =
-              (receivedBytes * 100 / totalBytes).clamp(0, 100).toInt();
+          final percent = (receivedBytes * 100 / totalBytes)
+              .clamp(0, 100)
+              .toInt();
           final bucket = (percent ~/ 10) * 10;
           if (bucket >= 10 && bucket > lastLoggedBucket) {
             lastLoggedBucket = bucket;
@@ -2194,16 +2370,37 @@ class _FullscreenControlsOverlayState
               abStart: _abStart,
               abEnd: _abEnd,
               audioOnly: _audioOnly,
-              onLoopOne: (v) { setState(() { _loopOne = v; _loopAll = false; }); if (v) widget.player.setPlaylistMode(PlaylistMode.single); else widget.player.setPlaylistMode(PlaylistMode.none); },
-              onLoopAll: (v) { setState(() { _loopAll = v; _loopOne = false; }); if (v) widget.player.setPlaylistMode(PlaylistMode.loop); else widget.player.setPlaylistMode(PlaylistMode.none); },
+              onLoopOne: (v) {
+                setState(() {
+                  _loopOne = v;
+                  _loopAll = false;
+                });
+                if (v)
+                  widget.player.setPlaylistMode(PlaylistMode.single);
+                else
+                  widget.player.setPlaylistMode(PlaylistMode.none);
+              },
+              onLoopAll: (v) {
+                setState(() {
+                  _loopAll = v;
+                  _loopOne = false;
+                });
+                if (v)
+                  widget.player.setPlaylistMode(PlaylistMode.loop);
+                else
+                  widget.player.setPlaylistMode(PlaylistMode.none);
+              },
               onMirror: (v) => setState(() => _mirrorMode = v),
               onNight: (v) => setState(() => _nightMode = v),
               onAbRepeat: (v) => setState(() => _abRepeatOn = v),
-              onAbStartSet: () => setState(() => _abStart = widget.player.state.position),
-              onAbEndSet: () => setState(() => _abEnd = widget.player.state.position),
+              onAbStartSet: () =>
+                  setState(() => _abStart = widget.player.state.position),
+              onAbEndSet: () =>
+                  setState(() => _abEnd = widget.player.state.position),
               onAudioOnly: (v) {
                 setState(() => _audioOnly = v);
-                if (v) widget.player.setVideoTrack(VideoTrack.no());
+                if (v)
+                  widget.player.setVideoTrack(VideoTrack.no());
                 else {
                   final vt = widget.player.state.tracks.video;
                   if (vt.isNotEmpty) widget.player.setVideoTrack(vt.first);
@@ -2223,7 +2420,8 @@ class _FullscreenControlsOverlayState
         // Auto Next Episode card (Netflix-style)
         if (_showNextEpCard && widget.onNextEpisode != null)
           Positioned(
-            bottom: 80, right: 20,
+            bottom: 80,
+            right: 20,
             child: _NextEpCard(
               countdown: _nextEpCountdown,
               accent: Theme.of(context).primaryColor,
@@ -2234,7 +2432,10 @@ class _FullscreenControlsOverlayState
               },
               onCancel: () {
                 _nextEpTimer?.cancel();
-                setState(() { _showNextEpCard = false; _nextEpTriggered = true; });
+                setState(() {
+                  _showNextEpCard = false;
+                  _nextEpTriggered = true;
+                });
                 _resetHideTimer();
               },
             ),
@@ -2250,7 +2451,11 @@ class _FullscreenControlsOverlayState
         children: [
           if (widget.showBackButton)
             IconButton(
-              icon: const Icon(Broken.arrow_left, color: Colors.white, size: 22),
+              icon: const Icon(
+                Broken.arrow_left,
+                color: Colors.white,
+                size: 22,
+              ),
               onPressed: () => Navigator.of(context).pop(),
               padding: const EdgeInsets.all(8),
             ),
@@ -2281,30 +2486,28 @@ class _FullscreenControlsOverlayState
           ),
           // Episode list — hidden for movies (single item)
           if (widget.chapters.length > 1)
-          IconButton(
-            icon: Icon(
-              Broken.music_playlist,
-              color: _showEpPanel ? Theme.of(context).primaryColor : Colors.white70,
-              size: 22,
+            IconButton(
+              icon: Icon(
+                Broken.music_playlist,
+                color: _showEpPanel
+                    ? Theme.of(context).primaryColor
+                    : Colors.white70,
+                size: 22,
+              ),
+              onPressed: () {
+                _hideTimer?.cancel();
+                setState(() {
+                  _showEpPanel = !_showEpPanel;
+                  _showSpeedPicker = false;
+                  _showQualityPicker = false;
+                  _showMorePanel = false;
+                });
+              },
+              padding: const EdgeInsets.all(8),
             ),
-            onPressed: () {
-              _hideTimer?.cancel();
-              setState(() {
-                _showEpPanel       = !_showEpPanel;
-                _showSpeedPicker   = false;
-                _showQualityPicker = false;
-                _showMorePanel     = false;
-              });
-            },
-            padding: const EdgeInsets.all(8),
-          ),
           // More (PLAYit-style panel)
           IconButton(
-            icon: Icon(
-              Broken.setting_2,
-              color: Colors.white,
-              size: 22,
-            ),
+            icon: Icon(Broken.setting_2, color: Colors.white, size: 22),
             onPressed: () {
               _hideTimer?.cancel();
               setState(() => _showMorePanel = false);
@@ -2405,7 +2608,9 @@ class _FullscreenControlsOverlayState
             : 0.0;
         // Seek-preview: target position while dragging
         final previewDur = dur.inMilliseconds > 0
-            ? Duration(milliseconds: (_seekDragValue * dur.inMilliseconds).round())
+            ? Duration(
+                milliseconds: (_seekDragValue * dur.inMilliseconds).round(),
+              )
             : Duration.zero;
 
         return LayoutBuilder(
@@ -2428,7 +2633,10 @@ class _FullscreenControlsOverlayState
                         width: timeLabelW - hPad,
                         child: Text(
                           _fmt(pos),
-                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ),
@@ -2436,10 +2644,12 @@ class _FullscreenControlsOverlayState
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 2.5,
-                          thumbShape:
-                              const RoundSliderThumbShape(enabledThumbRadius: 6),
-                          overlayShape:
-                              const RoundSliderOverlayShape(overlayRadius: 14),
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 6,
+                          ),
+                          overlayShape: const RoundSliderOverlayShape(
+                            overlayRadius: 14,
+                          ),
                           activeTrackColor: Theme.of(context).primaryColor,
                           inactiveTrackColor: Colors.white24,
                           secondaryActiveTrackColor: Colors.white54,
@@ -2461,8 +2671,12 @@ class _FullscreenControlsOverlayState
                           onChangeEnd: (v) {
                             _thumbPreview.clearRequest();
                             if (dur.inMilliseconds > 0) {
-                              widget.player.seek(Duration(
-                                  milliseconds: (v * dur.inMilliseconds).round()));
+                              widget.player.seek(
+                                Duration(
+                                  milliseconds: (v * dur.inMilliseconds)
+                                      .round(),
+                                ),
+                              );
                             }
                             setState(() => _seekDragging = false);
                             _resetHideTimer();
@@ -2476,7 +2690,10 @@ class _FullscreenControlsOverlayState
                         width: timeLabelW - hPad,
                         child: Text(
                           _fmt(dur),
-                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ),
@@ -2485,8 +2702,10 @@ class _FullscreenControlsOverlayState
                 // ── Aperçu miniature + bulle temps (YouTube-style) ────────────
                 if (_seekDragging)
                   Positioned(
-                    left: (thumbX - 75)
-                        .clamp(0.0, (constraints.maxWidth - 160).clamp(0.0, double.infinity)),
+                    left: (thumbX - 75).clamp(
+                      0.0,
+                      (constraints.maxWidth - 160).clamp(0.0, double.infinity),
+                    ),
                     bottom: 26,
                     child: IgnorePointer(
                       child: ValueListenableBuilder<Uint8List?>(
@@ -2499,7 +2718,10 @@ class _FullscreenControlsOverlayState
                                 margin: const EdgeInsets.only(bottom: 6),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.white24, width: 0.8),
+                                  border: Border.all(
+                                    color: Colors.white24,
+                                    width: 0.8,
+                                  ),
                                 ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(7),
@@ -2514,7 +2736,10 @@ class _FullscreenControlsOverlayState
                               ),
                             Container(
                               width: 60,
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.85),
                                 borderRadius: BorderRadius.circular(6),
@@ -2522,7 +2747,11 @@ class _FullscreenControlsOverlayState
                               child: Text(
                                 _fmt(previewDur),
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -2562,41 +2791,48 @@ class _FullscreenControlsOverlayState
                 _resetHideTimer();
               },
               padding: const EdgeInsets.all(4),
-              constraints:
-                  const BoxConstraints(minWidth: 34, minHeight: 34),
+              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
             ),
           ),
           // Previous episode
           IconButton(
-            icon: Icon(Broken.previous,
-                color: widget.onPrevEpisode != null ? Colors.white70 : Colors.white24,
-                size: 24),
-            onPressed: widget.onPrevEpisode != null ? () {
-              widget.onPrevEpisode!();
-              _resetHideTimer();
-            } : null,
+            icon: Icon(
+              Broken.previous,
+              color: widget.onPrevEpisode != null
+                  ? Colors.white70
+                  : Colors.white24,
+              size: 24,
+            ),
+            onPressed: widget.onPrevEpisode != null
+                ? () {
+                    widget.onPrevEpisode!();
+                    _resetHideTimer();
+                  }
+                : null,
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
           ),
           // Next episode
           IconButton(
-            icon: Icon(Broken.next,
-                color: widget.onNextEpisode != null ? Colors.white70 : Colors.white24,
-                size: 24),
-            onPressed: widget.onNextEpisode != null ? () {
-              widget.onNextEpisode!();
-              _resetHideTimer();
-            } : null,
+            icon: Icon(
+              Broken.next,
+              color: widget.onNextEpisode != null
+                  ? Colors.white70
+                  : Colors.white24,
+              size: 24,
+            ),
+            onPressed: widget.onNextEpisode != null
+                ? () {
+                    widget.onNextEpisode!();
+                    _resetHideTimer();
+                  }
+                : null,
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
           ),
           const Spacer(),
           // Fit (cycle through modes)
-          _ToolbarChip(
-            icon: Broken.crop,
-            label: fitLabel,
-            onTap: _toggleFit,
-          ),
+          _ToolbarChip(icon: Broken.crop, label: fitLabel, onTap: _toggleFit),
           // Quality picker chip
           _ToolbarChip(
             icon: Icons.hd_outlined,
@@ -2606,7 +2842,7 @@ class _FullscreenControlsOverlayState
               _hideTimer?.cancel();
               setState(() {
                 _showQualityPicker = !_showQualityPicker;
-                _showSpeedPicker   = false;
+                _showSpeedPicker = false;
               });
             },
           ),
@@ -2618,7 +2854,7 @@ class _FullscreenControlsOverlayState
             onTap: () {
               _hideTimer?.cancel();
               setState(() {
-                _showSpeedPicker   = !_showSpeedPicker;
+                _showSpeedPicker = !_showSpeedPicker;
                 _showQualityPicker = false;
               });
             },
@@ -2627,12 +2863,14 @@ class _FullscreenControlsOverlayState
           // Fullscreen exit
           if (widget.showBackButton)
             IconButton(
-              icon: const Icon(Icons.fullscreen_exit,
-                  color: Colors.white, size: 22),
+              icon: const Icon(
+                Icons.fullscreen_exit,
+                color: Colors.white,
+                size: 22,
+              ),
               onPressed: () => Navigator.of(context).pop(),
               padding: const EdgeInsets.all(4),
-              constraints:
-                  const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
         ],
       ),
@@ -2668,9 +2906,10 @@ class _FullscreenControlsOverlayState
               child: Text(
                 'Vitesse',
                 style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600),
+                  color: Colors.white54,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             const Divider(height: 1, color: Colors.white12),
@@ -2679,55 +2918,58 @@ class _FullscreenControlsOverlayState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: speeds.map((s) {
-              final sel = s == _speed;
-              final label = s == s.roundToDouble()
-                  ? '${s.toInt()}x'
-                  : '${s}x';
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _speed           = s;
-                    _showSpeedPicker = false;
-                  });
-                  widget.player.setRate(s);
-                  _resetHideTimer();
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 11),
-                  color: sel
-                      ? Colors.white.withValues(alpha: 0.10)
-                      : Colors.transparent,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 48,
-                        child: Text(
-                          label,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color:
-                                sel ? Colors.white : Colors.white70,
-                            fontSize: 14,
-                            fontWeight: sel
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
+                    final sel = s == _speed;
+                    final label = s == s.roundToDouble()
+                        ? '${s.toInt()}x'
+                        : '${s}x';
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _speed = s;
+                          _showSpeedPicker = false;
+                        });
+                        widget.player.setRate(s);
+                        _resetHideTimer();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 11,
+                        ),
+                        color: sel
+                            ? Colors.white.withValues(alpha: 0.10)
+                            : Colors.transparent,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 48,
+                              child: Text(
+                                label,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: sel ? Colors.white : Colors.white70,
+                                  fontSize: 14,
+                                  fontWeight: sel
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                            if (sel) ...[
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.check_rounded,
+                                color: Theme.of(context).primaryColor,
+                                size: 14,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (sel) ...[
-                        const SizedBox(width: 8),
-                        Icon(Icons.check_rounded,
-                            color: Theme.of(context).primaryColor,
-                            size: 14),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-                }).toList(),
+                    );
+                  }).toList(),
                 ),
               ),
             ),
@@ -2740,8 +2982,10 @@ class _FullscreenControlsOverlayState
 
   // ─── Quality label for chip ────────────────────────────────────────────────
   String _qualityLabel() {
-    if (_currentQuality != null && _currentQuality!.isNotEmpty) return _currentQuality!;
-    if (widget.loadedVideos.isNotEmpty) return widget.loadedVideos.first.quality;
+    if (_currentQuality != null && _currentQuality!.isNotEmpty)
+      return _currentQuality!;
+    if (widget.loadedVideos.isNotEmpty)
+      return widget.loadedVideos.first.quality;
     return 'Qualité';
   }
 
@@ -2754,7 +2998,10 @@ class _FullscreenControlsOverlayState
       curve: Curves.easeOutCubic,
       builder: (_, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - t)),
+          child: child,
+        ),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 320),
@@ -2769,14 +3016,23 @@ class _FullscreenControlsOverlayState
             children: [
               const Padding(
                 padding: EdgeInsets.fromLTRB(14, 10, 14, 6),
-                child: Text('Qualité',
-                    style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                child: Text(
+                  'Qualité',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               const Divider(height: 1, color: Colors.white12),
               if (videos.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  child: Text('Aucune qualité', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                  child: Text(
+                    'Aucune qualité',
+                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
                 )
               else
                 Flexible(
@@ -2790,13 +3046,19 @@ class _FullscreenControlsOverlayState
                             _currentQuality = v.quality;
                             setState(() => _showQualityPicker = false);
                             _resetHideTimer();
-                            if (widget.onSwitchQuality != null) await widget.onSwitchQuality!(v);
+                            if (widget.onSwitchQuality != null)
+                              await widget.onSwitchQuality!(v);
                             _playerToast('Qualité : ${v.quality}');
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 120),
-                            color: isCurrent ? Colors.white.withValues(alpha: 0.10) : Colors.transparent,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                            color: isCurrent
+                                ? Colors.white.withValues(alpha: 0.10)
+                                : Colors.transparent,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 11,
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -2806,14 +3068,22 @@ class _FullscreenControlsOverlayState
                                     v.quality,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      color: isCurrent ? Theme.of(context).primaryColor : Colors.white,
+                                      color: isCurrent
+                                          ? Theme.of(context).primaryColor
+                                          : Colors.white,
                                       fontSize: 14,
-                                      fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                      fontWeight: isCurrent
+                                          ? FontWeight.bold
+                                          : FontWeight.w500,
                                     ),
                                   ),
                                 ),
                                 if (isCurrent)
-                                  Icon(Icons.check_rounded, color: Theme.of(context).primaryColor, size: 14),
+                                  Icon(
+                                    Icons.check_rounded,
+                                    color: Theme.of(context).primaryColor,
+                                    size: 14,
+                                  ),
                               ],
                             ),
                           ),
@@ -2846,7 +3116,10 @@ class _FullscreenControlsOverlayState
         seekSeconds: _seekSeconds,
         onSeekSeconds: (s) => setState(() => _seekSeconds = s),
         fit: _fit,
-        onFit: (f) { setState(() => _fit = f); widget.fitNotifier?.value = f; },
+        onFit: (f) {
+          setState(() => _fit = f);
+          widget.fitNotifier?.value = f;
+        },
       ),
     ).then((_) => _resetHideTimer());
   }
@@ -2899,10 +3172,18 @@ String _audioTrackLabel(AudioTrack t, int index) {
   if (t.id == 'no' || t.id == '-1') return 'Aucune';
   if (t.title?.isNotEmpty == true) return t.title!;
   final langMap = {
-    'fr': 'Français', 'ja': 'Japonais', 'jp': 'Japonais',
-    'en': 'Anglais',  'de': 'Allemand', 'es': 'Espagnol',
-    'pt': 'Portugais','it': 'Italien',  'ar': 'Arabe',
-    'zh': 'Chinois',  'ko': 'Coréen',   'ru': 'Russe',
+    'fr': 'Français',
+    'ja': 'Japonais',
+    'jp': 'Japonais',
+    'en': 'Anglais',
+    'de': 'Allemand',
+    'es': 'Espagnol',
+    'pt': 'Portugais',
+    'it': 'Italien',
+    'ar': 'Arabe',
+    'zh': 'Chinois',
+    'ko': 'Coréen',
+    'ru': 'Russe',
   };
   final lang = t.language?.toLowerCase() ?? '';
   final mapped = langMap[lang];
@@ -2941,14 +3222,24 @@ class _SkipCirclePainter extends CustomPainter {
       sweep = -(2 * math.pi - gap);
     }
 
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start,
-        sweep, false, arcPaint);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      sweep,
+      false,
+      arcPaint,
+    );
 
     _drawArrowHead(canvas, center, radius, start + sweep, stroke);
   }
 
   void _drawArrowHead(
-      Canvas canvas, Offset c, double r, double angle, double stroke) {
+    Canvas canvas,
+    Offset c,
+    double r,
+    double angle,
+    double stroke,
+  ) {
     final pos = Offset(c.dx + r * math.cos(angle), c.dy + r * math.sin(angle));
     // Tangente dans le sens de l'arc.
     final Offset tangent;
@@ -2999,9 +3290,7 @@ class _ToolbarChip extends StatelessWidget {
         duration: const Duration(milliseconds: 140),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: active
-              ? accent.withValues(alpha: 0.18)
-              : Colors.transparent,
+          color: active ? accent.withValues(alpha: 0.18) : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: active ? accent.withValues(alpha: 0.65) : Colors.transparent,
@@ -3012,8 +3301,7 @@ class _ToolbarChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon,
-                  color: active ? accent : Colors.white60, size: 14),
+              Icon(icon, color: active ? accent : Colors.white60, size: 14),
               const SizedBox(width: 4),
             ],
             Text(
@@ -3053,7 +3341,8 @@ class _FullscreenSettingsSheet extends StatefulWidget {
   });
 
   @override
-  State<_FullscreenSettingsSheet> createState() => _FullscreenSettingsSheetState();
+  State<_FullscreenSettingsSheet> createState() =>
+      _FullscreenSettingsSheetState();
 }
 
 class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
@@ -3065,7 +3354,11 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _tabCtrl = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
     _seekSeconds = widget.seekSeconds;
     _fit = widget.fit;
   }
@@ -3119,7 +3412,12 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                     children: [
                       const Text(
                         'INTERVALLE DE NAVIGATION',
-                        style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                        style: TextStyle(
+                          color: Color(0xFF8E8E93),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
@@ -3134,18 +3432,32 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                             },
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 9,
+                              ),
                               decoration: BoxDecoration(
-                                color: sel ? widget.accent : const Color(0xFF2C2C2E),
+                                color: sel
+                                    ? widget.accent
+                                    : const Color(0xFF2C2C2E),
                                 borderRadius: BorderRadius.circular(10),
-                                border: sel ? null : Border.all(color: const Color(0xFF3A3A3C), width: 0.8),
+                                border: sel
+                                    ? null
+                                    : Border.all(
+                                        color: const Color(0xFF3A3A3C),
+                                        width: 0.8,
+                                      ),
                               ),
                               child: Text(
                                 '${s}s',
                                 style: TextStyle(
-                                  color: sel ? Colors.white : const Color(0xFF8E8E93),
+                                  color: sel
+                                      ? Colors.white
+                                      : const Color(0xFF8E8E93),
                                   fontSize: 13,
-                                  fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                                  fontWeight: sel
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ),
@@ -3155,7 +3467,12 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                       const SizedBox(height: 18),
                       const Text(
                         'AJUSTEMENT VIDÉO',
-                        style: TextStyle(color: Color(0xFF8E8E93), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                        style: TextStyle(
+                          color: Color(0xFF8E8E93),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
@@ -3186,7 +3503,10 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                       final tracks = snap.data?.audio ?? [];
                       if (tracks.isEmpty) {
                         return const Center(
-                          child: Text('Aucune piste audio', style: TextStyle(color: Colors.white54)),
+                          child: Text(
+                            'Aucune piste audio',
+                            style: TextStyle(color: Colors.white54),
+                          ),
                         );
                       }
                       return ListView.builder(
@@ -3199,9 +3519,18 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                             dense: true,
                             title: Text(
                               t.language ?? t.title ?? 'Piste ${i + 1}',
-                              style: TextStyle(color: sel ? Colors.white : Colors.white70, fontSize: 13),
+                              style: TextStyle(
+                                color: sel ? Colors.white : Colors.white70,
+                                fontSize: 13,
+                              ),
                             ),
-                            trailing: sel ? Icon(Icons.check_rounded, color: widget.accent, size: 16) : null,
+                            trailing: sel
+                                ? Icon(
+                                    Icons.check_rounded,
+                                    color: widget.accent,
+                                    size: 16,
+                                  )
+                                : null,
                             onTap: () {
                               widget.player.setAudioTrack(t);
                               setState(() {});
@@ -3219,7 +3548,10 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                       final tracks = snap.data?.subtitle ?? [];
                       if (tracks.isEmpty) {
                         return const Center(
-                          child: Text('Aucun sous-titre', style: TextStyle(color: Colors.white54)),
+                          child: Text(
+                            'Aucun sous-titre',
+                            style: TextStyle(color: Colors.white54),
+                          ),
                         );
                       }
                       return ListView.builder(
@@ -3231,10 +3563,21 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                           return ListTile(
                             dense: true,
                             title: Text(
-                              t.language ?? t.title ?? (i == 0 ? 'Désactivé' : 'Sous-titre $i'),
-                              style: TextStyle(color: sel ? Colors.white : Colors.white70, fontSize: 13),
+                              t.language ??
+                                  t.title ??
+                                  (i == 0 ? 'Désactivé' : 'Sous-titre $i'),
+                              style: TextStyle(
+                                color: sel ? Colors.white : Colors.white70,
+                                fontSize: 13,
+                              ),
                             ),
-                            trailing: sel ? Icon(Icons.check_rounded, color: widget.accent, size: 16) : null,
+                            trailing: sel
+                                ? Icon(
+                                    Icons.check_rounded,
+                                    color: widget.accent,
+                                    size: 16,
+                                  )
+                                : null,
                             onTap: () {
                               widget.player.setSubtitleTrack(t);
                               setState(() {});
@@ -3280,7 +3623,9 @@ class _FitOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: sel ? accent : const Color(0xFF2C2C2E),
           borderRadius: BorderRadius.circular(10),
-          border: sel ? null : Border.all(color: const Color(0xFF3A3A3C), width: 0.8),
+          border: sel
+              ? null
+              : Border.all(color: const Color(0xFF3A3A3C), width: 0.8),
         ),
         child: Text(
           label,
@@ -3347,7 +3692,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
     try {
       plat.setProperty('sub-font-size', _subFontSize.round().toString());
       plat.setProperty('sub-border-style', _subBoldBox ? '3' : '1');
-      plat.setProperty('sub-back-color', _subBoldBox ? '&H80000000' : '&H00000000');
+      plat.setProperty(
+        'sub-back-color',
+        _subBoldBox ? '&H80000000' : '&H00000000',
+      );
       plat.setProperty('sub-shadow', '0');
     } catch (_) {}
   }
@@ -3360,7 +3708,10 @@ class _SettingsPanelState extends State<_SettingsPanel> {
       },
       child: Container(
         padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(6)),
+        decoration: BoxDecoration(
+          color: Colors.white12,
+          borderRadius: BorderRadius.circular(6),
+        ),
         child: Icon(icon, color: Colors.white, size: 14),
       ),
     );
@@ -3373,11 +3724,19 @@ class _SettingsPanelState extends State<_SettingsPanel> {
         duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? widget.accent.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.06),
+          color: selected
+              ? widget.accent.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: selected ? widget.accent : Colors.white12),
         ),
-        child: Text(label, style: TextStyle(color: selected ? widget.accent : Colors.white70, fontSize: 12)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? widget.accent : Colors.white70,
+            fontSize: 12,
+          ),
+        ),
       ),
     );
   }
@@ -3391,7 +3750,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
 
     final screenH = MediaQuery.of(context).size.height;
     final safeArea = MediaQuery.of(context).padding;
-    final panelW   = MediaQuery.of(context).size.width * 0.52;
+    final panelW = MediaQuery.of(context).size.width * 0.52;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -3408,10 +3767,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
           behavior: HitTestBehavior.opaque,
           onTap: () {},
           child: TweenAnimationBuilder<Offset>(
-            tween: Tween(
-              begin: const Offset(1.0, 0.0),
-              end: Offset.zero,
-            ),
+            tween: Tween(begin: const Offset(1.0, 0.0), end: Offset.zero),
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
             builder: (_, offset, child) => Transform.translate(
@@ -3425,9 +3781,7 @@ class _SettingsPanelState extends State<_SettingsPanel> {
               ),
               child: Container(
                 width: panelW,
-                constraints: BoxConstraints(
-                  maxHeight: screenH * 0.90,
-                ),
+                constraints: BoxConstraints(maxHeight: screenH * 0.90),
                 decoration: const BoxDecoration(
                   color: Color(0xD1000000),
                   borderRadius: BorderRadius.only(
@@ -3435,386 +3789,546 @@ class _SettingsPanelState extends State<_SettingsPanel> {
                     bottomLeft: Radius.circular(18),
                   ),
                 ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  // Header: Audio | Sous-titre + toggle
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                          bottom: BorderSide(color: Colors.white24, width: 0.8)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 16),
-                            child: Text(
-                              'Audio',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      // Header: Audio | Sous-titre + toggle
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Colors.white24,
+                              width: 0.8,
                             ),
                           ),
                         ),
-                        Container(
-                            width: 0.8,
-                            height: 20,
-                            color: Colors.white24),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: [
-                                const Text(
-                                  'Sous-titre',
-                                  style: TextStyle(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 16),
+                                child: Text(
+                                  'Audio',
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                const Spacer(),
-                                Transform.scale(
-                                  scale: 0.75,
-                                  child: Switch(
-                                    value: curSub.id != 'no' &&
-                                        curSub.id != '-1',
-                                    onChanged: (v) {
-                                      if (!v) {
-                                        widget.player
-                                            .setSubtitleTrack(
-                                                SubtitleTrack.no());
-                                      } else {
-                                        final t = subTracks.firstWhere(
-                                          (t) =>
-                                              t.id != 'no' &&
-                                              t.id != '-1',
-                                          orElse: () => subTracks.first,
-                                        );
-                                        widget.player.setSubtitleTrack(t);
-                                      }
-                                      setState(() {});
-                                    },
-                                    thumbColor: WidgetStateProperty.resolveWith(
-                                        (states) => states.contains(WidgetState.selected)
-                                            ? _kBlue
-                                            : Colors.white70),
-                                    trackColor: WidgetStateProperty.resolveWith(
-                                        (states) => states.contains(WidgetState.selected)
-                                            ? _kBlue.withValues(alpha: 0.85)
-                                            : Colors.white24),
-                                    overlayColor:
-                                        WidgetStateProperty.all(Colors.transparent),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Content: two columns
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Audio column
-                        Expanded(
-                          child: ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              if (audioTracks.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Text(
-                                    'Aucune piste',
-                                    style: TextStyle(
-                                        color: Colors.white54, fontSize: 12),
-                                  ),
-                                )
-                              else
-                                ...audioTracks.map((t) {
-                                  final sel = t.id == curAudio.id;
-                                  final label =
-                                      t.title?.isNotEmpty == true
-                                          ? t.title!
-                                          : (t.language?.isNotEmpty == true
-                                              ? t.language!
-                                              : 'Piste ${t.id}');
-                                  return _TrackTile(
-                                    label: label,
-                                    selected: sel,
-                                    accent: widget.accent,
-                                    onTap: () {
-                                      widget.player.setAudioTrack(t);
-                                      setState(() {});
-                                    },
-                                  );
-                                }),
-                            ],
-                          ),
-                        ),
-                        Container(
-                            width: 0.8,
-                            color: Colors.white12),
-
-                        // Subtitle column
-                        Expanded(
-                          child: ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              // Bilingue toggle
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                    12, 10, 4, 4),
+                            Container(
+                              width: 0.8,
+                              height: 20,
+                              color: Colors.white24,
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
                                 child: Row(
                                   children: [
-                                    const Expanded(
-                                      child: Text(
-                                        'Bilingue',
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 13),
+                                    const Text(
+                                      'Sous-titre',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                    const Spacer(),
                                     Transform.scale(
                                       scale: 0.75,
                                       child: Switch(
-                                        value: _bilingual,
+                                        value:
+                                            curSub.id != 'no' &&
+                                            curSub.id != '-1',
                                         onChanged: (v) {
-                                          setState(() => _bilingual = v);
-                                          _applyBilingual();
+                                          if (!v) {
+                                            widget.player.setSubtitleTrack(
+                                              SubtitleTrack.no(),
+                                            );
+                                          } else {
+                                            final t = subTracks.firstWhere(
+                                              (t) =>
+                                                  t.id != 'no' && t.id != '-1',
+                                              orElse: () => subTracks.first,
+                                            );
+                                            widget.player.setSubtitleTrack(t);
+                                          }
+                                          setState(() {});
                                         },
-                                        activeThumbColor: _kBlue,
-                                        activeTrackColor: _kBlue,
+                                        thumbColor:
+                                            WidgetStateProperty.resolveWith(
+                                              (states) =>
+                                                  states.contains(
+                                                    WidgetState.selected,
+                                                  )
+                                                  ? _kBlue
+                                                  : Colors.white70,
+                                            ),
+                                        trackColor:
+                                            WidgetStateProperty.resolveWith(
+                                              (states) =>
+                                                  states.contains(
+                                                    WidgetState.selected,
+                                                  )
+                                                  ? _kBlue.withValues(
+                                                      alpha: 0.85,
+                                                    )
+                                                  : Colors.white24,
+                                            ),
+                                        overlayColor: WidgetStateProperty.all(
+                                          Colors.transparent,
+                                        ),
                                         materialTapTargetSize:
-                                            MaterialTapTargetSize
-                                                .shrinkWrap,
+                                            MaterialTapTargetSize.shrinkWrap,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              Container(
-                                  height: 0.6, color: Colors.white12),
-                              if (subTracks.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Text(
-                                    'Aucun sous-titre',
-                                    style: TextStyle(
-                                        color: Colors.white54, fontSize: 12),
-                                  ),
-                                )
-                              else ...[
-                                _TrackTile(
-                                  label: 'Désactiver',
-                                  selected: curSub.id == 'no' ||
-                                      curSub.id == '-1',
-                                  accent: widget.accent,
-                                  onTap: () {
-                                    widget.player.setSubtitleTrack(
-                                        SubtitleTrack.no());
-                                    setState(() {});
-                                  },
-                                ),
-                                ...subTracks
-                                    .where((t) =>
-                                        t.id != 'no' && t.id != '-1')
-                                    .map((t) {
-                                  final sel = t.id == curSub.id;
-                                  final label =
-                                      t.title?.isNotEmpty == true
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Content: two columns
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Audio column
+                            Expanded(
+                              child: ListView(
+                                padding: EdgeInsets.zero,
+                                children: [
+                                  if (audioTracks.isEmpty)
+                                    const Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Text(
+                                        'Aucune piste',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    ...audioTracks.map((t) {
+                                      final sel = t.id == curAudio.id;
+                                      final label = t.title?.isNotEmpty == true
                                           ? t.title!
-                                          : (t.language?.isNotEmpty ==
-                                                  true
-                                              ? t.language!
-                                              : 'Sub ${t.id}');
-                                  return _TrackTile(
-                                    label: label,
-                                    selected: sel,
-                                    accent: widget.accent,
-                                    onTap: () {
-                                      widget.player.setSubtitleTrack(t);
-                                      if (_bilingual) _applyBilingual();
-                                      setState(() {});
-                                    },
-                                  );
-                                }),
-                              ],
-                              Container(height: 0.6, color: Colors.white12),
-                              // Subtitle delay control
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Décalage sous-titres',
-                                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                          : (t.language?.isNotEmpty == true
+                                                ? t.language!
+                                                : 'Piste ${t.id}');
+                                      return _TrackTile(
+                                        label: label,
+                                        selected: sel,
+                                        accent: widget.accent,
+                                        onTap: () {
+                                          widget.player.setAudioTrack(t);
+                                          setState(() {});
+                                        },
+                                      );
+                                    }),
+                                ],
+                              ),
+                            ),
+                            Container(width: 0.8, color: Colors.white12),
+
+                            // Subtitle column
+                            Expanded(
+                              child: ListView(
+                                padding: EdgeInsets.zero,
+                                children: [
+                                  // Bilingue toggle
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      10,
+                                      4,
+                                      4,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Row(
+                                    child: Row(
                                       children: [
-                                        GestureDetector(
-                                          onTap: () {
-                                            final newVal = (_subDelay - 0.5).clamp(-10.0, 10.0);
-                                            _subDelay = newVal;
-                                            setState(() {});
-                                            try {
-                                              final plat = widget.player.platform as dynamic;
-                                              plat.setProperty('sub-delay', newVal.toStringAsFixed(1));
-                                            } catch (_) {}
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.all(6),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white12,
-                                              borderRadius: BorderRadius.circular(6),
+                                        const Expanded(
+                                          child: Text(
+                                            'Bilingue',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
                                             ),
-                                            child: const Icon(Icons.remove_rounded, color: Colors.white, size: 14),
                                           ),
                                         ),
-                                        Expanded(
-                                          child: Center(
+                                        Transform.scale(
+                                          scale: 0.75,
+                                          child: Switch(
+                                            value: _bilingual,
+                                            onChanged: (v) {
+                                              setState(() => _bilingual = v);
+                                              _applyBilingual();
+                                            },
+                                            activeThumbColor: _kBlue,
+                                            activeTrackColor: _kBlue,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(height: 0.6, color: Colors.white12),
+                                  if (subTracks.isEmpty)
+                                    const Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Text(
+                                        'Aucun sous-titre',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    )
+                                  else ...[
+                                    _TrackTile(
+                                      label: 'Désactiver',
+                                      selected:
+                                          curSub.id == 'no' ||
+                                          curSub.id == '-1',
+                                      accent: widget.accent,
+                                      onTap: () {
+                                        widget.player.setSubtitleTrack(
+                                          SubtitleTrack.no(),
+                                        );
+                                        setState(() {});
+                                      },
+                                    ),
+                                    ...subTracks
+                                        .where(
+                                          (t) => t.id != 'no' && t.id != '-1',
+                                        )
+                                        .map((t) {
+                                          final sel = t.id == curSub.id;
+                                          final label =
+                                              t.title?.isNotEmpty == true
+                                              ? t.title!
+                                              : (t.language?.isNotEmpty == true
+                                                    ? t.language!
+                                                    : 'Sub ${t.id}');
+                                          return _TrackTile(
+                                            label: label,
+                                            selected: sel,
+                                            accent: widget.accent,
+                                            onTap: () {
+                                              widget.player.setSubtitleTrack(t);
+                                              if (_bilingual) _applyBilingual();
+                                              setState(() {});
+                                            },
+                                          );
+                                        }),
+                                  ],
+                                  Container(height: 0.6, color: Colors.white12),
+                                  // Subtitle delay control
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Décalage sous-titres',
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            GestureDetector(
+                                              onTap: () {
+                                                final newVal = (_subDelay - 0.5)
+                                                    .clamp(-10.0, 10.0);
+                                                _subDelay = newVal;
+                                                setState(() {});
+                                                try {
+                                                  final plat =
+                                                      widget.player.platform
+                                                          as dynamic;
+                                                  plat.setProperty(
+                                                    'sub-delay',
+                                                    newVal.toStringAsFixed(1),
+                                                  );
+                                                } catch (_) {}
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white12,
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.remove_rounded,
+                                                  color: Colors.white,
+                                                  size: 14,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Center(
+                                                child: Text(
+                                                  '${_subDelay >= 0 ? '+' : ''}${_subDelay.toStringAsFixed(1)}s',
+                                                  style: TextStyle(
+                                                    color: _subDelay != 0
+                                                        ? widget.accent
+                                                        : Colors.white54,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            GestureDetector(
+                                              onTap: () {
+                                                final newVal = (_subDelay + 0.5)
+                                                    .clamp(-10.0, 10.0);
+                                                _subDelay = newVal;
+                                                setState(() {});
+                                                try {
+                                                  final plat =
+                                                      widget.player.platform
+                                                          as dynamic;
+                                                  plat.setProperty(
+                                                    'sub-delay',
+                                                    newVal.toStringAsFixed(1),
+                                                  );
+                                                } catch (_) {}
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white12,
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.add_rounded,
+                                                  color: Colors.white,
+                                                  size: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(height: 0.6, color: Colors.white12),
+                                  Container(height: 0.6, color: Colors.white12),
+                                  // ── Style des sous-titres ──────────────────────────────
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Style des sous-titres',
+                                          style: TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            _styleChip(
+                                              'Contour',
+                                              !_subBoldBox,
+                                              () {
+                                                setState(
+                                                  () => _subBoldBox = false,
+                                                );
+                                                _applySubStyle();
+                                              },
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _styleChip('Fond', _subBoldBox, () {
+                                              setState(
+                                                () => _subBoldBox = true,
+                                              );
+                                              _applySubStyle();
+                                            }),
+                                            const Spacer(),
+                                            _subSizeBtn(
+                                              Icons.remove_rounded,
+                                              -2,
+                                            ),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                  ),
+                                              child: Text(
+                                                '${_subFontSize.round()}',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            _subSizeBtn(Icons.add_rounded, 2),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(height: 0.6, color: Colors.white12),
+                                  // ── Langue (pistes audio) — mêmes boxes que le picker ──
+                                  const Padding(
+                                    padding: EdgeInsets.fromLTRB(12, 10, 12, 2),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'Langue',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      6,
+                                      12,
+                                      10,
+                                    ),
+                                    child: Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: widget.player.state.tracks.audio
+                                          .asMap()
+                                          .entries
+                                          .map((e) {
+                                            final i = e.key;
+                                            final t = e.value;
+                                            final sel =
+                                                t.id ==
+                                                widget
+                                                    .player
+                                                    .state
+                                                    .track
+                                                    .audio
+                                                    .id;
+                                            return GestureDetector(
+                                              onTap: () {
+                                                widget.player.setAudioTrack(t);
+                                                setState(() {});
+                                              },
+                                              child: AnimatedContainer(
+                                                duration: const Duration(
+                                                  milliseconds: 120,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 7,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: sel
+                                                      ? widget.accent
+                                                            .withValues(
+                                                              alpha: 0.2,
+                                                            )
+                                                      : Colors.white.withValues(
+                                                          alpha: 0.06,
+                                                        ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                  border: Border.all(
+                                                    color: sel
+                                                        ? widget.accent
+                                                        : Colors.white12,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  _audioTrackLabel(t, i),
+                                                  style: TextStyle(
+                                                    color: sel
+                                                        ? widget.accent
+                                                        : Colors.white70,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          })
+                                          .toList(),
+                                    ),
+                                  ),
+                                  Container(height: 0.6, color: Colors.white12),
+                                  InkWell(
+                                    onTap: () => widget.onDownload?.call(),
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 12,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
                                             child: Text(
-                                              '${_subDelay >= 0 ? '+' : ''}${_subDelay.toStringAsFixed(1)}s',
+                                              'Télécharger',
                                               style: TextStyle(
-                                                color: _subDelay != 0 ? widget.accent : Colors.white54,
+                                                color: Colors.white,
                                                 fontSize: 13,
-                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        GestureDetector(
-                                          onTap: () {
-                                            final newVal = (_subDelay + 0.5).clamp(-10.0, 10.0);
-                                            _subDelay = newVal;
-                                            setState(() {});
-                                            try {
-                                              final plat = widget.player.platform as dynamic;
-                                              plat.setProperty('sub-delay', newVal.toStringAsFixed(1));
-                                            } catch (_) {}
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.all(6),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white12,
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: const Icon(Icons.add_rounded, color: Colors.white, size: 14),
+                                          Icon(
+                                            Icons.chevron_right_rounded,
+                                            color: Colors.white54,
+                                            size: 16,
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(height: 0.6, color: Colors.white12),
-                              Container(height: 0.6, color: Colors.white12),
-                              // ── Style des sous-titres ──────────────────────────────
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Style des sous-titres',
-                                        style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        _styleChip('Contour', !_subBoldBox, () { setState(() => _subBoldBox = false); _applySubStyle(); }),
-                                        const SizedBox(width: 8),
-                                        _styleChip('Fond', _subBoldBox, () { setState(() => _subBoldBox = true); _applySubStyle(); }),
-                                        const Spacer(),
-                                        _subSizeBtn(Icons.remove_rounded, -2),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                                          child: Text('${_subFontSize.round()}',
-                                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                                        ),
-                                        _subSizeBtn(Icons.add_rounded, 2),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(height: 0.6, color: Colors.white12),
-                              // ── Langue (pistes audio) — mêmes boxes que le picker ──
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(12, 10, 12, 2),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text('Langue',
-                                      style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                                child: Wrap(
-                                  spacing: 8, runSpacing: 8,
-                                  children: widget.player.state.tracks.audio.asMap().entries.map((e) {
-                                    final i = e.key; final t = e.value;
-                                    final sel = t.id == widget.player.state.track.audio.id;
-                                    return GestureDetector(
-                                      onTap: () { widget.player.setAudioTrack(t); setState(() {}); },
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 120),
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                                        decoration: BoxDecoration(
-                                          color: sel ? widget.accent.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.06),
-                                          borderRadius: BorderRadius.circular(20),
-                                          border: Border.all(color: sel ? widget.accent : Colors.white12),
-                                        ),
-                                        child: Text(_audioTrackLabel(t, i),
-                                            style: TextStyle(color: sel ? widget.accent : Colors.white70, fontSize: 12)),
+                                        ],
                                       ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              Container(height: 0.6, color: Colors.white12),
-                              InkWell(
-                                onTap: () => widget.onDownload?.call(),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Télécharger',
-                                          style: TextStyle(color: Colors.white, fontSize: 13),
-                                        ),
-                                      ),
-                                      Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 16),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 }
 
@@ -3859,351 +4373,397 @@ class _TrackTile extends StatelessWidget {
 // ─── Inline controls (portrait banner) — MovieBox layout ─────────────────────
 // Layout: [▶ | ─────●───── time | PiP | ⛶]
 
-  // ─── Portrait player overlay (with tap-to-toggle controls) ───────────────────
+// ─── Portrait player overlay (with tap-to-toggle controls) ───────────────────
 
-  class _PortraitPlayerOverlay extends StatefulWidget {
-    final Player player;
-    final VideoController controller;
-    final Color accent;
-    final String title;
-    final ValueNotifier<bool> seekingNotifier;
-    final List<wt.Video> loadedVideos;
-    final Future<void> Function(wt.Video)? onSwitchQuality;
-    final String? selectedQuality;
-    final ValueNotifier<bool>? controlsNotifier;
-    final int? currentChapterId;
-    final VoidCallback? onPrevEpisode;
-    final VoidCallback? onNextEpisode;
-    final List<Chapter> chapters;
-    final void Function(Chapter)? onEpisodeTap;
+class _PortraitPlayerOverlay extends StatefulWidget {
+  final Player player;
+  final VideoController controller;
+  final Color accent;
+  final String title;
+  final ValueNotifier<bool> seekingNotifier;
+  final List<wt.Video> loadedVideos;
+  final Future<void> Function(wt.Video)? onSwitchQuality;
+  final String? selectedQuality;
+  final ValueNotifier<bool>? controlsNotifier;
+  final int? currentChapterId;
+  final VoidCallback? onPrevEpisode;
+  final VoidCallback? onNextEpisode;
+  final List<Chapter> chapters;
+  final void Function(Chapter)? onEpisodeTap;
   final String? coverUrl;
 
-    const _PortraitPlayerOverlay({
-      required this.player,
-      required this.controller,
-      required this.accent,
-      required this.title,
-      required this.seekingNotifier,
-      this.loadedVideos = const [],
-      this.onSwitchQuality,
-      this.selectedQuality,
-      this.controlsNotifier,
-      this.currentChapterId,
-      this.onPrevEpisode,
-      this.onNextEpisode,
-      this.chapters = const [],
-      this.onEpisodeTap,
+  const _PortraitPlayerOverlay({
+    required this.player,
+    required this.controller,
+    required this.accent,
+    required this.title,
+    required this.seekingNotifier,
+    this.loadedVideos = const [],
+    this.onSwitchQuality,
+    this.selectedQuality,
+    this.controlsNotifier,
+    this.currentChapterId,
+    this.onPrevEpisode,
+    this.onNextEpisode,
+    this.chapters = const [],
+    this.onEpisodeTap,
     this.coverUrl,
-    });
+  });
 
-    @override
-    State<_PortraitPlayerOverlay> createState() => _PortraitPlayerOverlayState();
+  @override
+  State<_PortraitPlayerOverlay> createState() => _PortraitPlayerOverlayState();
+}
+
+class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
+  bool _showControls = true;
+  Timer? _hideTimer;
+
+  // ── Brightness / Volume swipe ──────────────────────────────────────────────
+  double _brightness = 0.5;
+  double _volume = 0.5;
+  bool _showBrightnessHUD = false;
+  bool _showVolumeHUD = false;
+  Offset? _dragStartPos;
+  Timer? _hudTimer;
+
+  // ── Double-tap skip ────────────────────────────────────────────────────────
+  int _doubleTapCount = 0;
+  bool? _doubleTapRight;
+  Timer? _doubleTapResetTimer;
+  // Portrait: HUD flèches latérales animées (style YouTube)
+  bool _showLeftSkipHUD = false;
+  bool _showRightSkipHUD = false;
+  Timer? _skipHudTimer;
+  Timer? _seekDebounceTimer;
+  int _accumulatedSeekDelta = 0;
+  int _skipHudSeconds = 15;
+
+  // ── Horizontal seek (swipe timeline) ─────────────────────────────────────
+  double? _horizDragStartX;
+  Duration _horizSeekStartPos = Duration.zero;
+  int _horizSeekDelta = 0;
+  bool _showSeekSwipeHUD = false;
+  final _SeekThumbPreview _thumbPreview = _SeekThumbPreview();
+
+  @override
+  void initState() {
+    super.initState();
+    // Immediately sync external notifier so back/aide buttons match initial state
+    widget.controlsNotifier?.value = _showControls;
+    _resetHideTimer();
+    _initMedia();
   }
 
-  class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
-    bool _showControls = true;
-    Timer? _hideTimer;
+  Future<void> _initMedia() async {
+    try {
+      _brightness = await ScreenBrightness().application;
+    } catch (_) {}
+    try {
+      // Hide the native OS volume overlay (Android/iOS) — we draw our own
+      // in-app volume HUD, so the system one must not appear on top of it.
+      VolumeController.instance.showSystemUI = false;
+      _volume = await VolumeController.instance.getVolume();
+    } catch (_) {}
+  }
 
-    // ── Brightness / Volume swipe ──────────────────────────────────────────────
-    double _brightness = 0.5;
-    double _volume     = 0.5;
-    bool _showBrightnessHUD = false;
-    bool _showVolumeHUD     = false;
-    Offset? _dragStartPos;
-    Timer? _hudTimer;
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _hudTimer?.cancel();
+    _doubleTapResetTimer?.cancel();
+    _skipHudTimer?.cancel();
+    _seekDebounceTimer?.cancel();
+    _thumbPreview.dispose();
+    super.dispose();
+  }
 
-    // ── Double-tap skip ────────────────────────────────────────────────────────
-    int   _doubleTapCount = 0;
-    bool? _doubleTapRight;
-    Timer? _doubleTapResetTimer;
-    // Portrait: HUD flèches latérales animées (style YouTube)
-    bool _showLeftSkipHUD  = false;
-    bool _showRightSkipHUD = false;
-    Timer? _skipHudTimer;
-    Timer? _seekDebounceTimer;
-    int   _accumulatedSeekDelta = 0;
-    int  _skipHudSeconds   = 15;
+  void _setVisible(bool v) {
+    setState(() => _showControls = v);
+    widget.controlsNotifier?.value = v;
+  }
 
-    // ── Horizontal seek (swipe timeline) ─────────────────────────────────────
-    double? _horizDragStartX;
-    Duration _horizSeekStartPos = Duration.zero;
-    int _horizSeekDelta = 0;
-    bool _showSeekSwipeHUD = false;
-    final _SeekThumbPreview _thumbPreview = _SeekThumbPreview();
+  void _resetHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) _setVisible(false);
+    });
+  }
 
-    @override
-    void initState() {
-      super.initState();
-      // Immediately sync external notifier so back/aide buttons match initial state
-      widget.controlsNotifier?.value = _showControls;
+  void _onTap() {
+    _setVisible(!_showControls);
+    if (_showControls)
       _resetHideTimer();
-      _initMedia();
-    }
-
-    Future<void> _initMedia() async {
-      try { _brightness = await ScreenBrightness().current; } catch (_) {}
-      try {
-        // Hide the native OS volume overlay (Android/iOS) — we draw our own
-        // in-app volume HUD, so the system one must not appear on top of it.
-        VolumeController.instance.showSystemUI = false;
-        _volume = await VolumeController.instance.getVolume();
-      } catch (_) {}
-    }
-
-    @override
-    void dispose() {
+    else
       _hideTimer?.cancel();
-      _hudTimer?.cancel();
-      _doubleTapResetTimer?.cancel();
-      _skipHudTimer?.cancel();
-      _seekDebounceTimer?.cancel();
-      _thumbPreview.dispose();
-      super.dispose();
-    }
+  }
 
-    void _setVisible(bool v) {
-      setState(() => _showControls = v);
-      widget.controlsNotifier?.value = v;
-    }
+  void _seek(int deltaSeconds) {
+    final pos = widget.player.state.position;
+    final dur = widget.player.state.duration;
+    final next = pos + Duration(seconds: deltaSeconds);
+    widget.player.seek(
+      next.isNegative ? Duration.zero : (next > dur ? dur : next),
+    );
+  }
 
-    void _resetHideTimer() {
-      _hideTimer?.cancel();
-      _hideTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) _setVisible(false);
-      });
-    }
+  Widget _buildPortraitSeekButton({required bool isForward}) {
+    final seconds = isForward ? 15 : -15;
+    return IconButton(
+      tooltip: isForward ? 'Avancer de 15 secondes' : 'Reculer de 15 secondes',
+      onPressed: () {
+        _seek(seconds);
+        _resetHideTimer();
+      },
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.black54,
+        foregroundColor: Colors.white,
+        shape: const CircleBorder(),
+        minimumSize: const Size(52, 52),
+        padding: EdgeInsets.zero,
+      ),
+      icon: Icon(
+        isForward ? Broken.forward_15_seconds : Broken.backward_15_seconds,
+        size: 26,
+      ),
+    );
+  }
 
-    void _onTap() {
-      _setVisible(!_showControls);
-      if (_showControls) _resetHideTimer();
-      else _hideTimer?.cancel();
+  void _handleDoubleTap({required bool isRight}) {
+    _doubleTapResetTimer?.cancel();
+    if (_doubleTapRight != null && _doubleTapRight != isRight) {
+      _doubleTapCount = 0;
+      _accumulatedSeekDelta = 0;
     }
+    _doubleTapRight = isRight;
+    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 5);
+    final increment = 15 * (1 << (_doubleTapCount - 1).clamp(0, 4));
+    _accumulatedSeekDelta += isRight ? increment : -increment;
+    _skipHudSeconds = _accumulatedSeekDelta.abs();
 
-    void _seek(int deltaSeconds) {
-      final pos = widget.player.state.position;
-      final dur = widget.player.state.duration;
-      final next = pos + Duration(seconds: deltaSeconds);
-      widget.player.seek(next.isNegative ? Duration.zero : (next > dur ? dur : next));
-    }
-
-    Widget _buildPortraitSeekButton({required bool isForward}) {
-      final seconds = isForward ? 15 : -15;
-      return IconButton(
-        tooltip: isForward
-            ? 'Avancer de 15 secondes'
-            : 'Reculer de 15 secondes',
-        onPressed: () {
-          _seek(seconds);
-          _resetHideTimer();
-        },
-        style: IconButton.styleFrom(
-          backgroundColor: Colors.black54,
-          foregroundColor: Colors.white,
-          shape: const CircleBorder(),
-          minimumSize: const Size(52, 52),
-          padding: EdgeInsets.zero,
-        ),
-        icon: Icon(
-          isForward ? Broken.forward_15_seconds : Broken.backward_15_seconds,
-          size: 26,
-        ),
-      );
-    }
-
-    void _handleDoubleTap({required bool isRight}) {
-      _doubleTapResetTimer?.cancel();
-      if (_doubleTapRight != null && _doubleTapRight != isRight) {
-        _doubleTapCount = 0;
+    // Debounce: one seek per tap burst, prevents mpv RAM spikes
+    _seekDebounceTimer?.cancel();
+    _seekDebounceTimer = Timer(const Duration(milliseconds: 120), () {
+      if (mounted) {
+        _seek(_accumulatedSeekDelta);
         _accumulatedSeekDelta = 0;
       }
-      _doubleTapRight = isRight;
-      _doubleTapCount = (_doubleTapCount + 1).clamp(1, 5);
-      final increment = 15 * (1 << (_doubleTapCount - 1).clamp(0, 4));
-      _accumulatedSeekDelta += isRight ? increment : -increment;
-      _skipHudSeconds = _accumulatedSeekDelta.abs();
+    });
 
-      // Debounce: one seek per tap burst, prevents mpv RAM spikes
-      _seekDebounceTimer?.cancel();
-      _seekDebounceTimer = Timer(const Duration(milliseconds: 120), () {
-        if (mounted) { _seek(_accumulatedSeekDelta); _accumulatedSeekDelta = 0; }
-      });
-
-      // Portrait: flèches latérales animées (style YouTube)
-      _skipHudTimer?.cancel();
-      setState(() {
-        _showLeftSkipHUD  = !isRight;
-        _showRightSkipHUD = isRight;
-      });
-      _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
-        if (mounted) {
-          setState(() { _showLeftSkipHUD = false; _showRightSkipHUD = false; });
-        }
-      });
-
-      _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
-        _doubleTapCount = 0; _doubleTapRight = null; _accumulatedSeekDelta = 0;
-      });
-    }
-
-    // ── Horizontal drag → seek timeline ──────────────────────────────────────
-    void _onHorizDragStart(DragStartDetails d) {
-      _horizDragStartX = d.globalPosition.dx;
-      _horizSeekStartPos = widget.player.state.position;
-      _horizSeekDelta = 0;
-      _hideTimer?.cancel();
-    }
-
-    void _onHorizDragUpdate(DragUpdateDetails d, Size size) {
-      if (_horizDragStartX == null) return;
-      final dx = d.globalPosition.dx - _horizDragStartX!;
-      final dur = widget.player.state.duration.inSeconds;
-      if (dur <= 0) return;
-      // Vitesse adaptative : ~1/4 de la durée par swipe pleine largeur.
-      final secondsPerScreen =
-          (widget.player.state.duration.inSeconds / 4).clamp(20.0, 900.0);
-      _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
-      setState(() => _showSeekSwipeHUD = true);
-      // Vignette de la position cible (style YouTube)
-      final full = widget.player.state.duration;
-      final target = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
-      if (full > Duration.zero) {
-        _requestThumb(
-            (target.inMilliseconds / full.inMilliseconds).clamp(0.0, 1.0));
+    // Portrait: flèches latérales animées (style YouTube)
+    _skipHudTimer?.cancel();
+    setState(() {
+      _showLeftSkipHUD = !isRight;
+      _showRightSkipHUD = isRight;
+    });
+    _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() {
+          _showLeftSkipHUD = false;
+          _showRightSkipHUD = false;
+        });
       }
-    }
+    });
 
-    void _onHorizDragEnd(DragEndDetails _) {
-      if (_horizDragStartX != null && _horizSeekDelta != 0) {
-        final dur = widget.player.state.duration;
-        final next = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
-        final clamped = next < Duration.zero ? Duration.zero : (next > dur ? dur : next);
-        widget.player.seek(clamped);
-      }
-      _horizDragStartX = null;
-      _horizSeekDelta = 0;
-      setState(() => _showSeekSwipeHUD = false);
-      _thumbPreview.clearRequest();
-      _resetHideTimer();
-    }
+    _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
+      _doubleTapCount = 0;
+      _doubleTapRight = null;
+      _accumulatedSeekDelta = 0;
+    });
+  }
 
-    String _fmtPos(Duration d) {
-      final h = d.inHours;
-      final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-      final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-      return h > 0 ? '$h:$m:$s' : '$m:$s';
-    }
+  // ── Horizontal drag → seek timeline ──────────────────────────────────────
+  void _onHorizDragStart(DragStartDetails d) {
+    _horizDragStartX = d.globalPosition.dx;
+    _horizSeekStartPos = widget.player.state.position;
+    _horizSeekDelta = 0;
+    _hideTimer?.cancel();
+  }
 
-    // ── Miniature preview (YouTube-style) : flux courant + position ─────
-    wt.Video? get _previewVideo {
-      final vids = widget.loadedVideos;
-      for (final v in vids) {
-        if (v.quality == widget.selectedQuality) return v;
-      }
-      if (vids.isNotEmpty) return vids.first;
-      // Fallback : flux en cours de lecture quand loadedVideos est vide
-      try {
-        final medias = widget.player.state.playlist.medias;
-        if (medias.isNotEmpty) {
-          final uri = medias.first.uri.toString();
-          if (uri.isNotEmpty) {
-            return wt.Video(uri, widget.selectedQuality ?? 'auto', uri);
-          }
-        }
-      } catch (_) {}
-      return null;
-    }
-
-    void _requestThumb(double fraction) {
-      final dur = widget.player.state.duration;
-      final v = _previewVideo;
-      if (v == null || dur <= Duration.zero) return;
-      _thumbPreview.request(
-        url: v.url,
-        headers: v.headers,
-        position: Duration(milliseconds: (fraction * dur.inMilliseconds).round()),
+  void _onHorizDragUpdate(DragUpdateDetails d, Size size) {
+    if (_horizDragStartX == null) return;
+    final dx = d.globalPosition.dx - _horizDragStartX!;
+    final dur = widget.player.state.duration.inSeconds;
+    if (dur <= 0) return;
+    // Vitesse adaptative : ~1/4 de la durée par swipe pleine largeur.
+    final secondsPerScreen = (widget.player.state.duration.inSeconds / 4).clamp(
+      20.0,
+      900.0,
+    );
+    _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
+    setState(() => _showSeekSwipeHUD = true);
+    // Vignette de la position cible (style YouTube)
+    final full = widget.player.state.duration;
+    final target = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+    if (full > Duration.zero) {
+      _requestThumb(
+        (target.inMilliseconds / full.inMilliseconds).clamp(0.0, 1.0),
       );
     }
+  }
 
-    Widget _buildSeekSwipeHUD() {
-      final pos = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+  void _onHorizDragEnd(DragEndDetails _) {
+    if (_horizDragStartX != null && _horizSeekDelta != 0) {
       final dur = widget.player.state.duration;
-      final clamped = pos < Duration.zero ? Duration.zero : (pos > dur ? dur : pos);
-      final sign = _horizSeekDelta >= 0 ? '+' : '';
-      // Pilule minimale centrée au-dessus de la barre de progression
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      final next = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+      final clamped = next < Duration.zero
+          ? Duration.zero
+          : (next > dur ? dur : next);
+      widget.player.seek(clamped);
+    }
+    _horizDragStartX = null;
+    _horizSeekDelta = 0;
+    setState(() => _showSeekSwipeHUD = false);
+    _thumbPreview.clearRequest();
+    _resetHideTimer();
+  }
+
+  String _fmtPos(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+
+  // ── Miniature preview (YouTube-style) : flux courant + position ─────
+  wt.Video? get _previewVideo {
+    final vids = widget.loadedVideos;
+    for (final v in vids) {
+      if (v.quality == widget.selectedQuality) return v;
+    }
+    if (vids.isNotEmpty) return vids.first;
+    // Fallback : flux en cours de lecture quand loadedVideos est vide
+    try {
+      final medias = widget.player.state.playlist.medias;
+      if (medias.isNotEmpty) {
+        final uri = medias.first.uri.toString();
+        if (uri.isNotEmpty) {
+          return wt.Video(uri, widget.selectedQuality ?? 'auto', uri);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  void _requestThumb(double fraction) {
+    final dur = widget.player.state.duration;
+    final v = _previewVideo;
+    if (v == null || dur <= Duration.zero) return;
+    _thumbPreview.request(
+      url: v.url,
+      headers: v.headers,
+      position: Duration(milliseconds: (fraction * dur.inMilliseconds).round()),
+    );
+  }
+
+  Widget _buildSeekSwipeHUD() {
+    final pos = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
+    final dur = widget.player.state.duration;
+    final clamped = pos < Duration.zero
+        ? Duration.zero
+        : (pos > dur ? dur : pos);
+    final sign = _horizSeekDelta >= 0 ? '+' : '';
+    // Pilule minimale centrée au-dessus de la barre de progression
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _horizSeekDelta >= 0 ? Broken.forward : Broken.backward,
+            color: Colors.white70,
+            size: 15,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$sign${_horizSeekDelta}s',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            _fmtPos(clamped),
+            style: const TextStyle(color: Colors.white60, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleSwipeDrag(DragUpdateDetails d, Size size) {
+    final startX = _dragStartPos?.dx ?? d.globalPosition.dx;
+    final dy = d.delta.dy;
+    final isLeft = startX < size.width / 2;
+    if (isLeft) {
+      final next = (_brightness - dy / size.height * 2.5).clamp(0.0, 1.0);
+      _brightness = next;
+      try {
+        ScreenBrightness().setApplicationScreenBrightness(next);
+      } catch (_) {}
+      _hudTimer?.cancel();
+      setState(() {
+        _showBrightnessHUD = true;
+        _showVolumeHUD = false;
+      });
+      _hudTimer = Timer(const Duration(milliseconds: 1200), () {
+        if (mounted) setState(() => _showBrightnessHUD = false);
+      });
+    } else {
+      // Volume — up to 200% (extra gain via player, hardware caps at 100%)
+      final next = (_volume - dy / size.height * 2.5).clamp(0.0, 2.0);
+      _volume = next;
+      try {
+        VolumeController.instance.setVolume(next.clamp(0.0, 1.0));
+      } catch (_) {}
+      widget.player.setVolume(next * 100);
+      _hudTimer?.cancel();
+      setState(() {
+        _showVolumeHUD = true;
+        _showBrightnessHUD = false;
+      });
+      _hudTimer = Timer(const Duration(milliseconds: 1200), () {
+        if (mounted) setState(() => _showVolumeHUD = false);
+      });
+    }
+  }
+
+  // ── Pilule Luminosité/Volume — horizontale, en haut au centre ────────────
+  Widget _buildTopMediaHud({required IconData icon, required double value}) {
+    final base = value.clamp(0.0, 1.0); // 0→100 % : remplissage blanc
+    final extra = (value - 1.0).clamp(0.0, 1.0); // >100 % : 2e couche jaune
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      builder: (_, t, child) => Opacity(opacity: t, child: child),
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_horizSeekDelta >= 0 ? Broken.forward : Broken.backward,
-                color: Colors.white70, size: 15),
-            const SizedBox(width: 6),
-            Text('$sign${_horizSeekDelta}s',
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+            Icon(
+              icon,
+              color: extra > 0 ? Colors.amber : Colors.white,
+              size: 18,
+            ),
             const SizedBox(width: 10),
-            Text(_fmtPos(clamped), style: const TextStyle(color: Colors.white60, fontSize: 13)),
-          ],
-        ),
-      );
-    }
-
-    void _handleSwipeDrag(DragUpdateDetails d, Size size) {
-      final startX = _dragStartPos?.dx ?? d.globalPosition.dx;
-      final dy     = d.delta.dy;
-      final isLeft = startX < size.width / 2;
-      if (isLeft) {
-        final next = (_brightness - dy / size.height * 2.5).clamp(0.0, 1.0);
-        _brightness = next;
-        try { ScreenBrightness().setScreenBrightness(next); } catch (_) {}
-        _hudTimer?.cancel();
-        setState(() { _showBrightnessHUD = true; _showVolumeHUD = false; });
-        _hudTimer = Timer(const Duration(milliseconds: 1200), () {
-          if (mounted) setState(() => _showBrightnessHUD = false);
-        });
-      } else {
-        // Volume — up to 200% (extra gain via player, hardware caps at 100%)
-        final next = (_volume - dy / size.height * 2.5).clamp(0.0, 2.0);
-        _volume = next;
-        try { VolumeController.instance.setVolume(next.clamp(0.0, 1.0)); } catch (_) {}
-        widget.player.setVolume(next * 100);
-        _hudTimer?.cancel();
-        setState(() { _showVolumeHUD = true; _showBrightnessHUD = false; });
-        _hudTimer = Timer(const Duration(milliseconds: 1200), () {
-          if (mounted) setState(() => _showVolumeHUD = false);
-        });
-      }
-    }
-
-    // ── Pilule Luminosité/Volume — horizontale, en haut au centre ────────────
-    Widget _buildTopMediaHud({required IconData icon, required double value}) {
-      final base  = value.clamp(0.0, 1.0);        // 0→100 % : remplissage blanc
-      final extra = (value - 1.0).clamp(0.0, 1.0); // >100 % : 2e couche jaune
-      return TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        builder: (_, t, child) => Opacity(opacity: t, child: child),
-        child: Container(
-          width: 200,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: extra > 0 ? Colors.amber : Colors.white, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: SizedBox(
-                    height: 5,
-                    child: Stack(children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: SizedBox(
+                  height: 5,
+                  child: Stack(
+                    children: [
                       Container(color: Colors.white24),
                       FractionallySizedBox(
                         widthFactor: base,
@@ -4217,266 +4777,309 @@ class _TrackTile extends StatelessWidget {
                           alignment: Alignment.centerLeft,
                           child: Container(color: Colors.amber),
                         ),
-                    ]),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text('${(value * 100).round()}%',
-                  style: TextStyle(
-                    color: extra > 0 ? Colors.amber : Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  )),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Skip HUD double-tap — "+15 ›" propre et animé (pas de demi-arc)
-    Widget _buildSkipHUD({required bool isRight, required int seconds}) {
-      final label = '${isRight ? '+' : '-'}${seconds.abs()}';
-      return TweenAnimationBuilder<double>(
-        key: ValueKey('fs_skip_${isRight}_$seconds'),
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        builder: (_, t, child) => Opacity(
-          opacity: t,
-          child: Transform.translate(
-            offset: Offset(isRight ? 16 * (1 - t) : -16 * (1 - t), 0),
-            child: Transform.scale(scale: 0.85 + 0.15 * t, child: child),
-          ),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(isRight ? Broken.forward : Broken.backward, color: Colors.white, size: 22),
-          ),
-        ]),
-      );
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      final size = MediaQuery.of(context).size;
-      final safeTop = MediaQuery.of(context).padding.top;
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onVerticalDragStart: (d) {
-          _dragStartPos = d.globalPosition;
-          _hideTimer?.cancel();
-        },
-        onVerticalDragUpdate: (d) => _handleSwipeDrag(d, size),
-        onVerticalDragEnd: (_) { _dragStartPos = null; if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer(); },
-        onHorizontalDragStart: _onHorizDragStart,
-        onHorizontalDragUpdate: (d) => _onHorizDragUpdate(d, size),
-        onHorizontalDragEnd: _onHorizDragEnd,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            IgnorePointer(
-              child: Video(
-                controller: widget.controller,
-                fit: BoxFit.contain,
-                controls: NoVideoControls,
-              ),
-            ),
-            // Bottom gradient
-            Positioned(
-              left: 0, right: 0, bottom: 0,
-              child: IgnorePointer(
-                child: Container(
-                  height: 80,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [Color(0xEE000000), Colors.transparent],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Loading / buffering overlay
-            Positioned.fill(
-              child: _PlayerStateOverlay(
-                player: widget.player,
-                seekingNotifier: widget.seekingNotifier,
-              ),
-            ),
-            // ── Left zone 30% — double-tap = seek -15, tap = toggle controls ──
-            Positioned(
-              left: 0, top: 0, bottom: 0,
-              width: size.width * 0.3,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onDoubleTap: () => _handleDoubleTap(isRight: false),
-                onTap: _onTap,
-              ),
-            ),
-            // ── Centre 40% — double-tap = pause/resume, tap = toggle controls ─
-            Positioned(
-              left: size.width * 0.3, top: 0, bottom: 0,
-              width: size.width * 0.4,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onDoubleTap: () {
-                  widget.player.playOrPause();
-                  _resetHideTimer();
-                },
-                onTap: _onTap,
-              ),
-            ),
-            // ── Right zone 30% — double-tap = seek +15, tap = toggle controls ─
-            Positioned(
-              right: 0, top: 0, bottom: 0,
-              width: size.width * 0.3,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onDoubleTap: () => _handleDoubleTap(isRight: true),
-                onTap: _onTap,
-              ),
-            ),
-            if (_showControls)
-              Positioned.fill(
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildPortraitSeekButton(isForward: false),
-                      const SizedBox(width: 36),
-                      _buildPortraitSeekButton(isForward: true),
                     ],
                   ),
                 ),
               ),
-            // ── Skip HUD double-tap — flèches latérales animées (style YouTube)
-            if (_showLeftSkipHUD)
-              Positioned(
-                left: 0, top: 0, bottom: 0,
-                width: size.width * 0.3,
-                child: IgnorePointer(
-                  child: Center(
-                    child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds),
-                  ),
-                ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '${(value * 100).round()}%',
+              style: TextStyle(
+                color: extra > 0 ? Colors.amber : Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
-            if (_showRightSkipHUD)
-              Positioned(
-                right: 0, top: 0, bottom: 0,
-                width: size.width * 0.3,
-                child: IgnorePointer(
-                  child: Center(
-                    child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
-                  ),
-                ),
-              ),
-            // ── Luminosité/Volume — pilule horizontale en HAUT au centre ─────
-            if (_showBrightnessHUD || _showVolumeHUD)
-              Positioned(
-                top: safeTop + 8, left: 0, right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: _showBrightnessHUD
-                        ? _buildTopMediaHud(icon: Broken.sun, value: _brightness)
-                        : _buildTopMediaHud(
-                            icon: _volume <= 0
-                                ? Broken.volume_slash
-                                : _volume < 0.5
-                                    ? Broken.volume_low
-                                    : Broken.volume_high,
-                            value: _volume),
-                  ),
-                ),
-              ),
-            // ── Seek swipe HUD — juste au-dessus de la barre de progression ──
-            if (_showSeekSwipeHUD)
-              Positioned(
-                bottom: 52, left: 0, right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Vignette position cible (style YouTube)
-                        ValueListenableBuilder<Uint8List?>(
-                          valueListenable: _thumbPreview.frame,
-                          builder: (_, frame, __) => frame == null
-                              ? const SizedBox.shrink()
-                              : Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: Colors.white24, width: 0.8),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(7),
-                                    child: Image.memory(
-                                      frame,
-                                      width: 160,
-                                      height: 90,
-                                      fit: BoxFit.cover,
-                                      gaplessPlayback: true,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                        _buildSeekSwipeHUD(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            // ── Icône Paramètres haut-droite (portrait only) ─────────────────
-            if (_showControls)
-              Positioned(
-                top: safeTop + 2,
-                right: 6,
-                child: IconButton(
-                  tooltip: 'Paramètres du lecteur',
-                  onPressed: () => _openPlayerSettings(context),
-                  icon: const Icon(
-                    Broken.setting_2,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            // ── Inline controls bas — visible quand _showControls ─────────────
-            if (_showControls)
-              Positioned(
-                left: 0, right: 0, bottom: 0,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {}, // absorb taps on controls area
-                  child: _InlineControls(
-                    player: widget.player,
-                    controller: widget.controller,
-                    accent: widget.accent,
-                    title: widget.title,
-                    seekingNotifier: widget.seekingNotifier,
-                    loadedVideos: widget.loadedVideos,
-                    onSwitchQuality: widget.onSwitchQuality,
-                    selectedQuality: widget.selectedQuality,
-                    onPrevEpisode: widget.onPrevEpisode,
-                    onNextEpisode: widget.onNextEpisode,
-                    chapters: widget.chapters,
-                    onEpisodeTap: widget.onEpisodeTap,
-                    fallbackCoverUrl: widget.coverUrl,
-                  ),
-                ),
-              ),
+            ),
           ],
         ),
-      );
-    }
+      ),
+    );
   }
 
-  
+  // Skip HUD double-tap — "+15 ›" propre et animé (pas de demi-arc)
+  Widget _buildSkipHUD({required bool isRight, required int seconds}) {
+    final label = '${isRight ? '+' : '-'}${seconds.abs()}';
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('fs_skip_${isRight}_$seconds'),
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(isRight ? 16 * (1 - t) : -16 * (1 - t), 0),
+          child: Transform.scale(scale: 0.85 + 0.15 * t, child: child),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              isRight ? Broken.forward : Broken.backward,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final safeTop = MediaQuery.of(context).padding.top;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragStart: (d) {
+        _dragStartPos = d.globalPosition;
+        _hideTimer?.cancel();
+      },
+      onVerticalDragUpdate: (d) => _handleSwipeDrag(d, size),
+      onVerticalDragEnd: (_) {
+        _dragStartPos = null;
+        if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer();
+      },
+      onHorizontalDragStart: _onHorizDragStart,
+      onHorizontalDragUpdate: (d) => _onHorizDragUpdate(d, size),
+      onHorizontalDragEnd: _onHorizDragEnd,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          IgnorePointer(
+            child: Video(
+              controller: widget.controller,
+              fit: BoxFit.contain,
+              controls: NoVideoControls,
+            ),
+          ),
+          // Bottom gradient
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: 80,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Color(0xEE000000), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Loading / buffering overlay
+          Positioned.fill(
+            child: _PlayerStateOverlay(
+              player: widget.player,
+              seekingNotifier: widget.seekingNotifier,
+            ),
+          ),
+          // ── Left zone 30% — double-tap = seek -15, tap = toggle controls ──
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: size.width * 0.3,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: () => _handleDoubleTap(isRight: false),
+              onTap: _onTap,
+            ),
+          ),
+          // ── Centre 40% — double-tap = pause/resume, tap = toggle controls ─
+          Positioned(
+            left: size.width * 0.3,
+            top: 0,
+            bottom: 0,
+            width: size.width * 0.4,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: () {
+                widget.player.playOrPause();
+                _resetHideTimer();
+              },
+              onTap: _onTap,
+            ),
+          ),
+          // ── Right zone 30% — double-tap = seek +15, tap = toggle controls ─
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: size.width * 0.3,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: () => _handleDoubleTap(isRight: true),
+              onTap: _onTap,
+            ),
+          ),
+          if (_showControls)
+            Positioned.fill(
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildPortraitSeekButton(isForward: false),
+                    const SizedBox(width: 36),
+                    _buildPortraitSeekButton(isForward: true),
+                  ],
+                ),
+              ),
+            ),
+          // ── Skip HUD double-tap — flèches latérales animées (style YouTube)
+          if (_showLeftSkipHUD)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: size.width * 0.3,
+              child: IgnorePointer(
+                child: Center(
+                  child: _buildSkipHUD(
+                    isRight: false,
+                    seconds: _skipHudSeconds,
+                  ),
+                ),
+              ),
+            ),
+          if (_showRightSkipHUD)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: size.width * 0.3,
+              child: IgnorePointer(
+                child: Center(
+                  child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
+                ),
+              ),
+            ),
+          // ── Luminosité/Volume — pilule horizontale en HAUT au centre ─────
+          if (_showBrightnessHUD || _showVolumeHUD)
+            Positioned(
+              top: safeTop + 8,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: _showBrightnessHUD
+                      ? _buildTopMediaHud(icon: Broken.sun, value: _brightness)
+                      : _buildTopMediaHud(
+                          icon: _volume <= 0
+                              ? Broken.volume_slash
+                              : _volume < 0.5
+                              ? Broken.volume_low
+                              : Broken.volume_high,
+                          value: _volume,
+                        ),
+                ),
+              ),
+            ),
+          // ── Seek swipe HUD — juste au-dessus de la barre de progression ──
+          if (_showSeekSwipeHUD)
+            Positioned(
+              bottom: 52,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Vignette position cible (style YouTube)
+                      ValueListenableBuilder<Uint8List?>(
+                        valueListenable: _thumbPreview.frame,
+                        builder: (_, frame, __) => frame == null
+                            ? const SizedBox.shrink()
+                            : Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.white24,
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(7),
+                                  child: Image.memory(
+                                    frame,
+                                    width: 160,
+                                    height: 90,
+                                    fit: BoxFit.cover,
+                                    gaplessPlayback: true,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      _buildSeekSwipeHUD(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          // ── Icône Paramètres haut-droite (portrait only) ─────────────────
+          if (_showControls)
+            Positioned(
+              top: safeTop + 2,
+              right: 6,
+              child: IconButton(
+                tooltip: 'Paramètres du lecteur',
+                onPressed: () => _openPlayerSettings(context),
+                icon: const Icon(
+                  Broken.setting_2,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          // ── Inline controls bas — visible quand _showControls ─────────────
+          if (_showControls)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {}, // absorb taps on controls area
+                child: _InlineControls(
+                  player: widget.player,
+                  controller: widget.controller,
+                  accent: widget.accent,
+                  title: widget.title,
+                  seekingNotifier: widget.seekingNotifier,
+                  loadedVideos: widget.loadedVideos,
+                  onSwitchQuality: widget.onSwitchQuality,
+                  selectedQuality: widget.selectedQuality,
+                  onPrevEpisode: widget.onPrevEpisode,
+                  onNextEpisode: widget.onNextEpisode,
+                  chapters: widget.chapters,
+                  onEpisodeTap: widget.onEpisodeTap,
+                  fallbackCoverUrl: widget.coverUrl,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InlineControls extends StatefulWidget {
   final Player player;
   final VideoController controller;
@@ -4627,12 +5230,9 @@ class _InlineControlsState extends State<_InlineControls> {
             builder: (_, snap) => GestureDetector(
               onTap: _p.playOrPause,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 6, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 child: Icon(
-                  (snap.data ?? false)
-                      ? Broken.pause
-                      : Broken.play,
+                  (snap.data ?? false) ? Broken.pause : Broken.play,
                   color: Colors.white,
                   size: 26,
                 ),
@@ -4649,15 +5249,18 @@ class _InlineControlsState extends State<_InlineControls> {
                 final pos = posSnap.data ?? Duration.zero;
                 final dur = _p.state.duration;
                 final progress = dur.inMilliseconds > 0
-                    ? (pos.inMilliseconds / dur.inMilliseconds)
-                        .clamp(0.0, 1.0)
+                    ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
                     : 0.0;
                 final bufFrac = dur.inMilliseconds > 0
-                    ? (_p.state.buffer.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
+                    ? (_p.state.buffer.inMilliseconds / dur.inMilliseconds)
+                          .clamp(0.0, 1.0)
                     : 0.0;
                 final displayValue = _dragActive ? _dragValue : progress;
                 final previewDur = dur.inMilliseconds > 0
-                    ? Duration(milliseconds: (displayValue * dur.inMilliseconds).round())
+                    ? Duration(
+                        milliseconds: (displayValue * dur.inMilliseconds)
+                            .round(),
+                      )
                     : Duration.zero;
                 return LayoutBuilder(
                   builder: (_, constraints) {
@@ -4670,9 +5273,11 @@ class _InlineControlsState extends State<_InlineControls> {
                           data: SliderTheme.of(context).copyWith(
                             trackHeight: 2.5,
                             thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 5),
+                              enabledThumbRadius: 5,
+                            ),
                             overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 11),
+                              overlayRadius: 11,
+                            ),
                             activeTrackColor: widget.accent,
                             inactiveTrackColor: Colors.white24,
                             secondaryActiveTrackColor: Colors.white54,
@@ -4683,7 +5288,10 @@ class _InlineControlsState extends State<_InlineControls> {
                             value: displayValue,
                             secondaryTrackValue: bufFrac,
                             onChangeStart: (v) {
-                              setState(() { _dragActive = true; _dragValue = v; });
+                              setState(() {
+                                _dragActive = true;
+                                _dragValue = v;
+                              });
                               widget.seekingNotifier.value = true;
                               _requestThumb(v);
                             },
@@ -4694,8 +5302,12 @@ class _InlineControlsState extends State<_InlineControls> {
                             onChangeEnd: (v) {
                               _thumbPreview.clearRequest();
                               if (dur.inMilliseconds > 0) {
-                                _p.seek(Duration(
-                                    milliseconds: (v * dur.inMilliseconds).round()));
+                                _p.seek(
+                                  Duration(
+                                    milliseconds: (v * dur.inMilliseconds)
+                                        .round(),
+                                  ),
+                                );
                               }
                               setState(() => _dragActive = false);
                               widget.seekingNotifier.value = false;
@@ -4704,8 +5316,13 @@ class _InlineControlsState extends State<_InlineControls> {
                         ),
                         if (_dragActive)
                           Positioned(
-                            left: (thumbX - 70)
-                                .clamp(0.0, (constraints.maxWidth - 150).clamp(0.0, double.infinity)),
+                            left: (thumbX - 70).clamp(
+                              0.0,
+                              (constraints.maxWidth - 150).clamp(
+                                0.0,
+                                double.infinity,
+                              ),
+                            ),
                             bottom: 34,
                             child: IgnorePointer(
                               child: ValueListenableBuilder<Uint8List?>(
@@ -4716,13 +5333,22 @@ class _InlineControlsState extends State<_InlineControls> {
                                   children: [
                                     if (frame != null)
                                       Container(
-                                        margin: const EdgeInsets.only(bottom: 6),
+                                        margin: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
                                         decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: Colors.white24, width: 0.8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.white24,
+                                            width: 0.8,
+                                          ),
                                         ),
                                         child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(7),
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
                                           child: Image.memory(
                                             frame,
                                             width: 140,
@@ -4734,15 +5360,24 @@ class _InlineControlsState extends State<_InlineControls> {
                                       ),
                                     Container(
                                       width: 56,
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.85),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.85,
+                                        ),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
                                         _fmt(previewDur),
                                         textAlign: TextAlign.center,
-                                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -4769,10 +5404,7 @@ class _InlineControlsState extends State<_InlineControls> {
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   '${_fmt(pos)}/${_fmt(dur)}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 10),
                 ),
               );
             },
@@ -4782,8 +5414,7 @@ class _InlineControlsState extends State<_InlineControls> {
           GestureDetector(
             onTap: _enterPiP,
             child: const Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 6),
               child: Icon(
                 Broken.screenmirroring,
                 color: Colors.white,
@@ -4796,13 +5427,8 @@ class _InlineControlsState extends State<_InlineControls> {
           GestureDetector(
             onTap: _openFullscreen,
             child: const Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-              child: Icon(
-                Broken.maximize,
-                color: Colors.white,
-                size: 22,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+              child: Icon(Broken.maximize, color: Colors.white, size: 22),
             ),
           ),
 
@@ -4853,16 +5479,16 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
     // finished state straight from the live PlayerState instead.
     if (widget.player.state.duration > Duration.zero) {
       _firstDuration = false;
-      _successShown  = true;
-      _bufStartPos   = widget.player.state.position;
-      _anim          = null;
+      _successShown = true;
+      _bufStartPos = widget.player.state.position;
+      _anim = null;
     }
 
     _durSub = widget.player.stream.duration.listen((dur) {
       if (!mounted) return;
       if (_firstDuration && dur > Duration.zero) {
         _firstDuration = false;
-        _successShown  = true;
+        _successShown = true;
         setState(() => _anim = 'success');
         Future.delayed(const Duration(milliseconds: 900), () {
           if (mounted && _anim == 'success') setState(() => _anim = null);
@@ -4883,7 +5509,8 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
             // already moving again (video playing).
             if (st.buffering &&
                 (anchor == null ||
-                    st.position <= anchor + const Duration(milliseconds: 250))) {
+                    st.position <=
+                        anchor + const Duration(milliseconds: 250))) {
               setState(() => _anim = 'loading');
             }
           });
@@ -4911,12 +5538,13 @@ class _PlayerStateOverlayState extends State<_PlayerStateOverlay> {
       final st = widget.player.state;
       final anchor = _bufStartPos;
       final playing = st.playing || pos > Duration.zero;
-      final resumed = !st.buffering ||
+      final resumed =
+          !st.buffering ||
           (anchor != null && pos > anchor + const Duration(milliseconds: 250));
       if (playing && resumed) {
         _bufDebounce?.cancel();
         _firstDuration = false;
-        _successShown  = true;
+        _successShown = true;
         setState(() => _anim = null);
       }
     });
@@ -4980,7 +5608,12 @@ class _MorePanel extends StatefulWidget {
   final Color accent;
   final bool loopOne, loopAll, mirrorMode, nightMode, abRepeatOn, audioOnly;
   final Duration? abStart, abEnd;
-  final ValueChanged<bool> onLoopOne, onLoopAll, onMirror, onNight, onAbRepeat, onAudioOnly;
+  final ValueChanged<bool> onLoopOne,
+      onLoopAll,
+      onMirror,
+      onNight,
+      onAbRepeat,
+      onAudioOnly;
   final VoidCallback onAbStartSet, onAbEndSet, onClose;
 
   const _MorePanel({
@@ -5022,18 +5655,27 @@ class _MorePanelState extends State<_MorePanel> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: active ? _kBlue.withValues(alpha: 0.16) : Colors.white.withValues(alpha: 0.06),
+          color: active
+              ? _kBlue.withValues(alpha: 0.16)
+              : Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: active ? _kBlue : Colors.white12, width: 1),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(label,
-                  style: TextStyle(color: active ? _kBlue : Colors.white, fontSize: 13)),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: active ? _kBlue : Colors.white,
+                  fontSize: 13,
+                ),
+              ),
             ),
             Icon(
-              active ? Broken.tick_circle : Icons.radio_button_unchecked_rounded,
+              active
+                  ? Broken.tick_circle
+                  : Icons.radio_button_unchecked_rounded,
               color: active ? _kBlue : Colors.white38,
               size: 18,
             ),
@@ -5046,15 +5688,19 @@ class _MorePanelState extends State<_MorePanel> {
   @override
   void initState() {
     super.initState();
-    ScreenBrightness.instance.current.then((v) { if (mounted) setState(() => _brightness = v); }).catchError((_) {});
+    ScreenBrightness.instance.application
+        .then((v) {
+          if (mounted) setState(() => _brightness = v);
+        })
+        .catchError((_) {});
   }
 
   @override
   Widget build(BuildContext context) {
     final safeArea = MediaQuery.of(context).padding;
-    final panelW   = MediaQuery.of(context).size.width * 0.58;
+    final panelW = MediaQuery.of(context).size.width * 0.58;
     final audioTracks = widget.player.state.tracks.audio;
-    final curAudio    = widget.player.state.track.audio;
+    final curAudio = widget.player.state.track.audio;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -5077,7 +5723,12 @@ class _MorePanelState extends State<_MorePanel> {
               width: panelW,
               height: double.infinity,
               color: const Color(0xEE1A1A1A),
-              padding: EdgeInsets.fromLTRB(14, safeArea.top + 10, 14, safeArea.bottom + 10),
+              padding: EdgeInsets.fromLTRB(
+                14,
+                safeArea.top + 10,
+                14,
+                safeArea.bottom + 10,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -5085,11 +5736,22 @@ class _MorePanelState extends State<_MorePanel> {
                     // Header
                     Row(
                       children: [
-                        const Text('Plus', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                        const Text(
+                          'Plus',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const Spacer(),
                         GestureDetector(
                           onTap: widget.onClose,
-                          child: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white54,
+                            size: 20,
+                          ),
                         ),
                       ],
                     ),
@@ -5097,27 +5759,65 @@ class _MorePanelState extends State<_MorePanel> {
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 14),
                     // Row 1: Audio tracks + Mirror + Night + Minuteur
-                    _toggleTile('Audio seul', widget.audioOnly, () => widget.onAudioOnly(!widget.audioOnly)),
-                    _toggleTile('Miroir', widget.mirrorMode, () => widget.onMirror(!widget.mirrorMode)),
-                    _toggleTile('Mode nuit', widget.nightMode, () => widget.onNight(!widget.nightMode)),
+                    _toggleTile(
+                      'Audio seul',
+                      widget.audioOnly,
+                      () => widget.onAudioOnly(!widget.audioOnly),
+                    ),
+                    _toggleTile(
+                      'Miroir',
+                      widget.mirrorMode,
+                      () => widget.onMirror(!widget.mirrorMode),
+                    ),
+                    _toggleTile(
+                      'Mode nuit',
+                      widget.nightMode,
+                      () => widget.onNight(!widget.nightMode),
+                    ),
                     const SizedBox(height: 14),
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // Loop section
-                    const Text('Boucle', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Boucle',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(child: _toggleTile('Épisode', widget.loopOne, () => widget.onLoopOne(!widget.loopOne))),
+                        Expanded(
+                          child: _toggleTile(
+                            'Épisode',
+                            widget.loopOne,
+                            () => widget.onLoopOne(!widget.loopOne),
+                          ),
+                        ),
                         const SizedBox(width: 8),
-                        Expanded(child: _toggleTile('Tout', widget.loopAll, () => widget.onLoopAll(!widget.loopAll))),
+                        Expanded(
+                          child: _toggleTile(
+                            'Tout',
+                            widget.loopAll,
+                            () => widget.onLoopAll(!widget.loopAll),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 14),
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // AB Repeat section
-                    const Text('AB Répétition', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'AB Répétition',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -5128,16 +5828,25 @@ class _MorePanelState extends State<_MorePanel> {
                               duration: const Duration(milliseconds: 120),
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: widget.abStart != null ? widget.accent.withValues(alpha: 0.2) : Colors.white10,
+                                color: widget.abStart != null
+                                    ? widget.accent.withValues(alpha: 0.2)
+                                    : Colors.white10,
                                 borderRadius: BorderRadius.circular(10),
-                                border: widget.abStart != null ? Border.all(color: widget.accent, width: 1) : null,
+                                border: widget.abStart != null
+                                    ? Border.all(color: widget.accent, width: 1)
+                                    : null,
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 widget.abStart != null
                                     ? 'A: ${_fmtDur(widget.abStart!)}'
                                     : 'Déf. A',
-                                style: TextStyle(color: widget.abStart != null ? widget.accent : Colors.white60, fontSize: 12),
+                                style: TextStyle(
+                                  color: widget.abStart != null
+                                      ? widget.accent
+                                      : Colors.white60,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -5150,16 +5859,25 @@ class _MorePanelState extends State<_MorePanel> {
                               duration: const Duration(milliseconds: 120),
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: widget.abEnd != null ? widget.accent.withValues(alpha: 0.2) : Colors.white10,
+                                color: widget.abEnd != null
+                                    ? widget.accent.withValues(alpha: 0.2)
+                                    : Colors.white10,
                                 borderRadius: BorderRadius.circular(10),
-                                border: widget.abEnd != null ? Border.all(color: widget.accent, width: 1) : null,
+                                border: widget.abEnd != null
+                                    ? Border.all(color: widget.accent, width: 1)
+                                    : null,
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 widget.abEnd != null
                                     ? 'B: ${_fmtDur(widget.abEnd!)}'
                                     : 'Déf. B',
-                                style: TextStyle(color: widget.abEnd != null ? widget.accent : Colors.white60, fontSize: 12),
+                                style: TextStyle(
+                                  color: widget.abEnd != null
+                                      ? widget.accent
+                                      : Colors.white60,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -5171,12 +5889,21 @@ class _MorePanelState extends State<_MorePanel> {
                             duration: const Duration(milliseconds: 120),
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: widget.abRepeatOn ? widget.accent.withValues(alpha: 0.2) : Colors.white10,
+                              color: widget.abRepeatOn
+                                  ? widget.accent.withValues(alpha: 0.2)
+                                  : Colors.white10,
                               borderRadius: BorderRadius.circular(10),
-                              border: widget.abRepeatOn ? Border.all(color: widget.accent, width: 1) : null,
+                              border: widget.abRepeatOn
+                                  ? Border.all(color: widget.accent, width: 1)
+                                  : null,
                             ),
-                            child: Icon(Broken.repeate_music,
-                                color: widget.abRepeatOn ? widget.accent : Colors.white60, size: 18),
+                            child: Icon(
+                              Broken.repeate_music,
+                              color: widget.abRepeatOn
+                                  ? widget.accent
+                                  : Colors.white60,
+                              size: 18,
+                            ),
                           ),
                         ),
                       ],
@@ -5185,28 +5912,55 @@ class _MorePanelState extends State<_MorePanel> {
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // Audio track
-                    const Text('Piste audio', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Piste audio',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     if (audioTracks.isEmpty)
-                      const Text('Aucune piste', style: TextStyle(color: Colors.white38, fontSize: 12))
+                      const Text(
+                        'Aucune piste',
+                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                      )
                     else
                       Wrap(
-                        spacing: 8, runSpacing: 8,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: audioTracks.asMap().entries.map((e) {
-                          final i = e.key; final t = e.value;
+                          final i = e.key;
+                          final t = e.value;
                           final sel = t.id == curAudio.id;
                           return GestureDetector(
-                            onTap: () { widget.player.setAudioTrack(t); setState(() {}); },
+                            onTap: () {
+                              widget.player.setAudioTrack(t);
+                              setState(() {});
+                            },
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 120),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: sel ? widget.accent.withValues(alpha: 0.2) : Colors.white10,
-                                borderRadius: BorderRadius.circular(20),
-                                border: sel ? Border.all(color: widget.accent) : null,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
                               ),
-                              child: Text(_audioTrackLabel(t, i),
-                                  style: TextStyle(color: sel ? widget.accent : Colors.white70, fontSize: 12)),
+                              decoration: BoxDecoration(
+                                color: sel
+                                    ? widget.accent.withValues(alpha: 0.2)
+                                    : Colors.white10,
+                                borderRadius: BorderRadius.circular(20),
+                                border: sel
+                                    ? Border.all(color: widget.accent)
+                                    : null,
+                              ),
+                              child: Text(
+                                _audioTrackLabel(t, i),
+                                style: TextStyle(
+                                  color: sel ? widget.accent : Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           );
                         }).toList(),
@@ -5215,7 +5969,14 @@ class _MorePanelState extends State<_MorePanel> {
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // Brightness slider
-                    const Text('Luminosité', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Luminosité',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -5223,12 +5984,15 @@ class _MorePanelState extends State<_MorePanel> {
                         Expanded(
                           child: Slider(
                             value: _brightness,
-                            min: 0.0, max: 1.0,
+                            min: 0.0,
+                            max: 1.0,
                             activeColor: widget.accent,
                             inactiveColor: Colors.white24,
                             onChanged: (v) {
                               setState(() => _brightness = v);
-                              ScreenBrightness.instance.setApplicationScreenBrightness(v).catchError((_) {});
+                              ScreenBrightness.instance
+                                  .setApplicationScreenBrightness(v)
+                                  .catchError((_) {});
                             },
                           ),
                         ),
@@ -5283,10 +6047,14 @@ class _EpisodePanelState extends State<_EpisodePanel> {
   static const _noSeasonSentinel = -999999;
 
   // S1E12 / S01E02 / Season 3 … → saison ; E12/Ep.12/Episode 12 → numéro.
-  static final _seasonRe =
-      RegExp(r'(?:[sS]|season\s*)(\d{1,2})', caseSensitive: false);
-  static final _epRe =
-      RegExp(r'(?:[eE]|[eE]p\.?|[eE]pisode\s*)(\d{1,4})', caseSensitive: false);
+  static final _seasonRe = RegExp(
+    r'(?:[sS]|season\s*)(\d{1,2})',
+    caseSensitive: false,
+  );
+  static final _epRe = RegExp(
+    r'(?:[eE]|[eE]p\.?|[eE]pisode\s*)(\d{1,4})',
+    caseSensitive: false,
+  );
 
   int? _seasonOf(Chapter ch) {
     final m = _seasonRe.firstMatch(ch.name ?? '');
@@ -5335,7 +6103,8 @@ class _EpisodePanelState extends State<_EpisodePanel> {
 
     // ── Auto-scroll vers l'épisode en cours ──
     final curRowIdx = rows.indexWhere(
-        (r) => r.chapter?.id == widget.currentChapterId);
+      (r) => r.chapter?.id == widget.currentChapterId,
+    );
     if (curRowIdx > 0 && !_didAutoScroll) {
       _didAutoScroll = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -5344,8 +6113,7 @@ class _EpisodePanelState extends State<_EpisodePanel> {
         for (var i = 0; i < curRowIdx; i++) {
           target += rows[i].chapter != null ? 86.0 : 40.0;
         }
-        _scroll.jumpTo(
-            target.clamp(0.0, _scroll.position.maxScrollExtent));
+        _scroll.jumpTo(target.clamp(0.0, _scroll.position.maxScrollExtent));
       });
     }
 
@@ -5363,7 +6131,9 @@ class _EpisodePanelState extends State<_EpisodePanel> {
             duration: const Duration(milliseconds: 240),
             curve: Curves.easeOutCubic,
             builder: (_, off, child) => Transform.translate(
-                offset: Offset(off.dx * panelW, 0), child: child),
+              offset: Offset(off.dx * panelW, 0),
+              child: child,
+            ),
             child: Container(
               width: panelW,
               height: double.infinity,
@@ -5375,16 +6145,22 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
                       children: [
-                        const Text('Épisodes',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600)),
+                        const Text(
+                          'Épisodes',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const Spacer(),
                         GestureDetector(
                           onTap: widget.onClose,
-                          child: const Icon(Icons.close_rounded,
-                              color: Colors.white54, size: 20),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white54,
+                            size: 20,
+                          ),
                         ),
                       ],
                     ),
@@ -5394,19 +6170,27 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                   Expanded(
                     child: rows.isEmpty
                         ? const Center(
-                            child: Text('Aucun épisode',
-                                style: TextStyle(color: Colors.white38)))
+                            child: Text(
+                              'Aucun épisode',
+                              style: TextStyle(color: Colors.white38),
+                            ),
+                          )
                         : ListView.builder(
                             controller: _scroll,
-                            padding:
-                                EdgeInsets.only(bottom: safeArea.bottom + 8),
+                            padding: EdgeInsets.only(
+                              bottom: safeArea.bottom + 8,
+                            ),
                             itemCount: rows.length,
                             itemBuilder: (_, i) {
                               final row = rows[i];
                               if (row.season != _noSeasonSentinel) {
                                 return Padding(
                                   padding: const EdgeInsets.fromLTRB(
-                                      14, 14, 14, 6),
+                                    14,
+                                    14,
+                                    14,
+                                    6,
+                                  ),
                                   child: Row(
                                     children: [
                                       Container(
@@ -5414,17 +6198,19 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                                         height: 14,
                                         decoration: BoxDecoration(
                                           color: widget.accent,
-                                          borderRadius:
-                                              BorderRadius.circular(2),
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
                                         'Saison ${row.season}',
                                         style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700),
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -5483,13 +6269,19 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                             fit: BoxFit.cover,
                             fadeInDuration: Duration.zero,
                             errorWidget: (_, __, ___) => const Center(
-                              child: Icon(Broken.video,
-                                  color: Colors.white24, size: 20),
+                              child: Icon(
+                                Broken.video,
+                                color: Colors.white24,
+                                size: 20,
+                              ),
                             ),
                           )
                         : const Center(
-                            child: Icon(Broken.video,
-                                color: Colors.white24, size: 20),
+                            child: Icon(
+                              Broken.video,
+                              color: Colors.white24,
+                              size: 20,
+                            ),
                           ),
                   ),
                 ),
@@ -5500,9 +6292,10 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                     child: Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                          color: widget.accent, shape: BoxShape.circle),
-                      child: Icon(Broken.play,
-                          color: Colors.black87, size: 10),
+                        color: widget.accent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Broken.play, color: Colors.black87, size: 10),
                     ),
                   ),
               ],
@@ -5520,8 +6313,7 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                     style: TextStyle(
                       color: isCur ? widget.accent : Colors.white,
                       fontSize: 13,
-                      fontWeight:
-                          isCur ? FontWeight.w700 : FontWeight.w600,
+                      fontWeight: isCur ? FontWeight.w700 : FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -5555,7 +6347,6 @@ class _EpisodePanelState extends State<_EpisodePanel> {
       ),
     );
   }
-
 }
 
 /// Une ligne du panneau : entête de saison ou épisode.
@@ -5563,7 +6354,7 @@ class _EpRow {
   final Chapter? chapter;
   final int season;
   _EpRow({this.chapter, int? season})
-      : season = season ?? _EpisodePanelState._noSeasonSentinel;
+    : season = season ?? _EpisodePanelState._noSeasonSentinel;
 }
 
 // ─── Auto Next Episode Card (Netflix-style) ────────────────────────────────────
@@ -5589,7 +6380,10 @@ class _NextEpCard extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (_, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(30 * (1 - t), 0), child: child),
+        child: Transform.translate(
+          offset: Offset(30 * (1 - t), 0),
+          child: child,
+        ),
       ),
       child: Container(
         width: 220,
@@ -5617,7 +6411,8 @@ class _NextEpCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 36, height: 36,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: accent, width: 2),
@@ -5625,7 +6420,11 @@ class _NextEpCard extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     '$countdown',
-                    style: TextStyle(color: accent, fontSize: 14, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -5636,14 +6435,21 @@ class _NextEpCard extends StatelessWidget {
                       GestureDetector(
                         onTap: onNow,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: accent,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
                             'Lire maintenant',
-                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -5723,9 +6529,12 @@ class _PlayerJumpingDotsState extends State<_PlayerJumpingDots>
         duration: const Duration(milliseconds: 500),
       );
       _ctrls.add(c);
-      _anims.add(Tween<double>(begin: 0, end: -9).animate(
-        CurvedAnimation(parent: c, curve: Curves.easeInOut),
-      ));
+      _anims.add(
+        Tween<double>(
+          begin: 0,
+          end: -9,
+        ).animate(CurvedAnimation(parent: c, curve: Curves.easeInOut)),
+      );
       Future.delayed(Duration(milliseconds: i * 140), () {
         if (mounted) c.repeat(reverse: true);
       });
@@ -5837,8 +6646,10 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
 
   void _onTap() {
     setState(() => _showControls = !_showControls);
-    if (_showControls) _resetHideTimer();
-    else _hideTimer?.cancel();
+    if (_showControls)
+      _resetHideTimer();
+    else
+      _hideTimer?.cancel();
   }
 
   List<Chapter> get _sorted {
@@ -5951,7 +6762,10 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
 
               // ── Bottom gradient for legibility ───────────────────────────────
               const Positioned(
-                left: 0, right: 0, bottom: 0, height: 260,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 260,
                 child: IgnorePointer(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -5976,7 +6790,10 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                       stream: _p.stream.playing,
                       initialData: _p.state.playing,
                       builder: (_, snap) => GestureDetector(
-                        onTap: () { _p.playOrPause(); _resetHideTimer(); },
+                        onTap: () {
+                          _p.playOrPause();
+                          _resetHideTimer();
+                        },
                         child: Container(
                           width: 48,
                           height: 48,
@@ -6014,11 +6831,19 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                 child: IgnorePointer(
                   ignoring: !_showControls,
                   child: Padding(
-                    padding: EdgeInsets.only(top: topPad + 4, left: 4, right: 12),
+                    padding: EdgeInsets.only(
+                      top: topPad + 4,
+                      left: 4,
+                      right: 12,
+                    ),
                     child: Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Broken.arrow_left, color: Colors.white, size: 20),
+                          icon: const Icon(
+                            Broken.arrow_left,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                         Expanded(
@@ -6030,7 +6855,9 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                               color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              shadows: [Shadow(blurRadius: 6, color: Colors.black87)],
+                              shadows: [
+                                Shadow(blurRadius: 6, color: Colors.black87),
+                              ],
                             ),
                           ),
                         ),
@@ -6054,7 +6881,9 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                     const SizedBox(height: 18),
                     _ReelActionButton(
                       icon: _bookmarked ? Broken.bookmark : Broken.bookmark_2,
-                      iconColor: _bookmarked ? const Color(0xFFFFC107) : Colors.white,
+                      iconColor: _bookmarked
+                          ? const Color(0xFFFFC107)
+                          : Colors.white,
                       label: '',
                       onTap: _toggleBookmark,
                     ),
@@ -6092,8 +6921,11 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                   borderRadius: BorderRadius.circular(4),
                                   child: Image.network(
                                     _current.thumbnailUrl!,
-                                    width: 34, height: 46, fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const SizedBox(width: 34, height: 46),
+                                    width: 34,
+                                    height: 46,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const SizedBox(width: 34, height: 46),
                                   ),
                                 ),
                               const SizedBox(width: 8),
@@ -6105,7 +6937,11 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                       widget.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                     if ((_current.description ?? '').isNotEmpty)
                                       Padding(
@@ -6114,7 +6950,10 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                           '${_current.name ?? ''} | ${_current.description}',
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                   ],
@@ -6129,7 +6968,10 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                           child: GestureDetector(
                             onTap: _openEpisodeSheet,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(20),
@@ -6137,14 +6979,26 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.layers_outlined, color: Colors.white, size: 14),
+                                  const Icon(
+                                    Icons.layers_outlined,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     '${_current.name ?? ''} / EP${_sorted.length.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Broken.arrow_up_3, color: Colors.white, size: 16),
+                                  const Icon(
+                                    Broken.arrow_up_3,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
                                 ],
                               ),
                             ),
@@ -6161,15 +7015,21 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                               final pos = snap.data ?? Duration.zero;
                               final dur = _p.state.duration;
                               final progress = dur.inMilliseconds > 0
-                                  ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
+                                  ? (pos.inMilliseconds / dur.inMilliseconds)
+                                        .clamp(0.0, 1.0)
                                   : 0.0;
                               return SliderTheme(
                                 data: SliderTheme.of(context).copyWith(
                                   trackHeight: 2.2,
-                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                                  activeTrackColor:
-                                      Theme.of(context).primaryColor,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 5,
+                                  ),
+                                  overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 10,
+                                  ),
+                                  activeTrackColor: Theme.of(
+                                    context,
+                                  ).primaryColor,
                                   inactiveTrackColor: Colors.white24,
                                   thumbColor: Colors.white,
                                   trackShape: const _LedSliderTrackShape(),
@@ -6178,7 +7038,12 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                   value: progress,
                                   onChanged: (v) {
                                     if (dur.inMilliseconds > 0) {
-                                      _p.seek(Duration(milliseconds: (v * dur.inMilliseconds).round()));
+                                      _p.seek(
+                                        Duration(
+                                          milliseconds: (v * dur.inMilliseconds)
+                                              .round(),
+                                        ),
+                                      );
                                     }
                                   },
                                 ),
@@ -6196,9 +7061,19 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Broken.speedometer, color: Colors.white70, size: 15),
+                                    const Icon(
+                                      Broken.speedometer,
+                                      color: Colors.white70,
+                                      size: 15,
+                                    ),
                                     const SizedBox(width: 4),
-                                    Text('${_speed}x', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                    Text(
+                                      '${_speed}x',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -6207,16 +7082,30 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                 onTap: _openQualitySheet,
                                 child: Text(
                                   _quality ?? 'Auto',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 16),
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
-                                  Icon(Broken.subtitle, color: Colors.white70, size: 15),
+                                  Icon(
+                                    Broken.subtitle,
+                                    color: Colors.white70,
+                                    size: 15,
+                                  ),
                                   SizedBox(width: 4),
-                                  Text('Langue', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                  Text(
+                                    'Langue',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
@@ -6258,10 +7147,22 @@ class _ReelActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: iconColor, size: 30, shadows: const [Shadow(blurRadius: 6, color: Colors.black54)]),
+            Icon(
+              icon,
+              color: iconColor,
+              size: 30,
+              shadows: const [Shadow(blurRadius: 6, color: Colors.black54)],
+            ),
             if (label.isNotEmpty) ...[
               const SizedBox(height: 3),
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, shadows: [Shadow(blurRadius: 4, color: Colors.black54)])),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                ),
+              ),
             ],
           ],
         ),
@@ -6286,7 +7187,9 @@ class _ReelEpisodeSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
         decoration: const BoxDecoration(
           color: Color(0xFF181818),
           borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
@@ -6296,16 +7199,26 @@ class _ReelEpisodeSheet extends StatelessWidget {
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: 10),
-              width: 36, height: 4,
-              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('EP01 / EP${episodes.length.toString().padLeft(2, '0')}',
-                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                  Text(
+                    'EP01 / EP${episodes.length.toString().padLeft(2, '0')}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -6313,7 +7226,10 @@ class _ReelEpisodeSheet extends StatelessWidget {
             Flexible(
               child: GridView.builder(
                 shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 5,
                   mainAxisSpacing: 10,
@@ -6329,7 +7245,9 @@ class _ReelEpisodeSheet extends StatelessWidget {
                     child: Container(
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: active ? const Color(0xFFFF5A36) : Colors.white.withValues(alpha: 0.08),
+                        color: active
+                            ? const Color(0xFFFF5A36)
+                            : Colors.white.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -6337,7 +7255,9 @@ class _ReelEpisodeSheet extends StatelessWidget {
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 13,
-                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: active
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
                     ),
@@ -6370,7 +7290,9 @@ class _ReelPickerSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.5,
+        ),
         decoration: const BoxDecoration(
           color: Color(0xFF181818),
           borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
@@ -6380,14 +7302,25 @@ class _ReelPickerSheet extends StatelessWidget {
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: 10),
-              width: 36, height: 4,
-              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
             Flexible(
@@ -6397,8 +7330,20 @@ class _ReelPickerSheet extends StatelessWidget {
                   final active = o == selected;
                   return ListTile(
                     onTap: () => onSelect(o),
-                    title: Text(o, style: TextStyle(color: active ? const Color(0xFFFF5A36) : Colors.white, fontWeight: active ? FontWeight.w700 : FontWeight.w400)),
-                    trailing: active ? const Icon(Icons.check, color: Color(0xFFFF5A36), size: 18) : null,
+                    title: Text(
+                      o,
+                      style: TextStyle(
+                        color: active ? const Color(0xFFFF5A36) : Colors.white,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                    ),
+                    trailing: active
+                        ? const Icon(
+                            Icons.check,
+                            color: Color(0xFFFF5A36),
+                            size: 18,
+                          )
+                        : null,
                   );
                 }).toList(),
               ),
@@ -6433,18 +7378,25 @@ class _SeekThumbPreview {
     _debounce = Timer(const Duration(milliseconds: 260), () async {
       try {
         final p = _player ??= Player(
-            configuration:
-                const PlayerConfiguration(bufferSize: 4 * 1024 * 1024));
+          configuration: const PlayerConfiguration(bufferSize: 4 * 1024 * 1024),
+        );
         if (_loadedUrl != url || !_ready) {
           _loadedUrl = url;
           _ready = false;
-          try { await p.setVolume(0.0); } catch (_) {}
-          try { await (p.platform as dynamic).setProperty('audio', 'no'); } catch (_) {}
+          try {
+            await p.setVolume(0.0);
+          } catch (_) {}
+          try {
+            await (p.platform as dynamic).setProperty('audio', 'no');
+          } catch (_) {}
           await p.open(Media(url, httpHeaders: headers), play: false);
           // Attend que le flux soit prêt (durée connue) avant de seeker.
           await p.stream.duration
               .firstWhere((d) => d > Duration.zero)
-              .timeout(const Duration(seconds: 10), onTimeout: () => Duration.zero);
+              .timeout(
+                const Duration(seconds: 10),
+                onTimeout: () => Duration.zero,
+              );
           _ready = true;
         }
         if (mySeq != _seq) return;
@@ -6468,7 +7420,9 @@ class _SeekThumbPreview {
   void dispose() {
     _seq++;
     _debounce?.cancel();
-    try { _player?.dispose(); } catch (_) {}
+    try {
+      _player?.dispose();
+    } catch (_) {}
     frame.dispose();
   }
 }

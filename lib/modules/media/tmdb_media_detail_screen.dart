@@ -46,9 +46,12 @@ class _TmdbMediaDetailScreenState extends State<TmdbMediaDetailScreen> {
       widget.heroTag.isEmpty ? tmdbHeroTag(widget.media) : widget.heroTag;
 
   Future<void> _shareMedia() {
-    return Share.share(
-      '${widget.media.displayTitle}\n'
-      'https://www.themoviedb.org/${widget.media.mediaType}/${widget.media.id}',
+    return SharePlus.instance.share(
+      ShareParams(
+        text:
+            '${widget.media.displayTitle}\n'
+            'https://www.themoviedb.org/${widget.media.mediaType}/${widget.media.id}',
+      ),
     );
   }
 
@@ -388,11 +391,16 @@ class _DetailContentState extends State<_DetailContent> {
                           height: 48,
                           child: OutlinedButton.icon(
                             onPressed: widget.onDownload,
-                            icon: const Icon(Broken.document_download, size: 19),
+                            icon: const Icon(
+                              Broken.document_download,
+                              size: 19,
+                            ),
                             label: const Text('Télécharger'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
-                              backgroundColor: Colors.white.withValues(alpha: .07),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: .07,
+                              ),
                               side: BorderSide(
                                 color: Colors.white.withValues(alpha: .18),
                               ),
@@ -416,7 +424,9 @@ class _DetailContentState extends State<_DetailContent> {
                                 : 'Ajouter à ma liste',
                             style: IconButton.styleFrom(
                               foregroundColor: Colors.white,
-                              backgroundColor: Colors.white.withValues(alpha: .10),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: .10,
+                              ),
                               side: BorderSide(
                                 color: Colors.white.withValues(alpha: .18),
                               ),
@@ -425,7 +435,9 @@ class _DetailContentState extends State<_DetailContent> {
                               ),
                             ),
                             icon: Icon(
-                              isFavorite ? Broken.tick_circle : Broken.add_circle,
+                              isFavorite
+                                  ? Broken.tick_circle
+                                  : Broken.add_circle,
                               size: 22,
                             ),
                           ),
