@@ -3641,6 +3641,12 @@ abstract class AppLocalizations {
   /// **'Calendar'**
   String get calendar;
 
+  /// No description provided for @schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Planning'**
+  String get schedule;
+
   /// No description provided for @calendar_no_data.
   ///
   /// In en, this message translates to:

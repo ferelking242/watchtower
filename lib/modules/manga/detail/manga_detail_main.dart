@@ -14,10 +14,32 @@ import 'package:watchtower/utils/log/logger.dart';
 
 class MangaReaderDetail extends ConsumerStatefulWidget {
   final int mangaId;
-  const MangaReaderDetail({super.key, required this.mangaId});
+  final int? resumeChapterId;
+  final Duration? resumePosition;
+
+  const MangaReaderDetail({
+    super.key,
+    required this.mangaId,
+    this.resumeChapterId,
+    this.resumePosition,
+  });
 
   @override
   ConsumerState<MangaReaderDetail> createState() => _MangaReaderDetailState();
+}
+
+/// Navigation payload for `/manga-reader/detail` when the caller also wants
+/// the watch player to resume a specific episode at a specific position.
+class MangaDetailArgs {
+  final int mangaId;
+  final int? resumeChapterId;
+  final Duration? resumePosition;
+
+  const MangaDetailArgs(
+    this.mangaId, {
+    this.resumeChapterId,
+    this.resumePosition,
+  });
 }
 
 class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
@@ -124,6 +146,8 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
                         manga: manga,
                         sourceExist: sourceExist,
                         isLoading: _isLoading,
+                        resumeChapterId: widget.resumeChapterId,
+                        resumePosition: widget.resumePosition,
                         checkForUpdate: (value) async {
                           if (!_isLoading) {
                             setState(() {

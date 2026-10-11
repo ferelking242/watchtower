@@ -318,9 +318,21 @@ class RouterNotifier extends ChangeNotifier {
             : NovelHomeScreen(source: source, isLatest: id.$2);
       },
     ),
-    _genericRoute<int>(
+    GoRoute(
       path: "/manga-reader/detail",
-      builder: (id) => MangaReaderDetail(mangaId: id),
+      name: "mangaReaderDetail",
+      builder: (context, state) {
+        final extra = state.extra;
+        if (extra is MangaDetailArgs) {
+          return MangaReaderDetail(
+            mangaId: extra.mangaId,
+            resumeChapterId: extra.resumeChapterId,
+            resumePosition: extra.resumePosition,
+          );
+        }
+        if (extra is int) return MangaReaderDetail(mangaId: extra);
+        return const SizedBox.shrink();
+      },
     ),
     _genericRoute<int>(
       name: "mangaReaderView",

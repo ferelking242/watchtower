@@ -725,6 +725,7 @@
   "subtitle_delay": "Delay (ms)",
   "subtitle_speed": "Speed",
   "calendar": "Calendar",
+  "schedule": "Planning",
   "calendar_no_data": "No data yet.",
   "calendar_info": "The calendar is only able to predict the next chapter upload based on the older uploads. Some data might not be 100% accurate!",
   "in_n_day": "in {days} day",

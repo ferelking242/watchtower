@@ -1957,6 +1957,9 @@ class AppLocalizationsHi extends AppLocalizations {
   String get calendar => 'कैलेंडर';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'अभी तक कोई डेटा नहीं।';
 
   @override

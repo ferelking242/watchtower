@@ -74,12 +74,20 @@ class WatchDetailView extends ConsumerStatefulWidget {
   final Function(bool) checkForUpdate;
   final bool isLoading;
 
+  /// When opened from History, the episode to load and the position to
+  /// resume from. When [resumeChapterId] is set the inline player loads that
+  /// episode instead of the first one, and seeks to [resumePosition].
+  final int? resumeChapterId;
+  final Duration? resumePosition;
+
   const WatchDetailView({
     super.key,
     required this.manga,
     required this.sourceExist,
     required this.checkForUpdate,
     this.isLoading = false,
+    this.resumeChapterId,
+    this.resumePosition,
   });
 
   @override
@@ -172,6 +180,23 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     // Only auto-load E01 the very first time (loadedChapterId == null).
     // Never override a chapter the user has explicitly chosen.
     if (_player.loadedChapterId != null) return;
+
+    // Opened from History → resume the exact episode at the saved position.
+    if (widget.resumeChapterId != null) {
+      final target = chapters.firstWhere(
+        (c) => c.id == widget.resumeChapterId,
+        orElse: () => chapters.first,
+      );
+      _player.loadedChapterId = target.id;
+      _player.startPosition = widget.resumePosition;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await _player.load(ref: ref, chapter: target);
+        if (mounted) setState(() {});
+      });
+      return;
+    }
+
     _player.loadedChapterId = chapters.first.id;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;

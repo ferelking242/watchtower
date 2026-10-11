@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
@@ -68,22 +69,25 @@ abstract class BaseLibraryTabScreenState<T extends ConsumerStatefulWidget>
             : Text(title, style: TextStyle(color: Theme.of(context).hintColor)),
         actions: [
           isSearch
-              ? SeachFormTextField(
-                  controller: textEditingController,
-                  onChanged: (_) => setState(() {}),
-                  onSuffixPressed: () {
-                    textEditingController.clear();
-                    setState(() {});
-                  },
-                  onPressed: () {
-                    setState(() => isSearch = false);
-                    textEditingController.clear();
-                  },
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: SeachFormTextField(
+                    controller: textEditingController,
+                    onChanged: (_) => setState(() {}),
+                    onSuffixPressed: () {
+                      textEditingController.clear();
+                      setState(() {});
+                    },
+                    onPressed: () {
+                      setState(() => isSearch = false);
+                      textEditingController.clear();
+                    },
+                  ),
                 )
               : IconButton(
                   splashRadius: 20,
                   onPressed: () => setState(() => isSearch = true),
-                  icon: Icon(Icons.search, color: Theme.of(context).hintColor),
+                  icon: const Icon(Broken.search_normal_1),
                 ),
           ...buildExtraActions(context),
         ],

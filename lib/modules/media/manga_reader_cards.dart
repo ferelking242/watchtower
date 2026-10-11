@@ -1298,22 +1298,26 @@ class MangaChapterNavigationCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              vertical: 12,
-              horizontal: 16,
-            ),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: .16),
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: accent.withValues(alpha: .5)),
-            ),
-            child: Text(
-              currentLabel,
-              style: TextStyle(
-                color: accent,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w900,
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 16,
+              ),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .16),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: accent.withValues(alpha: .5)),
+              ),
+              child: Text(
+                currentLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ),

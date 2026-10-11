@@ -1927,6 +1927,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get calendar => 'カレンダー';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'まだデータがありません。';
 
   @override

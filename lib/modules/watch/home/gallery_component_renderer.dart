@@ -4,6 +4,7 @@ import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/catalogue_cards.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/episode_cards.dart';
@@ -209,7 +210,10 @@ class GalleryComponentRenderer {
       GalleryComponentFamily.grid ||
       GalleryComponentFamily.swipe ||
       GalleryComponentFamily.ranked ||
-      GalleryComponentFamily.landscape => true,
+      GalleryComponentFamily.landscape ||
+      GalleryComponentFamily.genreGrid ||
+      GalleryComponentFamily.providersRail ||
+      GalleryComponentFamily.mangaListTile => true,
       _ => false,
     };
   }
@@ -431,72 +435,94 @@ class GalleryComponentRenderer {
         return TopMoviesCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'top-series':
         return TopSeriesCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'top-anime':
         return TopAnimeCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'top-by-genre':
         return TopByGenreCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'top-by-country':
         return TopByCountryCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'global-ranking':
         return GlobalRankingCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'top-rated-ranking':
         return TopRatedRankingCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'trending-ranking':
         return TrendingRankingCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'top-by-decade':
         return TopByDecadeCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
       case 'must-watch':
         return MustWatchCard(
           items: _rank(items),
           width: w ?? 430,
+          title: ctx.text('title'),
+          subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
         );
 
       // ── Collection rails ──
       case 'similar-media':
         return SimilarMediaCard(items: _entries(ctx, items), width: w ?? 430);
+      case 'trending':
       case 'trending-card':
         return TrendingCard(
           items: _entries(ctx, items),
           width: w ?? 430,
           onSeeAll: seeAll,
         );
+      case 'popular':
       case 'popular-card':
         return PopularCard(
           items: _entries(ctx, items),
@@ -925,6 +951,8 @@ class GalleryComponentRenderer {
       case 'manga-ranking':
         return manga_home.MangaRankingCard(
           items: items,
+          title: ctx.text('rankLabel') ?? ctx.text('title'),
+          initialPeriod: _rankingPeriod(ctx),
           onOpen: (index) => ctx.onOpen(index),
         );
       case 'manga-trending-list':
@@ -970,8 +998,60 @@ class GalleryComponentRenderer {
           scrollDirection: ctx.text('scrollDirection'),
           onSeeAll: seeAll,
         );
+
+      // ── Whole-section rails that own their heading ──
+      case 'genre-grid-section':
+        return _withHeader(
+          ctx,
+          GenreTileGrid(tiles: _genreGridTiles(ctx, items)),
+        );
+      case 'watch-providers-rail':
+        return ProviderRail(
+          title: title,
+          providers: _providerTiles(ctx, items),
+          onSeeAll: seeAll,
+        );
+
+      // ── Manga catalogue list (vertical, like search results) ──
+      case 'manga-list-tile':
+        return _withHeader(
+          ctx,
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 6),
+                  MediaListTile(
+                    item: items[i],
+                    subtitle: items[i].badge,
+                    onTap: () => ctx.onOpen(i),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
     }
     return null;
+  }
+
+  static Widget _withHeader(GalleryComponentContext ctx, Widget child) {
+    final title = ctx.header;
+    if (title == null || title.trim().isEmpty) return child;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: title,
+          actionLabel: ctx.onSeeAll == null ? null : 'Tout voir',
+          onAction: ctx.onSeeAll,
+        ),
+        child,
+      ],
+    );
   }
 
   // ── Per-item cards ───────────────────────────────────────────────────────
@@ -1552,6 +1632,9 @@ class GalleryComponentRenderer {
       case GalleryComponentFamily.grid:
       case GalleryComponentFamily.posterRail:
       case GalleryComponentFamily.swipe:
+      case GalleryComponentFamily.genreGrid:
+      case GalleryComponentFamily.providersRail:
+      case GalleryComponentFamily.mangaListTile:
         return PosterCard(item: item, width: w ?? 120, onTap: onTap);
     }
   }
@@ -1853,6 +1936,64 @@ class GalleryComponentRenderer {
       ),
   ];
 
+  /// Genre tiles for the hub genre grid. Genres come from the comma-separated
+  /// `genres` param when present, otherwise from the loaded items.
+  static List<GenreTileData> _genreGridTiles(
+    GalleryComponentContext ctx,
+    List<ContentItem> items,
+  ) {
+    final labels = _labels(ctx, items);
+    return [
+      for (final label in labels)
+        GenreTileData(
+          label: label,
+          imageUrl: items.isEmpty ? null : items.first.posterUrl,
+          onTap: () => ctx.onOpen(0),
+        ),
+    ];
+  }
+
+  static List<ProviderTileData> _providerTiles(
+    GalleryComponentContext ctx,
+    List<ContentItem> items,
+  ) {
+    final labels = _labels(ctx, items);
+    return [
+      for (var i = 0; i < labels.length; i++)
+        ProviderTileData(
+          label: labels[i],
+          imageUrl: items.length > i ? items[i].posterUrl : null,
+          onTap: () => ctx.onOpen(i),
+        ),
+    ];
+  }
+
+  /// Maps the `period` param (daily/weekly/monthly) to the segmented-control
+  /// index used by [MangaRankingCard].
+  static int _rankingPeriod(GalleryComponentContext ctx) =>
+      switch (ctx.text('period')?.toLowerCase()) {
+        'daily' => 0,
+        'monthly' => 2,
+        _ => 1,
+      };
+
+  static List<String> _labels(
+    GalleryComponentContext ctx,
+    List<ContentItem> items,
+  ) {
+    final raw = ctx.text('genres');
+    final provided = raw
+        ?.split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+    if (provided != null && provided.isNotEmpty) return provided;
+    return [
+      for (final item in items)
+        if (item.title.trim().isNotEmpty) item.title.trim(),
+    ];
+  }
+
   static List<MangaRankEntry> _rankEntries(List<ContentItem> items) => [
     for (var i = 0; i < items.length; i++)
       MangaRankEntry(
@@ -2077,12 +2218,7 @@ class GalleryComponentRenderer {
     for (final item in items) {
       final code = item.countryCode?.trim().toUpperCase();
       if (code == null || code.length != 2 || !seen.add(code)) continue;
-      chips.add(
-        HomeCountryChip(
-          label: countryNames[code] ?? code,
-          code: code,
-        ),
-      );
+      chips.add(HomeCountryChip(label: countryNames[code] ?? code, code: code));
     }
     return chips;
   }

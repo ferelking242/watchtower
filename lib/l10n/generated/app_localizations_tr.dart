@@ -1962,6 +1962,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get calendar => 'Takvim';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'Henüz veri yok.';
 
   @override

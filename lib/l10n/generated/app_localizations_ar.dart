@@ -1965,6 +1965,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get calendar => 'التقويم';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'لا توجد بيانات حتى الآن.';
 
   @override

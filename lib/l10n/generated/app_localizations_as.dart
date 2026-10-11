@@ -1958,6 +1958,9 @@ class AppLocalizationsAs extends AppLocalizations {
   String get calendar => 'কেলেণ্ডাৰ';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'এতিয়াও কোনো ডাটা নাই।';
 
   @override

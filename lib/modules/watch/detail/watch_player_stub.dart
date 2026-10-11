@@ -16,6 +16,7 @@ class WatchInlinePlayer {
   String title = '';
   List<Video> loadedVideos = [];
   String? selectedQuality;
+  Duration? startPosition;
 
   // Navigation callbacks — no-op on web
   // ignore: avoid_setters_without_getters

@@ -1976,6 +1976,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get calendar => 'Calendário';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'Ainda não há dados.';
 
   @override

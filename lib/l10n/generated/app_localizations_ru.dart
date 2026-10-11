@@ -1990,6 +1990,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get calendar => 'Календарь';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'Пока нет данных.';
 
   @override

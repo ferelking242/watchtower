@@ -245,10 +245,7 @@ class _AppCrossfadeCarouselState extends State<AppCrossfadeCarousel> {
                 right: 18,
                 bottom: 16,
                 child: IgnorePointer(
-                  child: _CarouselDots(
-                    count: widget.itemCount,
-                    index: _index,
-                  ),
+                  child: _CarouselDots(count: widget.itemCount, index: _index),
                 ),
               ),
           ],
@@ -427,11 +424,7 @@ class AppSectionHeader extends StatelessWidget {
 /// Wrap it inside a [Stack] that is allowed to paint outside its bounds
 /// (e.g. the hero of a feed) — the widget itself only draws the ring + icon.
 class AppHeroPlayButton extends StatelessWidget {
-  const AppHeroPlayButton({
-    required this.onTap,
-    this.size = 62,
-    super.key,
-  });
+  const AppHeroPlayButton({required this.onTap, this.size = 62, super.key});
 
   final VoidCallback onTap;
   final double size;
@@ -495,7 +488,9 @@ class AppHeroNotch extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(painter: _NotchPainter(bg: backgroundColor, ring: ringColor)),
+      child: CustomPaint(
+        painter: _NotchPainter(bg: backgroundColor, ring: ringColor),
+      ),
     );
   }
 }
@@ -575,12 +570,16 @@ class AppGenreTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.imageUrl,
+    this.icon,
     super.key,
   });
 
   final String label;
   final VoidCallback onTap;
   final String? imageUrl;
+
+  /// Leading icon shown with the label (e.g. a provider logo).
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -628,6 +627,17 @@ class AppGenreTile extends StatelessWidget {
               bottom: 10,
               child: Row(
                 children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      size: 16,
+                      color: Colors.white,
+                      shadows: const [
+                        Shadow(color: Colors.black, blurRadius: 6),
+                      ],
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   Expanded(
                     child: Text(
                       label,
@@ -1426,9 +1436,7 @@ class _TvPressableState extends State<TvPressable> {
                 foregroundDecoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(widget.borderRadius),
                   border: Border.all(
-                    color: focused
-                        ? accent
-                        : Colors.transparent,
+                    color: focused ? accent : Colors.transparent,
                     width: 2.5,
                   ),
                   boxShadow: focused

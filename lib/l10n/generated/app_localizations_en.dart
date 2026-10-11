@@ -1953,6 +1953,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get calendar => 'Calendar';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'No data yet.';
 
   @override

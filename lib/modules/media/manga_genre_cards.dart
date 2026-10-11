@@ -751,12 +751,16 @@ class MangaTagsCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                         ],
-                        Text(
-                          tag.label,
-                          style: TextStyle(
-                            color: tag.color ?? accent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
+                        Flexible(
+                          child: Text(
+                            tag.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: tag.color ?? accent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ],

@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/models/gallery_component_palette.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/modules/media/catalogue_cards.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/media_content_sections.dart';
 import 'package:watchtower/modules/media/episode_cards.dart';
 import 'package:watchtower/modules/media/home_hero_cards.dart';
 import 'package:watchtower/modules/media/manga_chapter_cards.dart';
 import 'package:watchtower/modules/media/manga_volume_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
+import 'package:watchtower/modules/media/ranking_cards.dart';
 import 'package:watchtower/modules/media/streaming_cards.dart';
 import 'package:watchtower/modules/watch/home/gallery_component_renderer.dart';
+import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
+import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart'
+    as manga_home;
 
 const _items = [
   ContentItem(key: 'a', title: 'Alpha', badge: 'Série', rating: 8.1),
@@ -20,11 +29,8 @@ const _items = [
   ContentItem(key: 'c', title: 'Gamma'),
 ];
 
-GalleryComponentContext _ctx(String id) => GalleryComponentContext(
-  componentId: id,
-  items: _items,
-  onOpen: (_) {},
-);
+GalleryComponentContext _ctx(String id) =>
+    GalleryComponentContext(componentId: id, items: _items, onOpen: (_) {});
 
 Widget _app(Widget child) => MaterialApp(
   home: Scaffold(body: SingleChildScrollView(child: child)),
@@ -113,7 +119,9 @@ void main() {
     };
 
     for (final entry in families.entries) {
-      await tester.pumpWidget(_app(GalleryComponentRenderer.rail(_ctx(entry.key))));
+      await tester.pumpWidget(
+        _app(GalleryComponentRenderer.rail(_ctx(entry.key))),
+      );
       await tester.pump();
       expect(
         find.byType(entry.value),
@@ -135,21 +143,25 @@ void main() {
     expect(find.byType(MangaChapterCard), findsNWidgets(2));
   });
 
-  testWidgets('poster card keeps compact mode as a parameter on the shared card', (
-    tester,
-  ) async {
-    final ctx = GalleryComponentContext(
-      componentId: 'poster',
-      items: [_items.first],
-      params: const {'compact': true},
-      onOpen: (_) {},
-    );
-    await tester.pumpWidget(_app(GalleryComponentRenderer.rail(ctx)));
-    await tester.pump();
+  testWidgets(
+    'poster card keeps compact mode as a parameter on the shared card',
+    (tester) async {
+      final ctx = GalleryComponentContext(
+        componentId: 'poster',
+        items: [_items.first],
+        params: const {'compact': true},
+        onOpen: (_) {},
+      );
+      await tester.pumpWidget(_app(GalleryComponentRenderer.rail(ctx)));
+      await tester.pump();
 
-    expect(find.byType(PosterCard), findsOneWidget);
-    expect(tester.widget<PosterCard>(find.byType(PosterCard)).compact, isTrue);
-  });
+      expect(find.byType(PosterCard), findsOneWidget);
+      expect(
+        tester.widget<PosterCard>(find.byType(PosterCard)).compact,
+        isTrue,
+      );
+    },
+  );
 
   testWidgets('expanded movie selection uses the working auto-toggle card', (
     tester,
@@ -178,11 +190,7 @@ void main() {
       _app(
         const HomeLanguageGridCard(
           chips: [
-            HomeCountryChip(
-              label: 'Japon',
-              code: 'JP',
-              backgroundUrl: '',
-            ),
+            HomeCountryChip(label: 'Japon', code: 'JP', backgroundUrl: ''),
           ],
         ),
       ),
@@ -250,9 +258,169 @@ void main() {
     });
     expect(section.params['items'], 5);
     expect(section.params['subtitle'], 'Nouveaux');
+    expect((section.toLegacyMap()['params'] as Map)['items'], 5);
+  });
+
+  test('every catalog component exposes a gallery family', () {
+    // A gallery-backed definition always carries a `galleryFamily`, which is
+    // what lets the production home screen delegate to the shared gallery
+    // renderer instead of maintaining a divergent implementation.
+    final missing = <String>[];
+    for (final descriptor in GalleryComponentCatalog.descriptors) {
+      final definition = LayoutComponentRegistry.resolve(descriptor.id);
+      if (definition?.galleryFamily == null) {
+        missing.add(descriptor.id);
+      }
+    }
     expect(
-      (section.toLegacyMap()['params'] as Map)['items'],
-      5,
+      missing,
+      isEmpty,
+      reason:
+          'these catalog components would not render in production: '
+          '$missing',
     );
   });
+
+  testWidgets('production extension preview matches the gallery renderer', (
+    tester,
+  ) async {
+    final source = Source(name: 'Test', itemType: ItemType.manga);
+    final items = [
+      MManga(name: 'Alpha', imageUrl: 'https://example.test/a.jpg'),
+      MManga(name: 'Beta', imageUrl: 'https://example.test/b.jpg'),
+    ];
+
+    // The extension preview must delegate to the shared gallery renderer for
+    // every gallery-backed component instead of maintaining its own visuals.
+    Future<void> check(String component, Type expected) async {
+      await tester.pumpWidget(
+        _app(
+          ExtensionLayoutPreview(
+            title: 'Section',
+            component: component,
+            source: source,
+            items: items,
+            onOpen: (_) {},
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        find.byType(expected),
+        findsWidgets,
+        reason: '$component should render through $expected',
+      );
+      expect(tester.takeException(), isNull);
+    }
+
+    await check('media-grid', MediaGridSection);
+    await check('manga-featured', manga_home.MangaFeaturedCard);
+    await check('manga-chapter', MangaChapterCard);
+  });
+
+  testWidgets('ranking cards accept per-component title and subtitle', (
+    tester,
+  ) async {
+    final ctx = GalleryComponentContext(
+      componentId: 'top-movies',
+      items: _items,
+      params: const {'title': 'Mon top', 'subtitle': 'Cette semaine'},
+      onOpen: (_) {},
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.section(ctx)));
+    await tester.pumpAndSettle(const Duration(milliseconds: 20));
+
+    final card = tester.widget<TopMoviesCard>(find.byType(TopMoviesCard));
+    expect(card.title, 'Mon top');
+    expect(card.subtitle, 'Cette semaine');
+  });
+
+  testWidgets('genre grid and provider rail use the genres parameter', (
+    tester,
+  ) async {
+    final ctx = GalleryComponentContext(
+      componentId: 'genre-grid-section',
+      items: _items,
+      params: const {'genres': 'Action, Comédie', 'title': 'Genres'},
+      onOpen: (_) {},
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.section(ctx)));
+    await tester.pumpAndSettle(const Duration(milliseconds: 20));
+
+    expect(find.text('Genres'), findsOneWidget);
+    expect(find.text('Action'), findsOneWidget);
+    expect(find.text('Comédie'), findsOneWidget);
+  });
+
+  testWidgets('manga ranking card reads its period parameter', (tester) async {
+    final ctx = GalleryComponentContext(
+      componentId: 'manga-ranking',
+      items: _items,
+      params: const {'period': 'monthly', 'rankLabel': 'Mon classement'},
+      onOpen: (_) {},
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.section(ctx)));
+    await tester.pumpAndSettle(const Duration(milliseconds: 20));
+
+    final card = tester.widget<manga_home.MangaRankingCard>(
+      find.byType(manga_home.MangaRankingCard),
+    );
+    expect(card.title, 'Mon classement');
+    expect(card.initialPeriod, 2);
+  });
+
+  testWidgets('production path has no overflow on phone and desktop', (
+    tester,
+  ) async {
+    final source = Source(name: 'Test', itemType: ItemType.manga);
+    final items = List.generate(
+      12,
+      (i) => MManga(
+        name: 'Titre $i assez long pour tester la troncature des cartes',
+        link: 'https://example.com/$i',
+        imageUrl: 'https://example.com/$i.jpg',
+        description: 'Description $i',
+        status: Status.ongoing,
+      ),
+    );
+    final failures = <String>[];
+    final original = FlutterError.onError;
+
+    for (final size in const [Size(360, 740), Size(1280, 900)]) {
+      await tester.binding.setSurfaceSize(size);
+      for (final descriptor in GalleryComponentCatalog.descriptors) {
+        final errors = <String>[];
+        FlutterError.onError = (details) =>
+            errors.add(details.exceptionAsString());
+        try {
+          await tester.pumpWidget(
+            _app(
+              ExtensionLayoutPreview(
+                title: descriptor.label,
+                component: descriptor.id,
+                source: source,
+                items: items,
+                onOpen: (_) {},
+                onSeeAll: () {},
+                params: const {'items': 6},
+              ),
+            ),
+          );
+          for (var i = 0; i < 4; i++) {
+            await tester.pump(const Duration(milliseconds: 60));
+          }
+        } finally {
+          FlutterError.onError = original;
+        }
+        if (errors.isNotEmpty) {
+          failures.add(
+            '${descriptor.id} @${size.width.toInt()}px: ${errors.first}',
+          );
+        }
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+    expect(failures, isEmpty, reason: failures.join('\n'));
+  }, timeout: const Timeout(Duration(minutes: 6)));
 }

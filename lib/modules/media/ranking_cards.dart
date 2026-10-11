@@ -51,7 +51,15 @@ class TopMoviesCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -62,9 +70,9 @@ class TopMoviesCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 Films du moment',
-      subtitle: 'Les films les plus populaires en ce moment.',
-      icon: Icons.whatshot_rounded,
+      title: title ?? 'Top 10 Films du moment',
+      subtitle: subtitle ?? 'Les films les plus populaires en ce moment.',
+      icon: icon ?? Icons.whatshot_rounded,
       onSeeAll: onSeeAll,
     );
   }
@@ -78,7 +86,15 @@ class TopSeriesCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -89,9 +105,9 @@ class TopSeriesCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 Séries du moment',
-      subtitle: 'Les séries les plus regardées et appréciées.',
-      icon: Icons.tv_rounded,
+      title: title ?? 'Top 10 Séries du moment',
+      subtitle: subtitle ?? 'Les séries les plus regardées et appréciées.',
+      icon: icon ?? Icons.tv_rounded,
       onSeeAll: onSeeAll,
     );
   }
@@ -105,7 +121,15 @@ class TopAnimeCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -116,9 +140,9 @@ class TopAnimeCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 Animés',
-      subtitle: 'Les animés les plus populaires du moment.',
-      icon: Icons.star_outline_rounded,
+      title: title ?? 'Top 10 Animés',
+      subtitle: subtitle ?? 'Les animés les plus populaires du moment.',
+      icon: icon ?? Icons.star_outline_rounded,
       onSeeAll: onSeeAll,
     );
   }
@@ -132,7 +156,15 @@ class TopByGenreCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -143,9 +175,9 @@ class TopByGenreCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 par genre',
-      subtitle: 'Les meilleurs contenus par genre.',
-      icon: Icons.category_rounded,
+      title: title ?? 'Top 10 par genre',
+      subtitle: subtitle ?? 'Les meilleurs contenus par genre.',
+      icon: icon ?? Icons.category_rounded,
       onSeeAll: onSeeAll,
       labelTiles: true,
     );
@@ -160,7 +192,15 @@ class TopByCountryCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -171,9 +211,10 @@ class TopByCountryCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 par pays',
-      subtitle: 'Les contenus les plus populaires par pays d’origine.',
-      icon: Icons.public,
+      title: title ?? 'Top 10 par pays',
+      subtitle:
+          subtitle ?? 'Les contenus les plus populaires par pays d’origine.',
+      icon: icon ?? Icons.public,
       onSeeAll: onSeeAll,
       labelTiles: true,
     );
@@ -188,7 +229,15 @@ class GlobalRankingCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -199,9 +248,9 @@ class GlobalRankingCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Classement global',
-      subtitle: 'Top 20 tous contenus confondus.',
-      icon: Icons.emoji_events_outlined,
+      title: title ?? 'Classement global',
+      subtitle: subtitle ?? 'Top 20 tous contenus confondus.',
+      icon: icon ?? Icons.emoji_events_outlined,
       onSeeAll: onSeeAll,
     );
   }
@@ -215,7 +264,15 @@ class TopRatedRankingCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -226,9 +283,9 @@ class TopRatedRankingCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 des plus notés',
-      subtitle: 'Les meilleurs selon les notes des utilisateurs.',
-      icon: Icons.star_rounded,
+      title: title ?? 'Top 10 des plus notés',
+      subtitle: subtitle ?? 'Les meilleurs selon les notes des utilisateurs.',
+      icon: icon ?? Icons.star_rounded,
       onSeeAll: onSeeAll,
     );
   }
@@ -242,7 +299,15 @@ class TrendingRankingCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -253,9 +318,9 @@ class TrendingRankingCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 tendances',
-      subtitle: 'Ce qui fait le plus parler en ce moment.',
-      icon: Icons.trending_up_rounded,
+      title: title ?? 'Top 10 tendances',
+      subtitle: subtitle ?? 'Ce qui fait le plus parler en ce moment.',
+      icon: icon ?? Icons.trending_up_rounded,
       onSeeAll: onSeeAll,
     );
   }
@@ -269,7 +334,15 @@ class TopByDecadeCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -280,9 +353,9 @@ class TopByDecadeCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 par décennie',
-      subtitle: 'Les incontournables de chaque époque.',
-      icon: Icons.history_rounded,
+      title: title ?? 'Top 10 par décennie',
+      subtitle: subtitle ?? 'Les incontournables de chaque époque.',
+      icon: icon ?? Icons.history_rounded,
       onSeeAll: onSeeAll,
       labelTiles: true,
     );
@@ -297,7 +370,15 @@ class MustWatchCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.onSeeAll,
+    this.title,
+    this.subtitle,
+    this.icon,
   });
+
+  /// Overrides the default heading text/icon (per-component params).
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
 
   final List<RankingEntry> items;
   final double width;
@@ -308,9 +389,9 @@ class MustWatchCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: 'Top 10 à voir absolument',
-      subtitle: 'Notre sélection des incontournables.',
-      icon: Icons.favorite_rounded,
+      title: title ?? 'Top 10 à voir absolument',
+      subtitle: subtitle ?? 'Notre sélection des incontournables.',
+      icon: icon ?? Icons.favorite_rounded,
       onSeeAll: onSeeAll,
     );
   }
@@ -416,7 +497,11 @@ class _RankingSectionCard extends StatelessWidget {
                           ),
                         ),
                         SizedBox(width: 2),
-                        Icon(Broken.arrow_right_3, size: 12, color: Colors.white54),
+                        Icon(
+                          Broken.arrow_right_3,
+                          size: 12,
+                          color: Colors.white54,
+                        ),
                       ],
                     ),
                   ),
@@ -430,10 +515,7 @@ class _RankingSectionCard extends StatelessWidget {
               children: [
                 for (var i = 0; i < items.length; i++) ...[
                   if (i > 0) const SizedBox(width: 8),
-                  _RankingTile(
-                    entry: items[i],
-                    forceLabelTile: labelTiles,
-                  ),
+                  _RankingTile(entry: items[i], forceLabelTile: labelTiles),
                 ],
               ],
             ),

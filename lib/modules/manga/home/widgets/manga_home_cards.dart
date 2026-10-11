@@ -318,10 +318,7 @@ class MangaSpotlightCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ContentImage(
-                url: item.backdropUrl ?? item.posterUrl,
-                radius: 20,
-              ),
+              ContentImage(url: item.backdropUrl ?? item.posterUrl, radius: 20),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -512,10 +509,7 @@ class MangaUpdateRow extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   time!,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 10.5,
-                  ),
+                  style: const TextStyle(color: Colors.white38, fontSize: 10.5),
                 ),
               ],
             ],
@@ -528,11 +522,7 @@ class MangaUpdateRow extends StatelessWidget {
 
 /// Wide 16:9 banner card with the title overlaid at the bottom.
 class MangaBannerCard extends StatelessWidget {
-  const MangaBannerCard({
-    required this.item,
-    required this.onTap,
-    super.key,
-  });
+  const MangaBannerCard({required this.item, required this.onTap, super.key});
 
   final ContentItem item;
   final VoidCallback onTap;
@@ -548,10 +538,7 @@ class MangaBannerCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ContentImage(
-                url: item.backdropUrl ?? item.posterUrl,
-                radius: 18,
-              ),
+              ContentImage(url: item.backdropUrl ?? item.posterUrl, radius: 18),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -668,10 +655,9 @@ class MangaLatestUpdateCard extends StatelessWidget {
                         _MangaChapterRow(
                           label: rows[i],
                           time: i == 0 ? time : null,
-                          onTap:
-                              onChapterTap == null
-                                  ? null
-                                  : () => onChapterTap!(i),
+                          onTap: onChapterTap == null
+                              ? null
+                              : () => onChapterTap!(i),
                         ),
                       ],
                     ],
@@ -691,11 +677,7 @@ class _MangaChapterRow extends StatelessWidget {
   final String? time;
   final VoidCallback? onTap;
 
-  const _MangaChapterRow({
-    required this.label,
-    this.time,
-    this.onTap,
-  });
+  const _MangaChapterRow({required this.label, this.time, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -775,7 +757,9 @@ class MangaTop3Card extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.horizontal(
                         left: Radius.circular(i == 0 ? 12 : 0),
-                        right: Radius.circular(i == visible.length - 1 ? 12 : 0),
+                        right: Radius.circular(
+                          i == visible.length - 1 ? 12 : 0,
+                        ),
                       ),
                       child: AspectRatio(
                         aspectRatio: 2 / (3 * visible.length),
@@ -797,9 +781,7 @@ class MangaTop3Card extends StatelessWidget {
                   height: 1,
                   fontWeight: FontWeight.w900,
                   color: Colors.white.withValues(alpha: .92),
-                  shadows: const [
-                    Shadow(color: Colors.black54, blurRadius: 8),
-                  ],
+                  shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
                 ),
               ),
             ),
@@ -817,6 +799,8 @@ class MangaRankingCard extends StatefulWidget {
     required this.items,
     required this.onOpen,
     this.periods = const ['Daily', 'Weekly', 'Monthly'],
+    this.title,
+    this.initialPeriod = 1,
     super.key,
   });
 
@@ -824,12 +808,18 @@ class MangaRankingCard extends StatefulWidget {
   final ValueChanged<int> onOpen;
   final List<String> periods;
 
+  /// Heading override (per-component `title`/`rankLabel` param).
+  final String? title;
+
+  /// Index of the period selected on first paint.
+  final int initialPeriod;
+
   @override
   State<MangaRankingCard> createState() => _MangaRankingCardState();
 }
 
 class _MangaRankingCardState extends State<MangaRankingCard> {
-  int _period = 1;
+  late int _period = widget.initialPeriod.clamp(0, widget.periods.length - 1);
 
   static const _rankColors = [
     Color(0xFFEF6C4D),
@@ -856,9 +846,9 @@ class _MangaRankingCardState extends State<MangaRankingCard> {
             children: [
               Icon(Icons.emoji_events_outlined, color: accent, size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'Top Ranking',
-                style: TextStyle(
+              Text(
+                widget.title ?? 'Top Ranking',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -883,18 +873,14 @@ class _MangaRankingCardState extends State<MangaRankingCard> {
                         duration: const Duration(milliseconds: 180),
                         padding: const EdgeInsets.symmetric(vertical: 9),
                         decoration: BoxDecoration(
-                          color: _period == i
-                              ? accent
-                              : Colors.transparent,
+                          color: _period == i ? accent : Colors.transparent,
                           borderRadius: BorderRadius.circular(11),
                         ),
                         child: Text(
                           widget.periods[i],
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: _period == i
-                                ? Colors.white
-                                : Colors.white60,
+                            color: _period == i ? Colors.white : Colors.white60,
                             fontSize: 12.5,
                             fontWeight: FontWeight.w800,
                           ),
@@ -910,8 +896,9 @@ class _MangaRankingCardState extends State<MangaRankingCard> {
             _MangaRankRow(
               rank: i + 1,
               item: items[i],
-              rankColor:
-                  i < 3 ? _rankColors[i] : Colors.white.withValues(alpha: .10),
+              rankColor: i < 3
+                  ? _rankColors[i]
+                  : Colors.white.withValues(alpha: .10),
               rankTextColor: i < 3 && i != 1
                   ? Colors.white
                   : (i == 1 ? Colors.black87 : Colors.white),
@@ -992,8 +979,7 @@ class _MangaRankRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color:
-                            highlighted ? accent : Colors.white,
+                        color: highlighted ? accent : Colors.white,
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1007,12 +993,16 @@ class _MangaRankRow extends StatelessWidget {
                           color: Colors.white54,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          item.badge ?? '—',
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
+                        Flexible(
+                          child: Text(
+                            item.badge ?? '—',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1037,11 +1027,15 @@ class _MangaRankRow extends StatelessWidget {
               ),
               if (item.description?.trim().isNotEmpty == true) ...[
                 const SizedBox(width: 8),
-                Text(
-                  item.description!,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 10.5,
+                Flexible(
+                  child: Text(
+                    item.description!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 10.5,
+                    ),
                   ),
                 ),
               ],
@@ -1105,10 +1099,7 @@ class MangaVoteCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 56,
                                 height: 76,
-                                child: ContentImage(
-                                  url: imageUrl,
-                                  radius: 8,
-                                ),
+                                child: ContentImage(url: imageUrl, radius: 8),
                               ),
                             ),
                           ),
@@ -1123,10 +1114,7 @@ class MangaVoteCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 60,
                                 height: 84,
-                                child: ContentImage(
-                                  url: imageUrl,
-                                  radius: 8,
-                                ),
+                                child: ContentImage(url: imageUrl, radius: 8),
                               ),
                             ),
                           ),
@@ -1463,9 +1451,7 @@ class MangaTrendingListCard extends StatelessWidget {
                     for (var i = 0; i < visible.length; i++)
                       Expanded(
                         child: Padding(
-                          padding: EdgeInsets.only(
-                            left: i == 0 ? 0 : 2,
-                          ),
+                          padding: EdgeInsets.only(left: i == 0 ? 0 : 2),
                           child: ContentImage(url: visible[i], radius: 0),
                         ),
                       ),
@@ -1509,10 +1495,7 @@ class MangaTrendingListCard extends StatelessWidget {
                       child: SizedBox(
                         width: 40,
                         height: 40,
-                        child: ContentImage(
-                          url: authorAvatar,
-                          radius: 8,
-                        ),
+                        child: ContentImage(url: authorAvatar, radius: 8),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1610,10 +1593,7 @@ class MangaScanGroupCard extends StatelessWidget {
                       children: [
                         for (var i = 0; i < visible.length; i++)
                           Expanded(
-                            child: ContentImage(
-                              url: visible[i],
-                              radius: 0,
-                            ),
+                            child: ContentImage(url: visible[i], radius: 0),
                           ),
                       ],
                     ),
@@ -1630,7 +1610,9 @@ class MangaScanGroupCard extends StatelessWidget {
                   Positioned(
                     left: 12,
                     top: 12,
-                    child: _MangaMonoChip(label: '#${rank.toString().padLeft(2, '0')}'),
+                    child: _MangaMonoChip(
+                      label: '#${rank.toString().padLeft(2, '0')}',
+                    ),
                   ),
                   Positioned(
                     right: 12,

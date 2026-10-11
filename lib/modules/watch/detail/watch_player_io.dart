@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/modules/watch/detail/watch_progress_key.dart';
+import 'package:watchtower/services/watch_resume_store.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -153,6 +154,11 @@ class WatchInlinePlayer {
   int? loadedChapterId;
   List<wt.Video> loadedVideos = [];
   String? selectedQuality;
+
+  /// When set, the next successful [load] seeks to this position. Used to
+  /// resume a partially-watched episode opened from History.
+  Duration? startPosition;
+
   bool _isDisposed = false; // guard against post-dispose async calls
 
   /// Notifier for portrait overlay controls visibility (back/aide buttons sync).
@@ -382,7 +388,10 @@ class WatchInlinePlayer {
           completer.complete(false);
         }
         final success = await completer.future;
-        if (success) return;
+        if (success) {
+          _applyStartPosition();
+          return;
+        }
 
         if (i < videos.length - 1) {
           AppLogger.log(
@@ -412,6 +421,26 @@ class WatchInlinePlayer {
         stackTrace: st,
       );
     }
+  }
+
+  /// Seeks to [startPosition] once the media is open (resume from History),
+  /// then clears it so a later episode change starts from the beginning.
+  void _applyStartPosition() {
+    final pos = startPosition;
+    startPosition = null;
+    if (pos == null || pos <= Duration.zero || _isDisposed) return;
+    unawaited(() async {
+      try {
+        await _player.stream.duration
+            .firstWhere((d) => d > Duration.zero)
+            .timeout(
+              const Duration(seconds: 12),
+              onTimeout: () => Duration.zero,
+            );
+        if (_isDisposed) return;
+        await _player.seek(pos);
+      } catch (_) {}
+    }());
   }
 
   /// Watches the decoded video dimensions once and flips [isPortraitFormat]
@@ -916,33 +945,20 @@ class _FullscreenControlsOverlayState
 
   // ── Save/load progress ─────────────────────────────────────────────────────
   Future<void> _loadSavedProgress() async {
-    try {
-      final dir = await getApplicationSupportDirectory();
-      final id = stableWatchProgressKey(widget.title);
-      final file = File('${dir.path}/wt_progress_$id.json');
-      if (!await file.exists()) {
-        // Read one-time legacy progress written to the temporary directory.
-        final legacyDir = await getTemporaryDirectory();
-        final legacy = File(
-          '${legacyDir.path}/wt_progress_${widget.title.hashCode}.json',
-        );
-        if (!await legacy.exists()) return;
-        await legacy.copy(file.path);
+    final chapterId = widget.currentChapterId;
+    if (chapterId == null) return;
+    final resume = await readWatchResume(widget.title, chapterId);
+    if (resume == null || resume.ms <= 5000) return;
+    // Wait for the player to be ready, then restore.
+    Future.delayed(const Duration(milliseconds: 800), () async {
+      if (!mounted) return;
+      try {
+        await widget.player.seek(Duration(milliseconds: resume.ms));
+      } catch (_) {}
+      if (mounted) {
+        _playerToast('Reprise à ${_fmt(Duration(milliseconds: resume.ms))}');
       }
-      if (!await file.exists()) return;
-      final raw  = json.decode(await file.readAsString()) as Map;
-      final ms   = (raw['ms'] as num?)?.toInt() ?? 0;
-      if (ms > 5000) {
-        // Wait for player to be ready then restore
-        Future.delayed(const Duration(milliseconds: 800), () async {
-          if (!mounted) return;
-          try { await widget.player.seek(Duration(milliseconds: ms)); } catch (_) {}
-          if (mounted) {
-            _playerToast('Reprise à ${_fmt(Duration(milliseconds: ms))}');
-          }
-        });
-      }
-    } catch (_) {}
+    });
   }
 
   void _startSaveProgressTimer() {
@@ -955,20 +971,19 @@ class _FullscreenControlsOverlayState
 
   Future<void> _saveProgress() async {
     if (!mounted) return;
-    final title = widget.title;
-    final ms = widget.player.state.position.inMilliseconds;
-    try {
-      final dir = await getApplicationSupportDirectory();
-      final id = stableWatchProgressKey(title);
-      await File(
-        '${dir.path}/wt_progress_$id.json',
-      ).writeAsString(
-        json.encode({
-          'ms': ms,
-          'savedAt': DateTime.now().millisecondsSinceEpoch,
-        }),
-      );
-    } catch (_) {}
+    final chapterId = widget.currentChapterId;
+    if (chapterId == null) return;
+    final state = widget.player.state;
+    final ms = state.position.inMilliseconds;
+    final dur = state.duration;
+    final completed =
+        dur > Duration.zero && ms >= dur.inMilliseconds - 5000 && ms > 0;
+    await writeWatchResume(
+      widget.title,
+      chapterId,
+      ms,
+      completed: completed,
+    );
   }
 
   Future<void> _initMedia() async {

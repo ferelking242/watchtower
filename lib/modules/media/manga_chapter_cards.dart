@@ -131,12 +131,16 @@ class _Chip extends StatelessWidget {
             Icon(icon, size: 9, color: solid ? Colors.white : c),
             const SizedBox(width: 3),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              color: solid ? Colors.white : c,
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: solid ? Colors.white : c,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -1473,15 +1477,19 @@ class MangaChapterTimelineCard extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                items[i].title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w900,
+                              Flexible(
+                                child: Text(
+                                  items[i].title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
                               ),
-                              const Spacer(),
+                              const SizedBox(width: 8),
                               Text(
                                 items[i].timeAgo ?? '',
                                 style: const TextStyle(
@@ -1495,6 +1503,8 @@ class MangaChapterTimelineCard extends StatelessWidget {
                           const SizedBox(height: 1),
                           Text(
                             items[i].subtitle ?? '',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white54,
                               fontSize: 9,

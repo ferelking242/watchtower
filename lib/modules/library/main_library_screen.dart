@@ -950,6 +950,46 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 value: 99,
                 child: Divider(height: 1, indent: 0, endIndent: 0),
               ),
+              PopupMenuItem<int>(
+                value: 5,
+                child: Row(
+                  children: [
+                    const Icon(Broken.clock, size: 18),
+                    const SizedBox(width: 12),
+                    Text(l10n.history),
+                  ],
+                ),
+              ),
+              PopupMenuItem<int>(
+                value: 6,
+                child: Row(
+                  children: [
+                    const Icon(Broken.notification, size: 18),
+                    const SizedBox(width: 12),
+                    Text(l10n.updates),
+                  ],
+                ),
+              ),
+              PopupMenuItem<int>(
+                value: 7,
+                child: Row(
+                  children: [
+                    const Icon(Broken.calendar, size: 18),
+                    const SizedBox(width: 12),
+                    Text(l10n.schedule),
+                  ],
+                ),
+              ),
+              PopupMenuItem<int>(
+                value: 8,
+                child: Row(
+                  children: [
+                    const Icon(Broken.document_download, size: 18),
+                    const SizedBox(width: 12),
+                    Text(l10n.downloads),
+                  ],
+                ),
+              ),
             ],
             onSelected: (v) {
               switch (v) {
@@ -969,6 +1009,18 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                   break;
                 case 4:
                   addTorrent(context);
+                  break;
+                case 5:
+                  context.push('/history');
+                  break;
+                case 6:
+                  context.push('/updates');
+                  break;
+                case 7:
+                  context.push('/schedule');
+                  break;
+                case 8:
+                  context.push('/downloads');
                   break;
               }
             },

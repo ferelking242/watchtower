@@ -8,12 +8,17 @@ import 'package:watchtower/modules/widgets/base_library_tab_screen.dart';
 import 'package:watchtower/modules/widgets/custom_sliver_grouped_list_view.dart';
 
 import 'package:isar_community/isar.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/changed.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/history/providers/isar_providers.dart';
+import 'package:watchtower/modules/manga/detail/manga_detail_main.dart'
+    show MangaDetailArgs;
+import 'package:watchtower/services/watch_resume_store.dart'
+    show readWatchResume;
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/cached_network.dart';
@@ -32,6 +37,38 @@ enum _HistorySort { date, title }
 
 // ââ Filter mode ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 enum _HistoryFilter { all, today, thisWeek, thisMonth }
+
+/// Opens a history entry.
+///
+/// For video entries (anime/music) we deliberately route through the regular
+/// detail page (`/manga-reader/detail`) — the same flow used by the Watch
+/// extension — instead of the bare `AnimePlayerView` page that
+/// `pushToReaderView` used to open. That keeps a single player experience and
+/// lets us resume the exact episode + timestamp. Other types keep the usual
+/// reader behaviour.
+Future<void> openHistoryEntry(BuildContext context, History element) async {
+  final chapter = element.chapter.value!;
+  final manga = chapter.manga.value!;
+  final isVideo =
+      manga.itemType == ItemType.anime || manga.itemType == ItemType.music;
+  if (!isVideo) {
+    await chapter.pushToReaderView(context);
+    return;
+  }
+  final resume = manga.id == null
+      ? null
+      : await readWatchResume(manga.name ?? '', chapter.id!);
+  if (!context.mounted) return;
+  context.push(
+    '/manga-reader/detail',
+    extra: MangaDetailArgs(
+      manga.id!,
+      resumeChapterId: chapter.id,
+      resumePosition:
+          resume == null ? null : Duration(milliseconds: resume.ms),
+    ),
+  );
+}
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -53,22 +90,22 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
     IconData icon;
     switch (type) {
       case ItemType.anime:
-        icon = Icons.play_circle_outline_rounded;
+        icon = Broken.video_play;
         break;
       case ItemType.manga:
-        icon = Icons.menu_book_outlined;
+        icon = Broken.note;
         break;
       case ItemType.novel:
-        icon = Icons.auto_stories_outlined;
+        icon = Broken.book;
         break;
       case ItemType.music:
-        icon = Icons.music_note_outlined;
+        icon = Broken.music_play;
         break;
       case ItemType.game:
-        icon = Icons.sports_esports_outlined;
+        icon = Broken.gameboy;
         break;
       case ItemType.plugin:
-        icon = Icons.extension_outlined;
+        icon = Broken.element_plus;
         break;
     }
     return Tab(icon: Icon(icon, size: 18), text: label);
@@ -93,7 +130,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
       IconButton(
         tooltip: 'Filtrer / Trier / Disposition',
         icon: Icon(
-          Icons.filter_list_sharp,
+          Broken.filter,
           color: (_filter != _HistoryFilter.all || _sort != _HistorySort.date)
               ? Colors.yellow
               : Theme.of(context).hintColor,
@@ -104,7 +141,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
       IconButton(
         splashRadius: 20,
         icon: Icon(
-          Icons.delete_sweep_outlined,
+          Broken.trash,
           color: Theme.of(context).hintColor,
         ),
         onPressed: () {
@@ -193,7 +230,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                           Expanded(
                             child: _LayoutCard(
                               label: 'Liste',
-                              icon: Icons.view_list_rounded,
+                              icon: Broken.row_vertical,
                               selected: _layout == _HistoryLayout.list,
                               onTap: () => updateBoth(
                                   () => _layout = _HistoryLayout.list),
@@ -203,7 +240,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                           Expanded(
                             child: _LayoutCard(
                               label: 'Grille',
-                              icon: Icons.grid_view_rounded,
+                              icon: Broken.grid_2,
                               selected: _layout == _HistoryLayout.grid,
                               onTap: () => updateBoth(
                                   () => _layout = _HistoryLayout.grid),
@@ -228,7 +265,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                         children: [
                           _SelectChip(
                             label: 'Date',
-                            icon: Icons.access_time_rounded,
+                            icon: Broken.clock,
                             selected: _sort == _HistorySort.date,
                             onTap: () =>
                                 updateBoth(() => _sort = _HistorySort.date),
@@ -236,7 +273,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                           const SizedBox(width: 8),
                           _SelectChip(
                             label: 'Titre',
-                            icon: Icons.sort_by_alpha_rounded,
+                            icon: Broken.sort,
                             selected: _sort == _HistorySort.title,
                             onTap: () =>
                                 updateBoth(() => _sort = _HistorySort.title),
@@ -262,7 +299,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                           children: [
                             _SelectChip(
                               label: 'Tout',
-                              icon: Icons.all_inclusive_rounded,
+                              icon: Broken.category,
                               selected: _filter == _HistoryFilter.all,
                               onTap: () => updateBoth(
                                   () => _filter = _HistoryFilter.all),
@@ -270,7 +307,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                             const SizedBox(width: 8),
                             _SelectChip(
                               label: "Aujourd'hui",
-                              icon: Icons.today_rounded,
+                              icon: Broken.calendar_tick,
                               selected: _filter == _HistoryFilter.today,
                               onTap: () => updateBoth(
                                   () => _filter = _HistoryFilter.today),
@@ -278,7 +315,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                             const SizedBox(width: 8),
                             _SelectChip(
                               label: 'Cette semaine',
-                              icon: Icons.date_range_rounded,
+                              icon: Broken.calendar_2,
                               selected: _filter == _HistoryFilter.thisWeek,
                               onTap: () => updateBoth(
                                   () => _filter = _HistoryFilter.thisWeek),
@@ -286,7 +323,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                             const SizedBox(width: 8),
                             _SelectChip(
                               label: 'Ce mois-ci',
-                              icon: Icons.calendar_month_rounded,
+                              icon: Broken.calendar,
                               selected: _filter == _HistoryFilter.thisMonth,
                               onTap: () => updateBoth(
                                   () => _filter = _HistoryFilter.thisMonth),
@@ -422,7 +459,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
                 child: Row(
                   children: [
                     Icon(
-                      Icons.calendar_today_outlined,
+                      Broken.calendar,
                       size: 13,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -551,27 +588,27 @@ class _HistoryListItem extends ConsumerWidget {
     Color typeColor;
     switch (manga.itemType) {
       case ItemType.anime:
-        typeIcon = Icons.play_circle_outline_rounded;
+        typeIcon = Broken.video_play;
         typeColor = Colors.deepPurple;
         break;
       case ItemType.manga:
-        typeIcon = Icons.menu_book_outlined;
+        typeIcon = Broken.note;
         typeColor = Colors.blue;
         break;
       case ItemType.novel:
-        typeIcon = Icons.auto_stories_outlined;
+        typeIcon = Broken.book;
         typeColor = Colors.green;
         break;
       case ItemType.music:
-        typeIcon = Icons.music_note_outlined;
+        typeIcon = Broken.music_play;
         typeColor = Colors.orange;
         break;
       case ItemType.game:
-        typeIcon = Icons.sports_esports_outlined;
+        typeIcon = Broken.gameboy;
         typeColor = Colors.red;
         break;
       case ItemType.plugin:
-        typeIcon = Icons.extension_outlined;
+        typeIcon = Broken.element_plus;
         typeColor = Colors.teal;
         break;
     }
@@ -584,7 +621,7 @@ class _HistoryListItem extends ConsumerWidget {
         elevation: 0,
         shadowColor: Colors.transparent,
       ),
-      onPressed: () async => chapter.pushToReaderView(context),
+      onPressed: () => _openEntry(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: SizedBox(
@@ -594,8 +631,7 @@ class _HistoryListItem extends ConsumerWidget {
             children: [
               // Cover
               GestureDetector(
-                onTap: () =>
-                    context.push('/manga-reader/detail', extra: manga.id),
+                onTap: () => _openEntry(context),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(7),
                   child: Stack(
@@ -652,7 +688,7 @@ class _HistoryListItem extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.access_time_rounded,
+                        Icon(Broken.clock,
                             size: 11, color: cs.onSurfaceVariant),
                         const SizedBox(width: 3),
                         Text(
@@ -670,7 +706,7 @@ class _HistoryListItem extends ConsumerWidget {
               // Delete
               IconButton(
                 onPressed: onDelete,
-                icon: Icon(Icons.delete_outline,
+                icon: Icon(Broken.trash,
                     size: 22, color: cs.onSurfaceVariant),
                 tooltip: 'Supprimer de l\'historique',
               ),
@@ -680,6 +716,17 @@ class _HistoryListItem extends ConsumerWidget {
       ),
     );
   }
+
+  /// Opens a history entry.
+  ///
+  /// For video entries (anime/music) we deliberately route through the
+  /// regular detail page (`/manga-reader/detail`) — the same flow used by
+  /// the Watch extension — instead of the bare `AnimePlayerView` page that
+  /// `pushToReaderView` used to open. That keeps a single player experience
+  /// and lets us resume the exact episode + timestamp. Other types keep the
+  /// usual reader behaviour.
+  Future<void> _openEntry(BuildContext context) =>
+      openHistoryEntry(context, element);
 
   Widget _buildCover(Manga manga, WidgetRef ref) {
     if (manga.customCoverImage != null) {
@@ -734,33 +781,33 @@ class _HistoryGrid extends ConsumerWidget {
         Color typeColor;
         switch (manga.itemType) {
           case ItemType.anime:
-            typeIcon = Icons.play_circle_outline_rounded;
+            typeIcon = Broken.video_play;
             typeColor = Colors.deepPurple;
             break;
           case ItemType.manga:
-            typeIcon = Icons.menu_book_outlined;
+            typeIcon = Broken.note;
             typeColor = Colors.blue;
             break;
           case ItemType.novel:
-            typeIcon = Icons.auto_stories_outlined;
+            typeIcon = Broken.book;
             typeColor = Colors.green;
             break;
           case ItemType.music:
-            typeIcon = Icons.music_note_outlined;
+            typeIcon = Broken.music_play;
             typeColor = Colors.orange;
             break;
           case ItemType.game:
-            typeIcon = Icons.sports_esports_outlined;
+            typeIcon = Broken.gameboy;
             typeColor = Colors.red;
             break;
           case ItemType.plugin:
-            typeIcon = Icons.extension_outlined;
+            typeIcon = Broken.element_plus;
             typeColor = Colors.teal;
             break;
         }
 
         return GestureDetector(
-          onTap: () => chapter.pushToReaderView(context),
+          onTap: () => openHistoryEntry(context, element),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

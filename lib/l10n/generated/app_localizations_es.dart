@@ -1980,6 +1980,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get calendar => 'Calendario';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => 'No hay datos aún.';
 
   @override

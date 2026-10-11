@@ -1903,6 +1903,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get calendar => '日历';
 
   @override
+  String get schedule => 'Planning';
+
+  @override
   String get calendar_no_data => '暂无数据。';
 
   @override

@@ -1179,12 +1179,16 @@ class MoviePreview extends StatelessWidget {
                 ),
                 if (item.badge != null) ...[
                   const SizedBox(width: 6),
-                  Text(
-                    item.badge!,
-                    style: TextStyle(
-                      color: accent,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: Text(
+                      item.badge!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],

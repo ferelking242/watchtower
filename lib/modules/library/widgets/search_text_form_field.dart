@@ -85,12 +85,14 @@ class _SeachFormTextFieldState extends State<SeachFormTextField>
         animation: _focusAnim,
         builder: (context, child) {
           final t = _focusAnim.value;
+          // Neutral focus ring: the previous primary-tinted glow read as an
+          // unwanted blue halo around the field, so we only shift the fill
+          // and outline instead.
           final borderColor = Color.lerp(
-            Colors.transparent,
-            cs.primary.withValues(alpha: 0.55),
+            cs.outline.withValues(alpha: isDark ? 0.10 : 0.14),
+            cs.onSurface.withValues(alpha: 0.28),
             t,
           )!;
-          final shadowColor = cs.primary.withValues(alpha: t * 0.18);
           final fillColor = isDark
               ? Colors.white.withValues(
                   alpha: 0.06 + t * 0.08,
@@ -107,15 +109,7 @@ class _SeachFormTextFieldState extends State<SeachFormTextField>
             decoration: BoxDecoration(
               color: fillColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.4),
-              boxShadow: [
-                if (t > 0)
-                  BoxShadow(
-                    color: shadowColor,
-                    blurRadius: 10,
-                    spreadRadius: -2,
-                  ),
-              ],
+              border: Border.all(color: borderColor, width: 1.2),
             ),
             child: Row(
               children: [

@@ -42,6 +42,10 @@ enum GalleryComponentFamily {
   landscape,
   grid,
   swipe,
+  // Whole-section rails that carry their own heading and item list.
+  genreGrid,
+  providersRail,
+  mangaListTile,
 }
 
 /// The JSON-facing definition of one gallery component.
@@ -1378,7 +1382,12 @@ class GalleryComponentCatalog {
       description: 'Rail 16:9 paramétrable (titre + icône)',
       renderer: GalleryComponentFamily.landscape,
       loadingPreview: LayoutComponentLoadingPreview.landscape,
-      aliases: ['landscape-films', 'landscape-series', 'landscape-manga', 'landscape-novels'],
+      aliases: [
+        'landscape-films',
+        'landscape-series',
+        'landscape-manga',
+        'landscape-novels',
+      ],
     ),
     GalleryComponentDescriptor(
       id: 'landscape-playlist',
@@ -1755,6 +1764,159 @@ class GalleryComponentCatalog {
       renderer: GalleryComponentFamily.swipe,
       loadingPreview: LayoutComponentLoadingPreview.row,
     ),
+
+    // ── Aliases kept in the gallery as generic spellings ──
+    GalleryComponentDescriptor(
+      id: 'universe',
+      className: 'UniverseCard',
+      label: 'Univers (alias)',
+      category: 'COLLECTIONS & FRANCHISES',
+      description: 'Alias générique de FranchiseCard',
+      renderer: GalleryComponentFamily.collections,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['franchise-card'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'category-card',
+      className: 'CategoryCard',
+      label: 'Catégorie (alias)',
+      category: 'COLLECTIONS & FRANCHISES',
+      description: 'Alias générique de GenreCard',
+      renderer: GalleryComponentFamily.collections,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['category'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'cast',
+      className: 'CastCard',
+      label: 'Casting (alias)',
+      category: 'COLLECTIONS & FRANCHISES',
+      description: 'Alias générique de ActorCard',
+      renderer: GalleryComponentFamily.collections,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['cast-card'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'genre-grid-section',
+      className: 'GenreListGrid',
+      label: 'Grille des genres du Hub',
+      category: 'FILMS & SÉRIES · SECTIONS',
+      description: 'Section Genres films/séries avec navigation',
+      renderer: GalleryComponentFamily.genreGrid,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+    ),
+    GalleryComponentDescriptor(
+      id: 'poster-rail',
+      className: 'ScrollingMovies',
+      label: 'Rail de posters',
+      category: 'FILMS & SÉRIES · SECTIONS',
+      description: 'Sections Popular · Trending · Top rated',
+      renderer: GalleryComponentFamily.posterRail,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['media-poster-rail'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'ranked-rail',
+      className: 'RankedMovies',
+      label: 'Rail Top 10',
+      category: 'FILMS & SÉRIES · SECTIONS',
+      description: 'Section Top 10 de la semaine',
+      renderer: GalleryComponentFamily.ranked,
+      loadingPreview: LayoutComponentLoadingPreview.ranked,
+    ),
+    GalleryComponentDescriptor(
+      id: 'landscape-rail',
+      className: 'ScrollingLandscapeMovies',
+      label: 'Rail paysage',
+      category: 'FILMS & SÉRIES · SECTIONS',
+      description: 'Now playing · Upcoming · Airing today',
+      renderer: GalleryComponentFamily.landscape,
+      loadingPreview: LayoutComponentLoadingPreview.landscape,
+    ),
+    GalleryComponentDescriptor(
+      id: 'featured-movie-rail',
+      className: 'FeaturedMovieRail',
+      label: 'Rail à découvrir',
+      category: 'FILMS & SÉRIES · SECTIONS',
+      description: 'Sélection mise en avant',
+      renderer: GalleryComponentFamily.landscape,
+      loadingPreview: LayoutComponentLoadingPreview.landscape,
+    ),
+    GalleryComponentDescriptor(
+      id: 'watch-providers-rail',
+      className: 'MoviesFromWatchProviders',
+      label: 'Rail des services',
+      category: 'FILMS & SÉRIES · SECTIONS',
+      description: 'Section des plateformes disponibles',
+      renderer: GalleryComponentFamily.providersRail,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+    ),
+    GalleryComponentDescriptor(
+      id: 'tmdb-hero-carousel',
+      className: 'TmdbHeroCarousel',
+      label: 'Hero plein écran',
+      category: 'FILMS & SÉRIES · SECTIONS',
+      description: 'Carrousel auto du hub films/séries',
+      renderer: GalleryComponentFamily.spotlight,
+      loadingPreview: LayoutComponentLoadingPreview.hero,
+    ),
+    GalleryComponentDescriptor(
+      id: 'tmdb-featured-stack',
+      className: 'TmdbFeaturedStack',
+      label: 'Vedette + rail',
+      category: 'FILMS & SÉRIES · SECTIONS',
+      description: 'Mise en avant du hub',
+      renderer: GalleryComponentFamily.spotlight,
+      loadingPreview: LayoutComponentLoadingPreview.hero,
+    ),
+    GalleryComponentDescriptor(
+      id: 'media-hero',
+      className: 'MediaHeroCarousel',
+      label: 'Hero extension',
+      category: 'EXTENSIONS WATCH',
+      description: 'Layout spotlight · carrousel plein écran',
+      renderer: GalleryComponentFamily.spotlight,
+      loadingPreview: LayoutComponentLoadingPreview.hero,
+      aliases: ['extension-hero'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'collection-rail',
+      className: '_ExtensionCollectionCardRail',
+      label: 'Collection / playlist',
+      category: 'EXTENSIONS WATCH',
+      description: 'Cartes collectionCards · playlistCarousel',
+      renderer: GalleryComponentFamily.collections,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+    ),
+    GalleryComponentDescriptor(
+      id: 'media-banner-rail',
+      className: 'MediaBannerRail',
+      label: 'Bannière extension',
+      category: 'EXTENSIONS WATCH',
+      description: 'Layout banner',
+      renderer: GalleryComponentFamily.banner,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['extension-banner'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'manga-card',
+      className: 'MangaImageCardWidget',
+      label: 'Carte manga',
+      category: 'MANGA & LECTURE',
+      description: 'Grille catalogue manga',
+      renderer: GalleryComponentFamily.posterRail,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['manga-image-card'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'manga-list-tile',
+      className: 'MangaImageCardListTileWidget',
+      label: 'Tuile manga liste',
+      category: 'MANGA & LECTURE',
+      description: 'Résultats en liste',
+      renderer: GalleryComponentFamily.mangaListTile,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+    ),
   ];
   static final Map<String, GalleryComponentDescriptor> _byId = {
     for (final descriptor in descriptors) ...{
@@ -1771,12 +1933,11 @@ class GalleryComponentCatalog {
 
   static bool supports(String id) => _byId.containsKey(id);
 
-  static List<GalleryComponentDescriptor> forContext({bool selectableOnly = false}) =>
-      List.unmodifiable(
-        descriptors.where(
-          (descriptor) => !selectableOnly || descriptor.selectable,
-        ),
-      );
+  static List<GalleryComponentDescriptor> forContext({
+    bool selectableOnly = false,
+  }) => List.unmodifiable(
+    descriptors.where((descriptor) => !selectableOnly || descriptor.selectable),
+  );
 
   static List<String> get availableIds => _byId.keys.toList(growable: false);
 
