@@ -388,7 +388,7 @@ class _InternalFilePickerScreenState extends State<InternalFilePickerScreen> {
 
     return PopScope(
       canPop: _currentPath == _activeRootPath || _currentPath == '/',
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         await _goBack();
       },

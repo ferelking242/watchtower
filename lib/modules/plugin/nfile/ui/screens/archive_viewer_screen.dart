@@ -382,7 +382,7 @@ class _ArchiveViewerScreenState extends State<ArchiveViewerScreen> {
 
     return PopScope(
       canPop: _currentInternalPath.isEmpty && !isSelectionMode,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         if (isSelectionMode) {
           setState(() => _selectedInternalPaths.clear());

@@ -1,4 +1,5 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -46,7 +47,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-          leading: const BackButton(),title: const Text('Téléchargements')),
+        leading: const BackButton(),
+        title: const Text('Téléchargements'),
+      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,7 +87,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 '$concurrentDownloads téléchargement(s) en parallèle',
                 style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
-              trailing: _BadgeChip(label: '$concurrentDownloads', scheme: scheme),
+              trailing: _BadgeChip(
+                label: '$concurrentDownloads',
+                scheme: scheme,
+              ),
               onTap: () => _showNumberPickerDialog(
                 context,
                 title: 'Téléchargements simultanés',
@@ -102,8 +108,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 speedLimit == 0
                     ? 'Désactivée'
                     : speedLimit < 1024
-                        ? '$speedLimit KB/s'
-                        : '${(speedLimit / 1024).toStringAsFixed(0)} MB/s',
+                    ? '$speedLimit KB/s'
+                    : '${(speedLimit / 1024).toStringAsFixed(0)} MB/s',
                 style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
               trailing: _BadgeChip(
@@ -115,14 +121,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ListTile(
               leading: const Icon(Icons.save_outlined),
               title: const Text('Mode d\'écriture disque'),
-              subtitle: Text(
-                switch (writeMode) {
-                  0 => '.part + reprise automatique (recommandé)',
-                  1 => 'Pré-allocation de l\'espace fichier',
-                  _ => 'Direct (risqué si interruption)',
-                },
-                style: TextStyle(fontSize: 11, color: context.secondaryColor),
-              ),
+              subtitle: Text(switch (writeMode) {
+                0 => '.part + reprise automatique (recommandé)',
+                1 => 'Pré-allocation de l\'espace fichier',
+                _ => 'Direct (risqué si interruption)',
+              }, style: TextStyle(fontSize: 11, color: context.secondaryColor)),
               trailing: _BadgeChip(
                 label: switch (writeMode) {
                   0 => 'PART',
@@ -134,7 +137,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               onTap: () async {
                 final v = await _pickWriteMode(context, writeMode);
                 if (v != null) {
-                  await DownloadSettingsService.instance.setDownloadWriteMode(v);
+                  await DownloadSettingsService.instance.setDownloadWriteMode(
+                    v,
+                  );
                   if (mounted) setState(() {});
                 }
               },
@@ -166,7 +171,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ),
             SwitchListTile(
               secondary: const Icon(Icons.bookmark_outlined),
-              title: const Text('Autoriser la suppression des chapitres marqués'),
+              title: const Text(
+                'Autoriser la suppression des chapitres marqués',
+              ),
               subtitle: const Text(
                 'Permet de supprimer les chapitres avec un marque-page',
                 style: TextStyle(fontSize: 11),
@@ -179,49 +186,51 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
             // ── Navigation rapide (dock) ───────────────────────────────────
             _SectionHeader(title: 'Navigation rapide (dock)'),
-            Builder(builder: (context) {
-              final hideItems = ref.watch(hideItemsStateProvider);
-              return Column(
-                children: [
-                  SwitchListTile(
-                    secondary: const Icon(Icons.history_rounded),
-                    title: const Text('Historique dans le dock'),
-                    subtitle: const Text(
-                      'Affiche l\'onglet Historique dans la barre de navigation',
-                      style: TextStyle(fontSize: 11),
+            Builder(
+              builder: (context) {
+                final hideItems = ref.watch(hideItemsStateProvider);
+                return Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.history_rounded),
+                      title: const Text('Historique dans le dock'),
+                      subtitle: const Text(
+                        'Affiche l\'onglet Historique dans la barre de navigation',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      value: !hideItems.contains('/history'),
+                      onChanged: (v) {
+                        final temp = hideItems.toList();
+                        if (!v) {
+                          if (!temp.contains('/history')) temp.add('/history');
+                        } else {
+                          temp.remove('/history');
+                        }
+                        ref.read(hideItemsStateProvider.notifier).set(temp);
+                      },
                     ),
-                    value: !hideItems.contains('/history'),
-                    onChanged: (v) {
-                      final temp = hideItems.toList();
-                      if (!v) {
-                        if (!temp.contains('/history')) temp.add('/history');
-                      } else {
-                        temp.remove('/history');
-                      }
-                      ref.read(hideItemsStateProvider.notifier).set(temp);
-                    },
-                  ),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.new_releases_outlined),
-                    title: const Text('Mises à jour dans le dock'),
-                    subtitle: const Text(
-                      'Affiche l\'onglet Mises à jour dans la barre de navigation',
-                      style: TextStyle(fontSize: 11),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.new_releases_outlined),
+                      title: const Text('Mises à jour dans le dock'),
+                      subtitle: const Text(
+                        'Affiche l\'onglet Mises à jour dans la barre de navigation',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      value: !hideItems.contains('/updates'),
+                      onChanged: (v) {
+                        final temp = hideItems.toList();
+                        if (!v) {
+                          if (!temp.contains('/updates')) temp.add('/updates');
+                        } else {
+                          temp.remove('/updates');
+                        }
+                        ref.read(hideItemsStateProvider.notifier).set(temp);
+                      },
                     ),
-                    value: !hideItems.contains('/updates'),
-                    onChanged: (v) {
-                      final temp = hideItems.toList();
-                      if (!v) {
-                        if (!temp.contains('/updates')) temp.add('/updates');
-                      } else {
-                        temp.remove('/updates');
-                      }
-                      ref.read(hideItemsStateProvider.notifier).set(temp);
-                    },
-                  ),
-                ],
-              );
-            }),
+                  ],
+                );
+              },
+            ),
 
             // ── Dossiers locaux ───────────────────────────────────────────
             _SectionHeader(title: l10n.local_folder),
@@ -257,15 +266,14 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   ),
                   FutureBuilder(
                     future: getLocalLibrary(),
-                    builder: (context, snapshot) =>
-                        snapshot.data?.path != null
-                            ? _buildLocalFolder(
-                                l10n,
-                                localFolders,
-                                snapshot.data!.path,
-                                isDefault: true,
-                              )
-                            : Container(),
+                    builder: (context, snapshot) => snapshot.data?.path != null
+                        ? _buildLocalFolder(
+                            l10n,
+                            localFolders,
+                            snapshot.data!.path,
+                            isDefault: true,
+                          )
+                        : Container(),
                   ),
                   ...localFolders.map(
                     (e) => _buildLocalFolder(l10n, localFolders, e),
@@ -296,8 +304,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
       transitionsBuilder: (c, a1, a2, child) {
         const begin = Offset(1.0, 0.0);
         const end = Offset.zero;
-        final tween = Tween(begin: begin, end: end)
-            .chain(CurveTween(curve: Curves.easeInOut));
+        final tween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: Curves.easeInOut));
         return SlideTransition(position: a1.drive(tween), child: child);
       },
     );
@@ -377,11 +387,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             final label = kb == 0
                 ? 'Désactivée'
                 : kb < 1024
-                    ? '$kb KB/s'
-                    : '${(kb / 1024).toStringAsFixed(0)} MB/s';
-            return RadioListTile<int>(
-              title: Text(label),
-              value: kb,
+                ? '$kb KB/s'
+                : '${(kb / 1024).toStringAsFixed(0)} MB/s';
+            return RadioGroup<int>(
               groupValue: current,
               onChanged: (v) {
                 if (v != null) {
@@ -389,6 +397,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   Navigator.pop(ctx);
                 }
               },
+              child: RadioListTile<int>(title: Text(label), value: kb),
             );
           }).toList(),
         ),
@@ -398,9 +407,21 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
   Future<int?> _pickWriteMode(BuildContext context, int current) {
     const options = [
-      (0, '.part + reprise', 'Écrit dans un fichier .part puis renomme à la fin. Reprise automatique après interruption ; le partiel reste lisible.'),
-      (1, 'Pré-allocation', 'Réserve la taille finale du fichier avant de télécharger. Évite la fragmentation sur les gros fichiers.'),
-      (2, 'Direct', 'Écrit directement au chemin final (ancien comportement). Risque de fichier corrompu si interruption.'),
+      (
+        0,
+        '.part + reprise',
+        'Écrit dans un fichier .part puis renomme à la fin. Reprise automatique après interruption ; le partiel reste lisible.',
+      ),
+      (
+        1,
+        'Pré-allocation',
+        'Réserve la taille finale du fichier avant de télécharger. Évite la fragmentation sur les gros fichiers.',
+      ),
+      (
+        2,
+        'Direct',
+        'Écrit directement au chemin final (ancien comportement). Risque de fichier corrompu si interruption.',
+      ),
     ];
     return showDialog<int>(
       context: context,
@@ -409,12 +430,14 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: options.map((o) {
-            return RadioListTile<int>(
-              title: Text(o.$2, style: const TextStyle(fontSize: 14)),
-              subtitle: Text(o.$3, style: const TextStyle(fontSize: 11)),
-              value: o.$1,
+            return RadioGroup<int>(
               groupValue: current,
               onChanged: (v) => Navigator.pop(ctx, v),
+              child: RadioListTile<int>(
+                title: Text(o.$2, style: const TextStyle(fontSize: 14)),
+                subtitle: Text(o.$3, style: const TextStyle(fontSize: 11)),
+                value: o.$1,
+              ),
             );
           }).toList(),
         ),
@@ -445,10 +468,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
           [
             ('cover.jpg', Icons.image_outlined),
             ('Episode1.mp4', Icons.video_file_outlined),
-            (
-              'Episode1_subtitles',
-              [('en.srt', Icons.subtitles_outlined)],
-            ),
+            ('Episode1_subtitles', [('en.srt', Icons.subtitles_outlined)]),
           ],
         ),
         (
@@ -473,15 +493,17 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     const WidgetSpan(child: SizedBox(width: 20)),
                   if (level > 0)
                     const WidgetSpan(
-                        child: Icon(Icons.subdirectory_arrow_right)),
+                      child: Icon(Icons.subdirectory_arrow_right),
+                    ),
                   const WidgetSpan(child: Icon(Icons.folder)),
                   const WidgetSpan(child: SizedBox(width: 5)),
                   TextSpan(text: data.$1),
                 ],
               ),
             ),
-            ...(data.$2 as List<(String, dynamic)>)
-                .map((e) => buildSubFolder(e, level + 1)),
+            ...(data.$2 as List<(String, dynamic)>).map(
+              (e) => buildSubFolder(e, level + 1),
+            ),
           ],
         );
       }
@@ -509,8 +531,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
           height: context.height(0.8),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            child:
-                SingleChildScrollView(child: buildSubFolder(data, 0)),
+            child: SingleChildScrollView(child: buildSubFolder(data, 0)),
           ),
         ),
         actions: [
@@ -560,15 +581,16 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   if (isDefault)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: scheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         'Default',
-                        style: TextStyle(
-                            fontSize: 10, color: scheme.primary),
+                        style: TextStyle(fontSize: 10, color: scheme.primary),
                       ),
                     ),
                 ],
@@ -607,18 +629,18 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     },
                     icon: const Icon(Icons.delete_outlined),
                     tooltip: 'Supprimer le dossier',
-                    ),
-                  ],
-                ),
-                // ── Dossiers Watchtower ───────────────────────────────────────
-                _SectionHeader(title: 'Dossiers Watchtower'),
-                _WatchtowerDossiersSection(),
-            ],
-          ),
+                  ),
+                ],
+              ),
+            // ── Dossiers Watchtower ───────────────────────────────────────
+            _SectionHeader(title: 'Dossiers Watchtower'),
+            _WatchtowerDossiersSection(),
+          ],
         ),
-      );
-    }
+      ),
+    );
   }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared helper widgets (private to this library)
@@ -676,8 +698,7 @@ class _NavTile extends StatelessWidget {
       title: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(
         subtitle,
-        style:
-            TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+        style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
       ),
       trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
       onTap: onTap,
@@ -711,133 +732,151 @@ class _BadgeChip extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// _WatchtowerDossiersSection
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // _WatchtowerDossiersSection
-  // ─────────────────────────────────────────────────────────────────────────────
+class _WatchtowerDossiersSection extends StatefulWidget {
+  const _WatchtowerDossiersSection();
+  @override
+  State<_WatchtowerDossiersSection> createState() =>
+      _WatchtowerDossiersSectionState();
+}
 
-  class _WatchtowerDossiersSection extends StatefulWidget {
-    const _WatchtowerDossiersSection();
-    @override
-    State<_WatchtowerDossiersSection> createState() => _WatchtowerDossiersSectionState();
+class _WatchtowerDossiersSectionState
+    extends State<_WatchtowerDossiersSection> {
+  List<WatchtowerFolderInfo>? _folders;
+  bool _loading = true;
+  String? _basePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  class _WatchtowerDossiersSectionState extends State<_WatchtowerDossiersSection> {
-    List<WatchtowerFolderInfo>? _folders;
-    bool _loading = true;
-    String? _basePath;
-
-    @override
-    void initState() {
-      super.initState();
-      _load();
-    }
-
-    Future<void> _load() async {
-      if (!mounted) return;
-      setState(() => _loading = true);
-      try {
-        await WatchtowerFolderService.instance.initialize();
-        final folders = await WatchtowerFolderService.instance.getFolderInfoList();
-        if (mounted) {
-          setState(() {
-            _folders = folders;
-            _basePath = WatchtowerFolderService.instance.baseDir;
-            _loading = false;
-          });
-        }
-      } catch (_) {
-        if (mounted) setState(() => _loading = false);
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      await WatchtowerFolderService.instance.initialize();
+      final folders = await WatchtowerFolderService.instance
+          .getFolderInfoList();
+      if (mounted) {
+        setState(() {
+          _folders = folders;
+          _basePath = WatchtowerFolderService.instance.baseDir;
+          _loading = false;
+        });
       }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
     }
+  }
 
-    Future<void> _requestPerms() async {
-      final granted =
-          await WatchtowerFolderService.instance.requestPermissions();
-      if (!mounted) return;
-      if (granted) {
-        await _load();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Le dossier de téléchargement n’est pas accessible. '
-              'Vérifiez l’espace de stockage puis réessayez.',
-            ),
+  Future<void> _requestPerms() async {
+    final granted = await WatchtowerFolderService.instance.requestPermissions();
+    if (!mounted) return;
+    if (granted) {
+      await _load();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Le dossier de téléchargement n’est pas accessible. '
+            'Vérifiez l’espace de stockage puis réessayez.',
           ),
-        );
-      }
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
-    @override
-    Widget build(BuildContext context) {
-      final scheme = Theme.of(context).colorScheme;
-
-      if (_loading) {
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
-          child: Center(child: CircularProgressIndicator()),
-        );
-      }
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Path display
-          if (_basePath != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(children: [
-                Icon(Icons.folder_outlined, size: 13, color: scheme.onSurfaceVariant),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Path display
+        if (_basePath != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.folder_outlined,
+                  size: 13,
+                  color: scheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     _basePath!,
                     style: TextStyle(
-                      fontSize: 11, color: scheme.onSurfaceVariant,
+                      fontSize: 11,
+                      color: scheme.onSurfaceVariant,
                       fontFamily: 'monospace',
                     ),
-                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.refresh_rounded, size: 16, color: scheme.primary),
+                  icon: Icon(
+                    Icons.refresh_rounded,
+                    size: 16,
+                    color: scheme.primary,
+                  ),
                   onPressed: _load,
                   tooltip: 'Actualiser',
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
-              ]),
+              ],
             ),
+          ),
 
-          // Storage unavailable case. The Download Manager itself remains
-          // usable with the app-scoped fallback; this only covers a folder
-          // service initialization failure.
-          if (_folders == null || _folders!.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    WatchtowerFolderService.instance.lastError == null
-                        ? 'Aucun dossier de téléchargement n’est disponible.'
-                        : 'Impossible de préparer le dossier de téléchargement.',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton.icon(
-                    onPressed: _requestPerms,
-                    icon: const Icon(Icons.folder_open_rounded, size: 16),
-                    label: const Text('Autoriser l\'accès'),
-                  ),
-                ],
-              ),
-            )
-          else
-            ...(_folders!.map((f) => ListTile(
+        // Storage unavailable case. The Download Manager itself remains
+        // usable with the app-scoped fallback; this only covers a folder
+        // service initialization failure.
+        if (_folders == null || _folders!.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  WatchtowerFolderService.instance.lastError == null
+                      ? 'Aucun dossier de téléchargement n’est disponible.'
+                      : 'Impossible de préparer le dossier de téléchargement.',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: _requestPerms,
+                  icon: const Icon(Icons.folder_open_rounded, size: 16),
+                  label: const Text('Autoriser l\'accès'),
+                ),
+              ],
+            ),
+          )
+        else
+          ...(_folders!.map(
+            (f) => ListTile(
               leading: Container(
-                width: 38, height: 38,
+                width: 38,
+                height: 38,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer.withValues(alpha: 0.25),
@@ -845,8 +884,13 @@ class _BadgeChip extends StatelessWidget {
                 ),
                 child: Text(f.iconLabel, style: const TextStyle(fontSize: 18)),
               ),
-              title: Text(f.displayName,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              title: Text(
+                f.displayName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
               subtitle: Text(
                 f.exists
                     ? '${f.fileCount} fichier${f.fileCount != 1 ? "s" : ""} · ${f.formattedSize}'
@@ -854,13 +898,19 @@ class _BadgeChip extends StatelessWidget {
                 style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
               ),
               trailing: f.exists
-                  ? Icon(Icons.check_circle_outline_rounded,
-                      size: 17, color: Colors.green.shade400)
-                  : Icon(Icons.radio_button_unchecked_rounded,
-                      size: 17, color: scheme.outlineVariant),
-            ))),
-        ],
-      );
-    }
+                  ? Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 17,
+                      color: Colors.green.shade400,
+                    )
+                  : Icon(
+                      Icons.radio_button_unchecked_rounded,
+                      size: 17,
+                      color: scheme.outlineVariant,
+                    ),
+            ),
+          )),
+      ],
+    );
   }
-  
+}

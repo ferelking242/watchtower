@@ -23,22 +23,26 @@ class ReplaceDownloadedDialog extends ConsumerWidget {
         children: [
           Text(context.l10n.do_you_want_to_replace),
           const SizedBox(height: 16),
-          RadioListTile<bool>(
-            title: Text(context.l10n.replace_downloaded_tracks),
-            value: true,
+          RadioGroup<bool>(
             groupValue: replaceAll,
             onChanged: (value) {
               ref.read(replaceDownloadedFileState.notifier).state = value;
             },
-          ),
-          const SizedBox(height: 8),
-          RadioListTile<bool>(
-            title: Text(context.l10n.skip_download_tracks),
-            value: false,
-            groupValue: replaceAll,
-            onChanged: (value) {
-              ref.read(replaceDownloadedFileState.notifier).state = value;
-            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RadioListTile<bool>(
+                  title: Text(context.l10n.replace_downloaded_tracks),
+                  value: true,
+                ),
+                const SizedBox(height: 8),
+                RadioListTile<bool>(
+                  title: Text(context.l10n.skip_download_tracks),
+                  value: false,
+                ),
+              ],
+            ),
           ),
         ],
       ),

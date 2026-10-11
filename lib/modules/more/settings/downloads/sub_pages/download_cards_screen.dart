@@ -20,7 +20,9 @@ class DownloadCardsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-          leading: const BackButton(),title: const Text('Cartes & Gestes')),
+        leading: const BackButton(),
+        title: const Text('Cartes & Gestes'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
@@ -32,10 +34,7 @@ class DownloadCardsScreen extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 'Choisissez les boutons affichés sur chaque carte de téléchargement.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ),
             _CardButtonsGrid(
@@ -55,10 +54,7 @@ class DownloadCardsScreen extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 'Action déclenchée en balayant une carte à gauche ou à droite.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ),
             _SwipeActionTile(
@@ -130,23 +126,22 @@ class _CardButtonsGrid extends StatelessWidget {
               child: Icon(
                 btn.icon,
                 size: 18,
-                color:
-                    isEnabled ? scheme.primary : scheme.onSurfaceVariant,
+                color: isEnabled ? scheme.primary : scheme.onSurfaceVariant,
               ),
             ),
             title: Text(
               btn.label,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight:
-                    isEnabled ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isEnabled ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
             value: isEnabled,
             onChanged: (_) => onToggle(btn),
             activeColor: scheme.primary,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }).toList(),
@@ -162,10 +157,7 @@ class _CardPreview extends StatelessWidget {
   final Set<CardButton> enabledButtons;
   final ColorScheme scheme;
 
-  const _CardPreview({
-    required this.enabledButtons,
-    required this.scheme,
-  });
+  const _CardPreview({required this.enabledButtons, required this.scheme});
 
   @override
   Widget build(BuildContext context) {
@@ -193,8 +185,11 @@ class _CardPreview extends StatelessWidget {
                   color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.movie_outlined,
-                    color: scheme.primary, size: 22),
+                child: Icon(
+                  Icons.movie_outlined,
+                  color: scheme.primary,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -221,8 +216,7 @@ class _CardPreview extends StatelessWidget {
                     const SizedBox(height: 6),
                     LinearProgressIndicator(
                       value: 0.6,
-                      backgroundColor:
-                          scheme.surfaceContainerHighest,
+                      backgroundColor: scheme.surfaceContainerHighest,
                       color: scheme.primary,
                       minHeight: 4,
                       borderRadius: BorderRadius.circular(2),
@@ -243,18 +237,20 @@ class _CardPreview extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 6),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: scheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                          color: scheme.primary.withValues(alpha: 0.3)),
+                        color: scheme.primary.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(btn.icon,
-                            size: 14, color: scheme.primary),
+                        Icon(btn.icon, size: 14, color: scheme.primary),
                         const SizedBox(width: 4),
                         Text(
                           btn.label.split(' / ').first,
@@ -325,16 +321,17 @@ class _SwipeActionTile extends StatelessWidget {
           ),
           child: Icon(icon, color: scheme.secondary, size: 20),
         ),
-        title: Text(label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        title: Text(
+          label,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
         subtitle: Text(
           current.label,
           style: TextStyle(fontSize: 12, color: scheme.primary),
         ),
         trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
         onTap: () => _showPicker(context),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -347,9 +344,7 @@ class _SwipeActionTile extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: SwipeAction.values.map((action) {
-            return RadioListTile<SwipeAction>(
-              title: Text(action.label),
-              value: action,
+            return RadioGroup<SwipeAction>(
               groupValue: current,
               onChanged: (v) {
                 if (v != null) {
@@ -357,14 +352,20 @@ class _SwipeActionTile extends StatelessWidget {
                   Navigator.pop(ctx);
                 }
               },
+              child: RadioListTile<SwipeAction>(
+                title: Text(action.label),
+                value: action,
+              ),
             );
           }).toList(),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Annuler',
-                style: TextStyle(color: context.primaryColor)),
+            child: Text(
+              'Annuler',
+              style: TextStyle(color: context.primaryColor),
+            ),
           ),
         ],
       ),

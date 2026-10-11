@@ -32,8 +32,7 @@ class GeneralScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(l10n.general)),
+      appBar: AppBar(leading: const BackButton(), title: Text(l10n.general)),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,18 +122,14 @@ class GeneralScreen extends ConsumerWidget {
                 title: Text(l10n.custom_dns),
                 subtitle: Text(
                   customDns.isEmpty ? 'Système par défaut' : customDns,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.secondaryColor,
-                  ),
+                  style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
               ),
 
             // User Agent
             ListTile(
               leading: const Icon(Icons.manage_accounts_rounded),
-              onTap: () =>
-                  _showDefaultUserAgentDialog(context, ref, userAgent),
+              onTap: () => _showDefaultUserAgentDialog(context, ref, userAgent),
               title: Text(context.l10n.default_user_agent),
               subtitle: Text(
                 userAgent,
@@ -275,55 +270,57 @@ class GeneralScreen extends ConsumerWidget {
               itemBuilder: (_, index) {
                 final p = providers[index];
                 final selected = (doHState.providerId ?? 0) == p.id;
-                return RadioListTile<int>(
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                  value: p.id,
+                return RadioGroup<int>(
                   groupValue: doHState.providerId ?? 0,
-                  title: Row(
-                    children: [
-                      Text(
-                        p.name,
-                        style: TextStyle(
-                          fontWeight: selected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      if (p.region != 'Global')
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            p.region,
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: colorScheme.onTertiaryContainer,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  subtitle: Text(
-                    p.description,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
                   onChanged: (value) {
                     ref
                         .read(doHProviderStateProvider.notifier)
                         .setDoHProvider(value!);
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
+                  child: RadioListTile<int>(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    value: p.id,
+                    title: Row(
+                      children: [
+                        Text(
+                          p.name,
+                          style: TextStyle(
+                            fontWeight: selected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        if (p.region != 'Global')
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              p.region,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: colorScheme.onTertiaryContainer,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      p.description,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
@@ -511,10 +508,7 @@ void _showDefaultUserAgentDialog(
                 const SizedBox(height: 6),
                 Text(
                   'Ouvre le site, copie ton User Agent, puis colle-le ci-dessus.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.secondaryColor,
-                  ),
+                  style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(

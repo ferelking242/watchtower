@@ -72,7 +72,6 @@ class AppearanceScreen extends ConsumerWidget {
     final isDarkTheme = ref.watch(themeModeStateProvider);
     bool followSystemTheme = ref.watch(followSystemThemeStateProvider);
 
-
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n!.appearance),
@@ -89,7 +88,10 @@ class AppearanceScreen extends ConsumerWidget {
             SettingsSection(
               title: l10n.theme,
               children: [
-                LayoutBuilder(builder: (ctx, c) => ToggleThemeModeContainer(maxWidth: c.maxWidth)),
+                LayoutBuilder(
+                  builder: (ctx, c) =>
+                      ToggleThemeModeContainer(maxWidth: c.maxWidth),
+                ),
                 const ThemeSelector(),
                 if (isDarkTheme)
                   SwitchListTile(
@@ -127,10 +129,9 @@ class AppearanceScreen extends ConsumerWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primaryContainer
-                          .withValues(alpha: 0.6),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
@@ -142,7 +143,10 @@ class AppearanceScreen extends ConsumerWidget {
                   title: const Text('Interface & Effets'),
                   subtitle: Text(
                     'Carousel, flou, animations et effets visuels',
-                    style: TextStyle(fontSize: 11, color: context.secondaryColor),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.secondaryColor,
+                    ),
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/uiSettings'),
@@ -177,18 +181,20 @@ class AppearanceScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
               carouselStyleLabels.length,
-              (i) => RadioListTile<int>(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                value: i,
+              (i) => RadioGroup<int>(
                 groupValue: current,
-                title: Text(carouselStyleLabels[i]),
                 onChanged: (v) {
                   if (v != null) {
                     ref.read(carouselStyleProvider.notifier).set(v);
                   }
                   Navigator.pop(context);
                 },
+                child: RadioListTile<int>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  value: i,
+                  title: Text(carouselStyleLabels[i]),
+                ),
               ),
             ),
           ),
@@ -453,30 +459,34 @@ class _FontPickerDialogState extends State<_FontPickerDialog> {
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     // Default option
-                    return RadioListTile<String?>(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      value: null,
+                    return RadioGroup<String?>(
                       groupValue: widget.currentFont,
-                      title: Text(widget.defaultLabel),
                       onChanged: (_) {
                         widget.onSelected(null);
                         Navigator.pop(context);
                       },
+                      child: RadioListTile<String?>(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: null,
+                        title: Text(widget.defaultLabel),
+                      ),
                     );
                   }
                   final entry = _filtered[index - 1];
                   final fontFamily = entry.value().fontFamily!;
-                  return RadioListTile<String?>(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    value: fontFamily,
+                  return RadioGroup<String?>(
                     groupValue: widget.currentFont,
-                    title: Text(entry.key),
                     onChanged: (_) {
                       widget.onSelected(fontFamily);
                       Navigator.pop(context);
                     },
+                    child: RadioListTile<String?>(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: fontFamily,
+                      title: Text(entry.key),
+                    ),
                   );
                 },
               ),
@@ -496,4 +506,3 @@ class _FontPickerDialogState extends State<_FontPickerDialog> {
     );
   }
 }
-

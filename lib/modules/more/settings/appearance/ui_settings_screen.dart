@@ -18,16 +18,19 @@ class UiSettingsScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
               carouselStyleLabels.length,
-              (i) => RadioListTile<int>(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                value: i,
+              (i) => RadioGroup<int>(
                 groupValue: current,
-                title: Text(carouselStyleLabels[i]),
                 onChanged: (v) {
-                  if (v != null) ref.read(carouselStyleProvider.notifier).set(v);
+                  if (v != null)
+                    ref.read(carouselStyleProvider.notifier).set(v);
                   Navigator.pop(context);
                 },
+                child: RadioListTile<int>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  value: i,
+                  title: Text(carouselStyleLabels[i]),
+                ),
               ),
             ),
           ),
@@ -35,7 +38,10 @@ class UiSettingsScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Annuler', style: TextStyle(color: context.primaryColor)),
+            child: Text(
+              'Annuler',
+              style: TextStyle(color: context.primaryColor),
+            ),
           ),
         ],
       ),
@@ -56,18 +62,20 @@ class UiSettingsScreen extends ConsumerWidget {
     final blurIntensity = ref.watch(blurIntensityProvider);
 
     Widget iconBox(IconData icon) => Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: cs.primaryContainer.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: cs.primary, size: 20),
-        );
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, color: cs.primary, size: 20),
+    );
 
     return Scaffold(
       appBar: AppBar(
-          leading: const BackButton(),title: const Text('Interface & Effets')),
+        leading: const BackButton(),
+        title: const Text('Interface & Effets'),
+      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,7 +84,11 @@ class UiSettingsScreen extends ConsumerWidget {
               padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
                 'UI & DÉCOUVERTE',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
               ),
             ),
             ListTile(
@@ -96,7 +108,8 @@ class UiSettingsScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
               value: showSynopsis,
-              onChanged: (v) => ref.read(carouselSynopsisProvider.notifier).set(v),
+              onChanged: (v) =>
+                  ref.read(carouselSynopsisProvider.notifier).set(v),
             ),
             SwitchListTile(
               secondary: iconBox(Icons.flare_rounded),
@@ -133,7 +146,11 @@ class UiSettingsScreen extends ConsumerWidget {
               padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: Text(
                 'FLOU & VERRE',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
               ),
             ),
             SwitchListTile(
@@ -154,7 +171,8 @@ class UiSettingsScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
               value: bottomSheetBlur,
-              onChanged: (v) => ref.read(bottomSheetBlurProvider.notifier).set(v),
+              onChanged: (v) =>
+                  ref.read(bottomSheetBlurProvider.notifier).set(v),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -171,11 +189,17 @@ class UiSettingsScreen extends ConsumerWidget {
                           children: [
                             const Text(
                               'Intensité du flou',
-                              style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 15,
+                              ),
                             ),
                             Text(
                               '${(blurIntensity * 100).round()}%',
-                              style: TextStyle(fontSize: 11, color: context.secondaryColor),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.secondaryColor,
+                              ),
                             ),
                           ],
                         ),
@@ -187,7 +211,8 @@ class UiSettingsScreen extends ConsumerWidget {
                     min: 0.2,
                     max: 2.0,
                     divisions: 18,
-                    onChanged: (v) => ref.read(blurIntensityProvider.notifier).set(v),
+                    onChanged: (v) =>
+                        ref.read(blurIntensityProvider.notifier).set(v),
                   ),
                 ],
               ),
@@ -197,7 +222,11 @@ class UiSettingsScreen extends ConsumerWidget {
               padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: Text(
                 'TRANSITIONS & ANIMATIONS',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
               ),
             ),
             ListTile(
@@ -228,16 +257,19 @@ class UiSettingsScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
               pageTransitionStyleLabels.length,
-              (i) => RadioListTile<int>(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                value: i,
+              (i) => RadioGroup<int>(
                 groupValue: current,
-                title: Text(pageTransitionStyleLabels[i]),
                 onChanged: (v) {
-                  if (v != null) ref.read(pageTransitionStyleProvider.notifier).set(v);
+                  if (v != null)
+                    ref.read(pageTransitionStyleProvider.notifier).set(v);
                   Navigator.pop(context);
                 },
+                child: RadioListTile<int>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  value: i,
+                  title: Text(pageTransitionStyleLabels[i]),
+                ),
               ),
             ),
           ),
@@ -245,7 +277,10 @@ class UiSettingsScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Annuler', style: TextStyle(color: context.primaryColor)),
+            child: Text(
+              'Annuler',
+              style: TextStyle(color: context.primaryColor),
+            ),
           ),
         ],
       ),

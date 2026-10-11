@@ -32,10 +32,10 @@ class MangaArchiveFormatScreen extends ConsumerWidget {
             ),
             title: Text(format.label),
             subtitle: Text(_description(format)),
-            trailing: Radio<MangaArchiveFormat>(
-              value: format,
+            trailing: RadioGroup<MangaArchiveFormat>(
               groupValue: selectedFormat,
               onChanged: (_) => _select(context, ref, format),
+              child: Radio<MangaArchiveFormat>(value: format),
             ),
             onTap: () => _select(context, ref, format),
           );
@@ -55,9 +55,12 @@ class MangaArchiveFormatScreen extends ConsumerWidget {
 
   String _description(MangaArchiveFormat format) => switch (format) {
     MangaArchiveFormat.folder => 'Pages vérifiées, conservées dans un dossier.',
-    MangaArchiveFormat.cbz => 'Archive créée après validation de toutes les pages.',
+    MangaArchiveFormat.cbz =>
+      'Archive créée après validation de toutes les pages.',
     MangaArchiveFormat.zip => 'Archive ZIP créée après validation des pages.',
-    MangaArchiveFormat.cbr => 'Format non pris en charge : un CBZ sera produit.',
-    MangaArchiveFormat.cb7 => 'Format non pris en charge : un CBZ sera produit.',
+    MangaArchiveFormat.cbr =>
+      'Format non pris en charge : un CBZ sera produit.',
+    MangaArchiveFormat.cb7 =>
+      'Format non pris en charge : un CBZ sera produit.',
   };
 }

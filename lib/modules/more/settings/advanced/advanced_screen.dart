@@ -1,4 +1,5 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +34,7 @@ const _kDetailedReportsKey = 'detailed_reports';
 const _kOldDecoderKey = 'old_decoder';
 const _kNonAsciiKey = 'no_non_ascii';
 const _kBitmapThresholdKey = 'bitmap_threshold';
-const _kUiScaleKey        = 'ui_scale';
+const _kUiScaleKey = 'ui_scale';
 
 Future<Box> _openBox() => Hive.openBox(_kBoxName);
 
@@ -113,12 +114,12 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   }
 
   Future<void> _loadSilentInstallStatus() async {
-      final s = await SilentInstallerService.instance.checkStatus();
-      if (mounted) setState(() => _silentStatus = s);
-    }
+    final s = await SilentInstallerService.instance.checkStatus();
+    if (mounted) setState(() => _silentStatus = s);
+  }
 
-    @override
-    void dispose() {
+  @override
+  void dispose() {
     _rbUrlCtrl.dispose();
     _rbKeyCtrl.dispose();
     _rbTimeoutCtrl.dispose();
@@ -191,20 +192,29 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
-                ...RemoteBypassMode.values.map((m) => RadioListTile<RemoteBypassMode>(
+                ...RemoteBypassMode.values.map(
+                  (m) => RadioGroup<RemoteBypassMode>(
+                    groupValue: _remoteBypass.mode,
+                    onChanged: (v) {
+                      setInner(() {});
+                      setState(() {
+                        _remoteBypass = _remoteBypass.copyWith(mode: v!);
+                      });
+                    },
+                    child: RadioListTile<RemoteBypassMode>(
                       dense: true,
-                      title: Text(m.label, style: const TextStyle(fontSize: 13)),
-                      subtitle: Text(m.description,
-                          style: const TextStyle(fontSize: 11)),
+                      title: Text(
+                        m.label,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        m.description,
+                        style: const TextStyle(fontSize: 11),
+                      ),
                       value: m,
-                      groupValue: _remoteBypass.mode,
-                      onChanged: (v) {
-                        setInner(() {});
-                        setState(() {
-                          _remoteBypass = _remoteBypass.copyWith(mode: v!);
-                        });
-                      },
-                    )),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -285,7 +295,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       });
       // Load UI scale separately
       final _advBox2 = await _openBox();
-      final _loadedScale = (_advBox2.get(_kUiScaleKey, defaultValue: 1.0) as num).toDouble();
+      final _loadedScale =
+          (_advBox2.get(_kUiScaleKey, defaultValue: 1.0) as num).toDouble();
       if (mounted) setState(() => _uiScale = _loadedScale);
     }
   }
@@ -335,57 +346,74 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _clearCookies() async {
-    AppLogger.log('MAINT clearCookies: début',
-        tag: LogTag.maintenance, logLevel: LogLevel.info);
+    AppLogger.log(
+      'MAINT clearCookies: début',
+      tag: LogTag.maintenance,
+      logLevel: LogLevel.info,
+    );
     try {
       await CookieManager.instance().deleteAllCookies();
       MClient.deleteAllCookies("");
-      AppLogger.log('MAINT clearCookies: ok',
-          tag: LogTag.maintenance, logLevel: LogLevel.info);
+      AppLogger.log(
+        'MAINT clearCookies: ok',
+        tag: LogTag.maintenance,
+        logLevel: LogLevel.info,
+      );
       _toast("Cookies effacés");
     } catch (e, st) {
-      AppLogger.log('MAINT clearCookies: ÉCHEC $e',
-          tag: LogTag.maintenance,
-          logLevel: LogLevel.error,
-          error: e,
-          stackTrace: st);
+      AppLogger.log(
+        'MAINT clearCookies: ÉCHEC $e',
+        tag: LogTag.maintenance,
+        logLevel: LogLevel.error,
+        error: e,
+        stackTrace: st,
+      );
       _toast("Erreur lors de la suppression des cookies");
     }
   }
 
   Future<void> _clearWebViewData() async {
-    AppLogger.log('MAINT clearWebViewData: début',
-        tag: LogTag.maintenance, logLevel: LogLevel.info);
+    AppLogger.log(
+      'MAINT clearWebViewData: début',
+      tag: LogTag.maintenance,
+      logLevel: LogLevel.info,
+    );
     try {
       final mgr = CookieManager.instance();
       await mgr.deleteAllCookies();
       if (!kIsWeb && Platform.isAndroid) {
         await InAppWebViewController.clearAllCache();
       }
-      AppLogger.log('MAINT clearWebViewData: ok',
-          tag: LogTag.maintenance, logLevel: LogLevel.info);
+      AppLogger.log(
+        'MAINT clearWebViewData: ok',
+        tag: LogTag.maintenance,
+        logLevel: LogLevel.info,
+      );
       _toast("Données WebView effacées");
     } catch (e, st) {
-      AppLogger.log('MAINT clearWebViewData: ÉCHEC $e',
-          tag: LogTag.maintenance,
-          logLevel: LogLevel.error,
-          error: e,
-          stackTrace: st);
+      AppLogger.log(
+        'MAINT clearWebViewData: ÉCHEC $e',
+        tag: LogTag.maintenance,
+        logLevel: LogLevel.error,
+        error: e,
+        stackTrace: st,
+      );
       _toast("Erreur lors de la suppression des données WebView");
     }
   }
 
   Future<void> _clearDatabase() async {
     try {
-      final nonFavIds = (await isar.mangas
-              .filter()
-              .favoriteIsNull()
-              .or()
-              .favoriteEqualTo(false)
-              .idProperty()
-              .findAll())
-          .whereType<int>()
-          .toList();
+      final nonFavIds =
+          (await isar.mangas
+                  .filter()
+                  .favoriteIsNull()
+                  .or()
+                  .favoriteEqualTo(false)
+                  .idProperty()
+                  .findAll())
+              .whereType<int>()
+              .toList();
       if (!mounted) return;
       final confirm = await showDialog<bool>(
         context: context,
@@ -442,7 +470,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
         bool fileFound = false;
         int sizeKb = 0;
-        final chapterName = (chapter.name ?? '').replaceForbiddenCharacters(' ');
+        final chapterName = (chapter.name ?? '').replaceForbiddenCharacters(
+          ' ',
+        );
 
         if (manga.itemType == ItemType.anime) {
           final mp4 = File(p.join(mangaDir.path, '$chapterName.mp4'));
@@ -453,11 +483,18 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         } else if (manga.itemType == ItemType.manga) {
           // Check individual image files in the chapter subfolder.
           final chapterDir = await storageProvider.getMangaChapterDirectory(
-              chapter, mangaMainDirectory: mangaDir);
+            chapter,
+            mangaMainDirectory: mangaDir,
+          );
           if (chapterDir != null && chapterDir.existsSync()) {
-            final imgs = chapterDir.listSync()
-                .where((f) => f.path.endsWith('.jpg')).toList();
-            if (imgs.isNotEmpty) { fileFound = true; sizeKb = imgs.length; }
+            final imgs = chapterDir
+                .listSync()
+                .where((f) => f.path.endsWith('.jpg'))
+                .toList();
+            if (imgs.isNotEmpty) {
+              fileFound = true;
+              sizeKb = imgs.length;
+            }
           }
           // Also accept a CBZ archive.
           final cbz = File(p.join(mangaDir.path, '${chapter.name}.cbz'));
@@ -517,7 +554,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         if (chapter == null) continue;
         chapter.manga.loadSync();
         final manga = chapter.manga.value;
-        if (manga == null || manga.id == null || manga.favorite == true) continue;
+        if (manga == null || manga.id == null || manga.favorite == true)
+          continue;
 
         await isar.writeTxn(() async {
           final m = await isar.mangas.get(manga.id!);
@@ -564,8 +602,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     );
     final legacyIconDir = await storage.getCacheDirectory('cacheimagecover');
     final libDir = await storage.getCacheDirectory('cacheimagemanga');
-    final iconSize =
-        await _dirSize(iconDir) + await _dirSize(legacyIconDir);
+    final iconSize = await _dirSize(iconDir) + await _dirSize(legacyIconDir);
     final libSize = await _dirSize(libDir);
     if (!mounted) return;
     setState(() {
@@ -722,7 +759,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {
-          return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12);
+          return Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.12);
         }
         if (states.contains(WidgetState.selected)) {
           return activeColor;
@@ -740,10 +779,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     IconData? trailing,
   }) {
     return ListTile(
-      title: Text(
-        title,
-        style: TextStyle(fontSize: 14, color: titleColor),
-      ),
+      title: Text(title, style: TextStyle(fontSize: 14, color: titleColor)),
       subtitle: subtitle != null
           ? Text(
               subtitle,
@@ -764,28 +800,32 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     if (_loading) {
       return Scaffold(
         appBar: AppBar(
-          leading: const BackButton(),title: const Text("Avancé")),
+          leading: const BackButton(),
+          title: const Text("Avancé"),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: const Text("Avancé")),
+      appBar: AppBar(leading: const BackButton(), title: const Text("Avancé")),
       body: ListView(
         children: [
           // ── Section : Installation automatique ─────────────────────────
-            if (!kIsWeb && Platform.isAndroid) ...[
-              _sectionHeader("Installation automatique"),
-              _SilentInstallTile(status: _silentStatus, onChanged: (success) {
+          if (!kIsWeb && Platform.isAndroid) ...[
+            _sectionHeader("Installation automatique"),
+            _SilentInstallTile(
+              status: _silentStatus,
+              onChanged: (success) {
                 if (success) {
                   setState(() => _silentStatus = SilentInstallStatus.active);
                 } else {
                   _loadSilentInstallStatus();
                 }
-              }),
-            ],
-            // ── Section : Avancé ────────────────────────────────────────────
+              },
+            ),
+          ],
+          // ── Section : Avancé ────────────────────────────────────────────
           _sectionHeader("Avancé"),
           _toggle(
             title: "Partager les rapports de plantage",
@@ -881,9 +921,11 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline_rounded,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.primary),
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'FlareSolverr',
@@ -904,7 +946,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                     const SizedBox(height: 4),
                     GestureDetector(
                       onTap: () => _openUrl(
-                          'https://github.com/FlareSolverr/FlareSolverr'),
+                        'https://github.com/FlareSolverr/FlareSolverr',
+                      ),
                       child: Text(
                         'github.com/FlareSolverr/FlareSolverr →',
                         style: TextStyle(
@@ -944,16 +987,16 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
           // ── Section : Réseau ────────────────────────────────────────────
           _sectionHeader("Réseau"),
-          _action(
-            title: "Effacer les cookies",
-            onTap: _clearCookies,
-          ),
+          _action(title: "Effacer les cookies", onTap: _clearCookies),
           _action(
             title: "Effacer les données WebView",
             onTap: _clearWebViewData,
           ),
           ListTile(
-            title: const Text("DNS sur HTTPS (DoH)", style: TextStyle(fontSize: 14)),
+            title: const Text(
+              "DNS sur HTTPS (DoH)",
+              style: TextStyle(fontSize: 14),
+            ),
             subtitle: Text(
               "Google",
               style: TextStyle(fontSize: 12, color: context.secondaryColor),
@@ -965,21 +1008,23 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             ),
             onTap: () => context.push('/general'),
           ),
-          Builder(builder: (context) {
-            final ua = ref.watch(userAgentStateProvider);
-            return ListTile(
-              title: const Text(
-                "Liste d'agents utilisateurs par défaut",
-                style: TextStyle(fontSize: 14),
-              ),
-              subtitle: Text(
-                ua,
-                style: TextStyle(fontSize: 11, color: context.secondaryColor),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            );
-          }),
+          Builder(
+            builder: (context) {
+              final ua = ref.watch(userAgentStateProvider);
+              return ListTile(
+                title: const Text(
+                  "Liste d'agents utilisateurs par défaut",
+                  style: TextStyle(fontSize: 14),
+                ),
+                subtitle: Text(
+                  ua,
+                  style: TextStyle(fontSize: 11, color: context.secondaryColor),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            },
+          ),
           _action(
             title: "Réinitialiser la liste d'agents utilisateurs",
             onTap: _resetUserAgent,
@@ -1028,9 +1073,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text(
-                    "Réinitialiser les paramètres du lecteur",
-                  ),
+                  title: const Text("Réinitialiser les paramètres du lecteur"),
                   content: const Text(
                     "Réinitialise le mode de lecture et l'orientation de toutes les séries.",
                   ),
@@ -1048,13 +1091,13 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               );
               if (confirm == true) {
                 try {
-                  final settings = (isar.settings.getSync(kSettingsId) ?? Settings());
+                  final settings =
+                      (isar.settings.getSync(kSettingsId) ?? Settings());
                   isar.writeTxnSync(
                     () => isar.settings.putSync(
                       settings
                         ..personalReaderModeList = []
-                        ..updatedAt =
-                            DateTime.now().millisecondsSinceEpoch,
+                        ..updatedAt = DateTime.now().millisecondsSinceEpoch,
                     ),
                   );
                   _toast("Paramètres du lecteur réinitialisés");
@@ -1129,7 +1172,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             ),
           ),
           _toggle(
-            title: "Utiliser l'ancien décodeur pour le lecteur de bandes longues",
+            title:
+                "Utiliser l'ancien décodeur pour le lecteur de bandes longues",
             subtitle:
                 "Affecte les performances. Ne l'activer que si la réduction du seuil de bitmap ne résout pas les problèmes d'images vierges",
             value: _oldDecoder,
@@ -1155,7 +1199,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             ),
           ),
           _action(
-            title: "Révoquer les extensions provenant d'un répertoire additionnel",
+            title:
+                "Révoquer les extensions provenant d'un répertoire additionnel",
             titleColor: Colors.orange,
             onTap: () async {
               final confirm = await showDialog<bool>(
@@ -1188,75 +1233,99 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
           // ── Section : Logs avancés ──────────────────────────────────────
           // ── Section : Affichage / DPI ────────────────────────────────────
-            _sectionHeader("Affichage"),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Échelle de l'interface",
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          _sectionHeader("Affichage"),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Échelle de l'interface",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
                       ),
-                      Text(
-                        '${(_uiScale * 100).round()}%',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Adapte la taille de l'interface (texte + espacements). "
-                    "Utile pour les petits écrans comme l'iPhone 7.",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
+                    Text(
+                      '${(_uiScale * 100).round()}%',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Adapte la taille de l'interface (texte + espacements). "
+                  "Utile pour les petits écrans comme l'iPhone 7.",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  Slider(
-                    value: _uiScale,
-                    min: 0.75,
-                    max: 1.50,
-                    divisions: 15,
-                    label: '${(_uiScale * 100).round()}%',
-                    onChanged: (v) async {
-                      setState(() => _uiScale = v);
+                ),
+                Slider(
+                  value: _uiScale,
+                  min: 0.75,
+                  max: 1.50,
+                  divisions: 15,
+                  label: '${(_uiScale * 100).round()}%',
+                  onChanged: (v) async {
+                    setState(() => _uiScale = v);
+                    final box = await _openBox();
+                    await box.put(_kUiScaleKey, v);
+                  },
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '75%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      '100% (défaut)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      '150%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text(
+                      'Réinitialiser',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    onPressed: () async {
+                      setState(() => _uiScale = 1.0);
                       final box = await _openBox();
-                      await box.put(_kUiScaleKey, v);
+                      await box.put(_kUiScaleKey, 1.0);
                     },
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('75%', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                      Text('100% (défaut)', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                      Text('150%', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('Réinitialiser', style: TextStyle(fontSize: 13)),
-                      onPressed: () async {
-                        setState(() => _uiScale = 1.0);
-                        final box = await _openBox();
-                        await box.put(_kUiScaleKey, 1.0);
-                      },
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-                      _sectionHeader("Logs avancés"),
+          ),
+          _sectionHeader("Logs avancés"),
           _LogAdvancedSection(
             logMode: _logMode,
             logSuppressImages: _logSuppressImages,
@@ -1279,17 +1348,39 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             onTagChanged: (key, v) {
               setState(() {
                 switch (key) {
-                  case kLogTagExt: _logTagExt = v; break;
-                  case kLogTagDl: _logTagDl = v; break;
-                  case kLogTagNet: _logTagNet = v; break;
-                  case kLogTagUi: _logTagUi = v; break;
-                  case kLogTagManga: _logTagManga = v; break;
-                  case kLogTagPage: _logTagPage = v; break;
-                  case kLogTagHls: _logTagHls = v; break;
-                  case kLogTagInstall: _logTagInstall = v; break;
-                  case kLogTagReader: _logTagReader = v; break;
-                  case kLogTagWatch: _logTagWatch = v; break;
-                  case kLogTagMaint: _logTagMaint = v; break;
+                  case kLogTagExt:
+                    _logTagExt = v;
+                    break;
+                  case kLogTagDl:
+                    _logTagDl = v;
+                    break;
+                  case kLogTagNet:
+                    _logTagNet = v;
+                    break;
+                  case kLogTagUi:
+                    _logTagUi = v;
+                    break;
+                  case kLogTagManga:
+                    _logTagManga = v;
+                    break;
+                  case kLogTagPage:
+                    _logTagPage = v;
+                    break;
+                  case kLogTagHls:
+                    _logTagHls = v;
+                    break;
+                  case kLogTagInstall:
+                    _logTagInstall = v;
+                    break;
+                  case kLogTagReader:
+                    _logTagReader = v;
+                    break;
+                  case kLogTagWatch:
+                    _logTagWatch = v;
+                    break;
+                  case kLogTagMaint:
+                    _logTagMaint = v;
+                    break;
                 }
               });
               _saveLogSetting(key, v);
@@ -1348,7 +1439,8 @@ class _LogAdvancedSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final logsEnabled = ref.watch(logsStateProvider);
     final cs = Theme.of(context).colorScheme;
-    final secondary = Theme.of(context).textTheme.bodySmall?.color ??
+    final secondary =
+        Theme.of(context).textTheme.bodySmall?.color ??
         cs.onSurface.withValues(alpha: 0.6);
     final selectedMode = LogMode.values[logMode.clamp(0, 3)];
 
@@ -1409,14 +1501,19 @@ class _LogAdvancedSection extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 18,
-                      color: cs.onSurface.withValues(alpha: 0.55)),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: cs.onSurface.withValues(alpha: 0.55),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       "Activez les logs dans À propos > Développeur pour configurer ces options.",
-                      style: TextStyle(fontSize: 12,
-                          color: cs.onSurface.withValues(alpha: 0.7)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withValues(alpha: 0.7),
+                      ),
                     ),
                   ),
                 ],
@@ -1430,8 +1527,10 @@ class _LogAdvancedSection extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Mode de logging",
-                  style: TextStyle(fontSize: 13, color: secondary)),
+              Text(
+                "Mode de logging",
+                style: TextStyle(fontSize: 13, color: secondary),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -1461,7 +1560,9 @@ class _LogAdvancedSection extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                         color: selected
                             ? Colors.white
-                            : logsEnabled ? chipColor : secondary,
+                            : logsEnabled
+                            ? chipColor
+                            : secondary,
                       ),
                     ),
                     selected: selected,
@@ -1473,8 +1574,8 @@ class _LogAdvancedSection extends ConsumerWidget {
                       color: selected
                           ? Colors.transparent
                           : logsEnabled
-                              ? chipColor.withValues(alpha: 0.4)
-                              : secondary.withValues(alpha: 0.2),
+                          ? chipColor.withValues(alpha: 0.4)
+                          : secondary.withValues(alpha: 0.2),
                     ),
                     onSelected: logsEnabled ? (_) => onModeChanged(mode) : null,
                   );
@@ -1520,8 +1621,10 @@ class _LogAdvancedSection extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
           child: Row(
             children: [
-              Text("Catégories actives",
-                  style: TextStyle(fontSize: 13, color: secondary)),
+              Text(
+                "Catégories actives",
+                style: TextStyle(fontSize: 13, color: secondary),
+              ),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1599,7 +1702,8 @@ class _LogAdvancedSection extends ConsumerWidget {
         ),
         _logToggle(
           title: "Maintenance [MAINT]",
-          subtitle: "Nettoyage cookies, BDD, réindexation, tâches d'arrière-plan",
+          subtitle:
+              "Nettoyage cookies, BDD, réindexation, tâches d'arrière-plan",
           tagKey: kLogTagMaint,
           value: logTagMaint,
         ),
@@ -1614,68 +1718,71 @@ class _LogAdvancedSection extends ConsumerWidget {
   }
 }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Silent-install setup tile (shown in Advanced settings)
-  // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Silent-install setup tile (shown in Advanced settings)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  class _SilentInstallTile extends StatefulWidget {
-    const _SilentInstallTile({required this.status, required this.onChanged});
-    final SilentInstallStatus status;
-    final ValueChanged<bool> onChanged;
+class _SilentInstallTile extends StatefulWidget {
+  const _SilentInstallTile({required this.status, required this.onChanged});
+  final SilentInstallStatus status;
+  final ValueChanged<bool> onChanged;
 
-    @override
-    State<_SilentInstallTile> createState() => _SilentInstallTileState();
+  @override
+  State<_SilentInstallTile> createState() => _SilentInstallTileState();
+}
+
+class _SilentInstallTileState extends State<_SilentInstallTile> {
+  bool _busy = false;
+
+  String get _subtitle {
+    switch (widget.status) {
+      case SilentInstallStatus.active:
+        return "Actif — les mises à jour s'installent automatiquement sans confirmation.";
+      case SilentInstallStatus.shizukuRequired:
+        return "Shizuku est nécessaire pour une configuration initiale unique. Appuyez pour configurer.";
+      case SilentInstallStatus.shizukuNotRunning:
+        return "Shizuku n'est pas démarré. Ouvrez Shizuku puis revenez ici.";
+      case SilentInstallStatus.unknown:
+      default:
+        return "Vérification…";
+    }
   }
 
-  class _SilentInstallTileState extends State<_SilentInstallTile> {
-    bool _busy = false;
-
-    String get _subtitle {
-      switch (widget.status) {
-        case SilentInstallStatus.active:
-          return "Actif — les mises à jour s'installent automatiquement sans confirmation.";
-        case SilentInstallStatus.shizukuRequired:
-          return "Shizuku est nécessaire pour une configuration initiale unique. Appuyez pour configurer.";
-        case SilentInstallStatus.shizukuNotRunning:
-          return "Shizuku n'est pas démarré. Ouvrez Shizuku puis revenez ici.";
-        case SilentInstallStatus.unknown:
-        default:
-          return "Vérification…";
-      }
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      return ListTile(
-        leading: Icon(
-          widget.status == SilentInstallStatus.active
-              ? Icons.check_circle_rounded
-              : Icons.system_update_alt_rounded,
-          color: widget.status == SilentInstallStatus.active
-              ? Colors.green
-              : Theme.of(context).colorScheme.secondary,
-        ),
-        title: const Text("Mises à jour silencieuses"),
-        subtitle: Text(_subtitle),
-        trailing: _busy
-            ? const SizedBox(width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2))
-            : (widget.status == SilentInstallStatus.active
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(
+        widget.status == SilentInstallStatus.active
+            ? Icons.check_circle_rounded
+            : Icons.system_update_alt_rounded,
+        color: widget.status == SilentInstallStatus.active
+            ? Colors.green
+            : Theme.of(context).colorScheme.secondary,
+      ),
+      title: const Text("Mises à jour silencieuses"),
+      subtitle: Text(_subtitle),
+      trailing: _busy
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : (widget.status == SilentInstallStatus.active
                 ? null
                 : const Icon(Icons.chevron_right)),
-        onTap: widget.status == SilentInstallStatus.active || _busy
-            ? null
-            : () async {
-                setState(() => _busy = true);
-                bool success = false;
-                try {
-                  success = await SilentInstallerService.instance.setupWithShizuku(context);
-                } finally {
-                  if (mounted) setState(() => _busy = false);
-                  widget.onChanged(success);
-                }
-              },
-      );
-    }
+      onTap: widget.status == SilentInstallStatus.active || _busy
+          ? null
+          : () async {
+              setState(() => _busy = true);
+              bool success = false;
+              try {
+                success = await SilentInstallerService.instance
+                    .setupWithShizuku(context);
+              } finally {
+                if (mounted) setState(() => _busy = false);
+                widget.onChanged(success);
+              }
+            },
+    );
   }
-  
+}

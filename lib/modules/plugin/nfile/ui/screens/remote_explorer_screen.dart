@@ -817,7 +817,7 @@ class _RemoteExplorerScreenState extends State<RemoteExplorerScreen> {
 
     return PopScope(
       canPop: _currentPath == widget.connection.rootPath,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _navigateUp();
       },

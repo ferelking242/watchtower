@@ -1347,7 +1347,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
         return PopScope(
           canPop: !isSelectionMode && !provider.canGoBack,
-          onPopInvoked: (didPop) {
+          onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
             if (isSelectionMode) {
               provider.clearSelection();

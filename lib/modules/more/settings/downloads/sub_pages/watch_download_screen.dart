@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
@@ -22,20 +23,27 @@ class WatchDownloadScreen extends ConsumerWidget {
     final animeConnections = ref.watch(animeConnectionsStateProvider);
     final watchSimultaneous = ref.watch(watchSimultaneousStateProvider);
     final watchOnlyOnWifi = ref.watch(watchOnlyOnWifiStateProvider);
-    final autoDownloadNewEpisodes =
-        ref.watch(autoDownloadNewEpisodesStateProvider);
-    final downloadFillerEpisodes =
-        ref.watch(downloadFillerEpisodesStateProvider);
-    final anticipatoryDownload =
-        ref.watch(anticipatoryDownloadWatchStateProvider);
-    final alwaysUseExternal =
-        ref.watch(alwaysUseExternalDownloaderStateProvider);
-    final preferredExternal =
-        ref.watch(preferredExternalDownloaderStateProvider);
+    final autoDownloadNewEpisodes = ref.watch(
+      autoDownloadNewEpisodesStateProvider,
+    );
+    final downloadFillerEpisodes = ref.watch(
+      downloadFillerEpisodesStateProvider,
+    );
+    final anticipatoryDownload = ref.watch(
+      anticipatoryDownloadWatchStateProvider,
+    );
+    final alwaysUseExternal = ref.watch(
+      alwaysUseExternalDownloaderStateProvider,
+    );
+    final preferredExternal = ref.watch(
+      preferredExternalDownloaderStateProvider,
+    );
 
     return Scaffold(
       appBar: AppBar(
-          leading: const BackButton(),title: const Text('Téléchargements — Watch')),
+        leading: const BackButton(),
+        title: const Text('Téléchargements — Watch'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
@@ -47,9 +55,8 @@ class WatchDownloadScreen extends ConsumerWidget {
               (mode) => _EngineCard(
                 mode: mode,
                 selected: downloadMode == mode,
-                onTap: () => ref
-                    .read(downloadModeStateProvider.notifier)
-                    .set(mode),
+                onTap: () =>
+                    ref.read(downloadModeStateProvider.notifier).set(mode),
               ),
             ),
 
@@ -110,9 +117,8 @@ class WatchDownloadScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 11),
               ),
               value: downloadFillerEpisodes,
-              onChanged: (v) => ref
-                  .read(downloadFillerEpisodesStateProvider.notifier)
-                  .set(v),
+              onChanged: (v) =>
+                  ref.read(downloadFillerEpisodesStateProvider.notifier).set(v),
             ),
             SwitchListTile(
               dense: true,
@@ -193,7 +199,9 @@ class _EngineCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
-          color: selected ? scheme.primary : scheme.outline.withValues(alpha: 0.3),
+          color: selected
+              ? scheme.primary
+              : scheme.outline.withValues(alpha: 0.3),
           width: selected ? 2 : 1,
         ),
       ),
@@ -231,16 +239,16 @@ class _EngineCard extends StatelessWidget {
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
-                            color: selected
-                                ? scheme.primary
-                                : scheme.onSurface,
+                            color: selected ? scheme.primary : scheme.onSurface,
                           ),
                         ),
                         if (mode.isDefault) ...[
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1),
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: scheme.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(4),
@@ -261,7 +269,9 @@ class _EngineCard extends StatelessWidget {
                     Text(
                       mode.description,
                       style: TextStyle(
-                          fontSize: 11, color: scheme.onSurfaceVariant),
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -319,7 +329,9 @@ class _ConnectionsTile extends StatelessWidget {
           child: Text(
             '$value',
             style: TextStyle(
-                fontWeight: FontWeight.bold, color: scheme.primary),
+              fontWeight: FontWeight.bold,
+              color: scheme.primary,
+            ),
           ),
         ),
       ),
@@ -355,16 +367,20 @@ class _ConnectionsTile extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Annuler',
-                    style: TextStyle(color: context.primaryColor)),
+                child: Text(
+                  'Annuler',
+                  style: TextStyle(color: context.primaryColor),
+                ),
               ),
               TextButton(
                 onPressed: () {
                   onChanged(currentValue);
                   Navigator.pop(context);
                 },
-                child: Text('OK',
-                    style: TextStyle(color: context.primaryColor)),
+                child: Text(
+                  'OK',
+                  style: TextStyle(color: context.primaryColor),
+                ),
               ),
             ],
           ),
@@ -399,8 +415,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
         description: 'L\'application demandera à chaque téléchargement.',
       ),
     );
-    final hasSelection =
-        preferredExternal != null && selected.id.isNotEmpty;
+    final hasSelection = preferredExternal != null && selected.id.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -497,23 +512,27 @@ class _ExternalDownloaderCard extends StatelessWidget {
           child: ListView(
             shrinkWrap: true,
             children: [
-              RadioListTile<String?>(
-                title: const Text('Aucune'),
-                value: null,
+              RadioGroup<String?>(
                 groupValue: preferredExternal,
                 onChanged: (v) {
                   onChanged(null);
                   Navigator.pop(ctx);
                 },
+                child: RadioListTile<String?>(
+                  title: const Text('Aucune'),
+                  value: null,
+                ),
               ),
-              ...apps.map((app) => _ExternalAppTile(
-                    app: app,
-                    selected: preferredExternal == app.id,
-                    onSelect: () {
-                      onChanged(app.id);
-                      Navigator.pop(ctx);
-                    },
-                  )),
+              ...apps.map(
+                (app) => _ExternalAppTile(
+                  app: app,
+                  selected: preferredExternal == app.id,
+                  onSelect: () {
+                    onChanged(app.id);
+                    Navigator.pop(ctx);
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -555,14 +574,12 @@ class _ExternalDownloaderRegistry {
       name: 'ADM — Advanced Download Manager',
       description: 'Gestionnaire de téléchargement multi-thread pour Android.',
       androidPackage: 'com.dv.adm',
-      playStoreUrl:
-          'https://play.google.com/store/apps/details?id=com.dv.adm',
+      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.dv.adm',
     ),
     _ExternalDownloaderApp(
       id: '1dm',
       name: '1DM — 1Downloader',
-      description:
-          'Téléchargeur rapide avec support HLS et DASH pour Android.',
+      description: 'Téléchargeur rapide avec support HLS et DASH pour Android.',
       androidPackage: 'idm.internet.download.manager',
       playStoreUrl:
           'https://play.google.com/store/apps/details?id=idm.internet.download.manager',
@@ -613,17 +630,18 @@ class _ExternalAppTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Radio<bool>(
-        value: true,
+      leading: RadioGroup<bool>(
         groupValue: selected,
         onChanged: (_) => onSelect(),
+        child: Radio<bool>(value: true),
       ),
       title: Text(app.name, style: const TextStyle(fontSize: 13)),
       subtitle: Text(app.description, style: const TextStyle(fontSize: 11)),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!kIsWeb && Platform.isAndroid &&
+          if (!kIsWeb &&
+              Platform.isAndroid &&
               ExternalDownloaderLauncher.packageMap.containsKey(app.id))
             IconButton(
               icon: const Icon(Icons.play_arrow_rounded, size: 20),
@@ -635,12 +653,16 @@ class _ExternalAppTile extends StatelessWidget {
                   appId: app.id,
                 );
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    duration: const Duration(seconds: 2),
-                    content: Text(ok
-                        ? '${app.name} lancé via intent'
-                        : 'Échec du lancement de ${app.name} (app installée ?)'),
-                  ));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      duration: const Duration(seconds: 2),
+                      content: Text(
+                        ok
+                            ? '${app.name} lancé via intent'
+                            : 'Échec du lancement de ${app.name} (app installée ?)',
+                      ),
+                    ),
+                  );
                 }
               },
             ),

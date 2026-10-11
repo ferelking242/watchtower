@@ -22,22 +22,26 @@ class SelectDeviceDialog extends HookConsumerWidget {
         children: [
           Text(context.l10n.multiple_device_connected),
           const SizedBox(height: 16),
-          RadioListTile<bool>(
-            title: Text(remoteService.name),
-            value: true,
+          RadioGroup<bool>(
             groupValue: isRemoteService.value,
             onChanged: (value) {
               if (value != null) isRemoteService.value = value;
             },
-          ),
-          const SizedBox(height: 8),
-          RadioListTile<bool>(
-            title: Text(context.l10n.this_device),
-            value: false,
-            groupValue: isRemoteService.value,
-            onChanged: (value) {
-              if (value != null) isRemoteService.value = value;
-            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RadioListTile<bool>(
+                  title: Text(remoteService.name),
+                  value: true,
+                ),
+                const SizedBox(height: 8),
+                RadioListTile<bool>(
+                  title: Text(context.l10n.this_device),
+                  value: false,
+                ),
+              ],
+            ),
           ),
         ],
       ),
