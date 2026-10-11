@@ -98,6 +98,45 @@ jobs:
       - name: Run Cloudflare challenge tests
         run: flutter test test/cloudflare_challenge_url_test.dart
 
+      - name: Run gallery, layout and widget tests
+        run: |
+          flutter test \
+            test/gallery_component_renderer_test.dart \
+            test/ui_layout_test.dart \
+            test/filter_widget_bounds_test.dart \
+            test/widget_test.dart \
+            test/extension_collection_route_test.dart
+
+      - name: Run library indexer and metadata tests
+        run: |
+          flutter test \
+            test/smart_library_discovery_test.dart \
+            test/smart_library_normalizer_test.dart \
+            test/persisted_request_metadata_test.dart \
+            test/manga_download_manifest_test.dart \
+            test/source_quality_preferences_test.dart
+
+      - name: Run search and card rendering tests
+        run: |
+          flutter test \
+            test/search_chrome_test.dart \
+            test/search_result_card_test.dart \
+            test/moviebox_progress_bar_test.dart
+
+      - name: Run logging and cookie snapshot tests
+        run: |
+          flutter test \
+            test/log_sanitization_test.dart \
+            test/m_client_cookie_snapshot_test.dart
+
+      - name: Run offline reader and image cache tests
+        run: |
+          flutter test \
+            test/local_manga_page_files_test.dart \
+            test/offline_content_state_test.dart \
+            test/custom_extended_image_provider_test.dart \
+            test/icon_cache_service_test.dart
+
       - name: Record outdated package report
         if: always()
         run: |
