@@ -287,12 +287,15 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
   @override
   void didUpdateWidget(covariant ExtensionHomeEmptyState oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final needsBypass = extensionErrorNeedsBypass(widget.error);
     // Re-open the inline resolver when a new bypassable failure arrives, so the
     // same surface keeps hosting the WebView instead of opening a second page.
-    if (extensionErrorNeedsBypass(widget.error) &&
-        widget.error != oldWidget.error) {
+    if (needsBypass && widget.error != oldWidget.error) {
       _showInlineChallenge = true;
     }
+    // Never stay promoted once the failure is gone: a later, unrelated error
+    // must not jump straight to a fullscreen resolver.
+    if (!needsBypass) _resolverFullscreen = false;
   }
 
   Future<void> _retrySource() async {
