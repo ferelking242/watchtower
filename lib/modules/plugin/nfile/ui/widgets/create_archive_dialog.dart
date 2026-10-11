@@ -31,10 +31,17 @@ class CreateArchiveDialog extends StatefulWidget {
     this.isMultiSelection = false,
   });
 
-  static Future<ArchiveCreationResult?> show(BuildContext context, {required String initialName, bool isMultiSelection = false}) {
+  static Future<ArchiveCreationResult?> show(
+    BuildContext context, {
+    required String initialName,
+    bool isMultiSelection = false,
+  }) {
     return showDialog<ArchiveCreationResult>(
       context: context,
-      builder: (_) => CreateArchiveDialog(initialName: initialName, isMultiSelection: isMultiSelection),
+      builder: (_) => CreateArchiveDialog(
+        initialName: initialName,
+        isMultiSelection: isMultiSelection,
+      ),
     );
   }
 
@@ -90,12 +97,18 @@ class _CreateArchiveDialogState extends State<CreateArchiveDialog> {
                       color: theme.colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Broken.archive_add, color: theme.colorScheme.primary, size: 24),
+                    child: Icon(
+                      Broken.archive_add,
+                      color: theme.colorScheme.primary,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Text(
                     'Create Archive',
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -107,7 +120,9 @@ class _CreateArchiveDialogState extends State<CreateArchiveDialog> {
                   controller: _nameController,
                   decoration: InputDecoration(
                     labelText: 'Archive Name',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     prefixIcon: const Icon(Broken.box),
                   ),
                 ),
@@ -116,10 +131,13 @@ class _CreateArchiveDialogState extends State<CreateArchiveDialog> {
 
               // Format Selection
               DropdownButtonFormField<String>(
-                value: _format,
+                key: ValueKey(_format),
+                initialValue: _format,
                 decoration: InputDecoration(
                   labelText: 'Archive Format',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   prefixIcon: const Icon(Broken.document_code),
                 ),
                 items: const [
@@ -169,11 +187,16 @@ class _CreateArchiveDialogState extends State<CreateArchiveDialog> {
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password (Optional)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     prefixIcon: const Icon(Broken.lock),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Broken.eye_slash : Broken.eye),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      icon: Icon(
+                        _obscurePassword ? Broken.eye_slash : Broken.eye,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
                 ),
@@ -187,7 +210,9 @@ class _CreateArchiveDialogState extends State<CreateArchiveDialog> {
                 decoration: InputDecoration(
                   labelText: 'Split Volume Size in MB (Optional)',
                   helperText: 'Leave empty for single archive',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   prefixIcon: const Icon(Broken.scissor),
                 ),
               ),
@@ -235,7 +260,9 @@ class _CreateArchiveDialogState extends State<CreateArchiveDialog> {
                       if (!_separateArchives && name.isEmpty) {
                         return;
                       }
-                      final int? split = int.tryParse(_splitController.text.trim());
+                      final int? split = int.tryParse(
+                        _splitController.text.trim(),
+                      );
 
                       Navigator.pop(
                         context,
@@ -243,8 +270,12 @@ class _CreateArchiveDialogState extends State<CreateArchiveDialog> {
                           archiveName: name.isEmpty ? 'archive' : name,
                           format: _format,
                           compressionLevel: _compressionLevel,
-                          password: _passwordController.text.isNotEmpty ? _passwordController.text : null,
-                          splitSizeMB: (split != null && split > 0) ? split : null,
+                          password: _passwordController.text.isNotEmpty
+                              ? _passwordController.text
+                              : null,
+                          splitSizeMB: (split != null && split > 0)
+                              ? split
+                              : null,
                           deleteSource: _deleteSource,
                           separateArchives: _separateArchives,
                         ),

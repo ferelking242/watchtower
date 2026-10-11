@@ -11,8 +11,10 @@ import 'package:watchtower/modules/music/provider/user_preferences/user_preferen
 
 class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
   final void Function() onNext;
-  const GettingStartedPageLanguageRegionSection(
-      {super.key, required this.onNext});
+  const GettingStartedPageLanguageRegionSection({
+    super.key,
+    required this.onNext,
+  });
 
   @override
   Widget build(BuildContext context, ref) {
@@ -26,9 +28,7 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
       final current = preferences.locale;
       if (current == null || current.languageCode == 'system') {
         final match = L10n.all
-            .where(
-              (l) => l.languageCode == appLocale.languageCode,
-            )
+            .where((l) => l.languageCode == appLocale.languageCode)
             .firstOrNull;
         if (match != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -47,10 +47,7 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Icon(
-                    SpotubeIcons.language,
-                    size: 16,
-                  ),
+                  const Icon(SpotubeIcons.language, size: 16),
                   const SizedBox(width: 8),
                   Text(context.l10n.language_region),
                 ],
@@ -68,7 +65,8 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                   SizedBox(
                     width: double.infinity,
                     child: DropdownButtonFormField<dynamic>(
-                      value: preferences.market,
+                      key: ValueKey(preferences.market),
+                      initialValue: preferences.market,
                       isExpanded: true,
                       decoration: InputDecoration(
                         hintText: context.l10n.market_place_region,
@@ -101,7 +99,8 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
                   SizedBox(
                     width: double.infinity,
                     child: DropdownButtonFormField<Locale>(
-                      value: preferences.locale,
+                      key: ValueKey(preferences.locale),
+                      initialValue: preferences.locale,
                       isExpanded: true,
                       decoration: InputDecoration(
                         hintText: context.l10n.system_default,

@@ -220,8 +220,10 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       if (rawId is! num || e['name'] is! String) continue;
       final rawItemType = e['itemType'];
       final rawCompat = e['sourceCodeLanguage'];
-      final itemTypeIdx =
-          (rawItemType is num ? rawItemType.toInt() : 0).clamp(0, 4);
+      final itemTypeIdx = (rawItemType is num ? rawItemType.toInt() : 0).clamp(
+        0,
+        4,
+      );
       final compatIdx = rawCompat is num ? rawCompat.toInt() : 1;
       if (compatIdx < 0 || compatIdx > 1) continue;
       final rawSubCategories = e['subCategories'];
@@ -245,13 +247,16 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
             ? (e['contentSubtype'] as List).whereType<String>().toList()
             : <String>[],
         'uiLayout': e['uiLayout'] is String ? e['uiLayout'] : null,
-        'uiLayoutVersion':
-            e['uiLayoutVersion'] is String ? e['uiLayoutVersion'] : null,
-        'requiresAccount':
-            e['requiresAccount'] is bool ? e['requiresAccount'] as bool : false,
+        'uiLayoutVersion': e['uiLayoutVersion'] is String
+            ? e['uiLayoutVersion']
+            : null,
+        'requiresAccount': e['requiresAccount'] is bool
+            ? e['requiresAccount'] as bool
+            : false,
         'hasDRM': e['hasDRM'] is bool ? e['hasDRM'] as bool : false,
-        'isAggregator':
-            e['isAggregator'] is bool ? e['isAggregator'] as bool : false,
+        'isAggregator': e['isAggregator'] is bool
+            ? e['isAggregator'] as bool
+            : false,
         'paywall': e['paywall'] is String ? e['paywall'] : 'free',
         'supportsComments': e['supportsComments'] is bool
             ? e['supportsComments'] as bool
@@ -260,14 +265,15 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'description': e['description'] is String
             ? e['description']
             : e['notes'] is String
-                ? e['notes']
-                : '',
+            ? e['notes']
+            : '',
         'sizeBytes': _parseMktSize(
           e['sizeBytes'] ?? e['size'] ?? e['downloadSize'],
         ),
         'rating': e['rating'] is num ? (e['rating'] as num).toDouble() : null,
-        'reviewCount':
-            e['reviewCount'] is num ? (e['reviewCount'] as num).toInt() : null,
+        'reviewCount': e['reviewCount'] is num
+            ? (e['reviewCount'] as num).toInt()
+            : null,
       });
     } catch (_) {
       // One malformed catalogue entry must not blank every Marketplace tab.
@@ -281,52 +287,46 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
   }).toList();
 }
 
-List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps
-    .map(
-      (m) {
-        final rawItemType = m['contentType'] is num
-            ? (m['contentType'] as num).toInt()
-            : -1;
-        final rawCompat =
-            m['compat'] is num ? (m['compat'] as num).toInt() : -1;
-        final itemType = rawItemType >= 0 &&
-                rawItemType < ItemType.values.length
-            ? ItemType.values[rawItemType]
-            : ItemType.manga;
-        final compat = rawCompat >= 0 &&
-                rawCompat < 2
-            ? SourceCodeLanguage.values[rawCompat]
-            : SourceCodeLanguage.javascript;
-        return _ExtEntry(
-          id: m['id'] as int,
-          name: m['name'] as String,
-          iconUrl: m['iconUrl'] as String?,
-          lang: m['lang'] as String,
-          version: m['version'] as String,
-          contentType: itemType,
-          compat: compat,
-          isNsfw: m['isNsfw'] as bool? ?? false,
-          repoUrl: m['repoUrl'] as String,
-          subCategories:
-              (m['subCategories'] as List<dynamic>?)?.cast<String>() ?? [],
-          contentSubtype:
-              (m['contentSubtype'] as List<dynamic>?)?.cast<String>() ?? [],
-          uiLayout: m['uiLayout'] as String?,
-          uiLayoutVersion: m['uiLayoutVersion'] as String?,
-          requiresAccount: m['requiresAccount'] as bool? ?? false,
-          hasDRM: m['hasDRM'] as bool? ?? false,
-          isAggregator: m['isAggregator'] as bool? ?? false,
-          paywall: m['paywall'] as String? ?? 'free',
-          supportsComments: m['supportsComments'] as bool? ?? false,
-          upstream: m['upstream'] as String? ?? '',
-          description: m['description'] as String? ?? '',
-          sizeBytes: _parseMktSize(m['sizeBytes']),
-          rating: (m['rating'] as num?)?.toDouble() ?? 0,
-          reviewCount: (m['reviewCount'] as num?)?.toInt() ?? 0,
-        );
-      },
-    )
-    .toList();
+List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps.map((
+  m,
+) {
+  final rawItemType = m['contentType'] is num
+      ? (m['contentType'] as num).toInt()
+      : -1;
+  final rawCompat = m['compat'] is num ? (m['compat'] as num).toInt() : -1;
+  final itemType = rawItemType >= 0 && rawItemType < ItemType.values.length
+      ? ItemType.values[rawItemType]
+      : ItemType.manga;
+  final compat = rawCompat >= 0 && rawCompat < 2
+      ? SourceCodeLanguage.values[rawCompat]
+      : SourceCodeLanguage.javascript;
+  return _ExtEntry(
+    id: m['id'] as int,
+    name: m['name'] as String,
+    iconUrl: m['iconUrl'] as String?,
+    lang: m['lang'] as String,
+    version: m['version'] as String,
+    contentType: itemType,
+    compat: compat,
+    isNsfw: m['isNsfw'] as bool? ?? false,
+    repoUrl: m['repoUrl'] as String,
+    subCategories: (m['subCategories'] as List<dynamic>?)?.cast<String>() ?? [],
+    contentSubtype:
+        (m['contentSubtype'] as List<dynamic>?)?.cast<String>() ?? [],
+    uiLayout: m['uiLayout'] as String?,
+    uiLayoutVersion: m['uiLayoutVersion'] as String?,
+    requiresAccount: m['requiresAccount'] as bool? ?? false,
+    hasDRM: m['hasDRM'] as bool? ?? false,
+    isAggregator: m['isAggregator'] as bool? ?? false,
+    paywall: m['paywall'] as String? ?? 'free',
+    supportsComments: m['supportsComments'] as bool? ?? false,
+    upstream: m['upstream'] as String? ?? '',
+    description: m['description'] as String? ?? '',
+    sizeBytes: _parseMktSize(m['sizeBytes']),
+    rating: (m['rating'] as num?)?.toDouble() ?? 0,
+    reviewCount: (m['reviewCount'] as num?)?.toInt() ?? 0,
+  );
+}).toList();
 
 // ─── Outils natifs (ancienne « page plugin », désormais dans le Marketplace) ──
 
@@ -759,12 +759,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         }
       }
 
-      final results = await Future.wait<List<_ExtEntry>>(
-        List<Future<List<_ExtEntry>>>.generate(
-          catalogUrls.length,
-          (index) => safe(index, _fetch(catalogUrls[index])),
-        ),
-      ).timeout(
+      final results =
+          await Future.wait<List<_ExtEntry>>(
+            List<Future<List<_ExtEntry>>>.generate(
+              catalogUrls.length,
+              (index) => safe(index, _fetch(catalogUrls[index])),
+            ),
+          ).timeout(
             const Duration(seconds: 20),
             onTimeout: () {
               failures = catalogUrls.length;
@@ -807,9 +808,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         }
         if (published.isNotEmpty) {
           unawaited(
-            WatchtowerNotificationService.instance.showNewExtensions(
-              published,
-            ),
+            WatchtowerNotificationService.instance.showNewExtensions(published),
           );
         }
       }
@@ -977,9 +976,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Silent core: no toasts, no setState ─────────────────────────────────
   Future<void> _installOneCore(_ExtEntry entry) async {
     if (_isMusicPluginEntry(entry)) {
-      final repoUrl = entry.upstream.isNotEmpty ? entry.upstream : entry.repoUrl;
+      final repoUrl = entry.upstream.isNotEmpty
+          ? entry.upstream
+          : entry.repoUrl;
       final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
-      final pluginConfig = await pluginsNotifier.downloadAndCachePlugin(repoUrl);
+      final pluginConfig = await pluginsNotifier.downloadAndCachePlugin(
+        repoUrl,
+      );
       final existingPlugin = _musicPluginFor(entry);
       if (existingPlugin == null) {
         await pluginsNotifier.addPlugin(pluginConfig);
@@ -2399,11 +2402,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         itemBuilder: (ctx, i) => _MiniCard(
           entry: show[i],
           installed: _installed.contains(show[i].id),
-            hasUpdate: _hasUpdate(
-              show[i].id,
-              show[i].version,
-              show[i].uiLayoutVersion,
-            ),
+          hasUpdate: _hasUpdate(
+            show[i].id,
+            show[i].version,
+            show[i].uiLayoutVersion,
+          ),
           busy: _busy[show[i].id] == true,
           onInstall: () => _install(show[i]),
           onSettings: _installed.contains(show[i].id)
@@ -4155,7 +4158,8 @@ class _MassInstallSheetState extends State<_MassInstallSheet> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedLang,
+              key: ValueKey(_selectedLang),
+              initialValue: _selectedLang,
               isExpanded: true,
               hint: const Text('Sélectionner une langue'),
               decoration: InputDecoration(
@@ -4548,11 +4552,7 @@ class _PlayStoreCard extends StatelessWidget {
                 _TagChip(label: langCode, cs: cs),
                 _TagChip(label: compatLabel, cs: cs),
                 if (entry.isNsfw)
-                  _TagChip(
-                    label: 'Adulte',
-                    cs: cs,
-                    color: Colors.red.shade400,
-                  ),
+                  _TagChip(label: 'Adulte', cs: cs, color: Colors.red.shade400),
                 if (hasUpdate)
                   _TagChip(
                     label: '↑ v${entry.version}',
@@ -9393,17 +9393,18 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   List<_ExtEntry> get _availableUpdates {
-    final updates = widget.entries
-        .where(
-          (entry) =>
-              widget.installed.contains(entry.id) &&
-              _hasUpdate(entry) &&
-              (widget.showNsfw || !entry.isNsfw),
-        )
-        .toList()
-      ..sort(
-        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-      );
+    final updates =
+        widget.entries
+            .where(
+              (entry) =>
+                  widget.installed.contains(entry.id) &&
+                  _hasUpdate(entry) &&
+                  (widget.showNsfw || !entry.isNsfw),
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
     return updates;
   }
 
@@ -9478,7 +9479,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     if (has(const ['manhwa'])) return 'Manhwa';
     if (has(const ['manhua'])) return 'Manhua';
     if (has(const ['comic'])) return 'Comics';
-    if (has(const ['scantrad', 'scanlation', ' scans', 'scan '])) return 'Scans';
+    if (has(const ['scantrad', 'scanlation', ' scans', 'scan ']))
+      return 'Scans';
     if (has(const ['light novel', 'lightnovel'])) return 'Light Novel';
     if (has(const ['web novel', 'webnovel', 'wuxia', 'xianxia', 'xuanhuan'])) {
       return 'Web Novel';
@@ -9535,51 +9537,55 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     return (preferred.isEmpty ? _visible : preferred).take(6).toList();
   }
 
-  List<_ExtEntry> _rankedWhere(bool Function(_ExtEntry entry) test,
-      {int limit = 10}) {
-    final entries = widget.entries
-        .where(test)
-        .where((entry) => widget.showNsfw || !entry.isNsfw)
-        .toList()
-      ..sort((a, b) {
-        final aNeedsUpdate = _hasUpdate(a);
-        final bNeedsUpdate = _hasUpdate(b);
-        if (aNeedsUpdate != bNeedsUpdate) return aNeedsUpdate ? -1 : 1;
-        final rating = _playRating(b).compareTo(_playRating(a));
-        if (rating != 0) return rating;
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
+  List<_ExtEntry> _rankedWhere(
+    bool Function(_ExtEntry entry) test, {
+    int limit = 10,
+  }) {
+    final entries =
+        widget.entries
+            .where(test)
+            .where((entry) => widget.showNsfw || !entry.isNsfw)
+            .toList()
+          ..sort((a, b) {
+            final aNeedsUpdate = _hasUpdate(a);
+            final bNeedsUpdate = _hasUpdate(b);
+            if (aNeedsUpdate != bNeedsUpdate) return aNeedsUpdate ? -1 : 1;
+            final rating = _playRating(b).compareTo(_playRating(a));
+            if (rating != 0) return rating;
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
     return entries.take(limit).toList();
   }
 
   List<_ExtEntry> get _popularWatch => _rankedWhere(
-        (entry) => entry.contentType == ItemType.anime && !entry.isNsfw,
-      );
+    (entry) => entry.contentType == ItemType.anime && !entry.isNsfw,
+  );
 
   List<_ExtEntry> get _popularRead => _rankedWhere(
-        (entry) =>
-            entry.contentType == ItemType.manga ||
-            entry.contentType == ItemType.novel,
-      );
+    (entry) =>
+        entry.contentType == ItemType.manga ||
+        entry.contentType == ItemType.novel,
+  );
 
   List<_ExtEntry> get _midnightWorld => _rankedWhere(
-        (entry) => entry.isNsfw && entry.contentType == ItemType.anime,
-      );
+    (entry) => entry.isNsfw && entry.contentType == ItemType.anime,
+  );
 
   List<_ExtEntry> get _midnightLibrary => _rankedWhere(
-        (entry) =>
-            entry.isNsfw &&
-            (entry.contentType == ItemType.manga ||
-                entry.contentType == ItemType.novel),
-      );
+    (entry) =>
+        entry.isNsfw &&
+        (entry.contentType == ItemType.manga ||
+            entry.contentType == ItemType.novel),
+  );
 
-  List<String> get _catalogueLanguages => widget.entries
-      .where((entry) => widget.showNsfw || !entry.isNsfw)
-      .map((entry) => entry.lang.toLowerCase())
-      .where((language) => language.isNotEmpty)
-      .toSet()
-      .toList()
-    ..sort();
+  List<String> get _catalogueLanguages =>
+      widget.entries
+          .where((entry) => widget.showNsfw || !entry.isNsfw)
+          .map((entry) => entry.lang.toLowerCase())
+          .where((language) => language.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
 
   /// Name suggestions for the current query, best matches first.
   ///
@@ -9623,9 +9629,13 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       ItemType.game: 'Jeux',
     };
     return types.entries
-        .where((entry) => widget.entries.any((item) =>
-            item.contentType == entry.key &&
-            (widget.showNsfw || !item.isNsfw)))
+        .where(
+          (entry) => widget.entries.any(
+            (item) =>
+                item.contentType == entry.key &&
+                (widget.showNsfw || !item.isNsfw),
+          ),
+        )
         .map((entry) => entry.value)
         .toList();
   }
@@ -9699,10 +9709,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           SliverToBoxAdapter(child: _buildHeader()),
           if (!_searching) _buildTabs(),
           if (widget.error != null && widget.entries.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _buildError(),
-            )
+            SliverFillRemaining(hasScrollBody: false, child: _buildError())
           else if (widget.loading && widget.entries.isEmpty)
             const SliverFillRemaining(
               hasScrollBody: false,
@@ -9720,8 +9727,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           else if (!_searching && _tab == 0)
             ..._buildForYou()
           else if (!_searching && _showAll) ...[
-              SliverToBoxAdapter(child: _buildGroupHeader()),
-              _buildRows(_groupedVisible),
+            SliverToBoxAdapter(child: _buildGroupHeader()),
+            _buildRows(_groupedVisible),
           ] else if (!_searching) ...[
             SliverToBoxAdapter(child: _buildHero()),
             SliverToBoxAdapter(
@@ -9792,11 +9799,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _muted,
-                fontSize: 13,
-                height: 1.4,
-              ),
+              style: const TextStyle(color: _muted, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 14),
             TextButton.icon(
@@ -10056,7 +10059,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     }
 
     widgets
-      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Explorer par langue')))
+      ..add(
+        SliverToBoxAdapter(child: _buildSectionTitle('Explorer par langue')),
+      )
       ..add(SliverToBoxAdapter(child: _buildLanguageExplorer()))
       ..add(SliverToBoxAdapter(child: _buildSectionTitle('Tout le catalogue')))
       ..add(_buildRows(_visible));
@@ -10076,9 +10081,11 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         itemBuilder: (_, index) {
           final language = languages[index];
           final count = widget.entries
-              .where((entry) =>
-                  entry.lang.toLowerCase() == language &&
-                  (widget.showNsfw || !entry.isNsfw))
+              .where(
+                (entry) =>
+                    entry.lang.toLowerCase() == language &&
+                    (widget.showNsfw || !entry.isNsfw),
+              )
               .length;
           return InkWell(
             onTap: () {
@@ -10321,10 +10328,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               ),
             ),
           ),
-          Text(
-            '$count',
-            style: const TextStyle(color: _muted, fontSize: 12),
-          ),
+          Text('$count', style: const TextStyle(color: _muted, fontSize: 12)),
           IconButton(
             onPressed: onSeeAll,
             tooltip: 'Tout afficher',
@@ -10854,18 +10858,18 @@ class _PlayStoreRow extends StatelessWidget {
                       fontSize: 11,
                     ),
                   ),
-                   if (_playBadges(entry).isNotEmpty) ...[
-                     const SizedBox(height: 3),
-                     Text(
-                       _playBadges(entry),
-                       maxLines: 1,
-                       overflow: TextOverflow.ellipsis,
-                       style: const TextStyle(
-                         color: Color(0xFFD0CFD4),
-                         fontSize: 10.5,
-                       ),
-                     ),
-                   ],
+                  if (_playBadges(entry).isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      _playBadges(entry),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFFD0CFD4),
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 3),
                   Row(
                     children: [
@@ -11304,9 +11308,7 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
                   duration: const Duration(milliseconds: 160),
                   width: isSelected ? 34 : 0,
                   height: 3,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFB7F4F0),
-                  ),
+                  decoration: const BoxDecoration(color: Color(0xFFB7F4F0)),
                 ),
               ],
             ),
@@ -11605,17 +11607,11 @@ class _PlayStoreDetails extends StatelessWidget {
                       : 'Watchtower',
                 ),
                 if (entry.requiresAccount)
-                  const _DetailInfoRow(
-                    label: 'Accès',
-                    value: 'Compte requis',
-                  ),
+                  const _DetailInfoRow(label: 'Accès', value: 'Compte requis'),
                 if (entry.hasDRM)
                   const _DetailInfoRow(label: 'Lecture', value: 'DRM'),
                 if (entry.isAggregator)
-                  const _DetailInfoRow(
-                    label: 'Catalogue',
-                    value: 'Agrégateur',
-                  ),
+                  const _DetailInfoRow(label: 'Catalogue', value: 'Agrégateur'),
                 if (entry.supportsComments)
                   const _DetailInfoRow(
                     label: 'Communauté',

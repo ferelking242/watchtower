@@ -1,8 +1,8 @@
 // Web stub — no media_kit on web platform.
 // Same public API as watch_player_io.dart.
-// ignore: avoid_web_libraries_in_flutter
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
-// ignore: avoid_web_libraries_in_flutter
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
