@@ -57,6 +57,7 @@ import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
 import 'package:watchtower/modules/library/main_library_screen.dart';
 import 'package:watchtower/modules/home/anilist_detail_screen.dart';
+import 'package:watchtower/modules/home/anime_episode_source_resolver.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/novel/novel_discovery_screen.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
@@ -338,6 +339,13 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute<int>(
       name: "animePlayerView",
       builder: (id) => AnimePlayerView(episodeId: id),
+    ),
+    _genericRoute<(AnilistMedia, AniZipEpisode)>(
+      name: "animeEpisodeResolver",
+      builder: (request) => AnimeEpisodeSourceResolver(
+        media: request.$1,
+        episode: request.$2,
+      ),
     ),
     _genericRoute<int>(
       name: "novelReaderView",
