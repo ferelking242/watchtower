@@ -123,6 +123,12 @@ class GalleryComponentPalette {
       kind: GalleryParameterKind.boolean,
       description: 'Étire les cartes composites à la largeur du conteneur.',
     ),
+    GalleryComponentParameter(
+      key: 'flat',
+      label: 'Sans panneau',
+      kind: GalleryParameterKind.boolean,
+      description: 'Retire le cadre de panneau autour des cartes intégrées.',
+    ),
     // ── Per-card text and metadata ────────────────────────────────────────
     GalleryComponentParameter(key: 'subtitle', label: 'Sous-titre'),
     GalleryComponentParameter(key: 'badge', label: 'Pastille'),

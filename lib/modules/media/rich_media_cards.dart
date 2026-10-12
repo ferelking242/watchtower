@@ -191,16 +191,8 @@ class MovieDetailsCard extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 6),
-                    if (item.description != null)
-                      Text(
-                        item.description!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                          height: 1.3,
-                        ),
+                    if (item.description?.trim().isNotEmpty == true)
+                      _ExpandableDescription(text: item.description!),
                       ),
                   ],
                 ),
@@ -254,6 +246,57 @@ class MovieDetailsCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _ExpandableDescription extends StatefulWidget {
+  const _ExpandableDescription({required this.text});
+
+  final String text;
+
+  @override
+  State<_ExpandableDescription> createState() =>
+      _ExpandableDescriptionState();
+}
+
+class _ExpandableDescriptionState extends State<_ExpandableDescription> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final showToggle = widget.text.trim().length > 90;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.text,
+          maxLines: _expanded ? null : 2,
+          overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white38,
+            fontSize: 10,
+            height: 1.3,
+          ),
+        ),
+        if (showToggle)
+          TextButton(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            style: TextButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.only(top: 3, right: 4, bottom: 0),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              _expanded ? 'Voir moins' : 'Voir plus',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

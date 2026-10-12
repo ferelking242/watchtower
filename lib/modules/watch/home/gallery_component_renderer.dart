@@ -1733,7 +1733,8 @@ class GalleryComponentRenderer {
   }) => RichMediaCardData(
     item: item,
     meta: item.badge,
-    genres: ctx.text('genres'),
+    genres: ctx.text('genres') ??
+        (item.genres.isEmpty ? null : item.genres.join(', ')),
     runtimeMinutes: ctx.number('runtime'),
     onPlay: onTap ?? () {},
     onAddToList: onTap ?? () {},
@@ -1766,6 +1767,7 @@ class GalleryComponentRenderer {
     description: item.description,
     badge: ctx.text('badge') ?? item.badge,
     actionLabel: ctx.text('actionLabel'),
+    flat: ctx.flag('flat'),
     onExplore: onTap ?? () {},
     onTap: onTap ?? () {},
   );

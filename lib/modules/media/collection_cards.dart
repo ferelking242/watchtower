@@ -30,6 +30,9 @@ class CollectionCardData {
   /// Libellé du bouton : `Voir la collection`, `Voir la saga`…
   final String? actionLabel;
 
+  /// Removes the gallery-preview panel when this card is embedded in a feed.
+  final bool flat;
+
   final VoidCallback onExplore;
   final VoidCallback onTap;
 
@@ -40,6 +43,7 @@ class CollectionCardData {
     this.description,
     this.badge,
     this.actionLabel,
+    this.flat = false,
     this.onExplore = _noop,
     this.onTap = _noop,
   });
@@ -398,9 +402,10 @@ class _CompositeCollectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
+      width: data.flat ? width : null,
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
-      decoration: _collectionDecoration(accent),
+      padding: EdgeInsets.all(data.flat ? 0 : 10),
+      decoration: data.flat ? null : _collectionDecoration(accent),
       child: Row(
         children: [
           Expanded(
@@ -1143,10 +1148,11 @@ class _CollectionBadge extends StatelessWidget {
 }
 
 class _CollectionButton extends StatelessWidget {
-  const _CollectionButton({required this.label, this.onTap});
+  const _CollectionButton({required this.label, this.onTap, this.icon});
 
   final String label;
   final VoidCallback? onTap;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -1159,15 +1165,24 @@ class _CollectionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (icon != null) ...[
+                const SizedBox(width: 4),
+                Icon(icon, size: 12, color: Colors.white),
+              ],
+            ],
           ),
         ),
       ),
@@ -1293,6 +1308,50 @@ class _CollectionTile extends StatelessWidget {
                 top: 10,
                 child: _CollectionBadge(label: data.badge!, color: accent),
               ),
+            if (data.item.logoUrl?.trim().isNotEmpty == true ||
+                data.item.countryCode?.trim().isNotEmpty == true)
+              Positioned(
+                top: 9,
+                right: 9,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (data.item.logoUrl?.trim().isNotEmpty == true)
+                      Container(
+                        width: 36,
+                        height: 26,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: .94),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: ContentImage(
+                          url: data.item.logoUrl,
+                          fit: BoxFit.contain,
+                          radius: 4,
+                        ),
+                      ),
+                    if (data.item.countryCode?.trim().isNotEmpty == true) ...[
+                      if (data.item.logoUrl?.trim().isNotEmpty == true)
+                        const SizedBox(width: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: .62),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Text(
+                          _countryFlag(data.item.countryCode!),
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             Positioned(
               left: 10,
               right: 10,
@@ -1351,9 +1410,13 @@ class _CollectionTile extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 7),
-                  _CollectionButton(
-                    label: data.actionLabel ?? 'Explorer',
-                    onTap: data.onExplore,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _CollectionButton(
+                      label: data.actionLabel ?? 'Explorer',
+                      icon: Icons.arrow_forward_rounded,
+                      onTap: data.onExplore,
+                    ),
                   ),
                 ],
               ),
@@ -1366,6 +1429,14 @@ class _CollectionTile extends StatelessWidget {
 }
 
 /// Colonne latérale de 3 tuiles image (logos, posters, personnages…).
+String _countryFlag(String countryCode) {
+  final code = countryCode.trim().toUpperCase();
+  if (code.length != 2) return '🌍';
+  return String.fromCharCodes([
+    for (final unit in code.codeUnits) 0x1F1E6 + unit - 0x41,
+  ]);
+}
+
 class _SideTileColumn extends StatelessWidget {
   const _SideTileColumn({
     required this.entries,

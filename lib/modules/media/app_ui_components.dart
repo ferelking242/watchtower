@@ -140,19 +140,23 @@ class AppCrossfadeCarousel extends StatefulWidget {
     required this.itemCount,
     required this.itemBuilder,
     this.onItemTap,
+    this.onPageChanged,
     this.interval = const Duration(seconds: 7),
     this.clipRadius = 24,
+    this.showDots = true,
     super.key,
   });
 
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
   final ValueChanged<int>? onItemTap;
+  final ValueChanged<int>? onPageChanged;
   final Duration interval;
 
   /// Corner radius of the clip. Set to 0 to disable clipping entirely so
   /// hero decorations (e.g. the bottom-edge notch) may overhang the bounds.
   final double clipRadius;
+  final bool showDots;
 
   @override
   State<AppCrossfadeCarousel> createState() => _AppCrossfadeCarouselState();
@@ -190,6 +194,7 @@ class _AppCrossfadeCarouselState extends State<AppCrossfadeCarousel> {
       _index = (_index + direction) % widget.itemCount;
       if (_index < 0) _index = widget.itemCount - 1;
     });
+    widget.onPageChanged?.call(_index);
   }
 
   @override
@@ -240,7 +245,7 @@ class _AppCrossfadeCarouselState extends State<AppCrossfadeCarousel> {
                 child: widget.itemBuilder(context, _index),
               ),
             ),
-            if (widget.itemCount > 1)
+            if (widget.showDots && widget.itemCount > 1)
               Positioned(
                 right: 18,
                 bottom: 16,

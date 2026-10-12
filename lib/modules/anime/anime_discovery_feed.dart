@@ -1,18 +1,21 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/modules/anime/anime_directory_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/manga_genre_cards.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/modules/watch/home/gallery_component_renderer.dart';
 
 /// AniList discovery feed. Every visual card is rendered by the same gallery
 /// renderer used by WatchExtensionHomeScreen and the component gallery.
-class AnimeDiscoveryFeed extends StatefulWidget {
+class AnimeDiscoveryFeed extends ConsumerStatefulWidget {
   const AnimeDiscoveryFeed({
     required this.home,
     required this.onRefresh,
@@ -23,11 +26,12 @@ class AnimeDiscoveryFeed extends StatefulWidget {
   final Future<void> Function() onRefresh;
 
   @override
-  State<AnimeDiscoveryFeed> createState() => _AnimeDiscoveryFeedState();
+  ConsumerState<AnimeDiscoveryFeed> createState() => _AnimeDiscoveryFeedState();
 }
 
-class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
+class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
   AnilistHome get home => widget.home;
+  String? _selectedGenre;
 
   void _open(AnilistMedia media) {
     context.push('/anilistDetail', extra: media);
@@ -43,6 +47,7 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     int? studioId,
     String? sort,
     String? country,
+    int page = 1,
   }) => AnilistBrowseFilter(
     mediaType: 'ANIME',
     genre: genre,
@@ -50,6 +55,7 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     studioId: studioId,
     sort: sort,
     country: country,
+    page: page,
   );
 
   List<CategoryDef> get _genres =>
@@ -81,28 +87,32 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     final all = home.allAnimes;
     final result = <_StudioSpotlight>[];
     for (final studio in home.topStudios) {
-      final matching = all.where(
-        (media) => media.studios.any((entry) => entry.id == studio.id),
-      );
-      for (final media in matching) {
-        final image = media.bestBackdrop ?? media.bestCover;
-        if (image == null) continue;
-        result.add(
-          _StudioSpotlight(
-            studio: studio,
-            item: ContentItem(
-              key: 'anime-studio-${studio.id}',
-              title: studio.name,
-              posterUrl: image,
-              backdropUrl: image,
-              imageUrl: image,
-              badge: 'Studio',
-              meta: studio.name,
-            ),
+      final productions = all
+          .where((media) => media.studios.any((entry) => entry.id == studio.id))
+          .toList(growable: false);
+      final covers = productions
+          .map((media) => media.bestBackdrop ?? media.bestCover)
+          .whereType<String>()
+          .take(4)
+          .toList(growable: false);
+      if (covers.isEmpty) continue;
+      result.add(
+        _StudioSpotlight(
+          studio: studio,
+          item: ContentItem(
+            key: 'anime-studio-${studio.id}',
+            title: studio.name,
+            posterUrl: covers.first,
+            backdropUrl: covers.first,
+            imageUrl: covers.first,
+            logoUrl: studioBrandMarkUrl(studio.name),
+            coverUrls: covers,
+            badge: 'Studio',
+            countryCode: productions.first.countryOfOrigin ?? 'JP',
+            meta: studio.name,
           ),
-        );
-        break;
-      }
+        ),
+      );
     }
     return result;
   }
@@ -111,13 +121,24 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     AnilistRelationGroup group, {
     required String groupLabel,
   }) {
-    final image = group.representative.coverImage;
+    final relatedMedia = home.allAnimes
+        .where((media) => group.mediaIds.contains(media.id))
+        .toList(growable: false);
+    final representative = relatedMedia.isEmpty ? null : relatedMedia.first;
+    final image =
+        group.representative.coverImage ??
+        representative?.bestBackdrop ??
+        representative?.bestCover;
     return ContentItem(
       key: 'anilist-$groupLabel-${group.mediaIds.join('-')}',
       title: group.representative.title,
       posterUrl: image,
       backdropUrl: image,
       imageUrl: image,
+      logoUrl: representative?.mainStudio == null
+          ? null
+          : studioBrandMarkUrl(representative!.mainStudio!),
+      countryCode: representative?.countryOfOrigin,
       description:
           '${group.members.length} titres liés par les relations AniList.',
       badge: '${group.members.length} anime',
@@ -154,43 +175,49 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
   List<ContentItem> _countryItems() {
     const countries = <(String, String)>[
       ('JP', 'Japon'),
-      ('KR', 'Corée du Sud'),
       ('CN', 'Chine'),
+      ('KR', 'Corée du Sud'),
       ('TW', 'Taïwan'),
       ('US', 'États-Unis'),
       ('FR', 'France'),
+      ('GB', 'Royaume-Uni'),
+      ('DE', 'Allemagne'),
+      ('CA', 'Canada'),
+      ('RU', 'Russie'),
+      ('IT', 'Italie'),
+      ('ES', 'Espagne'),
+      ('SG', 'Singapour'),
+      ('HK', 'Hong Kong'),
+      ('TH', 'Thaïlande'),
+      ('AU', 'Australie'),
+      ('IN', 'Inde'),
+      ('PH', 'Philippines'),
+      ('BR', 'Brésil'),
+      ('MX', 'Mexique'),
+      ('ID', 'Indonésie'),
+      ('VN', 'Vietnam'),
     ];
-    final all = home.allAnimes;
-    final presentCodes = all
-        .map((media) => media.countryOfOrigin?.toUpperCase())
-        .whereType<String>()
-        .toSet();
-    return [
-      for (final country in countries)
-        if (presentCodes.contains(country.$1) &&
-            all.any(
-              (media) =>
-                  media.countryOfOrigin?.toUpperCase() == country.$1 &&
-                  (media.bestBackdrop != null || media.bestCover != null),
-            ))
-          _countryItem(country, all),
-    ];
+    return [for (final country in countries) _countryItem(country, home.allAnimes)];
   }
 
   ContentItem _countryItem((String, String) country, List<AnilistMedia> all) {
-    final representative = all.firstWhere(
+    final matching = all.where(
       (media) =>
           media.countryOfOrigin?.toUpperCase() == country.$1 &&
           (media.bestBackdrop != null || media.bestCover != null),
     );
-    final image = representative.bestBackdrop ?? representative.bestCover;
+    final candidates = matching.isNotEmpty
+        ? matching
+        : all.where((media) => media.bestBackdrop != null || media.bestCover != null);
+    final representative = candidates.isEmpty ? null : candidates.first;
+    final image = representative?.bestBackdrop ?? representative?.bestCover;
     return ContentItem(
       key: 'anime-country-${country.$1}',
       title: country.$2,
-      posterUrl: representative.bestCover,
-      backdropUrl: representative.bestBackdrop,
+      posterUrl: representative?.bestCover,
+      backdropUrl: representative?.bestBackdrop,
       imageUrl: image,
-      badge: country.$2,
+      badge: 'Pays',
       countryCode: country.$1,
     );
   }
@@ -325,17 +352,68 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
               crossAxisSpacing: 8,
             ),
             itemCount: visibleItems.length,
-            itemBuilder: (context, index) => Center(
-              child: GalleryComponentRenderer.card(
-                _context(
-                  componentId: 'app-genre-tile',
-                  items: [visibleItems[index]],
-                  title: title,
-                  params: {'width': tileWidth, 'height': 84},
-                  onOpen: (_) => onOpen(index),
-                ),
-              ),
+            itemBuilder: (context, index) {
+              final item = visibleItems[index];
+              final covers = item.coverUrls.isNotEmpty
+                  ? item.coverUrls
+                  : [
+                      item.imageUrl ?? item.backdropUrl ?? item.posterUrl,
+                    ].whereType<String>().toList(growable: false);
+              return AnimeDirectoryCard(
+                title: item.title,
+                coverUrls: covers,
+                logoUrl: item.logoUrl,
+                showLogo: item.badge == 'Studio',
+                height: 84,
+                onTap: () => onOpen(index),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _worldSection({
+    required BuildContext context,
+    required List<ContentItem> countries,
+  }) {
+    final pagePadding = AppUI.pagePadding(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AppSectionHeader(title: 'Explorer le monde'),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: pagePadding),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 1.42,
             ),
+            itemCount: countries.length,
+            itemBuilder: (context, index) {
+              final country = countries[index];
+              final code = country.countryCode;
+              final cover = country.imageUrl ?? country.backdropUrl;
+              return AnimeDirectoryCard(
+                title: country.title,
+                coverUrls: cover == null ? const [] : [cover],
+                flag: code == null ? '🌍' : _countryFlag(code),
+                height: 80,
+                onTap: () {
+                  if (code != null) {
+                    _browse(
+                      'Anime · ${country.title}',
+                      _filter(null, country: code),
+                    );
+                  }
+                },
+              );
+            },
           ),
         ),
       ],
@@ -348,7 +426,40 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     final genreItems = genres.map((entry) => entry.item).toList();
     final countryItems = _countryItems();
     final featuredGenres = genreItems.take(4).toList(growable: false);
-    final catalogue = home.popularAnimes;
+    final firstCataloguePage = ref.watch(
+      anilistBrowseProvider(_filter(null, page: 1)),
+    );
+    final secondCataloguePage = ref.watch(
+      anilistBrowseProvider(_filter(null, page: 2)),
+    );
+    final pageOneItems = firstCataloguePage.when(
+      data: (page) => page.items,
+      error: (_, _) => home.popularAnimes,
+      loading: () => home.popularAnimes,
+    );
+    final pageTwoItems = secondCataloguePage.when(
+      data: (page) => page.items,
+      error: (_, _) => const <AnilistMedia>[],
+      loading: () => const <AnilistMedia>[],
+    );
+    final seenCatalogueIds = <int>{};
+    final catalogue = <AnilistMedia>[
+      for (final media in [...pageOneItems, ...pageTwoItems])
+        if (seenCatalogueIds.add(media.id) && seenCatalogueIds.length <= 60)
+          media,
+    ];
+    final displayedCatalogue = _selectedGenre == null
+        ? catalogue
+        : catalogue
+              .where(
+                (media) => media.genres.any(
+                  (genre) =>
+                      genre.toLowerCase() == _selectedGenre!.toLowerCase(),
+                ),
+              )
+              .toList(growable: false);
+    final fullCardWidth =
+        MediaQuery.sizeOf(context).width - AppUI.pagePadding(context) * 2;
     final studioEntries = _studioEntries();
     final studioItems = studioEntries
         .map((entry) => entry.item)
@@ -385,13 +496,8 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
                 'title': 'Top 10 Anime',
                 'subtitle': 'Les mieux notés sur AniList',
                 'flat': true,
-                'width': math
-                    .min(
-                      430.0,
-                      MediaQuery.sizeOf(context).width -
-                          AppUI.pagePadding(context) * 2,
-                    )
-                    .toDouble(),
+                'fill': true,
+                'width': MediaQuery.sizeOf(context).width,
               },
               onOpen: _open,
               onSeeAll: () => _browse(
@@ -412,15 +518,18 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
                     genres[index].definition.label;
                 _browse(genre, _filter(genre));
               },
-              onSeeAll: () => _browse('Tous les anime', _filter(null)),
+              onSeeAll: () => context.push(
+                '/animeDirectory',
+                extra: AnimeDirectoryKind.tags,
+              ),
             ),
           ),
           SliverToBoxAdapter(
             child: _gallerySection(
               componentId: 'movie-details',
               media: home.animeMovies.take(3).toList(growable: false),
-              title: 'Films à découvrir',
-              params: const {'width': 320},
+              title: 'À découvrir',
+              params: {'width': fullCardWidth, 'fill': true},
               onOpen: _open,
               onSeeAll: () => _browse(
                 'Films anime',
@@ -470,7 +579,7 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
                     _relationGroupItem(group, groupLabel: 'franchise'),
                 ],
                 title: 'Franchises cultes',
-                params: const {'width': 380},
+                params: {'width': fullCardWidth, 'fill': true, 'flat': true},
                 onOpen: (index) => _browseRelationGroup(
                   franchiseGroups[index].representative.title,
                   franchiseGroups[index],
@@ -487,14 +596,14 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
                 componentId: 'studio',
                 items: studioContent,
                 title: 'Studio en vedette',
-                params: const {'width': 380},
+                params: {'width': fullCardWidth, 'fill': true, 'flat': true},
                 onOpen: (_) => _browse(
                   studioEntries.first.studio.name,
                   studioFilter,
                 ),
-                onSeeAll: () => _browse(
-                  studioEntries.first.studio.name,
-                  studioFilter,
+                onSeeAll: () => context.push(
+                  '/animeDirectory',
+                  extra: AnimeDirectoryKind.studios,
                 ),
               ),
             ),
@@ -511,7 +620,10 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
                     _filter(null, studioId: studio.id),
                   );
                 },
-                onSeeAll: () => _browse('Anime populaires', _filter(null)),
+                onSeeAll: () => context.push(
+                  '/animeDirectory',
+                  extra: AnimeDirectoryKind.studios,
+                ),
               ),
             ),
           SliverToBoxAdapter(
@@ -519,7 +631,7 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
               componentId: 'genre',
               items: featuredGenres,
               title: 'Genres en vedette',
-              params: const {'width': 360},
+              params: {'width': fullCardWidth, 'fill': true, 'flat': true},
               onOpen: (index) {
                 final genre = genres[index].definition;
                 _browse(
@@ -527,7 +639,10 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
                   _filter(genre.genre ?? genre.label),
                 );
               },
-              onSeeAll: () => _browse('Tous les anime', _filter(null)),
+              onSeeAll: () => context.push(
+                '/animeDirectory',
+                extra: AnimeDirectoryKind.genres,
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -543,30 +658,14 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
                   _browse(genre, _filter(genre));
                 }
               },
-              onSeeAll: () => _browse('Tous les anime', _filter(null)),
+              onSeeAll: () => context.push(
+                '/animeDirectory',
+                extra: AnimeDirectoryKind.genres,
+              ),
             ),
           ),
           SliverToBoxAdapter(
-            child: _galleryItemsSection(
-              componentId: 'home-language-grid',
-              items: countryItems,
-              title: 'Explorer le monde',
-              params: {
-                'width': MediaQuery.sizeOf(context).width -
-                    AppUI.pagePadding(context) * 2,
-                'fill': true,
-              },
-              onOpen: (index) {
-                final country = countryItems[index].countryCode;
-                if (country != null) {
-                  _browse(
-                    'Anime · $country',
-                    _filter(null, country: country),
-                  );
-                }
-              },
-              onSeeAll: () => _browse('Anime du monde', _filter(null)),
-            ),
+            child: _worldSection(context: context, countries: countryItems),
           ),
           SliverToBoxAdapter(
             child: AppSectionHeader(
@@ -575,7 +674,40 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
               onAction: () => _browse('Anime populaires', _filter(null)),
             ),
           ),
-          if (catalogue.isNotEmpty)
+          if (genres.isNotEmpty)
+            SliverPadding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppUI.pagePadding(context),
+              ),
+              sliver: SliverToBoxAdapter(
+                child: MangaTagsCard(
+                  title: '',
+                  width: fullCardWidth,
+                  showHeader: false,
+                  showPanel: false,
+                  columns: 3,
+                  tags: [
+                    for (final entry in genres)
+                      MangaTagEntry(
+                        label: entry.definition.label,
+                        imageUrl: entry.definition.imageUrl,
+                        isSelected:
+                            _selectedGenre ==
+                            (entry.definition.genre ?? entry.definition.label),
+                        onTap: () {
+                          final selected =
+                              entry.definition.genre ?? entry.definition.label;
+                          setState(
+                            () => _selectedGenre =
+                                _selectedGenre == selected ? null : selected,
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          if (displayedCatalogue.isNotEmpty)
             SliverPadding(
               padding: EdgeInsets.symmetric(
                 horizontal: AppUI.pagePadding(context),
@@ -587,9 +719,9 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
                   mainAxisSpacing: 12,
                   childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
                 ),
-                itemCount: catalogue.length,
+                itemCount: displayedCatalogue.length,
                 itemBuilder: (context, index) {
-                  final media = catalogue[index];
+                  final media = displayedCatalogue[index];
                   final cardWidth =
                       (MediaQuery.sizeOf(context).width -
                           AppUI.pagePadding(context) * 2 -

@@ -11,6 +11,7 @@ import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/models/track_search.dart';
 import 'package:watchtower/modules/anime/anime_player_view.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart';
+import 'package:watchtower/modules/anime/anime_directory_screen.dart';
 import 'package:watchtower/modules/manga/manga_discovery_screen.dart';
 import 'package:watchtower/modules/browse/extension/edit_code.dart';
 import 'package:watchtower/modules/browse/extension/extension_detail.dart';
@@ -384,6 +385,10 @@ class RouterNotifier extends ChangeNotifier {
         title: data.$2,
         filter: data.$1,
       ),
+    ),
+    _genericRoute<AnimeDirectoryKind>(
+      name: "animeDirectory",
+      builder: (kind) => AnimeDirectoryScreen(kind: kind),
     ),
     _genericRoute(name: "about", child: const AboutScreen()),
     _genericRoute(name: "logViewer", child: const LogViewerScreen()),

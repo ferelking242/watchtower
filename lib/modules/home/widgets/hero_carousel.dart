@@ -1,8 +1,8 @@
-import 'dart:async';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 
 /// Cinematic auto-cycling hero carousel.
@@ -34,21 +34,12 @@ class HeroCarousel extends ConsumerStatefulWidget {
 }
 
 class _HeroCarouselState extends ConsumerState<HeroCarousel> {
-  static const _autoplayInterval = Duration(seconds: 6);
-  static const _animDuration = Duration(milliseconds: 520);
-  static const _animCurve = Curves.easeOutCubic;
-
-  late PageController _ctrl;
-  Timer? _timer;
   int _page = 0;
-  bool _hovering = false;
   bool _warmed = false;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = PageController(viewportFraction: 1.0);
-    _startTimer();
     _warmImages();
   }
 
@@ -75,25 +66,6 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     });
   }
 
-  void _startTimer() {
-    _timer?.cancel();
-    _timer = Timer.periodic(_autoplayInterval, (_) {
-      if (!mounted || widget.items.isEmpty || _hovering) return;
-      _ctrl.animateToPage(
-        (_page + 1) % widget.items.length,
-        duration: _animDuration,
-        curve: _animCurve,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _ctrl.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
@@ -114,30 +86,25 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        MouseRegion(
-          onEnter: (_) => setState(() => _hovering = true),
-          onExit: (_) => setState(() => _hovering = false),
-          child: SizedBox(
+        SizedBox(
           height: effectiveCardH,
-          child: PageView.builder(
-            controller: _ctrl,
+          child: AppCrossfadeCarousel(
             itemCount: widget.items.length,
-            // Build the neighbouring pages too, so their artwork starts
-            // loading before the user ever swipes to them.
-            allowImplicitScrolling: true,
-            onPageChanged: (i) {
-              setState(() => _page = i);
+            interval: const Duration(seconds: 6),
+            clipRadius: 0,
+            showDots: false,
+            onItemTap: (index) => widget.onItemTap(widget.items[index]),
+            onPageChanged: (index) {
+              if (_page != index) setState(() => _page = index);
             },
             itemBuilder: (ctx, i) {
               final m = widget.items[i];
               final image = m.bannerImage ?? m.bestCover;
 
-              return GestureDetector(
-                onTap: () => widget.onItemTap(m),
-                child: ClipRect(
-                  child: Stack(
-                        fit: StackFit.expand,
-                        children: [
+              return ClipRect(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
                           // ── Poster / Banner image ───────────────────────
                           // `_HeroImage` shows the artwork immediately from the
                           // memory cache when warm, and otherwise a neutral
@@ -228,13 +195,11 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                               pageIndex: i,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                  ],
+                ),
               );
             },
           ),
-        ),
         ),
 
         // ── Optional synopsis strip ────────────────────────────────────────

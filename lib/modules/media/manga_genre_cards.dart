@@ -65,9 +65,20 @@ class MangaTagEntry {
 
   final IconData? icon;
 
+  final String? imageUrl;
+
+  final bool isSelected;
+
   final VoidCallback? onTap;
 
-  const MangaTagEntry({required this.label, this.color, this.icon, this.onTap});
+  const MangaTagEntry({
+    required this.label,
+    this.color,
+    this.icon,
+    this.imageUrl,
+    this.isSelected = false,
+    this.onTap,
+  });
 }
 
 /// Éditeur / maison de publication.
@@ -699,6 +710,9 @@ class MangaTagsCard extends StatelessWidget {
     this.onSeeAll,
     this.title = 'Tags',
     this.subtitle = 'Affinez vos recherches avec les tags.',
+    this.showHeader = true,
+    this.showPanel = true,
+    this.columns = 2,
   });
 
   final List<MangaTagEntry> tags;
@@ -706,77 +720,166 @@ class MangaTagsCard extends StatelessWidget {
   final VoidCallback? onSeeAll;
   final String title;
   final String subtitle;
+  final bool showHeader;
+  final bool showPanel;
+  final int columns;
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
+      width: showPanel ? null : double.infinity,
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
+      padding: showPanel ? const EdgeInsets.all(12) : EdgeInsets.zero,
+      decoration: showPanel ? _panelDecoration(accent) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.local_offer_outlined,
-            title: title,
-            subtitle: subtitle,
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              for (final tag in tags)
-                InkWell(
-                  onTap: tag.onTap,
-                  borderRadius: BorderRadius.circular(99),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: (tag.color ?? accent).withValues(alpha: .16),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: (tag.color ?? accent).withValues(alpha: .5),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (tag.icon != null) ...[
-                          Icon(
-                            tag.icon,
-                            size: 10,
-                            color: tag.color ?? accent,
+          if (showHeader && title.trim().isNotEmpty) ...[
+            _PanelHeader(
+              icon: Icons.local_offer_outlined,
+              title: title,
+              subtitle: subtitle,
+              onSeeAll: onSeeAll,
+            ),
+            const SizedBox(height: 12),
+          ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final count = columns.clamp(1, 5);
+              final spacing = showPanel ? 7.0 : 8.0;
+              final tileWidth = (constraints.maxWidth -
+                      spacing * (count - 1)) /
+                  count;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  for (final tag in tags)
+                    if (tag.imageUrl?.trim().isNotEmpty == true)
+                      _MangaCoverTag(
+                        tag: tag,
+                        width: tileWidth,
+                        accent: accent,
+                      )
+                    else
+                      InkWell(
+                        onTap: tag.onTap,
+                        borderRadius: BorderRadius.circular(99),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 11,
+                            vertical: 6,
                           ),
-                          const SizedBox(width: 4),
-                        ],
-                        Flexible(
-                          child: Text(
-                            tag.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: tag.color ?? accent,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
+                          decoration: BoxDecoration(
+                            color: (tag.color ?? accent).withValues(alpha: .16),
+                            borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                              color: (tag.color ?? accent).withValues(alpha: .5),
                             ),
                           ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (tag.icon != null) ...[
+                                Icon(
+                                  tag.icon,
+                                  size: 10,
+                                  color: tag.color ?? accent,
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  tag.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: tag.color ?? accent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+                      ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
+}
+
+class _MangaCoverTag extends StatelessWidget {
+  const _MangaCoverTag({
+    required this.tag,
+    required this.width,
+    required this.accent,
+  });
+
+  final MangaTagEntry tag;
+  final double width;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    borderRadius: BorderRadius.circular(12),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: tag.onTap,
+      child: SizedBox(
+        width: width,
+        height: 64,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ContentImage(url: tag.imageUrl, fit: BoxFit.cover, radius: 0),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    accent.withValues(alpha: tag.isSelected ? .48 : .18),
+                    Colors.black.withValues(alpha: .82),
+                  ],
+                ),
+                border: Border.all(
+                  color: tag.isSelected
+                      ? accent.withValues(alpha: .9)
+                      : Colors.white.withValues(alpha: .12),
+                  width: tag.isSelected ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 7,
+              child: Text(
+                tag.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  shadows: [Shadow(color: Colors.black, blurRadius: 6)],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// ── 6. MangaLanguagesCard ───────────────────────────────────────────────

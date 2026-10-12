@@ -433,6 +433,7 @@ class _RankingSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
+      width: flat ? width : null,
       constraints: BoxConstraints(maxWidth: width),
       padding: EdgeInsets.all(flat ? 0 : 12),
       decoration: flat

@@ -23,6 +23,9 @@ class ContentItem {
     this.badge,
     this.countryCode,
     this.imageUrl,
+    this.logoUrl,
+    this.coverUrls = const [],
+    this.genres = const [],
     this.meta,
   });
 
@@ -38,6 +41,15 @@ class ContentItem {
   /// Optional artwork that overrides [posterUrl] for cards that show a single
   /// wide visual (genre tiles, category cards).
   final String? imageUrl;
+
+  /// Optional official brand mark for studios or networks.
+  final String? logoUrl;
+
+  /// Extra artwork used to build a visual collage for directories.
+  final List<String> coverUrls;
+
+  /// Genre labels for rich media cards.
+  final List<String> genres;
 
   /// Optional free-form meta line (studio, genre, country…) for cards that
   /// display one instead of the badge.
@@ -74,6 +86,7 @@ class ContentItem {
     badge: item.format,
     countryCode: item.countryOfOrigin,
     imageUrl: item.bestBackdrop,
+    genres: item.genres,
     meta: item.mainStudio,
   );
 
@@ -441,61 +454,65 @@ class TagCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
-      child: Container(
+      child: SizedBox(
         width: width,
-        padding: const EdgeInsets.all(7),
-        decoration: BoxDecoration(
+        height: 72,
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(13),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF173E46), Color(0xFF236B70)],
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 42,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: .38),
-                    blurRadius: 7,
-                    offset: const Offset(2, 2),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ContentImage(
+                url: item.imageUrl ?? item.backdropUrl ?? item.posterUrl,
+                radius: 0,
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      accent.withValues(alpha: .20),
+                      Colors.black.withValues(alpha: .38),
+                      Colors.black.withValues(alpha: .78),
+                    ],
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ContentImage(
-                  url: item.posterUrl ?? item.backdropUrl,
-                  radius: 8,
                 ),
               ),
-            ),
-            const SizedBox(width: 9),
-            const Icon(
-              Icons.local_offer_rounded,
-              size: 14,
-              color: Color(0xFF9AF3E2),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10.5,
+              Positioned(
+                left: 10,
+                right: 10,
+                bottom: 8,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.local_offer_rounded,
+                      size: 14,
+                      color: accent.withValues(alpha: .95),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                          shadows: [Shadow(color: Colors.black87, blurRadius: 5)],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
