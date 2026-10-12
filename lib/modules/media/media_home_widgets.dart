@@ -1805,12 +1805,19 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   bool _loading = false;
   bool _hasMore = true;
   int _page = 1;
-  String _sortMode = 'popular';
+  late String _sortMode;
   Object? _error;
 
   @override
   void initState() {
     super.initState();
+    _sortMode = switch (widget.anilistFilter?.sort) {
+      'SCORE_DESC' => 'rating',
+      'TRENDING_DESC' => 'trending',
+      'START_DATE_DESC' => 'newest',
+      'TITLE_ROMAJI' => 'title',
+      _ => 'popular',
+    };
     _movies = [...widget.initialItems];
     _extensionItems = [...widget.initialExtensionItems];
     _anilistItems = [...widget.initialAnilistItems];
@@ -1867,7 +1874,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         setState(() {
           _anilistItems.addAll(nextItems);
           _hasMore = result.hasNextPage;
-          if (nextItems.isNotEmpty) _page++;
+          _page = result.currentPage + 1;
           _loading = false;
         });
         return;

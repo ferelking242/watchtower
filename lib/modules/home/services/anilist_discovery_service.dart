@@ -1144,51 +1144,124 @@ final anilistOfflineNotifier = ValueNotifier<bool>(false);
 // ─────────────────────────────────────────────────────────────────────────────
 
 Future<AnilistBrowsePage> _fetchBrowsePage(AnilistBrowseFilter filter) async {
-  const String _browseQuery = r'''
-query ($type: MediaType, $genre: String, $format: MediaFormat, $country: CountryCode, $studioId: Int, $sort: [MediaSort], $page: Int, $perPage: Int) {
+  const String mediaFields = r'''
+fragment AnilistBrowseMedia on Media {
+  id type format status season seasonYear countryOfOrigin averageScore meanScore popularity favourites episodes chapters duration source genres bannerImage
+  title { romaji english native }
+  coverImage { large extraLarge }
+  studios(isMain: true) { nodes { id name favourites } }
+  nextAiringEpisode { episode airingAt }
+}
+''';
+  const String browseQuery = r'''
+query ($type: MediaType, $genre: String, $format: MediaFormat, $country: CountryCode, $sort: [MediaSort], $page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
     pageInfo { currentPage hasNextPage }
-    media(type: $type, genre: $genre, format: $format, countryOfOrigin: $country, studioId: $studioId, sort: $sort, isAdult: false) {
-      id type format status season seasonYear countryOfOrigin averageScore meanScore popularity favourites episodes chapters duration source genres bannerImage
-      title { romaji english native }
-      coverImage { large extraLarge }
-      studios(isMain: true) { nodes { id name favourites } }
-      nextAiringEpisode { episode airingAt }
+    media(type: $type, genre: $genre, format: $format, countryOfOrigin: $country, sort: $sort, isAdult: false) {
+      ...AnilistBrowseMedia
     }
   }
 }
-''';
+''' + mediaFields;
+  const String studioBrowseQuery = r'''
+query ($studioId: Int, $sort: [MediaSort], $page: Int, $perPage: Int) {
+  Studio(id: $studioId) {
+    media(page: $page, perPage: $perPage, sort: $sort) {
+      pageInfo { currentPage hasNextPage }
+      nodes { ...AnilistBrowseMedia }
+    }
+  }
+}
+''' + mediaFields;
 
-  final variables = <String, dynamic>{
-    'type': filter.mediaType,
-    'page': filter.page,
-    'perPage': 30,
-    if (filter.genre != null) 'genre': filter.genre,
-    if (filter.format != null) 'format': filter.format,
-    if (filter.country != null) 'country': filter.country,
-    if (filter.studioId != null) 'studioId': filter.studioId,
-    'sort': [filter.sort ?? 'POPULARITY_DESC'],
-  };
+  final isStudioBrowse = filter.studioId != null;
+  final variables = isStudioBrowse
+      ? <String, dynamic>{
+          'studioId': filter.studioId,
+          'page': filter.page,
+          'perPage': 30,
+          'sort': [filter.sort ?? 'POPULARITY_DESC'],
+        }
+      : <String, dynamic>{
+          'type': filter.mediaType,
+          'page': filter.page,
+          'perPage': 30,
+          if (filter.genre != null) 'genre': filter.genre,
+          if (filter.format != null) 'format': filter.format,
+          if (filter.country != null) 'country': filter.country,
+          'sort': [filter.sort ?? 'POPULARITY_DESC'],
+        };
 
   final response = await http.post(
     Uri.parse('https://graphql.anilist.co'),
     headers: {'Content-Type': 'application/json'},
-    body: jsonEncode({'query': _browseQuery, 'variables': variables}),
+    body: jsonEncode({
+      'query': isStudioBrowse ? studioBrowseQuery : browseQuery,
+      'variables': variables,
+    }),
   );
 
   if (response.statusCode != 200) {
     throw Exception('AniList browse error: ${response.statusCode}');
   }
 
-  final data = (jsonDecode(response.body) as Map<String, dynamic>);
-  final page = (data['data']?['Page'] as Map?)?.cast<String, dynamic>() ?? {};
-  final pageInfo = (page['pageInfo'] as Map?)?.cast<String, dynamic>() ?? {};
-  final mediaList = (page['media'] as List?) ?? [];
+  final payload = jsonDecode(response.body) as Map<String, dynamic>;
+  final errors = payload['errors'];
+  if (errors is List && errors.isNotEmpty) {
+    final messages = errors
+        .whereType<Map>()
+        .map((error) => error['message']?.toString())
+        .whereType<String>()
+        .join('; ');
+    throw Exception(
+      messages.isEmpty
+          ? 'AniList browse query failed.'
+          : 'AniList browse query failed: $messages',
+    );
+  }
 
-  final items = mediaList
+  final data =
+      (payload['data'] as Map?)?.cast<String, dynamic>() ??
+      const <String, dynamic>{};
+  late final Map<String, dynamic> page;
+  late final List<dynamic> mediaList;
+  if (isStudioBrowse) {
+    final studio = (data['Studio'] as Map?)?.cast<String, dynamic>();
+    if (studio == null) {
+      throw Exception('AniList studio ${filter.studioId} was not found.');
+    }
+    page =
+        (studio['media'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    mediaList = (page['nodes'] as List?) ?? [];
+  } else {
+    page =
+        (data['Page'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    mediaList = (page['media'] as List?) ?? [];
+  }
+  final pageInfo = (page['pageInfo'] as Map?)?.cast<String, dynamic>() ?? {};
+
+  final parsedItems = mediaList
       .whereType<Map>()
       .map((m) => AnilistMedia.fromJson(m.cast<String, dynamic>()))
       .toList(growable: false);
+  final items = !isStudioBrowse
+      ? parsedItems
+      : parsedItems
+            .where(
+              (media) =>
+                  media.type == filter.mediaType &&
+                  (filter.genre == null ||
+                      media.genres.any(
+                        (genre) =>
+                            genre.toLowerCase() == filter.genre!.toLowerCase(),
+                      )) &&
+                  (filter.format == null || media.format == filter.format) &&
+                  (filter.country == null ||
+                      media.countryOfOrigin == filter.country),
+            )
+            .toList(growable: false);
 
   return AnilistBrowsePage(
     items: items,

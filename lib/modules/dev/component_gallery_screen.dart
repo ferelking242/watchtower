@@ -1734,14 +1734,8 @@ class _ComponentTile extends StatelessWidget {
               thickness: 1,
             ),
           ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D1116),
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(color: Colors.white.withValues(alpha: .05)),
-            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Align(
               alignment: Alignment.topLeft,
               // L'aperçu doit se dimensionner sur son contenu : dès que la

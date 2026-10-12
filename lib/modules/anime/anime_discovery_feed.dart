@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/category_row.dart';
+import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
@@ -26,9 +27,6 @@ class AnimeDiscoveryFeed extends StatefulWidget {
 }
 
 class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
-  final _catalogueKey = GlobalKey();
-  String? _selectedGenre;
-
   AnilistHome get home => widget.home;
 
   void _open(AnilistMedia media) {
@@ -54,21 +52,6 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     country: country,
   );
 
-  void _selectGenre(String genre) {
-    setState(() => _selectedGenre = genre);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final target = _catalogueKey.currentContext;
-      if (target != null) {
-        Scrollable.ensureVisible(
-          target,
-          duration: const Duration(milliseconds: 420),
-          curve: Curves.easeOutCubic,
-          alignment: .08,
-        );
-      }
-    });
-  }
-
   List<CategoryDef> get _genres =>
       enrichCategoryImages(animeCategories(), home.allAnimes);
 
@@ -93,14 +76,6 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
           ),
     ];
   }
-
-  List<AnilistMedia> _mediaForGenre(String genre) => home.allAnimes
-      .where(
-        (media) => media.genres.any(
-          (candidate) => candidate.toLowerCase() == genre.toLowerCase(),
-        ),
-      )
-      .toList(growable: false);
 
   List<_StudioSpotlight> _studioEntries() {
     final all = home.allAnimes;
@@ -388,10 +363,7 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     final genreItems = genres.map((entry) => entry.item).toList();
     final countryItems = _countryItems();
     final featuredGenres = genreItems.take(4).toList(growable: false);
-    final selected = _selectedGenre;
-    final catalogue = selected == null
-        ? home.popularAnimes.take(15).toList(growable: false)
-        : _mediaForGenre(selected);
+    final catalogue = home.popularAnimes;
     final studioEntries = _studioEntries();
     final studioItems = studioEntries
         .map((entry) => entry.item)
@@ -412,6 +384,12 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
           parent: ClampingScrollPhysics(),
         ),
         slivers: [
+          SliverToBoxAdapter(
+            child: HeroCarousel(
+              items: home.trendingAnimes.take(8).toList(growable: false),
+              onItemTap: _open,
+            ),
+          ),
           SliverToBoxAdapter(child: _spotlightCarousel(context)),
           SliverToBoxAdapter(
             child: _gallerySection(
@@ -443,10 +421,12 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
               items: genreItems.take(8).toList(growable: false),
               title: 'Explorer par tags',
               params: const {'width': 188},
-              onOpen: (index) => _selectGenre(
-                genres[index].definition.genre ??
-                    genres[index].definition.label,
-              ),
+              onOpen: (index) {
+                final genre =
+                    genres[index].definition.genre ??
+                    genres[index].definition.label;
+                _browse(genre, _filter(genre));
+              },
               onSeeAll: () => _browse('Tous les anime', _filter(null)),
             ),
           ),
@@ -554,10 +534,10 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
               items: genreItems,
               onOpen: (index) {
                 if (index < genres.length) {
-                  _selectGenre(
-                    genres[index].definition.genre ??
-                        genres[index].definition.label,
-                  );
+                  final genre =
+                      genres[index].definition.genre ??
+                      genres[index].definition.label;
+                  _browse(genre, _filter(genre));
                 }
               },
               onSeeAll: () => _browse('Tous les anime', _filter(null)),
@@ -586,41 +566,43 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
             ),
           ),
           SliverToBoxAdapter(
-            child: _galleryItemsSection(
-              componentId: 'manga-tags',
-              items: genreItems,
-              title: 'Genres et tags',
-              params: {
-                'width': MediaQuery.sizeOf(context).width -
-                    AppUI.pagePadding(context) * 2,
-                'fill': true,
-              },
-              onOpen: (index) => _selectGenre(
-                genres[index].definition.genre ??
-                    genres[index].definition.label,
-              ),
-              onSeeAll: () => _browse('Tous les anime', _filter(null)),
+            child: AppSectionHeader(
+              title: 'Catalogue anime',
+              actionLabel: 'Tout voir',
+              onAction: () => _browse('Anime populaires', _filter(null)),
             ),
           ),
-          SliverToBoxAdapter(
-            child: KeyedSubtree(
-              key: _catalogueKey,
-              child: _gallerySection(
-                componentId: 'poster',
-                media: catalogue,
-                title: selected == null
-                    ? 'Catalogue anime'
-                    : 'Anime · $selected',
-                params: const {'width': 112},
-                onOpen: _open,
-                onSeeAll: () => _browse(
-                  selected == null ? 'Anime populaires' : selected,
-                  selected == null
-                      ? _filter(null)
-                      : _filter(selected),
-                ),
+          if (catalogue.isNotEmpty)
+            SliverPadding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppUI.pagePadding(context),
               ),
-            ),
+              sliver: SliverGrid.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
+                ),
+                itemCount: catalogue.length,
+                itemBuilder: (context, index) {
+                  final media = catalogue[index];
+                  final cardWidth =
+                      (MediaQuery.sizeOf(context).width -
+                          AppUI.pagePadding(context) * 2 -
+                          20) /
+                      3;
+                  return GalleryComponentRenderer.card(
+                    _context(
+                      componentId: 'poster',
+                      items: [ContentItem.fromAnilist(media)],
+                      title: 'Catalogue anime',
+                      params: {'width': cardWidth},
+                      onOpen: (_) => _open(media),
+                    ),
+                  );
+                },
+              ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
@@ -668,21 +650,25 @@ class AnimeDiscoveryLoadingScreen extends StatelessWidget {
       ),
       slivers: [
         SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AppSectionHeader(title: 'À la une'),
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppUI.pagePadding(context),
-                ),
-                child: SizedBox(
-                  height: heroHeight,
-                  width: double.infinity,
-                  child: AppHeroShimmer(height: heroHeight),
-                ),
-              ),
-            ],
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            child: SizedBox(
+              height: heroHeight,
+              width: double.infinity,
+              child: AppHeroShimmer(height: heroHeight),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: _AnimeLoadingSection(
+            titleWidth: 118,
+            child: _loadingCompositeRow(
+              context,
+              height: 190,
+              cardWidth: 300,
+            ),
           ),
         ),
         SliverToBoxAdapter(
@@ -761,11 +747,10 @@ class AnimeDiscoveryLoadingScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: _loadingCountryGrid(context),
         ),
-        SliverToBoxAdapter(child: _loadingTags(context, 'Genres et tags')),
         SliverToBoxAdapter(
           child: _AnimeLoadingSection(
             titleWidth: 118,
-            child: const SizedBox(height: 220, child: AppMediaRowShimmer()),
+            child: _loadingCatalogueGrid(context),
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -837,27 +822,22 @@ class AnimeDiscoveryLoadingScreen extends StatelessWidget {
     ),
   );
 
-  Widget _loadingTags(BuildContext context, String title) =>
-      _AnimeLoadingSection(
-        titleWidth: (title.length * 8).clamp(86, 180).toDouble(),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: AppUI.pagePadding(context),
-          ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: List.generate(
-              10,
-              (index) => SizedBox(
-                width: 88 + (index % 3) * 16,
-                height: 30,
-                child: const AppShimmerBlock(radius: 16),
-              ),
-            ),
-          ),
-        ),
-      );
+  Widget _loadingCatalogueGrid(BuildContext context) => Padding(
+    padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+    child: GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 12,
+        childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
+      ),
+      itemCount: 9,
+      itemBuilder: (_, _) =>
+          const AppShimmerBlock(radius: AppUI.cardRadius),
+    ),
+  );
 }
 
 class _AnimeLoadingSection extends StatelessWidget {
