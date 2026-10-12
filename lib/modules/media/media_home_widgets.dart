@@ -1816,6 +1816,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       'TRENDING_DESC' => 'trending',
       'START_DATE_DESC' => 'newest',
       'TITLE_ROMAJI' => 'title',
+      'FAVOURITES_DESC' => 'favorites',
       _ => 'popular',
     };
     _movies = [...widget.initialItems];
@@ -1943,6 +1944,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     'title' => 'TITLE_ROMAJI',
     'trending' => 'TRENDING_DESC',
     'newest' => 'START_DATE_DESC',
+    'favorites' => 'FAVOURITES_DESC',
     _ => 'POPULARITY_DESC',
   };
 
@@ -1953,6 +1955,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
             ('Highest rated', 'rating'),
             ('Trending', 'trending'),
             ('Newest', 'newest'),
+            ('Most favorited', 'favorites'),
             ('A — Z', 'title'),
           ]
         : _isExtension

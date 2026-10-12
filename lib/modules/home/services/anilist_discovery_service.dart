@@ -69,6 +69,9 @@ import 'dart:async';
     /// Main animation studios.
     final List<AnilistStudio> studios;
 
+    /// Related media fetched for discovery grouping.
+    final List<AnilistRelation> relations;
+
     /// Next episode number when the media is currently airing.
     final int? nextEpisodeNumber;
 
@@ -99,6 +102,7 @@ import 'dart:async';
       this.favourites,
       this.source,
       this.studios = const [],
+      this.relations = const [],
       this.nextEpisodeNumber,
       this.nextAiringAt,
     });
@@ -129,6 +133,25 @@ import 'dart:async';
       final genresRaw = json['genres'];
       final studiosRaw = (json['studios'] as Map?)?.cast<String, dynamic>();
       final studioNodes = studiosRaw?['nodes'];
+      final relationsRaw = (json['relations'] as Map?)?.cast<String, dynamic>();
+      final relationNodes = relationsRaw?['nodes'];
+      final relationEdges = relationsRaw?['edges'];
+      final relations = <AnilistRelation>[];
+      if (relationNodes is List) {
+        for (var i = 0; i < relationNodes.length; i++) {
+          final node = relationNodes[i];
+          if (node is! Map) continue;
+          final edge = relationEdges is List && i < relationEdges.length
+              ? relationEdges[i] as Map?
+              : null;
+          relations.add(
+            AnilistRelation.fromNode(
+              node.cast<String, dynamic>(),
+              edge?['relationType'] as String?,
+            ),
+          );
+        }
+      }
       final nextAiring =
           (json['nextAiringEpisode'] as Map?)?.cast<String, dynamic>();
       final airingAt = (nextAiring?['airingAt'] as num?)?.toInt();
@@ -165,6 +188,7 @@ import 'dart:async';
                   .map((s) => AnilistStudio.fromJson(s.cast<String, dynamic>()))
                   .toList(growable: false)
             : const [],
+        relations: relations,
         nextEpisodeNumber: (nextAiring?['episode'] as num?)?.toInt(),
         nextAiringAt: airingAt == null
             ? null
@@ -425,13 +449,152 @@ import 'dart:async';
         id: (node['id'] as num).toInt(),
         title: (title['english'] as String?) ??
             (title['romaji'] as String?) ??
+            (title['native'] as String?) ??
             'Unknown',
         type: (node['type'] as String?) ?? 'ANIME',
         format: node['format'] as String?,
-        coverImage: cover['large'] as String?,
+        coverImage:
+            cover['extraLarge'] as String? ?? cover['large'] as String?,
         relationType: relationType,
       );
     }
+  }
+
+  class AnilistRelationGroup {
+    final AnilistRelation representative;
+    final List<AnilistRelation> members;
+    final int? popularity;
+
+    const AnilistRelationGroup({
+      required this.representative,
+      required this.members,
+      this.popularity,
+    });
+
+    List<int> get mediaIds =>
+        members.map((member) => member.id).toList(growable: false);
+  }
+
+  const Set<String> _franchiseRelationTypes = {
+    'PREQUEL',
+    'SEQUEL',
+    'PARENT',
+    'SIDE_STORY',
+    'SPIN_OFF',
+    'ALTERNATIVE',
+    'SUMMARY',
+  };
+
+  const Set<String> _collectionRelationTypes = {
+    'COMPILATION',
+    'CONTAINS',
+  };
+
+  List<AnilistRelationGroup> buildAnilistFranchiseGroups(
+    Iterable<AnilistMedia> media,
+  ) => _buildAnilistRelationGroups(media, _franchiseRelationTypes);
+
+  List<AnilistRelationGroup> buildAnilistCollectionGroups(
+    Iterable<AnilistMedia> media,
+  ) => _buildAnilistRelationGroups(media, _collectionRelationTypes);
+
+  List<AnilistRelationGroup> _buildAnilistRelationGroups(
+    Iterable<AnilistMedia> source,
+    Set<String> acceptedRelations,
+  ) {
+    final seeds = <int, AnilistMedia>{
+      for (final item in source)
+        if (item.type == 'ANIME') item.id: item,
+    };
+    final nodes = <int, AnilistRelation>{
+      for (final item in seeds.values)
+        item.id: AnilistRelation(
+          id: item.id,
+          title: item.displayTitle,
+          type: item.type,
+          format: item.format,
+          coverImage: item.bestCover,
+        ),
+    };
+    final parents = <int, int>{};
+
+    int find(int id) {
+      final parent = parents.putIfAbsent(id, () => id);
+      if (parent == id) return id;
+      final root = find(parent);
+      parents[id] = root;
+      return root;
+    }
+
+    void connect(int first, int second) {
+      final firstRoot = find(first);
+      final secondRoot = find(second);
+      if (firstRoot != secondRoot) parents[secondRoot] = firstRoot;
+    }
+
+    for (final item in seeds.values) {
+      for (final relation in item.relations) {
+        if (relation.type != 'ANIME' ||
+            !acceptedRelations.contains(relation.relationType)) {
+          continue;
+        }
+        final existing = nodes[relation.id];
+        if (existing == null ||
+            (existing.coverImage == null && relation.coverImage != null)) {
+          nodes[relation.id] = relation;
+        }
+        connect(item.id, relation.id);
+      }
+    }
+
+    final idsByRoot = <int, Set<int>>{};
+    for (final id in parents.keys) {
+      idsByRoot.putIfAbsent(find(id), () => <int>{}).add(id);
+    }
+
+    final groups = <AnilistRelationGroup>[];
+    for (final ids in idsByRoot.values) {
+      if (ids.length < 2) continue;
+      final seedRepresentatives = ids
+          .map((id) => seeds[id])
+          .whereType<AnilistMedia>()
+          .where((item) => item.bestCover != null)
+          .toList()
+        ..sort(
+          (first, second) =>
+              (second.popularity ?? 0).compareTo(first.popularity ?? 0),
+        );
+      final representative = seedRepresentatives.isNotEmpty
+          ? nodes[seedRepresentatives.first.id]!
+          : ids
+              .map((id) => nodes[id])
+              .whereType<AnilistRelation>()
+              .firstWhere(
+                (node) => node.coverImage != null,
+                orElse: () => nodes[ids.first]!,
+              );
+      if (representative.coverImage == null) continue;
+
+      final members = ids
+          .map((id) => nodes[id])
+          .whereType<AnilistRelation>()
+          .toList()
+        ..sort((first, second) => first.id.compareTo(second.id));
+      groups.add(
+        AnilistRelationGroup(
+          representative: representative,
+          members: members,
+          popularity: seedRepresentatives.isEmpty
+              ? null
+              : seedRepresentatives.first.popularity,
+        ),
+      );
+    }
+    groups.sort(
+      (first, second) =>
+          (second.popularity ?? 0).compareTo(first.popularity ?? 0),
+    );
+    return groups;
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -603,6 +766,14 @@ import 'dart:async';
         title { romaji english native }
         coverImage { large extraLarge }
         studios(isMain: true) { nodes { id name favourites } }
+        relations {
+          nodes {
+            id type format
+            title { romaji english native }
+            coverImage { large extraLarge }
+          }
+          edges { relationType }
+        }
         nextAiringEpisode { episode airingAt }
       }
     }
@@ -612,6 +783,14 @@ import 'dart:async';
         title { romaji english native }
         coverImage { large extraLarge }
         studios(isMain: true) { nodes { id name favourites } }
+        relations {
+          nodes {
+            id type format
+            title { romaji english native }
+            coverImage { large extraLarge }
+          }
+          edges { relationType }
+        }
       }
     }
     upcomingAnimes: Page(page: 1, perPage: $perPage) {
@@ -1062,6 +1241,7 @@ class AnilistBrowseFilter {
   final String? format;
   final String? country;
   final int? studioId;
+  final List<int>? mediaIds;
 
   /// AniList `MediaSort` value (e.g. `POPULARITY_DESC`, `SCORE_DESC`,
   /// `TRENDING_DESC`, `START_DATE_DESC`, `FAVOURITES_DESC`).
@@ -1074,6 +1254,7 @@ class AnilistBrowseFilter {
     this.format,
     this.country,
     this.studioId,
+    this.mediaIds,
     this.sort,
     this.page = 1,
   });
@@ -1084,6 +1265,7 @@ class AnilistBrowseFilter {
     String? format,
     String? country,
     int? studioId,
+    List<int>? mediaIds,
     String? sort,
     int? page,
   }) {
@@ -1093,6 +1275,7 @@ class AnilistBrowseFilter {
       format: format ?? this.format,
       country: country ?? this.country,
       studioId: studioId ?? this.studioId,
+      mediaIds: mediaIds ?? this.mediaIds,
       sort: sort ?? this.sort,
       page: page ?? this.page,
     );
@@ -1106,6 +1289,7 @@ class AnilistBrowseFilter {
       other.format == format &&
       other.country == country &&
       other.studioId == studioId &&
+      listEquals(other.mediaIds, mediaIds) &&
       other.sort == sort &&
       other.page == page;
 
@@ -1116,6 +1300,7 @@ class AnilistBrowseFilter {
     format,
     country,
     studioId,
+    mediaIds == null ? null : Object.hashAll(mediaIds!),
     sort,
     page,
   );
@@ -1143,8 +1328,7 @@ final anilistOfflineNotifier = ValueNotifier<bool>(false);
 // Browse provider
 // ─────────────────────────────────────────────────────────────────────────────
 
-Future<AnilistBrowsePage> _fetchBrowsePage(AnilistBrowseFilter filter) async {
-  const String mediaFields = r'''
+const String _anilistBrowseMediaFields = r'''
 fragment AnilistBrowseMedia on Media {
   id type format status season seasonYear countryOfOrigin averageScore meanScore popularity favourites episodes chapters duration source genres bannerImage
   title { romaji english native }
@@ -1153,17 +1337,17 @@ fragment AnilistBrowseMedia on Media {
   nextAiringEpisode { episode airingAt }
 }
 ''';
-  const String browseQuery = r'''
-query ($type: MediaType, $genre: String, $format: MediaFormat, $country: CountryCode, $sort: [MediaSort], $page: Int, $perPage: Int) {
+const String _anilistBrowseQuery = r'''
+query ($type: MediaType, $genre: String, $format: MediaFormat, $country: CountryCode, $ids: [Int], $sort: [MediaSort], $page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
     pageInfo { currentPage hasNextPage }
-    media(type: $type, genre: $genre, format: $format, countryOfOrigin: $country, sort: $sort, isAdult: false) {
+    media(type: $type, genre: $genre, format: $format, countryOfOrigin: $country, id_in: $ids, sort: $sort, isAdult: false) {
       ...AnilistBrowseMedia
     }
   }
 }
-''' + mediaFields;
-  const String studioBrowseQuery = r'''
+''' + _anilistBrowseMediaFields;
+const String _anilistStudioBrowseQuery = r'''
 query ($studioId: Int, $sort: [MediaSort], $page: Int, $perPage: Int) {
   Studio(id: $studioId) {
     media(page: $page, perPage: $perPage, sort: $sort) {
@@ -1172,8 +1356,12 @@ query ($studioId: Int, $sort: [MediaSort], $page: Int, $perPage: Int) {
     }
   }
 }
-''' + mediaFields;
+''' + _anilistBrowseMediaFields;
 
+Map<String, dynamic> buildAnilistBrowseRequest(AnilistBrowseFilter filter) {
+  if (filter.studioId != null && filter.mediaIds != null) {
+    throw ArgumentError('Studio and explicit media ID filters cannot combine.');
+  }
   final isStudioBrowse = filter.studioId != null;
   final variables = isStudioBrowse
       ? <String, dynamic>{
@@ -1189,17 +1377,28 @@ query ($studioId: Int, $sort: [MediaSort], $page: Int, $perPage: Int) {
           if (filter.genre != null) 'genre': filter.genre,
           if (filter.format != null) 'format': filter.format,
           if (filter.country != null) 'country': filter.country,
+          if (filter.mediaIds != null) 'ids': filter.mediaIds,
           'sort': [filter.sort ?? 'POPULARITY_DESC'],
         };
+  return {
+    'query': isStudioBrowse
+        ? _anilistStudioBrowseQuery
+        : _anilistBrowseQuery,
+    'variables': variables,
+  };
+}
 
-  final response = await http.post(
-    Uri.parse('https://graphql.anilist.co'),
-    headers: {'Content-Type': 'application/json'},
-    body: jsonEncode({
-      'query': isStudioBrowse ? studioBrowseQuery : browseQuery,
-      'variables': variables,
-    }),
-  );
+Future<AnilistBrowsePage> fetchAnilistBrowsePage(
+  AnilistBrowseFilter filter, {
+  http.Client? client,
+}) async {
+  final isStudioBrowse = filter.studioId != null;
+  final requestBody = jsonEncode(buildAnilistBrowseRequest(filter));
+  final uri = Uri.parse('https://graphql.anilist.co');
+  const headers = {'Content-Type': 'application/json'};
+  final response = client == null
+      ? await http.post(uri, headers: headers, body: requestBody)
+      : await client.post(uri, headers: headers, body: requestBody);
 
   if (response.statusCode != 200) {
     throw Exception('AniList browse error: ${response.statusCode}');
@@ -1272,7 +1471,7 @@ query ($studioId: Int, $sort: [MediaSort], $page: Int, $perPage: Int) {
 
 final anilistBrowseProvider =
     FutureProvider.autoDispose.family<AnilistBrowsePage, AnilistBrowseFilter>(
-  (ref, filter) => _fetchBrowsePage(filter),
+  (ref, filter) => fetchAnilistBrowsePage(filter),
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -107,63 +107,48 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     return result;
   }
 
-  ContentItem? _popularCollection() {
-    if (home.popularAnimes.isEmpty) return null;
-    final media = home.popularAnimes.firstWhere(
-      (entry) => entry.bestBackdrop != null || entry.bestCover != null,
-      orElse: () => home.popularAnimes.first,
-    );
-    final image = media.bestBackdrop ?? media.bestCover;
-    if (image == null) return null;
+  ContentItem _relationGroupItem(
+    AnilistRelationGroup group, {
+    required String groupLabel,
+  }) {
+    final image = group.representative.coverImage;
     return ContentItem(
-      key: 'anime-collection-popular',
-      title: 'Anime populaires',
-      posterUrl: media.bestCover,
+      key: 'anilist-$groupLabel-${group.mediaIds.join('-')}',
+      title: group.representative.title,
+      posterUrl: image,
       backdropUrl: image,
       imageUrl: image,
-      description: 'Une sélection des anime les plus populaires sur AniList.',
-      badge: '${home.popularAnimes.length} titres',
+      description:
+          '${group.members.length} titres liés par les relations AniList.',
+      badge: '${group.members.length} anime',
     );
   }
 
-  List<_FranchiseSpotlight> _franchises() {
-    const franchises = <(String, String)>[
-      ('Naruto', 'naruto'),
-      ('Dragon Ball', 'dragon ball'),
-      ('One Piece', 'one piece'),
-      ('JoJo', 'jojo'),
-    ];
-    final all = home.allAnimes;
-    final result = <_FranchiseSpotlight>[];
-    for (final (label, query) in franchises) {
-      final matches = all.where((media) {
-        final searchable =
-            '${media.titleEnglish ?? ''} ${media.titleRomaji ?? ''} '
-                    '${media.titleNative ?? ''}'
-                .toLowerCase();
-        return searchable.contains(query) &&
-            (media.bestCover != null || media.bestBackdrop != null);
-      }).toList(growable: false);
-      if (matches.isEmpty) continue;
-      final lead = matches.first;
-      result.add(
-        _FranchiseSpotlight(
-          media: lead,
-          item: ContentItem(
-            key: 'anime-franchise-${label.toLowerCase().replaceAll(' ', '-')}',
-            title: '$label · Franchise',
-            posterUrl: lead.bestCover,
-            backdropUrl: lead.bestBackdrop,
-            description: '${matches.length} titres dans cette sélection.',
-            badge: '${matches.length} anime',
-            rating: lead.averageScore == null
-                ? null
-                : lead.averageScore! / 10,
-          ),
-        ),
-      );
-    }
-    return result;
+  void _browseRelationGroup(String title, AnilistRelationGroup group) {
+    _browse(
+      title,
+      AnilistBrowseFilter(
+        mediaType: 'ANIME',
+        mediaIds: group.mediaIds,
+        sort: 'POPULARITY_DESC',
+      ),
+    );
+  }
+
+  void _browseRelationGroups(
+    String title,
+    List<AnilistRelationGroup> groups,
+  ) {
+    final ids = groups.expand((group) => group.mediaIds).toSet().toList();
+    if (ids.isEmpty) return;
+    _browse(
+      title,
+      AnilistBrowseFilter(
+        mediaType: 'ANIME',
+        mediaIds: ids,
+        sort: 'POPULARITY_DESC',
+      ),
+    );
   }
 
   List<ContentItem> _countryItems() {
@@ -368,8 +353,8 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
     final studioItems = studioEntries
         .map((entry) => entry.item)
         .toList(growable: false);
-    final franchiseEntries = _franchises();
-    final popularCollection = _popularCollection();
+    final franchiseGroups = buildAnilistFranchiseGroups(home.allAnimes);
+    final collectionGroups = buildAnilistCollectionGroups(home.allAnimes);
     final studioFilter = studioEntries.isEmpty
         ? _filter(null)
         : _filter(null, studioId: studioEntries.first.studio.id);
@@ -456,26 +441,44 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
               ),
             ),
           ),
-          if (popularCollection != null)
+          if (collectionGroups.isNotEmpty)
             SliverToBoxAdapter(
               child: _galleryItemsSection(
                 componentId: 'collection',
-                items: [popularCollection],
+                items: [
+                  for (final group in collectionGroups)
+                    _relationGroupItem(group, groupLabel: 'collection'),
+                ],
                 title: 'Collections à découvrir',
                 params: const {'width': 380},
-                onOpen: (_) => _browse('Anime populaires', _filter(null)),
-                onSeeAll: () => _browse('Anime populaires', _filter(null)),
+                onOpen: (index) => _browseRelationGroup(
+                  collectionGroups[index].representative.title,
+                  collectionGroups[index],
+                ),
+                onSeeAll: () => _browseRelationGroups(
+                  'Collections anime',
+                  collectionGroups,
+                ),
               ),
             ),
-          if (franchiseEntries.isNotEmpty)
+          if (franchiseGroups.isNotEmpty)
             SliverToBoxAdapter(
               child: _galleryItemsSection(
                 componentId: 'franchise',
-                items: franchiseEntries.map((entry) => entry.item).toList(),
+                items: [
+                  for (final group in franchiseGroups)
+                    _relationGroupItem(group, groupLabel: 'franchise'),
+                ],
                 title: 'Franchises cultes',
                 params: const {'width': 380},
-                onOpen: (index) => _open(franchiseEntries[index].media),
-                onSeeAll: () => _browse('Franchises anime', _filter(null)),
+                onOpen: (index) => _browseRelationGroup(
+                  franchiseGroups[index].representative.title,
+                  franchiseGroups[index],
+                ),
+                onSeeAll: () => _browseRelationGroups(
+                  'Franchises anime',
+                  franchiseGroups,
+                ),
               ),
             ),
           if (studioContent.isNotEmpty)
@@ -609,13 +612,6 @@ class _AnimeDiscoveryFeedState extends State<AnimeDiscoveryFeed> {
       ),
     );
   }
-}
-
-class _FranchiseSpotlight {
-  const _FranchiseSpotlight({required this.media, required this.item});
-
-  final AnilistMedia media;
-  final ContentItem item;
 }
 
 class _StudioSpotlight {

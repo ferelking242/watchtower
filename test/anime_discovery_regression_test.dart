@@ -193,6 +193,7 @@ void main() {
     });
 
     testWidgets('loads the first page from the browse provider', (tester) async {
+      final requestedFilters = <AnilistBrowseFilter>[];
       final page = AnilistBrowsePage(
         items: [_media(id: 9, title: 'Loaded Title', genres: ['Action'])],
         hasNextPage: false,
@@ -201,7 +202,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            anilistBrowseProvider.overrideWith((ref, filter) async => page),
+            anilistBrowseProvider.overrideWith((ref, filter) {
+              requestedFilters.add(filter);
+              return Future.value(page);
+            }),
           ],
           child: MaterialApp(
             home: TmdbMoviesListScreen.anilist(
@@ -217,6 +221,40 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Loaded Title'), findsOneWidget);
+      expect(requestedFilters.single.sort, 'TRENDING_DESC');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('preserves the requested favourites sort', (tester) async {
+      final requestedFilters = <AnilistBrowseFilter>[];
+      final page = AnilistBrowsePage(
+        items: [_media(id: 10, title: 'Favourite Title')],
+        hasNextPage: false,
+        currentPage: 1,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            anilistBrowseProvider.overrideWith((ref, filter) {
+              requestedFilters.add(filter);
+              return Future.value(page);
+            }),
+          ],
+          child: MaterialApp(
+            home: TmdbMoviesListScreen.anilist(
+              title: 'Favoris',
+              filter: const AnilistBrowseFilter(
+                mediaType: 'ANIME',
+                sort: 'FAVOURITES_DESC',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Favourite Title'), findsOneWidget);
+      expect(requestedFilters.single.sort, 'FAVOURITES_DESC');
       expect(tester.takeException(), isNull);
     });
   });
