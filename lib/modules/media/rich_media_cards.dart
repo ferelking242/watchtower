@@ -193,7 +193,6 @@ class MovieDetailsCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     if (item.description?.trim().isNotEmpty == true)
                       _ExpandableDescription(text: item.description!),
-                      ),
                   ],
                 ),
               ),

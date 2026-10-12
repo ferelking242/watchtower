@@ -176,12 +176,12 @@ class PosterCard extends StatelessWidget {
                         child: _RatingPill(rating: rating),
                       ),
                     if (showMediaMetadata &&
-                        _countryFlag(item.countryCode).isNotEmpty)
+                        countryFlag(item.countryCode).isNotEmpty)
                       Positioned(
                         top: 7,
                         left: 7,
                         child: _MediaBadge(
-                          label: _countryFlag(item.countryCode),
+                          label: countryFlag(item.countryCode),
                           fontSize: 14,
                         ),
                       ),
@@ -215,7 +215,7 @@ class PosterCard extends StatelessWidget {
   }
 }
 
-String _countryFlag(String? code) {
+String countryFlag(String? code) {
   var normalized = code?.trim().toUpperCase();
   if (normalized == 'UK') normalized = 'GB';
   if (normalized == null ||

@@ -15,6 +15,7 @@ import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/watch/home/extension_episode_card_adapter.dart';
+import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/utils/language.dart';

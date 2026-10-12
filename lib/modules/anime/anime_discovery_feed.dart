@@ -402,7 +402,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
               return AnimeDirectoryCard(
                 title: country.title,
                 coverUrls: cover == null ? const [] : [cover],
-                flag: code == null ? '🌍' : _countryFlag(code),
+                flag: code == null ? '🌍' : countryFlag(code),
                 height: 80,
                 onTap: () {
                   if (code != null) {
