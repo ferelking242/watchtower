@@ -122,9 +122,9 @@ class _SeachFormTextFieldState extends State<SeachFormTextField>
                     child: Icon(
                       Broken.arrow_left_2,
                       size: 20,
-                      color: focused
-                          ? cs.primary
-                          : cs.onSurface.withValues(alpha: 0.55),
+                      color: cs.onSurface.withValues(
+                        alpha: focused ? 0.7 : 0.55,
+                      ),
                     ),
                   ),
                 ),

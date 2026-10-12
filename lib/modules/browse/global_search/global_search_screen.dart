@@ -7,11 +7,13 @@ import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
+import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/search.dart';
@@ -38,7 +40,7 @@ class GlobalSearchScreen extends ConsumerStatefulWidget {
 }
 
 class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
-  String _query = "";
+  late String _query = widget.search?.trim() ?? "";
   final _textEditingController = TextEditingController();
   late final bool _showNSFW = ref.read(showNSFWStateProvider);
 
@@ -48,21 +50,18 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   bool _pinnedOnly = false;
 
   late final List<Source> _allSources = () {
-    final sources = ref.read(onlyIncludePinnedSourceStateProvider)
-        ? isar.sources
-              .filter()
-              .isPinnedEqualTo(true)
-              .and()
-              .itemTypeEqualTo(widget.itemType)
-              .findAllSync()
-        : isar.sources
-              .filter()
-              .isAddedEqualTo(true)
-              .and()
-              .itemTypeEqualTo(widget.itemType)
-              .findAllSync();
+    final onlyPinned = ref.read(onlyIncludePinnedSourceStateProvider);
+    final sources = isar.sources
+        .filter()
+        .isAddedEqualTo(true)
+        .and()
+        .isActiveEqualTo(true)
+        .and()
+        .itemTypeEqualTo(widget.itemType)
+        .findAllSync();
     final supported = sources
         .where((e) => e.sourceCodeLanguage != SourceCodeLanguage.unsupported)
+        .where((source) => !onlyPinned || source.isPinned == true)
         .toList();
     if (_showNSFW) return supported;
     return supported.where((e) => !(e.isNsfw ?? false)).toList();
@@ -162,48 +161,37 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   bool get _hasActiveFilters =>
       _selectedLang != null || _selectedType != null || _pinnedOnly;
 
+  void _submitQuery(String value) {
+    final submitted = value.trim();
+    if (submitted == _query) return;
+    AppLogger.log(
+      'Global search started | type=${widget.itemType.name} '
+      '| sources=${_filteredSources.length} | query="$submitted"',
+      logLevel: LogLevel.info,
+      tag: LogTag.search,
+    );
+    setState(() => _query = submitted);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final query = _query.isNotEmpty ? _query : widget.search ?? "";
+    final query = _query;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final filtered = _filteredSources;
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: Row(
           children: [
             SeachFormTextField(
               onChanged: (value) {},
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              onFieldSubmitted: (value) async {
-                if (!(_query == _textEditingController.text)) {
-                  setState(() {
-                    _query = "";
-                  });
-                  await WidgetsBinding.instance.endOfFrame;
-                  AppLogger.log(
-                    'Global search started | type=${widget.itemType.name} '
-                    '| sources=${filtered.length} | query="$value"',
-                    logLevel: LogLevel.info,
-                    tag: LogTag.search,
-                  );
-                  setState(() {
-                    _query = value;
-                  });
-                }
-              },
+              onPressed: () => Navigator.pop(context),
+              onFieldSubmitted: _submitQuery,
               onSuffixPressed: () {
                 _textEditingController.clear();
-                setState(() {
-                  _query = "";
-                });
+                setState(() => _query = "");
               },
               controller: _textEditingController,
             ),
@@ -211,7 +199,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.mic_rounded, size: 20),
+            icon: const Icon(Broken.microphone, size: 20),
             tooltip: 'Recherche vocale',
             onPressed: () async {
               try {
@@ -222,7 +210,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   onResult: (result) {
                     if (result.recognizedWords.isNotEmpty) {
                       _textEditingController.text = result.recognizedWords;
-                      setState(() => _query = result.recognizedWords);
+                      _submitQuery(result.recognizedWords);
                     }
                   },
                   listenOptions: SpeechListenOptions(
@@ -245,59 +233,90 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.filter_list_rounded, size: 20),
+            icon: Icon(
+              Broken.slider_horizontal,
+              size: 20,
+              color: _hasActiveFilters ? cs.primary : cs.onSurfaceVariant,
+            ),
             onPressed: () {
               showModalBottomSheet(
                 context: context,
                 isScrollControlled: true,
-                builder: (_) => _FilterSheet(
-                  availableLangs: _availableLangs,
-                  availableTypes: _availableTypes,
-                  selectedLang: _selectedLang,
-                  selectedType: _selectedType,
-                  pinnedOnly: _pinnedOnly,
-                  cs: cs,
-                  onLangSelected: (lang) => setState(
-                    () => _selectedLang = lang == _selectedLang ? null : lang,
+                builder: (_) => StatefulBuilder(
+                  builder: (context, setSheetState) => _FilterSheet(
+                    availableLangs: _availableLangs,
+                    availableTypes: _availableTypes,
+                    selectedLang: _selectedLang,
+                    selectedType: _selectedType,
+                    hasActiveFilters: _hasActiveFilters,
+                    cs: cs,
+                    onLangSelected: (lang) {
+                      setState(
+                        () => _selectedLang =
+                            lang == _selectedLang ? null : lang,
+                      );
+                      setSheetState(() {});
+                    },
+                    onTypeSelected: (type) {
+                      setState(
+                        () => _selectedType =
+                            type == _selectedType ? null : type,
+                      );
+                      setSheetState(() {});
+                    },
+                    onClearAll: () {
+                      _clearFilters();
+                      setSheetState(() {});
+                    },
                   ),
-                  onTypeSelected: (type) => setState(
-                    () => _selectedType = type == _selectedType ? null : type,
-                  ),
-                  onPinnedToggled: () =>
-                      setState(() => _pinnedOnly = !_pinnedOnly),
-                  onClearAll: _clearFilters,
                 ),
               );
             },
+          ),
+          PopupMenuButton<_GlobalSearchMenuAction>(
+            tooltip: 'Plus d’options',
+            icon: const Icon(Broken.more, size: 20),
+            onSelected: (action) {
+              switch (action) {
+                case _GlobalSearchMenuAction.pinnedOnly:
+                  setState(() => _pinnedOnly = !_pinnedOnly);
+                  break;
+                case _GlobalSearchMenuAction.clearFilters:
+                  _clearFilters();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem<_GlobalSearchMenuAction>(
+                value: _GlobalSearchMenuAction.pinnedOnly,
+                checked: _pinnedOnly,
+                child: const Row(
+                  children: [
+                    Icon(Broken.bookmark_2, size: 18),
+                    SizedBox(width: 10),
+                    Text('Sources épinglées uniquement'),
+                  ],
+                ),
+              ),
+              if (_hasActiveFilters)
+                const PopupMenuItem<_GlobalSearchMenuAction>(
+                  value: _GlobalSearchMenuAction.clearFilters,
+                  child: Row(
+                    children: [
+                      Icon(Broken.filter_remove, size: 18),
+                      SizedBox(width: 10),
+                      Text('Effacer les filtres'),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ],
       ),
       body: Column(
         children: [
-          // ── Filter chips row ─────────────────────────────────────────────
-          if (_allSources.isNotEmpty)
-            _FilterRow(
-              availableLangs: _availableLangs,
-              availableTypes: _availableTypes,
-              selectedLang: _selectedLang,
-              selectedType: _selectedType,
-              pinnedOnly: _pinnedOnly,
-              hasActiveFilters: _hasActiveFilters,
-              cs: cs,
-              isDark: isDark,
-              onLangSelected: (lang) => setState(
-                () => _selectedLang = lang == _selectedLang ? null : lang,
-              ),
-              onTypeSelected: (type) => setState(
-                () => _selectedType = type == _selectedType ? null : type,
-              ),
-              onPinnedToggled: () => setState(() => _pinnedOnly = !_pinnedOnly),
-              onClearAll: _clearFilters,
-            ),
-
-          // ── Results ──────────────────────────────────────────────────────
           Expanded(
-            child: (_query.isNotEmpty || widget.search != null)
+            child: _query.isNotEmpty
                 ? filtered.isEmpty
                       ? _EmptyFiltersState(
                           hasFilters: _hasActiveFilters,
@@ -342,183 +361,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   }
 }
 
-// ── Filter chips row ──────────────────────────────────────────────────────────
-
-class _FilterRow extends StatelessWidget {
-  final List<String> availableLangs;
-  final List<SourceCodeLanguage> availableTypes;
-  final String? selectedLang;
-  final SourceCodeLanguage? selectedType;
-  final bool pinnedOnly;
-  final bool hasActiveFilters;
-  final ColorScheme cs;
-  final bool isDark;
-  final void Function(String) onLangSelected;
-  final void Function(SourceCodeLanguage) onTypeSelected;
-  final VoidCallback onPinnedToggled;
-  final VoidCallback onClearAll;
-
-  const _FilterRow({
-    required this.availableLangs,
-    required this.availableTypes,
-    required this.selectedLang,
-    required this.selectedType,
-    required this.pinnedOnly,
-    required this.hasActiveFilters,
-    required this.cs,
-    required this.isDark,
-    required this.onLangSelected,
-    required this.onTypeSelected,
-    required this.onPinnedToggled,
-    required this.onClearAll,
-  });
-
-  String _typeLabel(SourceCodeLanguage t) {
-    switch (t) {
-      case SourceCodeLanguage.javascript:
-        return 'JS';
-      case SourceCodeLanguage.dart:
-        return 'Dart';
-      case SourceCodeLanguage.unsupported:
-        return 'Other';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        children: [
-          // Clear all chip — only when filters are active
-          if (hasActiveFilters) ...[
-            _Chip(
-              label: 'Réinitialiser',
-              icon: Icons.close_rounded,
-              selected: false,
-              isReset: true,
-              cs: cs,
-              isDark: isDark,
-              onTap: onClearAll,
-            ),
-            const SizedBox(width: 6),
-          ],
-
-          // Pinned filter
-          _Chip(
-            label: 'Épinglés',
-            icon: Icons.push_pin_rounded,
-            selected: pinnedOnly,
-            cs: cs,
-            isDark: isDark,
-            onTap: onPinnedToggled,
-          ),
-
-          // Source code type chips (JS / Dart / LN Reader)
-          for (final type in availableTypes) ...[
-            const SizedBox(width: 6),
-            _Chip(
-              label: _typeLabel(type),
-              selected: selectedType == type,
-              cs: cs,
-              isDark: isDark,
-              onTap: () => onTypeSelected(type),
-            ),
-          ],
-
-          // Language chips
-          for (final lang in availableLangs) ...[
-            const SizedBox(width: 6),
-            _Chip(
-              label: completeLanguageName(lang),
-              selected: selectedLang == lang,
-              cs: cs,
-              isDark: isDark,
-              onTap: () => onLangSelected(lang),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final bool selected;
-  final bool isReset;
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  const _Chip({
-    required this.label,
-    this.icon,
-    required this.selected,
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-    this.isReset = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = isReset
-        ? cs.error.withValues(alpha: 0.12)
-        : selected
-        ? cs.primary.withValues(alpha: 0.15)
-        : (isDark
-              ? Colors.white.withValues(alpha: 0.07)
-              : Colors.black.withValues(alpha: 0.05));
-    final fg = isReset
-        ? cs.error
-        : selected
-        ? cs.primary
-        : cs.onSurfaceVariant;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(
-            color: selected
-                ? cs.primary.withValues(alpha: 0.40)
-                : isReset
-                ? cs.error.withValues(alpha: 0.30)
-                : cs.outline.withValues(alpha: 0.18),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 13, color: fg),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: selected || isReset
-                    ? FontWeight.w600
-                    : FontWeight.w500,
-                color: fg,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+enum _GlobalSearchMenuAction { pinnedOnly, clearFilters }
 
 // ── Source icon (shared with the browse sources list) ──────────────────────────
 
@@ -547,7 +390,7 @@ class _SourceIcon extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
-          Icons.folder_special_rounded,
+          Broken.folder_2,
           color: Colors.white,
           size: size * 0.6,
         ),
@@ -561,7 +404,7 @@ class _SourceIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: (source.iconUrl?.isEmpty ?? true)
-          ? Icon(Icons.extension_rounded, size: size * 0.55)
+          ? Icon(Broken.category, size: size * 0.55)
           : cachedNetworkImage(
               imageUrl: source.iconUrl ?? '',
               fit: BoxFit.contain,
@@ -571,7 +414,7 @@ class _SourceIcon extends StatelessWidget {
                 width: size,
                 height: size,
                 child: Center(
-                  child: Icon(Icons.extension_rounded, size: size * 0.55),
+                  child: Icon(Broken.category, size: size * 0.55),
                 ),
               ),
               useCustomNetworkImage: false,
@@ -635,13 +478,6 @@ class _IdleSourcesList extends StatelessWidget {
                         completeLanguageName(lang),
                         style: const TextStyle(fontSize: 11),
                       ),
-                      trailing: (source.isPinned ?? false)
-                          ? Icon(
-                              Icons.push_pin_rounded,
-                              size: 16,
-                              color: cs.primary,
-                            )
-                          : null,
                       onTap: () => onTapSource(source),
                     );
                   } catch (_) {
@@ -754,8 +590,8 @@ class _EmptyFiltersState extends StatelessWidget {
         children: [
           Icon(
             hasFilters
-                ? Icons.filter_list_off_rounded
-                : Icons.search_off_rounded,
+                ? Broken.filter_remove
+                : Broken.search_normal_1,
             size: 56,
             color: cs.onSurface.withValues(alpha: 0.15),
           ),
@@ -881,11 +717,16 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
                 Navigator.push(
                   context,
                   createRoute(
-                    page: MangaHomeScreen(
-                      query: widget.query,
-                      source: widget.source,
-                      isSearch: true,
-                    ),
+                    page: widget.source.itemType == ItemType.anime
+                        ? WatchExtensionHomeScreen(
+                            source: widget.source,
+                            initialSearchQuery: widget.query,
+                          )
+                        : MangaHomeScreen(
+                            query: widget.query,
+                            source: widget.source,
+                            isSearch: true,
+                          ),
                   ),
                 );
               },
@@ -895,7 +736,7 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
                 completeLanguageName(widget.source.lang!),
                 style: const TextStyle(fontSize: 10),
               ),
-              trailing: const Icon(Icons.arrow_forward_sharp),
+              trailing: const Icon(Broken.arrow_right_2),
             ),
             Flexible(
               child: _isLoading
@@ -1041,7 +882,7 @@ class _MangaGlobalImageCardState extends ConsumerState<MangaGlobalImageCard>
                     child: Padding(
                       padding: const EdgeInsets.all(4),
                       child: Icon(
-                        Icons.collections_bookmark,
+                        Broken.bookmark_2,
                         color: context.primaryColor,
                       ),
                     ),
@@ -1065,11 +906,10 @@ class _FilterSheet extends StatelessWidget {
   final List<SourceCodeLanguage> availableTypes;
   final String? selectedLang;
   final SourceCodeLanguage? selectedType;
-  final bool pinnedOnly;
+  final bool hasActiveFilters;
   final ColorScheme cs;
   final ValueChanged<String?> onLangSelected;
   final ValueChanged<SourceCodeLanguage?> onTypeSelected;
-  final VoidCallback onPinnedToggled;
   final VoidCallback onClearAll;
 
   const _FilterSheet({
@@ -1077,11 +917,10 @@ class _FilterSheet extends StatelessWidget {
     required this.availableTypes,
     this.selectedLang,
     this.selectedType,
-    this.pinnedOnly = false,
+    required this.hasActiveFilters,
     required this.cs,
     required this.onLangSelected,
     required this.onTypeSelected,
-    required this.onPinnedToggled,
     required this.onClearAll,
   });
 
@@ -1105,7 +944,7 @@ class _FilterSheet extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                if (selectedLang != null || selectedType != null || pinnedOnly)
+                if (hasActiveFilters)
                   TextButton(
                     onPressed: onClearAll,
                     child: const Text('Effacer tout'),
@@ -1169,15 +1008,6 @@ class _FilterSheet extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Favoris uniquement',
-                style: TextStyle(fontSize: 13),
-              ),
-              value: pinnedOnly,
-              onChanged: (_) => onPinnedToggled(),
-            ),
           ],
         ),
       ),

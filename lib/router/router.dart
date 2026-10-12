@@ -52,6 +52,7 @@ import 'package:watchtower/modules/browse/marketplace_screen.dart';
 import 'package:watchtower/modules/browse/extension/extension_lang.dart';
 import 'package:watchtower/modules/browse/extension_diagnostic_screen.dart';
 import 'package:watchtower/modules/browse/global_search/global_search_screen.dart';
+import 'package:watchtower/modules/browse/global_search/anime_episode_source_search_screen.dart';
 import 'package:watchtower/modules/main_view/main_screen.dart';
 import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/history/history_screen.dart';
@@ -364,6 +365,13 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) => GlobalSearchScreen(
         search: data?.$1,
         itemType: data?.$2 ?? ItemType.manga,
+      ),
+    ),
+    _genericRoute<(AnilistMedia, AniZipEpisode)>(
+      name: "animeEpisodeSources",
+      builder: (data) => AnimeEpisodeSourceSearchScreen(
+        media: data.$1,
+        episode: data.$2,
       ),
     ),
     _genericRoute<AnilistMedia>(

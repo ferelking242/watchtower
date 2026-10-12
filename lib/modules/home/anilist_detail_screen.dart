@@ -3730,13 +3730,13 @@ class _StreamSheetState extends ConsumerState<_StreamSheet> {
     }
   }
 
-  // ── Extensions: global search pre-filled with the title ────────────────────
+  // ── Search installed anime extensions for this exact episode ──────────────
   void _searchExtension(BuildContext context) {
     Navigator.pop(context);
-    final query = widget.media.titleEnglish ??
-        widget.media.titleRomaji ??
-        widget.media.displayTitle;
-    context.push('/globalSearch', extra: (query, ItemType.anime));
+    context.pushNamed(
+      'animeEpisodeSources',
+      extra: (widget.media, widget.episode),
+    );
   }
 
   // ── Manual URL: open in webview ─────────────────────────────────────────────
