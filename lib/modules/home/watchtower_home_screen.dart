@@ -2280,7 +2280,6 @@ class _TmdbUpcomingGrid extends StatelessWidget {
                 final source = 'home-upcoming-$title-$index';
                 return PosterCard(
                   item: ContentItem.fromTmdb(media),
-                  compact: true,
                   width: 108,
                   onTap: () =>
                       pushTmdbMediaDetail(context, media, source: source),

@@ -41,7 +41,6 @@ enum _GalleryTab { cards, sections }
 
 enum _PreviewKind {
   poster,
-  compactPoster,
   landscape,
   ranked,
   top3,
@@ -292,7 +291,6 @@ const _hiddenGallerySections = <String>{
 };
 
 const _hiddenGalleryCards = <String>{
-  'PosterCard(compact)',
   'LandscapeCard',
   'DiscoveryCard',
   'AnimatedDiscoveryCard',
@@ -1518,7 +1516,6 @@ class _ComponentGrid extends StatelessWidget {
 /// Kinds dont l'aperçu est petit (chips, tuiles compactes, posters).
 const _compactPreviewKinds = <_PreviewKind>{
   _PreviewKind.poster,
-  _PreviewKind.compactPoster,
   _PreviewKind.carousel,
   _PreviewKind.manga,
   _PreviewKind.mangaGenre,
@@ -1794,11 +1791,6 @@ class _CardSkeleton extends StatelessWidget {
         width: 180,
         ratio: 3 / 4,
         radius: 18,
-      ),
-      _PreviewKind.compactPoster => const PosterSkeleton(
-        width: 92,
-        radius: 11,
-        compact: true,
       ),
       _PreviewKind.carousel => const PosterSkeleton(width: 112, radius: 14),
       _PreviewKind.manga => const PosterSkeleton(width: 112),
@@ -9724,20 +9716,6 @@ List<_ComponentSpec> _buildComponents() => [
       item: ContentItem.fromTmdb(_tmdbItems[0]),
       width: 112,
       heroTag: 'gallery-tmdb-poster',
-      onTap: () {},
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Poster compact',
-    className: 'PosterCard(compact)',
-    path: 'lib/modules/media/content_cards.dart',
-    usage: 'Grille multi-rangées',
-    icon: Icons.grid_view_outlined,
-    kind: _PreviewKind.compactPoster,
-    result: (_) => PosterCard(
-      item: ContentItem.fromTmdb(_tmdbItems[1]),
-      width: 92,
-      compact: true,
       onTap: () {},
     ),
   ),

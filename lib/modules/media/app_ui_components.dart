@@ -383,7 +383,7 @@ class AppSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 24, 12, 8),
+      padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 16, 12, 8),
       child: Row(
         children: [
           Expanded(

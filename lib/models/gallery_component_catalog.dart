@@ -1583,6 +1583,7 @@ class GalleryComponentCatalog {
       description: 'Premier élément des rails tendance',
       renderer: GalleryComponentFamily.posterRail,
       loadingPreview: LayoutComponentLoadingPreview.row,
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'saga-discovery',

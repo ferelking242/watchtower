@@ -73,6 +73,7 @@ void main() {
       'poster-card-compact',
       'discovery',
       'animated-discovery',
+      'featured-discovery',
       'landscape',
       'episode',
       'movie-collection',
@@ -108,6 +109,60 @@ void main() {
         reason: '$id must stay resolvable for old layouts but leave the picker',
       );
     }
+  });
+
+  testWidgets('poster aliases use the shared poster with media metadata', (
+    tester,
+  ) async {
+    const aliases = [
+      'poster-card-compact',
+      'discovery',
+      'animated-discovery',
+      'featured-discovery',
+    ];
+
+    for (final componentId in aliases) {
+      final context = GalleryComponentContext(
+        componentId: componentId,
+        items: _items,
+        onOpen: (_) {},
+      );
+      await tester.pumpWidget(_app(GalleryComponentRenderer.card(context)));
+      await tester.pump(const Duration(milliseconds: 20));
+
+      final poster = tester.widget<PosterCard>(
+        find.byType(PosterCard).first,
+      );
+      expect(
+        poster.showMediaMetadata,
+        isTrue,
+        reason: '$componentId must use the shared flag-left poster style',
+      );
+    }
+  });
+
+  testWidgets('top anime production card is flat and keeps both actions', (
+    tester,
+  ) async {
+    var openedIndex = -1;
+    var seeAllCount = 0;
+    final context = GalleryComponentContext(
+      componentId: 'top-anime',
+      items: _items,
+      params: const {'flat': true, 'title': 'Top 10 Anime'},
+      onOpen: (index) => openedIndex = index,
+      onSeeAll: () => seeAllCount++,
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.section(context)));
+    await tester.pumpAndSettle(const Duration(milliseconds: 20));
+
+    final card = tester.widget<TopAnimeCard>(find.byType(TopAnimeCard));
+    expect(card.flat, isTrue);
+    expect(card.items.first.onTap, isNotNull);
+    card.items.first.onTap!.call();
+    card.onSeeAll!.call();
+    expect(openedIndex, 0);
+    expect(seeAllCount, 1);
   });
 
   testWidgets('family renderers build the expected production widgets', (
@@ -148,7 +203,7 @@ void main() {
   });
 
   testWidgets(
-    'poster card keeps compact mode as a parameter on the shared card',
+    'poster card always uses the shared flag-left poster style',
     (tester) async {
       final ctx = GalleryComponentContext(
         componentId: 'poster',
@@ -162,6 +217,10 @@ void main() {
       expect(find.byType(PosterCard), findsOneWidget);
       expect(
         tester.widget<PosterCard>(find.byType(PosterCard)).compact,
+        isFalse,
+      );
+      expect(
+        tester.widget<PosterCard>(find.byType(PosterCard)).showMediaMetadata,
         isTrue,
       );
     },
@@ -274,7 +333,6 @@ void main() {
       'badge',
       'cast',
       'columns',
-      'compact',
       'fill',
       'genres',
       'hd',

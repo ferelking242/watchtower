@@ -961,15 +961,20 @@ class HomeLanguageGridCard extends StatelessWidget {
     required this.chips,
     this.width = 360,
     this.onSeeAll,
+    this.title = 'Univers par pays / langue',
+    this.subtitle = 'Explorez des contenus du monde entier.',
   });
 
   final List<HomeCountryChip> chips;
   final double width;
   final VoidCallback? onSeeAll;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final chipWidth = ((width - 36) / 2).clamp(120.0, 146.0).toDouble();
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
@@ -979,8 +984,8 @@ class HomeLanguageGridCard extends StatelessWidget {
         children: [
           _RailHeader(
             icon: Icons.public_rounded,
-            title: 'Univers par pays / langue',
-            subtitle: 'Explorez des contenus du monde entier.',
+            title: title,
+            subtitle: subtitle,
             onSeeAll: onSeeAll,
           ),
           const SizedBox(height: 12),
@@ -993,7 +998,7 @@ class HomeLanguageGridCard extends StatelessWidget {
                   onTap: chip.onTap,
                   borderRadius: BorderRadius.circular(11),
                   child: SizedBox(
-                    width: 146,
+                    width: chipWidth,
                     height: 82,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(11),

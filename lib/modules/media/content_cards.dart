@@ -116,7 +116,7 @@ class PosterCard extends StatelessWidget {
     this.width = 120,
     this.heroTag,
     this.compact = false,
-    this.showMediaMetadata = false,
+    this.showMediaMetadata = true,
   });
 
   final ContentItem item;

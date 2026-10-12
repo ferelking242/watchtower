@@ -170,12 +170,12 @@ class GalleryComponentRenderer {
     // fixed-width composite cards are allowed to scroll horizontally.
     if (ctx.flag('fill') || _isResponsive(ctx)) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.only(top: 16),
         child: child,
       );
     }
     return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 4),
+      padding: const EdgeInsets.only(top: 16),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
@@ -228,7 +228,6 @@ class GalleryComponentRenderer {
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(
         horizontal: AppUI.pagePadding(context),
-        vertical: 6,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,7 +257,7 @@ class GalleryComponentRenderer {
     'movie-details' || 'media-quick-view' => 300,
     'movie-details-modal' || 'media-details-modal' => 320,
     'movie-preview' || 'poster' => 120,
-    'poster-card-compact' || 'ranked-card' => 110,
+    'ranked-card' => 110,
     'media-preview' || 'media-progress' => 300,
     'continue-watching' || 'watch-progress' => 300,
     'continue-watching-item' ||
@@ -433,7 +432,7 @@ class GalleryComponentRenderer {
       // ── Ranking panels ──
       case 'top-movies':
         return TopMoviesCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -441,7 +440,7 @@ class GalleryComponentRenderer {
         );
       case 'top-series':
         return TopSeriesCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -449,15 +448,16 @@ class GalleryComponentRenderer {
         );
       case 'top-anime':
         return TopAnimeCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
           onSeeAll: seeAll,
+          flat: ctx.flag('flat'),
         );
       case 'top-by-genre':
         return TopByGenreCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -465,7 +465,7 @@ class GalleryComponentRenderer {
         );
       case 'top-by-country':
         return TopByCountryCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -473,7 +473,7 @@ class GalleryComponentRenderer {
         );
       case 'global-ranking':
         return GlobalRankingCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -481,7 +481,7 @@ class GalleryComponentRenderer {
         );
       case 'top-rated-ranking':
         return TopRatedRankingCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -489,7 +489,7 @@ class GalleryComponentRenderer {
         );
       case 'trending-ranking':
         return TrendingRankingCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -497,7 +497,7 @@ class GalleryComponentRenderer {
         );
       case 'top-by-decade':
         return TopByDecadeCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -505,7 +505,7 @@ class GalleryComponentRenderer {
         );
       case 'must-watch':
         return MustWatchCard(
-          items: _rank(items),
+          items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
@@ -680,6 +680,9 @@ class GalleryComponentRenderer {
           tags: _tags(ctx, items),
           width: w ?? 430,
           onSeeAll: seeAll,
+          title: ctx.header ?? 'Tags',
+          subtitle:
+              ctx.text('subtitle') ?? 'Affinez vos recherches avec les tags.',
         );
       case 'manga-languages':
         return MangaLanguagesCard(
@@ -859,9 +862,12 @@ class GalleryComponentRenderer {
         );
       case 'home-language-grid':
         return HomeLanguageGridCard(
-          chips: _countryChips(items),
+          chips: _countryChips(ctx, items),
           width: w ?? 360,
           onSeeAll: seeAll,
+          title: ctx.header ?? 'Univers par pays / langue',
+          subtitle:
+              ctx.text('subtitle') ?? 'Explorez des contenus du monde entier.',
         );
       case 'home-my-list':
         return HomeMyListCard(
@@ -1071,50 +1077,62 @@ class GalleryComponentRenderer {
       // ── Rich media ──
       case 'movie-details':
         return MovieDetailsCard(
-          data: _rich(ctx, item),
+          data: _rich(ctx, item, onTap: onTap),
           castNames: _cast(ctx),
           width: w ?? 300,
         );
       case 'movie-detail':
-        return MovieDetailCard(data: _rich(ctx, item), width: w ?? 220);
+        return MovieDetailCard(
+          data: _rich(ctx, item, onTap: onTap),
+          width: w ?? 220,
+        );
       case 'expanded-movie':
         return ExpandableMovieCard(
-          data: _rich(ctx, item),
+          data: _rich(ctx, item, onTap: onTap),
           director: ctx.text('subtitle'),
           actors: _cast(ctx),
           width: w ?? 250,
         );
       case 'expandable-movie':
         return ExpandableMovieCard(
-          data: _rich(ctx, item),
+          data: _rich(ctx, item, onTap: onTap),
           director: ctx.text('subtitle'),
           actors: _cast(ctx),
           width: w ?? 250,
         );
       case 'interactive-movie':
-        return InteractiveMovieCard(data: _rich(ctx, item), width: w ?? 220);
+        return InteractiveMovieCard(
+          data: _rich(ctx, item, onTap: onTap),
+          width: w ?? 220,
+        );
       case 'hover-movie':
-        return HoverMovieCard(data: _rich(ctx, item), width: w ?? 230);
+        return HoverMovieCard(
+          data: _rich(ctx, item, onTap: onTap),
+          width: w ?? 230,
+        );
       case 'movie-quick-view':
         return MovieQuickView(
-          data: _rich(ctx, item),
+          data: _rich(ctx, item, onTap: onTap),
           width: w ?? 280,
           onClose: () {},
         );
       case 'media-quick-view':
-        return MediaQuickView(data: _rich(ctx, item), onClose: () {});
+        return MediaQuickView(
+          data: _rich(ctx, item, onTap: onTap),
+          onClose: () {},
+        );
       case 'movie-preview':
         return MoviePreview(
-          data: _rich(ctx, item),
+          data: _rich(ctx, item, onTap: onTap),
           width: w ?? 132,
           onTap: onTap,
         );
       case 'media-preview':
-        return MediaPreview(data: _rich(ctx, item), onTap: onTap);
+        return MediaPreview(data: _rich(ctx, item, onTap: onTap), onTap: onTap);
       case 'movie-details-modal':
-        return MovieDetailsModal(data: _rich(ctx, item));
+        return MovieDetailsModal(data: _rich(ctx, item, onTap: onTap));
       case 'media-details-modal':
-        return MediaDetailsModal(data: _rich(ctx, item));
+        return MediaDetailsModal(data: _rich(ctx, item, onTap: onTap));
 
       // ── Streaming ──
       case 'continue-watching':
@@ -1168,46 +1186,79 @@ class GalleryComponentRenderer {
 
       // ── Collections ──
       case 'collection':
-        return CollectionCard(data: _collection(ctx, item), width: w ?? 420);
+        return CollectionCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 420,
+        );
       case 'movie-collection':
         return MovieCollectionCard(
-          data: _collection(ctx, item),
+          data: _collection(ctx, item, onTap: onTap),
           width: w ?? 400,
         );
       case 'franchise':
-        return FranchiseCard(data: _collection(ctx, item), width: w ?? 400);
+        return FranchiseCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'saga':
-        return SagaCard(data: _collection(ctx, item), width: w ?? 400);
+        return SagaCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'studio':
-        return StudioCard(data: _collection(ctx, item), width: w ?? 400);
+        return StudioCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'network':
-        return NetworkCard(data: _collection(ctx, item), width: w ?? 400);
+        return NetworkCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'genre':
-        return GenreCard(data: _collection(ctx, item), width: w ?? 400);
+        return GenreCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'actor':
-        return ActorCard(data: _collection(ctx, item), width: w ?? 400);
+        return ActorCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'director':
-        return DirectorCard(data: _collection(ctx, item), width: w ?? 400);
+        return DirectorCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'character':
-        return CharacterCard(data: _collection(ctx, item), width: w ?? 400);
+        return CharacterCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'related-media':
-        return RelatedMediaCard(data: _collection(ctx, item), width: w ?? 400);
+        return RelatedMediaCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
       case 'featured':
         return FeaturedCard(
-          data: _collection(ctx, item),
+          data: _collection(ctx, item, onTap: onTap),
           width: w ?? 340,
           height: ctx.decimal('height') ?? 190,
         );
       case 'spotlight-card':
         return SpotlightCard(
-          data: _collection(ctx, item),
+          data: _collection(ctx, item, onTap: onTap),
           width: w ?? 300,
           height: ctx.decimal('height') ?? 170,
         );
       case 'universe':
       case 'category-card':
       case 'cast':
-        return UniverseCard(data: _collection(ctx, item), width: w ?? 400);
+        return UniverseCard(
+          data: _collection(ctx, item, onTap: onTap),
+          width: w ?? 400,
+        );
 
       // ── Episodes ──
       case 'compact-episode':
@@ -1500,15 +1551,14 @@ class GalleryComponentRenderer {
         return PosterCard(
           item: item,
           width: w ?? 120,
-          compact: ctx.flag('compact'),
           showMediaMetadata: true,
           onTap: onTap,
         );
       case 'poster-card-compact':
         return PosterCard(
           item: item,
-          width: w ?? 92,
-          compact: true,
+          width: w ?? 120,
+          showMediaMetadata: true,
           onTap: onTap,
         );
       case 'landscape':
@@ -1533,7 +1583,12 @@ class GalleryComponentRenderer {
           onTap: onTap,
         );
       case 'featured-discovery':
-        return FeaturedDiscoveryCard(media: _anilist(item), onTap: onTap);
+        return PosterCard(
+          item: item,
+          width: w ?? 120,
+          showMediaMetadata: true,
+          onTap: onTap,
+        );
       case 'saga-discovery':
         return SagaDiscoveryCard(media: _anilist(item), onTap: onTap);
       case 'spotlight-discovery':
@@ -1581,7 +1636,7 @@ class GalleryComponentRenderer {
           width: w ?? 400,
         );
       case GalleryComponentFamily.ranking:
-        return TopMoviesCard(items: _rank(items), width: w ?? 430);
+        return TopMoviesCard(items: _rank(ctx, items), width: w ?? 430);
       case GalleryComponentFamily.mangaChapter:
         return MangaChapterCard(
           item: _chapter(ctx, item, index),
@@ -1673,16 +1728,17 @@ class GalleryComponentRenderer {
 
   static RichMediaCardData _rich(
     GalleryComponentContext ctx,
-    ContentItem item,
-  ) => RichMediaCardData(
+    ContentItem item, {
+    VoidCallback? onTap,
+  }) => RichMediaCardData(
     item: item,
     meta: item.badge,
     genres: ctx.text('genres'),
     runtimeMinutes: ctx.number('runtime'),
-    onPlay: () {},
-    onAddToList: () {},
-    onMore: () {},
-    onShare: () {},
+    onPlay: onTap ?? () {},
+    onAddToList: onTap ?? () {},
+    onMore: onTap ?? () {},
+    onShare: onTap ?? () {},
   );
 
   static StreamingCardData _stream(
@@ -1702,6 +1758,7 @@ class GalleryComponentRenderer {
   static CollectionCardData _collection(
     GalleryComponentContext ctx,
     ContentItem item,
+    {VoidCallback? onTap}
   ) => CollectionCardData(
     item: item,
     stats: ctx.text('stats'),
@@ -1709,8 +1766,8 @@ class GalleryComponentRenderer {
     description: item.description,
     badge: ctx.text('badge') ?? item.badge,
     actionLabel: ctx.text('actionLabel'),
-    onExplore: () {},
-    onTap: () {},
+    onExplore: onTap ?? () {},
+    onTap: onTap ?? () {},
   );
 
   static EpisodeEntry _episode(
@@ -1789,7 +1846,10 @@ class GalleryComponentRenderer {
     List<ContentItem> items,
   ) => [for (final item in items) _season(ctx, item)];
 
-  static List<RankingEntry> _rank(List<ContentItem> items) => [
+  static List<RankingEntry> _rank(
+    GalleryComponentContext ctx,
+    List<ContentItem> items,
+  ) => [
     for (var i = 0; i < items.length; i++)
       RankingEntry(
         title: items[i].title,
@@ -1797,6 +1857,7 @@ class GalleryComponentRenderer {
         rating: items[i].rating,
         rank: i + 1,
         thumbUrl: items[i].posterUrl,
+        onTap: () => ctx.onOpen(i),
       ),
   ];
 
@@ -2200,7 +2261,10 @@ class GalleryComponentRenderer {
       HomeMyListEntry(title: item.title, thumbUrl: item.posterUrl),
   ];
 
-  static List<HomeCountryChip> _countryChips(List<ContentItem> items) {
+  static List<HomeCountryChip> _countryChips(
+    GalleryComponentContext ctx,
+    List<ContentItem> items,
+  ) {
     const countryNames = <String, String>{
       'BR': 'Brésil',
       'CN': 'Chine',
@@ -2216,10 +2280,18 @@ class GalleryComponentRenderer {
     };
     final seen = <String>{};
     final chips = <HomeCountryChip>[];
-    for (final item in items) {
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
       final code = item.countryCode?.trim().toUpperCase();
       if (code == null || code.length != 2 || !seen.add(code)) continue;
-      chips.add(HomeCountryChip(label: countryNames[code] ?? code, code: code));
+      chips.add(
+        HomeCountryChip(
+          label: countryNames[code] ?? code,
+          code: code,
+          backgroundUrl: item.backdropUrl ?? item.imageUrl ?? item.posterUrl,
+          onTap: () => ctx.onOpen(index),
+        ),
+      );
     }
     return chips;
   }

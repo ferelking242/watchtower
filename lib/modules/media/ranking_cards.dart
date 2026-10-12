@@ -124,12 +124,15 @@ class TopAnimeCard extends StatelessWidget {
     this.title,
     this.subtitle,
     this.icon,
+    this.flat = false,
   });
 
   /// Overrides the default heading text/icon (per-component params).
   final String? title;
   final String? subtitle;
   final IconData? icon;
+  /// Removes the gallery preview panel treatment when embedded in a feed.
+  final bool flat;
 
   final List<RankingEntry> items;
   final double width;
@@ -144,6 +147,7 @@ class TopAnimeCard extends StatelessWidget {
       subtitle: subtitle ?? 'Les animés les plus populaires du moment.',
       icon: icon ?? Icons.star_outline_rounded,
       onSeeAll: onSeeAll,
+      flat: flat,
     );
   }
 }
@@ -411,6 +415,7 @@ class _RankingSectionCard extends StatelessWidget {
     this.subtitle,
     this.onSeeAll,
     this.labelTiles = false,
+    this.flat = false,
   });
 
   final List<RankingEntry> items;
@@ -422,18 +427,21 @@ class _RankingSectionCard extends StatelessWidget {
 
   /// Force toutes les tuiles en mode « libellé » (genres, pays, décennies).
   final bool labelTiles;
+  final bool flat;
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .09)),
-      ),
+      padding: EdgeInsets.all(flat ? 0 : 12),
+      decoration: flat
+          ? null
+          : BoxDecoration(
+              color: const Color(0xFF15171D),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: .09)),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

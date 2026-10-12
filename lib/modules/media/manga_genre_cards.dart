@@ -697,11 +697,15 @@ class MangaTagsCard extends StatelessWidget {
     required this.tags,
     this.width = 430,
     this.onSeeAll,
+    this.title = 'Tags',
+    this.subtitle = 'Affinez vos recherches avec les tags.',
   });
 
   final List<MangaTagEntry> tags;
   final double width;
   final VoidCallback? onSeeAll;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -715,8 +719,8 @@ class MangaTagsCard extends StatelessWidget {
         children: [
           _PanelHeader(
             icon: Icons.local_offer_outlined,
-            title: 'Tags',
-            subtitle: 'Affinez vos recherches avec les tags.',
+            title: title,
+            subtitle: subtitle,
             onSeeAll: onSeeAll,
           ),
           const SizedBox(height: 12),

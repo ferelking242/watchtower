@@ -206,14 +206,6 @@ class GalleryComponentPalette {
         description: 'Genres séparés par des virgules.',
       ),
     ],
-    GalleryComponentFamily.posterRail: [
-      GalleryComponentParameter(
-        key: 'compact',
-        label: 'Affiche compacte',
-        kind: GalleryParameterKind.boolean,
-        defaultValue: 'false',
-      ),
-    ],
     GalleryComponentFamily.mangaGenre: [
       GalleryComponentParameter(
         key: 'showCount',
