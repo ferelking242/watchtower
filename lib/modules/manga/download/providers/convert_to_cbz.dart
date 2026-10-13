@@ -336,7 +336,11 @@ List<String> _convertToMangaArchive(
 /// Best-effort fsync of a just-written file so its bytes are durable on the
 /// file system after a crash. Silently ignored when the platform refuses it.
 void _fsyncFile(File file) {
-  RandomAccessFile? handle;
+  // `File.openSync` resolves to a dart:io web stub on Web builds. Keep this
+  // best-effort durability hook dynamic so the native RandomAccessFile can
+  // still use flushSync/closeSync while the Web path safely catches the
+  // unsupported operations.
+  dynamic handle;
   try {
     handle = file.openSync(mode: FileMode.append);
     handle.flushSync();

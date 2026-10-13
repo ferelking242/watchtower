@@ -293,6 +293,23 @@ jobs:
               '  Future<bool> makeDirectory(String dir) async =>')
           ftp.write_text(ftp_text, encoding='utf-8')
 
+          home_widget = Path('web_stubs/home_widget/lib/home_widget.dart')
+          home_widget_text = home_widget.read_text(encoding='utf-8')
+          old_home_widget_method = (
+              '    static Future<void> registerBackgroundCallback(Function cb) async {}'
+          )
+          if old_home_widget_method not in home_widget_text:
+              raise SystemExit('Expected HomeWidget web stub method was not found')
+          home_widget.write_text(
+              home_widget_text.replace(
+                  old_home_widget_method,
+                  '    static Future<void> registerInteractivityCallback(Function cb) async {}\n'
+                  + old_home_widget_method,
+                  1,
+              ),
+              encoding='utf-8',
+          )
+
           excel = Path('web_stubs/excel2003/lib/excel2003.dart')
           excel.write_text(r'''
           // Web stub for excel2003 — legacy XLS viewing is unavailable on web.
