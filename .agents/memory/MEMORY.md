@@ -9,3 +9,4 @@
 - [French-Stream usage scope](frenchstream-usage-scope.md) — l’utilisateur a confirmé que son usage dans Watchtower est légal.
 - [Legacy extension removal](legacy-extension-removal.md) — retire le runtime APK, mais préserve le schéma Isar et l’import Neko.
 - [AniList studio browsing](anilist-studio-browsing.md) — query studio catalogs through `Studio.media`; `Page.media` has no `studioId` filter.
+- [Web build compatibility](web-build-compatibility.md) — the Pages workflow restores legacy web stubs; keep generated shims aligned with current source APIs.
